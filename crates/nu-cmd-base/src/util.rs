@@ -71,7 +71,7 @@ pub fn get_editor(
     stack: &Stack,
     span: Span,
 ) -> Result<(String, Vec<String>), ShellError> {
-    let config = engine_state.get_config();
+    let config = stack.get_config(engine_state);
     let env_vars = stack.get_env_vars(engine_state);
 
     if let Ok(buff_editor) =

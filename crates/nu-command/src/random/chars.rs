@@ -79,7 +79,11 @@ fn chars(
             Value::Filesize { val, .. } => {
                 usize::try_from(val).map_err(|_| ShellError::InvalidValue {
                     valid: "a non-negative int or filesize".into(),
-                    actual: engine_state.get_config().filesize.format(val).to_string(),
+                    actual: stack
+                        .get_config(engine_state)
+                        .filesize
+                        .format(val)
+                        .to_string(),
                     span: length_val.span(),
                 })
             }

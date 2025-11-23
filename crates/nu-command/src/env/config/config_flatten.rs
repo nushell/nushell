@@ -30,15 +30,15 @@ impl Command for ConfigFlatten {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Get the Config instance from the EngineState
-        let config = engine_state.get_config();
+        // Get the Config instance from the stack
+        let config = stack.get_config(engine_state);
         // Serialize the Config instance to JSON
         let serialized_config =
-            serde_json::to_value(&**config).map_err(|err| ShellError::GenericError {
+            serde_json::to_value(&*config).map_err(|err| ShellError::GenericError {
                 error: format!("Failed to serialize config to json: {err}"),
                 msg: "".into(),
                 span: Some(call.head),
