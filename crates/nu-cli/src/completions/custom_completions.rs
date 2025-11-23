@@ -80,7 +80,14 @@ fn map_value_completions<'a>(
                             if let Some(start) = read_span_field(span_rec, "start") {
                                 suggestion.span.start = start + input_start - offset;
                             }
-                            suggestion.span.start = suggestion.span.start.min(suggestion.span.end);
+                            if suggestion.span.start > suggestion.span.end {
+                                suggestion.span.start = suggestion.span.end;
+                                log::error!(
+                                    "Custom span start ({}) is greater than end ({})",
+                                    suggestion.span.start,
+                                    suggestion.span.end
+                                );
+                            }
                         }
                     }
                     _ => (),
@@ -100,7 +107,6 @@ fn map_value_completions<'a>(
 
 fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
     let Some(val) = span.get(field) else {
-        log::error!("Span has no {field} field");
         return None;
     };
     let Ok(int_val) = val.as_int() else {
