@@ -245,6 +245,15 @@ fn update_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path)?;
 
+    // Don't run the closure for optional paths that don't exist
+    let is_optional = cell_path.iter().any(|member| match member {
+        PathMember::String { optional, .. } => *optional,
+        PathMember::Int { optional, .. } => *optional,
+    });
+    if is_optional && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+        return Ok(());
+    }
+
     let arg = if first_path_member_int {
         value_at_path.as_ref()
     } else {
@@ -267,6 +276,15 @@ fn update_single_value_by_closure(
     first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path)?;
+
+    // Don't run the closure for optional paths that don't exist
+    let is_optional = cell_path.iter().any(|member| match member {
+        PathMember::String { optional, .. } => *optional,
+        PathMember::Int { optional, .. } => *optional,
+    });
+    if is_optional && matches!(value_at_path.as_ref(), Value::Nothing { .. }) {
+        return Ok(());
+    }
 
     let arg = if first_path_member_int {
         value_at_path.as_ref()
