@@ -14,7 +14,7 @@ pub(crate) const PROMPT_COMMAND_RIGHT: &str = "PROMPT_COMMAND_RIGHT";
 pub(crate) const PROMPT_INDICATOR: &str = "PROMPT_INDICATOR";
 pub(crate) const PROMPT_INDICATOR_VI_INSERT: &str = "PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const PROMPT_INDICATOR_VI_NORMAL: &str = "PROMPT_INDICATOR_VI_NORMAL";
-pub(crate) const PROMPT_MULTILINE_INDICATOR: &str = "PROMPT_MULTILINE_INDICATOR";
+pub(crate) const PROMPT_INDICATOR_MULTILINE: &str = "PROMPT_INDICATOR_MULTILINE";
 pub(crate) const TRANSIENT_PROMPT_COMMAND: &str = "TRANSIENT_PROMPT_COMMAND";
 pub(crate) const TRANSIENT_PROMPT_COMMAND_RIGHT: &str = "TRANSIENT_PROMPT_COMMAND_RIGHT";
 pub(crate) const TRANSIENT_PROMPT_INDICATOR: &str = "TRANSIENT_PROMPT_INDICATOR";
@@ -22,8 +22,8 @@ pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_INSERT: &str =
     "TRANSIENT_PROMPT_INDICATOR_VI_INSERT";
 pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
     "TRANSIENT_PROMPT_INDICATOR_VI_NORMAL";
-pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
-    "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
+pub(crate) const TRANSIENT_PROMPT_INDICATOR_MULTILINE: &str =
+    "TRANSIENT_PROMPT_INDICATOR_MULTILINE";
 
 // Store all these Ansi Escape Markers here so they can be reused easily
 // According to Daniel Imms @Tyriar, we need to do these this way:
@@ -142,7 +142,7 @@ pub(crate) fn update_prompt(
     let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
+        get_prompt_string(PROMPT_INDICATOR_MULTILINE, config, engine_state, stack);
 
     let prompt_vi_insert_string =
         get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
@@ -201,7 +201,7 @@ pub(crate) fn make_transient_prompt(
     }
 
     if let Some(s) = get_prompt_string(
-        TRANSIENT_PROMPT_MULTILINE_INDICATOR,
+        TRANSIENT_PROMPT_INDICATOR_MULTILINE,
         config,
         engine_state,
         stack,
