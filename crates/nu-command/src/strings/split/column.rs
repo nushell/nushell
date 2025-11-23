@@ -235,7 +235,7 @@ fn split_column_helper(
         if positional.is_empty() {
             let mut gen_columns = vec![];
             for i in 0..split_result.len() {
-                gen_columns.push(format!("column{}", i + 1));
+                gen_columns.push(format!("column{}", i));
             }
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {
