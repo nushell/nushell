@@ -74,11 +74,10 @@ fn map_value_completions<'a>(
                         if let Value::Record { val: span_rec, .. } = value {
                             // TODO: error on invalid spans?
                             if let Some(end) = read_span_field(span_rec, "end") {
-                                suggestion.span.end =
-                                    suggestion.span.end.min(end + input_start - offset);
+                                suggestion.span.end = suggestion.span.end.min(end + input_start);
                             }
                             if let Some(start) = read_span_field(span_rec, "start") {
-                                suggestion.span.start = start + input_start - offset;
+                                suggestion.span.start = start + input_start;
                             }
                             if suggestion.span.start > suggestion.span.end {
                                 suggestion.span.start = suggestion.span.end;
@@ -194,7 +193,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                                 map_value_completions(
                                     it.iter(),
                                     span,
-                                    span.end - self.line.len(),
+                                    self.line_pos - self.line.len(),
                                     offset,
                                 )
                             })
@@ -236,9 +235,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
 
                     completions
                 }
-                Value::List { vals, .. } => {
-                    map_value_completions(vals.iter(), span, span.end - self.line.len(), offset)
-                }
+                Value::List { vals, .. } => map_value_completions(
+                    vals.iter(),
+                    span,
+                    self.line_pos - self.line.len(),
+                    offset,
+                ),
                 Value::Nothing { .. } => {
                     return self.fallback.fetch(
                         working_set,
@@ -429,7 +431,7 @@ fn convert_whole_command_completion_results(
         Value::List { vals, .. } => Some(map_value_completions(
             vals.iter(),
             span,
-            command_span.start,
+            command_span.start - offset,
             offset,
         )),
         Value::Nothing { .. } => None,
