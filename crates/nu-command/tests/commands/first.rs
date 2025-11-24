@@ -105,6 +105,13 @@ fn does_not_error_on_empty_list_when_no_rows_given() {
 }
 
 #[test]
+fn error_on_empty_list_when_no_rows_given_in_strict_mode() {
+    let actual = nu!("[] | first --strict | describe");
+
+    assert!(actual.err.contains("index too large"));
+}
+
+#[test]
 fn gets_first_bytes_and_drops_content_type() {
     let actual = nu!(format!(
         "open {} | first 3 | metadata | get content_type? | describe",

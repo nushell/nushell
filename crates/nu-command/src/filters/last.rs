@@ -27,6 +27,7 @@ impl Command for Last {
                 SyntaxShape::Int,
                 "Starting from the back, the number of rows to return.",
             )
+            .switch("strict", "Throw an error if input is empty", Some('s'))
             .category(Category::Filters)
     }
 
@@ -71,6 +72,7 @@ impl Command for Last {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
         // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
@@ -110,6 +112,8 @@ impl Command for Last {
                 if return_single_element {
                     if let Some(last) = buf.pop_back() {
                         Ok(last.into_pipeline_data())
+                    } else if strict_mode {
+                        Err(ShellError::AccessEmptyContent { span: head })
                     } else {
                         // There are no values, so return nothing instead of an error so
                         // that users can pipe this through 'default' if they want to.
@@ -126,6 +130,8 @@ impl Command for Last {
                         if return_single_element {
                             if let Some(v) = vals.pop() {
                                 Ok(v.into_pipeline_data())
+                            } else if strict_mode {
+                                Err(ShellError::AccessEmptyContent { span: head })
                             } else {
                                 // There are no values, so return nothing instead of an error so
                                 // that users can pipe this through 'default' if they want to.
@@ -141,6 +147,8 @@ impl Command for Last {
                         if return_single_element {
                             if let Some(val) = val.pop() {
                                 Ok(Value::int(val.into(), span).into_pipeline_data())
+                            } else if strict_mode {
+                                Err(ShellError::AccessEmptyContent { span: head })
                             } else {
                                 // There are no values, so return nothing instead of an error so
                                 // that users can pipe this through 'default' if they want to.
@@ -183,6 +191,8 @@ impl Command for Last {
                                         return Ok(
                                             Value::int(buf[0] as i64, head).into_pipeline_data()
                                         );
+                                    } else if strict_mode {
+                                        return Err(ShellError::AccessEmptyContent { span: head });
                                     } else {
                                         // There are no values, so return nothing instead of an error so
                                         // that users can pipe this through 'default' if they want to.

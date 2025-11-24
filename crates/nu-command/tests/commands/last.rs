@@ -97,6 +97,12 @@ fn fail_on_non_iterator() {
 }
 
 #[test]
+fn errors_on_empty_list_when_no_rows_given_in_strict_mode() {
+    let actual = nu!("[] | last --strict");
+    assert!(actual.err.contains("index too large"));
+}
+
+#[test]
 fn does_not_error_on_empty_list_when_no_rows_given() {
     let actual = nu!("[] | last | describe");
 
