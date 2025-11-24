@@ -9,12 +9,12 @@ export def "update" [
 ]: [record -> record, table -> table, list<any> -> list<any>] {
     let input = $in
     match ($input | describe | str replace --regex '<.*' '') {
-        record => {
+        "record" => {
             if ($input | get -o $field) != null {
                 $input | orig update $field $value
             } else { $input }
         }
-        table|list => {
+        "table"|"list" => {
             $input | each {|| update $field $value }
         }
         _ => { $input | orig update $field $value }

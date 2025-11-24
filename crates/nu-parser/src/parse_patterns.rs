@@ -5,8 +5,8 @@ use crate::{
     parser::{is_variable, parse_value},
 };
 use nu_protocol::{
-    ParseError, Span, SyntaxShape, Type, VarId,
-    ast::{MatchPattern, Pattern},
+    ParseError, ParseWarning, Span, SyntaxShape, Type, VarId,
+    ast::{Expr, Expression, MatchPattern, Pattern},
     engine::StateWorkingSet,
 };
 pub fn garbage(span: Span) -> MatchPattern {
@@ -38,6 +38,25 @@ pub fn parse_pattern(working_set: &mut StateWorkingSet, span: Span) -> MatchPatt
     } else {
         // Literal value
         let value = parse_value(working_set, span, &SyntaxShape::Any);
+        let value = match value.expr {
+            Expr::String(..) => match working_set.get_span_contents(value.span) {
+                [b'\'', .., b'\''] | [b'"', .., b'"'] | [b'`', .., b'`'] => value,
+                _ => {
+                    working_set.warning(ParseWarning::Deprecated {
+                        dep_type: "Syntax".into(),
+                        label: "bare string in match pattern".into(),
+                        span: value.span,
+                        help: Some(String::from(
+                            "String literals in match patterns have to be quoted.\n\
+                            If you meant to bind a value, prefix it with `$`.",
+                        )),
+                        report_mode: nu_protocol::ReportMode::EveryUse,
+                    });
+                    Expression::garbage(working_set, value.span)
+                }
+            },
+            _ => value,
+        };
 
         MatchPattern {
             pattern: Pattern::Expression(Box::new(value)),

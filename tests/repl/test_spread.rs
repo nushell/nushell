@@ -197,8 +197,7 @@ fn respect_shape() -> TestResult {
     )
     .unwrap();
     fail_test("module foo { ...$bar }", "expected_keyword").unwrap();
-    run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2").unwrap();
-    run_test(r#"match "...$foo" { ...$foo => 5 }"#, "5")
+    run_test(r#"def "...$foo" [] {2}; do { ...$foo }"#, "2")
 }
 
 #[test]

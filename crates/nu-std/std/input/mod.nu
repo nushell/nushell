@@ -51,7 +51,7 @@ export def display [
     }
 
     match $next_key {
-      {type: key key_type: other code: esc modifiers: []} => {
+      {type: "key" key_type: "other" code: "esc" modifiers: []} => {
         return
       }
       _ => {
