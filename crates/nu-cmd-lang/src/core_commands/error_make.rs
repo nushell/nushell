@@ -69,7 +69,7 @@ If a string is passed it will be the `msg` part of the `error_struct`.
                 example: r#"def foo [x: int, y: int] {
         let z = $x + $y
         error make {
-            msg: "an error for foo just occured"
+            msg: "an error for foo just occurred"
             labels: [
                 {text: "one" span: (metadata $x).span}
                 {text: "two" span: (metadata $y).span}
