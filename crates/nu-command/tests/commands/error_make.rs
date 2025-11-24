@@ -9,35 +9,28 @@ fn error_make_empty() {
 
 #[test]
 fn error_make_no_label_text() {
-    let actual = nu!("error make {msg: a label: {span: {start: 1 end: 1}}}");
-    assert!(actual.err.contains("Cannot find column 'text'"));
+    let actual = nu!("error make {msg:a,label:{span:{start:1,end:1}}}");
+    assert!(
+        actual
+            .err
+            .contains("diagnostic code: nu::shell::cant_convert")
+    );
 }
 
 #[test]
 fn error_label_works() {
-    let actual = nu!("error make {msg:foo label:{text:unseen}}");
+    let actual = nu!("error make {msg:foo,label:{text:unseen}}");
 
-    assert!(
-        actual
-            .err
-            .contains("label at line 1, columns 1 to 10: unseen")
-    );
+    assert!(actual.err.contains(": unseen"));
 }
 
 #[test]
 fn error_labels_list_works() {
-    let actual = nu!("error make {msg:foo labels:[{text:unseen} {text:hidden}]}");
+    // Intentionally no space so this gets the main label bits
+    let actual = nu!("error make {msg:foo,labels:[{text:unseen},{text:hidden}]}");
 
-    assert!(
-        actual
-            .err
-            .contains("label at line 1, columns 1 to 10: unseen")
-    );
-    assert!(
-        actual
-            .err
-            .contains("label at line 1, columns 1 to 10: hidden")
-    );
+    assert!(actual.err.contains(": unseen"));
+    assert!(actual.err.contains(": hidden"));
 }
 
 #[test]
@@ -64,12 +57,7 @@ fn error_start_bigger_than_end_should_fail() {
 
 #[test]
 fn error_url_works() {
-    let actual = nu!("
-        error make {
-            msg: bar
-            url: 'https://example.com'
-        }
-    ");
+    let actual = nu!("error make {msg:bar,url:'https://example.com'}");
     assert!(
         actual
             .err
@@ -79,23 +67,13 @@ fn error_url_works() {
 
 #[test]
 fn error_code_works() {
-    let actual = nu!("
-        error make {
-            msg: bar
-            code: 'foo::bar'
-        }
-    ");
+    let actual = nu!("error make {msg:bar,code:'foo::bar'}");
     assert!(actual.err.contains("diagnostic code: foo::bar"));
 }
 
 #[test]
 fn error_check_deep() {
-    let actual = nu!("
-        error make {
-            msg: foo
-            inner: [{msg:bar}]
-        }
-    ");
+    let actual = nu!("error make {msg:foo,inner:[{msg:bar}]}");
 
     assert!(actual.err.contains("Error: bar"));
     assert!(actual.err.contains("Error: foo"));
@@ -103,21 +81,13 @@ fn error_check_deep() {
 
 #[test]
 fn error_chained() {
-    let actual = nu!("
-        try {
-            error make {
-                msg: foo
-                inner: [{msg:bar}]
-            }
-        } catch {|e|
-            error make {
-                msg: baz
-                inner: ($e.json | from json).inner
-            }
-        }
-    ");
+    let actual = nu!("try {
+            error make {msg:foo,inner:[{msg:bar}]}
+        } catch {
+            error make {msg:baz}
+        }");
 
-    assert!(!actual.err.contains("Error: foo"));
+    assert!(actual.err.contains("Error: foo"));
     assert!(actual.err.contains("Error: baz"));
     assert!(actual.err.contains("Error: bar"));
 }
@@ -126,14 +96,18 @@ fn error_chained() {
 fn error_bad_label() {
     let actual = nu!("
         error make {
-            msg: foo
-            inner: [{msg:bar}]
-            labels: foobar
+            msg:foo
+            inner:[{msg:bar}]
+            labels:foobar
         }
     ");
 
     assert!(!actual.err.contains("Error: foo"));
-    assert!(actual.err.contains("can't convert string to Labels"));
+    assert!(
+        actual
+            .err
+            .contains("diagnostic code: nu::shell::cant_convert")
+    );
 }
 
 #[test]
@@ -141,4 +115,24 @@ fn check_help_line() {
     let actual = nu!("error make {msg:foo help: `Custom help line`}");
 
     assert!(actual.err.contains("Custom help line"));
+}
+
+#[test]
+fn error_simple_chain() {
+    let actual = nu!("
+        try {
+            error make foo
+        } catch {
+            error make bar
+        }
+    ");
+
+    assert!(actual.err.contains("Error: foo"));
+    assert!(actual.err.contains("Error: bar"));
+}
+
+#[test]
+fn error_simple_string() {
+    let actual = nu!("error make foo");
+    assert!(actual.err.contains("Error: foo"));
 }

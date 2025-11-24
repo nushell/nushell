@@ -1,8 +1,10 @@
 use super::{ShellError, shell_error::io::IoError};
-use crate::{Record, Span};
+use crate::{FromValue, IntoValue, Record, Span, Type, Value, record};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+
+// # use nu_protocol::{FromValue, Value, ShellError, record, Span};
 
 /// A very generic type of error used for interfacing with external code, such as scripts and
 /// plugins.
@@ -189,6 +191,59 @@ pub struct ErrorLabel {
     pub text: String,
     /// Span pointing at where the text references in the source
     pub span: Span,
+}
+
+impl FromValue for ErrorLabel {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let record = v.clone().into_record()?;
+        let text = String::from_value(match record.get("text") {
+            Some(val) => val.clone(),
+            None => {
+                return Err(ShellError::CantConvert {
+                    to_type: Self::expected_type().to_string(),
+                    from_type: v.get_type().to_string(),
+                    span: v.span(),
+                    help: None,
+                });
+            }
+        })
+        .unwrap_or("originates from here".into());
+        let span = Span::from_value(match record.get("span") {
+            Some(val) => val.clone(),
+            // Maybe there's a better way...
+            None => Value::record(
+                record! {
+                    "start" => Value::int(v.span().start as i64, v.span()),
+                    "end" => Value::int(v.span().end as i64, v.span()),
+                },
+                v.span(),
+            ),
+        });
+
+        match span {
+            Ok(s) => Ok(Self { text, span: s }),
+            Err(e) => Err(e),
+        }
+    }
+    fn expected_type() -> crate::Type {
+        Type::Record(
+            vec![
+                ("text".into(), Type::String),
+                ("span".into(), Type::record()),
+            ]
+            .into(),
+        )
+    }
+}
+
+impl IntoValue for ErrorLabel {
+    fn into_value(self, span: Span) -> Value {
+        record! {
+            "text" => Value::string(self.text, span),
+            "span" => span.into_value(span),
+        }
+        .into_value(span)
+    }
 }
 
 impl fmt::Display for LabeledError {

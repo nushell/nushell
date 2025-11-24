@@ -274,11 +274,7 @@ fn prepare_error_handler(
                 PipelineExecutionData::from(
                     error
                         .item
-                        .into_value(
-                            &StateWorkingSet::new(ctx.engine_state),
-                            ctx.stack,
-                            error.span,
-                        )
+                        .into_full_value(&StateWorkingSet::new(ctx.engine_state), error.span)
                         .into_pipeline_data(),
                 ),
             );

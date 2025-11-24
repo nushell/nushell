@@ -1423,7 +1423,24 @@ impl ShellError {
         }
     }
 
-    pub fn into_value(self, working_set: &StateWorkingSet, stack: &Stack, span: Span) -> Value {
+    pub fn into_value(self, span: Span) -> Value {
+        let exit_code = self.external_exit_code();
+
+        let mut record = record! {
+            "msg" => Value::string(self.to_string(), span),
+            "debug" => Value::string(format!("{self:?}"), span),
+            "raw" => Value::error(self.clone(), span),
+            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
+        };
+
+        if let Some(code) = exit_code {
+            record.push("exit_code", Value::int(code.item.into(), code.span));
+        }
+
+        Value::record(record, span)
+    }
+
+    pub fn into_full_value(self, working_set: &StateWorkingSet, span: Span) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
