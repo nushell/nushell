@@ -51,7 +51,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["filter", "find", "search", "condition"]
+        vec!["filter", "find", "search", "condition", "grep"]
     }
 
     fn run(

@@ -89,7 +89,7 @@ groups as its argument. It must return a string that will be used as a replaceme
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["search", "shift", "switch", "regex"]
+        vec!["search", "shift", "switch", "regex", "sed", "awk"]
     }
 
     fn is_const(&self) -> bool {
