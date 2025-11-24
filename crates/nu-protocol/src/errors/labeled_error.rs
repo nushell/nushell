@@ -11,7 +11,7 @@ use std::fmt;
 ///
 /// This generally covers most of the interface of [`miette::Diagnostic`], but with types that are
 /// well-defined for our protocol.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct LabeledError {
     /// The main message for the error.
     pub msg: String,
@@ -30,7 +30,7 @@ pub struct LabeledError {
     pub help: Option<String>,
     /// Errors that are related to or caused this error
     #[serde(default)]
-    pub inner: Box<Vec<LabeledError>>,
+    pub inner: Box<Vec<Self>>,
 }
 
 impl LabeledError {
@@ -46,14 +46,10 @@ impl LabeledError {
     /// let error = LabeledError::new("Something bad happened");
     /// assert_eq!("Something bad happened", error.to_string());
     /// ```
-    pub fn new(msg: impl Into<String>) -> LabeledError {
-        LabeledError {
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self {
             msg: msg.into(),
-            labels: Box::new(vec![]),
-            code: None,
-            url: None,
-            help: None,
-            inner: Box::new(vec![]),
+            ..Default::default()
         }
     }
 
@@ -133,7 +129,7 @@ impl LabeledError {
     ///     .with_inner(LabeledError::new("out of coolant"));
     /// assert_eq!(LabeledError::new("out of coolant"), error.inner[0]);
     /// ```
-    pub fn with_inner(mut self, inner: impl Into<LabeledError>) -> Self {
+    pub fn with_inner(mut self, inner: impl Into<Self>) -> Self {
         self.inner.push(inner.into());
         self
     }
@@ -157,8 +153,8 @@ impl LabeledError {
     /// );
     /// assert!(error.to_string().contains("I/O error"));
     /// ```
-    pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> LabeledError {
-        LabeledError {
+    pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> Self {
+        Self {
             msg: diag.to_string(),
             labels: diag
                 .labels()
@@ -299,13 +295,13 @@ impl Diagnostic for LabeledError {
 
 impl From<ShellError> for LabeledError {
     fn from(err: ShellError) -> Self {
-        LabeledError::from_diagnostic(&err)
+        Self::from_diagnostic(&err)
     }
 }
 
 impl From<IoError> for LabeledError {
     fn from(err: IoError) -> Self {
-        LabeledError::from_diagnostic(&err)
+        Self::from_diagnostic(&err)
     }
 }
 
@@ -313,11 +309,7 @@ impl From<Record> for LabeledError {
     fn from(_err: Record) -> Self {
         Self {
             msg: "foo".into(),
-            labels: vec![].into(),
-            code: None,
-            url: None,
-            help: None,
-            inner: vec![].into(),
+            ..Default::default()
         }
     }
 }
