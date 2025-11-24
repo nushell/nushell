@@ -5,7 +5,7 @@ use nu_protocol::{
 
 use crate::{PolarsPlugin, dataframe::values::Column, values::CustomValueSupport};
 
-use crate::values::{NuDataFrame, PolarsPluginType};
+use crate::values::{NuDataFrame, NuLazyFrame, PolarsPluginObject, PolarsPluginType};
 
 #[derive(Clone)]
 pub struct SliceDF;
@@ -39,21 +39,28 @@ impl PluginCommand for SliceDF {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Create new dataframe from a slice of the rows",
-            example: "[[a b]; [1 2] [3 4]] | polars into-df | polars slice 0 1",
-            result: Some(
-                NuDataFrame::try_from_columns(
-                    vec![
-                        Column::new("a".to_string(), vec![Value::test_int(1)]),
-                        Column::new("b".to_string(), vec![Value::test_int(2)]),
-                    ],
-                    None,
-                )
-                .expect("simple df for test should not fail")
-                .into_value(Span::test_data()),
-            ),
-        }]
+        vec![
+            Example {
+                description: "Create new dataframe from a slice of the rows",
+                example: "[[a b]; [1 2] [3 4]] | polars into-df | polars slice 0 1",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new("a".to_string(), vec![Value::test_int(1)]),
+                            Column::new("b".to_string(), vec![Value::test_int(2)]),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Create a new lazy dataframe from a slice of a lazy dataframe's rows",
+                example: "[[a b]; [1 2] [3 4]] | polars into-lazy | polars slice 0 1 | describe",
+                result: Some(Value::test_string("polars_lazyframe")),
+            },
+        ]
     }
 
     fn run(
@@ -64,26 +71,45 @@ impl PluginCommand for SliceDF {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        command(plugin, engine, call, input)
-            .map_err(LabeledError::from)
-            .map(|pd| pd.set_metadata(metadata))
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuLazyFrame(lazy) => {
+                command_lazy(plugin, engine, call, lazy).map_err(|e| e.into())
+            }
+            _ => {
+                let df = NuDataFrame::try_from_value_coerce(plugin, &value, call.head)?;
+                command_eager(plugin, engine, call, df).map_err(LabeledError::from)
+            }
+        }
+        .map(|pd| pd.set_metadata(metadata))
     }
 }
 
-fn command(
+fn command_eager(
     plugin: &PolarsPlugin,
     engine: &EngineInterface,
     call: &EvaluatedCall,
-    input: PipelineData,
+    df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
     let offset: i64 = call.req(0)?;
     let size: usize = call.req(1)?;
 
-    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
-
     let res = df.as_ref().slice(offset, size);
     let res = NuDataFrame::new(false, res);
 
+    res.to_pipeline_data(plugin, engine, call.head)
+}
+
+fn command_lazy(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    lazy: NuLazyFrame,
+) -> Result<PipelineData, ShellError> {
+    let offset: i64 = call.req(0)?;
+    let size: u64 = call.req(1)?;
+
+    let res: NuLazyFrame = lazy.to_polars().slice(offset, size).into(); //.limit(rows).into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 
