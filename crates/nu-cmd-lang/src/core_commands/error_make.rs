@@ -16,7 +16,7 @@ impl Command for ErrorMake {
                 (Type::Nothing, Type::Error),
                 (Type::record(), Type::Error),
             ])
-            .required(
+            .optional(
                 "error_struct",
                 SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
                 "The error to create.",
@@ -97,7 +97,9 @@ If a string is passed it will be the `msg` part of the `error_struct`.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
+        let value: Value = call
+            .req(engine_state, stack, 0)
+            .unwrap_or(Value::string("Error", call.head));
         let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
         let inners = match ErrorInfo::from_value(input.into_value(call.head)?) {
@@ -204,7 +206,6 @@ impl From<LabeledError> for ErrorInfo {
             url: value.url,
             labels: *value.labels,
             inner: (*value.inner).into_iter().map(Inner::from).collect(),
-            raw: None,
             ..Self::default()
         }
     }
@@ -248,11 +249,11 @@ impl ErrorInfo {
             .iter()
             .map(|val| {
                 match val.clone().v {
-                    Ok(err) => match ErrorInfo::from_value(err) {
+                    Ok(err) => match Self::from_value(err) {
                         Ok(e) => e,
-                        Err(e) => ErrorInfo::from(e),
+                        Err(e) => Self::from(e),
                     },
-                    Err(se) => ErrorInfo::from(se),
+                    Err(se) => Self::from(se),
                 }
                 .labeled(span, show_labels)
             })
