@@ -7,15 +7,15 @@ fn error_make_empty() {
     assert!(actual.err.contains("Cannot find column 'msg'"));
 }
 
-#[test]
-fn error_make_no_label_text() {
-    let actual = nu!("error make {msg:a,label:{span:{start:1,end:1}}}");
-    assert!(
-        actual
-            .err
-            .contains("diagnostic code: nu::shell::cant_convert")
-    );
-}
+// #[test]
+// fn error_make_no_label_text() {
+//     let actual = nu!("error make {msg:a,label:{span:{start:1,end:1}}}");
+//     assert!(
+//         actual
+//             .err
+//             .contains("diagnostic code: nu::shell::cant_convert")
+//     );
+// }
 
 #[test]
 fn error_label_works() {

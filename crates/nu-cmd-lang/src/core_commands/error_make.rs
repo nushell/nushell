@@ -99,7 +99,7 @@ If a string is passed it will be the `msg` part of the `error_struct`.
     ) -> Result<PipelineData, ShellError> {
         let value: Value = call
             .req(engine_state, stack, 0)
-            .unwrap_or(Value::string("Error", call.head));
+            .unwrap_or(Value::string("Originates from here", call.head));
         let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
         let inners = match ErrorInfo::from_value(input.into_value(call.head)?) {
@@ -185,7 +185,7 @@ impl From<LabeledError> for Inner {
 impl Default for ErrorInfo {
     fn default() -> Self {
         Self {
-            msg: "Error".into(),
+            msg: "Originates from here".into(),
             code: Some("nu::shell::error".into()),
             help: None,
             url: None,
@@ -264,8 +264,8 @@ impl ErrorInfo {
         ) {
             (false, _) => vec![],
             (true, []) => vec![ErrorLabel {
-                text: "originates from here".into(),
                 span,
+                ..Default::default()
             }],
             (true, all_labels) => all_labels
                 .iter()
