@@ -94,34 +94,36 @@ If a string is passed it will be the `msg` part of the `error_struct`.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call
-            .req(engine_state, stack, 0)
-            .unwrap_or(Value::string("Originates from here", call.head));
+        let value = match call.req(engine_state, stack, 0) {
+            Ok(v @ (Value::Record { .. } | Value::String { .. })) => v,
+            _ => Value::string("originates from here", call.head),
+            // Err(e) => e.into_value(call.head),
+        };
         let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
         let inners = match ErrorInfo::from_value(input.into_value(call.head)?) {
-            Ok(v) => vec![Inner {
-                v: Ok(v.into_value(call.head)),
-            }],
+            Ok(v) => vec![v.into_value(call.head)],
             Err(_) => vec![],
         };
 
-        Err(match value.get_type() {
-            Type::String => ErrorInfo {
-                msg: String::from_value(value)?,
+        Err(match value {
+            Value::String { val, .. } => ErrorInfo {
+                msg: val,
                 inner: inners,
                 ..ErrorInfo::default()
-            },
-            _ => match ErrorInfo::from_value(value) {
-                Ok(mut e) => {
-                    e.inner = [e.inner, inners].concat();
-                    e
-                }
-                Err(err) => return Err(err),
-            },
-        }
-        .labeled(call.head, show_labels)
-        .into())
+            }
+            .labeled(call.head, show_labels),
+            Value::Record {
+                val, internal_span, ..
+            } => {
+                let mut ei = ErrorInfo::from_value((*val).clone().into_value(internal_span))?;
+                ei.inner = [ei.inner, inners].concat();
+
+                ei.labeled(internal_span, show_labels)
+            }
+            Value::Error { error, .. } => *error,
+            _ => todo!(),
+        })
     }
 }
 
@@ -135,48 +137,8 @@ struct ErrorInfo {
     labels: Vec<ErrorLabel>,
     label: Option<ErrorLabel>,
     #[nu_value(default)]
-    inner: Vec<Inner>,
+    inner: Vec<Value>,
     raw: Option<Value>,
-}
-
-#[derive(Debug, Clone)]
-struct Inner {
-    v: Result<Value, ShellError>,
-}
-
-impl FromValue for Inner {
-    fn from_value(v: Value) -> Result<Self, ShellError> {
-        match v.clone().unwrap_error() {
-            Ok(se) => Ok(Inner { v: Ok(se) }),
-            Err(e) => match v.clone() {
-                Value::Record { .. } => Ok(Inner { v: Ok(v) }),
-                _ => Err(e),
-            },
-        }
-    }
-}
-
-impl IntoValue for Inner {
-    fn into_value(self, span: Span) -> Value {
-        match self.v {
-            Ok(value) => value,
-            Err(shellerror) => Value::error(shellerror, span),
-        }
-    }
-}
-
-impl From<ShellError> for Inner {
-    fn from(value: ShellError) -> Self {
-        Self { v: Err(value) }
-    }
-}
-
-impl From<LabeledError> for Inner {
-    fn from(value: LabeledError) -> Self {
-        Self {
-            v: Err(value.into()),
-        }
-    }
 }
 
 impl Default for ErrorInfo {
@@ -194,105 +156,47 @@ impl Default for ErrorInfo {
     }
 }
 
-impl From<LabeledError> for ErrorInfo {
-    fn from(value: LabeledError) -> Self {
-        Self {
-            msg: value.msg,
-            code: value.code,
-            help: value.help,
-            url: value.url,
-            labels: *value.labels,
-            inner: (*value.inner).into_iter().map(Inner::from).collect(),
-            ..Self::default()
+impl ErrorInfo {
+    pub fn labels(self) -> Vec<ErrorLabel> {
+        match self.label {
+            None => self.labels,
+            Some(label) => [self.labels, vec![label]].concat(),
         }
     }
-}
-
-impl From<ShellError> for ErrorInfo {
-    fn from(value: ShellError) -> Self {
-        let labeled: LabeledError = value.into();
-        Self::from(labeled)
-    }
-}
-
-fn remove_labels(mut labeled: LabeledError) -> LabeledError {
-    labeled.labels = vec![].into();
-    labeled.inner = Box::new((*labeled.inner).into_iter().map(remove_labels).collect());
-    labeled
-}
-
-// It's funny how this looks like the old one again haha
-impl ErrorInfo {
-    fn labels(self) -> Vec<ErrorLabel> {
-        [self.labels, self.label.map(|i| vec![i]).unwrap_or_default()].concat()
-    }
-
-    fn labeled(self, span: Span, show_labels: bool) -> LabeledError {
-        // Initialize the error with the message if we have one. This will be
-        // overwritten eventually.
-        let mut error: LabeledError = if let Some(raw) = self.clone().raw {
-            // ErrorInfo::from_value(raw).unwrap_or_default()
-            match raw.unwrap_error() {
-                Err(e) => e.into(),
-                Ok(_) => LabeledError::new(self.msg.clone()),
-            }
-        } else {
-            LabeledError::new(self.msg.clone())
-        };
-
-        // Gather up stuff that is in arrays
-        let inners: Vec<LabeledError> = self
+    pub fn labeled(self, span: Span, show_labels: bool) -> ShellError {
+        let inner: Vec<ShellError> = self
             .inner
-            .iter()
-            .map(|val| {
-                match val.clone().v {
-                    Ok(err) => match Self::from_value(err) {
-                        Ok(e) => e,
-                        Err(e) => Self::from(e),
-                    },
-                    Err(se) => Self::from(se),
-                }
-                .labeled(span, show_labels)
+            .clone()
+            .into_iter()
+            .map(|i| match ErrorInfo::from_value(i) {
+                Ok(e) => e.labeled(span, show_labels),
+                Err(err) => err,
             })
             .collect();
-        let labels = match (
-            show_labels,
-            [self.clone().labels(), *error.labels].concat().as_slice(),
-        ) {
-            (false, _) => vec![],
-            (true, []) => vec![ErrorLabel {
-                span,
-                ..Default::default()
-            }],
-            (true, all_labels) => all_labels
-                .iter()
-                .map(|l| {
-                    if l.span == Span::default() {
-                        ErrorLabel {
-                            text: l.clone().text,
-                            span,
-                        }
-                    } else {
-                        l.clone()
-                    }
-                })
-                .collect(),
-        };
-        error.msg = self.msg;
-        error.url = self.url;
-        error.code = self.code;
-        error.help = self.help;
-        error.labels = Box::new(labels);
-        if show_labels {
-            error.inner = [*error.inner, inners].concat().into();
-        } else {
-            error.inner = Vec::default().into();
-        }
 
-        if !show_labels {
-            remove_labels(error)
-        } else {
-            error
+        match self {
+            ei @ ErrorInfo { raw: None, .. } => LabeledError {
+                labels: match (show_labels, ei.clone().labels().as_slice()) {
+                    (true, []) => vec![ErrorLabel {
+                        text: "".into(),
+                        span,
+                    }],
+                    (true, labels) => labels.to_vec(),
+                    (false, _) => vec![],
+                }
+                .into(),
+                msg: ei.msg,
+                code: ei.code,
+                url: ei.url,
+                help: ei.help,
+                inner: inner.into(),
+            }
+            .into(),
+            ErrorInfo { raw: Some(v), .. } => ShellError::from_value(v).unwrap_or_else(|e| e),
         }
     }
 }
+
+// impl Into<ShellError> for ErrorInfo {
+
+// }

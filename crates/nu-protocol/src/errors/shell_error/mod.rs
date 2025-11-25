@@ -1,6 +1,6 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value,
+    ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
     ast::Operator,
     engine::{Stack, StateWorkingSet},
     format_cli_error, record,
@@ -1423,24 +1423,12 @@ impl ShellError {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Value {
-        let exit_code = self.external_exit_code();
-
-        let mut record = record! {
-            "msg" => Value::string(self.to_string(), span),
-            "debug" => Value::string(format!("{self:?}"), span),
-            "raw" => Value::error(self.clone(), span),
-            "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
-        };
-
-        if let Some(code) = exit_code {
-            record.push("exit_code", Value::int(code.item.into(), code.span));
-        }
-
-        Value::record(record, span)
-    }
-
-    pub fn into_full_value(self, working_set: &StateWorkingSet, span: Span) -> Value {
+    pub fn into_full_value(
+        self,
+        working_set: &StateWorkingSet,
+        stack: &Stack,
+        span: Span,
+    ) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
@@ -1469,12 +1457,48 @@ impl ShellError {
     }
 
     /// Convert self error to a [`ShellError::ChainedError`] variant.
-    pub fn into_chainned(self, span: Span) -> Self {
+    pub fn into_chained(self, span: Span) -> Self {
         match self {
             ShellError::ChainedError(inner) => {
                 ShellError::ChainedError(ChainedError::new_chained(inner, span))
             }
             other => ShellError::ChainedError(ChainedError::new(other, span)),
+        }
+    }
+}
+
+impl FromValue for ShellError {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let from_type = v.get_type();
+        match v {
+            Value::Error { error, .. } => Ok(*error),
+            // Also let it come from the into_full_value record.
+            Value::Record {
+                val, internal_span, ..
+            } => Self::from_value(
+                (*val)
+                    .get("raw")
+                    .ok_or(ShellError::CantConvert {
+                        to_type: Self::expected_type().to_string(),
+                        from_type: from_type.to_string(),
+                        span: internal_span,
+                        help: None,
+                    })?
+                    .clone(),
+            ),
+            Value::Nothing { internal_span } => Ok(Self::GenericError {
+                error: "error".into(),
+                msg: "is nothing".into(),
+                span: Some(internal_span),
+                help: None,
+                inner: vec![],
+            }),
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
         }
     }
 }
