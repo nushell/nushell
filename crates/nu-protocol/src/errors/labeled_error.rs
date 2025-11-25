@@ -181,7 +181,7 @@ impl LabeledError {
 }
 
 /// A labeled span within a [`LabeledError`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ErrorLabel {
     /// Text to show together with the span
     pub text: String,
@@ -194,14 +194,7 @@ impl FromValue for ErrorLabel {
         let record = v.clone().into_record()?;
         let text = String::from_value(match record.get("text") {
             Some(val) => val.clone(),
-            None => {
-                return Err(ShellError::CantConvert {
-                    to_type: Self::expected_type().to_string(),
-                    from_type: v.get_type().to_string(),
-                    span: v.span(),
-                    help: None,
-                });
-            }
+            None => Value::string("", v.span()),
         })
         .unwrap_or("originates from here".into());
         let span = Span::from_value(match record.get("span") {
