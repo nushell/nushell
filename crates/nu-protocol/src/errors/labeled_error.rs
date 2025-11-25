@@ -11,7 +11,7 @@ use std::fmt;
 ///
 /// This generally covers most of the interface of [`miette::Diagnostic`], but with types that are
 /// well-defined for our protocol.
-#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LabeledError {
     /// The main message for the error.
     pub msg: String,
@@ -30,7 +30,7 @@ pub struct LabeledError {
     pub help: Option<String>,
     /// Errors that are related to or caused this error
     #[serde(default)]
-    pub inner: Box<Vec<Self>>,
+    pub inner: Box<Vec<ShellError>>,
 }
 
 impl LabeledError {
@@ -129,7 +129,7 @@ impl LabeledError {
     ///     .with_inner(LabeledError::new("out of coolant"));
     /// assert_eq!(LabeledError::new("out of coolant"), error.inner[0]);
     /// ```
-    pub fn with_inner(mut self, inner: impl Into<Self>) -> Self {
+    pub fn with_inner(mut self, inner: impl Into<ShellError>) -> Self {
         self.inner.push(inner.into());
         self
     }
@@ -173,7 +173,7 @@ impl LabeledError {
                 .related()
                 .into_iter()
                 .flatten()
-                .map(Self::from_diagnostic)
+                .map(|i| Self::from_diagnostic(i).into())
                 .collect::<Vec<_>>()
                 .into(),
         }
