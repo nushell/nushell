@@ -373,16 +373,19 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error() {
-            let error = LabeledError::new("label")
+            let inner: LabeledError = ShellError::Io(IoError::new(
+                shell_error::io::ErrorKind::from_std(std::io::ErrorKind::NotFound),
+                Span::test_data(),
+                None,
+            ))
+            .into();
+            let error: ShellError = LabeledError::new("label")
                 .with_code("test::error")
                 .with_url("https://example.org/test/error")
                 .with_help("some help")
                 .with_label("msg", Span::new(2, 30))
-                .with_inner(ShellError::Io(IoError::new(
-                    shell_error::io::ErrorKind::from_std(std::io::ErrorKind::NotFound),
-                    Span::test_data(),
-                    None,
-                )));
+                .with_inner(inner)
+                .into();
 
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(6, response);
@@ -407,7 +410,7 @@ macro_rules! generate_tests {
 
         #[test]
         fn response_round_trip_error_none() {
-            let error = LabeledError::new("error");
+            let error: ShellError = LabeledError::new("error").into();
             let response = PluginCallResponse::Error(error.clone());
             let output = PluginOutput::CallResponse(7, response);
 
