@@ -770,10 +770,10 @@ fn interface_write_response_with_stream() -> Result<(), ShellError> {
 fn interface_write_response_with_error() -> Result<(), ShellError> {
     let test = TestCase::new();
     let interface = test.engine().interface_for_context(35);
-    let labeled_error = LabeledError::new("this is an error").with_help("a test error");
-    interface
-        .write_response(Err(labeled_error.clone()))?
-        .write()?;
+    let error: ShellError = LabeledError::new("this is an error")
+        .with_help("a test error")
+        .into();
+    interface.write_response(Err(error.clone()))?.write()?;
 
     let written = test.next_written().expect("nothing written");
 
@@ -781,7 +781,7 @@ fn interface_write_response_with_error() -> Result<(), ShellError> {
         PluginOutput::CallResponse(id, response) => {
             assert_eq!(35, id, "id");
             match response {
-                PluginCallResponse::Error(err) => assert_eq!(labeled_error, err),
+                PluginCallResponse::Error(err) => assert_eq!(error, err),
                 _ => panic!("unexpected response: {response:?}"),
             }
         }

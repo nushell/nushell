@@ -124,13 +124,15 @@ impl LabeledError {
     /// # Example
     ///
     /// ```rust
-    /// # use nu_protocol::LabeledError;
+    /// # use nu_protocol::{LabeledError, ShellError};
     /// let error = LabeledError::new("An error")
     ///     .with_inner(LabeledError::new("out of coolant"));
-    /// assert_eq!(LabeledError::new("out of coolant"), error.inner[0]);
+    /// let check: ShellError = LabeledError::new("out of coolant").into();
+    /// assert_eq!(check, error.inner[0]);
     /// ```
     pub fn with_inner(mut self, inner: impl Into<ShellError>) -> Self {
-        self.inner.push(inner.into());
+        let inner_error: ShellError = inner.into();
+        self.inner.push(inner_error);
         self
     }
 
