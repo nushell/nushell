@@ -12,10 +12,7 @@ impl Command for ErrorMake {
     fn signature(&self) -> Signature {
         Signature::build("error make")
             .category(Category::Core)
-            .input_output_types(vec![
-                (Type::Nothing, Type::Error),
-                (Type::record(), Type::Error),
-            ])
+            .input_output_types(vec![(Type::Any, Type::Error)])
             .optional(
                 "error_struct",
                 SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
