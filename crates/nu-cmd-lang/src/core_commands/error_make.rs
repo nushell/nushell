@@ -184,6 +184,9 @@ impl ErrorInfo {
                     (true, labels) => labels.to_vec(),
                     (false, _) => vec![],
                 }
+                .into_iter()
+                .map(|l| l.into())
+                .collect::<Vec<_>>()
                 .into(),
                 msg: ei.msg,
                 code: ei.code,

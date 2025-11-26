@@ -1037,7 +1037,7 @@ pub enum ShellError {
 
     /// This is a generic error type used for different situations.
     #[error("{error}")]
-    #[diagnostic()]
+    #[diagnostic(code(nu::shell::error))]
     GenericError {
         error: String,
         msg: String,
@@ -1051,7 +1051,7 @@ pub enum ShellError {
 
     /// This is a generic error type used for different situations.
     #[error("{error}")]
-    #[diagnostic()]
+    #[diagnostic(code(nu::shell::outsidespan))]
     OutsideSpannedLabeledError {
         #[source_code]
         src: String,
