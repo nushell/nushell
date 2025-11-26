@@ -39,7 +39,7 @@ Use either as a command with an `error_struct` or string as an input. The
 
 The `error_label` should contain the following keys:
 
-  * `text: string` (required for each label)
+  * `text: string`
   * `span: record<start: int end: int>`
 
 Errors can be chained together using the `inner` key, and multiple spans can be
@@ -106,22 +106,25 @@ If a string is passed it will be the `msg` part of the `error_struct`.
             Err(_) => vec![],
         };
 
-        Err(match value {
-            Value::String { val, .. } => ErrorInfo {
+        Err(match (inners, value) {
+            (inner, Value::String { val, .. }) => ErrorInfo {
                 msg: val,
-                inner: inners,
+                inner,
                 ..ErrorInfo::default()
             }
             .labeled(call.head, show_labels),
-            Value::Record {
-                val, internal_span, ..
-            } => {
+            (
+                inner,
+                Value::Record {
+                    val, internal_span, ..
+                },
+            ) => {
                 let mut ei = ErrorInfo::from_value((*val).clone().into_value(internal_span))?;
-                ei.inner = [ei.inner, inners].concat();
+                ei.inner = [ei.inner, inner].concat();
 
                 ei.labeled(internal_span, show_labels)
             }
-            Value::Error { error, .. } => *error,
+            (_, Value::Error { error, .. }) => *error,
             _ => todo!(),
         })
     }
@@ -174,8 +177,8 @@ impl ErrorInfo {
             })
             .collect();
 
-        match self {
-            ei @ ErrorInfo { raw: None, .. } => LabeledError {
+        match (inner.as_slice(), self) {
+            (inners, ei @ ErrorInfo { raw: None, .. }) => LabeledError {
                 labels: match (show_labels, ei.clone().labels().as_slice()) {
                     (true, []) => vec![ErrorLabel {
                         text: "".into(),
@@ -184,22 +187,15 @@ impl ErrorInfo {
                     (true, labels) => labels.to_vec(),
                     (false, _) => vec![],
                 }
-                .into_iter()
-                .map(|l| l.into())
-                .collect::<Vec<_>>()
                 .into(),
                 msg: ei.msg,
                 code: ei.code,
                 url: ei.url,
                 help: ei.help,
-                inner: inner.into(),
+                inner: inners.to_vec().into(),
             }
             .into(),
-            ErrorInfo { raw: Some(v), .. } => ShellError::from_value(v).unwrap_or_else(|e| e),
+            (_, ErrorInfo { raw: Some(v), .. }) => ShellError::from_value(v).unwrap_or_else(|e| e),
         }
     }
 }
-
-// impl Into<ShellError> for ErrorInfo {
-
-// }
