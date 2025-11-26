@@ -1458,12 +1458,31 @@ impl ShellError {
 
     /// Convert self error to a [`ShellError::ChainedError`] variant.
     pub fn into_chained(self, span: Span) -> Self {
-        match self {
-            ShellError::ChainedError(inner) => {
-                ShellError::ChainedError(ChainedError::new_chained(inner, span))
+        Self::ChainedError(match self {
+            Self::ChainedError(inner) => ChainedError::new_chained(inner, span),
+            other => {
+                // If it's not already a chained error, it could have more errors below
+                // it that we want to chain together
+                let error = other.clone();
+                let mut now = ChainedError::new(other, span);
+                if let Some(related) = error.related() {
+                    let mapped = related
+                        .map(|s| {
+                            let shellerror: Self = Self::from_diagnostic(s);
+                            shellerror
+                        })
+                        .collect::<Vec<_>>();
+                    if !mapped.is_empty() {
+                        now.sources = [now.sources, mapped].concat();
+                    };
+                }
+                now
             }
-            other => ShellError::ChainedError(ChainedError::new(other, span)),
-        }
+        })
+    }
+
+    pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> Self {
+        Self::LabeledError(LabeledError::from_diagnostic(diag).into())
     }
 }
 
