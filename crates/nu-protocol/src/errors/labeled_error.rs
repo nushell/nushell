@@ -1,6 +1,6 @@
 use super::{ShellError, shell_error::io::IoError};
 use crate::{FromValue, IntoValue, Record, Span, Type, Value, record};
-use miette::Diagnostic;
+use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
@@ -11,13 +11,14 @@ use std::fmt;
 ///
 /// This generally covers most of the interface of [`miette::Diagnostic`], but with types that are
 /// well-defined for our protocol.
-#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Default, Diagnostic, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LabeledError {
     /// The main message for the error.
     pub msg: String,
     /// Labeled spans attached to the error, demonstrating to the user where the problem is.
     #[serde(default)]
-    pub labels: Box<Vec<ErrorLabel>>,
+    #[label(collection)]
+    pub labels: Box<Vec<LabeledSpan>>,
     /// A unique machine- and search-friendly error code to associate to the error. (e.g.
     /// `nu::shell::missing_config_value`)
     #[serde(default)]
@@ -30,6 +31,7 @@ pub struct LabeledError {
     pub help: Option<String>,
     /// Errors that are related to or caused this error
     #[serde(default)]
+    #[related]
     pub inner: Box<Vec<ShellError>>,
 }
 
@@ -54,22 +56,14 @@ impl LabeledError {
     }
 
     /// Add a labeled span to the error to demonstrate to the user where the problem is.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # use nu_protocol::{LabeledError, Span};
-    /// # let span = Span::test_data();
-    /// let error = LabeledError::new("An error")
-    ///     .with_label("happened here", span);
-    /// assert_eq!("happened here", &error.labels[0].text);
-    /// assert_eq!(span, error.labels[0].span);
-    /// ```
     pub fn with_label(mut self, text: impl Into<String>, span: Span) -> Self {
-        self.labels.push(ErrorLabel {
-            text: text.into(),
-            span,
-        });
+        self.labels.push(
+            ErrorLabel {
+                text: text.into(),
+                span,
+            }
+            .into(),
+        );
         self
     }
 
@@ -162,10 +156,6 @@ impl LabeledError {
                 .labels()
                 .into_iter()
                 .flatten()
-                .map(|label| ErrorLabel {
-                    text: label.label().unwrap_or("").into(),
-                    span: Span::new(label.offset(), label.offset() + label.len()),
-                })
                 .collect::<Vec<_>>()
                 .into(),
             code: diag.code().map(|s| s.to_string()),
@@ -189,6 +179,22 @@ pub struct ErrorLabel {
     pub text: String,
     /// Span pointing at where the text references in the source
     pub span: Span,
+}
+
+impl Into<LabeledSpan> for ErrorLabel {
+    fn into(self) -> LabeledSpan {
+        LabeledSpan::new(
+            (!self.text.is_empty()).then_some(self.text),
+            self.span.start.into(),
+            self.span.end - self.span.start,
+        )
+    }
+}
+
+impl Into<SourceSpan> for ErrorLabel {
+    fn into(self) -> SourceSpan {
+        SourceSpan::new(self.span.start.into(), self.span.end - self.span.start)
+    }
 }
 
 impl FromValue for ErrorLabel {
@@ -246,45 +252,6 @@ impl fmt::Display for LabeledError {
 impl std::error::Error for LabeledError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         self.inner.first().map(|r| r as _)
-    }
-}
-
-impl Diagnostic for LabeledError {
-    fn code<'a>(&'a self) -> Option<Box<dyn fmt::Display + 'a>> {
-        self.code.as_ref().map(Box::new).map(|b| b as _)
-    }
-
-    fn severity(&self) -> Option<miette::Severity> {
-        None
-    }
-
-    fn help<'a>(&'a self) -> Option<Box<dyn fmt::Display + 'a>> {
-        self.help.as_ref().map(Box::new).map(|b| b as _)
-    }
-
-    fn url<'a>(&'a self) -> Option<Box<dyn fmt::Display + 'a>> {
-        self.url.as_ref().map(Box::new).map(|b| b as _)
-    }
-
-    fn source_code(&self) -> Option<&dyn miette::SourceCode> {
-        None
-    }
-
-    fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
-        Some(Box::new(self.labels.iter().map(|label| {
-            miette::LabeledSpan::new_with_span(
-                Some(label.text.clone()).filter(|s| !s.is_empty()),
-                label.span,
-            )
-        })))
-    }
-
-    fn related<'a>(&'a self) -> Option<Box<dyn Iterator<Item = &'a dyn Diagnostic> + 'a>> {
-        Some(Box::new(self.inner.iter().map(|r| r as _)))
-    }
-
-    fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
-        None
     }
 }
 

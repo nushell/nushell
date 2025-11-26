@@ -244,7 +244,7 @@ crossterm = { workspace = true }
 ctrlc = { workspace = true }
 dirs = { workspace = true }
 log = { workspace = true }
-miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
+miette = { workspace = true, features = ["fancy-no-backtrace", "fancy", "serde"] }
 multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
