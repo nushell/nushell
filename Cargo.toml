@@ -188,7 +188,7 @@ update-informer = { version = "1.3.0", default-features = false, features = ["gi
 umask = "2.1"
 unicode-segmentation = "1.12"
 unicode-width = "0.2"
-ureq = { version = "=3.0.12", default-features = false, features = ["socks-proxy"] }
+ureq = { version = "=3.1.4", default-features = false, features = ["socks-proxy"] }
 url = "2.2"
 uu_cp = "0.4.0"
 uu_mkdir = "0.4.0"
