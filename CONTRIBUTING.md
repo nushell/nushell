@@ -71,8 +71,8 @@ This section might not be relevant for all PRs. If your PR is a work in progress
 Our CI system automatically checks formatting and runs our tests. If you're running into an issue, or just want to make sure everything is ready to go before creating your PR, you can run the checks yourself:
 
 ```nushell
-use toolkit.nu # or use an `env_change` hook to activate it automatically
-toolkit check pr
+overlay use toolkit # or use an `env_change` hook to activate it automatically
+check pr
 ```
 
 Furthermore, you can also runs these checks individually with the subcommands of `toolkit`, or run the underlying commands yourself:
@@ -80,7 +80,7 @@ Furthermore, you can also runs these checks individually with the subcommands of
 - `cargo fmt --all -- --check` to check standard code formatting (`cargo fmt --all` applies these changes)
 - `cargo clippy --workspace -- -D warnings -D clippy::unwrap_used` to check that you're using the standard code style
 - `cargo test --workspace` to check that all tests pass (on Windows make sure to enable [developer mode](https://learn.microsoft.com/en-us/windows/apps/get-started/developer-mode-features-and-debugging))
-- `cargo run -- -c "use toolkit.nu; toolkit test stdlib"` to run the tests for the standard library
+- `cargo run -- -c "overlay use toolkit; test stdlib"` to run the tests for the standard library
 
 If the checks are passing on your local system, but CI just won't pass, feel free to ask for help from the core team.
 
@@ -149,9 +149,9 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   ```nushell
   cargo clippy --workspace -- -D warnings -D clippy::unwrap_used
   ```
-  or via the `toolkit.nu` command:
+  or via the `toolkit` module:
   ```nushell
-  use toolkit.nu clippy
+  overlay use toolkit
   clippy
   ```
 
@@ -161,9 +161,9 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   cargo test --workspace
   ```
 
-  or via the `toolkit.nu` command:
+  or via the `toolkit` module:
   ```nushell
-  use toolkit.nu test
+  overlay use toolkit
   test
   ```
 
@@ -178,9 +178,9 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   ```nushell
   cargo fmt --all -- --check
   ```
-  or via the `toolkit.nu` command:
+  or via the `toolkit` module:
   ```nushell
-  use toolkit.nu fmt
+  overlay use toolkit
   fmt --check
   ```
 
@@ -189,16 +189,16 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
   ```nushell
   cargo fmt --all
   ```
-  or via the `toolkit.nu` command:
+  or via the `toolkit` module:
   ```nushell
-  use toolkit.nu fmt
+  overlay use toolkit
   fmt
   ```
 
 - Set up `git` hooks to check formatting and run `clippy` before committing and pushing:
 
   ```nushell
-  use toolkit.nu setup-git-hooks
+  overlay use toolkit
   setup-git-hooks
   ```
   _Unfortunately, this hook isn't available on Windows._

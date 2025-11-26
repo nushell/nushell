@@ -3,7 +3,7 @@ on:
   push:
     branches:
       - main
-      - 'patch-release-*'
+      - "patch-release-*"
 
 name: continuous-integration
 
@@ -62,9 +62,10 @@ jobs:
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      - uses: taiki-e/install-action@nextest
 
       - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_*
+        run: cargo nextest run --workspace --profile ci --cargo-profile ci --exclude nu_plugin_* --config-file ./.cargo/nextest.toml
       - name: Check for clean repo
         shell: bash
         run: |
@@ -154,10 +155,13 @@ jobs:
 
       - name: Setup Rust toolchain and cache
         uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      - uses: taiki-e/install-action@nextest
 
       - name: Clippy
         run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
 
+      - name: Tests
+        run: cargo nextest run --profile ci --cargo-profile ci --package nu_plugin_* --config-file ./.cargo/nextest.toml
       - name: Tests
         run: cargo test --profile ci --package nu_plugin_*
 
@@ -182,7 +186,7 @@ jobs:
         job:
           - name: Build WASM
             command: cargo build
-            args:
+            args: ""
           - name: Clippy WASM
             command: cargo clippy
             args: -- $CLIPPY_OPTIONS
