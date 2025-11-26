@@ -435,9 +435,20 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
     // Need these extra environments from before the environment is cleared.
     #[cfg(windows)]
     {
-        let path = std::env!("PATH");
-        let pathext = std::option_env!("PATHEXT").unwrap_or_default();
-        command.env("PATHEXT", pathext).env("PATH", path);
+        use std::collections::HashMap;
+        use std::env;
+        let envs: HashMap<String, String> = env::vars()
+            .filter(|(n, _)| {
+                n.starts_with("CARGO_")
+                    || n.contains("Program")
+                    || n.starts_with("PSModule")
+                    || n.starts_with("NEXTEST_")
+                    || n == "NUSHELL_CARGO_PROFILE"
+                    || n == "PATH"
+                    || n == "PATHEXT"
+            })
+            .collect();
+        command.envs(envs);
     };
 
     command

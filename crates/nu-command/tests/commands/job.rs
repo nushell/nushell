@@ -292,6 +292,7 @@ fn killing_job_removes_it_from_table() {
 fn killing_job_kills_pids() {
     let actual = nu!(format!(
         r#"
+            $env | reject config | table -e | print -e $in
             let job1 = job spawn {{ nu -c "sleep 1sec" | nu -c "sleep 1sec" }}
 
             sleep 25ms
@@ -301,7 +302,7 @@ fn killing_job_kills_pids() {
             let child_pids_before = ps | where ppid == $nu.pid
 
             job kill $job1
-            
+
             sleep 25ms
 
             let child_pids_after = ps | where ppid == $nu.pid
@@ -311,6 +312,8 @@ fn killing_job_kills_pids() {
         "($child_pids_before | length) == 2", "$child_pids_after == []",
     ));
 
+    #[cfg(target_os = "windows")]
+    assert_eq!(1, 0);
     assert_eq!(actual.out, "[true, true]");
 }
 
