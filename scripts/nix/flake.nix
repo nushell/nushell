@@ -43,6 +43,16 @@
           cargo = final.rustToolchain-devshell;
           rustc = final.rustToolchain-devshell;
         };
+        rustToolchain-latest-devshell = previous.rust-bin.stable.latest.default.override ({
+          extensions = [
+            "rust-src"
+            "rust-analyzer"
+          ];
+        });
+        rustPlatform-latest-devshell = final.makeRustPlatform {
+          cargo = final.rustToolchain-latest-devshell;
+          rustc = final.rustToolchain-latest-devshell;
+        };
         nushell = previous.callPackage ./. {
           rustPlatform = final.rustPlatform';
         };
@@ -134,31 +144,47 @@
       );
       devShells = forEachSupportedSystem (
         { pkgs, ... }:
+        let
+          basepkgs =
+            with pkgs;
+            (
+              [
+                curlMinimal
+                openssl
+                pkg-config
+                zstd
+              ]
+              ++ (lib.optionals stdenv.hostPlatform.isLinux [
+                python3
+                xorg.libX11
+              ])
+              ++ (lib.optionals stdenv.hostPlatform.isDarwin [
+                zlib
+                nghttp2
+                libgit2
+              ])
+            );
+        in
         {
           # devshell with build/check deps from nushell and plugins, with some
           # separation for linux/darwin.
           default = pkgs.mkShell {
             packages =
               with pkgs;
-              (
-                [
-                  rustToolchain-devshell
-                  rustPlatform-devshell.bindgenHook
-                  curlMinimal
-                  openssl
-                  pkg-config
-                  zstd
-                ]
-                ++ (lib.optionals stdenv.hostPlatform.isLinux [
-                  python3
-                  xorg.libX11
-                ])
-                ++ (lib.optionals stdenv.hostPlatform.isDarwin [
-                  zlib
-                  nghttp2
-                  libgit2
-                ])
-              );
+              [
+                rustToolchain-devshell
+                rustPlatform-devshell.bindgenHook
+              ]
+              ++ basepkgs;
+          };
+          latest = pkgs.mkShell {
+            packages =
+              with pkgs;
+              [
+                rustToolchain-latest-devshell
+                rustPlatform-latest-devshell.bindgenHook
+              ]
+              ++ basepkgs;
           };
         }
       );
