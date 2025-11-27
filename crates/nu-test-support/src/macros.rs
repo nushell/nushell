@@ -432,5 +432,13 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
         .env_remove("FILE_PWD")
         .env("PWD", target_cwd); // setting PWD is enough to set cwd;
 
+    // Need these extra environments from before the environment is cleared.
+    #[cfg(windows)]
+    {
+        let path = std::env!("PATH");
+        let pathext = std::option_env!("PATHEXT").unwrap_or_default();
+        command.env("PATHEXT", pathext).env("PATH", path);
+    };
+
     command
 }
