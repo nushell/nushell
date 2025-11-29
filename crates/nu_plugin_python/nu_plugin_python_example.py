@@ -27,7 +27,7 @@ import sys
 import json
 
 
-NUSHELL_VERSION = "0.108.1"
+NUSHELL_VERSION = "0.109.0"
 PLUGIN_VERSION = "0.1.1"  # bump if you change commands!
 
 
