@@ -1,7 +1,8 @@
 
 # run Nushell from source with a right indicator
-export def run [
+export def --wrapped run [
     --experimental-options: oneof<list<string>, string> # enable or disable experimental options
+    ...rest
 ] {
     let experimental_options_arg = $experimental_options
         | default []
@@ -10,10 +11,10 @@ export def run [
         | str join ","
         | $"[($in)]"
 
-    ^cargo run -- ...[
+    ^cargo run -q -- ...[
         --experimental-options $experimental_options_arg
         -e "$env.PROMPT_COMMAND_RIGHT = $'(ansi magenta_reverse)trying Nushell inside Cargo(ansi reset)'"
-    ]
+    ] ...$rest
 }
 
 def build-nushell [features: string] {

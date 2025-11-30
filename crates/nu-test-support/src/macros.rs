@@ -427,9 +427,29 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
     let mut command = Command::new(executable_path);
 
     command
+        .env_clear()
         .current_dir(target_cwd)
         .env_remove("FILE_PWD")
         .env("PWD", target_cwd); // setting PWD is enough to set cwd;
+
+    // Need these extra environments from before the environment is cleared.
+    #[cfg(windows)]
+    {
+        use std::collections::HashMap;
+        use std::env;
+        let envs: HashMap<String, String> = env::vars()
+            .filter(|(n, _)| {
+                n.starts_with("CARGO_")
+                    || n.contains("Program")
+                    || n.starts_with("PSModule")
+                    || n.starts_with("NEXTEST_")
+                    || n == "NUSHELL_CARGO_PROFILE"
+                    || n == "PATH"
+                    || n == "PATHEXT"
+            })
+            .collect();
+        command.envs(envs);
+    };
 
     command
 }

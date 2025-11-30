@@ -1,0 +1,36 @@
+# Enabled only when running nextest with `--profile ci`, otherwise it will use
+# all default options. See [1] for more details.
+#
+# [1]: https://nexte.st/docs/configuration/reference/#default-configuration
+[profile.ci]
+# Do not cancel the test run on the first failure.
+fail-fast = false
+# Only print out the failures at the end. Override this with `--failure-output immediate-final`
+failure-output = "final"
+# Tests will fail after 240s of activity (4 minutes)
+slow-timeout = { period = "60s", terminate-after = 4, grace-period = "10s" }
+# Don't bother printing the successful tests, just the ones that are
+# "fail", "retry", "slow" or "leak"
+status-level = "leak"
+# The order here is different (for some reason) so only print the tests that are
+# "fail", "flaky", or "slow"
+final-status-level = "slow"
+# Retry tests 3 times, should also help detect flaky tests.
+retries = 1
+
+# # Adds junit.xml output to analyze tests after they are completed. Github
+# # Actions currently doesn't support any native junit/test result parsing, so
+# # this is currently a bit useless and disabled for now.
+# [profile.ci.junit]
+# path = "junit.xml"
+# store-failure-output = true
+
+# Defined test groups and group behaviors.
+[test-groups]
+# Tests that are in the serial group run 1 test at a time.
+serial = {max-threads = 1}
+
+# Which tests to place into which groups.
+[[profile.ci.overrides]]
+filter = 'test(/::.*(_in_repl|_in_exec_repl)/)'
+test-group = 'serial'
