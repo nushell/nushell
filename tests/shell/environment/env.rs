@@ -253,12 +253,12 @@ fn env_shlvl_commandstring_does_not_increment() {
 #[ignore = "Causing hangs when both tests overlap"]
 #[test]
 fn env_shlvl_in_repl() {
-    let actual = nu!("
+    let actual = nu!(r#"
         $env.SHLVL = 5
-        nu --no-std-lib -n -e 'print $env.SHLVL; exit'
-    ");
+        nu --no-std-lib -n -e 'print $"SHLVL:($env.SHLVL)"; exit'
+    "#);
 
-    assert_eq!(actual.out, "6");
+    assert!(actual.out.ends_with("SHLVL:6"));
 }
 
 #[ignore = "Causing hangs when both tests overlap"]
@@ -266,19 +266,19 @@ fn env_shlvl_in_repl() {
 fn env_shlvl_in_exec_repl() {
     let actual = nu!(r#"
         $env.SHLVL = 29
-        nu -c "exec nu --no-std-lib -n -e 'print $env.SHLVL; exit'"
+        nu -c 'exec nu --no-std-lib -n -e `print $"SHLVL:($env.SHLVL)"; exit`'
     "#);
 
-    assert_eq!(actual.out, "30");
+    assert!(actual.out.ends_with("SHLVL:30"));
 }
 
 #[test]
 fn path_is_a_list_in_repl() {
     let actual = nu!(r#"
-        nu -c "exec nu --no-std-lib -n -e 'print ($env.pATh | describe); exit'"
+        nu -c "exec nu --no-std-lib -n -e `print $'path:($env.pATh | describe)'; exit`"
     "#);
 
-    assert_eq!(actual.out, "list<string>");
+    assert!(actual.out.ends_with("path:list<string>"));
 }
 
 #[test]
