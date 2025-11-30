@@ -296,3 +296,11 @@ fn pipeline_multiple_types_propagate_error() -> TestResult {
         "parser::input_type_mismatch",
     )
 }
+
+#[test]
+fn array_of_wrong_types() -> TestResult {
+    fail_test(
+        "0..128 | each {} | into string | bytes collect",
+        "command doesn't support list<string>, record, string, or table input",
+    )
+}

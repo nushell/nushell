@@ -784,6 +784,8 @@ pub fn check_pipeline_type(
 
     for elem in &pipeline.elements {
         current_types = std::mem::take(&mut new_types);
+        current_types.sort();
+        current_types.dedup();
 
         if elem.redirection.is_some() {
             new_types = vec![Type::Any];

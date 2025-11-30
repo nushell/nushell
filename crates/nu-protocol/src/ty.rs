@@ -4,7 +4,7 @@ use std::fmt::Display;
 #[cfg(test)]
 use strum_macros::EnumIter;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 #[cfg_attr(test, derive(EnumIter))]
 pub enum Type {
     /// Top type, supertype of all types
