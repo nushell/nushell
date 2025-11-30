@@ -272,7 +272,7 @@
 
     <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
     <CustomAction Id="ReplacePathsInWindowsTerminalProfile"
-                  Return="check"
+                  Return="ignore"
                   Impersonate="yes"
                   Execute="deferred"
                   DllEntry="WixQuietExec"
