@@ -4,8 +4,9 @@ use crate::{self as nu_protocol};
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ErrorStyle {
-    Plain,
     Fancy,
+    Plain,
+    Short,
 }
 
 impl FromStr for ErrorStyle {
@@ -15,7 +16,8 @@ impl FromStr for ErrorStyle {
         match s.to_ascii_lowercase().as_str() {
             "fancy" => Ok(Self::Fancy),
             "plain" => Ok(Self::Plain),
-            _ => Err("'fancy' or 'plain'"),
+            "short" => Ok(Self::Short),
+            _ => Err("'fancy', 'plain', or 'short'"),
         }
     }
 }

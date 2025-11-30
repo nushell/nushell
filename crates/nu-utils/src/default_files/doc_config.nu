@@ -271,10 +271,11 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): One of "fancy" or "plain"
+# error_style (string): One of "fancy", "plain" or "short"
 # Plain: Display plain-text errors for screen-readers
 # Fancy: Display errors using line-drawing characters to point to the span in which the
 #        problem occurred.
+# Short: Display errors as concise, single-line messages similar to classic shells.
 $env.config.error_style = "fancy"
 
 # display_errors.exit_code (bool):
