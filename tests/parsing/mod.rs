@@ -33,6 +33,40 @@ fn source_const_file() {
     assert_eq!(actual.out, "5");
 }
 
+// Regression test for https://github.com/nushell/nushell/issues/17091
+// Bare-word string interpolation with constants should work in `source`
+#[test]
+fn source_const_in_bareword_interpolation() {
+    Playground::setup("source_const_in_bareword_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_macos.nu",
+            "
+                print 'macos'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_linux.nu",
+            "
+                print 'linux'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_windows.nu",
+            "
+                print 'windows'
+            ",
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "source test_($nu.os-info.name).nu"
+        );
+
+        let os_name = std::env::consts::OS;
+        assert_eq!(actual.out, os_name);
+    });
+}
+
 #[test]
 fn source_circular() {
     let actual = nu!(cwd: "tests/parsing/samples", "

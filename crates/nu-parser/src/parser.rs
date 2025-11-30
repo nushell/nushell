@@ -2740,9 +2740,20 @@ pub fn parse_full_cell_path(
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    trace!("parsing: directory");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        return parse_string_interpolation(working_set, span);
+    }
+
     let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: directory");
 
     if err.is_none() {
         trace!("-- found {token}");
@@ -2762,9 +2773,20 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    trace!("parsing: filepath");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        return parse_string_interpolation(working_set, span);
+    }
+
     let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: filepath");
 
     if err.is_none() {
         trace!("-- found {token}");
