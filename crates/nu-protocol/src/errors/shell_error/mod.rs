@@ -1,6 +1,6 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
+    Config, ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value, ast::Operator,
     engine::StateWorkingSet, format_cli_error, record,
 };
 use job::JobError;
@@ -1421,14 +1421,14 @@ impl ShellError {
         }
     }
 
-    pub fn into_value(self, working_set: &StateWorkingSet, span: Span) -> Value {
+    pub fn into_value(self, working_set: &StateWorkingSet, config: &Config, span: Span) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
             "msg" => Value::string(self.to_string(), span),
             "debug" => Value::string(format!("{self:?}"), span),
             "raw" => Value::error(self.clone(), span),
-            "rendered" => Value::string(format_cli_error(working_set, &self, Some("nu::shell::error")), span),
+            "rendered" => Value::string(format_cli_error(config, working_set, &self, Some("nu::shell::error")), span),
             "json" => Value::string(serde_json::to_string(&self).expect("Could not serialize error"), span),
         };
 
@@ -1441,7 +1441,7 @@ impl ShellError {
 
     // TODO: Implement as From trait
     pub fn wrap(self, working_set: &StateWorkingSet, span: Span) -> ParseError {
-        let msg = format_cli_error(working_set, &self, None);
+        let msg = format_cli_error(working_set.get_config(), working_set, &self, None);
         ParseError::LabeledError(
             msg,
             "Encountered error during parse-time evaluation".into(),

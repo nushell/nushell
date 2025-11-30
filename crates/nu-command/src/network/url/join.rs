@@ -96,7 +96,7 @@ impl Command for UrlJoin {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
@@ -112,7 +112,7 @@ impl Command for UrlJoin {
                             .into_owned()
                             .into_iter()
                             .try_fold(UrlComponents::new(), |url, (k, v)| {
-                                url.add_component(k, v, head, engine_state)
+                                url.add_component(k, v, head, stack, engine_state)
                             });
 
                         url_components?.to_url(span)
@@ -156,6 +156,7 @@ impl UrlComponents {
         key: String,
         value: Value,
         head: Span,
+        stack: &Stack,
         engine_state: &EngineState,
     ) -> Result<Self, ShellError> {
         let value_span = value.span();
@@ -290,6 +291,7 @@ impl UrlComponents {
             }),
             _ => {
                 nu_protocol::report_shell_error(
+                    &stack.get_config(engine_state),
                     engine_state,
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),
