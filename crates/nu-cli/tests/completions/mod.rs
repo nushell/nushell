@@ -285,9 +285,11 @@ fn customcompletions_no_sort() {
 }
 
 #[rstest]
-#[case("{ start: 1, end: 10 }", (1, 10))]
-#[case("{ end: 20 }", (11, 20))]
-#[case("{ start: 0 }", (0, 12))]
+#[case::happy("{ start: 1, end: 14 }", (7, 20))]
+#[case::no_start("{ end: 14 }", (17, 20))]
+#[case::no_end("{ start: 1 }", (7, 23))]
+#[case::bad_start("{ start: 100 }", (23, 23))]
+#[case::bad_end("{ end: 100 }", (17, 23))]
 fn custom_completions_override_span(
     #[case] span_string: &str,
     #[case] expected_span: (usize, usize),
@@ -295,15 +297,15 @@ fn custom_completions_override_span(
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!(
         r#"
-        def comp [] {{ [{{ value: blech, span: {span_string} }}] }}
+        def comp [] {{ [{{ value: foobarbaz, span: {span_string} }}] }}
         def my-command [arg: string@comp] {{}}"#
     );
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "my-command b";
+    let completion_str = "foo | my-command foobar";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["blech"], &suggestions);
+    match_suggestions(&vec!["foobarbaz"], &suggestions);
     let (start, end) = expected_span;
     assert_eq!(Span::new(start, end), suggestions[0].span);
 }
@@ -941,20 +943,22 @@ fn external_completer_fallback() {
 }
 
 #[rstest]
-#[case("{ start: 1, end: 10 }", (1, 10))]
-#[case("{ end: 20 }", (4, 20))]
-#[case("{ start: 0 }", (0, 5))]
+#[case::happy("{ start: 1, end: 14 }", (7, 20))]
+#[case::no_start("{ end: 14 }", (17, 20))]
+#[case::no_end("{ start: 1 }", (7, 23))]
+#[case::bad_start("{ start: 100 }", (23, 23))]
+#[case::bad_end("{ end: 100 }", (17, 23))]
 fn external_completer_override_span(
     #[case] span_string: &str,
     #[case] expected_span: (usize, usize),
 ) {
-    let block = format!("{{|spans| [{{ value: blech, span: {span_string} }}]}}");
-    let input = "foo b";
+    let block = format!("{{|spans| [{{ value: foobarbaz, span: {span_string} }}]}}");
+    let input = "foo | extcommand foobar";
 
     let suggestions = run_external_completion(&block, input);
     let (start, end) = expected_span;
     let expected = vec![Suggestion {
-        value: "blech".to_string(),
+        value: "foobarbaz".to_string(),
         span: Span::new(start, end),
         ..Default::default()
     }];
