@@ -3,10 +3,8 @@ use std::{borrow::Cow, error, fmt, io};
 use http::Uri;
 use ureq::{
     config::Config,
-    unversioned::{
-        resolver::{ResolvedSocketAddrs, Resolver},
-        transport::NextTimeout,
-    },
+    unversioned::resolver::{ArrayVec, ResolvedSocketAddrs, Resolver},
+    unversioned::transport::NextTimeout,
 };
 
 #[derive(Debug)]
@@ -16,7 +14,7 @@ impl Resolver for DnsLookupResolver {
     fn resolve(
         &self,
         uri: &Uri,
-        _config: &Config,
+        config: &Config,
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
@@ -28,14 +26,34 @@ impl Resolver for DnsLookupResolver {
         let addr_info_iter = dns_lookup::getaddrinfo(host, service, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
+        let ip_family = config.ip_family();
         let mut resolved = self.empty();
+        let capacity = array_vec_capacity(&resolved);
         for addr_info in addr_info_iter {
             let addr_info = addr_info?;
-            resolved.push(addr_info.sockaddr);
+            let sockaddr = addr_info.sockaddr;
+            // Filter addresses based on configured IP family (IPv4 only, IPv6 only, or any)
+            let is_wanted = match ip_family {
+                ureq::config::IpFamily::Any => true,
+                ureq::config::IpFamily::Ipv4Only => sockaddr.is_ipv4(),
+                ureq::config::IpFamily::Ipv6Only => sockaddr.is_ipv6(),
+            };
+            if is_wanted {
+                resolved.push(sockaddr);
+                // ArrayVec has a fixed capacity, stop when full
+                if resolved.len() >= capacity {
+                    break;
+                }
+            }
         }
 
         Ok(resolved)
     }
+}
+
+/// Extract the capacity of an ArrayVec at compile time.
+fn array_vec_capacity<T, const N: usize>(_: &ArrayVec<T, N>) -> usize {
+    N
 }
 
 #[derive(Debug)]
