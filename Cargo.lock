@@ -3756,7 +3756,6 @@ dependencies = [
  "cfg-if",
  "miette-derive",
  "owo-colors",
- "serde",
  "supports-color",
  "supports-hyperlinks",
  "supports-unicode",
