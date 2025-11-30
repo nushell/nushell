@@ -9,6 +9,10 @@ use ureq::{
     },
 };
 
+/// Maximum addresses that ResolvedSocketAddrs (ArrayVec<SocketAddr, 16>) can hold.
+/// This must match the capacity defined in ureq's resolver module.
+const MAX_RESOLVED_ADDRS: usize = 16;
+
 #[derive(Debug)]
 pub struct DnsLookupResolver;
 
@@ -16,7 +20,7 @@ impl Resolver for DnsLookupResolver {
     fn resolve(
         &self,
         uri: &Uri,
-        _config: &Config,
+        config: &Config,
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
@@ -28,10 +32,24 @@ impl Resolver for DnsLookupResolver {
         let addr_info_iter = dns_lookup::getaddrinfo(host, service, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
+        let ip_family = config.ip_family();
         let mut resolved = self.empty();
         for addr_info in addr_info_iter {
             let addr_info = addr_info?;
-            resolved.push(addr_info.sockaddr);
+            let sockaddr = addr_info.sockaddr;
+            // Filter addresses based on configured IP family (IPv4 only, IPv6 only, or any)
+            let dominated = match ip_family {
+                ureq::config::IpFamily::Any => true,
+                ureq::config::IpFamily::Ipv4Only => sockaddr.is_ipv4(),
+                ureq::config::IpFamily::Ipv6Only => sockaddr.is_ipv6(),
+            };
+            if dominated {
+                resolved.push(sockaddr);
+                // ArrayVec has a fixed capacity, stop when full
+                if resolved.len() >= MAX_RESOLVED_ADDRS {
+                    break;
+                }
+            }
         }
 
         Ok(resolved)
