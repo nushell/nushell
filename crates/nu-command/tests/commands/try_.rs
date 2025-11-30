@@ -225,3 +225,12 @@ fn get_json_error() {
         "{\"msg\":\"External command failed\",\"labels\":[{\"text\":\"Command `non_existent_command` not found\",\"span\":{\"start\":0,\"end\":0}}],\"code\":\"nu::shell::external_command\",\"url\":null,\"help\":\"`non_existent_command` is neither a Nushell built-in or a known external command\",\"inner\":[]}"
     );
 }
+
+#[test]
+fn pipefail_works() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "try { let x = nu --testbin fail | lines | length; print $x } catch {|e| print $e.exit_code}"
+    );
+    assert_eq!(actual.out, "1")
+}

@@ -354,12 +354,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::DrainIfEnd { src } => {
             let data = ctx.take_reg(*src);
-            let res = {
-                let stack = &mut ctx
-                    .stack
-                    .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
-                data.body.drain_to_out_dests(ctx.engine_state, stack)?
-            };
+            let res = drain_if_end(ctx, data)?;
             ctx.put_reg(*src, PipelineExecutionData::from(res));
             Ok(Continue)
         }
@@ -1601,6 +1596,28 @@ fn drain(
     }
     #[cfg(not(feature = "os"))]
     Ok(Continue)
+}
+
+/// Helper for drainIfEnd behavior
+fn drain_if_end(
+    ctx: &mut EvalContext<'_>,
+    data: PipelineExecutionData,
+) -> Result<PipelineData, ShellError> {
+    let stack = &mut ctx
+        .stack
+        .push_redirection(ctx.redirect_out.clone(), ctx.redirect_err.clone());
+    let result = data.body.drain_to_out_dests(ctx.engine_state, stack)?;
+
+    let pipefail = nu_experimental::PIPE_FAIL.get();
+    if !pipefail {
+        return Ok(result);
+    }
+    #[cfg(feature = "os")]
+    {
+        check_exit_status_future(data.exit).map(|_| result)
+    }
+    #[cfg(not(feature = "os"))]
+    Ok(result)
 }
 
 enum RedirectionStream {
