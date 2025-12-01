@@ -4,7 +4,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    Config, ParseError, PipelineData, Spanned,
+    Config, ParseError, PipelineData, ShellError, Spanned,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error,
@@ -27,6 +27,7 @@ pub(crate) fn read_config_file(
     config_file: Option<Spanned<String>>,
     config_kind: ConfigFileKind,
     create_scaffold: bool,
+    strict_mode: bool,
 ) {
     warn!("read_config_file() {config_kind:?} at {config_file:?}",);
 

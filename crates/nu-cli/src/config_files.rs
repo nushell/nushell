@@ -198,6 +198,7 @@ pub fn eval_config_contents(
     config_path: PathBuf,
     engine_state: &mut EngineState,
     stack: &mut Stack,
+    strict_mode: bool,
 ) {
     if config_path.exists() & config_path.is_file() {
         let config_filename = config_path.to_string_lossy();
