@@ -715,8 +715,13 @@ fn bad_config_file_restrict_cmd_running_with_commands() {
             cwd: dirs.test(),
             r#"print bbb"#);
         assert!(actual.err.contains("Command `errorcmd` not found"));
-        assert!(!actual.out.contains("bbb"))
+        assert!(!actual.out.contains("bbb"));
+        assert!(!actual.status.success());
     });
+    let actual = nu!(env_config: "not_exists.nu", "print bbb");
+    assert!(actual.err.contains("File not found: not_exists.nu"));
+    assert!(!actual.out.contains("bbb"));
+    assert!(!actual.status.success());
 }
 
 // FIXME: ignore these cases for now, the value inside a pipeline

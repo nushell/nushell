@@ -44,6 +44,9 @@ pub(crate) fn read_config_file(
                 } else {
                     let e = ParseError::FileNotFound(file.item, file.span);
                     report_parse_error(&StateWorkingSet::new(engine_state), &e);
+                    if strict_mode {
+                        std::process::exit(1);
+                    }
                 }
             }
             Err(e) => {
