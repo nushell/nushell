@@ -33,6 +33,330 @@ fn source_const_file() {
     assert_eq!(actual.out, "5");
 }
 
+// Regression test for https://github.com/nushell/nushell/issues/17091
+// Bare-word string interpolation with constants should work in `source`
+#[test]
+fn source_const_in_bareword_interpolation() {
+    Playground::setup("source_const_in_bareword_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_macos.nu",
+            "
+                print 'macos'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_linux.nu",
+            "
+                print 'linux'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test_windows.nu",
+            "
+                print 'windows'
+            ",
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "source test_($nu.os-info.name).nu"
+        );
+
+        let os_name = std::env::consts::OS;
+        assert_eq!(actual.out, os_name);
+    });
+}
+
+// Test edge cases for paths with parentheses
+#[test]
+fn source_path_with_literal_parens() {
+    Playground::setup("source_literal_parens_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file(with)parens.nu",
+            "
+                print 'literal parens'
+            ",
+        )]);
+
+        // Quoted path with literal parentheses should work
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source "file(with)parens.nu""#
+        );
+
+        assert_eq!(actual.out, "literal parens");
+    });
+}
+
+#[test]
+fn source_path_interpolation_vs_literal() {
+    Playground::setup("source_interp_vs_literal_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file(name).nu",
+            "
+                print 'literal file'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file_macos.nu",
+            "
+                print 'interpolated file'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file_linux.nu",
+            "
+                print 'interpolated file'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file_windows.nu",
+            "
+                print 'interpolated file'
+            ",
+        )]);
+
+        // Quoted path should treat parens as literal
+        let actual_quoted = nu!(
+            cwd: dirs.test(),
+            r#"source "file(name).nu""#
+        );
+        assert_eq!(actual_quoted.out, "literal file");
+
+        // Bare word with parens containing variable should interpolate
+        let actual_interp = nu!(
+            cwd: dirs.test(),
+            "source file_($nu.os-info.name).nu"
+        );
+        assert_eq!(actual_interp.out, "interpolated file");
+    });
+}
+
+#[test]
+fn source_path_with_nested_parens() {
+    Playground::setup("source_nested_parens_test", |dirs, sandbox| {
+        let os_name = std::env::consts::OS;
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            &format!("test_{}_nested.nu", os_name),
+            "
+                print 'nested parens'
+            ",
+        )]);
+
+        // Nested parentheses in interpolation
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source test_($nu.os-info | get name)_nested.nu"#
+        );
+
+        assert_eq!(actual.out, "nested parens");
+    });
+}
+
+#[test]
+fn source_path_single_quote_no_interpolation() {
+    Playground::setup("source_single_quote_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file($nu.os-info.name).nu",
+            "
+                print 'no interpolation'
+            ",
+        )]);
+
+        // Single quotes should prevent interpolation
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source 'file($nu.os-info.name).nu'"#
+        );
+
+        assert_eq!(actual.out, "no interpolation");
+    });
+}
+
+#[test]
+fn source_path_backtick_no_interpolation() {
+    Playground::setup("source_backtick_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file($nu.os-info.name).nu",
+            "
+                print 'backtick no interp'
+            ",
+        )]);
+
+        // Backticks should also prevent interpolation
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source `file($nu.os-info.name).nu`"#
+        );
+
+        assert_eq!(actual.out, "backtick no interp");
+    });
+}
+
+#[test]
+fn source_path_dollar_interpolation() {
+    Playground::setup("source_dollar_interp_test", |dirs, sandbox| {
+        let os_name = std::env::consts::OS;
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            &format!("test_{}.nu", os_name),
+            "
+                print 'dollar interpolation'
+            ",
+        )]);
+
+        // Dollar prefix should enable interpolation in quotes
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source $"test_($nu.os-info.name).nu""#
+        );
+
+        assert_eq!(actual.out, "dollar interpolation");
+    });
+}
+
+#[test]
+fn source_path_mixed_parens_and_quotes() {
+    Playground::setup("source_mixed_parens_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "test(1).nu",
+            "
+                print 'test 1'
+            ",
+        )]);
+        let os_name = std::env::consts::OS;
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            &format!("test_{}.nu", os_name),
+            "
+                print 'test interpolated'
+            ",
+        )]);
+
+        // Literal parentheses in quoted string
+        let actual1 = nu!(
+            cwd: dirs.test(),
+            r#"source "test(1).nu""#
+        );
+        assert_eq!(actual1.out, "test 1");
+
+        // Interpolation in bare word with constant
+        let actual2 = nu!(
+            cwd: dirs.test(),
+            r#"source test_($nu.os-info.name).nu"#
+        );
+        assert_eq!(actual2.out, "test interpolated");
+    });
+}
+
+#[test]
+fn source_path_empty_parens() {
+    Playground::setup("source_empty_parens_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file().nu",
+            "
+                print 'empty parens'
+            ",
+        )]);
+
+        // Empty parentheses should be treated as literal when quoted
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source "file().nu""#
+        );
+        assert_eq!(actual.out, "empty parens");
+    });
+}
+
+#[test]
+fn source_path_unbalanced_parens_quoted() {
+    Playground::setup("source_unbalanced_parens_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file(.nu",
+            "
+                print 'unbalanced open'
+            ",
+        )]);
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file).nu",
+            "
+                print 'unbalanced close'
+            ",
+        )]);
+
+        // Unbalanced parentheses should work when quoted
+        let actual1 = nu!(
+            cwd: dirs.test(),
+            r#"source "file(.nu""#
+        );
+        assert_eq!(actual1.out, "unbalanced open");
+
+        let actual2 = nu!(
+            cwd: dirs.test(),
+            r#"source "file).nu""#
+        );
+        assert_eq!(actual2.out, "unbalanced close");
+    });
+}
+
+#[test]
+fn source_path_multiple_interpolations() {
+    Playground::setup("source_multiple_interp_test", |dirs, sandbox| {
+        let os_name = std::env::consts::OS;
+        let arch = std::env::consts::ARCH;
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            &format!("{}_{}.nu", os_name, arch),
+            "
+                print 'multiple interpolations'
+            ",
+        )]);
+
+        // Multiple interpolations in one path using constants
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source ($nu.os-info.name)_($nu.os-info.arch).nu"#
+        );
+        assert_eq!(actual.out, "multiple interpolations");
+    });
+}
+
+#[test]
+fn source_path_interpolation_with_spaces() {
+    Playground::setup("source_interp_spaces_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file with spaces.nu",
+            "
+                print 'spaces in name'
+            ",
+        )]);
+
+        // Spaces in filename require quotes
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"const name = "file with spaces"; source $"($name).nu""#
+        );
+        assert_eq!(actual.out, "spaces in name");
+    });
+}
+
+#[test]
+fn source_path_raw_string_no_interpolation() {
+    Playground::setup("source_raw_string_test", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "file($nu.os-info.name).nu",
+            "
+                print 'raw string'
+            ",
+        )]);
+
+        // Raw strings should not interpolate
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"source r#'file($nu.os-info.name).nu'#"#
+        );
+
+        assert_eq!(actual.out, "raw string");
+    });
+}
+
 #[test]
 fn source_circular() {
     let actual = nu!(cwd: "tests/parsing/samples", "
