@@ -4,7 +4,7 @@ use nu_cli::read_plugin_file;
 use nu_cli::{eval_config_contents, eval_source};
 use nu_path::canonicalize_with;
 use nu_protocol::{
-    Config, ParseError, PipelineData, ShellError, Spanned,
+    Config, ParseError, PipelineData, Spanned,
     engine::{EngineState, Stack, StateWorkingSet},
     eval_const::{get_user_autoload_dirs, get_vendor_autoload_dirs},
     report_parse_error, report_shell_error,
@@ -40,7 +40,7 @@ pub(crate) fn read_config_file(
         match engine_state.cwd_as_string(Some(stack)) {
             Ok(cwd) => {
                 if let Ok(path) = canonicalize_with(&file.item, cwd) {
-                    eval_config_contents(path, engine_state, stack);
+                    eval_config_contents(path, engine_state, stack, strict_mode);
                 } else {
                     let e = ParseError::FileNotFound(file.item, file.span);
                     report_parse_error(&StateWorkingSet::new(engine_state), &e);
@@ -92,11 +92,15 @@ pub(crate) fn read_config_file(
             }
         }
 
-        eval_config_contents(config_path.into(), engine_state, stack);
+        eval_config_contents(config_path.into(), engine_state, stack, strict_mode);
     }
 }
 
-pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut Stack) {
+pub(crate) fn read_loginshell_file(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    strict_mode: bool,
+) {
     warn!(
         "read_loginshell_file() {}:{}:{}",
         file!(),
@@ -111,7 +115,7 @@ pub(crate) fn read_loginshell_file(engine_state: &mut EngineState, stack: &mut S
         warn!("loginshell_file: {}", config_path.display());
 
         if config_path.exists() {
-            eval_config_contents(config_path.into(), engine_state, stack);
+            eval_config_contents(config_path.into(), engine_state, stack, strict_mode);
         }
     }
 }
@@ -186,7 +190,7 @@ pub(crate) fn read_vendor_autoload_files(engine_state: &mut EngineState, stack: 
                         }
                         let path = autoload_dir.join(entry);
                         warn!("AutoLoading: {path:?}");
-                        eval_config_contents(path, engine_state, stack);
+                        eval_config_contents(path, engine_state, stack, false);
                     }
                 }
             }
@@ -239,6 +243,7 @@ pub(crate) fn setup_config(
             env_file,
             ConfigFileKind::Env,
             create_scaffold,
+            false,
         );
         read_config_file(
             engine_state,
@@ -246,10 +251,11 @@ pub(crate) fn setup_config(
             config_file,
             ConfigFileKind::Config,
             create_scaffold,
+            false,
         );
 
         if is_login_shell {
-            read_loginshell_file(engine_state, stack);
+            read_loginshell_file(engine_state, stack, false);
         }
         // read and auto load vendor autoload files
         read_vendor_autoload_files(engine_state, stack);

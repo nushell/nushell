@@ -209,7 +209,7 @@ pub fn eval_config_contents(
             engine_state.file = Some(config_path.clone());
 
             // TODO: ignore this error?
-            let _ = eval_source(
+            let exit_code = eval_source(
                 engine_state,
                 stack,
                 &contents,
@@ -217,6 +217,9 @@ pub fn eval_config_contents(
                 PipelineData::empty(),
                 false,
             );
+            if exit_code != 0 && strict_mode {
+                std::process::exit(exit_code)
+            }
 
             // Restore the current active file.
             engine_state.file = prev_file;
