@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.109.1"
+version = "0.109.2"
 edition = "2024"
 authors = ["The Nushell Project Developers"]
 description = "Modules to run a model context protocol (MCP) server that provides Nushell as a tool."
@@ -10,9 +10,9 @@ license = "MIT"
 
 [dependencies]
 futures = "0.3.31"
-nu-protocol = { path = "../nu-protocol", version = "0.109.1", features = ["plugin"] }
-nu-engine = { path = "../nu-engine", version = "0.109.1" }
-nu-parser = { path = "../nu-parser", version = "0.109.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.109.2", features = ["plugin"] }
+nu-engine = { path = "../nu-engine", version = "0.109.2" }
+nu-parser = { path = "../nu-parser", version = "0.109.2" }
 
 rmcp = { version = "0.8", features = ["server", "transport-io", "schemars"] }
 schemars = "1.0.4"
@@ -34,5 +34,5 @@ workspace = true
 
 [dev-dependencies]
 lipsum = "0.9.1"
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.1" }
-nuon = { path = "../nuon", version = "0.109.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }
+nuon = { path = "../nuon", version = "0.109.2" }
