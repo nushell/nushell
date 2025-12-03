@@ -5080,8 +5080,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 guard: None,
                 span: Span::new(start, end),
             }
-        // A match guard
-        } else if connector == b"if" {
+            // A match guard
+        }
+        if connector == b"if" {
             let if_end = {
                 let end = output[position].span.end;
                 Span::new(end, end)
