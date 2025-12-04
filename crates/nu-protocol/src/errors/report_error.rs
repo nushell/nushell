@@ -5,6 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
     CompileError, ErrorStyle, ParseError, ParseWarning, ShellError, ShellWarning,
+    ShortReportHandler,
     engine::{EngineState, StateWorkingSet},
 };
 use miette::{
@@ -175,6 +176,7 @@ impl std::fmt::Debug for CliError<'_> {
         let error_style = &config.error_style;
 
         let miette_handler: Box<dyn ReportHandler> = match error_style {
+            ErrorStyle::Short => Box::new(ShortReportHandler::new()),
             ErrorStyle::Plain => Box::new(NarratableReportHandler::new()),
             ErrorStyle::Fancy => Box::new(
                 MietteHandlerOpts::new()
