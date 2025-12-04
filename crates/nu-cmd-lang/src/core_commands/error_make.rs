@@ -12,7 +12,15 @@ impl Command for ErrorMake {
     fn signature(&self) -> Signature {
         Signature::build("error make")
             .category(Category::Core)
-            .input_output_types(vec![(Type::Any, Type::Error)])
+            .input_output_types(vec![
+                // original nothing input type
+                (Type::Nothing, Type::Error),
+                // "foo" | error make
+                (Type::String, Type::Error),
+                // {...} | error make
+                // try {...} catch {error make}
+                (Type::record(), Type::Error),
+            ])
             .optional(
                 "error_struct",
                 SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
@@ -46,18 +54,28 @@ Errors can be chained together using the `inner` key, and multiple spans can be
 specified to give more detailed error outputs.
 
 If a string is passed it will be the `msg` part of the `error_struct`.
-"
+
+Errors can also be chained using `try {} catch {}`, allowing for related errors
+to be printed out more easily. The code block for `catch` passes a record of the
+`try` block's error into the catch block, which can be used in `error make`
+either as the input or as an argument. These will be added as `inner` errors to
+the most recent `error make`."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Create a simple error",
+                description: "Create a simple, default error",
+                example: "error make",
+                result: None,
+            },
+            Example {
+                description: "Create a simple error from a string",
                 example: "error make 'my error message'",
                 result: None,
             },
             Example {
-                description: "The same but with an error_struct",
+                description: "Create a simple error from an `error_struct` record",
                 example: "error make {msg: 'my error message'}",
                 result: None,
             },
@@ -80,8 +98,18 @@ If a string is passed it will be the `msg` part of the `error_struct`.
                 result: None,
             },
             Example {
-                description: "Chain errors",
+                description: "Chain errors using a pipeline",
                 example: r#"try {error make "foo"} catch {error make "bar"}"#,
+                result: None,
+            },
+            Example {
+                description: "Chain errors using arguments (note the extra command in `catch`)",
+                example: r#"try {
+        error make "foo"
+    } catch {|err|
+        print 'We got an error that will be chained!'
+        error make {msg: "bar" inner: [$err]}
+    }"#,
                 result: None,
             },
         ]
@@ -94,10 +122,10 @@ If a string is passed it will be the `msg` part of the `error_struct`.
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = match call.req(engine_state, stack, 0) {
-            Ok(v @ (Value::Record { .. } | Value::String { .. })) => v,
-            _ => Value::string("originates from here", call.head),
-            // Err(e) => e.into_value(call.head),
+        let value = match call.opt(engine_state, stack, 0) {
+            Ok(Some(v @ Value::Record { .. } | v @ Value::String { .. })) => v,
+            Ok(_) => Value::string("originates from here", call.head),
+            Err(e) => return Err(e),
         };
         let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
