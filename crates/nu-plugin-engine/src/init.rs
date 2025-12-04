@@ -225,7 +225,7 @@ pub fn load_plugin_file(
     for plugin in &plugin_registry_file.plugins {
         // Any errors encountered should just be logged.
         if let Err(err) = load_plugin_registry_item(working_set, plugin, span) {
-            report_shell_error(working_set.permanent_state, &err)
+            report_shell_error(working_set.get_config(), working_set.permanent_state, &err)
         }
     }
 }

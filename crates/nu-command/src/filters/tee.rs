@@ -278,7 +278,7 @@ use it in your pipeline."#
                 // send an error to other than just trying to print it to stderr.
                 let value = input.into_value(span)?;
                 let value_clone = value.clone();
-                tee_once(engine_state_arc, move || {
+                tee_once(stack.clone(), engine_state_arc, move || {
                     eval_block(value_clone.into_pipeline_data_with_metadata(metadata_clone))
                 })
                 .map_err(&from_io_error)?;
@@ -356,12 +356,13 @@ where
 
 /// "tee" for a single value. No stream handling, just spawns a thread, printing any resulting error
 fn tee_once(
+    stack: Stack,
     engine_state: Arc<EngineState>,
     on_thread: impl FnOnce() -> Result<(), ShellError> + Send + 'static,
 ) -> Result<JoinHandle<()>, std::io::Error> {
     thread::Builder::new().name("tee".into()).spawn(move || {
         if let Err(err) = on_thread() {
-            report_shell_error(&engine_state, &err);
+            report_shell_error(&stack.get_config(&engine_state), &engine_state, &err);
         }
     })
 }

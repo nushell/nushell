@@ -52,11 +52,11 @@ impl Command for Headers {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let config = engine_state.get_config();
+        let config = &stack.get_config(engine_state);
         let metadata = input.metadata();
         let span = input.span().unwrap_or(call.head);
         let value = input.into_value(span)?;

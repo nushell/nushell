@@ -2,7 +2,7 @@ use nu_cmd_base::hook::{eval_env_change_hook, eval_hooks};
 use nu_engine::eval_block;
 use nu_parser::parse;
 use nu_protocol::{
-    PipelineData, ShellError, Value,
+    Config, PipelineData, ShellError, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_parse_error, report_shell_error,
@@ -335,8 +335,8 @@ pub fn fail(exit_code: i32) {
     std::process::exit(exit_code);
 }
 
-fn outcome_err(engine_state: &EngineState, error: &ShellError) -> ! {
-    report_shell_error(engine_state, error);
+fn outcome_err(config: &Config, engine_state: &EngineState, error: &ShellError) -> ! {
+    report_shell_error(config, engine_state, error);
     std::process::exit(1);
 }
 
@@ -373,13 +373,13 @@ pub fn nu_repl() {
         // Before doing anything, merge the environment from the previous REPL iteration into the
         // permanent state.
         if let Err(err) = engine_state.merge_env(&mut stack) {
-            outcome_err(&engine_state, &err);
+            outcome_err(engine_state.get_config(), &engine_state, &err);
         }
 
         // Check for pre_prompt hook
         let hook = engine_state.get_config().hooks.pre_prompt.clone();
         if let Err(err) = eval_hooks(&mut engine_state, &mut stack, vec![], &hook, "pre_prompt") {
-            outcome_err(&engine_state, &err);
+            outcome_err(engine_state.get_config(), &engine_state, &err);
         }
 
         // Check for env change hook
@@ -388,7 +388,7 @@ pub fn nu_repl() {
             &mut engine_state,
             &mut stack,
         ) {
-            outcome_err(&engine_state, &err);
+            outcome_err(engine_state.get_config(), &engine_state, &err);
         }
 
         // Check for pre_execution hook
@@ -407,7 +407,7 @@ pub fn nu_repl() {
             &hook,
             "pre_execution",
         ) {
-            outcome_err(&engine_state, &err);
+            outcome_err(engine_state.get_config(), &engine_state, &err);
         }
 
         // Eval the REPL line
@@ -421,14 +421,14 @@ pub fn nu_repl() {
             );
 
             if let Some(err) = working_set.parse_errors.first() {
-                report_parse_error(&working_set, err);
+                report_parse_error(working_set.get_config(), &working_set, err);
                 std::process::exit(1);
             }
             (block, working_set.render())
         };
 
         if let Err(err) = engine_state.merge_delta(delta) {
-            outcome_err(&engine_state, &err);
+            outcome_err(engine_state.get_config(), &engine_state, &err);
         }
 
         let input = PipelineData::empty();
@@ -439,16 +439,16 @@ pub fn nu_repl() {
             match eval_block::<WithoutDebug>(&engine_state, stack, &block, input).map(|p| p.body) {
                 Ok(pipeline_data) => match pipeline_data.collect_string("", config) {
                     Ok(s) => last_output = s,
-                    Err(err) => outcome_err(&engine_state, &err),
+                    Err(err) => outcome_err(&stack.get_config(&engine_state), &engine_state, &err),
                 },
-                Err(err) => outcome_err(&engine_state, &err),
+                Err(err) => outcome_err(&stack.get_config(&engine_state), &engine_state, &err),
             }
         }
 
         if let Some(cwd) = stack.get_env_var(&engine_state, "PWD") {
-            let path = cwd
-                .coerce_str()
-                .unwrap_or_else(|err| outcome_err(&engine_state, &err));
+            let path = cwd.coerce_str().unwrap_or_else(|err| {
+                outcome_err(&stack.get_config(&engine_state), &engine_state, &err)
+            });
             let _ = std::env::set_current_dir(path.as_ref());
             engine_state.add_env_var("PWD".into(), cwd.clone());
         }
