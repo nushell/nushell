@@ -4154,8 +4154,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4239,8 +4243,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4568,7 +4576,7 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         // Flags with no TypeMode are just present/not-present switches
                                         // in the case, `var_type` is any.
                                         match var_type {
-                                            Type::Any => {
+                                            Type::Bool => {
                                                 if !*type_annotated {
                                                     *arg = Some(expression_ty.to_shape());
                                                     working_set
