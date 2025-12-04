@@ -1911,8 +1911,16 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         return None;
     }
 
-    // First, figure out what exact operators are used and determine their positions
-    let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
+    let dotdot_pos: Vec<_> = token
+        .match_indices("..")
+        .filter_map(|(pos, _)| {
+            // paren_depth = count of unclosed parens prior to pos
+            let before = &token[..pos];
+            let paren_depth = before.chars().filter(|&c| c == '(').count()
+                - before.chars().filter(|&c| c == ')').count();
+            if paren_depth == 0 { Some(pos) } else { None }
+        })
+        .collect();
 
     let (next_op_pos, range_op_pos) = match dotdot_pos.len() {
         1 => (None, dotdot_pos[0]),
