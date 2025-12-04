@@ -4938,8 +4938,8 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
     let mut mk_ty = || -> Type {
         let types = rows
             .iter_mut()
-            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default());
-        Type::supertype_of(types).unwrap_or_default()
+            .map(|row| row.pop().map(|x| x.ty).unwrap_or(Type::Any));
+        Type::supertype_of(types).unwrap_or(Type::Any)
     };
 
     let mk_error = |span| ParseError::LabeledErrorWithHelp {
