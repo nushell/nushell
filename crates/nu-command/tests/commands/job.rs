@@ -58,7 +58,7 @@ fn job_id_of_background_jobs_works() {
         let id2 = job recv --timeout 5sec
 
         let job3 = job spawn { job id | job send 0 }
-        let id3 = job recv --timeout 5sec 
+        let id3 = job recv --timeout 5sec
 
         [($job1 == $id1) ($job2 == $id2) ($job3 == $id3)] | to nuon
 
@@ -119,7 +119,7 @@ fn filtered_messages_are_not_erased() {
         let first  = job recv --tag 789 --timeout 5sec
         let second = job recv --timeout 1sec
         let third  = job recv --timeout 1sec
-        
+
 
         [($first) ($second) ($third)] | to nuon
         "#);
@@ -130,7 +130,7 @@ fn filtered_messages_are_not_erased() {
 #[test]
 fn job_recv_timeout_works() {
     let actual = nu!(r#"
-        job spawn { 
+        job spawn {
             sleep 2sec
             "boop" | job send 0
         }
@@ -183,6 +183,25 @@ fn job_flush_clears_filtered_messages() {
 
     assert_eq!(actual.out, "");
     assert!(actual.err.contains("timeout"));
+}
+
+#[test]
+fn job_flush_with_tag() {
+    let actual = nu!(r#"
+        "spam" | job send 0 --tag 404
+        "not" | str reverse | job send 0 --tag 505
+        "still alive" | job send 0 --tag 606
+        "spam" | job send 0 --tag 404
+
+        job recv --tag 505 --timeout 1sec
+
+        job flush --tag 404
+
+        job recv --timeout 1sec
+        "#);
+
+    assert_eq!(actual.out, "still alive");
+    assert_eq!(actual.err, "");
 }
 
 #[test]
@@ -273,7 +292,7 @@ fn killing_job_removes_it_from_table() {
 
             job kill $job3
             let list_after_kill_3 = job list | get id
-            
+
             [({}) ({}) ({}) ({})] | to nuon
             "#,
         "($list_before | sort) == ([$job1 $job2 $job3] | sort)",
@@ -301,7 +320,7 @@ fn killing_job_kills_pids() {
             let child_pids_before = ps | where ppid == $nu.pid
 
             job kill $job1
-            
+
             sleep 25ms
 
             let child_pids_after = ps | where ppid == $nu.pid
@@ -340,7 +359,7 @@ fn jobs_get_group_id_right() {
             sleep 25ms
 
             let pids = job list | where id == $job1 | first | get pids
-            
+
             let pid1 = $pids.0
             let pid2 = $pids.1
 
@@ -380,7 +399,7 @@ fn job_extern_into_value_is_not_silent() {
 #[test]
 fn job_extern_into_pipe_is_not_silent() {
     let actual = nu!(r#"
-        job spawn { 
+        job spawn {
             print (nu -c "10" | nu --stdin -c "($in | into int) + 1")
         }
         sleep 1sec"#);
@@ -419,7 +438,7 @@ fn job_tag_modifies_untagged_job_tag() {
         job spawn { sleep 10sec }
 
         job tag 1 beep
-        
+
         job list | where id == 1 | get tag.0"#);
 
     assert_eq!(actual.out, "beep");
