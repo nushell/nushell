@@ -1,4 +1,4 @@
-use std::{borrow::Cow, error, fmt, io};
+use std::{error, fmt, io};
 
 use http::Uri;
 use ureq::{
@@ -18,11 +18,12 @@ impl Resolver for DnsLookupResolver {
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
-        let service = uri
-            .port()
-            .map(|port| Cow::Owned(port.to_string()))
-            .or_else(|| uri.scheme_str().map(Cow::Borrowed));
-        let service = service.as_ref().map(|s| s.as_ref());
+        // Only use the explicit port number for getaddrinfo, not the scheme name.
+        // Using scheme names like "https" or "http" as service can cause
+        // "Service not supported for this socket type" errors in certain environments
+        // (e.g., In Docker container on some Linux distributions).
+        let service = uri.port().map(|port| port.to_string());
+        let service = service.as_deref();
         let addr_info_iter = dns_lookup::getaddrinfo(host, service, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
