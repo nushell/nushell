@@ -795,7 +795,7 @@ $env.config.color_config.glob        # Glob value (must be declared)
 $env.config.color_config.binary      # Binary value
 $env.config.color_config.custom      # Custom value (often from a plugin)
 $env.config.color_config.nothing     # Not used, since a null is not displayed
-$env.config.color_config.date        # datetime value
+$env.config.color_config.datetime    # datetime value
 $env.config.color_config.filesize    # filesize value
 $env.config.color_config.list        # Not currently used. Lists are displayed using their
                                      # members' styles
