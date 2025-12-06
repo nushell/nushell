@@ -68,9 +68,12 @@ impl Resolver for DnsLookupResolver {
 fn set_port(addr: SocketAddr, port: u16) -> SocketAddr {
     match addr {
         SocketAddr::V4(v4) => SocketAddr::V4(SocketAddrV4::new(*v4.ip(), port)),
-        SocketAddr::V6(v6) => {
-            SocketAddr::V6(SocketAddrV6::new(*v6.ip(), port, v6.flowinfo(), v6.scope_id()))
-        }
+        SocketAddr::V6(v6) => SocketAddr::V6(SocketAddrV6::new(
+            *v6.ip(),
+            port,
+            v6.flowinfo(),
+            v6.scope_id(),
+        )),
     }
 }
 
