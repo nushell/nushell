@@ -33,7 +33,7 @@ indexmap = { version = "2.11" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "=0.53.0" }
-polars-io = { version = "=0.52.0", features = ["avro", "cloud", "aws"] }
+polars-io = { version = "=0.52.0", features = ["avro", "cloud", "aws", "azure", "gcp"] }
 polars-arrow = { version = "=0.52.0" }
 polars-ops = { version = "=0.52.0", features = ["pivot", "cutqcut"] }
 polars-plan = { version = "=0.52.0", features = ["regex"] }
@@ -53,7 +53,7 @@ hashbrown = { version = "0.16", features = ["rayon", "serde"] }
 aws-config = { version = "1.5", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { version = "1.45", features = ["full"] }
-object_store = { version = "0.12", features = ["aws"], default-features = false }
+object_store = { version = "0.12", features = ["aws", "azure", "gcp"], default-features = false }
 url.workspace = true
 
 [dependencies.polars]
