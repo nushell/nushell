@@ -250,7 +250,8 @@ fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     }
 
     for text in headers {
-        if text == INDEX_COLUMN_NAME {
+        // Only filter out the INDEX column when we're adding our own index column
+        if index && text == INDEX_COLUMN_NAME {
             continue;
         }
 

@@ -127,10 +127,10 @@ fn expand_list(input: &[Value], cfg: Cfg<'_>) -> TableResult {
     let with_index = has_index(&cfg.opts, &headers);
 
     // The header with the INDEX is removed from the table headers since
-    // it is added to the natural table index
+    // it is added to the natural table index (only when with_index is true)
     let headers: Vec<_> = headers
         .into_iter()
-        .filter(|header| header != INDEX_COLUMN_NAME)
+        .filter(|header| !with_index || header != INDEX_COLUMN_NAME)
         .collect();
     let with_header = !headers.is_empty();
     let row_offset = cfg.opts.index_offset;

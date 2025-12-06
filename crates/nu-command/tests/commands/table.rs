@@ -4018,3 +4018,18 @@ fn configure_stream_size() {
         .out
     );
 }
+
+// Regression test for https://github.com/nushell/nushell/issues/17032
+// `table -i false` should not panic when there's an `index` column
+#[test]
+fn table_index_column_with_index_flag_false() {
+    let actual = nu!("[{index: 0, data: yes}] | table --index false --width 80");
+    assert_eq!(
+        actual.out,
+        "╭───────┬──────╮\
+         │ index │ data │\
+         ├───────┼──────┤\
+         │     0 │ yes  │\
+         ╰───────┴──────╯"
+    );
+}
