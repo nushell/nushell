@@ -250,7 +250,6 @@ fn env_shlvl_commandstring_does_not_increment() {
 // We've also learned that `-e 'exit'` is not enough to
 // prevent failures entirely. For now we're going to ignore
 // these tests until we can find a better solution.
-#[ignore = "Causing hangs when both tests overlap"]
 #[test]
 fn env_shlvl_in_repl() {
     let actual = nu!(r#"
@@ -261,7 +260,6 @@ fn env_shlvl_in_repl() {
     assert!(actual.out.ends_with("SHLVL:6"));
 }
 
-#[ignore = "Causing hangs when both tests overlap"]
 #[test]
 fn env_shlvl_in_exec_repl() {
     let actual = nu!(r#"
