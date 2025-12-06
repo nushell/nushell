@@ -412,7 +412,7 @@ pub enum StreamMessage {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum PluginCallResponse<D> {
     Ok,
-    Error(LabeledError),
+    Error(ShellError),
     Metadata(PluginMetadata),
     Signature(Vec<PluginSignature>),
     Ordering(Option<Ordering>),

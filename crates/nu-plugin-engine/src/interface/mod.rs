@@ -537,7 +537,7 @@ impl InterfaceManager for PluginInterfaceManager {
                     .unwrap_or_else(|err| {
                         // If there's an error with initializing this stream, change it to a plugin
                         // error response, but send it anyway
-                        PluginCallResponse::Error(err.into())
+                        PluginCallResponse::Error(err)
                     });
                 let result = self.send_plugin_call_response(id, response);
                 if result.is_ok() {
@@ -936,7 +936,7 @@ impl PluginInterface {
     pub fn get_metadata(&self) -> Result<PluginMetadata, ShellError> {
         match self.plugin_call(PluginCall::Metadata, None)? {
             PluginCallResponse::Metadata(meta) => Ok(meta),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Metadata call".into(),
             }),
@@ -947,7 +947,7 @@ impl PluginInterface {
     pub fn get_signature(&self) -> Result<Vec<PluginSignature>, ShellError> {
         match self.plugin_call(PluginCall::Signature, None)? {
             PluginCallResponse::Signature(sigs) => Ok(sigs),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Signature call".into(),
             }),
@@ -962,7 +962,7 @@ impl PluginInterface {
     ) -> Result<PipelineData, ShellError> {
         match self.plugin_call(PluginCall::Run(call), Some(context))? {
             PluginCallResponse::PipelineData(data) => Ok(data),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin Run call".into(),
             }),
@@ -976,7 +976,7 @@ impl PluginInterface {
     ) -> Result<Option<Vec<DynamicSuggestion>>, ShellError> {
         match self.plugin_call(PluginCall::GetCompletion(info), None)? {
             PluginCallResponse::CompletionItems(items) => Ok(items),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to plugin GetCompletion call".into(),
             }),
@@ -998,7 +998,7 @@ impl PluginInterface {
         let call = PluginCall::CustomValueOp(value.map(|cv| cv.without_source()), op);
         match self.plugin_call(call, None)? {
             PluginCallResponse::PipelineData(out_data) => out_data.into_value(span),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response to custom value {op_name}() call"),
             }),
@@ -1061,7 +1061,7 @@ impl PluginInterface {
         );
         match self.plugin_call(call, None)? {
             PluginCallResponse::Ordering(ordering) => Ok(ordering),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to custom value partial_cmp() call".into(),
             }),
@@ -1097,7 +1097,7 @@ impl PluginInterface {
         );
         match self.plugin_call(call, None)? {
             PluginCallResponse::Ok => Ok(()),
-            PluginCallResponse::Error(err) => Err(err.into()),
+            PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response to custom value save() call".into(),
             }),

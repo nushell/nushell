@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
     PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, LabeledError, PipelineData,
+    Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
     PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
     engine::{Closure, Sequence},
 };
@@ -424,7 +424,7 @@ impl EngineInterface {
     /// Write an OK call response or an error.
     pub(crate) fn write_ok(
         &self,
-        result: Result<(), impl Into<LabeledError>>,
+        result: Result<(), impl Into<ShellError>>,
     ) -> Result<(), ShellError> {
         let response = match result {
             Ok(()) => PluginCallResponse::Ok,
@@ -438,7 +438,7 @@ impl EngineInterface {
     /// to finish writing the stream
     pub(crate) fn write_response(
         &self,
-        result: Result<PipelineData, impl Into<LabeledError>>,
+        result: Result<PipelineData, impl Into<ShellError>>,
     ) -> Result<PipelineDataWriter<Self>, ShellError> {
         match result {
             Ok(data) => {
