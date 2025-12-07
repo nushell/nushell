@@ -59,8 +59,7 @@ impl ViewCommand for NuCmd {
         let (columns, values) = collect_pipeline(pipeline)?;
 
         if let Some(value) = has_simple_value(&values) {
-            let text = value.to_abbreviated_string(&engine_state.config);
-            return Ok(NuView::Preview(Preview::new(&text)));
+            return Ok(NuView::Preview(Preview::new(value.clone())));
         }
 
         let mut view = RecordView::new(columns, values, config.explore_config.clone());

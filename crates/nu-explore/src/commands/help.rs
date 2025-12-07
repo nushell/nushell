@@ -3,7 +3,7 @@ use crate::views::{Preview, ViewConfig};
 use anyhow::Result;
 use nu_ansi_term::Color;
 use nu_protocol::{
-    Value,
+    Span, Value,
     engine::{EngineState, Stack},
 };
 
@@ -15,7 +15,7 @@ pub struct HelpCmd {}
 impl HelpCmd {
     pub const NAME: &'static str = "help";
     pub fn view() -> Preview {
-        Preview::new(&HELP_MESSAGE)
+        Preview::new(Value::string(&*HELP_MESSAGE, Span::unknown()))
     }
 }
 
@@ -36,7 +36,8 @@ Drill down into records+tables:  Press <Enter> to select a cell, move around wit
             Go back/up a level:  Press <Esc> or "q"
  Transpose (flip rows+columns):  Press "t"
  Expand (show all nested data):  Press "e"
-          Open this help page :  Type ":help" then <Enter>
+          Toggle text wrapping:  Press "w" (in Expand view)
+           Open this help page:  Type ":help" then <Enter>
       Open an interactive REPL:  Type ":try" then <Enter>
          Run a Nushell command:  Type ":nu <command>" then <Enter>. The data currently being explored is piped into it.
                      Scroll up:  Press "Page Up", Ctrl+B, or Alt+V
