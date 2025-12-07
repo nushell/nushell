@@ -2294,7 +2294,7 @@ fn variables_completions() {
         "env-path",
         "history-enabled",
         "history-path",
-        "home-path",
+        "home-dir",
         "is-interactive",
         "is-login",
         "is-lsp",
@@ -2303,7 +2303,7 @@ fn variables_completions() {
         "pid",
         "plugin-path",
         "startup-time",
-        "temp-path",
+        "temp-dir",
         "user-autoload-dirs",
         "vendor-autoload-dirs",
     ];
@@ -2316,7 +2316,7 @@ fn variables_completions() {
 
     assert_eq!(3, suggestions.len());
 
-    let expected: Vec<_> = vec!["history-enabled", "history-path", "home-path"];
+    let expected: Vec<_> = vec!["history-enabled", "history-path", "home-dir"];
 
     // Match results
     match_suggestions(&expected, &suggestions);
