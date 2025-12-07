@@ -129,10 +129,11 @@ impl Evaluator {
 
             // Convert the entire result to NUON format
             // If there's a single value, output it directly; otherwise wrap in a list
-            let value_to_convert = if values.len() == 1 {
-                values.pop().unwrap()
-            } else {
-                Value::list(values, span.unwrap_or(Span::unknown()))
+            let value_to_convert = match values.len() {
+                1 => values
+                    .pop()
+                    .expect("values has exactly one element; this cannot fail"),
+                _ => Value::list(values, span.unwrap_or(Span::unknown())),
             };
 
             nuon::to_nuon(
