@@ -215,13 +215,6 @@ impl<'a> StateWorkingSet<'a> {
             .map(|(name, decl_id)| self.last_overlay_mut().predecls.insert(name, decl_id));
     }
 
-    fn move_predecls_to_overlay(&mut self) {
-        let predecls: HashMap<Vec<u8>, DeclId> =
-            self.delta.last_scope_frame_mut().predecls.drain().collect();
-
-        self.last_overlay_mut().predecls.extend(predecls);
-    }
-
     pub fn hide_decl(&mut self, name: &[u8]) -> Option<DeclId> {
         let mut removed_overlays = vec![];
         let mut visibility: Visibility = Visibility::new();
@@ -949,8 +942,6 @@ impl<'a> StateWorkingSet<'a> {
             .active_overlays
             .retain(|id| id != &overlay_id);
         last_scope_frame.active_overlays.push(overlay_id);
-
-        self.move_predecls_to_overlay();
 
         self.use_decls(definitions.decls);
         self.use_modules(definitions.modules);

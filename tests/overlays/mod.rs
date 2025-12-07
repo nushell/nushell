@@ -148,6 +148,25 @@ fn def_before_overlay_use_should_work() {
 }
 
 #[test]
+fn define_module_before_overlay_inside_func_should_work() {
+    let inp = &[
+        r#"
+def main [] {
+  module spam { export def foo [] { "foo" } }
+  overlay use spam
+  def bar [] { "bar" }
+  overlay hide spam
+  bar # Returns bar
+};"#,
+        "main",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("Command `bar` not found"));
+}
+
+#[test]
 fn add_overlay_env() {
     let inp = &[
         r#"module spam { export-env { $env.FOO = "foo" } }"#,
