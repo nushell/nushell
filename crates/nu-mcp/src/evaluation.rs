@@ -94,16 +94,13 @@ impl Evaluator {
 
         // Eval the block with the input
         let mut stack = Stack::new().collect_value();
-        let output = eval_block::<WithoutDebug>(
-            &engine_state,
-            &mut stack,
-            &block,
-            PipelineData::empty(),
-        )
-        .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
+        let output =
+            eval_block::<WithoutDebug>(&engine_state, &mut stack, &block, PipelineData::empty())
+                .map_err(|e| shell_error_to_mcp_error(e, &engine_state))?;
 
         let result = self.process_pipeline(output, &engine_state)?;
-        self.cache.insert(nu_source.to_string(), Arc::new(result.clone()));
+        self.cache
+            .insert(nu_source.to_string(), Arc::new(result.clone()));
         Ok(result)
     }
 
