@@ -3,17 +3,14 @@ use std::sync::Arc;
 use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
-    handler::server::{
-        tool::ToolRouter,
-        wrapper::{Json, Parameters},
-    },
+    handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{ServerCapabilities, ServerInfo},
     tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::evaluation::{EvalResult, Evaluator};
+use crate::evaluation::Evaluator;
 
 pub struct NushellMcpServer {
     tool_router: ToolRouter<Self>,
@@ -34,19 +31,19 @@ impl NushellMcpServer {
         }
     }
 
-    #[tool(description = r#"List available Nushell native commands. 
+    #[tool(description = r#"List available Nushell native commands.
 By default all available commands will be returned. To find a specific command by searching command names, descriptions and search terms, use the find parameter."#)]
     async fn list_commands(
         &self,
-        Parameters(ListCommandsRequest { find, cursor }): Parameters<ListCommandsRequest>,
-    ) -> Result<Json<EvalResult>, McpError> {
+        Parameters(ListCommandsRequest { find }): Parameters<ListCommandsRequest>,
+    ) -> Result<String, McpError> {
         let cmd = if let Some(f) = find {
             format!("help commands --find {f}")
         } else {
             "help commands".to_string()
         };
 
-        self.evaluator.eval(&cmd, cursor).map(Json)
+        self.evaluator.eval(&cmd)
     }
 
     #[tool(
@@ -54,19 +51,19 @@ By default all available commands will be returned. To find a specific command b
     )]
     async fn command_help(
         &self,
-        Parameters(CommandNameRequest { name, cursor }): Parameters<CommandNameRequest>,
-    ) -> Result<Json<EvalResult>, McpError> {
+        Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
+    ) -> Result<String, McpError> {
         let cmd = format!("help {name}");
-        self.evaluator.eval(&cmd, cursor).map(Json)
+        self.evaluator.eval(&cmd)
     }
 
     #[doc = include_str!("evaluate_tool.md")]
     #[tool]
     async fn evaluate(
         &self,
-        Parameters(NuSourceRequest { input, cursor }): Parameters<NuSourceRequest>,
-    ) -> Result<Json<EvalResult>, McpError> {
-        self.evaluator.eval(&input, cursor).map(Json)
+        Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
+    ) -> Result<String, McpError> {
+        self.evaluator.eval(&input)
     }
 }
 
@@ -74,24 +71,18 @@ By default all available commands will be returned. To find a specific command b
 struct ListCommandsRequest {
     #[schemars(description = "string to find in command names, descriptions, and search term")]
     find: Option<String>,
-    #[schemars(description = "The cursor for the result of the page.")]
-    cursor: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct CommandNameRequest {
     #[schemars(description = "The name of the command")]
     name: String,
-    #[schemars(description = "The cursor for the result of the page.")]
-    cursor: Option<usize>,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
 struct NuSourceRequest {
     #[schemars(description = "The Nushell source code to evaluate")]
     input: String,
-    #[schemars(description = "The cursor for the result of the page.")]
-    cursor: Option<usize>,
 }
 
 #[tool_handler]

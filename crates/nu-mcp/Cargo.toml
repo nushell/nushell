@@ -24,6 +24,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.6"
 moka = { version = "0.12.10", features = ["sync"] }
+nuon = { path = "../nuon", version = "0.109.2" }
 
 [features]
 default = []
@@ -33,6 +34,4 @@ mcp = []
 workspace = true
 
 [dev-dependencies]
-lipsum = "0.9.1"
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }
-nuon = { path = "../nuon", version = "0.109.2" }
