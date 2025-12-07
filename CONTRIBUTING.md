@@ -214,7 +214,7 @@ Read cargo's documentation for more details: https://doc.rust-lang.org/cargo/ref
 - To redirect trace logs to a file, enable the `--log-target file` switch.
   ```nushell
   cargo run --release -- --log-level trace --log-target file
-  open $"($nu.temp-path)/nu-($nu.pid).log"
+  open $"($nu.temp-dir)/nu-($nu.pid).log"
   ```
 
 ### Experimental options

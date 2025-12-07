@@ -136,15 +136,15 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     }
 
     record.push(
-        "home-path",
+        "home-dir",
         if let Some(path) = nu_path::home_dir() {
             let canon_home_path = canonicalize_path(engine_state, path.as_ref());
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
             Value::error(
                 ShellError::GenericError {
-                    error: "setting $nu.home-path failed".into(),
-                    msg: "Could not get home path".into(),
+                    error: "setting $nu.home-dir failed".into(),
+                    msg: "Could not get home directory".into(),
                     span: Some(span),
                     help: None,
                     inner: vec![],
@@ -216,7 +216,7 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         ),
     );
 
-    record.push("temp-path", {
+    record.push("temp-dir", {
         let canon_temp_path = canonicalize_path(engine_state, &std::env::temp_dir());
         Value::string(canon_temp_path.to_string_lossy(), span)
     });

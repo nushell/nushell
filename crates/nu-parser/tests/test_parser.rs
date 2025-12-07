@@ -1716,7 +1716,7 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let block = parse(&mut working_set, None, b"^echo ($nu.home-path)/path", true);
+            let block = parse(&mut working_set, None, b"^echo ($nu.home-dir)/path", true);
 
             assert!(working_set.parse_errors.is_empty());
 
