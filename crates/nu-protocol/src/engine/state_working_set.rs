@@ -194,7 +194,7 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     pub fn merge_predecl(&mut self, name: &[u8]) -> Option<DeclId> {
-        self.move_predecls_to_overlay();
+        self.move_one_predecl_to_overlay(name);
 
         let overlay_frame = self.last_overlay_mut();
 
@@ -205,6 +205,14 @@ impl<'a> StateWorkingSet<'a> {
         }
 
         None
+    }
+
+    fn move_one_predecl_to_overlay(&mut self, name: &[u8]) {
+        self.delta
+            .last_scope_frame_mut()
+            .predecls
+            .remove_entry(name)
+            .map(|(name, decl_id)| self.last_overlay_mut().predecls.insert(name, decl_id));
     }
 
     fn move_predecls_to_overlay(&mut self) {
