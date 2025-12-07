@@ -65,9 +65,9 @@ polars open file.parquet | polars select name status | polars save file2
 other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`.
 Use command_help tool to learn more about the `glob` command.
 
-**Important**: Each shell command runs in its own process. Things like directory changes or
-sourcing files do not persist between tool calls. So you may need to repeat them each time by
-stringing together commands, e.g. `cd example; ls` or `source env/bin/activate && pip install numpy`
-- Multiple commands: Use ; to chain commands, avoid newlines
-- Pathnames: Use absolute paths and avoid cd unless explicitly requested
-- Setting environment variables or other variables will not persist between calls
+**Important**: Variables and environment changes persist across tool calls (REPL-style).
+You can set a variable in one call and access it in subsequent calls:
+- `let x = 42` in one call, then `$x` in the next call returns 42
+- `$env.MY_VAR = "hello"` persists for later calls
+
+However, external processes run in their own environment. Use absolute paths when possible.
