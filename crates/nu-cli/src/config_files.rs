@@ -230,7 +230,7 @@ pub fn eval_config_contents(
 
             // Merge the environment in case env vars changed in the config
             if let Err(e) = engine_state.merge_env(stack) {
-                report_shell_error(Some(&stack), engine_state, &e);
+                report_shell_error(Some(stack), engine_state, &e);
             }
         }
     }

@@ -869,7 +869,7 @@ fn do_auto_cd(
     let path = {
         if !path.exists() {
             report_shell_error(
-                Some(&stack),
+                Some(stack),
                 engine_state,
                 &ShellError::Io(IoError::new_with_additional_context(
                     shell_error::io::ErrorKind::DirectoryNotFound,
@@ -884,7 +884,7 @@ fn do_auto_cd(
 
     if let PermissionResult::PermissionDenied = have_permission(path.clone()) {
         report_shell_error(
-            Some(&stack),
+            Some(stack),
             engine_state,
             &ShellError::Io(IoError::new_with_additional_context(
                 shell_error::io::ErrorKind::from_std(std::io::ErrorKind::PermissionDenied),
@@ -901,7 +901,7 @@ fn do_auto_cd(
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
     if let Err(err) = stack.set_cwd(&path) {
-        report_shell_error(Some(&stack), engine_state, &err);
+        report_shell_error(Some(stack), engine_state, &err);
         return;
     };
     let cwd = Value::string(cwd, span);

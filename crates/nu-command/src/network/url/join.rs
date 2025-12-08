@@ -291,7 +291,7 @@ impl UrlComponents {
             }),
             _ => {
                 nu_protocol::report_shell_error(
-                    Some(&stack),
+                    Some(stack),
                     engine_state,
                     &ShellError::GenericError {
                         error: format!("'{key}' is not a valid URL field"),

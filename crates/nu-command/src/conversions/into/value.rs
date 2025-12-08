@@ -89,7 +89,7 @@ impl Command for IntoValue {
 
         if let Some(block_id) = DEPRECATED_REDIRECT_BLOCK_ID.get() {
             report_shell_warning(
-            Some(&stack),
+            Some(stack),
             engine_state,
             &ShellWarning::Deprecated {
                 dep_type: "Moved Command".into(),

@@ -124,7 +124,7 @@ pub fn eval_hook(
                     output = pipeline_data;
                 }
                 Err(err) => {
-                    report_shell_error(Some(&stack), engine_state, &err);
+                    report_shell_error(Some(stack), engine_state, &err);
                 }
             }
 
@@ -215,7 +215,7 @@ pub fn eval_hook(
                                 false,
                             );
                             if let Some(err) = working_set.parse_errors.first() {
-                                report_parse_error(Some(&stack), &working_set, err);
+                                report_parse_error(Some(stack), &working_set, err);
                                 return Err(ShellError::GenericError {
                                     error: format!("Failed to run {hook_name} hook"),
                                     msg: "source code has errors".into(),
@@ -246,7 +246,7 @@ pub fn eval_hook(
                                 output = pipeline_data;
                             }
                             Err(err) => {
-                                report_shell_error(Some(&stack), engine_state, &err);
+                                report_shell_error(Some(stack), engine_state, &err);
                             }
                         }
 

@@ -63,16 +63,16 @@ pub fn evaluate_commands(
 
         let output = parse(&mut working_set, None, commands.item.as_bytes(), false);
         if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(Some(&stack), &working_set, warning);
+            report_parse_warning(Some(stack), &working_set, warning);
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(Some(&stack), &working_set, err);
+            report_parse_error(Some(stack), &working_set, err);
             std::process::exit(1);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_compile_error(Some(&stack), &working_set, err);
+            report_compile_error(Some(stack), &working_set, err);
             std::process::exit(1);
         }
 
