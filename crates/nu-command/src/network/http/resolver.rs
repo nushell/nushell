@@ -1,4 +1,7 @@
-use std::{borrow::Cow, error, fmt, io};
+use std::{
+    error, fmt, io,
+    net::{SocketAddr, SocketAddrV4, SocketAddrV6},
+};
 
 use http::Uri;
 use ureq::{
@@ -18,12 +21,16 @@ impl Resolver for DnsLookupResolver {
         _timeout: NextTimeout,
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
-        let service = uri
-            .port()
-            .map(|port| Cow::Owned(port.to_string()))
-            .or_else(|| uri.scheme_str().map(Cow::Borrowed));
-        let service = service.as_ref().map(|s| s.as_ref());
-        let addr_info_iter = dns_lookup::getaddrinfo(host, service, None)
+        // Determine the port: use explicit port if provided, otherwise derive from scheme
+        let port = uri.port_u16().unwrap_or_else(|| match uri.scheme_str() {
+            Some("https") => 443,
+            _ => 80, // http commands only support HTTP/HTTPS, default to port 80
+        });
+
+        // Pass None as service to avoid "Service not supported for this socket type" errors
+        // in certain environments (e.g., Docker containers on some Linux distributions).
+        // We'll set the port manually on each resolved address.
+        let addr_info_iter = dns_lookup::getaddrinfo(host, None, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
         let ip_family = config.ip_family();
@@ -39,7 +46,9 @@ impl Resolver for DnsLookupResolver {
                 ureq::config::IpFamily::Ipv6Only => sockaddr.is_ipv6(),
             };
             if is_wanted {
-                resolved.push(sockaddr);
+                // Set the correct port on the resolved address
+                let sockaddr_with_port = set_port(sockaddr, port);
+                resolved.push(sockaddr_with_port);
                 // ArrayVec has a fixed capacity, stop when full
                 if resolved.len() >= capacity {
                     break;
@@ -48,6 +57,19 @@ impl Resolver for DnsLookupResolver {
         }
 
         Ok(resolved)
+    }
+}
+
+/// Set the port on a SocketAddr
+fn set_port(addr: SocketAddr, port: u16) -> SocketAddr {
+    match addr {
+        SocketAddr::V4(v4) => SocketAddr::V4(SocketAddrV4::new(*v4.ip(), port)),
+        SocketAddr::V6(v6) => SocketAddr::V6(SocketAddrV6::new(
+            *v6.ip(),
+            port,
+            v6.flowinfo(),
+            v6.scope_id(),
+        )),
     }
 }
 

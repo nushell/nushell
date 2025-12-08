@@ -274,7 +274,11 @@ fn prepare_error_handler(
                 PipelineExecutionData::from(
                     error
                         .item
-                        .into_value(&StateWorkingSet::new(ctx.engine_state), error.span)
+                        .into_value(
+                            &StateWorkingSet::new(ctx.engine_state),
+                            ctx.stack,
+                            error.span,
+                        )
                         .into_pipeline_data(),
                 ),
             );
@@ -619,7 +623,7 @@ fn eval_instruction<D: DebugContext>(
                 // Small optimization, so we don't have to copy the string *again*
                 val
             } else {
-                operand_value.to_expanded_string(", ", ctx.engine_state.get_config())
+                operand_value.to_expanded_string(", ", &ctx.stack.get_config(ctx.engine_state))
             };
             string.push_str(&operand);
 
