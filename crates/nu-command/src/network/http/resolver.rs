@@ -22,14 +22,10 @@ impl Resolver for DnsLookupResolver {
     ) -> Result<ResolvedSocketAddrs, ureq::Error> {
         let host = uri.host();
         // Determine the port: use explicit port if provided, otherwise derive from scheme
-        let port = uri
-            .port_u16()
-            .or_else(|| match uri.scheme_str() {
-                Some("https") => Some(443),
-                Some("http") => Some(80),
-                _ => None,
-            })
-            .unwrap_or(80);
+        let port = uri.port_u16().unwrap_or_else(|| match uri.scheme_str() {
+            Some("https") => 443,
+            _ => 80, // http commands only support HTTP/HTTPS, default to port 80
+        });
 
         // Pass None as service to avoid "Service not supported for this socket type" errors
         // in certain environments (e.g., Docker containers on some Linux distributions).
