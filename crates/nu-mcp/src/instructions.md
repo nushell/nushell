@@ -10,24 +10,22 @@ Every evaluation returns a structured record with:
 
 ## History Variable
 
-The `$history` variable stores all previous command outputs as a list. Access previous results by index:
+The `$history` variable is a `list<any>` storing all previous command outputs. Access previous results by index:
 - `$history.0` - first command output
 - `$history.1` - second command output
 - `$history | last` - most recent output
-- `$history | first` - first output
 
-Large outputs (over 10,000 characters by default) are truncated in the response but stored in full in `$history`.
-The limit can be configured via `$env.NU_MCP_OUTPUT_LIMIT`.
+When the NUON-serialized output exceeds 10,000 bytes, the response is truncated but the full result is stored in `$history`.
+The limit can be configured via `$env.NU_MCP_OUTPUT_LIMIT` (integer, bytes).
 
 Example workflow:
 ```nu
-# First command returns large data
+# First command returns large table
 ls **/*
-
 # Response: {history_index: 0, cwd: "/path", output: "(output truncated, full result saved to $history.0)"}
 
-# Access the full result
-$history.0 | where size > 1mb
+# Access and filter the full result
+$history.0 | where name =~ ".rs"
 ```
 
 ## Structured Output
