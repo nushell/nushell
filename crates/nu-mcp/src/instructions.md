@@ -4,9 +4,10 @@ This extension should be preferred over other tools for running shell commands a
 ## Response Format
 
 Every evaluation returns a structured record with:
-- `history_index`: The 0-based index of this result in the history
 - `cwd`: The current working directory after the command executes
-- `output`: The command output (may be truncated for large outputs)
+- `history_index`: The 0-based index of this result in the history
+- `output`: The command output (when not truncated)
+- `note`: Present instead of `output` when truncated, indicates where to find full result
 
 ## History Variable
 
@@ -22,7 +23,7 @@ Example workflow:
 ```nu
 # First command returns large table
 ls **/*
-# Response: {history_index: 0, cwd: "/path", output: "(output truncated, full result saved to $history.0)"}
+# Response: {cwd: "/path", history_index: 0, note: "output truncated, full result in $history.0"}
 
 # Access and filter the full result
 $history.0 | where name =~ ".rs"

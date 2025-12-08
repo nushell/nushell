@@ -117,25 +117,30 @@ impl Evaluator {
         let history_index = history.len();
         history.push(output_value);
 
-        let should_truncate = output_limit(engine_state, stack)
+        let truncated = output_limit(engine_state, stack)
             .is_some_and(|limit| output_nuon.len() > limit);
-        let final_output = if should_truncate {
-            format!(
-                "(output truncated, full result saved to $history.{})",
-                history_index
-            )
-        } else {
-            output_nuon
+
+        let mut record = nu_protocol::record! {
+            "cwd" => nu_protocol::Value::string(cwd, nu_protocol::Span::unknown()),
+            "history_index" => nu_protocol::Value::int(history_index as i64, nu_protocol::Span::unknown()),
         };
 
-        let response = nu_protocol::Value::record(
-            nu_protocol::record! {
-                "history_index" => nu_protocol::Value::int(history_index as i64, nu_protocol::Span::unknown()),
-                "cwd" => nu_protocol::Value::string(cwd, nu_protocol::Span::unknown()),
-                "output" => nu_protocol::Value::string(final_output, nu_protocol::Span::unknown()),
-            },
-            nu_protocol::Span::unknown(),
-        );
+        if truncated {
+            record.push(
+                "note",
+                nu_protocol::Value::string(
+                    format!("output truncated, full result in $history.{}", history_index),
+                    nu_protocol::Span::unknown(),
+                ),
+            );
+        } else {
+            record.push(
+                "output",
+                nu_protocol::Value::string(output_nuon, nu_protocol::Span::unknown()),
+            );
+        }
+
+        let response = nu_protocol::Value::record(record, nu_protocol::Span::unknown());
 
         nuon::to_nuon(
             engine_state,
@@ -325,9 +330,14 @@ mod tests {
         let result =
             evaluator.eval("\"this is a very long string that exceeds the output limit\"")?;
 
+        // Should have 'note' field instead of 'output' when truncated
         assert!(
-            result.contains("output truncated") && result.contains("$history"),
-            "Large output should be truncated when $env.NU_MCP_OUTPUT_LIMIT is set, got: {result}"
+            result.contains("note") && result.contains("truncated") && result.contains("$history"),
+            "Large output should have note about truncation, got: {result}"
+        );
+        assert!(
+            !result.contains("output:"),
+            "Truncated response should not have output field, got: {result}"
         );
 
         Ok(())
