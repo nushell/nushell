@@ -15,8 +15,8 @@ The `$history` variable is a `list<any>` storing all previous command outputs. A
 - `$history.1` - second command output
 - `$history | last` - most recent output
 
-When the NUON-serialized output exceeds 10,000 bytes, the response is truncated but the full result is stored in `$history`.
-The limit can be configured via `$env.NU_MCP_OUTPUT_LIMIT_BYTES`.
+Large outputs are stored in `$history` but may be truncated in the response.
+To enable truncation, set `$env.NU_MCP_OUTPUT_LIMIT` to a filesize (e.g., `$env.NU_MCP_OUTPUT_LIMIT = 10kb`).
 
 Example workflow:
 ```nu
