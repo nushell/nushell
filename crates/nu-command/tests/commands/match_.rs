@@ -231,6 +231,13 @@ fn match_with_guard_no_expr_after_if() {
 }
 
 #[test]
+fn match_with_guard_multiarm() {
+    let actual = nu!("match 3 {1 | 2 | 3 if true => 'test'}");
+
+    assert_eq!(actual.out, "test");
+}
+
+#[test]
 fn match_with_or_missing_expr() {
     let actual = nu!("match $in { 1 | }");
 

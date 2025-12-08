@@ -1,18 +1,121 @@
-use crate::completions::{
-    Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion,
-    completer::map_value_completions,
-};
+use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion};
+use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
 use nu_protocol::{
-    BlockId, DeclId, IntoSpanned, PipelineData, ShellError, Span, Spanned, Type, Value, VarId,
+    BlockId, DeclId, GetSpan, IntoSpanned, PipelineData, Record, ShellError, Span, Spanned,
+    SuggestionKind, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
+use nu_utils::SharedCow;
+use reedline::Suggestion;
 use std::{collections::HashMap, sync::Arc};
 
 use super::completion_options::NuMatcher;
+
+fn map_value_completions<'a>(
+    list: impl Iterator<Item = &'a Value>,
+    span: Span,
+    input_start: usize,
+    offset: usize,
+) -> Vec<SemanticSuggestion> {
+    list.filter_map(move |x| {
+        // Match for string values
+        if let Ok(s) = x.coerce_string() {
+            return Some(SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: s,
+                    span: reedline::Span {
+                        start: span.start - offset,
+                        end: span.end - offset,
+                    },
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::Value(x.get_type())),
+            });
+        }
+
+        // Match for record values
+        if let Ok(record) = x.as_record() {
+            let mut suggestion = Suggestion {
+                value: String::from(""),
+                span: reedline::Span {
+                    start: span.start - offset,
+                    end: span.end - offset,
+                },
+                ..Suggestion::default()
+            };
+            let mut value_type = Type::String;
+
+            // Iterate the cols looking for `value` and `description`
+            record.iter().for_each(|(key, value)| {
+                match key.as_str() {
+                    "value" => {
+                        value_type = value.get_type();
+                        if let Ok(val_str) = value.coerce_string() {
+                            suggestion.value = val_str;
+                        }
+                    }
+                    "description" => {
+                        if let Ok(desc_str) = value.coerce_string() {
+                            suggestion.description = Some(desc_str);
+                        }
+                    }
+                    "style" => {
+                        suggestion.style = match value {
+                            Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
+                            Value::Record { .. } => Some(color_record_to_nustyle(value)),
+                            _ => None,
+                        };
+                    }
+                    "span" => {
+                        if let Value::Record { val: span_rec, .. } = value {
+                            // TODO: error on invalid spans?
+                            if let Some(end) = read_span_field(span_rec, "end") {
+                                suggestion.span.end = suggestion.span.end.min(end + input_start);
+                            }
+                            if let Some(start) = read_span_field(span_rec, "start") {
+                                suggestion.span.start = start + input_start;
+                            }
+                            if suggestion.span.start > suggestion.span.end {
+                                suggestion.span.start = suggestion.span.end;
+                                log::error!(
+                                    "Custom span start ({}) is greater than end ({})",
+                                    suggestion.span.start,
+                                    suggestion.span.end
+                                );
+                            }
+                        }
+                    }
+                    _ => (),
+                }
+            });
+
+            return Some(SemanticSuggestion {
+                suggestion,
+                kind: Some(SuggestionKind::Value(value_type)),
+            });
+        }
+
+        None
+    })
+    .collect()
+}
+
+fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
+    let Ok(val) = span.get(field)?.as_int() else {
+        log::error!("Expected span field {field} to be int");
+        return None;
+    };
+    let Ok(val) = usize::try_from(val) else {
+        log::error!("Couldn't convert span {field} to usize");
+        return None;
+    };
+
+    Some(val)
+}
 
 pub struct CustomCompletion<T: Completer> {
     decl_id: DeclId,
@@ -86,9 +189,14 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     let completions = val
                         .get("completions")
                         .and_then(|val| {
-                            val.as_list()
-                                .ok()
-                                .map(|it| map_value_completions(it.iter(), span, offset))
+                            val.as_list().ok().map(|it| {
+                                map_value_completions(
+                                    it.iter(),
+                                    span,
+                                    self.line_pos - self.line.len(),
+                                    offset,
+                                )
+                            })
                         })
                         .unwrap_or_default();
                     let options = val.get("options");
@@ -127,7 +235,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
 
                     completions
                 }
-                Value::List { vals, .. } => map_value_completions(vals.iter(), span, offset),
+                Value::List { vals, .. } => map_value_completions(
+                    vals.iter(),
+                    span,
+                    self.line_pos - self.line.len(),
+                    offset,
+                ),
                 Value::Nothing { .. } => {
                     return self.fallback.fetch(
                         working_set,
@@ -277,7 +390,10 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         )
         .map(|p| p.body);
 
-        if let Some(results) = convert_whole_command_completion_results(offset, new_span, result) {
+        let command_span = working_set.get_span(self.expression.span_id);
+        if let Some(results) =
+            convert_whole_command_completion_results(offset, new_span, result, command_span)
+        {
             results
         } else {
             self.need_fallback = true;
@@ -292,6 +408,7 @@ fn convert_whole_command_completion_results(
     offset: usize,
     span: Span,
     result: Result<PipelineData, nu_protocol::ShellError>,
+    command_span: Span,
 ) -> Option<Vec<SemanticSuggestion>> {
     let value = match result.and_then(|pipeline_data| pipeline_data.into_value(span)) {
         Ok(value) => value,
@@ -313,7 +430,8 @@ fn convert_whole_command_completion_results(
     match value {
         Value::List { vals, .. } => Some(map_value_completions(
             vals.iter(),
-            Span::new(span.start, span.end),
+            span,
+            command_span.start - offset,
             offset,
         )),
         Value::Nothing { .. } => None,

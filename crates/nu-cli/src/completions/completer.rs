@@ -3,10 +3,9 @@ use crate::completions::{
     CommandCompletion, Completer, CompletionOptions, CustomCompletion, FileCompletion,
     FlagCompletion, OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
 };
-use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_parser::parse;
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Signature, Span, SuggestionKind, Type, Value,
+    CommandWideCompleter, Completion, GetSpan, Signature, Span,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
         Traverse,
@@ -424,18 +423,12 @@ impl NuCompleter {
                             //   - "--foo ..a" => ["--foo", "..a"] => "..a"
                             //   - "--foo=..a" => ["--foo", "..a"] => "..a"
                             // - strip placeholder (`a`) if present
-                            let prefix = prefix
-                                .rsplit(|b| *b == b'=' || *b == b' ')
-                                .next()
-                                .unwrap_or(prefix);
-                            let new_start = new_span.end.saturating_sub(prefix.len());
-
-                            let ctx = Context::new(
-                                working_set,
-                                Span::new(new_start, new_span.end),
-                                prefix,
-                                offset,
-                            );
+                            let mut new_span = val.span;
+                            if strip {
+                                new_span.end = new_span.end.saturating_sub(1);
+                            }
+                            let prefix = working_set.get_span_contents(new_span);
+                            let ctx = Context::new(working_set, new_span, prefix, offset);
 
                             // If we're completing the value of the flag,
                             // search for the matching custom completion decl_id (long or short)
@@ -452,7 +445,7 @@ impl NuCompleter {
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
-                                        pos,
+                                        if strip { pos } else { pos + 1 },
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`
@@ -461,9 +454,7 @@ impl NuCompleter {
 
                             // Try command-wide completion if specified by attributes
                             // NOTE: `CommandWideCompletion` handles placeholder stripping internally
-                            let command_wide_span = Span::new(new_start, span.end);
-                            let command_wide_ctx =
-                                Context::new(working_set, command_wide_span, b"", offset);
+                            let command_wide_ctx = Context::new(working_set, val.span, b"", offset);
                             let (need_fallback, command_wide_res) = self
                                 .command_wide_completion_helper(
                                     &signature,
@@ -540,7 +531,7 @@ impl NuCompleter {
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
-                                        pos,
+                                        if strip { pos } else { pos + 1 },
                                     ),
                                 );
                                 // Fallback completion is already handled in `CustomCompletion`
@@ -772,98 +763,6 @@ impl ReedlineCompleter for NuCompleter {
             .map(|s| s.suggestion)
             .collect()
     }
-}
-
-pub fn map_value_completions<'a>(
-    list: impl Iterator<Item = &'a Value>,
-    span: Span,
-    offset: usize,
-) -> Vec<SemanticSuggestion> {
-    list.filter_map(move |x| {
-        // Match for string values
-        if let Ok(s) = x.coerce_string() {
-            return Some(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: s,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
-                    },
-                    ..Suggestion::default()
-                },
-                kind: Some(SuggestionKind::Value(x.get_type())),
-            });
-        }
-
-        // Match for record values
-        if let Ok(record) = x.as_record() {
-            let mut suggestion = Suggestion {
-                value: String::from(""), // Initialize with empty string
-                span: reedline::Span {
-                    start: span.start - offset,
-                    end: span.end - offset,
-                },
-                ..Suggestion::default()
-            };
-            let mut value_type = Type::String;
-
-            // Iterate the cols looking for `value` and `description`
-            record.iter().for_each(|(key, value)| {
-                match key.as_str() {
-                    "value" => {
-                        value_type = value.get_type();
-                        // Convert the value to string
-                        if let Ok(val_str) = value.coerce_string() {
-                            // Update the suggestion value
-                            suggestion.value = val_str;
-                        }
-                    }
-                    "description" => {
-                        // Convert the value to string
-                        if let Ok(desc_str) = value.coerce_string() {
-                            // Update the suggestion value
-                            suggestion.description = Some(desc_str);
-                        }
-                    }
-                    "style" => {
-                        // Convert the value to string
-                        suggestion.style = match value {
-                            Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-                            Value::Record { .. } => Some(color_record_to_nustyle(value)),
-                            _ => None,
-                        };
-                    }
-                    "span" => {
-                        if let Value::Record { val: span, .. } = value {
-                            let start = span
-                                .get("start")
-                                .and_then(|val| val.as_int().ok())
-                                .and_then(|x| usize::try_from(x).ok());
-                            let end = span
-                                .get("end")
-                                .and_then(|val| val.as_int().ok())
-                                .and_then(|x| usize::try_from(x).ok());
-                            if let (Some(start), Some(end)) = (start, end) {
-                                suggestion.span = reedline::Span {
-                                    start: start.min(end),
-                                    end,
-                                };
-                            }
-                        }
-                    }
-                    _ => (),
-                }
-            });
-
-            return Some(SemanticSuggestion {
-                suggestion,
-                kind: Some(SuggestionKind::Value(value_type)),
-            });
-        }
-
-        None
-    })
-    .collect()
 }
 
 #[cfg(test)]

@@ -47,6 +47,7 @@ pub(crate) fn run_commands(
                 parsed_nu_cli_args.env_file,
                 nu_utils::ConfigFileKind::Env,
                 create_scaffold,
+                true,
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -65,6 +66,7 @@ pub(crate) fn run_commands(
                 parsed_nu_cli_args.config_file,
                 nu_utils::ConfigFileKind::Config,
                 create_scaffold,
+                true,
             );
         }
 
@@ -73,7 +75,7 @@ pub(crate) fn run_commands(
         // If we have a login shell parameter, read the login file
         let start_time = std::time::Instant::now();
         if parsed_nu_cli_args.login_shell.is_some() {
-            config_files::read_loginshell_file(engine_state, &mut stack);
+            config_files::read_loginshell_file(engine_state, &mut stack, false);
         }
 
         perf!("read login.nu", start_time, use_color);
@@ -137,6 +139,7 @@ pub(crate) fn run_file(
                 parsed_nu_cli_args.env_file,
                 nu_utils::ConfigFileKind::Env,
                 create_scaffold,
+                true,
             );
         } else {
             config_files::read_default_env_file(engine_state, &mut stack)
@@ -151,6 +154,7 @@ pub(crate) fn run_file(
                 parsed_nu_cli_args.config_file,
                 nu_utils::ConfigFileKind::Config,
                 create_scaffold,
+                true,
             );
         }
         perf!("read config.nu", start_time, use_color);

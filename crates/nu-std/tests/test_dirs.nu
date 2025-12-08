@@ -9,7 +9,7 @@ use std/log
 @before-each
 def before-each [] {
     # need some directories to play with
-    let base_path = ($nu.temp-path | path join $"test_dirs_(random uuid)")
+    let base_path = ($nu.temp-dir | path join $"test_dirs_(random uuid)")
     let path_a = ($base_path | path join "a")
     let path_b = ($base_path | path join "b")
 

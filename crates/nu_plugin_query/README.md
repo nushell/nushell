@@ -11,3 +11,4 @@ To install:
 To add the plugin (from inside Nushell):
 ```
 > plugin add <path to installed plugin>
+```

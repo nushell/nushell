@@ -132,3 +132,93 @@ fn list_stream_replacement_closure() {
     let actual = nu!("[[a]; [text]] | every 1 | update a { str upcase } | to nuon");
     assert_eq!(actual.out, "[[a]; [TEXT]]");
 }
+
+#[test]
+fn update_optional_column_present() {
+    let actual = nu!("{a: 1} | update a? 2 | to nuon");
+    assert_eq!(actual.out, "{a: 2}");
+}
+
+#[test]
+fn update_optional_column_absent() {
+    let actual = nu!("{a: 1} | update b? 2 | to nuon");
+    assert_eq!(actual.out, "{a: 1}");
+}
+
+#[test]
+fn update_optional_column_in_table_present() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4]] | update a? 10 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [10, 2], [10, 4]]");
+}
+
+#[test]
+fn update_optional_column_in_table_absent() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4]] | update c? 10 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
+fn update_optional_column_in_table_mixed() {
+    let actual = nu!("[{a: 1, b: 2}, {b: 3}, {a: 4, b: 5}] | update a? 10 | to nuon");
+    assert_eq!(actual.out, "[{a: 10, b: 2}, {b: 3}, {a: 10, b: 5}]");
+}
+
+#[test]
+fn update_optional_index_present() {
+    let actual = nu!("[1, 2, 3] | update 1? 10 | to nuon");
+    assert_eq!(actual.out, "[1, 10, 3]");
+}
+
+#[test]
+fn update_optional_index_absent() {
+    let actual = nu!("[1, 2, 3] | update 5? 10 | to nuon");
+    assert_eq!(actual.out, "[1, 2, 3]");
+}
+
+#[test]
+fn update_optional_column_with_closure_present() {
+    let actual = nu!("{a: 5} | update a? {|x| $x.a * 2 } | to nuon");
+    assert_eq!(actual.out, "{a: 10}");
+}
+
+#[test]
+fn update_optional_column_with_closure_absent() {
+    let actual = nu!("{a: 5} | update b? {|x| 10 } | to nuon");
+    assert_eq!(actual.out, "{a: 5}");
+}
+
+#[test]
+fn update_optional_column_in_table_with_closure() {
+    let actual = nu!("[[a]; [1], [2]] | update a? { $in * 2 } | to nuon");
+    assert_eq!(actual.out, "[[a]; [2], [4]]");
+}
+
+#[test]
+fn update_optional_column_in_table_with_closure_mixed() {
+    let actual = nu!("[{a: 1, b: 2}, {b: 3}, {a: 4, b: 5}] | update a? { $in * 10 } | to nuon");
+    assert_eq!(actual.out, "[{a: 10, b: 2}, {b: 3}, {a: 40, b: 5}]");
+}
+
+#[test]
+fn update_optional_index_with_closure_present() {
+    let actual = nu!("[1, 2, 3] | update 1? { $in * 10 } | to nuon");
+    assert_eq!(actual.out, "[1, 20, 3]");
+}
+
+#[test]
+fn update_optional_index_with_closure_absent() {
+    let actual = nu!("[1, 2, 3] | update 5? { $in * 10 } | to nuon");
+    assert_eq!(actual.out, "[1, 2, 3]");
+}
+
+#[test]
+fn update_optional_in_list_stream() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4]] | every 1 | update c? 10 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
+fn update_optional_in_list_stream_with_closure() {
+    let actual = nu!("[{a: 1}, {b: 2}, {a: 3}] | every 1 | update a? { $in * 10 } | to nuon");
+    assert_eq!(actual.out, "[{a: 10}, {b: 2}, {a: 30}]");
+}

@@ -182,6 +182,25 @@ fn collection_supertype_inference(
 }
 
 #[test]
+fn pipeline_oneof() -> TestResult {
+    // Empty is compatible with oneof<nothing, ..>
+    run_test(
+        "def f []: [oneof<int, nothing> -> nothing] { describe }; f",
+        "nothing",
+    )?;
+    // ByteStream is compatible with oneof<binary, ..>
+    run_test(
+        "def f []: [oneof<int, binary> -> nothing] { describe }; [0x[01]] | bytes collect | f",
+        "binary (stream)",
+    )?;
+    // ListStream is compatible with oneof<list, ..>>
+    run_test(
+        "def f []: [oneof<string, list<int>> -> nothing] { describe }; [1] | each {} | f",
+        "list<int> (stream)",
+    )
+}
+
+#[test]
 fn transpose_into_load_env() -> TestResult {
     run_test(
         "[[col1, col2]; [a, 10], [b, 20]] | transpose --ignore-titles -r -d | load-env; $env.a",
@@ -275,5 +294,13 @@ fn pipeline_multiple_types_propagate_error() -> TestResult {
             2 | foo | bar | values"
         ),
         "parser::input_type_mismatch",
+    )
+}
+
+#[test]
+fn array_of_wrong_types() -> TestResult {
+    fail_test(
+        "0..128 | each {} | into string | bytes collect",
+        "command doesn't support list<string>, record, string, or table input",
     )
 }

@@ -706,6 +706,24 @@ fn sub_external_expression_with_and_op_should_raise_proper_error() {
     )
 }
 
+#[test]
+fn bad_config_file_restrict_cmd_running_with_commands() {
+    Playground::setup("bad config file", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "errorcmd")]);
+        let actual = nu!(
+            env_config: "tmp_env.nu",
+            cwd: dirs.test(),
+            r#"print bbb"#);
+        assert!(actual.err.contains("Command `errorcmd` not found"));
+        assert!(!actual.out.contains("bbb"));
+        assert!(!actual.status.success());
+    });
+    let actual = nu!(env_config: "not_exists.nu", "print bbb");
+    assert!(actual.err.contains("File not found: not_exists.nu"));
+    assert!(!actual.out.contains("bbb"));
+    assert!(!actual.status.success());
+}
+
 // FIXME: ignore these cases for now, the value inside a pipeline
 // makes all previous exit status untracked.
 // #[case("nu --testbin fail 10 | nu --testbin fail 20 | 10", 10)]

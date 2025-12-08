@@ -159,6 +159,7 @@ impl PipelineData {
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         match (self, other) {
             (_, Type::Any) => true,
+            (data, Type::OneOf(oneof)) => oneof.iter().any(|t| data.is_subtype_of(t)),
             (PipelineData::Empty, Type::Nothing) => true,
             (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
 

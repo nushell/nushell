@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.108.1"
+version = "0.109.2"
 edition = "2024"
 authors = ["The Nushell Project Developers"]
 description = "Modules to run a model context protocol (MCP) server that provides Nushell as a tool."
@@ -10,12 +10,12 @@ license = "MIT"
 
 [dependencies]
 futures = "0.3.31"
-nu-protocol = { path = "../nu-protocol", version = "0.108.1", features = ["plugin"] }
-nu-engine = { path = "../nu-engine", version = "0.108.1" }
-nu-parser = { path = "../nu-parser", version = "0.108.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.109.2", features = ["plugin"] }
+nu-engine = { path = "../nu-engine", version = "0.109.2" }
+nu-parser = { path = "../nu-parser", version = "0.109.2" }
 
 rmcp = { version = "0.8", features = ["server", "transport-io", "schemars"] }
-schemars = "1.0.4"
+schemars = "1.1.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { version = "1.46.1", features = ["full"] }
@@ -23,7 +23,7 @@ tracing = { version = "0.1.41", features = ["log"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.6"
-moka = { version = "0.12.10", features = ["sync"] }
+nuon = { path = "../nuon", version = "0.109.2" }
 
 [features]
 default = []
@@ -33,6 +33,4 @@ mcp = []
 workspace = true
 
 [dev-dependencies]
-lipsum = "0.9.1"
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.108.1" }
-nuon = { path = "../nuon", version = "0.108.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }

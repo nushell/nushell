@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.108.1"
+# version = "0.109.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -271,10 +271,11 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): One of "fancy" or "plain"
+# error_style (string): One of "fancy", "plain" or "short"
 # Plain: Display plain-text errors for screen-readers
 # Fancy: Display errors using line-drawing characters to point to the span in which the
 #        problem occurred.
+# Short: Display errors as concise, single-line messages similar to classic shells.
 $env.config.error_style = "fancy"
 
 # display_errors.exit_code (bool):
@@ -794,7 +795,7 @@ $env.config.color_config.glob        # Glob value (must be declared)
 $env.config.color_config.binary      # Binary value
 $env.config.color_config.custom      # Custom value (often from a plugin)
 $env.config.color_config.nothing     # Not used, since a null is not displayed
-$env.config.color_config.date        # datetime value
+$env.config.color_config.datetime    # datetime value
 $env.config.color_config.filesize    # filesize value
 $env.config.color_config.list        # Not currently used. Lists are displayed using their
                                      # members' styles

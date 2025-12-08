@@ -875,11 +875,9 @@ fn truncate_columns_by_content(
         if i > 0 {
             next_move += vertical;
         }
-
         if width + next_move > termwidth {
             break;
         }
-
         widths.push(column_width);
         width += next_move;
         truncate_pos += 1;
@@ -889,7 +887,8 @@ fn truncate_columns_by_content(
         return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
-    if truncate_pos == 0 {
+    let is_last_column = truncate_pos + 1 == count_columns;
+    if truncate_pos == 0 && !is_last_column {
         if termwidth > width {
             let available = termwidth - width;
             if available >= min_column_width + vertical + trailing_column_width {
@@ -912,7 +911,6 @@ fn truncate_columns_by_content(
 
     let available = termwidth - width;
 
-    let is_last_column = truncate_pos + 1 == count_columns;
     let can_fit_last_column = available >= min_column_width + vertical;
     if is_last_column && can_fit_last_column {
         let w = available - vertical;

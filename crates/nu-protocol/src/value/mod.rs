@@ -1313,7 +1313,7 @@ impl Value {
                     val: col_name,
                     span,
                     casing,
-                    ..
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         for val in vals.iter_mut() {
@@ -1324,7 +1324,7 @@ impl Value {
                                         record.to_mut().cased_mut(*casing).get_mut(col_name)
                                     {
                                         val.update_data_at_cell_path(path, new_val.clone())?;
-                                    } else {
+                                    } else if !*optional {
                                         return Err(ShellError::CantFindColumn {
                                             col_name: col_name.clone(),
                                             span: Some(*span),
@@ -1334,11 +1334,13 @@ impl Value {
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 v => {
-                                    return Err(ShellError::CantFindColumn {
-                                        col_name: col_name.clone(),
-                                        span: Some(*span),
-                                        src_span: v.span(),
-                                    });
+                                    if !*optional {
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.clone(),
+                                            span: Some(*span),
+                                            src_span: v.span(),
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -1346,7 +1348,7 @@ impl Value {
                     Value::Record { val: record, .. } => {
                         if let Some(val) = record.to_mut().cased_mut(*casing).get_mut(col_name) {
                             val.update_data_at_cell_path(path, new_val)?;
-                        } else {
+                        } else if !*optional {
                             return Err(ShellError::CantFindColumn {
                                 col_name: col_name.clone(),
                                 span: Some(*span),
@@ -1356,26 +1358,32 @@ impl Value {
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
                     v => {
-                        return Err(ShellError::CantFindColumn {
-                            col_name: col_name.clone(),
-                            span: Some(*span),
-                            src_span: v.span(),
-                        });
+                        if !*optional {
+                            return Err(ShellError::CantFindColumn {
+                                col_name: col_name.clone(),
+                                span: Some(*span),
+                                src_span: v.span(),
+                            });
+                        }
                     }
                 },
                 PathMember::Int {
-                    val: row_num, span, ..
+                    val: row_num,
+                    span,
+                    optional,
                 } => match self {
                     Value::List { vals, .. } => {
                         if let Some(v) = vals.get_mut(*row_num) {
                             v.update_data_at_cell_path(path, new_val)?;
-                        } else if vals.is_empty() {
-                            return Err(ShellError::AccessEmptyContent { span: *span });
-                        } else {
-                            return Err(ShellError::AccessBeyondEnd {
-                                max_idx: vals.len() - 1,
-                                span: *span,
-                            });
+                        } else if !*optional {
+                            if vals.is_empty() {
+                                return Err(ShellError::AccessEmptyContent { span: *span });
+                            } else {
+                                return Err(ShellError::AccessBeyondEnd {
+                                    max_idx: vals.len() - 1,
+                                    span: *span,
+                                });
+                            }
                         }
                     }
                     Value::Error { error, .. } => return Err(*error.clone()),
@@ -2608,6 +2616,21 @@ impl PartialEq for Value {
     }
 }
 
+fn checked_duration_operation<F>(a: i64, b: i64, op: F, span: Span) -> Result<Value, ShellError>
+where
+    F: Fn(i64, i64) -> Option<i64>,
+{
+    if let Some(val) = op(a, b) {
+        Ok(Value::duration(val, span))
+    } else {
+        Err(ShellError::OperatorOverflow {
+            msg: "operation overflowed".to_owned(),
+            span,
+            help: None,
+        })
+    }
+}
+
 impl Value {
     pub fn add(&self, op: Span, rhs: &Value, span: Span) -> Result<Value, ShellError> {
         match (self, rhs) {
@@ -2657,15 +2680,7 @@ impl Value {
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_add(*rhs) {
-                    Ok(Value::duration(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "add operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
+                checked_duration_operation(*lhs, *rhs, i64::checked_add, span)
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = *lhs + *rhs {
@@ -2746,15 +2761,7 @@ impl Value {
                 }
             }
             (Value::Duration { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                if let Some(val) = lhs.checked_sub(*rhs) {
-                    Ok(Value::duration(val, span))
-                } else {
-                    Err(ShellError::OperatorOverflow {
-                        msg: "subtraction operation overflowed".into(),
-                        span,
-                        help: None,
-                    })
-                }
+                checked_duration_operation(*lhs, *rhs, i64::checked_sub, span)
             }
             (Value::Filesize { val: lhs, .. }, Value::Filesize { val: rhs, .. }) => {
                 if let Some(val) = *lhs - *rhs {
@@ -2856,10 +2863,10 @@ impl Value {
                 }
             }
             (Value::Int { val: lhs, .. }, Value::Duration { val: rhs, .. }) => {
-                Ok(Value::duration(*lhs * *rhs, span))
+                checked_duration_operation(*lhs, *rhs, i64::checked_mul, span)
             }
             (Value::Duration { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
-                Ok(Value::duration(*lhs * *rhs, span))
+                checked_duration_operation(*lhs, *rhs, i64::checked_mul, span)
             }
             (Value::Duration { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
                 Ok(Value::duration((*lhs as f64 * *rhs) as i64, span))

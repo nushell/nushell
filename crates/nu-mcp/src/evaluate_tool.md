@@ -1,0 +1,73 @@
+Execute a command in the nushell.
+This will return the output and error concatenated into a single string, as
+you would see from running on the command line. There will also be an indication
+of if the command succeeded or failed.
+
+Avoid commands that produce a large amount of output, and consider piping those outputs to files.
+If you need to run a long lived command, background it - e.g. `job spawn { uvicorn main:app }` so that
+this tool does not run indefinitely.
+
+Command Equivalents to Bash:
+
+| Bash Command | Nushell Command | Description |
+|--------------|-----------------|-------------|
+| `mkdir -p <path>` | `mkdir <path>` | Creates the given path, creating parents as necessary |
+| `> <path>`  | `o> <path>` | Save command output to a file |
+| `>> <path>` | `o>> <path>` | Append command output to a file |
+| `> /dev/null` | `ignore` | Discard command output |
+| `> /dev/null 2>&1` | `o+e>| ignore` | Discard command output, including stderr |
+| `command 2>&1` | `command o+e>| ...` | Redirect stderr to stdout (use `o+e>` or `out+err>`) |
+| `cmd1 \| tee log.txt \| cmd2` | `cmd1 \| tee { save log.txt } \| cmd2` | Tee command output to a log file |
+| `command \| head -5` | `command \| first 5` | Limit the output to the first 5 rows of an internal command (see also last and skip) |
+| `cat <path>` | `open --raw <path>` | Display the contents of the given file |
+| `cat <(<command1>) <(<command2>)` | `[(command1), (command2)] \| str join` | Concatenate the outputs of command1 and command2 |
+| `cat <path> <(<command>)` | `[(open --raw <path>), (command)] \| str join` | Concatenate the contents of the given file and output of command |
+| `for f in *.md; do echo $f; done` | `ls *.md \| each { $in.name }` | Iterate over a list and return results |
+| `for i in $(seq 1 10); do echo $i; done` | `for i in 1..10 { print $i }` | Iterate over a list and run a command on results |
+| `cp <source> <dest>` | `cp <source> <dest>` | Copy file to new location |
+| `rm -rf <path>` | `rm -r <path>` | Recursively removes the given path |
+| `date -d <date>` | `"<date>" \| into datetime -f <format>` | Parse a date (format documentation) |
+| `sed` | `str replace` | Find and replace a pattern in a string |
+| `grep <pattern>` | `where $it =~ <substring>` or `find <substring>` | Filter strings that contain the substring |
+| `command1 && command2` | `command1; command2` | Run a command, and if it's successful run a second |
+| `stat $(which git)` | `stat ...(which git).path` | Use command output as argument for other command |
+| `echo /tmp/$RANDOM` | `$"/tmp/(random int)"` | Use command output in a string |
+| `cargo b --jobs=$(nproc)` | `cargo b $"--jobs=(sys cpu \| length)"` | Use command output in an option |
+| `echo $PATH` | `$env.PATH (Non-Windows) or $env.Path (Windows)` | See the current path |
+| `echo $?` | `$env.LAST_EXIT_CODE` | See the exit status of the last executed command |
+| `export` | `$env` | List the current environment variables |
+| `FOO=BAR ./bin` | `FOO=BAR ./bin` | Update environment for a command |
+| `echo $FOO` | `$env.FOO` | Use environment variables |
+| `echo ${FOO:-fallback}` | `$env.FOO? \| default "ABC"` | Use a fallback in place of an unset variable |
+| `type FOO` | `which FOO` | Display information about a command (builtin, alias, or executable) |
+| `\` | `( <command> )` | A command can span multiple lines when wrapped with ( and ) |
+
+If the polars commands are available, prefer it for working with parquet, jsonl, ndjson, csv files, and avro files.
+It is much more efficient than the other Nushell commands or other non-nushell commands.
+It exposes much of the functionality of the polars dataframe library. Start the pipeline with `plugin use polars`
+
+An example of converting a nushell table output to a polars dataframe:
+```nu
+ps | polars into-df | polars collect
+```
+
+An example of converting a polars dataframe back to a nushell table in order to run other nushell commands:
+```nu
+polars open file.parquet | polars into-nu
+```
+
+An example of opening a parquet file, selecting columns, and saving to a new parquet file:
+```nu
+polars open file.parquet | polars select name status | polars save file2
+```
+
+**Important**: The `glob` command should be used exclusively when you need to locate a file or a code reference,
+other solutions may produce too large output because of hidden files! For example *do not* use `find` or `ls -r`.
+Use command_help tool to learn more about the `glob` command.
+
+**Important**: Variables and environment changes persist across tool calls (REPL-style).
+You can set a variable in one call and access it in subsequent calls:
+- `let x = 42` in one call, then `$x` in the next call returns 42
+- `$env.MY_VAR = "hello"` persists for later calls
+
+However, external processes run in their own environment. Use absolute paths when possible.

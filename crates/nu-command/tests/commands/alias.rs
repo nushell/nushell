@@ -155,3 +155,9 @@ fn export_alias_with_overlay_use_works() {
     let actual = nu!("export alias teapot = overlay use");
     assert!(actual.err.is_empty())
 }
+
+#[test]
+fn alias_flag() {
+    let actual = nu!("alias si = stor import");
+    assert!(actual.err.is_empty());
+}

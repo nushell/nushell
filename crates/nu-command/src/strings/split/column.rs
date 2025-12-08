@@ -54,18 +54,18 @@ impl Command for SplitColumn {
                 description: "Split a string into columns by the specified separator",
                 example: "'a--b--c' | split column '--'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
-                        "column3" => Value::test_string("c"),
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("c"),
                 })])),
             },
             Example {
                 description: "Split a string into columns of char and remove the empty columns",
                 example: "'abc' | split column --collapse-empty ''",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
-                        "column3" => Value::test_string("c"),
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
+                        "column2" => Value::test_string("c"),
                 })])),
             },
             Example {
@@ -73,12 +73,12 @@ impl Command for SplitColumn {
                 example: "['a-b' 'c-d'] | split column -",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
                     }),
                     Value::test_record(record! {
-                        "column1" => Value::test_string("c"),
-                        "column2" => Value::test_string("d"),
+                        "column0" => Value::test_string("c"),
+                        "column1" => Value::test_string("d"),
                     }),
                 ])),
             },
@@ -87,12 +87,12 @@ impl Command for SplitColumn {
                 example: r"['a -  b' 'c  -    d'] | split column --regex '\s*-\s*'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
-                        "column1" => Value::test_string("a"),
-                        "column2" => Value::test_string("b"),
+                        "column0" => Value::test_string("a"),
+                        "column1" => Value::test_string("b"),
                     }),
                     Value::test_record(record! {
-                        "column1" => Value::test_string("c"),
-                        "column2" => Value::test_string("d"),
+                        "column0" => Value::test_string("c"),
+                        "column1" => Value::test_string("d"),
                     }),
                 ])),
             },
@@ -235,7 +235,7 @@ fn split_column_helper(
         if positional.is_empty() {
             let mut gen_columns = vec![];
             for i in 0..split_result.len() {
-                gen_columns.push(format!("column{}", i + 1));
+                gen_columns.push(format!("column{}", i));
             }
 
             for (&k, v) in split_result.iter().zip(&gen_columns) {

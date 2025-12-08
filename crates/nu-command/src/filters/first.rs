@@ -27,6 +27,7 @@ impl Command for First {
                 SyntaxShape::Int,
                 "Starting from the front, the number of rows to return.",
             )
+            .switch("strict", "Throw an error if input is empty", Some('s'))
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -82,6 +83,7 @@ fn first_helper(
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+    let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
     // return a single element and otherwise we return a single list. We should probably
@@ -114,8 +116,12 @@ fn first_helper(
                     if return_single_element {
                         if let Some(val) = vals.first_mut() {
                             Ok(std::mem::take(val).into_pipeline_data())
-                        } else {
+                        } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         vals.truncate(rows);
@@ -126,8 +132,12 @@ fn first_helper(
                     if return_single_element {
                         if let Some(&val) = val.first() {
                             Ok(Value::int(val.into(), span).into_pipeline_data())
-                        } else {
+                        } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         val.truncate(rows);
@@ -139,8 +149,12 @@ fn first_helper(
                     if return_single_element {
                         if let Some(v) = iter.next() {
                             Ok(v.into_pipeline_data())
-                        } else {
+                        } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
+                        } else {
+                            // There are no values, so return nothing instead of an error so
+                            // that users can pipe this through 'default' if they want to.
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                         }
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
@@ -164,8 +178,12 @@ fn first_helper(
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
                     Ok(v.into_pipeline_data())
-                } else {
+                } else if strict_mode {
                     Err(ShellError::AccessEmptyContent { span: head })
+                } else {
+                    // There are no values, so return nothing instead of an error so
+                    // that users can pipe this through 'default' if they want to.
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
             } else {
                 Ok(PipelineData::list_stream(

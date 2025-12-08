@@ -11,6 +11,7 @@ export def "into list" []: any -> list {
     range => {$input | each {||}}
     list => $input
     table => $input
+    record => {$input | transpose -d key value}
     _ => [ $input ]
   }
 }

@@ -1911,8 +1911,16 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         return None;
     }
 
-    // First, figure out what exact operators are used and determine their positions
-    let dotdot_pos: Vec<_> = token.match_indices("..").map(|(pos, _)| pos).collect();
+    let dotdot_pos: Vec<_> = token
+        .match_indices("..")
+        .filter_map(|(pos, _)| {
+            // paren_depth = count of unclosed parens prior to pos
+            let before = &token[..pos];
+            let paren_depth = before.chars().filter(|&c| c == '(').count()
+                - before.chars().filter(|&c| c == ')').count();
+            if paren_depth == 0 { Some(pos) } else { None }
+        })
+        .collect();
 
     let (next_op_pos, range_op_pos) = match dotdot_pos.len() {
         1 => (None, dotdot_pos[0]),
@@ -2740,9 +2748,20 @@ pub fn parse_full_cell_path(
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    trace!("parsing: directory");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        return parse_string_interpolation(working_set, span);
+    }
+
     let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: directory");
 
     if err.is_none() {
         trace!("-- found {token}");
@@ -2762,9 +2781,20 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
+    trace!("parsing: filepath");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        return parse_string_interpolation(working_set, span);
+    }
+
     let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
-    trace!("parsing: filepath");
 
     if err.is_none() {
         trace!("-- found {token}");
@@ -5058,8 +5088,9 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
                 guard: None,
                 span: Span::new(start, end),
             }
+        }
         // A match guard
-        } else if connector == b"if" {
+        if connector == b"if" {
             let if_end = {
                 let end = output[position].span.end;
                 Span::new(end, end)

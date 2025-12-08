@@ -9,7 +9,7 @@ fn lines() {
         | skip 1
         | first
         | split column "="
-        | get column1.0
+        | get column0.0
         | str trim
     "#);
 
