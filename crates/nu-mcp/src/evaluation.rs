@@ -10,8 +10,8 @@ use nu_protocol::{
 };
 use rmcp::ErrorData as McpError;
 
-const DEFAULT_OUTPUT_TRUNCATE_THRESHOLD: usize = 10_000;
-const OUTPUT_TRUNCATE_ENV_VAR: &str = "NU_MCP_OUTPUT_TRUNCATE";
+const DEFAULT_OUTPUT_LIMIT: usize = 10_000;
+const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -83,11 +83,18 @@ impl Evaluator {
         }
     }
 
-    fn output_truncate_threshold() -> usize {
-        std::env::var(OUTPUT_TRUNCATE_ENV_VAR)
+    fn output_limit(engine_state: &EngineState, stack: &Stack) -> usize {
+        // First try nushell's $env.NU_MCP_OUTPUT_LIMIT
+        if let Some(value) = stack.get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR) {
+            if let Ok(limit) = value.as_int() {
+                return limit as usize;
+            }
+        }
+        // Fall back to process environment variable
+        std::env::var(OUTPUT_LIMIT_ENV_VAR)
             .ok()
             .and_then(|v| v.parse().ok())
-            .unwrap_or(DEFAULT_OUTPUT_TRUNCATE_THRESHOLD)
+            .unwrap_or(DEFAULT_OUTPUT_LIMIT)
     }
 
     pub fn eval(&self, nu_source: &str) -> Result<String, McpError> {
@@ -152,8 +159,8 @@ impl Evaluator {
         history.push(output_value);
 
         // Check if output needs truncation
-        let threshold = Self::output_truncate_threshold();
-        let final_output = if output_nuon.len() > threshold {
+        let limit = Self::output_limit(engine_state, stack);
+        let final_output = if output_nuon.len() > limit {
             format!("(output truncated, full result saved to $history.{})", history_index)
         } else {
             output_nuon
@@ -336,16 +343,16 @@ mod tests {
     }
 
     #[test]
-    fn test_output_truncation() -> Result<(), Box<dyn std::error::Error>> {
-        // Set a very low threshold for testing
+    fn test_output_truncation_via_env() -> Result<(), Box<dyn std::error::Error>> {
+        // Set a very low limit for testing via process env var
         // SAFETY: This test runs serially (cargo nextest) and we restore the var after
-        unsafe { std::env::set_var(OUTPUT_TRUNCATE_ENV_VAR, "20") };
+        unsafe { std::env::set_var(OUTPUT_LIMIT_ENV_VAR, "20") };
 
         let engine_state = create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
         // Generate output larger than 20 chars using just a long string literal
-        let result = evaluator.eval("\"this is a very long string that exceeds the truncation threshold for testing purposes\"")?;
+        let result = evaluator.eval("\"this is a very long string that exceeds the output limit for testing purposes\"")?;
 
         // Should be truncated with a message about history
         assert!(
@@ -355,7 +362,27 @@ mod tests {
 
         // Clean up
         // SAFETY: restoring env var state
-        unsafe { std::env::remove_var(OUTPUT_TRUNCATE_ENV_VAR) };
+        unsafe { std::env::remove_var(OUTPUT_LIMIT_ENV_VAR) };
+        Ok(())
+    }
+
+    #[test]
+    fn test_output_truncation_via_nushell_env() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // Set limit via nushell's $env
+        evaluator.eval("$env.NU_MCP_OUTPUT_LIMIT = 20")?;
+
+        // Generate output larger than 20 chars
+        let result = evaluator.eval("\"this is a very long string that exceeds the output limit\"")?;
+
+        // Should be truncated with a message about history
+        assert!(
+            result.contains("output truncated") && result.contains("$history"),
+            "Large output should be truncated when $env.NU_MCP_OUTPUT_LIMIT is set, got: {result}"
+        );
+
         Ok(())
     }
 

@@ -17,7 +17,7 @@ The `$history` variable stores all previous command outputs as a list. Access pr
 - `$history | first` - first output
 
 Large outputs (over 10,000 characters by default) are truncated in the response but stored in full in `$history`.
-The truncation threshold can be configured via the `NU_MCP_OUTPUT_TRUNCATE` environment variable.
+The limit can be configured via `$env.NU_MCP_OUTPUT_LIMIT` (in nushell) or the `NU_MCP_OUTPUT_LIMIT` environment variable.
 
 Example workflow:
 ```nu
