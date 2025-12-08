@@ -84,16 +84,10 @@ impl Evaluator {
     }
 
     fn output_limit(engine_state: &EngineState, stack: &Stack) -> usize {
-        // First try nushell's $env.NU_MCP_OUTPUT_LIMIT
-        if let Some(value) = stack.get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR) {
-            if let Ok(limit) = value.as_int() {
-                return limit as usize;
-            }
-        }
-        // Fall back to process environment variable
-        std::env::var(OUTPUT_LIMIT_ENV_VAR)
-            .ok()
-            .and_then(|v| v.parse().ok())
+        stack
+            .get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR)
+            .and_then(|v| v.as_int().ok())
+            .and_then(|n| usize::try_from(n).ok())
             .unwrap_or(DEFAULT_OUTPUT_LIMIT)
     }
 
@@ -343,31 +337,7 @@ mod tests {
     }
 
     #[test]
-    fn test_output_truncation_via_env() -> Result<(), Box<dyn std::error::Error>> {
-        // Set a very low limit for testing via process env var
-        // SAFETY: This test runs serially (cargo nextest) and we restore the var after
-        unsafe { std::env::set_var(OUTPUT_LIMIT_ENV_VAR, "20") };
-
-        let engine_state = create_default_context();
-        let evaluator = Evaluator::new(engine_state);
-
-        // Generate output larger than 20 chars using just a long string literal
-        let result = evaluator.eval("\"this is a very long string that exceeds the output limit for testing purposes\"")?;
-
-        // Should be truncated with a message about history
-        assert!(
-            result.contains("output truncated") && result.contains("$history"),
-            "Large output should be truncated, got: {result}"
-        );
-
-        // Clean up
-        // SAFETY: restoring env var state
-        unsafe { std::env::remove_var(OUTPUT_LIMIT_ENV_VAR) };
-        Ok(())
-    }
-
-    #[test]
-    fn test_output_truncation_via_nushell_env() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_output_truncation() -> Result<(), Box<dyn std::error::Error>> {
         let engine_state = create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
