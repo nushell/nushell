@@ -117,8 +117,8 @@ impl Evaluator {
         let history_index = history.len();
         history.push(output_value);
 
-        let truncated = output_limit(engine_state, stack)
-            .is_some_and(|limit| output_nuon.len() > limit);
+        let truncated =
+            output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
 
         let mut record = nu_protocol::record! {
             "cwd" => nu_protocol::Value::string(cwd, nu_protocol::Span::unknown()),
@@ -129,7 +129,10 @@ impl Evaluator {
             record.push(
                 "note",
                 nu_protocol::Value::string(
-                    format!("output truncated, full result in $history.{}", history_index),
+                    format!(
+                        "output truncated, full result in $history.{}",
+                        history_index
+                    ),
                     nu_protocol::Span::unknown(),
                 ),
             );
