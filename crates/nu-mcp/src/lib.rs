@@ -51,6 +51,6 @@ pub(crate) fn shell_error_to_mcp_error(
 ) -> McpError {
     // Use Nushell's rich error formatting to provide detailed, helpful error messages for LLMs
     let working_set = StateWorkingSet::new(engine_state);
-    let formatted_error = format_cli_error(&working_set, &error, Some("nu::shell::error"));
+    let formatted_error = format_cli_error(None, &working_set, &error, Some("nu::shell::error"));
     McpError::internal_error(formatted_error, None)
 }

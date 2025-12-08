@@ -29,12 +29,12 @@ impl Command for ConfigUseColors {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let use_ansi_coloring = engine_state
-            .get_config()
+        let use_ansi_coloring = stack
+            .get_config(engine_state)
             .use_ansi_coloring
             .get(engine_state);
         Ok(PipelineData::value(

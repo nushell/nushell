@@ -82,7 +82,7 @@ There are 4 `key_type` variants:
         let head = call.head;
         let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
         let add_raw = call.has_flag(engine_state, stack, "raw")?;
-        let config = engine_state.get_config();
+        let config = stack.get_config(engine_state);
 
         terminal::enable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
 

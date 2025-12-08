@@ -64,7 +64,7 @@ impl Evaluator {
             // Check for parse errors
             if let Some(err) = working_set.parse_errors.first() {
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, err, None),
+                    nu_protocol::format_cli_error(None, &working_set, err, None),
                     None,
                 ));
             }
@@ -72,7 +72,7 @@ impl Evaluator {
             // Check for compile errors (IR compilation errors)
             if let Some(err) = working_set.compile_errors.first() {
                 return Err(McpError::internal_error(
-                    nu_protocol::format_cli_error(&working_set, err, None),
+                    nu_protocol::format_cli_error(None, &working_set, err, None),
                     None,
                 ));
             }

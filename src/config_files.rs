@@ -43,14 +43,14 @@ pub(crate) fn read_config_file(
                     eval_config_contents(path, engine_state, stack, strict_mode);
                 } else {
                     let e = ParseError::FileNotFound(file.item, file.span);
-                    report_parse_error(&StateWorkingSet::new(engine_state), &e);
+                    report_parse_error(None, &StateWorkingSet::new(engine_state), &e);
                     if strict_mode {
                         std::process::exit(1);
                     }
                 }
             }
             Err(e) => {
-                report_shell_error(engine_state, &e);
+                report_shell_error(None, engine_state, &e);
             }
         }
     } else if let Some(mut config_path) = nu_path::nu_config_dir() {
@@ -143,7 +143,7 @@ pub(crate) fn read_default_env_file(engine_state: &mut EngineState, stack: &mut 
 
     // Merge the environment in case env vars changed in the config
     if let Err(e) = engine_state.merge_env(stack) {
-        report_shell_error(engine_state, &e);
+        report_shell_error(None, engine_state, &e);
     }
 }
 
@@ -217,7 +217,7 @@ fn eval_default_config(
 
     // Merge the environment in case env vars changed in the config
     if let Err(e) = engine_state.merge_env(stack) {
-        report_shell_error(engine_state, &e);
+        report_shell_error(Some(stack), engine_state, &e);
     }
 }
 
