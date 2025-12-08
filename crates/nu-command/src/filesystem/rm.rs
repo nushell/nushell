@@ -419,7 +419,13 @@ fn rm(
                 };
 
                 if let Err(e) = result {
-                    Err(ShellError::Io(IoError::new(e, span, f)))
+                    let original_error = e.to_string();
+                    Err(ShellError::Io(IoError::new_with_additional_context(
+                        e,
+                        span,
+                        f,
+                        original_error,
+                    )))
                 } else if verbose {
                     let msg = if interactive && !confirmed {
                         "not deleted"
