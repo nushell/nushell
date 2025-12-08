@@ -173,15 +173,23 @@ fn register_history_variable(
     var_id
 }
 
-/// Returns the output limit in bytes, or `None` if not configured (no truncation).
+const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
+
+/// Returns the output limit in bytes.
+///
+/// Defaults to 10kb. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
+/// Set to `0` to disable truncation entirely.
 fn output_limit(
     engine_state: &nu_protocol::engine::EngineState,
     stack: &nu_protocol::engine::Stack,
 ) -> Option<usize> {
-    stack
+    let limit = stack
         .get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR)
         .and_then(|v| v.as_filesize().ok())
         .and_then(|fs| usize::try_from(fs.get()).ok())
+        .unwrap_or(DEFAULT_OUTPUT_LIMIT);
+
+    if limit == 0 { None } else { Some(limit) }
 }
 
 fn process_pipeline(
