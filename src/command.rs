@@ -81,7 +81,7 @@ pub(crate) fn parse_commandline_args(
 
         let output = parse(&mut working_set, None, commandline_args.as_bytes(), false);
         if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(working_set.get_config(), &working_set, err);
+            report_parse_error(None, &working_set, err);
             std::process::exit(1);
         }
 

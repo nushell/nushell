@@ -45,7 +45,7 @@ fn gather_env_vars(
 ) {
     fn report_capture_error(engine_state: &EngineState, env_str: &str, msg: &str) {
         report_shell_error(
-            engine_state.get_config(),
+            None,
             engine_state,
             &ShellError::GenericError {
                 error: format!("Environment variable was not captured: {env_str}"),
@@ -77,7 +77,7 @@ fn gather_env_vars(
         None => {
             // Could not capture current working directory
             report_shell_error(
-                engine_state.get_config(),
+                None,
                 engine_state,
                 &ShellError::GenericError {
                     error: "Current directory is not a valid utf-8 path".into(),
@@ -252,7 +252,7 @@ pub fn eval_source(
             code
         }
         Err(err) => {
-            report_shell_error(&stack.get_config(engine_state), engine_state, &err);
+            report_shell_error(Some(&stack), engine_state, &err);
             let code = err.exit_code();
             stack.set_last_error(&err);
             code.unwrap_or(0)
@@ -294,16 +294,16 @@ fn evaluate_source(
             false,
         );
         if let Some(warning) = working_set.parse_warnings.first() {
-            report_parse_warning(&stack.get_config(engine_state), &working_set, warning);
+            report_parse_warning(Some(&stack), &working_set, warning);
         }
 
         if let Some(err) = working_set.parse_errors.first() {
-            report_parse_error(&stack.get_config(engine_state), &working_set, err);
+            report_parse_error(Some(&stack), &working_set, err);
             return Ok(true);
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            report_compile_error(&stack.get_config(engine_state), &working_set, err);
+            report_compile_error(Some(&stack), &working_set, err);
             return Ok(true);
         }
 

@@ -31,7 +31,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
         .is_some_and(|ext| ext == "nu")
     {
         report_shell_error(
-            engine_state.get_config(),
+            None,
             engine_state,
             &ShellError::GenericError {
                 error: "Wrong plugin file format".into(),
@@ -79,7 +79,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                     }
                 } else {
                     report_shell_error(
-                        engine_state.get_config(),
+                        None,
                         engine_state,
                         &ShellError::Io(IoError::new_internal_with_path(
                             err,
@@ -108,7 +108,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
             Err(err) => {
                 log::warn!("Failed to read plugin registry file: {err:?}");
                 report_shell_error(
-                    engine_state.get_config(),
+                    None,
                     engine_state,
                     &ShellError::GenericError {
                         error: format!(
@@ -144,7 +144,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
         nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
-            report_shell_error(engine_state.get_config(), engine_state, &err);
+            report_shell_error(None, engine_state, &err);
             return;
         }
 
@@ -179,7 +179,7 @@ pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spann
             } else {
                 // It's an error if the directory for the plugin file doesn't exist.
                 report_parse_error(
-                    engine_state.get_config(),
+                    None,
                     &StateWorkingSet::new(engine_state),
                     &ParseError::FileNotFound(
                         path_dir.to_string_lossy().into_owned(),
@@ -226,7 +226,7 @@ pub fn eval_config_contents(
 
             // Merge the environment in case env vars changed in the config
             if let Err(e) = engine_state.merge_env(stack) {
-                report_shell_error(&stack.get_config(engine_state), engine_state, &e);
+                report_shell_error(Some(&stack), engine_state, &e);
             }
         }
     }
@@ -260,7 +260,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
         Ok(old_contents) => old_contents,
         Err(err) => {
             report_shell_error(
-                engine_state.get_config(),
+                None,
                 engine_state,
                 &ShellError::GenericError {
                     error: "Can't read old plugin file to migrate".into(),
@@ -338,7 +338,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
         .and_then(|file| contents.write_to(file, None))
     {
         report_shell_error(
-            engine_state.get_config(),
+            None,
             &engine_state,
             &ShellError::GenericError {
                 error: "Failed to save migrated plugin file".into(),

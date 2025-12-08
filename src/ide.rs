@@ -65,7 +65,7 @@ fn read_in_file<'a>(
             ))
         })
         .unwrap_or_else(|err| {
-            report_shell_error(engine_state.get_config(), engine_state, &err);
+            report_shell_error(None, engine_state, &err);
             std::process::exit(1);
         });
 

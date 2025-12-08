@@ -73,7 +73,7 @@ fn main() -> Result<()> {
     let (args_to_nushell, script_name, args_to_script) = gather_commandline_args();
     let parsed_nu_cli_args = parse_commandline_args(&args_to_nushell.join(" "), &mut engine_state)
         .unwrap_or_else(|err| {
-            report_shell_error(engine_state.get_config(), &engine_state, &err);
+            report_shell_error(None, &engine_state, &err);
             std::process::exit(1)
         });
 
@@ -99,7 +99,7 @@ fn main() -> Result<()> {
     };
 
     if let Err(err) = engine_state.merge_delta(delta) {
-        report_shell_error(engine_state.get_config(), &engine_state, &err);
+        report_shell_error(None, &engine_state, &err);
     }
 
     // TODO: make this conditional in the future
@@ -123,7 +123,7 @@ fn main() -> Result<()> {
                 .join("nushell")
         {
             report_shell_error(
-                engine_state.get_config(),
+                None,
                 &engine_state,
                 &ShellError::InvalidXdgConfig {
                     xdg: xdg_config_home,
@@ -336,7 +336,7 @@ fn main() -> Result<()> {
     let use_color = config.use_ansi_coloring.get(&engine_state);
     // Translate environment variables from Strings to Values
     if let Err(e) = convert_env_values(&mut engine_state, &mut stack) {
-        report_shell_error(engine_state.get_config(), &engine_state, &e);
+        report_shell_error(None, &engine_state, &e);
     }
     perf!("Convert path to list", start_time, use_color);
 

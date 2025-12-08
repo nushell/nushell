@@ -276,7 +276,7 @@ fn prepare_error_handler(
                         .item
                         .into_value(
                             &StateWorkingSet::new(ctx.engine_state),
-                            &ctx.stack.get_config(ctx.engine_state),
+                            ctx.stack,
                             error.span,
                         )
                         .into_pipeline_data(),

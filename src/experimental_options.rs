@@ -35,11 +35,7 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
                 nu_experimental::ENV,
                 env_content
             ));
-            report_experimental_option_warning(
-                working_set.get_config(),
-                &working_set,
-                error.borrow(),
-            );
+            report_experimental_option_warning(None, &working_set, error.borrow());
         }
     }
 
@@ -60,16 +56,10 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
             cli_arg_warning,
         );
         match cli_arg_warning.help() {
-            Some(help) => report_experimental_option_warning(
-                working_set.get_config(),
-                &working_set,
-                &diagnostic.with_help(help),
-            ),
-            None => report_experimental_option_warning(
-                working_set.get_config(),
-                &working_set,
-                &diagnostic,
-            ),
+            Some(help) => {
+                report_experimental_option_warning(None, &working_set, &diagnostic.with_help(help))
+            }
+            None => report_experimental_option_warning(None, &working_set, &diagnostic),
         }
     }
 }

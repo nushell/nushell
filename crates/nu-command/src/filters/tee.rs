@@ -362,7 +362,7 @@ fn tee_once(
 ) -> Result<JoinHandle<()>, std::io::Error> {
     thread::Builder::new().name("tee".into()).spawn(move || {
         if let Err(err) = on_thread() {
-            report_shell_error(&stack.get_config(&engine_state), &engine_state, &err);
+            report_shell_error(Some(&stack), &engine_state, &err);
         }
     })
 }

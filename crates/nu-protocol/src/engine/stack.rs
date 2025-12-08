@@ -218,7 +218,7 @@ impl Stack {
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());
             if let Some(warning) = result? {
-                report_shell_warning(&old, engine_state, &warning);
+                report_shell_warning(Some(self), engine_state, &warning);
             }
         } else {
             self.config = None;

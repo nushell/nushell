@@ -219,11 +219,7 @@ impl Command for Watch {
 
                         match result {
                             Ok(val) => val.print_table(engine_state, stack, false, false)?,
-                            Err(err) => report_shell_error(
-                                &stack.get_config(engine_state),
-                                engine_state,
-                                &err,
-                            ),
+                            Err(err) => report_shell_error(Some(&stack), engine_state, &err),
                         };
                     }
                 }

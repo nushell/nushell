@@ -100,7 +100,7 @@ pub(crate) fn run_commands(
     perf!("evaluate_commands", start_time, use_color);
 
     if let Err(err) = result {
-        report_shell_error(&stack.get_config(engine_state), engine_state, &err);
+        report_shell_error(Some(&stack), engine_state, &err);
         std::process::exit(err.exit_code().unwrap_or(0));
     }
 }
@@ -170,7 +170,7 @@ pub(crate) fn run_file(
     perf!("evaluate_file", start_time, use_color);
 
     if let Err(err) = result {
-        report_shell_error(&stack.get_config(engine_state), engine_state, &err);
+        report_shell_error(Some(&stack), engine_state, &err);
         std::process::exit(err.exit_code().unwrap_or(0));
     }
 }

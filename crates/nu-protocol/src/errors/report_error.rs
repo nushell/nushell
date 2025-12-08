@@ -5,7 +5,7 @@ use std::hash::{DefaultHasher, Hash, Hasher};
 
 use crate::{
     CompileError, Config, ErrorStyle, ParseError, ParseWarning, ShellError, ShellWarning,
-    engine::{EngineState, StateWorkingSet},
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use miette::{
     LabeledSpan, MietteHandlerOpts, NarratableReportHandler, ReportHandler, RgbColors, Severity,
@@ -19,7 +19,7 @@ use thiserror::Error;
 #[derive(Error)]
 #[error("{diagnostic}")]
 struct CliError<'src> {
-    config: &'src Config,
+    stack: Option<&'src Stack>,
     diagnostic: &'src dyn miette::Diagnostic,
     working_set: &'src StateWorkingSet<'src>,
     // error code to use if `diagnostic` doesn't provide one
@@ -28,15 +28,15 @@ struct CliError<'src> {
 
 impl<'src> CliError<'src> {
     pub fn new(
-        config: &'src Config,
+        stack: Option<&'src Stack>,
         diagnostic: &'src dyn miette::Diagnostic,
         working_set: &'src StateWorkingSet<'src>,
         default_code: Option<&'static str>,
     ) -> Self {
         CliError {
+            stack,
             diagnostic,
             working_set,
-            config,
             default_code,
         }
     }
@@ -89,28 +89,35 @@ where
 }
 
 pub fn format_cli_error(
-    config: &Config,
+    stack: Option<&Stack>,
     working_set: &StateWorkingSet,
     error: &dyn miette::Diagnostic,
     default_code: Option<&'static str>,
 ) -> String {
     format!(
         "Error: {:?}",
-        CliError::new(config, error, working_set, default_code)
+        CliError::new(stack, error, working_set, default_code)
     )
 }
 
-pub fn report_shell_error(config: &Config, engine_state: &EngineState, error: &ShellError) {
-    if config.display_errors.should_show(error) {
+pub fn report_shell_error(stack: Option<&Stack>, engine_state: &EngineState, error: &ShellError) {
+    if get_config(stack, engine_state)
+        .display_errors
+        .should_show(error)
+    {
         let working_set = StateWorkingSet::new(engine_state);
-        report_error(config, &working_set, error, "nu::shell::error")
+        report_error(stack, &working_set, error, "nu::shell::error")
     }
 }
 
-pub fn report_shell_warning(config: &Config, engine_state: &EngineState, warning: &ShellWarning) {
+pub fn report_shell_warning(
+    stack: Option<&Stack>,
+    engine_state: &EngineState,
+    warning: &ShellWarning,
+) {
     if should_show_reportable(engine_state, warning) {
         report_warning(
-            config,
+            stack,
             &StateWorkingSet::new(engine_state),
             warning,
             "nu::shell::warning",
@@ -118,31 +125,39 @@ pub fn report_shell_warning(config: &Config, engine_state: &EngineState, warning
     }
 }
 
-pub fn report_parse_error(config: &Config, working_set: &StateWorkingSet, error: &ParseError) {
-    report_error(config, working_set, error, "nu::parser::error");
+pub fn report_parse_error(
+    stack: Option<&Stack>,
+    working_set: &StateWorkingSet,
+    error: &ParseError,
+) {
+    report_error(stack, working_set, error, "nu::parser::error");
 }
 
 pub fn report_parse_warning(
-    config: &Config,
+    stack: Option<&Stack>,
     working_set: &StateWorkingSet,
     warning: &ParseWarning,
 ) {
     if should_show_reportable(working_set.permanent(), warning) {
-        report_warning(config, working_set, warning, "nu::parser::warning");
+        report_warning(stack, working_set, warning, "nu::parser::warning");
     }
 }
 
-pub fn report_compile_error(config: &Config, working_set: &StateWorkingSet, error: &CompileError) {
-    report_error(config, working_set, error, "nu::compile::error");
+pub fn report_compile_error(
+    stack: Option<&Stack>,
+    working_set: &StateWorkingSet,
+    error: &CompileError,
+) {
+    report_error(stack, working_set, error, "nu::compile::error");
 }
 
 pub fn report_experimental_option_warning(
-    config: &Config,
+    stack: Option<&Stack>,
     working_set: &StateWorkingSet,
     warning: &dyn miette::Diagnostic,
 ) {
     report_warning(
-        config,
+        stack,
         working_set,
         warning,
         "nu::experimental_option::warning",
@@ -150,14 +165,14 @@ pub fn report_experimental_option_warning(
 }
 
 fn report_error(
-    config: &Config,
+    stack: Option<&Stack>,
     working_set: &StateWorkingSet,
     error: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
     eprintln!(
         "Error: {:?}",
-        CliError::new(config, error, working_set, Some(default_code))
+        CliError::new(stack, error, working_set, Some(default_code))
     );
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -167,14 +182,14 @@ fn report_error(
 }
 
 fn report_warning(
-    config: &Config,
+    stack: Option<&Stack>,
     working_set: &StateWorkingSet,
     warning: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
     eprintln!(
         "Warning: {:?}",
-        CliError::new(config, warning, working_set, Some(default_code))
+        CliError::new(stack, warning, working_set, Some(default_code))
     );
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
@@ -183,14 +198,20 @@ fn report_warning(
     }
 }
 
+fn get_config<'a>(stack: Option<&'a Stack>, engine_state: &'a EngineState) -> &'a Config {
+    stack
+        .and_then(|s| s.config.as_deref())
+        .unwrap_or(engine_state.get_config())
+}
+
 impl std::fmt::Debug for CliError<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let ansi_support = self
-            .config
-            .use_ansi_coloring
-            .get(self.working_set.permanent());
+        let engine_state = self.working_set.permanent();
+        let config = get_config(self.stack, engine_state);
 
-        let error_style = self.config.error_style;
+        let ansi_support = config.use_ansi_coloring.get(engine_state);
+
+        let error_style = config.error_style;
 
         let miette_handler: Box<dyn ReportHandler> = match error_style {
             ErrorStyle::Plain => Box::new(NarratableReportHandler::new()),

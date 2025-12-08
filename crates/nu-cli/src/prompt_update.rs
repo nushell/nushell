@@ -72,7 +72,7 @@ fn get_prompt_string(
 
                 result
                     .map_err(|err| {
-                        report_shell_error(config, engine_state, &err);
+                        report_shell_error(None, engine_state, &err);
                     })
                     .ok()
             }

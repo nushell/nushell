@@ -339,7 +339,7 @@ fn closure_variable_warning(
             };
 
             report_shell_warning(
-                &stack.get_config(engine_state),
+                Some(&stack),
                 engine_state,
                 &ShellWarning::Deprecated {
                     dep_type: "Behavior".to_string(),
