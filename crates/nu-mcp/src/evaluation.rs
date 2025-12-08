@@ -1,7 +1,7 @@
 use crate::shell_error_to_mcp_error;
 
-const DEFAULT_OUTPUT_LIMIT: usize = 10_000;
-const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
+const DEFAULT_OUTPUT_LIMIT_BYTES: usize = 10_000;
+const OUTPUT_LIMIT_BYTES_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT_BYTES";
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -118,7 +118,7 @@ impl Evaluator {
         let history_index = history.len();
         history.push(output_value);
 
-        let limit = output_limit(engine_state, stack);
+        let limit = output_limit_bytes(engine_state, stack);
         let final_output = if output_nuon.len() > limit {
             format!(
                 "(output truncated, full result saved to $history.{})",
@@ -165,15 +165,15 @@ fn register_history_variable(
     var_id
 }
 
-fn output_limit(
+fn output_limit_bytes(
     engine_state: &nu_protocol::engine::EngineState,
     stack: &nu_protocol::engine::Stack,
 ) -> usize {
     stack
-        .get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR)
+        .get_env_var(engine_state, OUTPUT_LIMIT_BYTES_ENV_VAR)
         .and_then(|v| v.as_int().ok())
         .and_then(|n| usize::try_from(n).ok())
-        .unwrap_or(DEFAULT_OUTPUT_LIMIT)
+        .unwrap_or(DEFAULT_OUTPUT_LIMIT_BYTES)
 }
 
 fn process_pipeline(
@@ -320,7 +320,7 @@ mod tests {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
-        evaluator.eval("$env.NU_MCP_OUTPUT_LIMIT = 20")?;
+        evaluator.eval("$env.NU_MCP_OUTPUT_LIMIT_BYTES = 20")?;
 
         let result =
             evaluator.eval("\"this is a very long string that exceeds the output limit\"")?;
