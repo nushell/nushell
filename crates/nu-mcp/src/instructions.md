@@ -1,6 +1,37 @@
 The nushell extension gives you run nushell specific commands and other shell commands.
 This extension should be preferred over other tools for running shell commands as it can run both nushell comamands and other shell commands.
 
+## Response Format
+
+Every evaluation returns a structured record with:
+- `history_index`: The 0-based index of this result in the history
+- `cwd`: The current working directory after the command executes
+- `output`: The command output (may be truncated for large outputs)
+
+## History Variable
+
+The `$history` variable stores all previous command outputs as a list. Access previous results by index:
+- `$history.0` - first command output
+- `$history.1` - second command output
+- `$history | last` - most recent output
+- `$history | first` - first output
+
+Large outputs (over 10,000 characters by default) are truncated in the response but stored in full in `$history`.
+The truncation threshold can be configured via the `NU_MCP_OUTPUT_TRUNCATE` environment variable.
+
+Example workflow:
+```nu
+# First command returns large data
+ls **/*
+
+# Response: {history_index: 0, cwd: "/path", output: "(output truncated, full result saved to $history.0)"}
+
+# Access the full result
+$history.0 | where size > 1mb
+```
+
+## Structured Output
+
 Native nushell commands return structured content in NUON format (no need to pipe to `| to json`).
 Native nushell commands can be discovered by using the list_commands tool.
 Prefer nushell native commands where possible as they provide structured data in a pipeline, versus text output.
