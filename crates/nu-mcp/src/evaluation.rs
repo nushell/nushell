@@ -64,8 +64,7 @@ impl Evaluator {
         let mut state = self.state.lock().expect("evaluator lock poisoned");
 
         let (block, delta) = {
-            let mut working_set =
-                nu_protocol::engine::StateWorkingSet::new(&state.engine_state);
+            let mut working_set = nu_protocol::engine::StateWorkingSet::new(&state.engine_state);
 
             let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
