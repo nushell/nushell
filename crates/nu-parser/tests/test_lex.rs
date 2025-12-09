@@ -25,6 +25,29 @@ fn lex_newline() {
 }
 
 #[test]
+fn lex_multiline() {
+    let file = b"let x = \\\n300";
+    let output = lex(file, 0, &[], &[], true);
+
+    assert!(output.0.contains(&Token {
+        contents: TokenContents::MultiLine,
+        span: Span::new(8, 9)
+    }))
+}
+
+#[test]
+fn lex_multiline_trailing() {
+    let file = b"let x = \\";
+    let output = lex(file, 0, &[], &[], true);
+
+    assert!(output.0.contains(&Token {
+        contents: TokenContents::MultiLine,
+        span: Span::new(8, 9)
+    }));
+    assert!(output.1.is_none());
+}
+
+#[test]
 fn lex_annotations_list() {
     let file = b"items: list<string>";
 

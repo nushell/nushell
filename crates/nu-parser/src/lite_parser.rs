@@ -233,8 +233,18 @@ pub fn lite_parse(
     let mut curr_comment: Option<Vec<Span>> = None;
     let mut mode = Mode::Normal;
     let mut error = None;
+    let mut line_continuation_span: Option<Span> = None;
 
     for (idx, token) in tokens.iter().enumerate() {
+        if line_continuation_span.is_some() {
+            match token.contents {
+                TokenContents::Eol | TokenContents::Comment | TokenContents::MultiLine => continue,
+                _ => {
+                    line_continuation_span = None;
+                }
+            }
+        }
+
         match mode {
             Mode::Attribute => {
                 match &token.contents {
@@ -252,6 +262,11 @@ pub fn lite_parse(
                     TokenContents::Comment => {
                         command.comments.push(token.span);
                         curr_comment = None;
+                    }
+                    TokenContents::MultiLine => {
+                        line_continuation_span = Some(token.span);
+                        curr_comment = None;
+                        continue;
                     }
                     _ => command.push(token.span),
                 }
@@ -285,6 +300,11 @@ pub fn lite_parse(
                     TokenContents::Comment => {
                         command.comments.push(token.span);
                         curr_comment = None;
+                    }
+                    TokenContents::MultiLine => {
+                        line_continuation_span = Some(token.span);
+                        curr_comment = None;
+                        continue;
                     }
                     _ => command.push(token.span),
                 }
@@ -354,6 +374,11 @@ pub fn lite_parse(
                             command.push(span);
                             command.comments.push(token.span);
                             curr_comment = None;
+                        }
+                        TokenContents::MultiLine => {
+                            line_continuation_span = Some(token.span);
+                            curr_comment = None;
+                            continue;
                         }
                     }
                 } else {
@@ -458,7 +483,9 @@ pub fn lite_parse(
                             // `[Eol]` branch checks if previous token is `[Pipe]` to construct pipeline
                             // and so `[Comment] | [Eol]` should be ignore to make it work
                             let actual_token = last_non_comment_token(tokens, idx);
-                            if actual_token != Some(TokenContents::Pipe) {
+                            if actual_token != Some(TokenContents::Pipe)
+                                && actual_token != Some(TokenContents::MultiLine)
+                            {
                                 pipeline.push(&mut command);
                                 block.push(&mut pipeline);
                             }
@@ -486,6 +513,11 @@ pub fn lite_parse(
                                 }
                             }
                         }
+                        TokenContents::MultiLine => {
+                            line_continuation_span = Some(token.span);
+                            curr_comment = None;
+                            continue;
+                        }
                     }
                 }
             }
@@ -501,6 +533,13 @@ pub fn lite_parse(
 
     if let Mode::Attribute = mode {
         command.attribute_idx.push(command.parts.len());
+    }
+
+    if let Some(span) = line_continuation_span {
+        error = error.or(Some(ParseError::UnexpectedEof(
+            "line continuation".into(),
+            span,
+        )));
     }
 
     pipeline.push(&mut command);

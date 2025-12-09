@@ -4,7 +4,7 @@ use nu_test_support::nu;
 fn test_ansi_shows_error_on_escape() {
     let actual = nu!(r"ansi --escape \");
 
-    assert!(actual.err.contains("no need for escape characters"))
+    assert!(actual.err.contains("Unexpected end of code"))
 }
 
 #[test]
