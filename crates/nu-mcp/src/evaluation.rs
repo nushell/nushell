@@ -1,8 +1,16 @@
-use crate::shell_error_to_mcp_error;
+use crate::{history::History, shell_error_to_mcp_error};
+use nu_protocol::{
+    PipelineData, PipelineExecutionData, Span, Value,
+    debugger::WithoutDebug,
+    engine::{EngineState, Stack, StateWorkingSet},
+};
+use std::{
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
-const HISTORY_LIMIT_ENV_VAR: &str = "NU_MCP_HISTORY_LIMIT";
-const DEFAULT_HISTORY_LIMIT: usize = 100;
+const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -33,43 +41,44 @@ const DEFAULT_HISTORY_LIMIT: usize = 100;
 /// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted.
 /// Large outputs are truncated in the response but stored in full in history.
 pub struct Evaluator {
-    state: std::sync::Mutex<EvalState>,
-    history_var_id: nu_protocol::VarId,
+    state: Mutex<EvalState>,
 }
 
 struct EvalState {
-    engine_state: nu_protocol::engine::EngineState,
-    stack: nu_protocol::engine::Stack,
-    /// Ring buffer of history entries. When the limit is reached, oldest entries are evicted.
-    history: std::collections::VecDeque<nu_protocol::Value>,
+    engine_state: EngineState,
+    stack: Stack,
+    history: History,
 }
 
 impl Evaluator {
-    pub fn new(mut engine_state: nu_protocol::engine::EngineState) -> Self {
+    pub fn new(mut engine_state: EngineState) -> Self {
         // Disable ANSI coloring for MCP - it's a computer-to-computer protocol
         let mut config = nu_protocol::Config::clone(engine_state.get_config());
         config.use_ansi_coloring = nu_protocol::UseAnsiColoring::False;
         engine_state.set_config(config);
 
-        // Register the $history variable in the engine state
-        let history_var_id = register_history_variable(&mut engine_state);
+        let history = History::new(&mut engine_state);
 
         Self {
-            state: std::sync::Mutex::new(EvalState {
+            state: Mutex::new(EvalState {
                 engine_state,
-                stack: nu_protocol::engine::Stack::new(),
-                history: std::collections::VecDeque::new(),
+                stack: Stack::new(),
+                history,
             }),
-            history_var_id,
         }
     }
 
     pub fn eval(&self, nu_source: &str) -> Result<String, rmcp::ErrorData> {
         let mut state = self.state.lock().expect("evaluator lock poisoned");
 
-        let (block, delta) = {
-            let mut working_set = nu_protocol::engine::StateWorkingSet::new(&state.engine_state);
+        let EvalState {
+            engine_state,
+            stack,
+            history,
+        } = &mut *state;
 
+        let (block, delta) = {
+            let mut working_set = StateWorkingSet::new(engine_state);
             let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
             if let Some(err) = working_set.parse_errors.first() {
@@ -89,27 +98,18 @@ impl Evaluator {
             (block, working_set.render())
         };
 
-        // Destructure to satisfy the borrow checker
-        let EvalState {
-            engine_state,
-            stack,
-            history,
-        } = &mut *state;
-
         engine_state
             .merge_delta(delta)
             .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
 
         // Set up $history variable on the stack before evaluation
-        let history_list: Vec<nu_protocol::Value> = history.iter().cloned().collect();
-        let history_value = nu_protocol::Value::list(history_list, nu_protocol::Span::unknown());
-        stack.add_var(self.history_var_id, history_value);
+        stack.add_var(history.var_id(), history.as_value());
 
-        let output = nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
+        let output = nu_engine::eval_block::<WithoutDebug>(
             engine_state,
             stack,
             &block,
-            nu_protocol::PipelineData::empty(),
+            PipelineData::empty(),
         )
         .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
 
@@ -120,103 +120,55 @@ impl Evaluator {
 
         let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
 
-        // Create timestamp for both response and history
-        let timestamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        // Create timestamp for response
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .map(|d| d.as_nanos() as i64)
             .unwrap_or(0);
-        let timestamp_value =
-            chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
+        let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
 
-        // Store in history (ring buffer)
-        let history_limit = history_limit(engine_state, stack);
-        if history.len() >= history_limit {
-            history.pop_front();
-        }
-        let history_index = history.len();
-        history.push_back(output_value);
+        // Store in history
+        let history_index = history.push(output_value, engine_state, stack);
 
         let truncated =
             output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
 
         let mut record = nu_protocol::record! {
-            "cwd" => nu_protocol::Value::string(cwd, nu_protocol::Span::unknown()),
-            "history_index" => nu_protocol::Value::int(history_index as i64, nu_protocol::Span::unknown()),
-            "timestamp" => nu_protocol::Value::date(timestamp_value, nu_protocol::Span::unknown()),
+            "cwd" => Value::string(cwd, Span::unknown()),
+            "history_index" => Value::int(history_index as i64, Span::unknown()),
+            "timestamp" => Value::date(timestamp_value, Span::unknown()),
         };
 
         if truncated {
             record.push(
                 "note",
-                nu_protocol::Value::string(
-                    format!(
-                        "output truncated, full result in $history.{}",
-                        history_index
-                    ),
-                    nu_protocol::Span::unknown(),
+                Value::string(
+                    format!("output truncated, full result in $history.{history_index}"),
+                    Span::unknown(),
                 ),
             );
         } else {
-            record.push(
-                "output",
-                nu_protocol::Value::string(output_nuon, nu_protocol::Span::unknown()),
-            );
+            record.push("output", Value::string(output_nuon, Span::unknown()));
         }
 
-        let response = nu_protocol::Value::record(record, nu_protocol::Span::unknown());
+        let response = Value::record(record, Span::unknown());
 
         nuon::to_nuon(
             engine_state,
             &response,
             nuon::ToStyle::Raw,
-            Some(nu_protocol::Span::unknown()),
+            Some(Span::unknown()),
             false,
         )
         .map_err(|e| shell_error_to_mcp_error(e, engine_state))
     }
 }
 
-fn register_history_variable(
-    engine_state: &mut nu_protocol::engine::EngineState,
-) -> nu_protocol::VarId {
-    let mut working_set = nu_protocol::engine::StateWorkingSet::new(engine_state);
-    let var_id = working_set.add_variable(
-        b"history".to_vec(),
-        nu_protocol::Span::unknown(),
-        nu_protocol::Type::List(Box::new(nu_protocol::Type::Any)),
-        false,
-    );
-    let delta = working_set.render();
-    engine_state
-        .merge_delta(delta)
-        .expect("failed to register $history variable");
-    var_id
-}
-
-const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
-
-/// Returns the history limit (max number of entries in the ring buffer).
-///
-/// Defaults to 100 entries. Can be overridden via `NU_MCP_HISTORY_LIMIT` env var.
-fn history_limit(
-    engine_state: &nu_protocol::engine::EngineState,
-    stack: &nu_protocol::engine::Stack,
-) -> usize {
-    stack
-        .get_env_var(engine_state, HISTORY_LIMIT_ENV_VAR)
-        .and_then(|v| v.as_int().ok())
-        .and_then(|i| usize::try_from(i).ok())
-        .unwrap_or(DEFAULT_HISTORY_LIMIT)
-}
-
 /// Returns the output limit in bytes.
 ///
 /// Defaults to 10kb. Can be overridden via `NU_MCP_OUTPUT_LIMIT` env var.
 /// Set to `0` to disable truncation entirely.
-fn output_limit(
-    engine_state: &nu_protocol::engine::EngineState,
-    stack: &nu_protocol::engine::Stack,
-) -> Option<usize> {
+fn output_limit(engine_state: &EngineState, stack: &Stack) -> Option<usize> {
     let limit = stack
         .get_env_var(engine_state, OUTPUT_LIMIT_ENV_VAR)
         .and_then(|v| v.as_filesize().ok())
@@ -227,24 +179,24 @@ fn output_limit(
 }
 
 fn process_pipeline(
-    pipeline_execution_data: nu_protocol::PipelineExecutionData,
-    engine_state: &nu_protocol::engine::EngineState,
-) -> Result<(nu_protocol::Value, String), rmcp::ErrorData> {
+    pipeline_execution_data: PipelineExecutionData,
+    engine_state: &EngineState,
+) -> Result<(Value, String), rmcp::ErrorData> {
     let span = pipeline_execution_data.span();
 
-    if let nu_protocol::PipelineData::ByteStream(stream, ..) = pipeline_execution_data.body {
-        let mut buffer: Vec<u8> = Vec::new();
+    if let PipelineData::ByteStream(stream, ..) = pipeline_execution_data.body {
+        let mut buffer = Vec::new();
         stream
             .write_to(&mut buffer)
             .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
         let string_output = String::from_utf8_lossy(&buffer).into_owned();
-        let value = nu_protocol::Value::string(&string_output, nu_protocol::Span::unknown());
+        let value = Value::string(&string_output, Span::unknown());
         return Ok((value, string_output));
     }
 
-    let mut values: Vec<nu_protocol::Value> = Vec::new();
+    let mut values = Vec::new();
     for item in pipeline_execution_data.body {
-        if let nu_protocol::Value::Error { error, .. } = &item {
+        if let Value::Error { error, .. } = &item {
             return Err(shell_error_to_mcp_error(*error.clone(), engine_state));
         }
         values.push(item);
@@ -254,14 +206,14 @@ fn process_pipeline(
         1 => values
             .pop()
             .expect("values has exactly one element; this cannot fail"),
-        _ => nu_protocol::Value::list(values, span.unwrap_or(nu_protocol::Span::unknown())),
+        _ => Value::list(values, span.unwrap_or(Span::unknown())),
     };
 
     let nuon_string = nuon::to_nuon(
         engine_state,
         &value_to_store,
         nuon::ToStyle::Raw,
-        Some(nu_protocol::Span::unknown()),
+        Some(Span::unknown()),
         false,
     )
     .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
