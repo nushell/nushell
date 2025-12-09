@@ -50,6 +50,12 @@ impl Command for ExploreConfigCommand {
                 "Do not show the TUI, just show a tree structure of the data",
                 Some('t'),
             )
+            .named(
+                "output",
+                SyntaxShape::String,
+                "Optional output file to save changes to (default: output.json)",
+                Some('o'),
+            )
             .category(Category::Viewers)
     }
 
@@ -79,7 +85,7 @@ impl Command for ExploreConfigCommand {
         // let result = execute_regex_app(call, string_input);
         let use_example = call.has_flag(engine_state, stack, "use-example-data")?;
         let cli_mode = call.has_flag(engine_state, stack, "tree")?;
-
+        let output_file: Option<String> = call.get_flag(engine_state, stack, "output")?;
         // match result {
         //     Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
         //     Ok(None) => Ok(PipelineData::empty()),
@@ -87,7 +93,7 @@ impl Command for ExploreConfigCommand {
         // }
 
         // let mut cli_mode = false;
-        let mut output_file: Option<String> = None;
+        // let mut output_file: Option<String> = None;
         // let mut use_example = false;
 
         // let mut i = 1;
