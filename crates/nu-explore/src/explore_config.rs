@@ -5,7 +5,7 @@ use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::PipelineData;
+use nu_protocol::{IntoValue, PipelineData};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
@@ -16,7 +16,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
-use std::io::{self, Read, Write};
+use std::io::{self, Write};
 use tui_tree_widget::{Tree, TreeItem, TreeState};
 
 // ==================== CLI Functions (kept from original) ====================
@@ -31,7 +31,7 @@ impl Command for ExploreConfigCommand {
     }
 
     fn description(&self) -> &str {
-        "Launch a TUI to create and explore the nushell configuration interactively."
+        "Launch a TUI to view and edit the nushell configuration interactively."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -60,7 +60,13 @@ impl Command for ExploreConfigCommand {
     }
 
     fn extra_description(&self) -> &str {
-        r#"TUI Keybindings:
+        r#"By default, opens the current nushell configuration ($env.config) in the TUI.
+Changes made in config mode are applied to the running session when you quit.
+
+You can also pipe JSON data to explore arbitrary data structures, or use
+--use-example-data to see sample configuration data.
+
+TUI Keybindings:
   Tab           Switch between tree and editor panes
   ↑↓            Navigate tree / scroll editor
   ←→            Collapse/Expand tree nodes
@@ -68,9 +74,9 @@ impl Command for ExploreConfigCommand {
   Enter/e       Start editing (in editor pane)
   Ctrl+Enter    Apply edit
   Esc           Cancel edit
-  Ctrl+S        Save to file
-  q             Quit
-  Ctrl+C        Force quit."#
+  Ctrl+S        Save/Apply changes
+  q             Quit (applies config changes if modified)
+  Ctrl+C        Force quit without saving"#
     }
 
     fn run(
@@ -82,62 +88,33 @@ impl Command for ExploreConfigCommand {
     ) -> Result<PipelineData, ShellError> {
         let input_span = input.span().unwrap_or(call.head);
         let (string_input, _span, _metadata) = input.collect_string_strict(input_span)?;
-        // let result = execute_regex_app(call, string_input);
         let use_example = call.has_flag(engine_state, stack, "use-example-data")?;
         let cli_mode = call.has_flag(engine_state, stack, "tree")?;
         let output_file: Option<String> = call.get_flag(engine_state, stack, "output")?;
-        // match result {
-        //     Ok(Some(value)) => Ok(PipelineData::Value(value, None)),
-        //     Ok(None) => Ok(PipelineData::empty()),
-        //     Err(err) => Err(err),
-        // }
 
-        // let mut cli_mode = false;
-        // let mut output_file: Option<String> = None;
-        // let mut use_example = false;
-
-        // let mut i = 1;
-        // while i < args.len() {
-        //     match args[i].as_str() {
-        //         "--cli" => cli_mode = true,
-        //         "--tui" => cli_mode = false,
-        //         "--example" => use_example = true,
-        //         "-o" | "--output" => {
-        //             i += 1;
-        //             if i < args.len() {
-        //                 output_file = Some(args[i].clone());
-        //             }
-        //         }
-        //         "-h" | "--help" => {
-        //             print_usage();
-        //             return Ok(());
-        //         }
-        //         _ => {}
-        //     }
-        //     i += 1;
-        // }
-
-        // Get JSON data
-        let json_data: Value = if use_example {
-            get_example_json()
-        } else {
-            let mut input = Vec::new();
-            io::stdin()
-                .read_to_end(&mut input)
-                .map_err(|e| ShellError::GenericError {
-                    error: "Could not read_to_end of stdin".into(),
-                    msg: format!("input error: {e}"),
+        // Determine the data source and mode
+        let (json_data, config_mode): (Value, bool) = if use_example {
+            // Use example data
+            (get_example_json(), false)
+        } else if !string_input.trim().is_empty() {
+            // Use piped input data
+            let data =
+                serde_json::from_str(&string_input).map_err(|e| ShellError::GenericError {
+                    error: "Could not parse JSON from input".into(),
+                    msg: format!("JSON parse error: {e}"),
                     span: Some(call.head),
-                    help: None,
+                    help: Some("Make sure the input is valid JSON".into()),
                     inner: vec![],
                 })?;
-            serde_json::from_slice(&input).map_err(|e| ShellError::GenericError {
-                error: "Could not read json".into(),
-                msg: format!("input error: {e}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?
+            (data, false)
+        } else {
+            // Default: use nushell configuration
+            // First convert Config to nu_protocol::Value, then to serde_json::Value
+            // This properly handles closures by converting them to their string representation
+            let config = stack.get_config(engine_state);
+            let nu_value = config.as_ref().clone().into_value(call.head);
+            let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
+            (json_data, true)
         };
 
         if cli_mode {
@@ -145,7 +122,29 @@ impl Command for ExploreConfigCommand {
             print_json_tree(&json_data, "", true, None);
         } else {
             // TUI mode
-            run_config_tui(json_data, output_file)?;
+            let result = run_config_tui(json_data, output_file, config_mode)?;
+
+            // If in config mode and data was modified, apply changes to the config
+            if config_mode {
+                if let Some(modified_json) = result {
+                    // Convert JSON back to nu_protocol::Value
+                    let nu_value = json_to_nu_value(&modified_json, call.head).map_err(|e| {
+                        ShellError::GenericError {
+                            error: "Could not convert JSON to nu Value".into(),
+                            msg: format!("conversion error: {e}"),
+                            span: Some(call.head),
+                            help: None,
+                            inner: vec![],
+                        }
+                    })?;
+
+                    // Update $env.config with the new value
+                    stack.add_env_var("config".into(), nu_value);
+
+                    // Apply the config update
+                    stack.update_config(engine_state)?;
+                }
+            }
         }
 
         Ok(PipelineData::empty())
@@ -154,17 +153,121 @@ impl Command for ExploreConfigCommand {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Explore a regular expression interactively",
+                description: "Open the nushell configuration in an interactive TUI editor",
                 example: r#"explore config"#,
                 result: None,
             },
             Example {
-                description: "Explore a regular expression interactively with sample text",
-                example: r#"open -r Cargo.toml | explore config"#,
+                description: "Explore JSON data interactively",
+                example: r#"open data.json | explore config"#,
+                result: None,
+            },
+            Example {
+                description: "Explore with example data to see TUI features",
+                example: r#"explore config --use-example-data"#,
                 result: None,
             },
         ]
     }
+}
+
+/// Convert a nu_protocol::Value to a serde_json::Value
+/// This properly handles closures by converting them to their string representation
+fn nu_value_to_json(
+    engine_state: &EngineState,
+    value: &nu_protocol::Value,
+    span: nu_protocol::Span,
+) -> Result<Value, ShellError> {
+    Ok(match value {
+        nu_protocol::Value::Bool { val, .. } => Value::Bool(*val),
+        nu_protocol::Value::Int { val, .. } => Value::Number((*val).into()),
+        nu_protocol::Value::Float { val, .. } => serde_json::Number::from_f64(*val)
+            .map(Value::Number)
+            .unwrap_or(Value::Null),
+        nu_protocol::Value::String { val, .. } => Value::String(val.clone()),
+        nu_protocol::Value::Nothing { .. } => Value::Null,
+        nu_protocol::Value::List { vals, .. } => {
+            let json_vals: Result<Vec<_>, _> = vals
+                .iter()
+                .map(|v| nu_value_to_json(engine_state, v, span))
+                .collect();
+            Value::Array(json_vals?)
+        }
+        nu_protocol::Value::Record { val, .. } => {
+            let mut map = serde_json::Map::new();
+            for (k, v) in val.iter() {
+                map.insert(k.clone(), nu_value_to_json(engine_state, v, span)?);
+            }
+            Value::Object(map)
+        }
+        nu_protocol::Value::Closure { val, .. } => {
+            // Convert closure to its string representation instead of serializing internal structure
+            let closure_string = val.coerce_into_string(engine_state, value.span())?;
+            Value::String(closure_string.to_string())
+        }
+        nu_protocol::Value::Filesize { val, .. } => Value::Number(val.get().into()),
+        nu_protocol::Value::Duration { val, .. } => Value::Number((*val).into()),
+        nu_protocol::Value::Date { val, .. } => Value::String(val.to_string()),
+        nu_protocol::Value::Glob { val, .. } => Value::String(val.to_string()),
+        nu_protocol::Value::CellPath { val, .. } => {
+            let parts: Vec<Value> = val
+                .members
+                .iter()
+                .map(|m| match m {
+                    nu_protocol::ast::PathMember::String { val, .. } => Value::String(val.clone()),
+                    nu_protocol::ast::PathMember::Int { val, .. } => {
+                        Value::Number((*val as i64).into())
+                    }
+                })
+                .collect();
+            Value::Array(parts)
+        }
+        nu_protocol::Value::Binary { val, .. } => Value::Array(
+            val.iter()
+                .map(|b| Value::Number((*b as i64).into()))
+                .collect(),
+        ),
+        nu_protocol::Value::Range { .. } => Value::Null,
+        nu_protocol::Value::Error { error, .. } => {
+            return Err(*error.clone());
+        }
+        nu_protocol::Value::Custom { val, .. } => {
+            let collected = val.to_base_value(value.span())?;
+            nu_value_to_json(engine_state, &collected, span)?
+        }
+    })
+}
+
+/// Convert a serde_json::Value to a nu_protocol::Value
+fn json_to_nu_value(
+    json: &Value,
+    span: nu_protocol::Span,
+) -> Result<nu_protocol::Value, Box<dyn Error>> {
+    Ok(match json {
+        Value::Null => nu_protocol::Value::nothing(span),
+        Value::Bool(b) => nu_protocol::Value::bool(*b, span),
+        Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                nu_protocol::Value::int(i, span)
+            } else if let Some(f) = n.as_f64() {
+                nu_protocol::Value::float(f, span)
+            } else {
+                return Err(format!("Unsupported number: {}", n).into());
+            }
+        }
+        Value::String(s) => nu_protocol::Value::string(s.clone(), span),
+        Value::Array(arr) => {
+            let values: Result<Vec<_>, _> = arr.iter().map(|v| json_to_nu_value(v, span)).collect();
+            nu_protocol::Value::list(values?, span)
+        }
+        Value::Object(obj) => {
+            let mut record = nu_protocol::Record::new();
+            for (k, v) in obj {
+                record.push(k.clone(), json_to_nu_value(v, span)?);
+            }
+            nu_protocol::Value::record(record, span)
+        }
+    })
 }
 
 // ==================== CLI Functions (kept from original) ====================
@@ -306,12 +409,19 @@ struct App {
     status_message: String,
     modified: bool,
     output_file: Option<String>,
+    config_mode: bool,
 }
 
 impl App {
-    fn new(json_data: Value, output_file: Option<String>) -> Self {
+    fn new(json_data: Value, output_file: Option<String>, config_mode: bool) -> Self {
         let mut node_map = HashMap::new();
         let tree_items = build_tree_items(&json_data, &mut node_map);
+
+        let status_msg = if config_mode {
+            "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Apply | q Quit"
+        } else {
+            "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit"
+        };
 
         App {
             tree_state: TreeState::default(),
@@ -324,11 +434,10 @@ impl App {
             editor_cursor: 0,
             editor_scroll: 0,
             selected_identifier: String::new(),
-            status_message: String::from(
-                "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
-            ),
+            status_message: String::from(status_msg),
             modified: false,
             output_file,
+            config_mode,
         }
     }
 
@@ -462,6 +571,13 @@ impl App {
     }
 
     fn save_to_file(&mut self) -> io::Result<()> {
+        if self.config_mode {
+            // In config mode, we mark as "ready to apply" - actual application happens on exit
+            self.status_message =
+                String::from("✓ Changes staged - will be applied to config on exit");
+            return Ok(());
+        }
+
         let filename = self
             .output_file
             .clone()
@@ -1061,7 +1177,12 @@ fn set_value_at_path(value: &mut Value, path: &[String], new_value: Value) -> bo
     false
 }
 
-fn run_config_tui(json_data: Value, output_file: Option<String>) -> Result<(), Box<dyn Error>> {
+/// Run the TUI and return the modified JSON data if changes were made in config mode
+fn run_config_tui(
+    json_data: Value,
+    output_file: Option<String>,
+    config_mode: bool,
+) -> Result<Option<Value>, Box<dyn Error>> {
     // Terminal initialization
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -1072,7 +1193,7 @@ fn run_config_tui(json_data: Value, output_file: Option<String>) -> Result<(), B
     // Clear the screen initially
     terminal.clear()?;
 
-    let mut app = App::new(json_data, output_file);
+    let mut app = App::new(json_data, output_file, config_mode);
 
     // Select the first item
     app.tree_state.select_first();
@@ -1091,9 +1212,15 @@ fn run_config_tui(json_data: Value, output_file: Option<String>) -> Result<(), B
 
     if let Err(err) = res {
         eprintln!("Error: {err:?}");
+        return Ok(None);
     }
 
-    Ok(())
+    // Return the modified data if in config mode and changes were made
+    if config_mode && app.modified {
+        Ok(Some(app.json_data))
+    } else {
+        Ok(None)
+    }
 }
 
 fn run_config_app(
