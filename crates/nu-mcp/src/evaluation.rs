@@ -1,6 +1,8 @@
 use crate::shell_error_to_mcp_error;
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
+const HISTORY_LIMIT_ENV_VAR: &str = "NU_MCP_HISTORY_LIMIT";
+const DEFAULT_HISTORY_LIMIT: usize = 100;
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -25,8 +27,10 @@ const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
 ///
 /// # History
 ///
-/// The evaluator maintains a `$history` list that stores all command outputs.
-/// Each evaluation can access previous outputs via `$history.0`, `$history.1`, etc.
+/// The evaluator maintains a `$history` list of records with `timestamp` and `value` fields.
+/// Each evaluation can access previous outputs via `$history.0.value`, `$history.1.value`, etc.
+/// History is stored as a ring buffer with a configurable limit (default: 100 entries) via
+/// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted.
 /// Large outputs are truncated in the response but stored in full in history.
 pub struct Evaluator {
     state: std::sync::Mutex<EvalState>,
@@ -36,7 +40,9 @@ pub struct Evaluator {
 struct EvalState {
     engine_state: nu_protocol::engine::EngineState,
     stack: nu_protocol::engine::Stack,
-    history: Vec<nu_protocol::Value>,
+    /// Ring buffer of history entries. Each entry is a record with `timestamp` and `value`.
+    /// When the limit is reached, oldest entries are evicted.
+    history: std::collections::VecDeque<nu_protocol::Value>,
 }
 
 impl Evaluator {
@@ -53,7 +59,7 @@ impl Evaluator {
             state: std::sync::Mutex::new(EvalState {
                 engine_state,
                 stack: nu_protocol::engine::Stack::new(),
-                history: Vec::new(),
+                history: std::collections::VecDeque::new(),
             }),
             history_var_id,
         }
@@ -96,7 +102,8 @@ impl Evaluator {
             .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
 
         // Set up $history variable on the stack before evaluation
-        let history_value = nu_protocol::Value::list(history.clone(), nu_protocol::Span::unknown());
+        let history_list: Vec<nu_protocol::Value> = history.iter().cloned().collect();
+        let history_value = nu_protocol::Value::list(history_list, nu_protocol::Span::unknown());
         stack.add_var(self.history_var_id, history_value);
 
         let output = nu_engine::eval_block::<nu_protocol::debugger::WithoutDebug>(
@@ -114,8 +121,29 @@ impl Evaluator {
 
         let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
 
+        // Create history entry with timestamp and value
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos() as i64)
+            .unwrap_or(0);
+        let history_entry = nu_protocol::Value::record(
+            nu_protocol::record! {
+                "timestamp" => nu_protocol::Value::date(
+                    chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset(),
+                    nu_protocol::Span::unknown(),
+                ),
+                "value" => output_value,
+            },
+            nu_protocol::Span::unknown(),
+        );
+
+        // Enforce history limit (ring buffer behavior)
+        let history_limit = history_limit(engine_state, stack);
+        if history.len() >= history_limit {
+            history.pop_front();
+        }
         let history_index = history.len();
-        history.push(output_value);
+        history.push_back(history_entry);
 
         let truncated =
             output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
@@ -174,6 +202,20 @@ fn register_history_variable(
 }
 
 const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
+
+/// Returns the history limit (max number of entries in the ring buffer).
+///
+/// Defaults to 100 entries. Can be overridden via `NU_MCP_HISTORY_LIMIT` env var.
+fn history_limit(
+    engine_state: &nu_protocol::engine::EngineState,
+    stack: &nu_protocol::engine::Stack,
+) -> usize {
+    stack
+        .get_env_var(engine_state, HISTORY_LIMIT_ENV_VAR)
+        .and_then(|v| v.as_int().ok())
+        .and_then(|i| usize::try_from(i).ok())
+        .unwrap_or(DEFAULT_HISTORY_LIMIT)
+}
 
 /// Returns the output limit in bytes.
 ///
@@ -316,16 +358,24 @@ mod tests {
         evaluator.eval("100")?;
         evaluator.eval("200")?;
 
-        let result = evaluator.eval("$history.0")?;
+        // Each history entry is a record with timestamp and value
+        let result = evaluator.eval("$history.0.value")?;
         assert!(
             result.contains("100"),
-            "history.0 should be 100, got: {result}"
+            "history.0.value should be 100, got: {result}"
         );
 
-        let result = evaluator.eval("$history.1")?;
+        let result = evaluator.eval("$history.1.value")?;
         assert!(
             result.contains("200"),
-            "history.1 should be 200, got: {result}"
+            "history.1.value should be 200, got: {result}"
+        );
+
+        // Verify timestamp exists
+        let result = evaluator.eval("$history.0.timestamp")?;
+        assert!(
+            result.contains("output"),
+            "history.0.timestamp should be accessible, got: {result}"
         );
 
         Ok(())
@@ -489,5 +539,42 @@ mod tests {
             output.contains("hello_repl"),
             "Env var should be 'hello_repl', got: {output}"
         );
+    }
+
+    #[test]
+    fn test_history_ring_buffer() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // Set a small history limit
+        evaluator.eval("$env.NU_MCP_HISTORY_LIMIT = 3")?;
+
+        // Add items to history (the env var set above counts as first)
+        // After limit=3 is set: history=[{set_result}]
+        evaluator.eval("'second'")?; // history=[{set}, {second}]
+        evaluator.eval("'third'")?; // history=[{set}, {second}, {third}] - at limit
+        evaluator.eval("'fourth'")?; // evict oldest -> history=[{second}, {third}, {fourth}]
+        evaluator.eval("'fifth'")?; // evict oldest -> history=[{third}, {fourth}, {fifth}]
+
+        // At this point, before checking $history:
+        // history = [{third}, {fourth}, {fifth}]
+        // $history.0.value should be "third"
+        let result = evaluator.eval("$history.0.value")?;
+        assert!(
+            result.contains("third"),
+            "Oldest entry should be 'third' after eviction, got: {result}"
+        );
+
+        // After the above query, history was:
+        // evict oldest -> [{fourth}, {fifth}]
+        // append result -> [{fourth}, {fifth}, {result_of_query}]
+        // So now $history.1.value = "fifth"
+        let result = evaluator.eval("$history.1.value")?;
+        assert!(
+            result.contains("fifth"),
+            "Entry at index 1 should be 'fifth', got: {result}"
+        );
+
+        Ok(())
     }
 }

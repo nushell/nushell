@@ -24,6 +24,7 @@ tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.6"
 nuon = { path = "../nuon", version = "0.109.2" }
+chrono = { workspace = true }
 
 [features]
 default = []

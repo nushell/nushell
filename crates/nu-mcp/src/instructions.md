@@ -11,10 +11,19 @@ Every evaluation returns a structured record with:
 
 ## History Variable
 
-The `$history` variable is a `list<any>` storing all previous command outputs. Access previous results by index:
-- `$history.0` - first command output
-- `$history.1` - second command output
-- `$history | last` - most recent output
+The `$history` variable is a `list<record>` storing all previous command outputs as a ring buffer.
+Each entry is a record with:
+- `timestamp`: When the command was executed (datetime)
+- `value`: The command output
+
+Access previous results by index:
+- `$history.0` - first (oldest) history entry
+- `$history.0.value` - the actual output value
+- `$history.0.timestamp` - when it was executed
+- `$history | last` - most recent entry
+
+**Ring Buffer Behavior**: History is limited to 100 entries by default. When the limit is reached,
+oldest entries are evicted. Configure via `$env.NU_MCP_HISTORY_LIMIT` (e.g., `$env.NU_MCP_HISTORY_LIMIT = 50`).
 
 Large outputs are stored in `$history` but may be truncated in the response.
 To enable truncation, set `$env.NU_MCP_OUTPUT_LIMIT` to a filesize (e.g., `$env.NU_MCP_OUTPUT_LIMIT = 10kb`).
@@ -26,7 +35,7 @@ ls **/*
 # Response: {cwd: "/path", history_index: 0, note: "output truncated, full result in $history.0"}
 
 # Access and filter the full result
-$history.0 | where name =~ ".rs"
+$history.0.value | where name =~ ".rs"
 ```
 
 ## Structured Output
