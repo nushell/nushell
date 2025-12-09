@@ -133,7 +133,7 @@ pub fn eval_block(
         .map(|p| p.body)
         .and_then(|data| data.into_value(Span::test_data()))
         .unwrap_or_else(|err| {
-            report_shell_error(engine_state, &err);
+            report_shell_error(None, engine_state, &err);
             panic!("test eval error in `{}`: {:?}", "TODO", err)
         })
 }

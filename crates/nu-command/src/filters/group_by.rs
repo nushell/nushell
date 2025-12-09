@@ -258,7 +258,7 @@ pub fn group_by(
     let head = call.head;
     let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
-    let config = engine_state.get_config();
+    let config = &stack.get_config(engine_state);
 
     let values: Vec<Value> = input.into_iter().collect();
     if values.is_empty() {
@@ -380,7 +380,7 @@ fn group_closure(
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
     let mut closure = ClosureEval::new(engine_state, stack, closure);
-    let config = engine_state.get_config();
+    let config = &stack.get_config(engine_state);
 
     for value in values {
         let key = closure

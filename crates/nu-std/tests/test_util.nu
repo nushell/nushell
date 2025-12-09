@@ -56,8 +56,8 @@ def path_add_expand [] {
     use std/assert
 
     # random paths to avoid collision, especially if left dangling on failure
-    let real_dir = $nu.temp-path | path join $"real-dir-(random chars)"
-    let link_dir = $nu.temp-path | path join $"link-dir-(random chars)"
+    let real_dir = $nu.temp-dir | path join $"real-dir-(random chars)"
+    let link_dir = $nu.temp-dir | path join $"link-dir-(random chars)"
     mkdir $real_dir
     let path_name = if $nu.os-info.family == 'windows' {
         mklink /D $link_dir $real_dir

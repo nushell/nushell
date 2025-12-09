@@ -35,7 +35,7 @@ export def --wrapped "run pr" [
   let span = (metadata $head).span
   let number = { item: $number, span: (metadata $number).span }
 
-  let dir = $nu.temp-path | path join "nushell-run-pr"
+  let dir = $nu.temp-dir | path join "nushell-run-pr"
   mkdir $dir
 
   let platform = get-platform $span

@@ -130,6 +130,43 @@ fn prefixed_overlay_keeps_custom_decl() {
 }
 
 #[test]
+fn def_before_overlay_use_should_work() {
+    let inp = &[
+        r#"def something [] { "example" }"#,
+        r#"module spam { }"#,
+        "overlay use spam",
+        r#"def bar [] { "bar" }"#,
+        "overlay hide spam",
+        "bar",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+    let actual_repl = nu!(nu_repl_code(inp));
+
+    assert!(actual.err.contains("Command `bar` not found"));
+    assert!(actual_repl.err.contains("Command `bar` not found"));
+}
+
+#[test]
+fn define_module_before_overlay_inside_func_should_work() {
+    let inp = &[
+        r#"
+def main [] {
+  module spam { export def foo [] { "foo" } }
+  overlay use spam
+  def bar [] { "bar" }
+  overlay hide spam
+  bar # Returns bar
+};"#,
+        "main",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+
+    assert!(actual.err.contains("Command `bar` not found"));
+}
+
+#[test]
 fn add_overlay_env() {
     let inp = &[
         r#"module spam { export-env { $env.FOO = "foo" } }"#,

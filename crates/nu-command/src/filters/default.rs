@@ -250,7 +250,7 @@ impl DefaultValue {
         let span = value.span();
 
         // FIXME temporary workaround to warn people of breaking change from #15654
-        let value = match closure_variable_warning(engine_state, value, expr) {
+        let value = match closure_variable_warning(stack, engine_state, value, expr) {
             Ok(val) => val,
             Err(default_value) => return default_value,
         };
@@ -310,6 +310,7 @@ fn fill_record(
 }
 
 fn closure_variable_warning(
+    stack: &Stack,
     engine_state: &EngineState,
     value: Value,
     value_expr: Option<&Expression>,
@@ -338,6 +339,7 @@ fn closure_variable_warning(
             };
 
             report_shell_warning(
+                Some(stack),
                 engine_state,
                 &ShellWarning::Deprecated {
                     dep_type: "Behavior".to_string(),

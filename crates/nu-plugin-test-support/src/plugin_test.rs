@@ -290,7 +290,7 @@ impl PluginTest {
                     Err(err) => {
                         // Report the error
                         failed_header();
-                        report_shell_error(&self.engine_state, &err);
+                        report_shell_error(None, &self.engine_state, &err);
                     }
                 }
             }

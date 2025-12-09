@@ -2,7 +2,7 @@ use crossterm::{
     QueueableCommand, event::Event, event::KeyCode, event::KeyEvent, execute, terminal,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::{Config, shell_error::io::IoError};
 use std::io::{Write, stdout};
 
 #[derive(Clone)]
@@ -31,13 +31,13 @@ impl Command for KeybindingsListen {
     fn run(
         &self,
         engine_state: &EngineState,
-        _stack: &mut Stack,
+        stack: &mut Stack,
         _call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         println!("Type any key combination to see key details. Press ESC to abort.");
 
-        match print_events(engine_state) {
+        match print_events(&stack.get_config(engine_state)) {
             Ok(v) => Ok(v.into_pipeline_data()),
             Err(e) => {
                 terminal::disable_raw_mode().map_err(|err| {
@@ -67,9 +67,7 @@ impl Command for KeybindingsListen {
     }
 }
 
-pub fn print_events(engine_state: &EngineState) -> Result<Value, ShellError> {
-    let config = engine_state.get_config();
-
+pub fn print_events(config: &Config) -> Result<Value, ShellError> {
     stdout().flush().map_err(|err| {
         IoError::new_internal(err, "Could not flush stdout", nu_protocol::location!())
     })?;

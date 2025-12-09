@@ -679,3 +679,40 @@ fn parse_const_signature_missing_colon() {
     let actual = nu!("const a string = 'Hello World\n'");
     assert!(actual.err.contains("nu::parser::extra_tokens"));
 }
+
+/// https://github.com/nushell/nushell/issues/16969
+#[test]
+fn wacky_range_parse() {
+    let actual = nu!(r#"0..(1..2 | first)"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn wacky_range_parse_lt() {
+    let actual = nu!(r#"0..<(1..2 | first)"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn wacky_range_parse_eq() {
+    let actual = nu!(r#"0..=(1..2 | first)"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn wacky_range_parse_no_end() {
+    let actual = nu!(r#"..(1..2 | first)"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn wacky_range_parse_regression() {
+    let actual = nu!(r#"1..(5)..10"#);
+    assert!(actual.err.is_empty());
+}
+
+#[test]
+fn wacky_range_parse_comb() {
+    let actual = nu!(r#"1..(5..10 | first)..10"#);
+    assert!(actual.err.is_empty());
+}
