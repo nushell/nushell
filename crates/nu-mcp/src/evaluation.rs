@@ -27,8 +27,8 @@ const DEFAULT_HISTORY_LIMIT: usize = 100;
 ///
 /// # History
 ///
-/// The evaluator maintains a `$history` list of records with `timestamp` and `value` fields.
-/// Each evaluation can access previous outputs via `$history.0.value`, `$history.1.value`, etc.
+/// The evaluator maintains a `$history` list that stores all command outputs.
+/// Each evaluation can access previous outputs via `$history.0`, `$history.1`, etc.
 /// History is stored as a ring buffer with a configurable limit (default: 100 entries) via
 /// `NU_MCP_HISTORY_LIMIT` env var. When the limit is reached, oldest entries are evicted.
 /// Large outputs are truncated in the response but stored in full in history.
@@ -40,8 +40,7 @@ pub struct Evaluator {
 struct EvalState {
     engine_state: nu_protocol::engine::EngineState,
     stack: nu_protocol::engine::Stack,
-    /// Ring buffer of history entries. Each entry is a record with `timestamp` and `value`.
-    /// When the limit is reached, oldest entries are evicted.
+    /// Ring buffer of history entries. When the limit is reached, oldest entries are evicted.
     history: std::collections::VecDeque<nu_protocol::Value>,
 }
 
@@ -121,29 +120,21 @@ impl Evaluator {
 
         let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
 
-        // Create history entry with timestamp and value
+        // Create timestamp for both response and history
         let timestamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos() as i64)
             .unwrap_or(0);
-        let history_entry = nu_protocol::Value::record(
-            nu_protocol::record! {
-                "timestamp" => nu_protocol::Value::date(
-                    chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset(),
-                    nu_protocol::Span::unknown(),
-                ),
-                "value" => output_value,
-            },
-            nu_protocol::Span::unknown(),
-        );
+        let timestamp_value =
+            chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
 
-        // Enforce history limit (ring buffer behavior)
+        // Store in history (ring buffer)
         let history_limit = history_limit(engine_state, stack);
         if history.len() >= history_limit {
             history.pop_front();
         }
         let history_index = history.len();
-        history.push_back(history_entry);
+        history.push_back(output_value);
 
         let truncated =
             output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
@@ -151,6 +142,7 @@ impl Evaluator {
         let mut record = nu_protocol::record! {
             "cwd" => nu_protocol::Value::string(cwd, nu_protocol::Span::unknown()),
             "history_index" => nu_protocol::Value::int(history_index as i64, nu_protocol::Span::unknown()),
+            "timestamp" => nu_protocol::Value::date(timestamp_value, nu_protocol::Span::unknown()),
         };
 
         if truncated {
@@ -296,6 +288,10 @@ mod tests {
             "Response should contain cwd, got: {result}"
         );
         assert!(
+            result.contains("timestamp"),
+            "Response should contain timestamp, got: {result}"
+        );
+        assert!(
             result.contains("output"),
             "Response should contain output, got: {result}"
         );
@@ -358,24 +354,16 @@ mod tests {
         evaluator.eval("100")?;
         evaluator.eval("200")?;
 
-        // Each history entry is a record with timestamp and value
-        let result = evaluator.eval("$history.0.value")?;
+        let result = evaluator.eval("$history.0")?;
         assert!(
             result.contains("100"),
-            "history.0.value should be 100, got: {result}"
+            "history.0 should be 100, got: {result}"
         );
 
-        let result = evaluator.eval("$history.1.value")?;
+        let result = evaluator.eval("$history.1")?;
         assert!(
             result.contains("200"),
-            "history.1.value should be 200, got: {result}"
-        );
-
-        // Verify timestamp exists
-        let result = evaluator.eval("$history.0.timestamp")?;
-        assert!(
-            result.contains("output"),
-            "history.0.timestamp should be accessible, got: {result}"
+            "history.1 should be 200, got: {result}"
         );
 
         Ok(())
@@ -558,8 +546,8 @@ mod tests {
 
         // At this point, before checking $history:
         // history = [{third}, {fourth}, {fifth}]
-        // $history.0.value should be "third"
-        let result = evaluator.eval("$history.0.value")?;
+        // $history.0 should be "third"
+        let result = evaluator.eval("$history.0")?;
         assert!(
             result.contains("third"),
             "Oldest entry should be 'third' after eviction, got: {result}"
@@ -568,8 +556,8 @@ mod tests {
         // After the above query, history was:
         // evict oldest -> [{fourth}, {fifth}]
         // append result -> [{fourth}, {fifth}, {result_of_query}]
-        // So now $history.1.value = "fifth"
-        let result = evaluator.eval("$history.1.value")?;
+        // So now $history.1 = "fifth"
+        let result = evaluator.eval("$history.1")?;
         assert!(
             result.contains("fifth"),
             "Entry at index 1 should be 'fifth', got: {result}"
