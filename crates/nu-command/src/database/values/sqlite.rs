@@ -109,7 +109,7 @@ impl SQLiteDatabase {
     }
 
     pub fn open_connection(&self) -> Result<Connection, ShellError> {
-        if self.path == PathBuf::from(MEMORY_DB) {
+        if self.path.to_string_lossy() == MEMORY_DB {
             open_connection_in_memory_custom()
         } else {
             let conn = Connection::open(&self.path).map_err(|e| ShellError::GenericError {
