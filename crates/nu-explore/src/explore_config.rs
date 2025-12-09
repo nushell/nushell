@@ -6,11 +6,12 @@ use crossterm::terminal::{
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::{IntoValue, PipelineData};
+use nu_utils::ConfigFileKind;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation};
+use ratatui::widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, Wrap};
 use ratatui::{Frame, Terminal};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -94,13 +95,15 @@ TUI Keybindings:
 
         // Determine the data source and mode
         // nu_type_map is used in config mode to track original nushell types
-        let (json_data, config_mode, nu_type_map): (
+        // doc_map is used in config mode to show documentation for config options
+        let (json_data, config_mode, nu_type_map, doc_map): (
             Value,
             bool,
             Option<HashMap<String, NuValueType>>,
+            Option<HashMap<String, String>>,
         ) = if use_example {
             // Use example data
-            (get_example_json(), false, None)
+            (get_example_json(), false, None, None)
         } else if !string_input.trim().is_empty() {
             // Use piped input data
             let data =
@@ -111,7 +114,7 @@ TUI Keybindings:
                     help: Some("Make sure the input is valid JSON".into()),
                     inner: vec![],
                 })?;
-            (data, false, None)
+            (data, false, None, None)
         } else {
             // Default: use nushell configuration
             // First convert Config to nu_protocol::Value, then to serde_json::Value
@@ -122,7 +125,9 @@ TUI Keybindings:
             // Build nu_type_map to track original nushell types
             let mut nu_type_map = HashMap::new();
             build_nu_type_map(&nu_value, Vec::new(), &mut nu_type_map);
-            (json_data, true, Some(nu_type_map))
+            // Parse documentation from doc_config.nu
+            let doc_map = parse_config_documentation();
+            (json_data, true, Some(nu_type_map), Some(doc_map))
         };
 
         if cli_mode {
@@ -130,7 +135,7 @@ TUI Keybindings:
             print_json_tree(&json_data, "", true, None);
         } else {
             // TUI mode
-            let result = run_config_tui(json_data, output_file, config_mode, nu_type_map)?;
+            let result = run_config_tui(json_data, output_file, config_mode, nu_type_map, doc_map)?;
 
             // If in config mode and data was modified, apply changes to the config
             if config_mode {
@@ -244,6 +249,68 @@ fn nu_value_to_json(
             nu_value_to_json(engine_state, &collected, span)?
         }
     })
+}
+
+/// Parse the doc_config.nu file to extract documentation for each config path
+/// Returns a HashMap mapping config paths (e.g., "history.file_format") to their documentation
+fn parse_config_documentation() -> HashMap<String, String> {
+    let doc_content = ConfigFileKind::Config.doc();
+    let mut doc_map = HashMap::new();
+    let mut current_comments: Vec<String> = Vec::new();
+
+    for line in doc_content.lines() {
+        let trimmed = line.trim();
+
+        if trimmed.starts_with('#') {
+            // Collect comment lines (strip the leading # and space)
+            let comment = trimmed.trim_start_matches('#').trim();
+            if !comment.is_empty() {
+                current_comments.push(comment.to_string());
+            }
+        } else if trimmed.starts_with("$env.config.") {
+            // This is a config setting line
+            // Extract the path (everything between "$env.config." and " =" or end of relevant part)
+            if let Some(path) = extract_config_path(trimmed) {
+                if !current_comments.is_empty() {
+                    // Join all collected comments as the documentation
+                    let doc = current_comments.join("\n");
+                    doc_map.insert(path, doc);
+                }
+            }
+            // Clear comments after processing a setting
+            current_comments.clear();
+        } else if !trimmed.is_empty() {
+            // Non-comment, non-config line - might be code examples, clear comments
+            // But keep comments if the line is empty (paragraph break in docs)
+            current_comments.clear();
+        }
+    }
+
+    doc_map
+}
+
+/// Extract the config path from a line like "$env.config.history.file_format = ..."
+/// Returns the path without "$env.config." prefix (e.g., "history.file_format")
+fn extract_config_path(line: &str) -> Option<String> {
+    let line = line.trim();
+    if !line.starts_with("$env.config.") {
+        return None;
+    }
+
+    // Remove "$env.config." prefix
+    let rest = &line["$env.config.".len()..];
+
+    // Find where the path ends (at '=' or end of line for bare references)
+    let path_end = rest
+        .find(|c: char| c == '=' || c == ' ')
+        .unwrap_or(rest.len());
+
+    let path = rest[..path_end].trim();
+    if path.is_empty() {
+        None
+    } else {
+        Some(path.to_string())
+    }
 }
 
 /// Build a map of path identifiers to NuValueType for tracking original nushell types
@@ -556,6 +623,7 @@ struct App {
     modified: bool,
     output_file: Option<String>,
     config_mode: bool,
+    doc_map: Option<HashMap<String, String>>,
 }
 
 impl App {
@@ -564,9 +632,10 @@ impl App {
         output_file: Option<String>,
         config_mode: bool,
         nu_type_map: Option<HashMap<String, NuValueType>>,
+        doc_map: Option<HashMap<String, String>>,
     ) -> Self {
         let mut node_map = HashMap::new();
-        let tree_items = build_tree_items(&json_data, &mut node_map, &nu_type_map);
+        let tree_items = build_tree_items(&json_data, &mut node_map, &nu_type_map, &doc_map);
 
         let status_msg = if config_mode {
             "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Apply | q Quit"
@@ -589,6 +658,7 @@ impl App {
             modified: false,
             output_file,
             config_mode,
+            doc_map,
         }
     }
 
@@ -600,7 +670,8 @@ impl App {
         // When rebuilding, we don't have the nu_type_map anymore, so pass None
         // This means after editing, we lose the nushell type info, but that's acceptable
         // since the edited values may have different types anyway
-        self.tree_items = build_tree_items(&self.json_data, &mut node_map, &None);
+        // We still pass doc_map to preserve documentation status
+        self.tree_items = build_tree_items(&self.json_data, &mut node_map, &None, &self.doc_map);
         self.node_map = node_map;
 
         // Try to restore selection if the node still exists
@@ -849,10 +920,11 @@ impl App {
         let editor_chunks = Layout::default()
             .direction(Direction::Vertical)
             .constraints([
-                Constraint::Length(3), // Path display
-                Constraint::Length(3), // Type info
-                Constraint::Min(1),    // Editor area
-                Constraint::Length(2), // Help text
+                Constraint::Length(3),  // Path display
+                Constraint::Length(3),  // Type info
+                Constraint::Min(5),     // Editor area
+                Constraint::Length(20), // Description (new section)
+                Constraint::Length(3),  // Help text (with border)
             ])
             .split(inner_area);
 
@@ -865,8 +937,11 @@ impl App {
         // Editor area
         self.draw_editor_widget(frame, editor_chunks[2]);
 
+        // Description (new section)
+        self.draw_description_widget(frame, editor_chunks[3]);
+
         // Help text
-        self.draw_editor_help(frame, editor_chunks[3]);
+        self.draw_editor_help(frame, editor_chunks[4]);
     }
 
     fn draw_path_widget(&self, frame: &mut Frame, area: Rect) {
@@ -1094,7 +1169,101 @@ impl App {
         }
     }
 
+    fn draw_description_widget(&self, frame: &mut Frame, area: Rect) {
+        let node_info = self.get_current_node_info();
+
+        // Determine if we have documentation for this node
+        let (description, has_doc) = if self.config_mode {
+            if let Some(ref info) = node_info {
+                // Build the config path from the node path (e.g., ["history", "file_format"] -> "history.file_format")
+                let config_path = info.path.join(".");
+
+                if let Some(ref doc_map) = self.doc_map {
+                    if let Some(doc) = doc_map.get(&config_path) {
+                        (doc.clone(), true)
+                    } else {
+                        // Try parent paths for nested items
+                        let mut found_doc = None;
+                        let mut path_parts = info.path.clone();
+                        while !path_parts.is_empty() && found_doc.is_none() {
+                            let parent_path = path_parts.join(".");
+                            if let Some(doc) = doc_map.get(&parent_path) {
+                                found_doc = Some(doc.clone());
+                            }
+                            path_parts.pop();
+                        }
+                        if let Some(doc) = found_doc {
+                            (doc, true)
+                        } else {
+                            (
+                                "No documentation available for this setting.".to_string(),
+                                false,
+                            )
+                        }
+                    }
+                } else {
+                    ("Documentation not loaded.".to_string(), false)
+                }
+            } else {
+                ("Select a node to see its description.".to_string(), false)
+            }
+        } else {
+            (
+                "Documentation is only available in config mode.".to_string(),
+                false,
+            )
+        };
+
+        // Use different styling based on whether documentation exists
+        let (title_style, border_style) = if self.config_mode && !has_doc {
+            // Highlight missing documentation with yellow/warning color
+            (
+                Style::default().fg(Color::Yellow).bold(),
+                Style::default().fg(Color::Yellow),
+            )
+        } else {
+            (
+                Style::default().fg(Color::Yellow),
+                Style::default().fg(Color::DarkGray),
+            )
+        };
+
+        let title = if self.config_mode && !has_doc {
+            " Description [missing] "
+        } else {
+            " Description "
+        };
+
+        let desc_block = Block::default()
+            .title(title)
+            .title_style(title_style)
+            .borders(Borders::ALL)
+            .border_style(border_style);
+
+        // Truncate description to fit in the available area
+        let inner_height = area.height.saturating_sub(2) as usize; // Account for borders
+        let lines: Vec<&str> = description.lines().take(inner_height).collect();
+        let display_text = lines.join("\n");
+
+        let desc_text = Paragraph::new(display_text)
+            .style(Style::default().fg(if has_doc {
+                Color::White
+            } else {
+                Color::DarkGray
+            }))
+            .block(desc_block)
+            .wrap(Wrap { trim: true });
+
+        frame.render_widget(desc_text, area);
+    }
+
     fn draw_editor_help(&self, frame: &mut Frame, area: Rect) {
+        let help_block = Block::default()
+            .title(" Help ")
+            .title_style(Style::default().fg(Color::Yellow))
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::DarkGray));
+
         let help_text = if self.focus == Focus::Editor {
             if self.editor_mode == EditorMode::Editing {
                 Line::from(vec![
@@ -1122,7 +1291,9 @@ impl App {
             ])
         };
 
-        let help = Paragraph::new(help_text).style(Style::default().fg(Color::DarkGray));
+        let help = Paragraph::new(help_text)
+            .style(Style::default().fg(Color::DarkGray))
+            .block(help_block);
 
         frame.render_widget(help, area);
     }
@@ -1150,14 +1321,23 @@ fn build_tree_items(
     json_data: &Value,
     node_map: &mut HashMap<String, NodeInfo>,
     nu_type_map: &Option<HashMap<String, NuValueType>>,
+    doc_map: &Option<HashMap<String, String>>,
 ) -> Vec<TreeItem<'static, String>> {
-    build_tree_items_recursive(json_data, node_map, nu_type_map, Vec::new(), String::new())
+    build_tree_items_recursive(
+        json_data,
+        node_map,
+        nu_type_map,
+        doc_map,
+        Vec::new(),
+        String::new(),
+    )
 }
 
 fn build_tree_items_recursive(
     value: &Value,
     node_map: &mut HashMap<String, NodeInfo>,
     nu_type_map: &Option<HashMap<String, NuValueType>>,
+    doc_map: &Option<HashMap<String, String>>,
     current_path: Vec<String>,
     parent_id: String,
 ) -> Vec<TreeItem<'static, String>> {
@@ -1184,6 +1364,12 @@ fn build_tree_items_recursive(
                         .as_ref()
                         .and_then(|m| m.get(&identifier).cloned());
 
+                    // Check if documentation exists for this path
+                    let config_path = path.join(".");
+                    let has_doc = doc_map
+                        .as_ref()
+                        .is_some_and(|m| m.contains_key(&config_path));
+
                     node_map.insert(
                         identifier.clone(),
                         NodeInfo {
@@ -1193,7 +1379,7 @@ fn build_tree_items_recursive(
                         },
                     );
 
-                    let display = format_tree_label(key, val);
+                    let display = format_tree_label(key, val, has_doc, doc_map.is_some());
 
                     if is_leaf(val) {
                         TreeItem::new_leaf(identifier, display)
@@ -1202,6 +1388,7 @@ fn build_tree_items_recursive(
                             val,
                             node_map,
                             nu_type_map,
+                            doc_map,
                             path,
                             identifier.clone(),
                         );
@@ -1229,6 +1416,12 @@ fn build_tree_items_recursive(
                     .as_ref()
                     .and_then(|m| m.get(&identifier).cloned());
 
+                // Check if documentation exists for this path
+                let config_path = path.join(".");
+                let has_doc = doc_map
+                    .as_ref()
+                    .is_some_and(|m| m.contains_key(&config_path));
+
                 node_map.insert(
                     identifier.clone(),
                     NodeInfo {
@@ -1238,7 +1431,7 @@ fn build_tree_items_recursive(
                     },
                 );
 
-                let display = format_array_item_label(idx, val);
+                let display = format_array_item_label(idx, val, has_doc, doc_map.is_some());
 
                 if is_leaf(val) {
                     TreeItem::new_leaf(identifier, display)
@@ -1247,6 +1440,7 @@ fn build_tree_items_recursive(
                         val,
                         node_map,
                         nu_type_map,
+                        doc_map,
                         path,
                         identifier.clone(),
                     );
@@ -1259,39 +1453,64 @@ fn build_tree_items_recursive(
     }
 }
 
-fn format_tree_label(key: &str, value: &Value) -> String {
+fn format_tree_label(key: &str, value: &Value, has_doc: bool, is_config_mode: bool) -> String {
+    let doc_marker = if is_config_mode && !has_doc {
+        "⚠ "
+    } else {
+        ""
+    };
     match value {
-        Value::Null => format!("{}: null", key),
-        Value::Bool(b) => format!("{}: {}", key, b),
-        Value::Number(n) => format!("{}: {}", key, n),
+        Value::Null => format!("{}{}: null", doc_marker, key),
+        Value::Bool(b) => format!("{}{}: {}", doc_marker, key, b),
+        Value::Number(n) => format!("{}{}: {}", doc_marker, key, n),
         Value::String(s) => {
             let preview = if s.len() > 40 {
                 format!("{}...", &s[..37])
             } else {
                 s.clone()
             };
-            format!("{}: \"{}\"", key, preview.replace('\n', "\\n"))
+            format!(
+                "{}{}: \"{}\"",
+                doc_marker,
+                key,
+                preview.replace('\n', "\\n")
+            )
         }
-        Value::Array(arr) => format!("{} [{} items]", key, arr.len()),
-        Value::Object(obj) => format!("{} {{{} keys}}", key, obj.len()),
+        Value::Array(arr) => format!("{}{} [{} items]", doc_marker, key, arr.len()),
+        Value::Object(obj) => format!("{}{} {{{} keys}}", doc_marker, key, obj.len()),
     }
 }
 
-fn format_array_item_label(idx: usize, value: &Value) -> String {
+fn format_array_item_label(
+    idx: usize,
+    value: &Value,
+    has_doc: bool,
+    is_config_mode: bool,
+) -> String {
+    let doc_marker = if is_config_mode && !has_doc {
+        "⚠ "
+    } else {
+        ""
+    };
     match value {
-        Value::Null => format!("[{}]: null", idx),
-        Value::Bool(b) => format!("[{}]: {}", idx, b),
-        Value::Number(n) => format!("[{}]: {}", idx, n),
+        Value::Null => format!("{}[{}]: null", doc_marker, idx),
+        Value::Bool(b) => format!("{}[{}]: {}", doc_marker, idx, b),
+        Value::Number(n) => format!("{}[{}]: {}", doc_marker, idx, n),
         Value::String(s) => {
             let preview = if s.len() > 40 {
                 format!("{}...", &s[..37])
             } else {
                 s.clone()
             };
-            format!("[{}]: \"{}\"", idx, preview.replace('\n', "\\n"))
+            format!(
+                "{}[{}]: \"{}\"",
+                doc_marker,
+                idx,
+                preview.replace('\n', "\\n")
+            )
         }
-        Value::Array(arr) => format!("[{}] [{} items]", idx, arr.len()),
-        Value::Object(obj) => format!("[{}] {{{} keys}}", idx, obj.len()),
+        Value::Array(arr) => format!("{}[{}] [{} items]", doc_marker, idx, arr.len()),
+        Value::Object(obj) => format!("{}[{}] {{{} keys}}", doc_marker, idx, obj.len()),
     }
 }
 
@@ -1372,6 +1591,7 @@ fn run_config_tui(
     output_file: Option<String>,
     config_mode: bool,
     nu_type_map: Option<HashMap<String, NuValueType>>,
+    doc_map: Option<HashMap<String, String>>,
 ) -> Result<Option<Value>, Box<dyn Error>> {
     // Terminal initialization
     enable_raw_mode()?;
@@ -1383,7 +1603,7 @@ fn run_config_tui(
     // Clear the screen initially
     terminal.clear()?;
 
-    let mut app = App::new(json_data, output_file, config_mode, nu_type_map);
+    let mut app = App::new(json_data, output_file, config_mode, nu_type_map, doc_map);
 
     // Select the first item
     app.tree_state.select_first();
