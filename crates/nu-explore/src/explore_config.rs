@@ -93,9 +93,14 @@ TUI Keybindings:
         let output_file: Option<String> = call.get_flag(engine_state, stack, "output")?;
 
         // Determine the data source and mode
-        let (json_data, config_mode): (Value, bool) = if use_example {
+        // nu_type_map is used in config mode to track original nushell types
+        let (json_data, config_mode, nu_type_map): (
+            Value,
+            bool,
+            Option<HashMap<String, NuValueType>>,
+        ) = if use_example {
             // Use example data
-            (get_example_json(), false)
+            (get_example_json(), false, None)
         } else if !string_input.trim().is_empty() {
             // Use piped input data
             let data =
@@ -106,7 +111,7 @@ TUI Keybindings:
                     help: Some("Make sure the input is valid JSON".into()),
                     inner: vec![],
                 })?;
-            (data, false)
+            (data, false, None)
         } else {
             // Default: use nushell configuration
             // First convert Config to nu_protocol::Value, then to serde_json::Value
@@ -114,7 +119,10 @@ TUI Keybindings:
             let config = stack.get_config(engine_state);
             let nu_value = config.as_ref().clone().into_value(call.head);
             let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
-            (json_data, true)
+            // Build nu_type_map to track original nushell types
+            let mut nu_type_map = HashMap::new();
+            build_nu_type_map(&nu_value, Vec::new(), &mut nu_type_map);
+            (json_data, true, Some(nu_type_map))
         };
 
         if cli_mode {
@@ -122,7 +130,7 @@ TUI Keybindings:
             print_json_tree(&json_data, "", true, None);
         } else {
             // TUI mode
-            let result = run_config_tui(json_data, output_file, config_mode)?;
+            let result = run_config_tui(json_data, output_file, config_mode, nu_type_map)?;
 
             // If in config mode and data was modified, apply changes to the config
             if config_mode {
@@ -238,6 +246,53 @@ fn nu_value_to_json(
     })
 }
 
+/// Build a map of path identifiers to NuValueType for tracking original nushell types
+fn build_nu_type_map(
+    value: &nu_protocol::Value,
+    current_path: Vec<String>,
+    type_map: &mut HashMap<String, NuValueType>,
+) {
+    let identifier = if current_path.is_empty() {
+        String::new()
+    } else {
+        current_path
+            .iter()
+            .enumerate()
+            .map(|(i, p)| {
+                if p.parse::<usize>().is_ok() {
+                    format!("[{}]", p)
+                } else if i == 0 {
+                    p.clone()
+                } else {
+                    format!(".{}", p)
+                }
+            })
+            .collect::<String>()
+    };
+
+    if !identifier.is_empty() {
+        type_map.insert(identifier.clone(), NuValueType::from_nu_value(value));
+    }
+
+    match value {
+        nu_protocol::Value::Record { val, .. } => {
+            for (k, v) in val.iter() {
+                let mut path = current_path.clone();
+                path.push(k.clone());
+                build_nu_type_map(v, path, type_map);
+            }
+        }
+        nu_protocol::Value::List { vals, .. } => {
+            for (idx, v) in vals.iter().enumerate() {
+                let mut path = current_path.clone();
+                path.push(idx.to_string());
+                build_nu_type_map(v, path, type_map);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// Convert a serde_json::Value to a nu_protocol::Value
 fn json_to_nu_value(
     json: &Value,
@@ -342,6 +397,7 @@ enum EditorMode {
 struct NodeInfo {
     path: NodePath,
     value_type: ValueType,
+    nu_type: Option<NuValueType>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -352,6 +408,96 @@ enum ValueType {
     String,
     Array,
     Object,
+}
+
+/// Nushell-specific value types for display in config mode
+#[derive(Debug, Clone, PartialEq)]
+enum NuValueType {
+    Nothing,
+    Bool,
+    Int,
+    Float,
+    String,
+    List,
+    Record,
+    Closure,
+    Filesize,
+    Duration,
+    Date,
+    Glob,
+    CellPath,
+    Binary,
+    Range,
+    Custom(String),
+    Error,
+}
+
+impl NuValueType {
+    fn from_nu_value(value: &nu_protocol::Value) -> Self {
+        match value {
+            nu_protocol::Value::Nothing { .. } => NuValueType::Nothing,
+            nu_protocol::Value::Bool { .. } => NuValueType::Bool,
+            nu_protocol::Value::Int { .. } => NuValueType::Int,
+            nu_protocol::Value::Float { .. } => NuValueType::Float,
+            nu_protocol::Value::String { .. } => NuValueType::String,
+            nu_protocol::Value::List { .. } => NuValueType::List,
+            nu_protocol::Value::Record { .. } => NuValueType::Record,
+            nu_protocol::Value::Closure { .. } => NuValueType::Closure,
+            nu_protocol::Value::Filesize { .. } => NuValueType::Filesize,
+            nu_protocol::Value::Duration { .. } => NuValueType::Duration,
+            nu_protocol::Value::Date { .. } => NuValueType::Date,
+            nu_protocol::Value::Glob { .. } => NuValueType::Glob,
+            nu_protocol::Value::CellPath { .. } => NuValueType::CellPath,
+            nu_protocol::Value::Binary { .. } => NuValueType::Binary,
+            nu_protocol::Value::Range { .. } => NuValueType::Range,
+            nu_protocol::Value::Custom { val, .. } => NuValueType::Custom(val.type_name()),
+            nu_protocol::Value::Error { .. } => NuValueType::Error,
+        }
+    }
+
+    fn label(&self) -> &str {
+        match self {
+            NuValueType::Nothing => "nothing",
+            NuValueType::Bool => "bool",
+            NuValueType::Int => "int",
+            NuValueType::Float => "float",
+            NuValueType::String => "string",
+            NuValueType::List => "list",
+            NuValueType::Record => "record",
+            NuValueType::Closure => "closure",
+            NuValueType::Filesize => "filesize",
+            NuValueType::Duration => "duration",
+            NuValueType::Date => "date",
+            NuValueType::Glob => "glob",
+            NuValueType::CellPath => "cell-path",
+            NuValueType::Binary => "binary",
+            NuValueType::Range => "range",
+            NuValueType::Custom(name) => name,
+            NuValueType::Error => "error",
+        }
+    }
+
+    fn color(&self) -> Color {
+        match self {
+            NuValueType::Nothing => Color::DarkGray,
+            NuValueType::Bool => Color::LightCyan,
+            NuValueType::Int => Color::Magenta,
+            NuValueType::Float => Color::Magenta,
+            NuValueType::String => Color::Green,
+            NuValueType::List => Color::Yellow,
+            NuValueType::Record => Color::Blue,
+            NuValueType::Closure => Color::Cyan,
+            NuValueType::Filesize => Color::LightMagenta,
+            NuValueType::Duration => Color::LightMagenta,
+            NuValueType::Date => Color::LightYellow,
+            NuValueType::Glob => Color::LightGreen,
+            NuValueType::CellPath => Color::LightBlue,
+            NuValueType::Binary => Color::Gray,
+            NuValueType::Range => Color::Yellow,
+            NuValueType::Custom(_) => Color::Rgb(255, 165, 0), // Orange
+            NuValueType::Error => Color::Red,
+        }
+    }
 }
 
 impl ValueType {
@@ -413,9 +559,14 @@ struct App {
 }
 
 impl App {
-    fn new(json_data: Value, output_file: Option<String>, config_mode: bool) -> Self {
+    fn new(
+        json_data: Value,
+        output_file: Option<String>,
+        config_mode: bool,
+        nu_type_map: Option<HashMap<String, NuValueType>>,
+    ) -> Self {
         let mut node_map = HashMap::new();
-        let tree_items = build_tree_items(&json_data, &mut node_map);
+        let tree_items = build_tree_items(&json_data, &mut node_map, &nu_type_map);
 
         let status_msg = if config_mode {
             "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Apply | q Quit"
@@ -446,7 +597,10 @@ impl App {
         let current_selection = self.tree_state.selected().to_vec();
 
         let mut node_map = HashMap::new();
-        self.tree_items = build_tree_items(&self.json_data, &mut node_map);
+        // When rebuilding, we don't have the nu_type_map anymore, so pass None
+        // This means after editing, we lose the nushell type info, but that's acceptable
+        // since the edited values may have different types anyway
+        self.tree_items = build_tree_items(&self.json_data, &mut node_map, &None);
         self.node_map = node_map;
 
         // Try to restore selection if the node still exists
@@ -794,18 +948,32 @@ impl App {
                     }
                     _ => String::new(),
                 };
-                (
-                    node_info.value_type.label(),
-                    node_info.value_type.color(),
-                    extra,
-                )
+
+                // In config mode, use nushell types if available
+                if self.config_mode {
+                    if let Some(ref nu_type) = node_info.nu_type {
+                        (nu_type.label().to_string(), nu_type.color(), extra)
+                    } else {
+                        (
+                            node_info.value_type.label().to_string(),
+                            node_info.value_type.color(),
+                            extra,
+                        )
+                    }
+                } else {
+                    (
+                        node_info.value_type.label().to_string(),
+                        node_info.value_type.color(),
+                        extra,
+                    )
+                }
             } else {
-                ("unknown", Color::DarkGray, String::new())
+                ("unknown".to_string(), Color::DarkGray, String::new())
             };
 
         let type_line = Line::from(vec![
             Span::styled(
-                format!(" {} ", type_label),
+                format!(" {} ", &type_label),
                 Style::default().fg(Color::Black).bg(type_color).bold(),
             ),
             Span::styled(extra_info, Style::default().fg(Color::DarkGray)),
@@ -979,22 +1147,25 @@ impl App {
 }
 
 fn build_tree_items(
-    value: &Value,
+    json_data: &Value,
     node_map: &mut HashMap<String, NodeInfo>,
+    nu_type_map: &Option<HashMap<String, NuValueType>>,
 ) -> Vec<TreeItem<'static, String>> {
-    build_tree_items_recursive(value, node_map, Vec::new(), String::new())
+    build_tree_items_recursive(json_data, node_map, nu_type_map, Vec::new(), String::new())
 }
 
 fn build_tree_items_recursive(
     value: &Value,
     node_map: &mut HashMap<String, NodeInfo>,
+    nu_type_map: &Option<HashMap<String, NuValueType>>,
     current_path: Vec<String>,
     parent_id: String,
 ) -> Vec<TreeItem<'static, String>> {
     match value {
         Value::Object(map) => {
+            // Sort keys alphabetically
             let mut entries: Vec<(&String, &Value)> = map.iter().collect();
-            entries.sort_by_key(|(k, _)| k.as_str());
+            entries.sort_by_key(|(k, _)| *k);
 
             entries
                 .into_iter()
@@ -1009,12 +1180,16 @@ fn build_tree_items_recursive(
                     };
 
                     let value_type = ValueType::from_value(val);
+                    let nu_type = nu_type_map
+                        .as_ref()
+                        .and_then(|m| m.get(&identifier).cloned());
 
                     node_map.insert(
                         identifier.clone(),
                         NodeInfo {
                             path: path.clone(),
                             value_type,
+                            nu_type,
                         },
                     );
 
@@ -1023,8 +1198,13 @@ fn build_tree_items_recursive(
                     if is_leaf(val) {
                         TreeItem::new_leaf(identifier, display)
                     } else {
-                        let children =
-                            build_tree_items_recursive(val, node_map, path, identifier.clone());
+                        let children = build_tree_items_recursive(
+                            val,
+                            node_map,
+                            nu_type_map,
+                            path,
+                            identifier.clone(),
+                        );
                         TreeItem::new(identifier, display, children)
                             .expect("all item identifiers are unique")
                     }
@@ -1045,12 +1225,16 @@ fn build_tree_items_recursive(
                 };
 
                 let value_type = ValueType::from_value(val);
+                let nu_type = nu_type_map
+                    .as_ref()
+                    .and_then(|m| m.get(&identifier).cloned());
 
                 node_map.insert(
                     identifier.clone(),
                     NodeInfo {
                         path: path.clone(),
                         value_type,
+                        nu_type,
                     },
                 );
 
@@ -1059,8 +1243,13 @@ fn build_tree_items_recursive(
                 if is_leaf(val) {
                     TreeItem::new_leaf(identifier, display)
                 } else {
-                    let children =
-                        build_tree_items_recursive(val, node_map, path, identifier.clone());
+                    let children = build_tree_items_recursive(
+                        val,
+                        node_map,
+                        nu_type_map,
+                        path,
+                        identifier.clone(),
+                    );
                     TreeItem::new(identifier, display, children)
                         .expect("all item identifiers are unique")
                 }
@@ -1182,6 +1371,7 @@ fn run_config_tui(
     json_data: Value,
     output_file: Option<String>,
     config_mode: bool,
+    nu_type_map: Option<HashMap<String, NuValueType>>,
 ) -> Result<Option<Value>, Box<dyn Error>> {
     // Terminal initialization
     enable_raw_mode()?;
@@ -1193,7 +1383,7 @@ fn run_config_tui(
     // Clear the screen initially
     terminal.clear()?;
 
-    let mut app = App::new(json_data, output_file, config_mode);
+    let mut app = App::new(json_data, output_file, config_mode, nu_type_map);
 
     // Select the first item
     app.tree_state.select_first();
