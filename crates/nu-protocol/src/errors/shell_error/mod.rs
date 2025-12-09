@@ -6,7 +6,7 @@ use crate::{
     format_cli_error, record,
 };
 use job::JobError;
-use miette::Diagnostic;
+use miette::{Diagnostic, LabeledSpan, NamedSource};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
 use thiserror::Error;
@@ -1061,6 +1061,41 @@ pub enum ShellError {
         msg: String,
         #[label("{msg}")]
         span: Span,
+    },
+
+    /// This is a generic error type used for different situations that need
+    /// multiple labels.
+    #[error("{msg}")]
+    #[diagnostic(code(nu::shell::outside), url("{url}"))]
+    OutsideSource {
+        #[source_code]
+        src: NamedSource<String>,
+        msg: String,
+        url: String,
+        #[help]
+        help: Option<String>,
+        // Defaults to an empty string so it just underlines
+        #[label(collection, "")]
+        labels: Vec<LabeledSpan>,
+        #[related]
+        inner: Vec<ShellError>,
+    },
+
+    /// This is a generic error type used for different situations that need
+    /// multiple labels, minus the URL
+    #[error("{msg}")]
+    #[diagnostic(code(nu::shell::outside))]
+    OutsideSourceNoUrl {
+        #[source_code]
+        src: NamedSource<String>,
+        msg: String,
+        #[help]
+        help: Option<String>,
+        // Defaults to an empty string so it just underlines
+        #[label(collection, "")]
+        labels: Vec<LabeledSpan>,
+        #[related]
+        inner: Vec<ShellError>,
     },
 
     /// This is a generic error type used for user and plugin-generated errors.

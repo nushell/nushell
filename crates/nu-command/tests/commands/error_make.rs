@@ -131,3 +131,13 @@ fn error_simple_string() {
     let actual = nu!("error make foo");
     assert!(actual.err.contains("Error: foo"));
 }
+
+#[test]
+fn error_source() {
+    let actual = nu!("error make {
+            msg: foo
+            src: {text: 'foo bar'}
+            labels: [{text: bar span: {start: 0 end: 3} }]
+        }");
+    assert!(actual.err.contains("snippet line 1: foo bar"))
+}

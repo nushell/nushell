@@ -1,8 +1,8 @@
 use super::{ShellError, shell_error::io::IoError};
 use crate::{FromValue, IntoValue, Span, Type, Value, record};
-use miette::{Diagnostic, LabeledSpan, SourceSpan};
+use miette::{Diagnostic, LabeledSpan, NamedSource, SourceSpan};
 use serde::{Deserialize, Serialize};
-use std::fmt;
+use std::{fmt, fs};
 
 // # use nu_protocol::{FromValue, Value, ShellError, record, Span};
 
@@ -248,6 +248,132 @@ impl IntoValue for ErrorLabel {
         record! {
             "text" => Value::string(self.text, span),
             "span" => span.into_value(span),
+        }
+        .into_value(span)
+    }
+}
+
+/// Optionally named error source
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ErrorSource {
+    name: Option<String>,
+    text: Option<String>,
+    path: Option<String>,
+}
+
+impl ErrorSource {
+    pub fn new(name: Option<String>, text: String) -> Self {
+        Self {
+            name,
+            text: Some(text),
+            path: None,
+        }
+    }
+}
+
+impl From<ErrorSource> for NamedSource<String> {
+    fn from(value: ErrorSource) -> Self {
+        let name = value.name.unwrap_or_default();
+        match value {
+            ErrorSource {
+                text: Some(text),
+                path: None,
+                ..
+            } => NamedSource::new(name, text),
+            ErrorSource {
+                text: None,
+                path: Some(path),
+                ..
+            } => {
+                let text = fs::read_to_string(&path).unwrap_or_default();
+                NamedSource::new(path, text)
+            }
+            _ => NamedSource::new(name, "".into()),
+        }
+    }
+}
+
+impl FromValue for ErrorSource {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let record = v.clone().into_record()?;
+        let name = record
+            .get("name")
+            .and_then(|s| String::from_value(s.clone()).ok());
+        // let name = String::from_value(record.get("name").unwrap().clone()).ok();
+
+        let text = if let Some(text) = record.get("text") {
+            String::from_value(text.clone()).ok()
+        } else {
+            None
+        };
+        let path = if let Some(path) = record.get("path") {
+            String::from_value(path.clone()).ok()
+        } else {
+            None
+        };
+
+        match (text, path) {
+            // Prioritize not reading from a file and using the text raw
+            (text @ Some(_), _) => Ok(ErrorSource {
+                name,
+                text,
+                path: None,
+            }),
+            (_, path @ Some(_)) => Ok(ErrorSource {
+                name: path.clone(),
+                text: None,
+                path,
+            }),
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+    fn expected_type() -> crate::Type {
+        Type::Record(
+            vec![
+                ("name".into(), Type::String),
+                ("text".into(), Type::String),
+                ("path".into(), Type::String),
+            ]
+            .into(),
+        )
+    }
+}
+
+impl IntoValue for ErrorSource {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            Self {
+                name: Some(name),
+                text: Some(text),
+                ..
+            } => record! {
+                "name" => Value::string(name, span),
+                "text" => Value::string(text, span),
+            },
+            Self {
+                text: Some(text), ..
+            } => record! {
+                "text" => Value::string(text, span)
+            },
+            Self {
+                name: Some(name),
+                path: Some(path),
+                ..
+            } => record! {
+                "name" => Value::string(name, span),
+                "path" => Value::string(path, span),
+            },
+            Self {
+                path: Some(path), ..
+            } => record! {
+                "path" => Value::string(path, span),
+            },
+            _ => record! {},
         }
         .into_value(span)
     }

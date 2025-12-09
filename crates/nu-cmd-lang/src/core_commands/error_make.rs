@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ErrorLabel, FromValue, IntoValue, LabeledError};
+use nu_protocol::{ErrorLabel, ErrorSource, FromValue, IntoValue, LabeledError};
 
 #[derive(Clone)]
 pub struct ErrorMake;
@@ -34,8 +34,7 @@ impl Command for ErrorMake {
     }
 
     fn extra_description(&self) -> &str {
-        "
-Use either as a command with an `error_struct` or string as an input. The
+        "Use either as a command with an `error_struct` or string as an input. The
 `error_struct` is detailed below:
 
   * `msg: string` (required) 
@@ -44,11 +43,22 @@ Use either as a command with an `error_struct` or string as an input. The
   * `help: string`
   * `url: string`
   * `inner: table<error_struct>`
+  * `src: src_record`
 
 The `error_label` should contain the following keys:
 
   * `text: string`
   * `span: record<start: int end: int>`
+
+External errors (referencing external sources, not the default nu spans) are
+created using the `src` column with the `src_record` record. This only changes
+where the labels are placed. For this, the `code` key is ignored, and will
+always be `nu::shell::outside`. Errors cannot use labels that reference both
+inside and outside sources, to do that use an `inner` error.
+
+  * `name: string` - name of the source
+  * `text: string` - the raw text to place the spans in
+  * `path: string` - a file path to place the spans in
 
 Errors can be chained together using the `inner` key, and multiple spans can be
 specified to give more detailed error outputs.
@@ -170,6 +180,7 @@ struct ErrorInfo {
     #[nu_value(default)]
     inner: Vec<Value>,
     raw: Option<Value>,
+    src: Option<ErrorSource>,
 }
 
 impl Default for ErrorInfo {
@@ -183,6 +194,7 @@ impl Default for ErrorInfo {
             label: None,
             inner: Vec::default(),
             raw: None,
+            src: None,
         }
     }
 }
@@ -204,10 +216,46 @@ impl ErrorInfo {
                 Err(err) => err,
             })
             .collect();
+        let labels = self.clone().labels();
 
-        match (inner.as_slice(), self) {
-            (inners, ei @ ErrorInfo { raw: None, .. }) => LabeledError {
-                labels: match (show_labels, ei.clone().labels().as_slice()) {
+        match self {
+            // External error with src code and url
+            ErrorInfo {
+                src: Some(src),
+                url: Some(url),
+                msg,
+                help,
+                raw: None,
+                ..
+            } => ShellError::OutsideSource {
+                src: src.into(),
+                labels: labels.into_iter().map(|l| l.into()).collect(),
+                msg,
+                url,
+                help,
+                inner,
+            },
+            // External error with src code
+            ErrorInfo {
+                src: Some(src),
+                msg,
+                help,
+                raw: None,
+                ..
+            } => ShellError::OutsideSourceNoUrl {
+                src: src.into(),
+                labels: labels.into_iter().map(|l| l.into()).collect(),
+                msg,
+                help,
+                inner,
+            },
+            // Normal error
+            ei @ ErrorInfo {
+                src: None,
+                raw: None,
+                ..
+            } => LabeledError {
+                labels: match (show_labels, labels.as_slice()) {
                     (true, []) => vec![ErrorLabel {
                         text: "".into(),
                         span,
@@ -220,10 +268,11 @@ impl ErrorInfo {
                 code: ei.code,
                 url: ei.url,
                 help: ei.help,
-                inner: inners.to_vec().into(),
+                inner: inner.into(),
             }
             .into(),
-            (_, ErrorInfo { raw: Some(v), .. }) => ShellError::from_value(v).unwrap_or_else(|e| e),
+            // Error error with a raw error value somewhere
+            ErrorInfo { raw: Some(v), .. } => ShellError::from_value(v).unwrap_or_else(|e| e),
         }
     }
 }
