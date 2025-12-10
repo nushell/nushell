@@ -7,6 +7,7 @@ use tracing_subscriber::EnvFilter;
 use rmcp::ErrorData as McpError;
 
 mod evaluation;
+mod history;
 mod server;
 
 pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError> {

@@ -4360,6 +4360,7 @@ name = "nu-mcp"
 version = "0.109.2"
 dependencies = [
  "bytes",
+ "chrono",
  "futures",
  "indoc",
  "nu-cmd-lang",
