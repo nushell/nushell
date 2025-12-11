@@ -7,7 +7,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 pub fn handle_tree_input(app: &mut App, key: KeyCode, _modifiers: KeyModifiers) -> AppResult {
     match key {
         KeyCode::Char('q') => {
-            if app.modified {
+            // In config mode, allow quit if user has confirmed save with Ctrl+S
+            // In non-config mode, allow quit if there are no unsaved changes
+            if app.modified && !app.confirmed_save {
                 app.status_message =
                     String::from("Unsaved changes! Press Ctrl+C to force quit or Ctrl+S to save");
                 return AppResult::Continue;
@@ -100,7 +102,9 @@ pub fn handle_editor_normal_input(
             app.scroll_editor(10);
         }
         KeyCode::Char('q') => {
-            if app.modified {
+            // In config mode, allow quit if user has confirmed save with Ctrl+S
+            // In non-config mode, allow quit if there are no unsaved changes
+            if app.modified && !app.confirmed_save {
                 app.status_message =
                     String::from("Unsaved changes! Press Ctrl+C to force quit or Ctrl+S to save");
             } else {

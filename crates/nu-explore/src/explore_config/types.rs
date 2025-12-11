@@ -185,6 +185,8 @@ pub struct App {
     pub selected_identifier: String,
     pub status_message: String,
     pub modified: bool,
+    /// In config mode, tracks whether user has confirmed they want to save (via Ctrl+S)
+    pub confirmed_save: bool,
     pub output_file: Option<String>,
     pub config_mode: bool,
     pub doc_map: Option<HashMap<String, String>>,

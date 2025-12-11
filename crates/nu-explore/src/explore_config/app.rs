@@ -43,6 +43,7 @@ impl App {
             selected_identifier: String::new(),
             status_message: String::from(status_msg),
             modified: false,
+            confirmed_save: false,
             output_file,
             config_mode,
             doc_map,
@@ -185,6 +186,7 @@ impl App {
     pub fn save_to_file(&mut self) -> io::Result<()> {
         if self.config_mode {
             // In config mode, we mark as "ready to apply" - actual application happens on exit
+            self.confirmed_save = true;
             self.status_message =
                 String::from("✓ Changes staged - will be applied to config on exit");
             return Ok(());
