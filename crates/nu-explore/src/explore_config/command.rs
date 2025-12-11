@@ -1,7 +1,8 @@
 //! Command definition for the `explore config` command.
 
 use crate::explore_config::conversion::{
-    build_nu_type_map, json_to_nu_value, nu_value_to_json, parse_config_documentation,
+    build_nu_type_map, build_original_value_map, json_to_nu_value_with_types, nu_value_to_json,
+    parse_config_documentation,
 };
 use crate::explore_config::example_data::get_example_json;
 use crate::explore_config::tree::print_json_tree;
@@ -85,15 +86,17 @@ TUI Keybindings:
 
         // Determine the data source and mode
         // nu_type_map is used in config mode to track original nushell types
+        // original_values is used to preserve values that can't be roundtripped (closures, dates, etc.)
         // doc_map is used in config mode to show documentation for config options
-        let (json_data, config_mode, nu_type_map, doc_map): (
+        let (json_data, config_mode, nu_type_map, original_values, doc_map): (
             Value,
             bool,
             Option<HashMap<String, NuValueType>>,
+            Option<HashMap<String, nu_protocol::Value>>,
             Option<HashMap<String, String>>,
         ) = if use_example {
             // Use example data
-            (get_example_json(), false, None, None)
+            (get_example_json(), false, None, None, None)
         } else if !string_input.trim().is_empty() {
             // Use piped input data
             let data =
@@ -104,7 +107,7 @@ TUI Keybindings:
                     help: Some("Make sure the input is valid JSON".into()),
                     inner: vec![],
                 })?;
-            (data, false, None, None)
+            (data, false, None, None, None)
         } else {
             // Default: use nushell configuration
             // First convert Config to nu_protocol::Value, then to serde_json::Value
@@ -112,33 +115,54 @@ TUI Keybindings:
             let config = stack.get_config(engine_state);
             let nu_value = config.as_ref().clone().into_value(call.head);
             let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
+
             // Build nu_type_map to track original nushell types
             let mut nu_type_map = HashMap::new();
             build_nu_type_map(&nu_value, Vec::new(), &mut nu_type_map);
+
+            // Build original_values map for types that can't be roundtripped (closures, dates, etc.)
+            let mut original_values = HashMap::new();
+            build_original_value_map(&nu_value, Vec::new(), &mut original_values);
+
             // Parse documentation from doc_config.nu
             let doc_map = parse_config_documentation();
-            (json_data, true, Some(nu_type_map), Some(doc_map))
+            (
+                json_data,
+                true,
+                Some(nu_type_map),
+                Some(original_values),
+                Some(doc_map),
+            )
         };
 
         if cli_mode {
             // Original CLI behavior
             print_json_tree(&json_data, "", true, None);
         } else {
-            // TUI mode
+            // TUI mode - clone the type map and original values so we can use them after the TUI returns
+            let type_map_for_conversion = nu_type_map.clone();
+            let original_values_for_conversion = original_values.clone();
+
             let result = run_config_tui(json_data, output_file, config_mode, nu_type_map, doc_map)?;
 
             // If in config mode and data was modified, apply changes to the config
             if config_mode {
                 if let Some(modified_json) = result {
-                    // Convert JSON back to nu_protocol::Value
-                    let nu_value = json_to_nu_value(&modified_json, call.head).map_err(|e| {
-                        ShellError::GenericError {
-                            error: "Could not convert JSON to nu Value".into(),
-                            msg: format!("conversion error: {e}"),
-                            span: Some(call.head),
-                            help: None,
-                            inner: vec![],
-                        }
+                    // Convert JSON back to nu_protocol::Value, using type map and original values
+                    // to preserve types like Duration, Filesize, and Closure
+                    let nu_value = json_to_nu_value_with_types(
+                        &modified_json,
+                        call.head,
+                        &type_map_for_conversion,
+                        &original_values_for_conversion,
+                        Vec::new(),
+                    )
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Could not convert JSON to nu Value".into(),
+                        msg: format!("conversion error: {e}"),
+                        span: Some(call.head),
+                        help: None,
+                        inner: vec![],
                     })?;
 
                     // Update $env.config with the new value
