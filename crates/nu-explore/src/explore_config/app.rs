@@ -63,10 +63,10 @@ impl App {
         self.node_map = node_map;
 
         // Try to restore selection if the node still exists
-        if let Some(last_id) = current_selection.last() {
-            if self.node_map.contains_key(last_id) {
-                self.tree_state.select(current_selection);
-            }
+        if let Some(last_id) = current_selection.last()
+            && self.node_map.contains_key(last_id)
+        {
+            self.tree_state.select(current_selection);
         }
     }
 
@@ -563,7 +563,7 @@ impl App {
 
         // Determine if we have documentation for this node
         let (description, has_doc) = if self.config_mode {
-            if let Some(ref info) = node_info {
+            if let Some(info) = node_info {
                 // Build the config path from the node path (e.g., ["history", "file_format"] -> "history.file_format")
                 let config_path = info.path.join(".");
 

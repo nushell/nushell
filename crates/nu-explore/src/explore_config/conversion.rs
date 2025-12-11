@@ -10,6 +10,7 @@ use std::error::Error;
 
 /// Convert a nu_protocol::Value to a serde_json::Value
 /// This properly handles closures by converting them to their string representation
+#[allow(clippy::only_used_in_recursion)]
 pub fn nu_value_to_json(
     engine_state: &EngineState,
     value: &nu_protocol::Value,
@@ -94,12 +95,12 @@ pub fn parse_config_documentation() -> HashMap<String, String> {
         } else if trimmed.starts_with("$env.config.") {
             // This is a config setting line
             // Extract the path (everything between "$env.config." and " =" or end of relevant part)
-            if let Some(path) = extract_config_path(trimmed) {
-                if !current_comments.is_empty() {
-                    // Join all collected comments as the documentation
-                    let doc = current_comments.join("\n");
-                    doc_map.insert(path, doc);
-                }
+            if let Some(path) = extract_config_path(trimmed)
+                && !current_comments.is_empty()
+            {
+                // Join all collected comments as the documentation
+                let doc = current_comments.join("\n");
+                doc_map.insert(path, doc);
             }
             // Clear comments after processing a setting
             current_comments.clear();
@@ -125,9 +126,7 @@ pub fn extract_config_path(line: &str) -> Option<String> {
     let rest = &line["$env.config.".len()..];
 
     // Find where the path ends (at '=' or end of line for bare references)
-    let path_end = rest
-        .find(|c: char| c == '=' || c == ' ')
-        .unwrap_or(rest.len());
+    let path_end = rest.find(['=', ' ']).unwrap_or(rest.len());
 
     let path = rest[..path_end].trim();
     if path.is_empty() {
@@ -285,11 +284,11 @@ pub fn json_to_nu_value_with_types(
                     NuValueType::Closure | NuValueType::Date | NuValueType::Range => {
                         // Try to get the original value - closures, dates, and ranges
                         // can't be reconstructed from their string representation
-                        if let Some(original_values_map) = original_values {
-                            if let Some(original_value) = original_values_map.get(&identifier) {
-                                // Return the original value since we can't reconstruct these types
-                                return Ok(original_value.clone());
-                            }
+                        if let Some(original_values_map) = original_values
+                            && let Some(original_value) = original_values_map.get(&identifier)
+                        {
+                            // Return the original value since we can't reconstruct these types
+                            return Ok(original_value.clone());
                         }
                         // If no original value found, keep as string
                         // This will likely cause a config error, but that's the expected behavior

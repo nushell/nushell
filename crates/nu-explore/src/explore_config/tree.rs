@@ -290,11 +290,11 @@ pub fn set_value_at_path(value: &mut Value, path: &[String], new_value: Value) -
                     return true;
                 }
                 Value::Array(arr) => {
-                    if let Ok(idx) = part.parse::<usize>() {
-                        if idx < arr.len() {
-                            arr[idx] = new_value;
-                            return true;
-                        }
+                    if let Ok(idx) = part.parse::<usize>()
+                        && idx < arr.len()
+                    {
+                        arr[idx] = new_value;
+                        return true;
                     }
                     return false;
                 }
