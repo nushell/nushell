@@ -64,6 +64,7 @@ TUI Keybindings:
   ↑↓            Navigate tree / scroll editor
   ←→            Collapse/Expand tree nodes
   Enter/Space   Toggle tree node expansion
+  Enter/Space   On leaf nodes, open editor pane
   Enter/e       Start editing (in editor pane)
   Ctrl+Enter    Apply edit
   Esc           Cancel edit
@@ -202,7 +203,7 @@ TUI Keybindings:
             },
             Example {
                 description: "Explore JSON data interactively",
-                example: r#"open data.json | explore config"#,
+                example: r#"open --raw data.json | explore config"#,
                 result: None,
             },
             Example {
