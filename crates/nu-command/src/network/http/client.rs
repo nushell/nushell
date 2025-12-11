@@ -31,11 +31,12 @@ use std::{
     io::{self, Cursor},
     path::{Path, PathBuf},
     str::FromStr,
+    sync::OnceLock,
     sync::mpsc::{self, RecvTimeoutError},
     time::Duration,
 };
 use ureq::{
-    Body, Error, RequestBuilder, ResponseExt, SendBody,
+    Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
     unversioned::transport::DefaultConnector,
 };
@@ -48,6 +49,8 @@ const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 type Response = http::Response<Body>;
 
 type ContentType = String;
+
+static GLOBAL_CLIENT: OnceLock<Agent> = OnceLock::new();
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
@@ -110,6 +113,35 @@ pub fn expand_unix_socket_path(
     cwd: impl AsRef<Path>,
 ) -> Option<PathBuf> {
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
+}
+
+pub fn http_client_pool() -> &'static Agent {
+    let config_builder = ureq::config::Config::builder()
+        .user_agent("nushell")
+        .save_redirect_history(true)
+        .http_status_as_error(false)
+        .max_redirects_will_error(false);
+    let connector = DefaultConnector::default();
+    let resolver = DnsLookupResolver;
+    GLOBAL_CLIENT.get_or_init(|| Agent::with_parts(config_builder.build(), connector, resolver))
+}
+
+pub fn reset_http_client_pool(
+    allow_insecure: bool,
+    redirect_mode: RedirectMode,
+    unix_socket_path: Option<PathBuf>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    let client = http_client(
+        allow_insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
+    GLOBAL_CLIENT.set(client);
+    Ok(())
 }
 
 pub fn http_client(

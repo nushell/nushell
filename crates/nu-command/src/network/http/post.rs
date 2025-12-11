@@ -1,8 +1,9 @@
 use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     HttpBody, RequestFlags, RequestMetadata, check_response_redirection, expand_unix_socket_path,
-    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request,
+    http_client, http_client_pool, http_parse_redirect_mode, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
 
@@ -74,6 +75,7 @@ impl Command for HttpPost {
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
+            .switch("pool", "using a global pool as a client", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -184,6 +186,7 @@ struct Arguments {
     allow_errors: bool,
     redirect: Option<Spanned<String>>,
     unix_socket: Option<Spanned<String>>,
+    pool: bool,
 }
 
 pub fn run_post(
@@ -230,6 +233,7 @@ pub fn run_post(
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
         unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
+        pool: call.has_flag(engine_state, stack, "pool")?,
     };
 
     helper(engine_state, stack, call, args)
@@ -253,14 +257,18 @@ fn helper(
     let cwd = engine_state.cwd(None)?;
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
-    let client = http_client(
-        args.insecure,
-        redirect_mode,
-        unix_socket_path,
-        engine_state,
-        stack,
-    )?;
-    let mut request = client.post(&requested_url);
+    let mut request = if args.pool {
+        http_client_pool().get(&requested_url)
+    } else {
+        let client = http_client(
+            args.insecure,
+            redirect_mode,
+            unix_socket_path,
+            engine_state,
+            stack,
+        )?;
+        client.get(&requested_url)
+    };
 
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
