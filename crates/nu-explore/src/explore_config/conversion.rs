@@ -755,7 +755,7 @@ mod tests {
         build_original_value_map(&root_value, Vec::new(), &mut value_map);
 
         // Duration and String are roundtrippable, so they shouldn't be in the map
-        assert!(value_map.get("duration").is_none());
-        assert!(value_map.get("string").is_none());
+        assert!(!value_map.contains_key("duration"));
+        assert!(!value_map.contains_key("string"));
     }
 }
