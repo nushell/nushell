@@ -12,7 +12,7 @@ pub fn is_leaf(value: &Value) -> bool {
 
 /// Render a leaf value as a string
 pub fn render_leaf(value: &Value) -> String {
-    serde_json::to_string(value).expect("Failed to serialize value")
+    serde_json::to_string(value).unwrap_or_else(|_| "<unserializable>".to_string())
 }
 
 /// Print a JSON tree structure to stdout (for CLI mode)

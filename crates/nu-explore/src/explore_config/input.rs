@@ -1,6 +1,8 @@
 //! Keyboard input handling for the explore config TUI.
 
-use crate::explore_config::types::{App, AppResult, EditorMode, Focus, ValueType};
+use crate::explore_config::types::{
+    App, AppResult, EditorMode, Focus, ValueType, calculate_cursor_position,
+};
 use crossterm::event::{KeyCode, KeyModifiers};
 
 /// Handle keyboard input when the tree pane is focused
@@ -163,26 +165,14 @@ pub fn handle_editor_editing_input(
         KeyCode::Up => {
             // Move cursor up one line
             let lines: Vec<&str> = app.editor_content.lines().collect();
-            let mut pos = 0;
-            let mut cursor_line = 0;
-            let mut cursor_col = 0;
+            let cursor_pos = calculate_cursor_position(&app.editor_content, app.editor_cursor);
 
-            for (line_idx, line) in app.editor_content.lines().enumerate() {
-                if pos + line.len() >= app.editor_cursor {
-                    cursor_line = line_idx;
-                    cursor_col = app.editor_cursor - pos;
-                    break;
-                }
-                pos += line.len() + 1;
-                cursor_line = line_idx + 1;
-            }
-
-            if cursor_line > 0 {
-                let prev_line = lines.get(cursor_line - 1).unwrap_or(&"");
-                let new_col = cursor_col.min(prev_line.len());
+            if cursor_pos.line > 0 {
+                let prev_line = lines.get(cursor_pos.line - 1).unwrap_or(&"");
+                let new_col = cursor_pos.col.min(prev_line.len());
                 let mut new_pos = 0;
                 for (i, line) in lines.iter().enumerate() {
-                    if i == cursor_line - 1 {
+                    if i == cursor_pos.line - 1 {
                         app.editor_cursor = new_pos + new_col;
                         break;
                     }
@@ -193,26 +183,14 @@ pub fn handle_editor_editing_input(
         KeyCode::Down => {
             // Move cursor down one line
             let lines: Vec<&str> = app.editor_content.lines().collect();
-            let mut pos = 0;
-            let mut cursor_line = 0;
-            let mut cursor_col = 0;
+            let cursor_pos = calculate_cursor_position(&app.editor_content, app.editor_cursor);
 
-            for (line_idx, line) in app.editor_content.lines().enumerate() {
-                if pos + line.len() >= app.editor_cursor {
-                    cursor_line = line_idx;
-                    cursor_col = app.editor_cursor - pos;
-                    break;
-                }
-                pos += line.len() + 1;
-                cursor_line = line_idx + 1;
-            }
-
-            if cursor_line < lines.len().saturating_sub(1) {
-                let next_line = lines.get(cursor_line + 1).unwrap_or(&"");
-                let new_col = cursor_col.min(next_line.len());
+            if cursor_pos.line < lines.len().saturating_sub(1) {
+                let next_line = lines.get(cursor_pos.line + 1).unwrap_or(&"");
+                let new_col = cursor_pos.col.min(next_line.len());
                 let mut new_pos = 0;
                 for (i, line) in lines.iter().enumerate() {
-                    if i == cursor_line + 1 {
+                    if i == cursor_pos.line + 1 {
                         app.editor_cursor = new_pos + new_col;
                         break;
                     }
@@ -222,24 +200,44 @@ pub fn handle_editor_editing_input(
         }
         KeyCode::Home => {
             // Move to beginning of line
-            let mut pos = 0;
-            for line in app.editor_content.lines() {
-                if pos + line.len() >= app.editor_cursor {
-                    app.editor_cursor = pos;
-                    break;
+            // Handle edge cases: empty content or cursor at position 0
+            if app.editor_content.is_empty() || app.editor_cursor == 0 {
+                app.editor_cursor = 0;
+            } else {
+                let cursor_pos = calculate_cursor_position(&app.editor_content, app.editor_cursor);
+                // Calculate the start position of the current line
+                let mut line_start = 0;
+                for (idx, line) in app.editor_content.lines().enumerate() {
+                    if idx == cursor_pos.line {
+                        app.editor_cursor = line_start;
+                        break;
+                    }
+                    line_start += line.len() + 1;
                 }
-                pos += line.len() + 1;
             }
         }
         KeyCode::End => {
             // Move to end of line
-            let mut pos = 0;
-            for line in app.editor_content.lines() {
-                if pos + line.len() >= app.editor_cursor {
-                    app.editor_cursor = pos + line.len();
-                    break;
+            // Handle edge case: empty content
+            if app.editor_content.is_empty() {
+                app.editor_cursor = 0;
+            } else {
+                let cursor_pos = calculate_cursor_position(&app.editor_content, app.editor_cursor);
+                let lines: Vec<&str> = app.editor_content.lines().collect();
+                // Calculate the start position of the current line, then add line length
+                let mut line_start = 0;
+                for (idx, line) in lines.iter().enumerate() {
+                    if idx == cursor_pos.line {
+                        app.editor_cursor = line_start + line.len();
+                        break;
+                    }
+                    line_start += line.len() + 1;
                 }
-                pos += line.len() + 1;
+                // Handle edge case: cursor is past the last line (e.g., after trailing newline)
+                // In this case, cursor_pos.line might be beyond the lines vector
+                if cursor_pos.line >= lines.len() {
+                    app.editor_cursor = app.editor_content.len();
+                }
             }
         }
         KeyCode::Char(c) => {

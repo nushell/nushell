@@ -171,6 +171,44 @@ pub enum AppResult {
     Quit,
 }
 
+/// Represents a cursor position within multi-line text
+#[derive(Debug, Clone, Copy)]
+pub struct CursorPosition {
+    /// The line number (0-indexed)
+    pub line: usize,
+    /// The column within the line (0-indexed)
+    pub col: usize,
+}
+
+/// Calculate the line and column position of a cursor within multi-line text
+///
+/// # Arguments
+/// * `content` - The text content to analyze
+/// * `cursor` - The cursor position as a byte offset
+///
+/// # Returns
+/// A `CursorPosition` with the line and column numbers (both 0-indexed)
+pub fn calculate_cursor_position(content: &str, cursor: usize) -> CursorPosition {
+    let mut pos = 0;
+    let mut cursor_line = 0;
+    let mut cursor_col = 0;
+
+    for (line_idx, line) in content.lines().enumerate() {
+        if pos + line.len() >= cursor {
+            cursor_line = line_idx;
+            cursor_col = cursor - pos;
+            break;
+        }
+        pos += line.len() + 1; // +1 for newline
+        cursor_line = line_idx + 1;
+    }
+
+    CursorPosition {
+        line: cursor_line,
+        col: cursor_col,
+    }
+}
+
 /// The main application state for the TUI
 pub struct App {
     pub tree_state: tui_tree_widget::TreeState<String>,
@@ -189,5 +227,7 @@ pub struct App {
     pub confirmed_save: bool,
     pub output_file: Option<String>,
     pub config_mode: bool,
+    /// Type map for preserving Nushell types across tree rebuilds in config mode
+    pub nu_type_map: Option<HashMap<String, NuValueType>>,
     pub doc_map: Option<HashMap<String, String>>,
 }

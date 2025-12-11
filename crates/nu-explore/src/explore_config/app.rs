@@ -1,7 +1,9 @@
 //! Application state and drawing logic for the explore config TUI.
 
 use crate::explore_config::tree::{build_tree_items, get_value_at_path, set_value_at_path};
-use crate::explore_config::types::{App, EditorMode, Focus, NodeInfo, NuValueType, ValueType};
+use crate::explore_config::types::{
+    App, EditorMode, Focus, NodeInfo, NuValueType, ValueType, calculate_cursor_position,
+};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
@@ -46,6 +48,7 @@ impl App {
             confirmed_save: false,
             output_file,
             config_mode,
+            nu_type_map,
             doc_map,
         }
     }
@@ -55,11 +58,14 @@ impl App {
         let current_selection = self.tree_state.selected().to_vec();
 
         let mut node_map = HashMap::new();
-        // When rebuilding, we don't have the nu_type_map anymore, so pass None
-        // This means after editing, we lose the nushell type info, but that's acceptable
-        // since the edited values may have different types anyway
-        // We still pass doc_map to preserve documentation status
-        self.tree_items = build_tree_items(&self.json_data, &mut node_map, &None, &self.doc_map);
+        // Use the stored nu_type_map to preserve Nushell type information across rebuilds
+        // This ensures that type displays remain accurate after edits in config mode
+        self.tree_items = build_tree_items(
+            &self.json_data,
+            &mut node_map,
+            &self.nu_type_map,
+            &self.doc_map,
+        );
         self.node_map = node_map;
 
         // Try to restore selection if the node still exists
@@ -478,18 +484,9 @@ impl App {
         let total_lines = lines.len().max(1);
 
         // Calculate cursor position
-        let mut cursor_line = 0;
-        let mut cursor_col = 0;
-        let mut pos = 0;
-        for (line_idx, line) in self.editor_content.lines().enumerate() {
-            if pos + line.len() >= self.editor_cursor {
-                cursor_line = line_idx;
-                cursor_col = self.editor_cursor - pos;
-                break;
-            }
-            pos += line.len() + 1; // +1 for newline
-            cursor_line = line_idx + 1;
-        }
+        let cursor_pos = calculate_cursor_position(&self.editor_content, self.editor_cursor);
+        let cursor_line = cursor_pos.line;
+        let cursor_col = cursor_pos.col;
 
         // Render content with syntax highlighting
         let content_lines: Vec<Line> = self

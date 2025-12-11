@@ -40,7 +40,15 @@ pub fn nu_value_to_json(
         }
         nu_protocol::Value::Closure { val, .. } => {
             // Convert closure to its string representation instead of serializing internal structure
-            let closure_string = val.coerce_into_string(engine_state, value.span())?;
+            let closure_string =
+                val.coerce_into_string(engine_state, value.span())
+                    .map_err(|e| ShellError::GenericError {
+                        error: "Failed to convert closure to string".to_string(),
+                        msg: "".to_string(),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![e],
+                    })?;
             Value::String(closure_string.to_string())
         }
         nu_protocol::Value::Filesize { val, .. } => Value::Number(val.get().into()),
