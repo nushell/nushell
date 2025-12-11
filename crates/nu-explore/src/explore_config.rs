@@ -1897,31 +1897,6 @@ fn handle_editor_editing_input(app: &mut App, key: KeyCode, modifiers: KeyModifi
     AppResult::Continue
 }
 
-// fn print_usage() {
-//     eprintln!("Usage: `explore config`  [OPTIONS]");
-//     eprintln!();
-//     eprintln!("Options:");
-//     eprintln!("  --cli          Use CLI mode (print tree to stdout)");
-//     eprintln!("  --tui          Use TUI mode (interactive, default)");
-//     eprintln!("  --example      Use built-in example JSON data instead of stdin");
-//     eprintln!("  -o, --output   Output file for saving (default: output.json)");
-//     eprintln!("  -h, --help     Show this help message");
-//     eprintln!();
-//     eprintln!("Reads JSON from stdin and displays it as a tree.");
-//     eprintln!();
-//     eprintln!("TUI Keybindings:");
-//     eprintln!("  Tab           Switch between tree and editor panes");
-//     eprintln!("  ↑↓            Navigate tree / scroll editor");
-//     eprintln!("  ←→            Collapse/Expand tree nodes");
-//     eprintln!("  Enter/Space   Toggle tree node expansion");
-//     eprintln!("  Enter/e       Start editing (in editor pane)");
-//     eprintln!("  Ctrl+Enter    Apply edit");
-//     eprintln!("  Esc           Cancel edit");
-//     eprintln!("  Ctrl+S        Save to file");
-//     eprintln!("  q             Quit");
-//     eprintln!("  Ctrl+C        Force quit");
-// }
-
 /// Example JSON data for testing (nushell config)
 #[allow(dead_code)]
 fn get_example_json() -> Value {
@@ -2828,51 +2803,3 @@ fn get_example_json() -> Value {
 }"##;
     serde_json::from_str(json_str).expect("Failed to parse example JSON")
 }
-
-// fn main() -> Result<(), Box<dyn Error>> {
-//     let args: Vec<String> = env::args().collect();
-
-//     let mut cli_mode = false;
-//     let mut output_file: Option<String> = None;
-//     let mut use_example = false;
-
-//     let mut i = 1;
-//     while i < args.len() {
-//         match args[i].as_str() {
-//             "--cli" => cli_mode = true,
-//             "--tui" => cli_mode = false,
-//             "--example" => use_example = true,
-//             "-o" | "--output" => {
-//                 i += 1;
-//                 if i < args.len() {
-//                     output_file = Some(args[i].clone());
-//                 }
-//             }
-//             "-h" | "--help" => {
-//                 print_usage();
-//                 return Ok(());
-//             }
-//             _ => {}
-//         }
-//         i += 1;
-//     }
-
-//     // Get JSON data
-//     let json_data: Value = if use_example {
-//         get_example_json()
-//     } else {
-//         let mut input = Vec::new();
-//         io::stdin().read_to_end(&mut input)?;
-//         serde_json::from_slice(&input)?
-//     };
-
-//     if cli_mode {
-//         // Original CLI behavior
-//         print_json_tree(&json_data, "", true, None);
-//     } else {
-//         // TUI mode
-//         run_config_tui(json_data, output_file)?;
-//     }
-
-//     Ok(())
-// }
