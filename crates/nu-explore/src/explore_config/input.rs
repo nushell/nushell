@@ -1,6 +1,6 @@
 //! Keyboard input handling for the explore config TUI.
 
-use crate::explore_config::types::{App, AppResult, EditorMode, Focus};
+use crate::explore_config::types::{App, AppResult, EditorMode, Focus, ValueType};
 use crossterm::event::{KeyCode, KeyModifiers};
 
 /// Handle keyboard input when the tree pane is focused
@@ -31,8 +31,26 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, _modifiers: KeyModifiers) 
             app.tree_state.key_right();
             app.force_update_editor();
         }
-        KeyCode::Enter | KeyCode::Char(' ') => {
+        KeyCode::Char(' ') => {
             app.tree_state.toggle_selected();
+        }
+        KeyCode::Enter => {
+            // Check if the selected node is a leaf (non-nested) value
+            let is_leaf = app
+                .get_current_node_info()
+                .map(|info| !matches!(info.value_type, ValueType::Object | ValueType::Array))
+                .unwrap_or(false);
+
+            if is_leaf {
+                // Switch to editor pane and enter edit mode
+                app.focus = Focus::Editor;
+                app.editor_mode = EditorMode::Editing;
+                app.editor_cursor = 0;
+                app.status_message = String::from("Editing - Ctrl+Enter to apply, Esc to cancel");
+            } else {
+                // Toggle tree expansion for nested values
+                app.tree_state.toggle_selected();
+            }
         }
         KeyCode::Home => {
             app.tree_state.select_first();
