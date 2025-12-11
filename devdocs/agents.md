@@ -21,7 +21,7 @@
 
 ## PR requirements
 
-- Title format: ``Fix URL parsing in `http get` (#1234)``
+- Title format: `Fix URL parsing in `http get` (#1234)`
 - Must pass: `toolkit check pr` (fmt, clippy, test, stdlib)
 - Include release notes summary (brief, user-focused)
 - Link issues: "Fixes #1234" or "Closes #5678"
