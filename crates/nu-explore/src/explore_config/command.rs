@@ -9,9 +9,10 @@ use crate::explore_config::tree::print_json_tree;
 use crate::explore_config::tui::run_config_tui;
 use crate::explore_config::types::NuValueType;
 use nu_engine::command_prelude::*;
-use nu_protocol::{IntoValue, PipelineData};
+use nu_protocol::{PipelineData, report_shell_warning};
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// A command to explore and edit nushell configuration interactively.
 #[derive(Clone)]
@@ -110,10 +111,16 @@ TUI Keybindings:
             (data, false, None, None, None)
         } else {
             // Default: use nushell configuration
-            // First convert Config to nu_protocol::Value, then to serde_json::Value
-            // This properly handles closures by converting them to their string representation
-            let config = stack.get_config(engine_state);
-            let nu_value = config.as_ref().clone().into_value(call.head);
+            // Get the raw $env.config Value directly to preserve key ordering
+            // (using Config::into_value would lose order because HashMap iteration is unordered)
+            let nu_value = stack
+                .get_env_var(engine_state, "config")
+                .cloned()
+                .unwrap_or_else(|| {
+                    // Fallback to Config struct if $env.config is not set
+                    let config = stack.get_config(engine_state);
+                    config.as_ref().clone().into_value(call.head)
+                });
             let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
 
             // Build nu_type_map to track original nushell types
@@ -166,10 +173,19 @@ TUI Keybindings:
                     })?;
 
                     // Update $env.config with the new value
-                    stack.add_env_var("config".into(), nu_value);
+                    stack.add_env_var("config".into(), nu_value.clone());
 
-                    // Apply the config update
-                    stack.update_config(engine_state)?;
+                    // Update the internal Config struct directly, without calling update_config()
+                    // which would overwrite $env.config with Config::into_value() and lose key ordering
+                    // (because Config uses HashMap for color_config/explore/plugins fields)
+                    let old_config = stack.get_config(engine_state);
+                    let mut new_config = (*old_config).clone();
+                    let result = new_config.update_from_value(&old_config, &nu_value);
+                    // Store the updated Config struct directly on the stack
+                    stack.config = Some(Arc::new(new_config));
+                    if let Some(warning) = result? {
+                        report_shell_warning(Some(stack), engine_state, &warning);
+                    }
                 }
             }
         }
