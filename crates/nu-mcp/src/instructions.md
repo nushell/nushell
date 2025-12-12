@@ -49,19 +49,29 @@ curl -H $"Authorization: Bearer ($token)"       # Header with variable
 mysql $"--password=($env.DATABASE_PASSWORD)" mydb
 ```
 
-**SQL queries with wildcards:** The `*` character is interpreted as a glob pattern in nushell. Escape or quote carefully.
+**String types:** Nushell has several string formats. Inside any quoted string, characters like `*` are literal (no glob expansion).
 ```nu
-# BAD - asterisk interpreted as glob
-let query = "SELECT COUNT(*) FROM users"        # ERROR: Command `*` not found
-mysql -e "SELECT * FROM users"                  # ERROR: glob expansion
+# Single-quoted: literal, no escapes
+'SELECT * FROM users'                           # * is literal, no escaping needed
+'C:\path\to\file'                               # Backslashes are literal
 
-# GOOD - use single quotes for literal SQL (no interpolation needed)
-mysql -e 'SELECT COUNT(*) FROM users'           # Works: single quotes are literal
+# Double-quoted: supports \n, \t, \", etc.
+"Line one\nLine two"                            # Newline escape works
+"Say \"hello\""                                 # Must escape embedded quotes
 
-# GOOD - if you need interpolation, escape or use raw string
+# Raw strings r#'...'#: literal, can contain single quotes
+r#'It's a "test" with * wildcards'#             # No escaping needed for ' or "
+
+# String interpolation: $"..." or $'...'
 let table = "users"
-mysql -e $"SELECT COUNT\(*\) FROM ($table)"     # Escaped asterisks
+$"SELECT * FROM ($table)"                       # * is literal, $table interpolated
+$'Hello ($name)'                                # Single-quoted interpolation (no escapes)
 ```
+**When to use which:**
+- Single quotes `'...'`: simple strings, paths with backslashes
+- Double quotes `"..."`: when you need escape sequences like `\n`
+- Raw strings `r#'...'#`: multi-line strings, or strings with both `'` and `"` characters
+- Interpolation `$"..."`: when embedding variables/expressions
 
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
