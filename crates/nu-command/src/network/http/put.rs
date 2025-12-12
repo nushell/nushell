@@ -239,7 +239,7 @@ fn helper(
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
     let mut request = if args.pool {
-        http_client_pool(engine_state, stack).get(&requested_url)
+        http_client_pool(engine_state, stack).put(&requested_url)
     } else {
         let client = http_client(
             args.insecure,
@@ -248,7 +248,7 @@ fn helper(
             engine_state,
             stack,
         )?;
-        client.get(&requested_url)
+        client.put(&requested_url)
     };
 
     request = request_set_timeout(args.timeout, request)?;
