@@ -114,6 +114,11 @@ $env.config.cursor_shape.emacs = "inherit"         # Cursor shape in emacs mode
 $env.config.cursor_shape.vi_insert = "block"       # Cursor shape in vi-insert mode
 $env.config.cursor_shape.vi_normal = "underscore"  # Cursor shape in normal vi mode
 
+# show_hints (bool): Enable or disable hints for completions or the history
+# true: show hints
+# false: don't show hints
+$env.config.show_hints = true
+
 # --------------------
 # Completions Behavior
 # --------------------
