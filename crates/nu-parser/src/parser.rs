@@ -1916,9 +1916,12 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         .filter_map(|(pos, _)| {
             // paren_depth = count of unclosed parens prior to pos
             let before = &token[..pos];
-            let paren_depth = before.chars().filter(|&c| c == '(').count()
-                - before.chars().filter(|&c| c == ')').count();
-            if paren_depth == 0 { Some(pos) } else { None }
+            let paren_depth = before
+                .chars()
+                .filter(|&c| c == '(')
+                .count()
+                .checked_sub(before.chars().filter(|&c| c == ')').count());
+            paren_depth.and_then(|d| (d == 0).then_some(pos))
         })
         .collect();
 
