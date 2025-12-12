@@ -113,6 +113,7 @@ mod table;
 mod take;
 mod tee;
 mod terminal;
+mod timeout;
 mod to_text;
 mod transpose;
 mod try_;
