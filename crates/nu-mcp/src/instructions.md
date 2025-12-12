@@ -26,13 +26,41 @@ http post --content-type application/json https://api.example.com/data -H {Autho
 
 **String interpolation:** Use `$"...(expr)..."` syntax. Variables/expressions must be in parentheses inside `$"..."` strings.
 ```nu
-# WRONG - variable not interpolated
+# BAD - regular strings don't interpolate variables
 let name = "world"; echo "hello $name"   # Prints literal: hello $name
 
-# CORRECT - use $"..." with parentheses
+# GOOD - use $"..." with parentheses around expressions
 let name = "world"; echo $"hello ($name)"       # Prints: hello world
 ls $"($env.HOME)/Documents"                     # Expands path correctly
 cargo build $"--jobs=(sys cpu | length)"        # Dynamic flag value
+```
+
+**Command-line flags with variables:** When building flags that include variable values, the entire flag must be an interpolated string.
+```nu
+# BAD - mixing bash-style and nushell syntax
+mysql -p"$env.DATABASE_PASSWORD" mydb           # ERROR: $env not expanded
+mysql -p $env.DATABASE_PASSWORD mydb            # ERROR: password becomes separate arg
+
+# GOOD - entire flag as interpolated string
+mysql $"-p($env.DATABASE_PASSWORD)" mydb        # Password correctly embedded
+curl $"-H" $"Authorization: Bearer ($token)"    # Header with variable
+
+# GOOD - alternative: use flag=value syntax if supported
+mysql $"--password=($env.DATABASE_PASSWORD)" mydb
+```
+
+**SQL queries with wildcards:** The `*` character is interpreted as a glob pattern in nushell. Escape or quote carefully.
+```nu
+# BAD - asterisk interpreted as glob
+let query = "SELECT COUNT(*) FROM users"        # ERROR: Command `*` not found
+mysql -e "SELECT * FROM users"                  # ERROR: glob expansion
+
+# GOOD - use single quotes for literal SQL (no interpolation needed)
+mysql -e 'SELECT COUNT(*) FROM users'           # Works: single quotes are literal
+
+# GOOD - if you need interpolation, escape or use raw string
+let table = "users"
+mysql -e $"SELECT COUNT\(*\) FROM ($table)"     # Escaped asterisks
 ```
 
 To find a nushell command or to see all available commands use the list_commands tool.
