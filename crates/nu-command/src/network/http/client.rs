@@ -115,12 +115,18 @@ pub fn expand_unix_socket_path(
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
 }
 
-pub fn http_client_pool() -> &'static Agent {
-    let config_builder = ureq::config::Config::builder()
+pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> &'static Agent {
+    let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
         .save_redirect_history(true)
         .http_status_as_error(false)
         .max_redirects_will_error(false);
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack)
+        && let Ok(proxy) = ureq::Proxy::new(&http_proxy)
+    {
+        config_builder = config_builder.proxy(Some(proxy));
+    };
+
     let connector = DefaultConnector::default();
     let resolver = DnsLookupResolver;
     GLOBAL_CLIENT.get_or_init(|| Agent::with_parts(config_builder.build(), connector, resolver))

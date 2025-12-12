@@ -1,15 +1,13 @@
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, RequestMetadata, expand_unix_socket_path, http_client,
-    http_client_pool, http_parse_redirect_mode, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request_no_body,
+    RedirectMode, add_unix_socket_flag, expand_unix_socket_path, http_parse_redirect_mode,
+    reset_http_client_pool,
 };
-use crate::network::http::client::{add_unix_socket_flag, reset_http_client_pool};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct HttpPool;
 
-impl Command for HttpOptions {
+impl Command for HttpPool {
     fn name(&self) -> &str {
         "http pool"
     }
@@ -43,11 +41,11 @@ impl Command for HttpOptions {
     }
 
     fn description(&self) -> &str {
-        "Reset builtin http connection pool"
+        "Configure and reset builtin http connection pool."
     }
 
     fn extra_description(&self) -> &str {
-        "All connections inside http connection poll will be reset."
+        "All connections inside http connection poll will be closed."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -59,7 +57,7 @@ impl Command for HttpOptions {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let args = Arguments {
             insecure: call.has_flag(engine_state, stack, "insecure")?,
