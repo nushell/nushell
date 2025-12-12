@@ -49,29 +49,46 @@ curl -H $"Authorization: Bearer ($token)"       # Header with variable
 mysql $"--password=($env.DATABASE_PASSWORD)" mydb
 ```
 
-**String types:** Nushell has several string formats. Inside any quoted string, characters like `*` are literal (no glob expansion).
+**String types:** Nushell has several string formats. Inside any quoted string, `*` and other special characters are literal.
+
+| Format | Syntax | Escapes | Use case |
+|--------|--------|---------|----------|
+| Single-quoted | `'hello'` | None | Simple strings, Windows paths |
+| Double-quoted | `"hello\n"` | `\n \t \" \\` etc. | Strings needing escape sequences |
+| Raw string | `r#'hello'#` | None | Strings with `'` or `"`, multi-line |
+| Bare word | `hello` | None | Command arguments (word chars only) |
+| Backtick | `` `hello world` `` | None | Paths/args with spaces, globs |
+| Interpolated | `$"($var)"` | Depends on quotes | Embedding variables/expressions |
+
 ```nu
-# Single-quoted: literal, no escapes
-'SELECT * FROM users'                           # * is literal, no escaping needed
-'C:\path\to\file'                               # Backslashes are literal
+# Single-quoted: completely literal
+'C:\path\to\file'                               # Backslashes literal
+'SELECT * FROM users'                           # * is literal
 
-# Double-quoted: supports \n, \t, \", etc.
-"Line one\nLine two"                            # Newline escape works
-"Say \"hello\""                                 # Must escape embedded quotes
+# Double-quoted: C-style escapes
+"Line one\nLine two"                            # \n = newline
+"Say \"hello\""                                 # \" = literal quote
 
-# Raw strings r#'...'#: literal, can contain single quotes
-r#'It's a "test" with * wildcards'#             # No escaping needed for ' or "
+# Raw strings: literal, can contain single quotes
+r#'It's a "test"'#                              # No escaping needed
+r##'Contains r#'nested'#'##                     # Add more # to nest
 
-# String interpolation: $"..." or $'...'
-let table = "users"
-$"SELECT * FROM ($table)"                       # * is literal, $table interpolated
-$'Hello ($name)'                                # Single-quoted interpolation (no escapes)
+# Bare words: unquoted, only "word" characters
+print hello                                     # hello is a string
+[foo bar baz]                                   # list of strings
+
+# Backtick strings: bare words with spaces, useful for paths/globs
+ls `./my directory`                             # Path with space
+ls `**/*.rs`                                    # Glob pattern
+
+# Interpolation: $"..." (with escapes) or $'...' (literal)
+let name = "world"
+$"Hello ($name)!"                               # => Hello world!
+$'Path: ($env.HOME)'                            # Single-quoted interpolation
+$"2 + 2 = (2 + 2)"                              # Expressions work too
 ```
-**When to use which:**
-- Single quotes `'...'`: simple strings, paths with backslashes
-- Double quotes `"..."`: when you need escape sequences like `\n`
-- Raw strings `r#'...'#`: multi-line strings, or strings with both `'` and `"` characters
-- Interpolation `$"..."`: when embedding variables/expressions
+
+**Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
