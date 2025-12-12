@@ -716,3 +716,10 @@ fn wacky_range_parse_comb() {
     let actual = nu!(r#"1..(5..10 | first)..10"#);
     assert!(actual.err.is_empty());
 }
+
+// Regression test https://github.com/nushell/nushell/issues/17146
+#[test]
+fn wacky_range_unmatched_paren() {
+    let actual = nu!(r#"') .."#);
+    assert!(!actual.err.is_empty());
+}
