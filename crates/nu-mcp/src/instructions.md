@@ -24,6 +24,17 @@ http post https://api.example.com/sync -H {X-API-Key: "secret"} (bytes build)
 http post --content-type application/json https://api.example.com/data -H {Authorization: "Bearer token"} {key: "value"}
 ```
 
+**String interpolation:** Use `$"...(expr)..."` syntax. Variables/expressions must be in parentheses inside `$"..."` strings.
+```nu
+# WRONG - variable not interpolated
+let name = "world"; echo "hello $name"   # Prints literal: hello $name
+
+# CORRECT - use $"..." with parentheses
+let name = "world"; echo $"hello ($name)"       # Prints: hello world
+ls $"($env.HOME)/Documents"                     # Expands path correctly
+cargo build $"--jobs=(sys cpu | length)"        # Dynamic flag value
+```
+
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
 You can use the eval tool to run any command that would work on the relevant operating system.
