@@ -43,7 +43,7 @@ mysql -p $env.DATABASE_PASSWORD mydb            # ERROR: password becomes separa
 
 # GOOD - entire flag as interpolated string
 mysql $"-p($env.DATABASE_PASSWORD)" mydb        # Password correctly embedded
-curl $"-H" $"Authorization: Bearer ($token)"    # Header with variable
+curl -H $"Authorization: Bearer ($token)"       # Header with variable
 
 # GOOD - alternative: use flag=value syntax if supported
 mysql $"--password=($env.DATABASE_PASSWORD)" mydb
