@@ -140,4 +140,5 @@ mod which;
 mod while_;
 mod with_env;
 mod wrap;
+mod timeout;
 mod zip;
