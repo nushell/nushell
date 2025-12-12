@@ -109,19 +109,44 @@ $"2 + 2 = (2 + 2)"                              # Expressions work too
 
 **Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
-HTTP request examples:
+## HTTP Requests
+
+**Automatic JSON parsing:** HTTP commands (`http get`, `http post`, etc.) automatically parse JSON responses into structured Nushell data based on the `Content-Type` header. Do NOT pipe to `from json` - the data is already parsed.
+
+```nu
+# BAD - redundant, will error because input is already structured
+http get https://api.example.com/data | from json
+
+# GOOD - returns structured data directly
+http get https://api.example.com/data
+
+# GOOD - access fields immediately
+http get https://api.example.com/users | get name
+
+# Use --raw (-r) to disable auto-parsing and get raw string
+http get --raw https://api.example.com/data | from json  # Manual parsing
+```
+
+**Common flags:**
+- `-H {key: value}` or `--headers {key: value}`: Custom headers as a record
+- `-t json` or `--content-type application/json`: Set Content-Type for request body
+- `(bytes build)`: Empty body (required for POST/PUT when you have no data to send)
+
 ```nu
 # GET request
 http get https://api.example.com/data
 
-# POST with JSON body
-http post --content-type application/json https://api.example.com/endpoint {foo: "bar", baz: 123}
+# GET with auth header
+http get -H {Authorization: "Bearer token"} https://api.example.com/data
 
-# POST with custom headers and empty body
-http post https://api.example.com/sync -H {X-API-Key: "secret"} (bytes build)
+# POST with JSON body (use -t json for Content-Type)
+http post -t json https://api.example.com/endpoint {foo: "bar", baz: 123}
 
-# POST with headers and JSON body
-http post --content-type application/json https://api.example.com/data -H {Authorization: "Bearer token"} {key: "value"}
+# POST with headers but empty body (bytes build creates empty body)
+http post -H {X-API-Key: "secret"} https://api.example.com/sync (bytes build)
+
+# POST with both headers and JSON body
+http post -t json -H {Authorization: "Bearer token"} https://api.example.com/data {key: "value"}
 ```
 
 To find a nushell command or to see all available commands use the list_commands tool.
