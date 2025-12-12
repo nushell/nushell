@@ -492,7 +492,11 @@ fn get_command_documentation(
                         .ok()
                 });
 
-            for item in table.into_iter().flatten() {
+            for item in table
+                .map(|pipe| pipe.into_value(Span::unknown()))
+                .into_iter()
+                .flatten()
+            {
                 let _ = writeln!(
                     long_desc,
                     "  {}",

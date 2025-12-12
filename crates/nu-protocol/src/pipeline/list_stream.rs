@@ -5,7 +5,7 @@
 use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
 use std::fmt::Debug;
 
-pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
+pub type ValueIterator = Box<dyn Iterator<Item = Result<Value, ShellError>> + Send + 'static>;
 
 /// A potentially infinite, interruptible stream of [`Value`]s.
 ///
@@ -21,7 +21,7 @@ pub struct ListStream {
 impl ListStream {
     /// Create a new [`ListStream`] from a [`Value`] `Iterator`.
     pub fn new(
-        iter: impl Iterator<Item = Value> + Send + 'static,
+        iter: impl Iterator<Item = Result<Value, ShellError>> + Send + 'static,
         span: Span,
         signals: Signals,
     ) -> Self {
@@ -61,17 +61,17 @@ impl ListStream {
     }
 
     /// Take a single value from the inner `Iterator`, modifying the stream.
-    pub fn next_value(&mut self) -> Option<Value> {
+    pub fn next_value(&mut self) -> Option<Result<Value, ShellError>> {
         self.stream.next()
     }
 
     /// Converts each value in a [`ListStream`] into a string and then joins the strings together
     /// using the given separator.
-    pub fn into_string(self, separator: &str, config: &Config) -> String {
+    pub fn into_string(self, separator: &str, config: &Config) -> Result<String, ShellError> {
         self.into_iter()
-            .map(|val| val.to_expanded_string(", ", config))
-            .collect::<Vec<String>>()
-            .join(separator)
+            .map(|it| it.map(|val| val.to_expanded_string(", ", config)))
+            .collect::<Result<Vec<String>, ShellError>>()
+            .map(|vec| vec.join(separator))
     }
 
     /// Collect the values of a [`ListStream`] into a list [`Value`].
@@ -80,7 +80,7 @@ impl ListStream {
     pub fn into_value(self) -> Result<Value, ShellError> {
         Ok(Value::list(
             self.stream
-                .map(Value::unwrap_error)
+                .map(|it| it.and_then(Value::unwrap_error))
                 .collect::<Result<_, _>>()?,
             self.span,
         ))
@@ -89,14 +89,16 @@ impl ListStream {
     /// Collect the values of a [`ListStream`] into a [`Value::List`], preserving [Value::Error]
     /// items for debugging purposes.
     pub fn into_debug_value(self) -> Value {
-        Value::list(self.stream.collect(), self.span)
+        // Value::list(self.stream.collect(), self.span)
+        todo!()
     }
 
     /// Consume all values in the stream, returning an error if any of the values is a `Value::Error`.
     pub fn drain(self) -> Result<(), ShellError> {
         for next in self {
-            if let Value::Error { error, .. } = next {
-                return Err(*error);
+            match next {
+                Ok(_) => (),
+                Err(e) => return Err(e),
             }
         }
         Ok(())
@@ -116,7 +118,7 @@ impl ListStream {
     /// ```
     pub fn modify<I>(self, f: impl FnOnce(ValueIterator) -> I) -> Self
     where
-        I: Iterator<Item = Value> + Send + 'static,
+        I: Iterator<Item = Result<Value, ShellError>> + Send + 'static,
     {
         Self {
             stream: Box::new(f(self.stream)),
@@ -127,7 +129,10 @@ impl ListStream {
 
     /// Create a new [`ListStream`] whose values are the results of applying the given function
     /// to each of the values in the original [`ListStream`].
-    pub fn map(self, mapping: impl FnMut(Value) -> Value + Send + 'static) -> Self {
+    pub fn map(
+        self,
+        mapping: impl FnMut(Result<Value, ShellError>) -> Result<Value, ShellError> + Send + 'static,
+    ) -> Self {
         self.modify(|iter| iter.map(mapping))
     }
 }
@@ -139,7 +144,7 @@ impl Debug for ListStream {
 }
 
 impl IntoIterator for ListStream {
-    type Item = Value;
+    type Item = Result<Value, ShellError>;
 
     type IntoIter = IntoIter;
 
@@ -161,7 +166,7 @@ pub struct IntoIter {
 }
 
 impl Iterator for IntoIter {
-    type Item = Value;
+    type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.stream.next()

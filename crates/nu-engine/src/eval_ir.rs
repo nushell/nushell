@@ -1690,7 +1690,7 @@ fn eval_iterate(
     if let PipelineData::ListStream(list_stream, _) = &mut data.body {
         // Modify the stream, taking one value off, and branching if it's empty
         if let Some(val) = list_stream.next_value() {
-            ctx.put_reg(dst, PipelineExecutionData::from(val.into_pipeline_data()));
+            ctx.put_reg(dst, PipelineExecutionData::from(val?.into_pipeline_data()));
             ctx.put_reg(stream, data); // put the stream back so it can be iterated on again
             Ok(InstructionResult::Continue)
         } else {

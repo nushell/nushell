@@ -258,7 +258,7 @@ impl PipelineData {
             }
             PipelineData::ListStream(stream, ..) => {
                 for value in stream {
-                    let bytes = value_to_bytes(value)?;
+                    let bytes = value_to_bytes(value?)?;
                     dest.write_all(&bytes).map_err(|err| {
                         IoError::new_internal(
                             err,
@@ -341,11 +341,17 @@ impl PipelineData {
                 let val_span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), val_span, Signals::empty()).into_iter(),
+                        ListStream::new(
+                            vals.into_iter().map(|val| Ok(val)),
+                            val_span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
                     ),
                     Value::Binary { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_iter().map(move |x| Value::int(x as i64, val_span)),
+                            val.into_iter()
+                                .map(move |x| Ok(Value::int(x as i64, val_span))),
                             val_span,
                             Signals::empty(),
                         )
@@ -353,7 +359,8 @@ impl PipelineData {
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(val_span, Signals::empty()),
+                            val.into_range_iter(val_span, Signals::empty())
+                                .map(|val| Ok(val)),
                             val_span,
                             Signals::empty(),
                         )
@@ -396,7 +403,7 @@ impl PipelineData {
         match self {
             PipelineData::Empty => Ok(String::new()),
             PipelineData::Value(value, ..) => Ok(value.to_expanded_string(separator, config)),
-            PipelineData::ListStream(stream, ..) => Ok(stream.into_string(separator, config)),
+            PipelineData::ListStream(stream, ..) => stream.into_string(separator, config),
             PipelineData::ByteStream(stream, ..) => stream.into_string(),
         }
     }
@@ -434,9 +441,14 @@ impl PipelineData {
     ) -> Result<Value, ShellError> {
         match self {
             // FIXME: there are probably better ways of doing this
-            PipelineData::ListStream(stream, ..) => Value::list(stream.into_iter().collect(), head)
-                .follow_cell_path(cell_path)
-                .map(Cow::into_owned),
+            PipelineData::ListStream(stream, ..) => Value::list(
+                stream
+                    .into_iter()
+                    .collect::<Result<Vec<Value>, ShellError>>()?,
+                head,
+            )
+            .follow_cell_path(cell_path)
+            .map(Cow::into_owned),
             PipelineData::Value(v, ..) => v.follow_cell_path(cell_path).map(Cow::into_owned),
             PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
                 type_name: "empty pipeline".to_string(),
@@ -459,14 +471,23 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => vals
-                        .into_iter()
-                        .map(f)
-                        .into_pipeline_data(span, signals.clone()),
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, Signals::empty())
-                        .map(f)
-                        .into_pipeline_data(span, signals.clone()),
+                    Value::List { vals, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            vals.into_iter().map(move |val| Ok(f(val))),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    Value::Range { val, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty())
+                                .map(move |val| Ok(f(val))),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -476,10 +497,77 @@ impl PipelineData {
             }
             PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::ListStream(stream, metadata) => {
-                Ok(PipelineData::list_stream(stream.map(f), metadata))
+                let span = stream.span();
+                Ok(PipelineData::list_stream(
+                    ListStream::new(
+                        stream.into_iter().map(move |val| val.map(|val2| f(val2))),
+                        span,
+                        signals.clone(),
+                    ),
+                    metadata,
+                ))
             }
             PipelineData::ByteStream(stream, metadata) => {
                 Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
+            }
+        }
+    }
+
+    /// Simplified mapper to help with simple values, allowing `ShellError` in output. For full iterator support use `.into_iter()` instead
+    pub fn try_map<F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
+    where
+        Self: Sized,
+        F: FnMut(Value) -> Result<Value, ShellError> + 'static + Send,
+    {
+        match self {
+            PipelineData::Value(value, metadata) => {
+                let span = value.span();
+                let pipeline = match value {
+                    Value::List { vals, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            vals.into_iter().map(move |val| f(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    Value::Range { val, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty())
+                                .map(move |val| f(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    value => match f(value) {
+                        Ok(Value::Error { error, .. }) => return Err(*error),
+                        v => v.into_pipeline_data(span, signals.clone()),
+                    },
+                };
+                Ok(pipeline.set_metadata(metadata))
+            }
+            PipelineData::Empty => Ok(PipelineData::empty()),
+            PipelineData::ListStream(stream, metadata) => {
+                let span = stream.span();
+                Ok(PipelineData::list_stream(
+                    ListStream::new(
+                        stream
+                            .into_iter()
+                            .map(move |val| val.and_then(|val2| f(val2))),
+                        span,
+                        signals.clone(),
+                    ),
+                    metadata,
+                ))
+            }
+            PipelineData::ByteStream(stream, metadata) => {
+                let span = stream.span();
+                Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(
+                    span,
+                    signals.clone(),
+                    metadata,
+                ))
             }
         }
     }
@@ -488,7 +576,7 @@ impl PipelineData {
     pub fn flat_map<U, F>(self, mut f: F, signals: &Signals) -> Result<PipelineData, ShellError>
     where
         Self: Sized,
-        U: IntoIterator<Item = Value> + 'static,
+        U: IntoIterator<Item = Result<Value, ShellError>> + 'static,
         <U as IntoIterator>::IntoIter: 'static + Send,
         F: FnMut(Value) -> U + 'static + Send,
     {
@@ -497,24 +585,52 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => vals
-                        .into_iter()
-                        .flat_map(f)
-                        .into_pipeline_data(span, signals.clone()),
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, Signals::empty())
-                        .flat_map(f)
-                        .into_pipeline_data(span, signals.clone()),
-                    value => f(value)
-                        .into_iter()
-                        .into_pipeline_data(span, signals.clone()),
+                    Value::List { vals, .. } => PipelineData::list_stream(
+                        ListStream::new(vals.into_iter().flat_map(f), span, signals.clone()),
+                        None,
+                    ),
+                    Value::Range { val, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty()).flat_map(f),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    value => PipelineData::list_stream(
+                        ListStream::new(f(value).into_iter(), span, signals.clone()),
+                        None,
+                    ),
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
-                stream.modify(|iter| iter.flat_map(f)),
-                metadata,
-            )),
+            PipelineData::ListStream(stream, metadata) => {
+                enum IterOrSingleItem<I: Iterator> {
+                    Iter(I),
+                    Single(Option<I::Item>),
+                }
+
+                impl<I: Iterator> Iterator for IterOrSingleItem<I> {
+                    type Item = I::Item;
+
+                    fn next(&mut self) -> Option<Self::Item> {
+                        match self {
+                            IterOrSingleItem::Iter(iter) => iter.next(),
+                            IterOrSingleItem::Single(single) => single.take(),
+                        }
+                    }
+                }
+
+                let span = stream.span();
+                let iter = stream.into_iter().flat_map(move |val| {
+                    val.map(|x| IterOrSingleItem::Iter(f(x).into_iter()))
+                        .unwrap_or_else(|err| IterOrSingleItem::Single(Some(Err(err))))
+                });
+                Ok(PipelineData::list_stream(
+                    ListStream::new(iter, span, signals.clone()),
+                    metadata,
+                ))
+            }
             PipelineData::ByteStream(stream, metadata) => {
                 // TODO: is this behavior desired / correct ?
                 let span = stream.span();
@@ -544,14 +660,24 @@ impl PipelineData {
             PipelineData::Value(value, metadata) => {
                 let span = value.span();
                 let pipeline = match value {
-                    Value::List { vals, .. } => vals
-                        .into_iter()
-                        .filter(f)
-                        .into_pipeline_data(span, signals.clone()),
-                    Value::Range { val, .. } => val
-                        .into_range_iter(span, Signals::empty())
-                        .filter(f)
-                        .into_pipeline_data(span, signals.clone()),
+                    Value::List { vals, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            vals.into_iter().filter(f).map(|val| Ok(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
+                    Value::Range { val, .. } => PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty())
+                                .filter(f)
+                                .map(|val| Ok(val)),
+                            span,
+                            signals.clone(),
+                        ),
+                        None,
+                    ),
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()
@@ -562,10 +688,20 @@ impl PipelineData {
                 };
                 Ok(pipeline.set_metadata(metadata))
             }
-            PipelineData::ListStream(stream, metadata) => Ok(PipelineData::list_stream(
-                stream.modify(|iter| iter.filter(f)),
-                metadata,
-            )),
+            PipelineData::ListStream(stream, metadata) => {
+                let span = stream.span();
+                Ok(PipelineData::list_stream(
+                    ListStream::new(
+                        stream.into_iter().filter_map(move |it| match it {
+                            Ok(val) => f(&val).then_some(Ok(val)),
+                            Err(e) => Some(Err(e)),
+                        }),
+                        span,
+                        signals.clone(),
+                    ),
+                    metadata,
+                ))
+            }
             PipelineData::ByteStream(stream, metadata) => {
                 // TODO: is this behavior desired / correct ?
                 let span = stream.span();
@@ -720,6 +856,7 @@ impl PipelineData {
         } else {
             let config = engine_state.get_config();
             for item in self {
+                let item = item?;
                 let mut out = if let Value::Error { error, .. } = item {
                     return Err(*error);
                 } else {
@@ -838,7 +975,7 @@ enum PipelineIteratorInner {
 pub struct PipelineIterator(PipelineIteratorInner);
 
 impl IntoIterator for PipelineData {
-    type Item = Value;
+    type Item = Result<Value, ShellError>;
 
     type IntoIter = PipelineIterator;
 
@@ -849,11 +986,17 @@ impl IntoIterator for PipelineData {
                 let span = value.span();
                 match value {
                     Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), span, Signals::empty()).into_iter(),
+                        ListStream::new(
+                            vals.into_iter().map(|val| Ok(val)),
+                            span,
+                            Signals::empty(),
+                        )
+                        .into_iter(),
                     ),
                     Value::Range { val, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(span, Signals::empty()),
+                            val.into_range_iter(span, Signals::empty())
+                                .map(|val| Ok(val)),
                             span,
                             Signals::empty(),
                         )
@@ -874,21 +1017,15 @@ impl IntoIterator for PipelineData {
 }
 
 impl Iterator for PipelineIterator {
-    type Item = Value;
+    type Item = Result<Value, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
             PipelineIteratorInner::Empty => None,
             PipelineIteratorInner::Value(Value::Nothing { .. }, ..) => None,
-            PipelineIteratorInner::Value(v, ..) => Some(std::mem::take(v)),
+            PipelineIteratorInner::Value(v, ..) => Some(Ok(std::mem::take(v))),
             PipelineIteratorInner::ListStream(stream, ..) => stream.next(),
-            PipelineIteratorInner::ByteStream(stream) => stream.next().map(|x| match x {
-                Ok(x) => x,
-                Err(err) => Value::error(
-                    err,
-                    Span::unknown(), //FIXME: unclear where this span should come from
-                ),
-            }),
+            PipelineIteratorInner::ByteStream(stream) => stream.next(),
         }
     }
 }
@@ -928,11 +1065,17 @@ pub trait IntoInterruptiblePipelineData {
     ) -> PipelineData;
 }
 
+impl Into<Result<Value, ShellError>> for Value {
+    fn into(self) -> Result<Value, ShellError> {
+        Ok(self)
+    }
+}
+
 impl<I> IntoInterruptiblePipelineData for I
 where
     I: IntoIterator + Send + 'static,
     I::IntoIter: Send + 'static,
-    <I::IntoIter as Iterator>::Item: Into<Value>,
+    <I::IntoIter as Iterator>::Item: Into<Result<Value, ShellError>>,
 {
     fn into_pipeline_data(self, span: Span, signals: Signals) -> PipelineData {
         ListStream::new(self.into_iter().map(Into::into), span, signals).into()
