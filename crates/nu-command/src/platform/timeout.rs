@@ -22,7 +22,7 @@ from blocking indefinitely, such as in MCP servers or automation scripts."#
 
     fn signature(&self) -> Signature {
         Signature::build("timeout")
-            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .required("duration", SyntaxShape::Duration, "Time limit.")
             .required("closure", SyntaxShape::Closure(None), "The closure to run.")
             .category(Category::Platform)
@@ -37,11 +37,14 @@ from blocking indefinitely, such as in MCP servers or automation scripts."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let duration_val: i64 = call.req(engine_state, stack, 0)?;
         let closure: Closure = call.req(engine_state, stack, 1)?;
+
+        // Collect input to a Value so it can be sent to the thread
+        let input_value = input.into_value(head)?;
 
         let duration = Duration::from_nanos(if duration_val < 0 {
             0
@@ -67,7 +70,7 @@ from blocking indefinitely, such as in MCP servers or automation scripts."#
                     &engine_state_clone,
                     &mut callee_stack,
                     &block,
-                    PipelineData::empty(),
+                    input_value.into_pipeline_data(),
                 )
                 .map(|p| p.body);
                 let _ = tx.send(result);
@@ -133,6 +136,11 @@ from blocking indefinitely, such as in MCP servers or automation scripts."#
                 description: "Timeout a long-running operation",
                 example: "timeout 100ms { sleep 5sec }",
                 result: None, // Returns an error
+            },
+            Example {
+                description: "Use pipeline input in the closure",
+                example: "[1 2 3] | timeout 5sec { $in | length }",
+                result: None, // Result depends on input
             },
         ]
     }
