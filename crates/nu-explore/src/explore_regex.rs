@@ -434,6 +434,7 @@ fn run_app_loop(
             }
             InputFocus::Sample => {
                 app.sample_textarea.input(input);
+                app.compile_regex(); // Update match count when sample text changes
             }
         }
     }
