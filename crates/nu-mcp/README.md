@@ -4,7 +4,7 @@ This crate provides support for MCP (Model Context Protocol) in Nushell.
 
 ## Feature Flag
 
-The `mcp` feature flag controls whether MCP functionality is compiled into Nushell. By default, this feature is not enabled.
+The `mcp` feature flag controls whether MCP functionality is compiled into Nushell.
 
 ## Building with MCP Support
 
