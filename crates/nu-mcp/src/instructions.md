@@ -135,6 +135,23 @@ http post https://api.example.com/sync -H {X-API-Key: "secret"} (bytes build)
 http post --content-type application/json https://api.example.com/data -H {Authorization: "Bearer token"} {key: "value"}
 ```
 
+**Parallel iteration:** Prefer `par-each` over `each` for better performance. `par-each` runs closures in parallel across multiple threads.
+```nu
+# BAD - sequential processing
+ls **/*.rs | each { |f| wc -l $f.name }
+
+# GOOD - parallel processing (much faster for I/O or CPU-bound work)
+ls **/*.rs | par-each { |f| wc -l $f.name }
+
+# GOOD - with thread count control
+ls **/*.rs | par-each --threads 8 { |f| wc -l $f.name }
+```
+
+**When to use `each` instead:**
+- Order must be preserved exactly (par-each returns results in completion order)
+- Side effects must happen sequentially
+- Very small lists where parallelization overhead exceeds benefit
+
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
 You can use the eval tool to run any command that would work on the relevant operating system.
