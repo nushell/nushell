@@ -68,6 +68,25 @@ pub fn filter_tree_items(
     filter_tree_items_recursive(items, &query_lower)
 }
 
+/// Recursively filter tree items based on a search query.
+///
+/// This function traverses the tree and includes items that either:
+/// 1. Have an identifier that contains the query string (case-insensitive match)
+/// 2. Have descendants that match the query (ancestor preservation)
+///
+/// # Arguments
+/// * `items` - The tree items to filter
+/// * `query` - The lowercase search query to match against identifiers
+///
+/// # Returns
+/// A new vector of tree items containing only matching items and their ancestors.
+/// - Leaf items that match are cloned directly
+/// - Parent items with matching children are rebuilt with only the filtered children
+/// - Parent items that match but have no matching children are shown as collapsed leaves
+///
+/// # Note
+/// If rebuilding a parent with filtered children fails (e.g., due to duplicate identifiers),
+/// the item is included as a collapsed leaf to ensure no matches are silently dropped.
 fn filter_tree_items_recursive(
     items: &[TreeItem<'static, String>],
     query: &str,
@@ -91,8 +110,16 @@ fn filter_tree_items_recursive(
                 result.push(item.clone());
             } else if !filtered_children.is_empty() {
                 // Has matching children - rebuild with filtered children
-                if let Ok(new_item) = rebuild_item_with_children(item, filtered_children) {
-                    result.push(new_item);
+                match rebuild_item_with_children(item, filtered_children) {
+                    Ok(new_item) => result.push(new_item),
+                    Err(_) => {
+                        // Fallback: if rebuild fails, include as collapsed leaf
+                        // This ensures matching items aren't silently dropped
+                        result.push(TreeItem::new_leaf(
+                            identifier,
+                            format_collapsed_label(item),
+                        ));
+                    }
                 }
             } else {
                 // Self matches but has children that don't match
@@ -131,7 +158,23 @@ fn format_parent_label(identifier: &str, child_count: usize) -> String {
     format!("{} {{{} keys}}", key, child_count)
 }
 
-/// Format a collapsed label for a matching parent with no matching children
+/// Format a display label for a tree item shown in collapsed form.
+///
+/// This is used when a parent item matches the search query but none of its
+/// children match. The item is displayed as a leaf node with a label indicating
+/// how many children it contains.
+///
+/// # Arguments
+/// * `item` - The tree item to create a collapsed label for
+///
+/// # Returns
+/// A string label in the format:
+/// - `"key {N keys}"` for items with children (where N is the child count)
+/// - `"key"` for leaf items (no children)
+///
+/// # Example
+/// For an item with identifier `"color_config.string"` and 3 children,
+/// this returns `"string {3 keys}"`.
 fn format_collapsed_label(item: &TreeItem<'static, String>) -> String {
     let identifier = item.identifier();
     let key = identifier

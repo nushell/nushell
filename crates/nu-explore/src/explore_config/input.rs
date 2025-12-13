@@ -12,24 +12,13 @@ pub fn handle_search_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers)
             // Cancel search and restore full tree
             app.clear_search();
             app.focus = Focus::Tree;
-            app.status_message = String::from(
-                "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
-            );
+            app.status_message = get_tree_status_message(app);
         }
         KeyCode::Enter => {
             // Confirm search and return to tree navigation
             app.search_active = !app.search_query.is_empty();
             app.focus = Focus::Tree;
-            if app.search_active {
-                app.status_message = format!(
-                    "Filter: \"{}\" | Esc to clear | / to modify",
-                    app.search_query
-                );
-            } else {
-                app.status_message = String::from(
-                    "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
-                );
-            }
+            app.status_message = get_tree_status_message(app);
         }
         KeyCode::Backspace => {
             app.search_query.pop();
@@ -64,9 +53,7 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -
         // Clear search filter with Escape when search is active
         KeyCode::Esc if app.search_active => {
             app.clear_search();
-            app.status_message = String::from(
-                "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
-            );
+            app.status_message = get_tree_status_message(app);
             return AppResult::Continue;
         }
         KeyCode::Char('q') => {
@@ -146,14 +133,16 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -
 
 /// Get the default status message for tree focus
 pub fn get_tree_status_message(app: &App) -> String {
+    let save_action = if app.config_mode { "Apply" } else { "Save" };
     if app.search_active {
         format!(
             "Filter: \"{}\" | Esc to clear | / to modify",
             app.search_query
         )
     } else {
-        String::from(
-            "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
+        format!(
+            "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S {} | q Quit",
+            save_action
         )
     }
 }
