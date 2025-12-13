@@ -50,7 +50,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--ide-check"
             | "--experimental-options" => args.next(),
             #[cfg(feature = "mcp")]
-            "--mcp" => args.next(),
+            "--mcp" | "--mcp-transport" | "--mcp-port" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -134,6 +134,10 @@ pub(crate) fn parse_commandline_args(
 
         #[cfg(feature = "mcp")]
         let mcp = call.has_flag(engine_state, &mut stack, "mcp")?;
+        #[cfg(feature = "mcp")]
+        let mcp_transport = call.get_flag_expr("mcp-transport");
+        #[cfg(feature = "mcp")]
+        let mcp_port: Option<Value> = call.get_flag(engine_state, &mut stack, "mcp-port")?;
 
         fn extract_contents(
             expression: Option<&Expression>,
@@ -219,6 +223,8 @@ pub(crate) fn parse_commandline_args(
         let include_path = extract_contents(include_path)?;
         let experimental_options =
             extract_list(experimental_options, "string", |expr| expr.as_string())?;
+        #[cfg(feature = "mcp")]
+        let mcp_transport = extract_contents(mcp_transport)?;
 
         let help = call.has_flag(engine_state, &mut stack, "help")?;
 
@@ -272,6 +278,10 @@ pub(crate) fn parse_commandline_args(
             experimental_options,
             #[cfg(feature = "mcp")]
             mcp,
+            #[cfg(feature = "mcp")]
+            mcp_transport,
+            #[cfg(feature = "mcp")]
+            mcp_port,
         });
     }
 
@@ -315,6 +325,10 @@ pub(crate) struct NushellCliArgs {
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp: bool,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_transport: Option<Spanned<String>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_port: Option<Value>,
 }
 
 #[derive(Clone)]
@@ -424,7 +438,20 @@ impl Command for Nu {
 
         #[cfg(feature = "mcp")]
         {
-            signature = signature.switch("mcp", "start nu's model context protocol server", None);
+            signature = signature
+                .switch("mcp", "start nu's model context protocol server", None)
+                .named(
+                    "mcp-transport",
+                    SyntaxShape::String,
+                    "MCP transport: 'stdio' (default) or 'http'",
+                    None,
+                )
+                .named(
+                    "mcp-port",
+                    SyntaxShape::Int,
+                    "port for HTTP transport (default: 8080)",
+                    None,
+                );
         }
         #[cfg(feature = "plugin")]
         {
