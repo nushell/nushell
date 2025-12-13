@@ -14,6 +14,7 @@ impl Command for SysUsers {
         Signature::build("sys users")
             .category(Category::System)
             .input_output_types(vec![(Type::Nothing, Type::table())])
+            .switch("nogroup", "Don't compute groups", Some('n'))
     }
 
     fn description(&self) -> &str {
@@ -22,12 +23,13 @@ impl Command for SysUsers {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(users(call.head).into_pipeline_data())
+        let nogroup = call.has_flag(engine_state, stack, "nogroup")?;
+        Ok(users(nogroup, call.head).into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -39,18 +41,30 @@ impl Command for SysUsers {
     }
 }
 
-fn users(span: Span) -> Value {
+fn users(nogroup: bool, span: Span) -> Value {
     let users = Users::new_with_refreshed_list()
         .iter()
         .map(|user| {
-            let groups = user
-                .groups()
-                .iter()
-                .map(|group| Value::string(trim_cstyle_null(group.name()), span))
-                .collect();
+            let groups = if !nogroup {
+                user.groups()
+                    .iter()
+                    .map(|group| {
+                        Value::record(
+                            record! {
+                                "name" => Value::string(trim_cstyle_null(group.name()), span),
+                                "id" => Value::int(group.id().to_le() as i64, span),
+                            },
+                            span,
+                        )
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
 
             let record = record! {
                 "name" => Value::string(trim_cstyle_null(user.name()), span),
+                "id" => Value::int(user.id().to_le() as i64, span),
                 "groups" => Value::list(groups, span),
             };
 
