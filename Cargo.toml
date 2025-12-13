@@ -74,6 +74,7 @@ members = [
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
 anyhow = "1.0.82"
+axum = "0.8.0"
 base64 = "0.22.1"
 bracoxide = "0.1.8"
 brotli = "8.0"

@@ -1,5 +1,17 @@
+use std::sync::Arc;
+
+use axum::Router;
 use nu_protocol::{ShellError, engine::EngineState, engine::StateWorkingSet, format_cli_error};
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{
+    ServiceExt,
+    transport::{
+        stdio,
+        streamable_http_server::{
+            StreamableHttpServerConfig, StreamableHttpService,
+            session::local::LocalSessionManager,
+        },
+    },
+};
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
 use tracing_subscriber::EnvFilter;
@@ -10,14 +22,30 @@ mod evaluation;
 mod history;
 mod server;
 
-pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError> {
+/// MCP transport configuration
+#[derive(Debug, Clone, Default)]
+pub enum McpTransport {
+    /// Standard IO transport (default)
+    #[default]
+    Stdio,
+    /// HTTP transport with SSE streaming
+    Http {
+        /// Port to listen on
+        port: u16,
+    },
+}
+
+pub fn initialize_mcp_server(
+    engine_state: EngineState,
+    transport: McpTransport,
+) -> Result<(), ShellError> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .init();
 
-    tracing::info!("Starting MCP server");
+    tracing::info!("Starting MCP server with transport: {:?}", transport);
     let runtime = Runtime::new().map_err(|e| ShellError::GenericError {
         error: format!("Could not instantiate tokio: {e}"),
         msg: "".into(),
@@ -27,14 +55,18 @@ pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError
     })?;
 
     runtime.block_on(async {
-        if let Err(e) = run_server(engine_state).await {
+        let result = match transport {
+            McpTransport::Stdio => run_stdio_server(engine_state).await,
+            McpTransport::Http { port } => run_http_server(engine_state, port).await,
+        };
+        if let Err(e) = result {
             tracing::error!("Error running MCP server: {:?}", e);
         }
     });
     Ok(())
 }
 
-async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_stdio_server(engine_state: EngineState) -> Result<(), Box<dyn std::error::Error>> {
     NushellMcpServer::new(engine_state)
         .serve(stdio())
         .await
@@ -42,6 +74,36 @@ async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error:
             tracing::error!("serving error: {:?}", e);
         })?
         .waiting()
+        .await?;
+    Ok(())
+}
+
+async fn run_http_server(
+    engine_state: EngineState,
+    port: u16,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let engine_state = Arc::new(engine_state);
+
+    let session_manager: Arc<LocalSessionManager> = Default::default();
+    let service = StreamableHttpService::new(
+        {
+            let engine_state = engine_state.clone();
+            move || Ok(NushellMcpServer::new((*engine_state).clone()))
+        },
+        session_manager,
+        StreamableHttpServerConfig::default(),
+    );
+
+    let router = Router::new().fallback_service(service);
+    let addr = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(&addr).await?;
+    tracing::info!("MCP HTTP server listening on http://{addr}");
+    eprintln!("MCP HTTP server listening on http://{addr}");
+
+    axum::serve(listener, router)
+        .with_graceful_shutdown(async {
+            let _ = tokio::signal::ctrl_c().await;
+        })
         .await?;
     Ok(())
 }

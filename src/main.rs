@@ -485,7 +485,18 @@ fn main() -> Result<()> {
                 parsed_nu_cli_args.login_shell.is_some(),
             );
         }
-        nu_mcp::initialize_mcp_server(engine_state)?;
+        let transport = match parsed_nu_cli_args
+            .mcp_transport
+            .as_ref()
+            .map(|value| value.item.as_str())
+        {
+            Some("http") => {
+                let port = parsed_nu_cli_args.mcp_port.unwrap_or(8080);
+                nu_mcp::McpTransport::Http { port }
+            }
+            _ => nu_mcp::McpTransport::Stdio,
+        };
+        nu_mcp::initialize_mcp_server(engine_state, transport)?;
         return Ok(());
     }
 
