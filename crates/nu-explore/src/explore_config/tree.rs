@@ -109,7 +109,8 @@ fn build_tree_items_recursive(
                     let config_path = path.join(".");
                     let has_doc = doc_map
                         .as_ref()
-                        .is_some_and(|m| m.contains_key(&config_path));
+                        .is_some_and(|m| m.contains_key(&config_path))
+                        || should_suppress_doc_warning(&path);
 
                     node_map.insert(
                         identifier.clone(),
@@ -161,7 +162,8 @@ fn build_tree_items_recursive(
                 let config_path = path.join(".");
                 let has_doc = doc_map
                     .as_ref()
-                    .is_some_and(|m| m.contains_key(&config_path));
+                    .is_some_and(|m| m.contains_key(&config_path))
+                    || should_suppress_doc_warning(&path);
 
                 node_map.insert(
                     identifier.clone(),
@@ -199,6 +201,21 @@ fn escape_for_display(s: &str) -> String {
     s.replace('\r', "\\r")
         .replace('\n', "\\n")
         .replace('\t', "\\t")
+}
+
+/// Check if a path should suppress the "missing documentation" warning.
+/// This is used for user-defined list items like keybindings and menus entries,
+/// where individual items won't have documentation.
+fn should_suppress_doc_warning(path: &[String]) -> bool {
+    // Suppress warnings for any nested items under keybindings or menus
+    // e.g., ["keybindings", "0", "name"] or ["menus", "1", "source"]
+    if path.len() >= 2 {
+        let first = path[0].as_str();
+        if first == "keybindings" || first == "menus" {
+            return true;
+        }
+    }
+    false
 }
 
 fn format_tree_label(key: &str, value: &Value, has_doc: bool, is_config_mode: bool) -> String {
@@ -412,5 +429,59 @@ mod tests {
         let label = format_array_item_label(0, &value, false, false);
         assert!(!label.contains('\n'), "Label should not contain actual newlines");
         assert!(label.contains("\\n"), "Label should contain escaped newlines");
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_keybindings() {
+        // Top-level keybindings should NOT suppress (it has its own doc)
+        assert!(!should_suppress_doc_warning(&["keybindings".to_string()]));
+
+        // Nested keybindings items SHOULD suppress
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "0".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "0".to_string(),
+            "name".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "1".to_string(),
+            "keycode".to_string()
+        ]));
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_menus() {
+        // Top-level menus should NOT suppress (it has its own doc)
+        assert!(!should_suppress_doc_warning(&["menus".to_string()]));
+
+        // Nested menus items SHOULD suppress
+        assert!(should_suppress_doc_warning(&[
+            "menus".to_string(),
+            "0".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "menus".to_string(),
+            "0".to_string(),
+            "source".to_string()
+        ]));
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_other_paths() {
+        // Other config paths should NOT suppress
+        assert!(!should_suppress_doc_warning(&["history".to_string()]));
+        assert!(!should_suppress_doc_warning(&[
+            "history".to_string(),
+            "file_format".to_string()
+        ]));
+        assert!(!should_suppress_doc_warning(&[
+            "color_config".to_string(),
+            "string".to_string()
+        ]));
+        assert!(!should_suppress_doc_warning(&[]));
     }
 }
