@@ -1,7 +1,7 @@
 //! TUI runtime functions for running the explore config application.
 
 use crate::explore_config::input::{
-    handle_editor_editing_input, handle_editor_normal_input, handle_tree_input,
+    handle_editor_editing_input, handle_editor_normal_input, handle_search_input, handle_tree_input,
 };
 use crate::explore_config::types::{App, AppResult, EditorMode, Focus, NuValueType};
 use crossterm::event::{
@@ -93,6 +93,7 @@ fn run_config_app(
 
             // Handle based on focus and mode
             let result = match (app.focus, app.editor_mode) {
+                (Focus::Search, _) => handle_search_input(app, key.code, key.modifiers),
                 (Focus::Tree, _) => handle_tree_input(app, key.code, key.modifiers),
                 (Focus::Editor, EditorMode::Normal) => {
                     handle_editor_normal_input(app, key.code, key.modifiers)

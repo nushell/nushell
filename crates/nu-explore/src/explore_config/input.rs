@@ -5,9 +5,57 @@ use crate::explore_config::types::{
 };
 use crossterm::event::{KeyCode, KeyModifiers};
 
-/// Handle keyboard input when the tree pane is focused
-pub fn handle_tree_input(app: &mut App, key: KeyCode, _modifiers: KeyModifiers) -> AppResult {
+/// Handle keyboard input when search mode is active
+pub fn handle_search_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -> AppResult {
     match key {
+        KeyCode::Esc => {
+            // Cancel search and restore full tree
+            app.clear_search();
+            app.focus = Focus::Tree;
+            app.status_message = get_tree_status_message(app);
+        }
+        KeyCode::Enter => {
+            // Confirm search and return to tree navigation
+            app.search_active = !app.search_query.is_empty();
+            app.focus = Focus::Tree;
+            app.status_message = get_tree_status_message(app);
+        }
+        KeyCode::Backspace => {
+            app.search_query.pop();
+            app.apply_search_filter();
+        }
+        KeyCode::Char(c) if !modifiers.contains(KeyModifiers::CONTROL) => {
+            app.search_query.push(c);
+            app.apply_search_filter();
+        }
+        _ => {}
+    }
+    AppResult::Continue
+}
+
+/// Handle keyboard input when the tree pane is focused
+pub fn handle_tree_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -> AppResult {
+    match key {
+        // Enter search mode with / or Ctrl+F
+        KeyCode::Char('/') => {
+            app.focus = Focus::Search;
+            // Don't clear existing search query - allow refining
+            app.status_message =
+                String::from("Search: Type to filter tree | Enter to confirm | Esc to cancel");
+            return AppResult::Continue;
+        }
+        KeyCode::Char('f') if modifiers.contains(KeyModifiers::CONTROL) => {
+            app.focus = Focus::Search;
+            app.status_message =
+                String::from("Search: Type to filter tree | Enter to confirm | Esc to cancel");
+            return AppResult::Continue;
+        }
+        // Clear search filter with Escape when search is active
+        KeyCode::Esc if app.search_active => {
+            app.clear_search();
+            app.status_message = get_tree_status_message(app);
+            return AppResult::Continue;
+        }
         KeyCode::Char('q') => {
             // In config mode, allow quit if user has confirmed save with Ctrl+S
             // In non-config mode, allow quit if there are no unsaved changes
@@ -83,6 +131,22 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, _modifiers: KeyModifiers) 
     AppResult::Continue
 }
 
+/// Get the default status message for tree focus
+pub fn get_tree_status_message(app: &App) -> String {
+    let save_action = if app.config_mode { "Apply" } else { "Save" };
+    if app.search_active {
+        format!(
+            "Filter: \"{}\" | Esc to clear | / to modify",
+            app.search_query
+        )
+    } else {
+        format!(
+            "↑↓ Navigate | / Search | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S {} | q Quit",
+            save_action
+        )
+    }
+}
+
 /// Handle keyboard input when the editor pane is focused in normal mode
 pub fn handle_editor_normal_input(
     app: &mut App,
@@ -92,9 +156,7 @@ pub fn handle_editor_normal_input(
     match key {
         KeyCode::Tab => {
             app.focus = Focus::Tree;
-            app.status_message = String::from(
-                "↑↓ Navigate | ←→ Collapse/Expand | Tab Switch pane | Ctrl+S Save | q Quit",
-            );
+            app.status_message = get_tree_status_message(app);
         }
         KeyCode::Enter | KeyCode::Char('e') => {
             app.editor_mode = EditorMode::Editing;
