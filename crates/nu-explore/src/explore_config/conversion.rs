@@ -94,7 +94,12 @@ pub fn parse_config_documentation() -> HashMap<String, String> {
     for line in doc_content.lines() {
         let trimmed = line.trim();
 
-        if trimmed.starts_with('#') {
+        if trimmed.is_empty() {
+            // Empty lines clear the comment buffer - this ensures section headings
+            // (which are separated from actual documentation by blank lines)
+            // don't get included in the documentation for settings
+            current_comments.clear();
+        } else if trimmed.starts_with('#') {
             // Collect comment lines (strip the leading # and space)
             let comment = trimmed.trim_start_matches('#').trim();
             if !comment.is_empty() {
@@ -112,9 +117,8 @@ pub fn parse_config_documentation() -> HashMap<String, String> {
             }
             // Clear comments after processing a setting
             current_comments.clear();
-        } else if !trimmed.is_empty() {
-            // Non-comment, non-config line - might be code examples, clear comments
-            // But keep comments if the line is empty (paragraph break in docs)
+        } else {
+            // Non-comment, non-config, non-empty line - might be code examples, clear comments
             current_comments.clear();
         }
     }

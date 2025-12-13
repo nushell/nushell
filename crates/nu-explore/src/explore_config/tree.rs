@@ -109,7 +109,8 @@ fn build_tree_items_recursive(
                     let config_path = path.join(".");
                     let has_doc = doc_map
                         .as_ref()
-                        .is_some_and(|m| m.contains_key(&config_path));
+                        .is_some_and(|m| m.contains_key(&config_path))
+                        || should_suppress_doc_warning(&path);
 
                     node_map.insert(
                         identifier.clone(),
@@ -161,7 +162,8 @@ fn build_tree_items_recursive(
                 let config_path = path.join(".");
                 let has_doc = doc_map
                     .as_ref()
-                    .is_some_and(|m| m.contains_key(&config_path));
+                    .is_some_and(|m| m.contains_key(&config_path))
+                    || should_suppress_doc_warning(&path);
 
                 node_map.insert(
                     identifier.clone(),
@@ -194,31 +196,59 @@ fn build_tree_items_recursive(
     }
 }
 
+/// Escape control characters that would cause multi-line rendering in tree labels
+fn escape_for_display(s: &str) -> String {
+    s.replace('\r', "\\r")
+        .replace('\n', "\\n")
+        .replace('\t', "\\t")
+}
+
+/// Check if a path should suppress the "missing documentation" warning.
+/// This is used for user-defined list items like keybindings and menus entries,
+/// where individual items won't have documentation.
+fn should_suppress_doc_warning(path: &[String]) -> bool {
+    // Suppress warnings for any nested items under keybindings or menus
+    // e.g., ["keybindings", "0", "name"] or ["menus", "1", "source"]
+    if path.len() >= 2 {
+        let first = path[0].as_str();
+        if first == "keybindings" || first == "menus" {
+            return true;
+        }
+    }
+    false
+}
+
 fn format_tree_label(key: &str, value: &Value, has_doc: bool, is_config_mode: bool) -> String {
     let doc_marker = if is_config_mode && !has_doc {
         "⚠ "
     } else {
         ""
     };
+    // Escape control characters in key to prevent multi-line tree items
+    let safe_key = escape_for_display(key);
     match value {
-        Value::Null => format!("{}{}: null", doc_marker, key),
-        Value::Bool(b) => format!("{}{}: {}", doc_marker, key, b),
-        Value::Number(n) => format!("{}{}: {}", doc_marker, key, n),
+        Value::Null => format!("{}{}: null", doc_marker, safe_key),
+        Value::Bool(b) => format!("{}{}: {}", doc_marker, safe_key, b),
+        Value::Number(n) => format!("{}{}: {}", doc_marker, safe_key, n),
         Value::String(s) => {
-            let preview = if s.len() > 40 {
-                format!("{}...", &s[..37])
+            // Truncate safely at char boundary, not byte boundary
+            // Use nth() to check if string has more than 40 chars without counting all chars
+            let needs_truncation = s.chars().nth(40).is_some();
+            let preview = if needs_truncation {
+                let truncated: String = s.chars().take(37).collect();
+                format!("{}...", truncated)
             } else {
                 s.clone()
             };
             format!(
                 "{}{}: \"{}\"",
                 doc_marker,
-                key,
-                preview.replace('\n', "\\n")
+                safe_key,
+                escape_for_display(&preview)
             )
         }
-        Value::Array(arr) => format!("{}{} [{} items]", doc_marker, key, arr.len()),
-        Value::Object(obj) => format!("{}{} {{{} keys}}", doc_marker, key, obj.len()),
+        Value::Array(arr) => format!("{}{} [{} items]", doc_marker, safe_key, arr.len()),
+        Value::Object(obj) => format!("{}{} {{{} keys}}", doc_marker, safe_key, obj.len()),
     }
 }
 
@@ -238,8 +268,12 @@ fn format_array_item_label(
         Value::Bool(b) => format!("{}[{}]: {}", doc_marker, idx, b),
         Value::Number(n) => format!("{}[{}]: {}", doc_marker, idx, n),
         Value::String(s) => {
-            let preview = if s.len() > 40 {
-                format!("{}...", &s[..37])
+            // Truncate safely at char boundary, not byte boundary
+            // Use nth() to check if string has more than 40 chars without counting all chars
+            let needs_truncation = s.chars().nth(40).is_some();
+            let preview = if needs_truncation {
+                let truncated: String = s.chars().take(37).collect();
+                format!("{}...", truncated)
             } else {
                 s.clone()
             };
@@ -247,7 +281,7 @@ fn format_array_item_label(
                 "{}[{}]: \"{}\"",
                 doc_marker,
                 idx,
-                preview.replace('\n', "\\n")
+                escape_for_display(&preview)
             )
         }
         Value::Array(arr) => format!("{}[{}] [{} items]", doc_marker, idx, arr.len()),
@@ -326,4 +360,152 @@ pub fn set_value_at_path(value: &mut Value, path: &[String], new_value: Value) -
         }
     }
     false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_for_display_newlines() {
+        assert_eq!(escape_for_display("hello\nworld"), "hello\\nworld");
+        assert_eq!(escape_for_display("a\nb\nc"), "a\\nb\\nc");
+    }
+
+    #[test]
+    fn test_escape_for_display_carriage_returns() {
+        assert_eq!(escape_for_display("hello\rworld"), "hello\\rworld");
+        assert_eq!(escape_for_display("line\r\nend"), "line\\r\\nend");
+    }
+
+    #[test]
+    fn test_escape_for_display_tabs() {
+        assert_eq!(escape_for_display("hello\tworld"), "hello\\tworld");
+    }
+
+    #[test]
+    fn test_escape_for_display_mixed() {
+        assert_eq!(
+            escape_for_display("line1\nline2\r\nline3\tend"),
+            "line1\\nline2\\r\\nline3\\tend"
+        );
+    }
+
+    #[test]
+    fn test_escape_for_display_no_special_chars() {
+        assert_eq!(escape_for_display("hello world"), "hello world");
+        assert_eq!(escape_for_display(""), "");
+    }
+
+    #[test]
+    fn test_format_tree_label_escapes_newlines_in_string_value() {
+        let value = Value::String("line1\nline2\nline3".to_string());
+        let label = format_tree_label("key", &value, false, false);
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines"
+        );
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines"
+        );
+    }
+
+    #[test]
+    fn test_format_tree_label_truncates_long_strings() {
+        let long_string = "a".repeat(100);
+        let value = Value::String(long_string);
+        let label = format_tree_label("key", &value, false, false);
+        assert!(label.contains("..."), "Long strings should be truncated");
+        assert!(label.len() < 100, "Label should be shorter than original");
+    }
+
+    #[test]
+    fn test_format_tree_label_handles_closure_like_strings() {
+        // Simulate a closure string with newlines like what we'd get from Nushell
+        let closure_str = "{|| (date now) - $in |\n    if $in < 1hr {\n        'red'\n    }\n}";
+        let value = Value::String(closure_str.to_string());
+        let label = format_tree_label("datetime", &value, false, false);
+
+        // The label should NOT contain any actual newlines
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines: {}",
+            label
+        );
+        // But it SHOULD contain escaped newlines
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines: {}",
+            label
+        );
+    }
+
+    #[test]
+    fn test_format_array_item_label_escapes_newlines() {
+        let value = Value::String("line1\nline2".to_string());
+        let label = format_array_item_label(0, &value, false, false);
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines"
+        );
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines"
+        );
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_keybindings() {
+        // Top-level keybindings should NOT suppress (it has its own doc)
+        assert!(!should_suppress_doc_warning(&["keybindings".to_string()]));
+
+        // Nested keybindings items SHOULD suppress
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "0".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "0".to_string(),
+            "name".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "keybindings".to_string(),
+            "1".to_string(),
+            "keycode".to_string()
+        ]));
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_menus() {
+        // Top-level menus should NOT suppress (it has its own doc)
+        assert!(!should_suppress_doc_warning(&["menus".to_string()]));
+
+        // Nested menus items SHOULD suppress
+        assert!(should_suppress_doc_warning(&[
+            "menus".to_string(),
+            "0".to_string()
+        ]));
+        assert!(should_suppress_doc_warning(&[
+            "menus".to_string(),
+            "0".to_string(),
+            "source".to_string()
+        ]));
+    }
+
+    #[test]
+    fn test_should_suppress_doc_warning_other_paths() {
+        // Other config paths should NOT suppress
+        assert!(!should_suppress_doc_warning(&["history".to_string()]));
+        assert!(!should_suppress_doc_warning(&[
+            "history".to_string(),
+            "file_format".to_string()
+        ]));
+        assert!(!should_suppress_doc_warning(&[
+            "color_config".to_string(),
+            "string".to_string()
+        ]));
+        assert!(!should_suppress_doc_warning(&[]));
+    }
 }
