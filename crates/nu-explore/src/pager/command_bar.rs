@@ -173,7 +173,7 @@ mod tests {
         let content = buffer_to_string(&buf);
 
         // Should handle Unicode without panicking
-        assert!(content.contains("日本語") || content.len() > 0);
+        assert!(content.contains("日本語") || !content.is_empty());
     }
 
     #[test]

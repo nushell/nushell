@@ -253,7 +253,7 @@ mod tests {
         // Find position of title - should be roughly centered
         let title_pos = content.find("XX").unwrap();
         // With width 20 and title "XX" (2 chars), ideal center is around position 9
-        assert!(title_pos >= 8 && title_pos <= 10);
+        assert!((8..=10).contains(&title_pos));
     }
 
     #[test]
