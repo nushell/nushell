@@ -288,6 +288,7 @@ full = [
   "sqlite",
   "system-clipboard",
   "trash-support",
+  "mcp",
 ]
 
 plugin = [
@@ -318,7 +319,8 @@ default = [
   "trash-support",
   "sqlite",
   "network",
-  "rustls-tls"
+  "rustls-tls",
+  "mcp",
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command

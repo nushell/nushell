@@ -2,6 +2,7 @@
 mod commands;
 mod default_context;
 mod explore;
+mod explore_config;
 mod explore_regex;
 mod nu_common;
 mod pager;

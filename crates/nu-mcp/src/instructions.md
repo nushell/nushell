@@ -109,6 +109,17 @@ $"2 + 2 = (2 + 2)"                              # Expressions work too
 
 **Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
+**Stderr redirection:** Use `o+e>` or `out+err>` instead of bash-style `2>&1`.
+```nu
+# BAD - bash syntax doesn't work in nushell
+command 2>&1                                    # ERROR: use 'out+err>' instead
+command 2>/dev/null                             # ERROR: not valid nushell
+
+# GOOD - nushell redirection syntax
+command o+e>| other_command                     # Redirect stderr to stdout, pipe
+command o+e>| ignore                            # Discard both stdout and stderr
+```
+
 ## HTTP Requests
 
 **Automatic JSON parsing:** HTTP commands (`http get`, `http post`, etc.) automatically parse JSON responses into structured Nushell data based on the `Content-Type` header. Do NOT pipe to `from json` - the data is already parsed.
@@ -127,9 +138,19 @@ http get https://api.example.com/users | get name
 http get --raw https://api.example.com/data | from json  # Manual parsing
 ```
 
+**Pipeline Content-Type metadata:** Format commands like `to json`, `to yaml`, etc. set a `content_type` metadata value that HTTP commands automatically use. This enables clean pipelines without explicit `-t` flags:
+
+```nu
+# GOOD - to json sets content-type metadata, http post uses it automatically
+{a: 1, b: "bar"} | to json | http post https://api.example.com/data
+
+# Equivalent to (but cleaner than):
+http post -t json https://api.example.com/data {a: 1, b: "bar"}
+```
+
 **Common flags:**
 - `-H {key: value}` or `--headers {key: value}`: Custom headers as a record
-- `-t json` or `--content-type application/json`: Set Content-Type for request body
+- `-t json` or `--content-type application/json`: Set Content-Type for request body (overrides pipeline metadata)
 - `(bytes build)`: Empty body (required for POST/PUT when you have no data to send)
 
 ```nu
@@ -139,7 +160,10 @@ http get https://api.example.com/data
 # GET with auth header
 http get -H {Authorization: "Bearer token"} https://api.example.com/data
 
-# POST with JSON body (use -t json for Content-Type)
+# POST with JSON body via pipeline (to json sets content-type metadata)
+{foo: "bar", baz: 123} | to json | http post https://api.example.com/endpoint
+
+# POST with explicit content-type flag (alternative approach)
 http post -t json https://api.example.com/endpoint {foo: "bar", baz: 123}
 
 # POST with headers but empty body (bytes build creates empty body)

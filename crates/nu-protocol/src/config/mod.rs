@@ -54,6 +54,7 @@ pub struct Config {
     pub use_ansi_coloring: UseAnsiColoring,
     pub completions: CompletionConfig,
     pub edit_mode: EditBindings,
+    pub show_hints: bool,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -111,6 +112,7 @@ impl Default for Config {
             use_ansi_coloring: UseAnsiColoring::default(),
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
+            show_hints: true,
 
             shell_integration: ShellIntegrationConfig::default(),
 
@@ -162,6 +164,7 @@ impl UpdateFromValue for Config {
                 "float_precision" => self.float_precision.update(val, path, errors),
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
                 "edit_mode" => self.edit_mode.update(val, path, errors),
+                "show_hints" => self.show_hints.update(val, path, errors),
                 "shell_integration" => self.shell_integration.update(val, path, errors),
                 "buffer_editor" => match val {
                     Value::Nothing { .. } | Value::String { .. } => {
