@@ -145,16 +145,23 @@ pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
     tag: Option<String>,
+    on_termination: Waiter<()>,
     pub sender: Sender<Mail>,
 }
 
 impl ThreadJob {
-    pub fn new(signals: Signals, tag: Option<String>, sender: Sender<Mail>) -> Self {
+    pub fn new(
+        signals: Signals,
+        tag: Option<String>,
+        sender: Sender<Mail>,
+        on_termination: Waiter<()>,
+    ) -> Self {
         ThreadJob {
             signals,
             pids: Arc::new(Mutex::new(HashSet::default())),
             sender,
             tag,
+            on_termination,
         }
     }
 
@@ -202,6 +209,10 @@ impl ThreadJob {
 
         pids.remove(&pid);
     }
+
+    pub fn on_termination(&self) -> &Waiter<()> {
+        &self.on_termination
+    }
 }
 
 impl Job {
@@ -244,6 +255,148 @@ impl FrozenJob {
         {
             Ok(())
         }
+    }
+}
+
+use std::sync::OnceLock;
+
+/// A synchronization primitive that allows multiple threads to wait for a single event to be completed.
+///
+/// A Waiter/Completer pair is similar to a Receiver/Sender pair from std::sync::mpsc, with a few important differences:
+/// - Only one value can only be sent/completed, subsequent completions are ignored
+/// - Multiple threads can wait for the completion of an event (`Waiter` is `Clone` unlike `Receiver`)
+///
+/// This type differs from `OnceLock` only in a few regards:
+/// - It is split into `Waiter` and `Completer` halves
+/// - It allows users to `wait` on the completion event with a timeout
+///
+/// Threads that call the [`wait`] method of the `Waiter` block until the [`complete`] method of a matching `Completer` is called.
+/// Once [`complete`] is called, all currently waiting threads will be woken up and will return from their `wait` calls.
+/// Subsequent calls to [`wait`] will not block and will return immediately.
+///
+pub fn completion_signal<T>() -> (Completer<T>, Waiter<T>) {
+    let inner = Arc::new(InnerWaitCompleteSignal::new());
+
+    (
+        Completer {
+            inner: inner.clone(),
+        },
+        Waiter { inner },
+    )
+}
+
+/// Waiter and Completer are effectively just `Arc` wrappers around this type.
+struct InnerWaitCompleteSignal<T> {
+    // One may ask: "Why the mutex and the convar"?
+    // It turns out OnceLock doesn't have a `wait_timeout` method, so
+    // we use the one from the condvar.
+    //
+    // We once again, assume acquire-release semantics for Rust mutexes
+    mutex: std::sync::Mutex<()>,
+    var: std::sync::Condvar,
+    value: std::sync::OnceLock<T>,
+}
+
+impl<T> InnerWaitCompleteSignal<T> {
+    pub fn new() -> Self {
+        InnerWaitCompleteSignal {
+            mutex: std::sync::Mutex::new(()),
+            value: OnceLock::new(),
+            var: std::sync::Condvar::new(),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct Waiter<T> {
+    inner: Arc<InnerWaitCompleteSignal<T>>,
+}
+
+pub struct Completer<T> {
+    inner: Arc<InnerWaitCompleteSignal<T>>,
+}
+
+impl<T> Waiter<T> {
+    /// Blocks the current thread until a completion signal is sent.
+    ///
+    /// If the signal has already been emitted, this method returns immediately.
+    ///
+    pub fn wait(&self) -> &T {
+        let inner: &InnerWaitCompleteSignal<T> = self.inner.as_ref();
+
+        let mut guard = inner.mutex.lock().expect("mutex is poisoned!");
+
+        loop {
+            match inner.value.get() {
+                None => match inner.var.wait(guard) {
+                    Ok(it) => guard = it,
+                    Err(_) => panic!("mutex is poisoned!"),
+                },
+                Some(value) => return value,
+            }
+        }
+    }
+
+    pub fn wait_timeout(&self, duration: std::time::Duration) -> Option<&T> {
+        let inner: &InnerWaitCompleteSignal<T> = self.inner.as_ref();
+
+        let guard = inner.mutex.lock().expect("mutex is poisoned!");
+
+        match inner
+            .var
+            .wait_timeout_while(guard, duration, |_| inner.value.get().is_none())
+        {
+            Ok((_guard, result)) => {
+                if result.timed_out() {
+                    None
+                } else {
+                    // SAFETY:
+                    // This should never fail, since we just ran a `wait_timeout_while`
+                    // that should run while the `inner.value` OnceLock is not defined.
+                    // Therefore, it by this point in the code, either a timeout happened,
+                    // or a call to the `.get()` method of the OnceLock returned `Some`thing.
+                    // A OnceLock cannot be undefined once it is defined, so any subsequent call
+                    // to `inner.value.get()` should return `Some`thing.
+                    Some(inner.value.get().expect("OnceLock was not defined!"))
+                }
+            }
+            Err(_) => panic!("mutex is poisoned!"),
+        }
+    }
+
+    // TODO: add wait_timeout
+
+    /// Checks if this completion signal has been signaled.
+    ///
+    /// This method returns `true` if the [`signal`] method has been called at least once,
+    /// and `false` otherwise. This method does not block the current thread.
+    ///
+    pub fn is_completed(&self) -> bool {
+        self.try_get().is_some()
+    }
+
+    /// Returns the completed value, or None if none was sent.
+    pub fn try_get(&self) -> Option<&T> {
+        let _guard = self.inner.mutex.lock().expect("mutex is poisoned!");
+
+        self.inner.value.get()
+    }
+}
+
+impl<T> Completer<T> {
+    /// Signals all threads currently waiting on this completion signal.
+    ///
+    /// This method sets wakes up all threads that are blocked in the [`wait`] method
+    /// of an attached `Waiter`. Subsequent calls to [`wait`] from any thread will return immediately.
+    /// This operation has no effect if this completion signal has already been completed.
+    pub fn complete(&self, value: T) {
+        let inner: &InnerWaitCompleteSignal<T> = self.inner.as_ref();
+
+        let mut _guard = inner.mutex.lock().expect("mutex is poisoned!");
+
+        let _ = inner.value.set(value);
+
+        inner.var.notify_all();
     }
 }
 
@@ -401,5 +554,122 @@ impl IgnoredMail {
         }
 
         Some(self.messages.remove(&id)?.1)
+    }
+}
+
+#[cfg(test)]
+mod completion_signal_tests {
+
+    use std::{
+        sync::mpsc,
+        thread::{self, sleep},
+        time::Duration,
+    };
+
+    use crate::engine::completion_signal;
+
+    fn run_with_timeout<F>(duration: Duration, lambda: F)
+    where
+        F: FnOnce() + Send + 'static,
+    {
+        let (send, recv) = std::sync::mpsc::channel();
+
+        let send_ = send.clone();
+
+        thread::spawn(move || {
+            lambda();
+
+            let send = send_;
+
+            send.send(true).expect("send failed");
+        });
+
+        thread::spawn(move || {
+            thread::sleep(duration);
+
+            send.send(false).expect("send failed");
+        });
+
+        let ok = recv.recv().expect("recv failed!");
+
+        assert!(ok, "got timeout!");
+    }
+
+    #[test]
+    fn wait_returns_when_signaled_from_another_thread() {
+        run_with_timeout(Duration::from_secs(1), || {
+            let (complete, wait) = completion_signal();
+
+            let wait_ = wait.clone();
+
+            thread::spawn(move || {
+                sleep(Duration::from_millis(200));
+                assert!(!wait_.is_completed());
+                complete.complete(123);
+            });
+
+            let result = wait.wait();
+
+            assert!(wait.is_completed());
+
+            assert_eq!(*result, 123);
+        });
+    }
+
+    #[test]
+    fn wait_works_from_multiple_threads() {
+        run_with_timeout(Duration::from_secs(1), || {
+            let (complete, wait) = completion_signal();
+            let (send, recv) = mpsc::channel();
+
+            let thread_count = 4;
+
+            for _ in 0..thread_count {
+                let wait_ = wait.clone();
+                let send_ = send.clone();
+
+                thread::spawn(move || {
+                    let value = wait_.wait();
+                    send_.send(*value).expect("send failed");
+                });
+            }
+
+            complete.complete(321);
+
+            for _ in 0..thread_count {
+                let result = recv.recv().expect("recv failed");
+
+                assert_eq!(result, 321);
+            }
+        })
+    }
+
+    #[test]
+    fn was_signaled_returns_false_when_struct_is_initialized() {
+        let (_, wait) = completion_signal::<()>();
+
+        assert!(!wait.is_completed())
+    }
+
+    #[test]
+    fn was_signaled_returns_true_when_signal_is_called() {
+        let (complete, wait) = completion_signal();
+
+        complete.complete(());
+
+        assert!(wait.is_completed())
+    }
+
+    #[test]
+    fn wait_returns_when_own_thread_signals() {
+        run_with_timeout(Duration::from_secs(1), || {
+            let (complete, wait) = completion_signal();
+
+            complete.complete(());
+
+            wait.wait();
+
+            assert!(wait.is_completed())
+        })
     }
 }
