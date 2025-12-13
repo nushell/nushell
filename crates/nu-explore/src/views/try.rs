@@ -101,10 +101,7 @@ impl View for TryView {
                 .border_style(border_color.add_modifier(Modifier::BOLD))
                 .title(Line::from(vec![
                     Span::styled(" ", Style::default()),
-                    Span::styled(
-                        "Command",
-                        border_color.add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("Command", border_color.add_modifier(Modifier::BOLD)),
                     Span::styled(" ▸ ", border_color.add_modifier(Modifier::BOLD)),
                 ]))
         };
@@ -147,7 +144,8 @@ impl View for TryView {
 
         // Position cursor at end of input when in command mode
         if !self.view_mode {
-            let cursor_x = cmd_input_area.x + prompt_width + min(display_input.width() as u16, max_cmd_len);
+            let cursor_x =
+                cmd_input_area.x + prompt_width + min(display_input.width() as u16, max_cmd_len);
             let cursor_x_max = cmd_input_area.x + cmd_input_area.width.saturating_sub(1);
             if cursor_x <= cursor_x_max {
                 f.set_cursor_position((cursor_x, cmd_input_area.y));
@@ -162,10 +160,7 @@ impl View for TryView {
                 .border_style(border_color.add_modifier(Modifier::BOLD))
                 .title(Line::from(vec![
                     Span::styled(" ", Style::default()),
-                    Span::styled(
-                        "Results",
-                        border_color.add_modifier(Modifier::BOLD),
-                    ),
+                    Span::styled("Results", border_color.add_modifier(Modifier::BOLD)),
                     Span::styled(" ◂ ", border_color.add_modifier(Modifier::BOLD)),
                 ]))
         } else {
@@ -203,9 +198,15 @@ impl View for TryView {
                 1,
             );
             let hint = Paragraph::new(Line::from(vec![
-                Span::styled("Type a command and press ", Style::default().add_modifier(Modifier::DIM)),
+                Span::styled(
+                    "Type a command and press ",
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
                 Span::styled("Enter", border_color),
-                Span::styled(" to see results", Style::default().add_modifier(Modifier::DIM)),
+                Span::styled(
+                    " to see results",
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
             ]));
             f.render_widget(hint, hint_area);
         }

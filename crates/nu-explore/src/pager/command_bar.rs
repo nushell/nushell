@@ -44,9 +44,17 @@ impl Widget for CommandBar<'_> {
         // Render the command/search text on the left with padding
         let text_x = area.x + TEXT_PADDING_LEFT;
         let info_width = self.information.len() as u16;
-        let max_text_width = area.width.saturating_sub(TEXT_PADDING_LEFT + info_width + INFO_PADDING_RIGHT + 2);
+        let max_text_width = area
+            .width
+            .saturating_sub(TEXT_PADDING_LEFT + info_width + INFO_PADDING_RIGHT + 2);
 
-        let text_width = set_span(buf, (text_x, area.y), self.text, self.text_s, max_text_width);
+        let text_width = set_span(
+            buf,
+            (text_x, area.y),
+            self.text,
+            self.text_s,
+            max_text_width,
+        );
 
         // Calculate available space for info
         let available_width = area.width.saturating_sub(text_x - area.x + text_width);
@@ -58,7 +66,13 @@ impl Widget for CommandBar<'_> {
         // Render info on the right with padding
         let info_x = area.right().saturating_sub(info_width + INFO_PADDING_RIGHT);
         if info_x > text_x + text_width + 1 {
-            set_span(buf, (info_x, area.y), self.information, self.text_s, info_width);
+            set_span(
+                buf,
+                (info_x, area.y),
+                self.information,
+                self.text_s,
+                info_width,
+            );
         }
     }
 }
