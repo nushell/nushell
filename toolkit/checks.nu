@@ -97,6 +97,79 @@ export def test [
     }
 }
 
+# check that all the tests pass using a fancy nextest
+#
+# Saves a junit output file in ./target/nextest/
+export def --wrapped "test ci" [
+    --features: list<string> = [] # the list of features to run the tests on
+    --workspace # run the command on the whole workspace
+    --profile: string = "ci" # Nextest profile to use
+    --cargo-profile: string # Cargo profile to use
+    --config: path # Path to the nextest config
+    --groups # Show the grouped tests
+    ...rest # Args to pass directly to `nextest run`
+] {
+    use std/log
+    let toplevel: path = try {
+        ^git rev-parse --show-toplevel | complete | get stdout | str trim
+    } catch {
+        "."
+    }
+    let config: path = $config
+    | default (
+        $toplevel
+        | path join .cargo nextest.toml
+    )
+    let cargo_profile = $cargo_profile
+    | default ($profile)
+
+    let default_args = [
+        --profile=($profile)
+        --cargo-profile=($cargo_profile)
+        --config-file=($config)
+    ]
+    let features: list = if ($features | is-not-empty) {
+        [--features ($features | str join ",")]
+    } else {[]}
+    let workspace: list = if $workspace {
+        [--workspace]
+    } else {[]}
+
+    let args = [
+        $default_args
+        $features
+        $workspace
+    ] | flatten
+
+    let full_config = open $config
+    let profile_config = $full_config
+    | get ([profile $profile] | into cell-path)
+    | upsert overrides {|p|
+        $p.overrides?
+        | default []
+        | each {|o|
+            $o | merge {
+                settings: ($full_config.test-groups | get -o $o.test-group)
+            }
+        }
+    }
+
+    let outpath: path = $full_config.path?.dir?
+    | default ($toplevel | path join target nextest $profile)
+    | path join ($profile_config.junit?.path? | default junit.xml)
+
+    log info $"Running with ($args)"
+    log info $"Junit output will be in ($outpath)"
+    log info $"Nextest configuration:(char newline)(
+        $profile_config
+        | table -e --theme default
+    )"
+    with-env {
+        NUSHELL_CARGO_PROFILE: $cargo_profile
+    } {
+        ^cargo nextest run ...$args ...$rest
+    }
+}
 # run the tests for the standard library
 export def "test stdlib" [
     --extra-args: string = ''
