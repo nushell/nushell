@@ -7,13 +7,6 @@ use std::collections::HashMap;
 /// Path through the JSON tree represented as a vector of keys/indices
 pub type NodePath = Vec<String>;
 
-/// Determines which pane has focus in the TUI
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Focus {
-    Tree,
-    Editor,
-}
-
 /// Mode for the editor pane
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum EditorMode {
@@ -209,11 +202,21 @@ pub fn calculate_cursor_position(content: &str, cursor: usize) -> CursorPosition
     }
 }
 
+/// Focus mode including search
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Focus {
+    Tree,
+    Editor,
+    Search,
+}
+
 /// The main application state for the TUI
 pub struct App {
     pub tree_state: tui_tree_widget::TreeState<String>,
     pub json_data: Value,
     pub tree_items: Vec<tui_tree_widget::TreeItem<'static, String>>,
+    /// Unfiltered tree items - used to restore after clearing search
+    pub unfiltered_tree_items: Vec<tui_tree_widget::TreeItem<'static, String>>,
     pub node_map: HashMap<String, NodeInfo>,
     pub focus: Focus,
     pub editor_mode: EditorMode,
@@ -230,4 +233,7 @@ pub struct App {
     /// Type map for preserving Nushell types across tree rebuilds in config mode
     pub nu_type_map: Option<HashMap<String, NuValueType>>,
     pub doc_map: Option<HashMap<String, String>>,
+    /// Search/filter state
+    pub search_query: String,
+    pub search_active: bool,
 }

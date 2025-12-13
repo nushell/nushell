@@ -1,6 +1,8 @@
 //! Application state and drawing logic for the explore config TUI.
 
-use crate::explore_config::tree::{build_tree_items, get_value_at_path, set_value_at_path};
+use crate::explore_config::tree::{
+    build_tree_items, filter_tree_items, get_value_at_path, set_value_at_path,
+};
 use crate::explore_config::types::{
     App, EditorMode, Focus, NodeInfo, NuValueType, ValueType, calculate_cursor_position,
 };
@@ -35,7 +37,8 @@ impl App {
         App {
             tree_state: TreeState::default(),
             json_data,
-            tree_items,
+            tree_items: tree_items.clone(),
+            unfiltered_tree_items: tree_items,
             node_map,
             focus: Focus::Tree,
             editor_mode: EditorMode::Normal,
@@ -50,6 +53,8 @@ impl App {
             config_mode,
             nu_type_map,
             doc_map,
+            search_query: String::new(),
+            search_active: false,
         }
     }
 
@@ -60,13 +65,21 @@ impl App {
         let mut node_map = HashMap::new();
         // Use the stored nu_type_map to preserve Nushell type information across rebuilds
         // This ensures that type displays remain accurate after edits in config mode
-        self.tree_items = build_tree_items(
+        let tree_items = build_tree_items(
             &self.json_data,
             &mut node_map,
             &self.nu_type_map,
             &self.doc_map,
         );
+        self.unfiltered_tree_items = tree_items.clone();
         self.node_map = node_map;
+
+        // Re-apply search filter if active
+        if self.search_active && !self.search_query.is_empty() {
+            self.tree_items = filter_tree_items(&self.unfiltered_tree_items, &self.search_query);
+        } else {
+            self.tree_items = tree_items;
+        }
 
         // Try to restore selection if the node still exists
         if let Some(last_id) = current_selection.last()
@@ -74,6 +87,27 @@ impl App {
         {
             self.tree_state.select(current_selection);
         }
+    }
+
+    /// Apply search filter to tree items
+    pub fn apply_search_filter(&mut self) {
+        if self.search_query.is_empty() {
+            self.tree_items = self.unfiltered_tree_items.clone();
+        } else {
+            self.tree_items = filter_tree_items(&self.unfiltered_tree_items, &self.search_query);
+        }
+        // Select first item if available
+        self.tree_state.select_first();
+        self.force_update_editor();
+    }
+
+    /// Clear search and restore full tree
+    pub fn clear_search(&mut self) {
+        self.search_query.clear();
+        self.search_active = false;
+        self.tree_items = self.unfiltered_tree_items.clone();
+        self.tree_state.select_first();
+        self.force_update_editor();
     }
 
     pub fn get_current_node_info(&self) -> Option<&NodeInfo> {
@@ -250,20 +284,34 @@ impl App {
     }
 
     fn draw_tree(&mut self, frame: &mut Frame, area: Rect) {
-        let is_focused = self.focus == Focus::Tree;
-        let border_color = if is_focused {
+        let is_focused = self.focus == Focus::Tree || self.focus == Focus::Search;
+        let is_searching = self.focus == Focus::Search;
+        let border_color = if is_searching {
+            Color::Yellow
+        } else if is_focused {
             Color::Cyan
         } else {
             Color::DarkGray
         };
 
+        // Build title based on search state
+        let title = if is_searching {
+            format!(" Search: {}▌ ", self.search_query)
+        } else if self.search_active {
+            format!(" Tree [filter: \"{}\"] ", self.search_query)
+        } else if is_focused {
+            " Tree [focused] ".to_string()
+        } else {
+            " Tree ".to_string()
+        };
+
         let tree_block = Block::default()
-            .title(if is_focused {
-                " Tree [focused] "
+            .title(title)
+            .title_style(Style::default().bold().fg(if is_searching {
+                Color::Yellow
             } else {
-                " Tree "
-            })
-            .title_style(Style::default().bold())
+                Color::Reset
+            }))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(border_color));
 

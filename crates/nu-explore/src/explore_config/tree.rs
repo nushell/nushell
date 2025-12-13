@@ -57,6 +57,97 @@ pub fn print_json_tree(value: &Value, prefix: &str, is_tail: bool, key: Option<&
     }
 }
 
+/// Filter tree items based on a search query.
+/// Returns a new tree with only items (and their ancestors) that match the query.
+/// The search is case-insensitive and matches against the item's identifier (path).
+pub fn filter_tree_items(
+    items: &[TreeItem<'static, String>],
+    query: &str,
+) -> Vec<TreeItem<'static, String>> {
+    let query_lower = query.to_lowercase();
+    filter_tree_items_recursive(items, &query_lower)
+}
+
+fn filter_tree_items_recursive(
+    items: &[TreeItem<'static, String>],
+    query: &str,
+) -> Vec<TreeItem<'static, String>> {
+    let mut result = Vec::new();
+
+    for item in items {
+        let identifier = item.identifier().clone();
+        let identifier_lower = identifier.to_lowercase();
+
+        // Check if this item's identifier matches the query
+        let self_matches = identifier_lower.contains(query);
+
+        // Recursively filter children
+        let filtered_children = filter_tree_items_recursive(item.children(), query);
+
+        // Include this item if it matches OR if any of its children matched
+        if self_matches || !filtered_children.is_empty() {
+            if item.children().is_empty() {
+                // Leaf item - just clone it
+                result.push(item.clone());
+            } else if !filtered_children.is_empty() {
+                // Has matching children - rebuild with filtered children
+                if let Ok(new_item) = rebuild_item_with_children(item, filtered_children) {
+                    result.push(new_item);
+                }
+            } else {
+                // Self matches but has children that don't match
+                // Include as a leaf (collapsed view of matching parent)
+                result.push(TreeItem::new_leaf(identifier, format_collapsed_label(item)));
+            }
+        }
+    }
+
+    result
+}
+
+/// Rebuild a tree item with new children, preserving the display format
+fn rebuild_item_with_children(
+    original: &TreeItem<'static, String>,
+    new_children: Vec<TreeItem<'static, String>>,
+) -> Result<TreeItem<'static, String>, std::io::Error> {
+    let identifier = original.identifier().clone();
+    // Extract the display text by getting the height (number of lines) and reconstructing
+    // Since we can't access the text directly, use the identifier as a base for the label
+    // The original label format is preserved in the clone, so we just need the identifier
+    // to build a similar looking label
+    let label = format_parent_label(&identifier, new_children.len());
+    TreeItem::new(identifier, label, new_children)
+}
+
+/// Format a label for a parent node based on identifier
+fn format_parent_label(identifier: &str, child_count: usize) -> String {
+    // Extract the key name from the identifier (last part after the last dot)
+    let key = identifier
+        .rsplit('.')
+        .next()
+        .unwrap_or(identifier)
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    format!("{} {{{} keys}}", key, child_count)
+}
+
+/// Format a collapsed label for a matching parent with no matching children
+fn format_collapsed_label(item: &TreeItem<'static, String>) -> String {
+    let identifier = item.identifier();
+    let key = identifier
+        .rsplit('.')
+        .next()
+        .unwrap_or(identifier)
+        .trim_start_matches('[')
+        .trim_end_matches(']');
+    let child_count = item.children().len();
+    if child_count > 0 {
+        format!("{} {{{} keys}}", key, child_count)
+    } else {
+        key.to_string()
+    }
+}
+
 /// Build tree items for the TUI tree widget
 pub fn build_tree_items(
     json_data: &Value,
@@ -492,6 +583,63 @@ mod tests {
             "0".to_string(),
             "source".to_string()
         ]));
+    }
+
+    #[test]
+    fn test_filter_tree_items_empty_query() {
+        // Empty query should return all items unchanged
+        let items = vec![
+            TreeItem::new_leaf("a".to_string(), "a: value"),
+            TreeItem::new_leaf("b".to_string(), "b: value"),
+        ];
+        let filtered = filter_tree_items(&items, "");
+        assert_eq!(filtered.len(), 2);
+    }
+
+    #[test]
+    fn test_filter_tree_items_matching_leaf() {
+        let items = vec![
+            TreeItem::new_leaf("color".to_string(), "color: red"),
+            TreeItem::new_leaf("size".to_string(), "size: large"),
+        ];
+        let filtered = filter_tree_items(&items, "color");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].identifier(), "color");
+    }
+
+    #[test]
+    fn test_filter_tree_items_case_insensitive() {
+        let items = vec![
+            TreeItem::new_leaf("Color".to_string(), "Color: red"),
+            TreeItem::new_leaf("SIZE".to_string(), "SIZE: large"),
+        ];
+        let filtered = filter_tree_items(&items, "color");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].identifier(), "Color");
+
+        let filtered2 = filter_tree_items(&items, "SIZE");
+        assert_eq!(filtered2.len(), 1);
+    }
+
+    #[test]
+    fn test_filter_tree_items_no_matches() {
+        let items = vec![
+            TreeItem::new_leaf("color".to_string(), "color: red"),
+            TreeItem::new_leaf("size".to_string(), "size: large"),
+        ];
+        let filtered = filter_tree_items(&items, "nonexistent");
+        assert_eq!(filtered.len(), 0);
+    }
+
+    #[test]
+    fn test_filter_tree_items_partial_match() {
+        let items = vec![
+            TreeItem::new_leaf("color_config".to_string(), "color_config: {}"),
+            TreeItem::new_leaf("history".to_string(), "history: {}"),
+        ];
+        let filtered = filter_tree_items(&items, "color");
+        assert_eq!(filtered.len(), 1);
+        assert_eq!(filtered[0].identifier(), "color_config");
     }
 
     #[test]
