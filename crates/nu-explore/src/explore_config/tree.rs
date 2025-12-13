@@ -115,10 +115,7 @@ fn filter_tree_items_recursive(
                     Err(_) => {
                         // Fallback: if rebuild fails, include as collapsed leaf
                         // This ensures matching items aren't silently dropped
-                        result.push(TreeItem::new_leaf(
-                            identifier,
-                            format_collapsed_label(item),
-                        ));
+                        result.push(TreeItem::new_leaf(identifier, format_collapsed_label(item)));
                     }
                 }
             } else {
