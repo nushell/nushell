@@ -65,15 +65,13 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, _modifiers: KeyModifiers) 
             app.force_update_editor();
         }
         KeyCode::PageUp => {
-            app.tree_state.select_relative(|current| {
-                current.map_or(0, |current| current.saturating_sub(10))
-            });
+            app.tree_state
+                .select_relative(|current| current.map_or(0, |current| current.saturating_sub(10)));
             app.force_update_editor();
         }
         KeyCode::PageDown => {
-            app.tree_state.select_relative(|current| {
-                current.map_or(0, |current| current.saturating_add(10))
-            });
+            app.tree_state
+                .select_relative(|current| current.map_or(0, |current| current.saturating_add(10)));
             app.force_update_editor();
         }
         KeyCode::Tab => {

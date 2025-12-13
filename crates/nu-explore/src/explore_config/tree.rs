@@ -397,8 +397,14 @@ mod tests {
     fn test_format_tree_label_escapes_newlines_in_string_value() {
         let value = Value::String("line1\nline2\nline3".to_string());
         let label = format_tree_label("key", &value, false, false);
-        assert!(!label.contains('\n'), "Label should not contain actual newlines");
-        assert!(label.contains("\\n"), "Label should contain escaped newlines");
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines"
+        );
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines"
+        );
     }
 
     #[test]
@@ -418,17 +424,31 @@ mod tests {
         let label = format_tree_label("datetime", &value, false, false);
 
         // The label should NOT contain any actual newlines
-        assert!(!label.contains('\n'), "Label should not contain actual newlines: {}", label);
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines: {}",
+            label
+        );
         // But it SHOULD contain escaped newlines
-        assert!(label.contains("\\n"), "Label should contain escaped newlines: {}", label);
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines: {}",
+            label
+        );
     }
 
     #[test]
     fn test_format_array_item_label_escapes_newlines() {
         let value = Value::String("line1\nline2".to_string());
         let label = format_array_item_label(0, &value, false, false);
-        assert!(!label.contains('\n'), "Label should not contain actual newlines");
-        assert!(label.contains("\\n"), "Label should contain escaped newlines");
+        assert!(
+            !label.contains('\n'),
+            "Label should not contain actual newlines"
+        );
+        assert!(
+            label.contains("\\n"),
+            "Label should contain escaped newlines"
+        );
     }
 
     #[test]

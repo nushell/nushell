@@ -168,7 +168,7 @@ $env.config.completions.quick = true
 $env.config.completions.partial = true
 
 # Example: If a directory contains only "forage", "food", and "forest",
-# typing "ls " and pressing Tab will partially complete "fo".
+# typing "ls " and pressing Tab will partially complete the first matching letters.
 # If the directory also includes "faster", only "f" would be partially completed.
 
 # completions.use_ls_colors (bool): Apply LS_COLORS to file/path completions.
@@ -717,7 +717,7 @@ $env.config.color_config.shape_globpattern = "cyan_bold"
 # Default: cyan_bold
 $env.config.color_config.shape_glob_interpolation = "cyan_bold"
 
-# color_config.shape_garbage: Style for invalid or unparseable arguments.
+# color_config.shape_garbage: Style for invalid or unparsable arguments.
 # Also shown for unclosed expressions while typing.
 # Default: { fg: default, bg: red, attr: b }
 $env.config.color_config.shape_garbage = { fg: "default", bg: "red", attr: "b" }
