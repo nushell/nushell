@@ -281,12 +281,7 @@ mod tests {
 
     #[test]
     fn test_status_bar_all_empty() {
-        let status_bar = StatusBar::new(
-            String::new(),
-            String::new(),
-            String::new(),
-            String::new(),
-        );
+        let status_bar = StatusBar::new(String::new(), String::new(), String::new(), String::new());
         let buf = render_status_bar(status_bar, 40, 1);
 
         // Should not panic with all empty strings
@@ -297,12 +292,7 @@ mod tests {
     fn test_status_bar_context_max_width() {
         // Context items should be limited to MAX_CTX_WIDTH (14)
         let long_ctx = "A".repeat(30);
-        let status_bar = StatusBar::new(
-            "Msg".to_string(),
-            long_ctx,
-            String::new(),
-            String::new(),
-        );
+        let status_bar = StatusBar::new("Msg".to_string(), long_ctx, String::new(), String::new());
         let buf = render_status_bar(status_bar, 60, 1);
 
         // Should not panic and should render
