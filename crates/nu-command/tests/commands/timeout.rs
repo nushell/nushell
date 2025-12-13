@@ -57,3 +57,15 @@ fn timeout_with_list_operations() {
     let actual = nu!(r#"timeout 1sec { [1 2 3] | each { $in * 2 } } | to nuon"#);
     assert_eq!(actual.out, "[2, 4, 6]");
 }
+
+#[test]
+fn timeout_with_pipeline_input() {
+    let actual = nu!(r#"[1 2 3] | timeout 1sec { $in | length }"#);
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn timeout_with_pipeline_input_record() {
+    let actual = nu!(r#"{a: 1, b: 2} | timeout 1sec { $in | get a }"#);
+    assert_eq!(actual.out, "1");
+}
