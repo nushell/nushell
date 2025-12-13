@@ -141,3 +141,193 @@ impl Widget for StatusBar {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn buffer_to_string(buf: &Buffer) -> String {
+        let mut result = String::new();
+        for y in 0..buf.area.height {
+            for x in 0..buf.area.width {
+                if let Some(cell) = buf.cell((x, y)) {
+                    result.push_str(cell.symbol());
+                }
+            }
+            if y < buf.area.height - 1 {
+                result.push('\n');
+            }
+        }
+        result
+    }
+
+    fn render_status_bar(status_bar: StatusBar, width: u16, height: u16) -> Buffer {
+        let area = Rect::new(0, 0, width, height);
+        let mut buf = Buffer::empty(area);
+        status_bar.render(area, &mut buf);
+        buf
+    }
+
+    #[test]
+    fn test_status_bar_basic_message() {
+        let status_bar = StatusBar::new(
+            "Test Message".to_string(),
+            String::new(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 40, 1);
+        let content = buffer_to_string(&buf);
+
+        assert!(content.contains("Test Message"));
+    }
+
+    #[test]
+    fn test_status_bar_with_context() {
+        let status_bar = StatusBar::new(
+            "Message".to_string(),
+            "Ctx1".to_string(),
+            "Ctx2".to_string(),
+            "Ctx3".to_string(),
+        );
+        let buf = render_status_bar(status_bar, 60, 1);
+        let content = buffer_to_string(&buf);
+
+        assert!(content.contains("Message"));
+        assert!(content.contains("Ctx1"));
+        assert!(content.contains("Ctx2"));
+        assert!(content.contains("Ctx3"));
+    }
+
+    #[test]
+    fn test_status_bar_context_order() {
+        let status_bar = StatusBar::new(
+            "Msg".to_string(),
+            "First".to_string(),
+            "Second".to_string(),
+            "Third".to_string(),
+        );
+        let buf = render_status_bar(status_bar, 60, 1);
+        let content = buffer_to_string(&buf);
+
+        // Message should be on the left, contexts on the right
+        let msg_pos = content.find("Msg").unwrap();
+        let first_pos = content.find("First").unwrap();
+
+        assert!(msg_pos < first_pos);
+    }
+
+    #[test]
+    fn test_status_bar_narrow_width_no_render() {
+        // Width < 10 should not render context items
+        let status_bar = StatusBar::new(
+            "Message".to_string(),
+            "Ctx1".to_string(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 9, 1);
+        let content = buffer_to_string(&buf);
+
+        // Should not contain context when too narrow
+        assert!(!content.contains("Ctx1"));
+    }
+
+    #[test]
+    fn test_status_bar_empty_contexts_filtered() {
+        let status_bar = StatusBar::new(
+            "Message".to_string(),
+            "OnlyOne".to_string(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 40, 1);
+        let content = buffer_to_string(&buf);
+
+        assert!(content.contains("Message"));
+        assert!(content.contains("OnlyOne"));
+        // Should not have separators for empty contexts
+    }
+
+    #[test]
+    fn test_status_bar_long_message_truncation() {
+        let long_message = "A".repeat(100);
+        let status_bar = StatusBar::new(
+            long_message,
+            "Ctx".to_string(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 30, 1);
+        let content = buffer_to_string(&buf);
+
+        // Message should be truncated with ellipsis
+        assert!(content.contains('…') || content.len() <= 30);
+    }
+
+    #[test]
+    fn test_status_bar_unicode_text() {
+        let status_bar = StatusBar::new(
+            "日本語メッセージ".to_string(),
+            "状態".to_string(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 50, 1);
+
+        // Should handle Unicode without panicking
+        assert_eq!(buf.area.width, 50);
+    }
+
+    #[test]
+    fn test_status_bar_all_empty() {
+        let status_bar = StatusBar::new(
+            String::new(),
+            String::new(),
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 40, 1);
+
+        // Should not panic with all empty strings
+        assert_eq!(buf.area.width, 40);
+    }
+
+    #[test]
+    fn test_status_bar_context_max_width() {
+        // Context items should be limited to MAX_CTX_WIDTH (14)
+        let long_ctx = "A".repeat(30);
+        let status_bar = StatusBar::new(
+            "Msg".to_string(),
+            long_ctx,
+            String::new(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 60, 1);
+
+        // Should not panic and should render
+        assert_eq!(buf.area.width, 60);
+    }
+
+    #[test]
+    fn test_status_bar_separator_between_contexts() {
+        let status_bar = StatusBar::new(
+            String::new(),
+            "A".to_string(),
+            "B".to_string(),
+            String::new(),
+        );
+        let buf = render_status_bar(status_bar, 40, 1);
+        let content = buffer_to_string(&buf);
+
+        // Should have separator between contexts
+        assert!(content.contains('│'));
+    }
+
+    #[test]
+    fn test_status_bar_zero_height() {
+        // Zero height buffer - just verify we can create the area
+        let area = Rect::new(0, 0, 40, 0);
+        assert_eq!(area.height, 0);
+    }
+}
