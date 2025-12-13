@@ -31,8 +31,8 @@ use std::{
     io::{self, Cursor},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::OnceLock,
     sync::mpsc::{self, RecvTimeoutError},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use ureq::{
@@ -50,7 +50,7 @@ type Response = http::Response<Body>;
 
 type ContentType = String;
 
-static GLOBAL_CLIENT: OnceLock<Agent> = OnceLock::new();
+static GLOBAL_CLIENT: Mutex<Option<Arc<Agent>>> = Mutex::new(None);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
@@ -115,7 +115,11 @@ pub fn expand_unix_socket_path(
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
 }
 
-pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> &'static Agent {
+pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Agent> {
+    let mut guard = GLOBAL_CLIENT.lock().expect("the lock should be valid");
+    if let Some(client) = guard.as_ref() {
+        return Arc::clone(client);
+    }
     let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
         .save_redirect_history(true)
@@ -129,7 +133,11 @@ pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> &'stat
 
     let connector = DefaultConnector::default();
     let resolver = DnsLookupResolver;
-    GLOBAL_CLIENT.get_or_init(|| Agent::with_parts(config_builder.build(), connector, resolver))
+    let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
+
+    let arc_agent = Arc::new(agent);
+    *guard = Some(Arc::clone(&arc_agent));
+    arc_agent
 }
 
 pub fn reset_http_client_pool(
@@ -146,7 +154,8 @@ pub fn reset_http_client_pool(
         engine_state,
         stack,
     )?;
-    GLOBAL_CLIENT.set(client);
+    let mut guard = GLOBAL_CLIENT.lock().expect("the lock should be valid");
+    *guard = Some(Arc::new(client));
     Ok(())
 }
 
