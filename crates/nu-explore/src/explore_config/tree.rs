@@ -232,9 +232,11 @@ fn format_tree_label(key: &str, value: &Value, has_doc: bool, is_config_mode: bo
         Value::Number(n) => format!("{}{}: {}", doc_marker, safe_key, n),
         Value::String(s) => {
             // Truncate safely at char boundary, not byte boundary
-            let preview: String = s.chars().take(37).collect();
-            let preview = if s.chars().count() > 40 {
-                format!("{}...", preview)
+            // Use nth() to check if string has more than 40 chars without counting all chars
+            let needs_truncation = s.chars().nth(40).is_some();
+            let preview = if needs_truncation {
+                let truncated: String = s.chars().take(37).collect();
+                format!("{}...", truncated)
             } else {
                 s.clone()
             };
@@ -267,9 +269,11 @@ fn format_array_item_label(
         Value::Number(n) => format!("{}[{}]: {}", doc_marker, idx, n),
         Value::String(s) => {
             // Truncate safely at char boundary, not byte boundary
-            let preview: String = s.chars().take(37).collect();
-            let preview = if s.chars().count() > 40 {
-                format!("{}...", preview)
+            // Use nth() to check if string has more than 40 chars without counting all chars
+            let needs_truncation = s.chars().nth(40).is_some();
+            let preview = if needs_truncation {
+                let truncated: String = s.chars().take(37).collect();
+                format!("{}...", truncated)
             } else {
                 s.clone()
             };

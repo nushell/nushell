@@ -224,7 +224,7 @@ $env.config.shell_integration.osc2 = true
 # shell_integration.osc7 (bool): Report current directory to terminal using OSC 7.
 # Enables opening new tabs/windows in the same directory.
 # Default: true (false on Windows)
-$env.config.shell_integration.osc7 = true
+$env.config.shell_integration.osc7 = ($nu.os-info.name != windows)
 
 # shell_integration.osc8 (bool): Generate clickable links in `ls` output.
 # Terminal can launch files in associated applications.
@@ -234,7 +234,7 @@ $env.config.shell_integration.osc8 = true
 # shell_integration.osc9_9 (bool): Enable OSC 9;9 support (ConEmu/Windows Terminal feature).
 # Alternative to OSC 7 for communicating current path.
 # Default: false (true on Windows)
-$env.config.shell_integration.osc9_9 = false
+$env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # shell_integration.osc133 (bool): Enable OSC 133 support for shell semantic zones.
 # Reports prompt location and command exit status to terminal.
