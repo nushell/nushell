@@ -1,5 +1,6 @@
 use crate::ExploreRegex;
 use crate::explore::*;
+use crate::explore_config::ExploreConfigCommand;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn add_explore_context(mut engine_state: EngineState) -> EngineState {
@@ -7,6 +8,7 @@ pub fn add_explore_context(mut engine_state: EngineState) -> EngineState {
         let mut working_set = StateWorkingSet::new(&engine_state);
         working_set.add_decl(Box::new(Explore));
         working_set.add_decl(Box::new(ExploreRegex));
+        working_set.add_decl(Box::new(ExploreConfigCommand));
         working_set.render()
     };
 
