@@ -34,15 +34,15 @@ impl StatusBar {
     }
 
     pub fn set_ctx1_style(&mut self, style: NuStyle) {
-        self.ctx1.1 = nu_style_to_tui(style).add_modifier(Modifier::BOLD);
+        self.ctx1.1 = nu_style_to_tui(style);
     }
 
     pub fn set_ctx2_style(&mut self, style: NuStyle) {
-        self.ctx2.1 = nu_style_to_tui(style).add_modifier(Modifier::BOLD);
+        self.ctx2.1 = nu_style_to_tui(style);
     }
 
     pub fn set_ctx3_style(&mut self, style: NuStyle) {
-        self.ctx3.1 = nu_style_to_tui(style).add_modifier(Modifier::BOLD);
+        self.ctx3.1 = nu_style_to_tui(style);
     }
 
     pub fn set_background_style(&mut self, style: NuStyle) {
@@ -52,80 +52,92 @@ impl StatusBar {
 
 impl Widget for StatusBar {
     fn render(self, area: Rect, buf: &mut Buffer) {
-        const MAX_CTX1_WIDTH: u16 = 12;
-        const MAX_CTX2_WIDTH: u16 = 12;
-        const MAX_CTX3_WIDTH: u16 = 12;
+        const MAX_CTX_WIDTH: u16 = 14;
+        const SEPARATOR: &str = "│";
+        const PADDING: u16 = 1;
 
-        // colorize the line
+        // Fill background
         let block = Block::default().style(self.back_s);
         block.render(area, buf);
 
-        let mut used_width = 0;
+        if area.width < 10 {
+            return;
+        }
 
-        let (text, style) = self.ctx1;
-        let text_width = (string_width(&text) as u16).min(MAX_CTX1_WIDTH);
-        used_width +=
-            try_render_text_from_right_most(area, buf, &text, style, used_width, text_width);
+        let mut used_width: u16 = 0;
 
-        let (text, style) = self.ctx2;
-        used_width +=
-            try_render_text_from_right_most(area, buf, &text, style, used_width, MAX_CTX2_WIDTH);
+        // Collect non-empty context items
+        let contexts: Vec<(&String, Style)> = [
+            (&self.ctx3.0, self.ctx3.1),
+            (&self.ctx2.0, self.ctx2.1),
+            (&self.ctx1.0, self.ctx1.1),
+        ]
+        .into_iter()
+        .filter(|(text, _)| !text.is_empty())
+        .collect();
 
-        let (text, style) = self.ctx3;
-        used_width +=
-            try_render_text_from_right_most(area, buf, &text, style, used_width, MAX_CTX3_WIDTH);
+        // Render context items from right to left
+        for (i, (text, style)) in contexts.iter().enumerate() {
+            let text_width = (string_width(text) as u16).min(MAX_CTX_WIDTH);
 
+            // Calculate space needed
+            let separator_space = if i > 0 { 2 } else { 0 }; // " │" before item
+            let needed = text_width + PADDING + separator_space;
+
+            if area.width <= used_width + needed + 5 {
+                // Reserve space for message
+                break;
+            }
+
+            // Add right padding for first item
+            if i == 0 {
+                used_width += PADDING;
+            }
+
+            // Render the text
+            let x = area.right().saturating_sub(used_width + text_width);
+            set_span(buf, (x, area.y), text, *style, text_width);
+            used_width += text_width;
+
+            // Render separator before next item (visually after current, since RTL)
+            if i < contexts.len() - 1 {
+                let sep_x = area.right().saturating_sub(used_width + 2);
+                let dim_style = self.back_s.add_modifier(Modifier::DIM);
+                set_span(buf, (sep_x, area.y), SEPARATOR, dim_style, 1);
+                used_width += 2; // separator + space
+            }
+        }
+
+        // Add spacing before message
+        if !contexts.is_empty() {
+            used_width += PADDING;
+        }
+
+        // Render the main message on the left
         let (text, style) = self.text;
-        try_render_text_from_left(area, buf, &text, style, used_width);
+        if !text.is_empty() && area.width > used_width + PADDING * 2 {
+            let available_width = area.width.saturating_sub(used_width + PADDING * 2);
+            let text_to_render = if string_width(&text) as u16 > available_width {
+                let mut truncated = text.clone();
+                while string_width(&truncated) as u16 > available_width.saturating_sub(1)
+                    && !truncated.is_empty()
+                {
+                    truncated.pop();
+                }
+                if !truncated.is_empty() {
+                    truncated.push('…');
+                }
+                truncated
+            } else {
+                text
+            };
+            set_span(
+                buf,
+                (area.x + PADDING, area.y),
+                &text_to_render,
+                style,
+                available_width,
+            );
+        }
     }
-}
-
-fn try_render_text_from_right_most(
-    area: Rect,
-    buf: &mut Buffer,
-    text: &str,
-    style: Style,
-    used_width: u16,
-    span_width: u16,
-) -> u16 {
-    let dis = span_width + used_width;
-    try_render_text_from_right(area, buf, text, style, dis, used_width, span_width)
-}
-
-fn try_render_text_from_right(
-    area: Rect,
-    buf: &mut Buffer,
-    text: &str,
-    style: Style,
-    distance_from_right: u16,
-    used_width: u16,
-    span_width: u16,
-) -> u16 {
-    let has_space = !text.is_empty() && area.width > used_width;
-    if !has_space {
-        return 0;
-    }
-
-    let x = area.right().saturating_sub(distance_from_right);
-    set_span(buf, (x, area.y), text, style, span_width);
-
-    span_width
-}
-
-fn try_render_text_from_left(
-    area: Rect,
-    buf: &mut Buffer,
-    text: &str,
-    style: Style,
-    used_width: u16,
-) -> u16 {
-    let has_space = !text.is_empty() && area.width > used_width;
-    if !has_space {
-        return 0;
-    }
-
-    let rest_width = area.width - used_width;
-    set_span(buf, (area.x, area.y), text, style, rest_width);
-
-    rest_width
 }

@@ -2,11 +2,13 @@ mod command_bar;
 mod events;
 pub mod report;
 mod status_bar;
+mod title_bar;
 
 use self::{
     command_bar::CommandBar,
     report::{Report, Severity},
     status_bar::StatusBar,
+    title_bar::TitleBar,
 };
 use super::views::{Layout, View};
 use crate::{
@@ -346,17 +348,39 @@ fn draw_frame(
     info: ViewInfo,
 ) {
     let area = f.area();
-    let available_area = Rect::new(area.x, area.y, area.width, area.height.saturating_sub(2));
+
+    // Reserve space: 1 line for title bar at top, 2 lines for status/cmd bars at bottom
+    let title_area = Rect::new(area.x, area.y, area.width, 1);
+    let content_area = Rect::new(
+        area.x,
+        area.y + 1,
+        area.width,
+        area.height.saturating_sub(3),
+    );
+
+    // Render title bar
+    render_title_bar(f, title_area, pager.config.explore_config);
 
     if let Some(page) = view {
         let cfg = create_view_config(pager);
-        page.view.draw(f, available_area, cfg, layout);
+        page.view.draw(f, content_area, cfg, layout);
     }
 
     draw_info(f, pager, info);
 
     highlight_search_results(f, pager, layout, pager.config.explore_config.highlight);
     set_cursor_cmd_bar(f, area, pager);
+}
+
+fn render_title_bar(f: &mut Frame, area: Rect, theme: &ExploreConfig) {
+    let mut title_bar = TitleBar::new("Explore")
+        .with_info_left("Navigate: ←↑↓→")
+        .with_info_right(":help for help");
+    title_bar.set_background_style(theme.title_bar_background);
+    title_bar.set_title_style(theme.title_bar_text);
+    title_bar.set_info_style(theme.title_bar_text);
+
+    f.render_widget(title_bar, area);
 }
 
 fn draw_info(f: &mut Frame, pager: &mut Pager<'_>, info: ViewInfo) {
@@ -449,17 +473,18 @@ fn run_command(
 }
 
 fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
+    // Account for left padding (1) + prefix char like ':' or '/' (1)
+    const LEFT_OFFSET: u16 = 2;
+
     if pager.cmd_buf.is_cmd_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.cmd_buf.buf_cmd2.width() + 1) as u16;
-        // 1 skips a ':' char
+        let next_pos = pager.cmd_buf.buf_cmd2.width() as u16 + LEFT_OFFSET;
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
         }
     } else if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
-        let next_pos = (pager.search_buf.buf_cmd_input.width() + 1) as u16;
-        // 1 skips a ':' char
+        let next_pos = pager.search_buf.buf_cmd_input.width() as u16 + LEFT_OFFSET;
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
         }

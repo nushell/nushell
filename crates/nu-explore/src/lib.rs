@@ -45,7 +45,7 @@ fn run_pager(
     );
 
     if is_binary {
-        p.show_message("For help type :help");
+        p.show_message("Viewing binary data");
 
         let view = binary_view(input, config.explore_config)?;
         return p.run(engine_state, stack, Some(view), commands);
@@ -58,7 +58,7 @@ fn run_pager(
         return p.run(engine_state, stack, help_view(), commands);
     }
 
-    p.show_message("For help type :help");
+    p.show_message("Ready");
 
     if let Some(value) = has_simple_value(&data) {
         let text = value.to_abbreviated_string(config.nu_config);

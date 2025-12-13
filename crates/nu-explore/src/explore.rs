@@ -149,6 +149,8 @@ pub struct ExploreConfig {
     pub cmd_bar_text: Style,
     pub cmd_bar_background: Style,
     pub highlight: Style,
+    pub title_bar_background: Style,
+    pub title_bar_text: Style,
     /// if true, the explore view will immediately try to run the command as it is typed
     pub try_reactive: bool,
 }
@@ -162,14 +164,15 @@ impl Default for ExploreConfig {
             status_success: color(Some(Color::Black), Some(Color::Green)),
             status_warn: color(None, None),
             status_error: color(Some(Color::White), Some(Color::Red)),
-            status_bar_background: color(
-                Some(Color::Rgb(29, 31, 33)),
-                Some(Color::Rgb(196, 201, 198)),
-            ),
+            // Use None to inherit from terminal/nushell theme
+            status_bar_background: color(None, None),
             status_bar_text: color(None, None),
-            cmd_bar_text: color(Some(Color::Rgb(196, 201, 198)), None),
+            cmd_bar_text: color(None, None),
             cmd_bar_background: color(None, None),
             highlight: color(Some(Color::Black), Some(Color::Yellow)),
+            // Use None to inherit from terminal/nushell theme
+            title_bar_background: color(None, None),
+            title_bar_text: color(None, None),
             try_reactive: false,
         }
     }
@@ -207,6 +210,14 @@ impl ExploreConfig {
 
         if let Some(s) = colors.get("selected_cell") {
             ret.selected_cell = *s;
+        }
+
+        if let Some(s) = colors.get("title_bar_text") {
+            ret.title_bar_text = *s;
+        }
+
+        if let Some(s) = colors.get("title_bar_background") {
+            ret.title_bar_background = *s;
         }
 
         if let Some(hm) = explore_cfg_hash_map.get("status").and_then(create_map) {
