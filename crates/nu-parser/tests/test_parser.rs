@@ -1,7 +1,7 @@
 use nu_parser::*;
 use nu_protocol::{
     DeclId, FilesizeUnit, ParseError, Signature, Span, SyntaxShape, Type, Unit,
-    ast::{Argument, Expr, Expression, ExternalArgument, PathMember, Range},
+    ast::{Argument, Expr, Expression, ExternalArgument, Math, Operator, PathMember, Range},
     engine::{Command, EngineState, Stack, StateWorkingSet},
 };
 use rstest::rstest;
@@ -82,6 +82,19 @@ fn compare_rhs_binary_op(
             panic!("{test_tag}: Unexpected Expr:: variant returned, observed {observed:#?}");
         }
     }
+}
+
+#[test]
+fn parse_multiline_requests_more_input() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let _ = parse(&mut working_set, None, b"let x = \\", false);
+
+    assert!(matches!(
+        working_set.parse_errors.first(),
+        Some(ParseError::UnexpectedEof(_, span)) if *span == Span::new(8, 9)
+    ));
 }
 
 #[test]
@@ -1815,6 +1828,32 @@ mod string {
         }
 
         panic!("wrong expression: {:?}", element.expr.expr)
+    }
+
+    #[test]
+    fn backslash_continues_line() {
+        let engine_state = EngineState::new();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+
+        let block = parse(&mut working_set, None, b"1 \\\n+ 2", true);
+
+        assert!(
+            working_set.parse_errors.is_empty(),
+            "errors: {:?}",
+            working_set.parse_errors
+        );
+        assert_eq!(block.len(), 1, "expected a single pipeline");
+
+        let pipeline = &block.pipelines[0];
+        assert_eq!(pipeline.len(), 1, "pipeline len");
+        let element = &pipeline.elements[0];
+        if let Expr::BinaryOp(lhs, op, rhs) = &element.expr.expr {
+            assert_eq!(lhs.expr, Expr::Int(1));
+            assert_eq!(op.expr, Expr::Operator(Operator::Math(Math::Add)));
+            assert_eq!(rhs.expr, Expr::Int(2));
+        } else {
+            panic!("unexpected expression: {:?}", element.expr.expr);
+        }
     }
 }
 

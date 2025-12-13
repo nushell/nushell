@@ -16,6 +16,7 @@ pub enum TokenContents {
     ErrGreaterGreaterThan,
     OutErrGreaterThan,
     OutErrGreaterGreaterThan,
+    MultiLine,
     Eol,
 }
 
@@ -672,6 +673,16 @@ fn lex_internal(
         } else if c == b' ' || c == b'\t' || additional_whitespace.contains(&c) {
             // If the next character is non-newline whitespace, skip it.
             curr_offset += 1;
+        } else if c == b'\\'
+            && (matches!(state.input.get(curr_offset + 1), Some(b'\n' | b'\r'))
+                || state.input.get(curr_offset + 1).is_none())
+        {
+            let idx = curr_offset;
+            curr_offset += 1;
+            state.output.push(Token::new(
+                TokenContents::MultiLine,
+                Span::new(state.span_offset + idx, state.span_offset + idx + 1),
+            ));
         } else {
             let (token, err) = lex_item(
                 state.input,

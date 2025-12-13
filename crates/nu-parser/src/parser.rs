@@ -1737,6 +1737,7 @@ fn parse_binary_with_base(
                 | TokenContents::ErrGreaterGreaterThan
                 | TokenContents::OutErrGreaterThan
                 | TokenContents::OutErrGreaterGreaterThan
+                | TokenContents::MultiLine
                 | TokenContents::AssignmentOperator => {
                     working_set.error(ParseError::Expected("binary", span));
                     return garbage(working_set, span);
