@@ -109,6 +109,17 @@ $"2 + 2 = (2 + 2)"                              # Expressions work too
 
 **Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
+**Stderr redirection:** Use `o+e>` or `out+err>` instead of bash-style `2>&1`.
+```nu
+# BAD - bash syntax doesn't work in nushell
+command 2>&1                                    # ERROR: use 'out+err>' instead
+command 2>/dev/null                             # ERROR: not valid nushell
+
+# GOOD - nushell redirection syntax
+command o+e>| other_command                     # Redirect stderr to stdout, pipe
+command o+e>| ignore                            # Discard both stdout and stderr
+```
+
 HTTP request examples:
 ```nu
 # GET request
