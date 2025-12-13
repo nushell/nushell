@@ -276,11 +276,12 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): One of "fancy", "plain" or "short"
+# error_style (string): One of "fancy", "plain", "short" or "tree"
 # Plain: Display plain-text errors for screen-readers
 # Fancy: Display errors using line-drawing characters to point to the span in which the
 #        problem occurred.
 # Short: Display errors as concise, single-line messages similar to classic shells.
+# Tree: Same as Fancy but with nesting for related errors.
 $env.config.error_style = "fancy"
 
 # display_errors.exit_code (bool):
@@ -293,6 +294,10 @@ $env.config.display_errors.exit_code = false
 # true/false to enable/disable displaying a Nushell error when a child process is
 # terminated via any signal
 $env.config.display_errors.termination_signal = true
+
+# error_lines (int):
+# Sets the number of context lines in the error output. Must be a positive integer.
+$env.config.error_lines = 1
 
 # -------------
 # Table Display

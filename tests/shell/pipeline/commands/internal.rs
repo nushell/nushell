@@ -1152,7 +1152,7 @@ fn error_with_backtrace() {
 }
 
 #[test]
-fn liststream_error_with_backtrace() {
+fn liststream_error_with_backtrace_custom() {
     Playground::setup("liststream error with backtrace", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
 
@@ -1161,11 +1161,33 @@ fn liststream_error_with_backtrace() {
             cwd: dirs.test(),
             r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3"#);
         assert!(actual.err.contains("a custom error"));
+    });
+}
 
+#[test]
+fn liststream_error_with_backtrace_function() {
+    Playground::setup("liststream error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};def b [] { a 1; a 3; a 2 };b"#);
+            r#"def a [x] {
+    if $x == 3 {
+        [1]
+        | each {
+            error make {
+                msg: 'a custom error'
+            }
+        }
+    }
+}
+def b [] {
+    a 1
+    a 3
+    a 2
+}
+b
+"#);
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -1174,7 +1196,13 @@ fn liststream_error_with_backtrace() {
         assert!(actual.err.contains("a custom error"));
         let eval_with_input_cnt: Vec<&str> = actual.err.matches("eval_block_with_input").collect();
         assert_eq!(eval_with_input_cnt.len(), 2);
+    });
+}
 
+#[test]
+fn liststream_error_with_backtrace_single_stream() {
+    Playground::setup("liststream error with backtrace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("tmp_env.nu", "$env.NU_BACKTRACE = 1")]);
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),

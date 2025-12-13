@@ -239,7 +239,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else if need_backtrace {
-                    let err = ShellError::into_chainned(err, *span);
+                    let err = ShellError::into_chained(err, *span);
                     return Err(err);
                 } else {
                     return Err(err);
@@ -274,7 +274,7 @@ fn prepare_error_handler(
                 PipelineExecutionData::from(
                     error
                         .item
-                        .into_value(
+                        .into_full_value(
                             &StateWorkingSet::new(ctx.engine_state),
                             ctx.stack,
                             error.span,
