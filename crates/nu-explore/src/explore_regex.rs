@@ -274,13 +274,21 @@ impl<'a> App<'a> {
 
         match Regex::new(regex_input) {
             Ok(regex) => {
-                let sample_text = self.get_sample_text();
-                self.match_count = regex.captures_iter(&sample_text).flatten().count();
                 self.compiled_regex = Some(regex);
+                self.update_match_count();
             }
             Err(e) => {
                 self.regex_error = Some(format!("{e}"));
             }
+        }
+    }
+
+    /// Update match count using the already-compiled regex.
+    /// This is more efficient than compile_regex() when only the sample text changes.
+    fn update_match_count(&mut self) {
+        if let Some(ref regex) = self.compiled_regex {
+            let sample_text = self.get_sample_text();
+            self.match_count = regex.captures_iter(&sample_text).flatten().count();
         }
     }
 
@@ -433,7 +441,15 @@ fn run_app_loop(
                 app.compile_regex(); // TODO: Do this in a worker thread.
             }
             InputFocus::Sample => {
+                // Track if text content actually changed (not just cursor movement)
+                let old_text = app.get_sample_text();
                 app.sample_textarea.input(input);
+                let new_text = app.get_sample_text();
+
+                // Only update match count if the text content changed
+                if old_text != new_text {
+                    app.update_match_count();
+                }
             }
         }
     }
