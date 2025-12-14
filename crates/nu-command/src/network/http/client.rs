@@ -32,7 +32,7 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
     time::Duration,
 };
 use ureq::{
@@ -50,7 +50,7 @@ type Response = http::Response<Body>;
 
 type ContentType = String;
 
-static GLOBAL_CLIENT: Mutex<Option<Arc<Agent>>> = Mutex::new(None);
+static GLOBAL_CLIENT: RwLock<Option<Arc<Agent>>> = RwLock::new(None);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
@@ -116,9 +116,11 @@ pub fn expand_unix_socket_path(
 }
 
 pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Agent> {
-    let mut guard = GLOBAL_CLIENT.lock().expect("the lock should be valid");
-    if let Some(client) = guard.as_ref() {
-        return Arc::clone(client);
+    {
+        let guard = GLOBAL_CLIENT.read().expect("the lock should be valid");
+        if let Some(client) = guard.as_ref() {
+            return Arc::clone(client);
+        }
     }
     let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
@@ -136,6 +138,7 @@ pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Ag
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
     let arc_agent = Arc::new(agent);
+    let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::clone(&arc_agent));
     arc_agent
 }
@@ -154,7 +157,7 @@ pub fn reset_http_client_pool(
         engine_state,
         stack,
     )?;
-    let mut guard = GLOBAL_CLIENT.lock().expect("the lock should be valid");
+    let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::new(client));
     Ok(())
 }
