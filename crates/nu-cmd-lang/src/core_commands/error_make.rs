@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{FromValue, LabeledError};
+use nu_protocol::{ErrorLabel, ErrorSource, FromValue, IntoValue, LabeledError};
 
 #[derive(Clone)]
 pub struct ErrorMake;
@@ -11,18 +11,22 @@ impl Command for ErrorMake {
 
     fn signature(&self) -> Signature {
         Signature::build("error make")
-            .input_output_types(vec![(Type::Nothing, Type::Error)])
-            .required(
+            .category(Category::Core)
+            .input_output_types(vec![
+                // original nothing input type
+                (Type::Nothing, Type::Error),
+                // "foo" | error make
+                (Type::String, Type::Error),
+                // {...} | error make
+                // try {...} catch {error make}
+                (Type::record(), Type::Error),
+            ])
+            .optional(
                 "error_struct",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
                 "The error to create.",
             )
-            .switch(
-                "unspanned",
-                "remove the origin label from the error",
-                Some('u'),
-            )
-            .category(Category::Core)
+            .switch("unspanned", "remove the labels from the error", Some('u'))
     }
 
     fn description(&self) -> &str {
@@ -30,32 +34,95 @@ impl Command for ErrorMake {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Errors are defined by an `error_record`, which is a record with a specific
-structure. (`*`) indicates a required key:
+        "Use either as a command with an `error_struct` or string as an input. The
+`error_struct` is detailed below:
 
-  * `msg: string` (`*`)
+  * `msg: string` (required) 
   * `code: string`
-  * `labels: oneof<table, record>`
+  * `labels: table<error_label>`
   * `help: string`
   * `url: string`
-  * `inner: table`
+  * `inner: table<error_struct>`
+  * `src: src_record`
 
-The `labels` key allow for placing arrows to points in the code, optionally
-using `span` to choose where it points (see `metadata`). `label` can be a table
-(list of records) or a single record. There is an example of both in the
-examples. Each record has the following structure:
+The `error_label` should contain the following keys:
 
-  * `text: string` (`*`)
+  * `text: string`
   * `span: record<start: int end: int>`
 
-The `inner` table takes a list of `error_struct` records, and can be used to
-have detail the errors that happened in a previous `try {} catch {}` statement
-or can be manually created. To use them from a `catch` statement, see the
-example below."#
+External errors (referencing external sources, not the default nu spans) are
+created using the `src` column with the `src_record` record. This only changes
+where the labels are placed. For this, the `code` key is ignored, and will
+always be `nu::shell::outside`. Errors cannot use labels that reference both
+inside and outside sources, to do that use an `inner` error.
+
+  * `name: string` - name of the source
+  * `text: string` - the raw text to place the spans in
+  * `path: string` - a file path to place the spans in
+
+Errors can be chained together using the `inner` key, and multiple spans can be
+specified to give more detailed error outputs.
+
+If a string is passed it will be the `msg` part of the `error_struct`.
+
+Errors can also be chained using `try {} catch {}`, allowing for related errors
+to be printed out more easily. The code block for `catch` passes a record of the
+`try` block's error into the catch block, which can be used in `error make`
+either as the input or as an argument. These will be added as `inner` errors to
+the most recent `error make`."
     }
 
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["panic", "crash", "throw"]
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Create a simple, default error",
+                example: "error make",
+                result: None,
+            },
+            Example {
+                description: "Create a simple error from a string",
+                example: "error make 'my error message'",
+                result: None,
+            },
+            Example {
+                description: "Create a simple error from an `error_struct` record",
+                example: "error make {msg: 'my error message'}",
+                result: None,
+            },
+            Example {
+                description: "A complex error utilizing spans and inners",
+                example: r#"def foo [x: int, y: int] {
+        let z = $x + $y
+        error make {
+            msg: "an error for foo just occurred"
+            labels: [
+                {text: "one" span: (metadata $x).span}
+                {text: "two" span: (metadata $y).span}
+            ]
+            help: "some help for the user"
+            inner: [
+                {msg: "an inner error" labels: [{text: "" span: (metadata $y).span}]}
+            ]
+        }
+    }"#,
+                result: None,
+            },
+            Example {
+                description: "Chain errors using a pipeline",
+                example: r#"try {error make "foo"} catch {error make "bar"}"#,
+                result: None,
+            },
+            Example {
+                description: "Chain errors using arguments (note the extra command in `catch`)",
+                example: r#"try {
+        error make "foo"
+    } catch {|err|
+        print 'We got an error that will be chained!'
+        error make {msg: "bar" inner: [$err]}
+    }"#,
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -63,151 +130,149 @@ example below."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        _input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value: Value = call.req(engine_state, stack, 0)?;
+        let value = match call.opt(engine_state, stack, 0) {
+            Ok(Some(v @ Value::Record { .. } | v @ Value::String { .. })) => v,
+            Ok(_) => Value::string("originates from here", call.head),
+            Err(e) => return Err(e),
+        };
+        let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
-        let throw_span = if call.has_flag(engine_state, stack, "unspanned")? {
-            None
-        } else {
-            Some(call.head)
+        let inners = match ErrorInfo::from_value(input.into_value(call.head)?) {
+            Ok(v) => vec![v.into_value(call.head)],
+            Err(_) => vec![],
         };
 
-        Err(make_other_error(&value, throw_span))
-    }
-
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "Create a simple custom error",
-                example: r#"error make {msg: "my custom error message"}"#,
-                result: None,
-            },
-            Example {
-                description: "Create a complex error for a custom command that shows a full `error_struct`",
-                example: r#"def foo [x] {
-        error make {
-            msg: "this is fishy"
-            code: "my::error"  # optional error type to use
-            labels: {  # optional, a table or single record
-                text: "fish right here"  # Required if $.labels exists
-                # use (metadata $var).span to get the {start: x end: y} of the variable
-                span: (metadata $x).span  # optional
+        Err(match (inners, value) {
+            (inner, Value::String { val, .. }) => ErrorInfo {
+                msg: val,
+                inner,
+                ..ErrorInfo::default()
             }
-            help: "something to tell the user as help"  # optional
-            url: "https://nushell.sh"  # optional
-        }
-    }"#,
-                result: None,
-            },
-            Example {
-                description: "Create a nested error from a try/catch statement with multiple labels",
-                example: r#"try {
-        error make {msg: "foo" labels: [{text: one} {text: two}]}
-    } catch {|err|
-        error make {msg: "bar", inner: [($err.json | from json)]}
-    }"#,
-                result: None,
-            },
-        ]
+            .labeled(call.head, show_labels),
+            (
+                inner,
+                Value::Record {
+                    val, internal_span, ..
+                },
+            ) => {
+                let mut ei = ErrorInfo::from_value((*val).clone().into_value(internal_span))?;
+                ei.inner = [ei.inner, inner].concat();
+
+                ei.labeled(internal_span, show_labels)
+            }
+            (_, Value::Error { error, .. }) => *error,
+            _ => todo!(),
+        })
     }
 }
 
-// Most of the parsing happens with FromValue
-#[derive(Debug, Default, Clone, FromValue, IntoValue)]
-struct Error {
+#[derive(Debug, Clone, IntoValue, FromValue)]
+struct ErrorInfo {
     msg: String,
-    labels: Option<Labels>,
-    // TODO: Deprecate and clean up the parsing
-    label: Option<Labels>,
-    inner: Option<Vec<Value>>,
+    code: Option<String>,
     help: Option<String>,
     url: Option<String>,
-    code: Option<String>,
+    #[nu_value(default)]
+    labels: Vec<ErrorLabel>,
+    label: Option<ErrorLabel>,
+    #[nu_value(default)]
+    inner: Vec<Value>,
+    raw: Option<Value>,
+    src: Option<ErrorSource>,
 }
 
-impl Error {
-    pub fn combined_labels(&self, span: Option<Span>) -> Vec<Label> {
-        let included = [
-            self.labels.clone().unwrap_or_default().list,
-            self.label.clone().unwrap_or_default().list,
-        ]
-        .concat();
-        if included.is_empty() {
-            vec![Label {
-                text: "originates from here".into(),
-                span,
-            }]
-        } else {
-            included
+impl Default for ErrorInfo {
+    fn default() -> Self {
+        Self {
+            msg: "Originates from here".into(),
+            code: Some("nu::shell::error".into()),
+            help: None,
+            url: None,
+            labels: Vec::default(),
+            label: None,
+            inner: Vec::default(),
+            raw: None,
+            src: None,
         }
     }
 }
 
-// Labels are parse separately because they could be vectors or single values.
-#[derive(Debug, Default, Clone, FromValue, IntoValue)]
-struct Label {
-    text: String,
-    span: Option<Span>,
-}
-
-// Optional list or singleton label
-#[derive(Debug, Default, Clone, IntoValue)]
-struct Labels {
-    list: Vec<Label>,
-}
-
-impl FromValue for Labels {
-    fn from_value(v: Value) -> std::result::Result<Self, ShellError> {
-        match v.get_type() {
-            Type::Record(_) => match Label::from_value(v) {
-                Ok(o) => Ok(Self { list: vec![o] }),
-                Err(o) => Err(o),
-            },
-            Type::Table(_) => match Vec::<Label>::from_value(v) {
-                Ok(o) => Ok(Self { list: o }),
-                Err(o) => Err(o),
-            },
-            _ => Err(ShellError::CantConvert {
-                to_type: Self::expected_type().to_string(),
-                from_type: v.get_type().to_string(),
-                span: v.span(),
-                help: None,
-            }),
+impl ErrorInfo {
+    pub fn labels(self) -> Vec<ErrorLabel> {
+        match self.label {
+            None => self.labels,
+            Some(label) => [self.labels, vec![label]].concat(),
         }
     }
-}
+    pub fn labeled(self, span: Span, show_labels: bool) -> ShellError {
+        let inner: Vec<ShellError> = self
+            .inner
+            .clone()
+            .into_iter()
+            .map(|i| match ErrorInfo::from_value(i) {
+                Ok(e) => e.labeled(span, show_labels),
+                Err(err) => err,
+            })
+            .collect();
+        let labels = self.clone().labels();
 
-fn make_other_error(value: &Value, throw_span: Option<Span>) -> ShellError {
-    match Error::from_value(value.clone()) {
-        Err(e) => e,
-        Ok(v) => {
-            // Main error that will be returned
-            let mut error = LabeledError::new(v.msg.clone());
-            if let Some(ts) = throw_span {
-                for label in v.combined_labels(throw_span) {
-                    error = error.with_label(label.text, label.span.unwrap_or(ts));
+        match self {
+            // External error with src code and url
+            ErrorInfo {
+                src: Some(src),
+                url: Some(url),
+                msg,
+                help,
+                raw: None,
+                ..
+            } => ShellError::OutsideSource {
+                src: src.into(),
+                labels: labels.into_iter().map(|l| l.into()).collect(),
+                msg,
+                url,
+                help,
+                inner,
+            },
+            // External error with src code
+            ErrorInfo {
+                src: Some(src),
+                msg,
+                help,
+                raw: None,
+                ..
+            } => ShellError::OutsideSourceNoUrl {
+                src: src.into(),
+                labels: labels.into_iter().map(|l| l.into()).collect(),
+                msg,
+                help,
+                inner,
+            },
+            // Normal error
+            ei @ ErrorInfo {
+                src: None,
+                raw: None,
+                ..
+            } => LabeledError {
+                labels: match (show_labels, labels.as_slice()) {
+                    (true, []) => vec![ErrorLabel {
+                        text: "".into(),
+                        span,
+                    }],
+                    (true, labels) => labels.to_vec(),
+                    (false, _) => vec![],
                 }
+                .into(),
+                msg: ei.msg,
+                code: ei.code,
+                url: ei.url,
+                help: ei.help,
+                inner: inner.into(),
             }
-            // Recurse into the inner errors
-            for inner in v.inner.unwrap_or_default() {
-                error = error.with_inner(make_other_error(&inner, Some(inner.span())));
-            }
-            // TODO: This could be enabled before `label` is set to be deprecated
-            // if !v.label.unwrap_or_default().list.is_empty() {
-            //     error = error.with_inner(make_other_error(
-            //         &Error {
-            //             msg: "`label` is going to be deprecated. Use `labels` instead.".into(),
-            //             ..Error::default()
-            //         }
-            //         .into_value(value.span()),
-            //         throw_span,
-            //     ));
-            // };
-            error.code = v.code;
-            error.help = v.help;
-            error.url = v.url;
-            error.into()
+            .into(),
+            // Error error with a raw error value somewhere
+            ErrorInfo { raw: Some(v), .. } => ShellError::from_value(v).unwrap_or_else(|e| e),
         }
     }
 }

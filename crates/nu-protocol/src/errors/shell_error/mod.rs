@@ -1,12 +1,12 @@
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, LabeledError, ParseError, Span, Spanned, Type, Value,
+    ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
     ast::Operator,
     engine::{Stack, StateWorkingSet},
     format_cli_error, record,
 };
 use job::JobError;
-use miette::Diagnostic;
+use miette::{Diagnostic, LabeledSpan, NamedSource};
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroI32;
 use thiserror::Error;
@@ -1039,7 +1039,7 @@ pub enum ShellError {
 
     /// This is a generic error type used for different situations.
     #[error("{error}")]
-    #[diagnostic()]
+    #[diagnostic(code(nu::shell::error))]
     GenericError {
         error: String,
         msg: String,
@@ -1053,7 +1053,7 @@ pub enum ShellError {
 
     /// This is a generic error type used for different situations.
     #[error("{error}")]
-    #[diagnostic()]
+    #[diagnostic(code(nu::shell::outsidespan))]
     OutsideSpannedLabeledError {
         #[source_code]
         src: String,
@@ -1061,6 +1061,41 @@ pub enum ShellError {
         msg: String,
         #[label("{msg}")]
         span: Span,
+    },
+
+    /// This is a generic error type used for different situations that need
+    /// multiple labels.
+    #[error("{msg}")]
+    #[diagnostic(code(nu::shell::outside), url("{url}"))]
+    OutsideSource {
+        #[source_code]
+        src: NamedSource<String>,
+        msg: String,
+        url: String,
+        #[help]
+        help: Option<String>,
+        // Defaults to an empty string so it just underlines
+        #[label(collection, "")]
+        labels: Vec<LabeledSpan>,
+        #[related]
+        inner: Vec<ShellError>,
+    },
+
+    /// This is a generic error type used for different situations that need
+    /// multiple labels, minus the URL
+    #[error("{msg}")]
+    #[diagnostic(code(nu::shell::outside))]
+    OutsideSourceNoUrl {
+        #[source_code]
+        src: NamedSource<String>,
+        msg: String,
+        #[help]
+        help: Option<String>,
+        // Defaults to an empty string so it just underlines
+        #[label(collection, "")]
+        labels: Vec<LabeledSpan>,
+        #[related]
+        inner: Vec<ShellError>,
     },
 
     /// This is a generic error type used for user and plugin-generated errors.
@@ -1423,7 +1458,12 @@ impl ShellError {
         }
     }
 
-    pub fn into_value(self, working_set: &StateWorkingSet, stack: &Stack, span: Span) -> Value {
+    pub fn into_full_value(
+        self,
+        working_set: &StateWorkingSet,
+        stack: &Stack,
+        span: Span,
+    ) -> Value {
         let exit_code = self.external_exit_code();
 
         let mut record = record! {
@@ -1452,12 +1492,67 @@ impl ShellError {
     }
 
     /// Convert self error to a [`ShellError::ChainedError`] variant.
-    pub fn into_chainned(self, span: Span) -> Self {
-        match self {
-            ShellError::ChainedError(inner) => {
-                ShellError::ChainedError(ChainedError::new_chained(inner, span))
+    pub fn into_chained(self, span: Span) -> Self {
+        Self::ChainedError(match self {
+            Self::ChainedError(inner) => ChainedError::new_chained(inner, span),
+            other => {
+                // If it's not already a chained error, it could have more errors below
+                // it that we want to chain together
+                let error = other.clone();
+                let mut now = ChainedError::new(other, span);
+                if let Some(related) = error.related() {
+                    let mapped = related
+                        .map(|s| {
+                            let shellerror: Self = Self::from_diagnostic(s);
+                            shellerror
+                        })
+                        .collect::<Vec<_>>();
+                    if !mapped.is_empty() {
+                        now.sources = [now.sources, mapped].concat();
+                    };
+                }
+                now
             }
-            other => ShellError::ChainedError(ChainedError::new(other, span)),
+        })
+    }
+
+    pub fn from_diagnostic(diag: &(impl miette::Diagnostic + ?Sized)) -> Self {
+        Self::LabeledError(LabeledError::from_diagnostic(diag).into())
+    }
+}
+
+impl FromValue for ShellError {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let from_type = v.get_type();
+        match v {
+            Value::Error { error, .. } => Ok(*error),
+            // Also let it come from the into_full_value record.
+            Value::Record {
+                val, internal_span, ..
+            } => Self::from_value(
+                (*val)
+                    .get("raw")
+                    .ok_or(ShellError::CantConvert {
+                        to_type: Self::expected_type().to_string(),
+                        from_type: from_type.to_string(),
+                        span: internal_span,
+                        help: None,
+                    })?
+                    .clone(),
+            ),
+            Value::Nothing { internal_span } => Ok(Self::GenericError {
+                error: "error".into(),
+                msg: "is nothing".into(),
+                span: Some(internal_span),
+                help: None,
+                inner: vec![],
+            }),
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
         }
     }
 }
