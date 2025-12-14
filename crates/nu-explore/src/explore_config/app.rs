@@ -1,11 +1,14 @@
 //! Application state and drawing logic for the explore config TUI.
 
+use crate::explore_config::syntax_highlight::highlight_nushell_content;
 use crate::explore_config::tree::{
     build_tree_items, filter_tree_items, get_value_at_path, set_value_at_path,
 };
 use crate::explore_config::types::{
     App, EditorMode, Focus, NodeInfo, NuValueType, ValueType, calculate_cursor_position,
 };
+use ansi_str::get_blocks;
+use nu_protocol::engine::{EngineState, Stack};
 use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style, Stylize};
@@ -15,7 +18,101 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, Write};
+use std::sync::Arc;
 use tui_tree_widget::{Tree, TreeState};
+
+/// Convert an ANSI-styled string to a ratatui Line.
+///
+/// This parses ANSI escape codes in the input string and converts them
+/// to ratatui Span objects with appropriate styles.
+fn ansi_string_to_line(ansi_text: &str) -> Line<'static> {
+    let mut spans = Vec::new();
+
+    for block in get_blocks(ansi_text) {
+        let text = block.text().to_string();
+        let style = ansi_style_to_ratatui(block.style());
+        spans.push(Span::styled(text, style));
+    }
+
+    if spans.is_empty() {
+        Line::from(String::new())
+    } else {
+        Line::from(spans)
+    }
+}
+
+/// Convert an ansi_str Style to a ratatui Style.
+fn ansi_style_to_ratatui(style: &ansi_str::Style) -> Style {
+    let mut out = Style::default();
+
+    if let Some(clr) = style.foreground() {
+        out.fg = ansi_color_to_ratatui_color(clr);
+    }
+
+    if let Some(clr) = style.background() {
+        out.bg = ansi_color_to_ratatui_color(clr);
+    }
+
+    if style.is_bold() {
+        out.add_modifier |= Modifier::BOLD;
+    }
+
+    if style.is_faint() {
+        out.add_modifier |= Modifier::DIM;
+    }
+
+    if style.is_italic() {
+        out.add_modifier |= Modifier::ITALIC;
+    }
+
+    if style.is_underline() {
+        out.add_modifier |= Modifier::UNDERLINED;
+    }
+
+    if style.is_slow_blink() || style.is_rapid_blink() {
+        out.add_modifier |= Modifier::SLOW_BLINK;
+    }
+
+    if style.is_inverse() {
+        out.add_modifier |= Modifier::REVERSED;
+    }
+
+    if style.is_hide() {
+        out.add_modifier |= Modifier::HIDDEN;
+    }
+
+    out
+}
+
+/// Convert an ansi_str Color to a ratatui Color.
+fn ansi_color_to_ratatui_color(clr: ansi_str::Color) -> Option<Color> {
+    use ansi_str::Color::*;
+
+    let color = match clr {
+        Black => Color::Black,
+        BrightBlack => Color::DarkGray,
+        Red => Color::Red,
+        BrightRed => Color::LightRed,
+        Green => Color::Green,
+        BrightGreen => Color::LightGreen,
+        Yellow => Color::Yellow,
+        BrightYellow => Color::LightYellow,
+        Blue => Color::Blue,
+        BrightBlue => Color::LightBlue,
+        Magenta => Color::Magenta,
+        BrightMagenta => Color::LightMagenta,
+        Cyan => Color::Cyan,
+        BrightCyan => Color::LightCyan,
+        White => Color::White,
+        BrightWhite => Color::Gray,
+        Purple => Color::Magenta,
+        BrightPurple => Color::LightMagenta,
+        Fixed(i) => Color::Indexed(i),
+        Rgb(r, g, b) => Color::Rgb(r, g, b),
+    };
+
+    Some(color)
+}
 
 impl App {
     pub fn new(
@@ -24,6 +121,8 @@ impl App {
         config_mode: bool,
         nu_type_map: Option<HashMap<String, NuValueType>>,
         doc_map: Option<HashMap<String, String>>,
+        engine_state: Arc<EngineState>,
+        stack: Arc<Stack>,
     ) -> Self {
         let mut node_map = HashMap::new();
         let tree_items = build_tree_items(&json_data, &mut node_map, &nu_type_map, &doc_map);
@@ -55,6 +154,8 @@ impl App {
             doc_map,
             search_query: String::new(),
             search_active: false,
+            engine_state,
+            stack,
         }
     }
 
@@ -366,7 +467,7 @@ impl App {
                 Constraint::Length(3),  // Path display
                 Constraint::Length(3),  // Type info
                 Constraint::Min(5),     // Editor area
-                Constraint::Length(20), // Description (new section)
+                Constraint::Length(12), // Description (new section)
                 Constraint::Length(3),  // Help text (with border)
             ])
             .split(inner_area);
@@ -537,19 +638,43 @@ impl App {
         let cursor_col = cursor_pos.col;
 
         // Render content with syntax highlighting
-        let content_lines: Vec<Line> = self
-            .editor_content
-            .lines()
+        // Highlight the entire content at once so multi-line constructs (records, lists, etc.)
+        // are properly recognized
+        let highlighted_lines: Vec<Line> = if self.config_mode {
+            let highlighted =
+                highlight_nushell_content(&self.engine_state, &self.stack, &self.editor_content);
+            highlighted
+                .lines
+                .iter()
+                .map(|line| ansi_string_to_line(line))
+                .collect()
+        } else {
+            self.editor_content
+                .lines()
+                .map(|line| Line::from(line.to_string()))
+                .collect()
+        };
+
+        let content_lines: Vec<Line> = highlighted_lines
+            .into_iter()
             .enumerate()
             .skip(self.editor_scroll)
             .take(visible_height)
-            .map(|(idx, line)| {
-                let line_style = if is_editing && idx == cursor_line {
-                    Style::default().bg(Color::Rgb(40, 40, 40))
+            .map(|(idx, highlighted_line)| {
+                // Apply background highlight for current line when editing
+                if is_editing && idx == cursor_line {
+                    // Apply background to all spans in the line
+                    let spans: Vec<Span> = highlighted_line
+                        .spans
+                        .into_iter()
+                        .map(|span| {
+                            Span::styled(span.content, span.style.bg(Color::Rgb(40, 40, 40)))
+                        })
+                        .collect();
+                    Line::from(spans)
                 } else {
-                    Style::default()
-                };
-                Line::styled(line.to_string(), line_style)
+                    highlighted_line
+                }
             })
             .collect();
 
@@ -701,7 +826,9 @@ impl App {
         let help_text = if self.focus == Focus::Editor {
             if self.editor_mode == EditorMode::Editing {
                 Line::from(vec![
-                    Span::styled("Ctrl+Enter", Style::default().fg(Color::Green).bold()),
+                    Span::styled("Ctrl+S", Style::default().fg(Color::Green).bold()),
+                    Span::raw("/"),
+                    Span::styled("Alt+Enter", Style::default().fg(Color::Green).bold()),
                     Span::raw(" Apply  "),
                     Span::styled("Esc", Style::default().fg(Color::Red).bold()),
                     Span::raw(" Cancel  "),

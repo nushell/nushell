@@ -8,6 +8,7 @@ mod command;
 mod conversion;
 mod example_data;
 mod input;
+mod syntax_highlight;
 mod tree;
 mod tui;
 mod types;

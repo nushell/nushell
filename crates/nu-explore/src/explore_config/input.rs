@@ -98,7 +98,7 @@ pub fn handle_tree_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers) -
                 app.focus = Focus::Editor;
                 app.editor_mode = EditorMode::Editing;
                 app.editor_cursor = 0;
-                app.status_message = String::from("Editing - Ctrl+Enter to apply, Esc to cancel");
+                app.status_message = String::from("Editing - Ctrl+S to apply, Esc to cancel");
             } else {
                 // Toggle tree expansion for nested values
                 app.tree_state.toggle_selected();
@@ -161,7 +161,7 @@ pub fn handle_editor_normal_input(
         KeyCode::Enter | KeyCode::Char('e') => {
             app.editor_mode = EditorMode::Editing;
             app.editor_cursor = 0;
-            app.status_message = String::from("Editing - Ctrl+Enter to apply, Esc to cancel");
+            app.status_message = String::from("Editing - Ctrl+S to apply, Esc to cancel");
         }
         KeyCode::Up => {
             app.scroll_editor(-1);
@@ -202,7 +202,13 @@ pub fn handle_editor_editing_input(
             app.force_update_editor(); // Restore original value
             app.status_message = String::from("Edit cancelled");
         }
-        KeyCode::Enter if modifiers.contains(KeyModifiers::CONTROL) => {
+        // Alt+Enter to apply edit
+        KeyCode::Enter if modifiers.contains(KeyModifiers::ALT) => {
+            app.apply_edit();
+            app.editor_mode = EditorMode::Normal;
+        }
+        // Ctrl+S to apply edit (most reliable across platforms)
+        KeyCode::Char('s') if modifiers.contains(KeyModifiers::CONTROL) => {
             app.apply_edit();
             app.editor_mode = EditorMode::Normal;
         }

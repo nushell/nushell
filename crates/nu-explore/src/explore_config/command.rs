@@ -75,9 +75,9 @@ TUI Keybindings:
   Enter/Space   Toggle tree node expansion
   Enter/Space   On leaf nodes, open editor pane and start editing
   Enter/e       Start editing (in editor pane)
-  Ctrl+Enter    Apply edit
+  Ctrl+S        Apply edit
+  Alt+Enter     Apply edit (alternative)
   Esc           Cancel edit
-  Ctrl+S        Save/Apply changes
   q             Quit (applies config changes if modified)
   Ctrl+C        Force quit without saving"#
     }
@@ -155,7 +155,15 @@ TUI Keybindings:
             let type_map_for_conversion = nu_type_map.clone();
             let original_values_for_conversion = original_values.clone();
 
-            let result = run_config_tui(json_data, output_file, config_mode, nu_type_map, doc_map)?;
+            let result = run_config_tui(
+                json_data,
+                output_file,
+                config_mode,
+                nu_type_map,
+                doc_map,
+                Arc::new(engine_state.clone()),
+                Arc::new(stack.clone()),
+            )?;
 
             // If in config mode and data was modified, apply changes to the config
             if config_mode && let Some(modified_json) = result {
