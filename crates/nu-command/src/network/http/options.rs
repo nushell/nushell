@@ -1,7 +1,7 @@
 use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
     RedirectMode, RequestFlags, RequestMetadata, expand_unix_socket_path, http_client,
-    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    http_client_pool, http_parse_url, request_add_authorization_header, request_add_custom_headers,
     request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
@@ -57,6 +57,7 @@ impl Command for HttpOptions {
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
+            .switch("pool", "using a global pool as a client", None)
             .filter()
             .category(Category::Network);
 
@@ -125,6 +126,7 @@ struct Arguments {
     timeout: Option<Value>,
     allow_errors: bool,
     unix_socket: Option<Spanned<String>>,
+    pool: bool,
 }
 
 fn run_get(
@@ -142,6 +144,7 @@ fn run_get(
         timeout: call.get_flag(engine_state, stack, "max-time")?,
         allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
         unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
+        pool: call.has_flag(engine_state, stack, "pool")?,
     };
     helper(engine_state, stack, call, args)
 }
@@ -164,15 +167,18 @@ fn helper(
     let cwd = engine_state.cwd(None)?;
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
-    let client = http_client(
-        args.insecure,
-        redirect_mode,
-        unix_socket_path,
-        engine_state,
-        stack,
-    )?;
-    let mut request = client.options(&requested_url);
-
+    let mut request = if args.pool {
+        http_client_pool(engine_state, stack).options(&requested_url)
+    } else {
+        let client = http_client(
+            args.insecure,
+            redirect_mode,
+            unix_socket_path,
+            engine_state,
+            stack,
+        )?;
+        client.options(&requested_url)
+    };
     request = request_set_timeout(args.timeout, request)?;
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
