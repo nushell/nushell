@@ -20,40 +20,68 @@ impl HelpCmd {
 }
 
 static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
-    let title = nu_ansi_term::Style::new().bold().underline();
+    let title = nu_ansi_term::Style::new().bold();
+    let section = nu_ansi_term::Style::new().bold().fg(Color::Cyan);
     let code = nu_ansi_term::Style::new().bold().fg(Color::Blue);
+    let key = nu_ansi_term::Style::new().bold().fg(Color::Green);
+    let dim = nu_ansi_term::Style::new().dimmed();
 
-    // There is probably a nicer way to do this formatting inline
     format!(
-        r#"{}
-Explore helps you dynamically navigate through your data!
+        r#"
+  {} Explore Help {}
 
-{}
-Launch Explore by piping data into it: {}
+  Explore helps you dynamically navigate through your data.
+  Launch it by piping data into the command: {}
 
-                   Move around:  Use the cursor keys
-Drill down into records+tables:  Press <Enter> to select a cell, move around with cursor keys, press <Enter> again
-            Go back/up a level:  Press <Esc> or "q"
- Transpose (flip rows+columns):  Press "t"
- Expand (show all nested data):  Press "e"
-          Open this help page :  Type ":help" then <Enter>
-      Open an interactive REPL:  Type ":try" then <Enter>
-         Run a Nushell command:  Type ":nu <command>" then <Enter>. The data currently being explored is piped into it.
-                     Scroll up:  Press "Page Up", Ctrl+B, or Alt+V
-                   Scroll down:  Press "Page Down", Ctrl+F, or Ctrl+V
-                  Exit Explore:  Type ":q" then <Enter>, or Ctrl+D. Alternately, press <Esc> or "q" until Explore exits
+  {} Navigation
 
-{}
-Most commands support search via regular expressions.
+    {}            Move cursor up/down/left/right
+    {}              Drill into a cell (select it)
+    {}            Go back / exit current view
+    {}    Page up / Page down
 
-You can type "/" and type a pattern you want to search on. Then hit <Enter> and you will see the search results.
+  {} Data Manipulation
 
-To go to the next hit use "<n>" key. You also can do a reverse search by using "?" instead of "/".
+    {}                    Transpose (flip rows and columns)
+    {}                    Expand (show all nested data)
+
+  {} Commands {}
+
+    {}              Show this help page
+    {}               Open interactive REPL
+    {}        Run a Nushell command on current data
+    {}                 Exit Explore
+
+  {} Search
+
+    {}                  Start forward search
+    {}                  Start reverse search
+    {} {} {}              Navigate search results
+
 "#,
-        title.paint("Explore"),
-        title.paint("Basics"),
+        title.paint("━━"),
+        title.paint("━━"),
         code.paint("ls | explore"),
-        title.paint("Search")
+        section.paint("▸"),
+        key.paint("↑ ↓ ← →"),
+        key.paint("Enter"),
+        key.paint("Esc / q"),
+        key.paint("PgUp / PgDn"),
+        section.paint("▸"),
+        key.paint("t"),
+        key.paint("e"),
+        section.paint("▸"),
+        dim.paint("(type : then command)"),
+        key.paint(":help"),
+        key.paint(":try"),
+        key.paint(":nu <cmd>"),
+        key.paint(":q"),
+        section.paint("▸"),
+        key.paint("/"),
+        key.paint("?"),
+        key.paint("n"),
+        key.paint("N"),
+        key.paint("Enter"),
     )
 });
 

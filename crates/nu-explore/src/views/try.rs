@@ -13,7 +13,8 @@ use nu_protocol::{
 use ratatui::{
     layout::Rect,
     style::{Modifier, Style},
-    widgets::{BorderType, Borders, Paragraph},
+    text::{Line, Span},
+    widgets::{Block, BorderType, Borders, Paragraph},
 };
 use std::cmp::min;
 use unicode_width::UnicodeWidthStr;
@@ -62,35 +63,66 @@ impl View for TryView {
     fn draw(&mut self, f: &mut Frame, area: Rect, cfg: ViewConfig<'_>, layout: &mut Layout) {
         let border_color = self.border_color;
 
-        let cmd_block = ratatui::widgets::Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Plain)
-            .border_style(border_color);
-        let cmd_area = Rect::new(area.x + 1, area.y, area.width - 2, 3);
+        // Calculate areas with better proportions
+        let cmd_height: u16 = 3;
+        let margin: u16 = 1;
 
+        // Command input area at the top
+        let cmd_area = Rect::new(
+            area.x + margin,
+            area.y,
+            area.width.saturating_sub(margin * 2),
+            cmd_height,
+        );
+
+        // Results area below
+        let table_area = Rect::new(
+            area.x + margin,
+            area.y + cmd_height,
+            area.width.saturating_sub(margin * 2),
+            area.height.saturating_sub(cmd_height),
+        );
+
+        // Draw command input block with rounded corners
         let cmd_block = if self.view_mode {
-            cmd_block
-        } else {
-            cmd_block
-                .border_style(Style::default().add_modifier(Modifier::BOLD))
-                .border_type(BorderType::Double)
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
                 .border_style(border_color)
+                .title(Line::from(vec![
+                    Span::styled(" ", Style::default()),
+                    Span::styled("Command", border_color),
+                    Span::styled(" ", Style::default()),
+                ]))
+        } else {
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(border_color.add_modifier(Modifier::BOLD))
+                .title(Line::from(vec![
+                    Span::styled(" ", Style::default()),
+                    Span::styled("Command", border_color.add_modifier(Modifier::BOLD)),
+                    Span::styled(" ▸ ", border_color.add_modifier(Modifier::BOLD)),
+                ]))
         };
 
         f.render_widget(cmd_block, cmd_area);
 
+        // Render the command input text
         let cmd_input_area = Rect::new(
             cmd_area.x + 2,
             cmd_area.y + 1,
-            cmd_area.width - 2 - 2 - 1,
+            cmd_area.width.saturating_sub(4),
             1,
         );
 
-        let mut input = self.command.as_str();
+        let input = self.command.as_str();
+        let prompt = "❯ ";
+        let prompt_width = prompt.width() as u16;
 
-        let max_cmd_len = min(input.width() as u16, cmd_input_area.width);
-        if input.width() as u16 > max_cmd_len {
-            // in such case we take last max_cmd_len chars
+        let max_cmd_len = cmd_input_area.width.saturating_sub(prompt_width);
+        let display_input = if input.width() as u16 > max_cmd_len {
+            // Take last max_cmd_len chars when input is too long
             let take_bytes = input
                 .chars()
                 .rev()
@@ -98,48 +130,85 @@ impl View for TryView {
                 .map(|c| c.len_utf8())
                 .sum::<usize>();
             let skip = input.len() - take_bytes;
+            &input[skip..]
+        } else {
+            input
+        };
 
-            input = &input[skip..];
-        }
-
-        let cmd_input = Paragraph::new(input);
-
+        let cmd_line = Line::from(vec![
+            Span::styled(prompt, border_color.add_modifier(Modifier::BOLD)),
+            Span::raw(display_input),
+        ]);
+        let cmd_input = Paragraph::new(cmd_line);
         f.render_widget(cmd_input, cmd_input_area);
 
+        // Position cursor at end of input when in command mode
         if !self.view_mode {
-            let cur_w = area.x + 1 + 1 + 1 + max_cmd_len;
-            let cur_w_max = area.x + 1 + 1 + 1 + area.width - 2 - 1 - 1 - 1 - 1;
-            if cur_w < cur_w_max {
-                f.set_cursor_position((area.x + 1 + 1 + 1 + max_cmd_len, area.y + 1));
+            let cursor_x =
+                cmd_input_area.x + prompt_width + min(display_input.width() as u16, max_cmd_len);
+            let cursor_x_max = cmd_input_area.x + cmd_input_area.width.saturating_sub(1);
+            if cursor_x <= cursor_x_max {
+                f.set_cursor_position((cursor_x, cmd_input_area.y));
             }
         }
 
-        let table_block = ratatui::widgets::Block::default()
-            .borders(Borders::ALL)
-            .border_type(BorderType::Plain)
-            .border_style(border_color);
-        let table_area = Rect::new(area.x + 1, area.y + 3, area.width - 2, area.height - 3);
-
+        // Draw results block with rounded corners
         let table_block = if self.view_mode {
-            table_block
-                .border_style(Style::default().add_modifier(Modifier::BOLD))
-                .border_type(BorderType::Double)
-                .border_style(border_color)
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(border_color.add_modifier(Modifier::BOLD))
+                .title(Line::from(vec![
+                    Span::styled(" ", Style::default()),
+                    Span::styled("Results", border_color.add_modifier(Modifier::BOLD)),
+                    Span::styled(" ◂ ", border_color.add_modifier(Modifier::BOLD)),
+                ]))
         } else {
-            table_block
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(border_color)
+                .title(Line::from(vec![
+                    Span::styled(" ", Style::default()),
+                    Span::styled("Results", border_color),
+                    Span::styled(" ", Style::default()),
+                ]))
         };
 
         f.render_widget(table_block, table_area);
 
+        // Render the table inside the results block
         if let Some(table) = &mut self.table {
-            let area = Rect::new(
-                area.x + 2,
-                area.y + 4,
-                area.width - 3 - 1,
-                area.height - 3 - 1 - 1,
+            let inner_area = Rect::new(
+                table_area.x + 1,
+                table_area.y + 1,
+                table_area.width.saturating_sub(2),
+                table_area.height.saturating_sub(2),
             );
 
-            table.draw(f, area, cfg, layout);
+            if inner_area.width > 0 && inner_area.height > 0 {
+                table.draw(f, inner_area, cfg, layout);
+            }
+        } else {
+            // Show hint when no results yet
+            let hint_area = Rect::new(
+                table_area.x + 2,
+                table_area.y + 1,
+                table_area.width.saturating_sub(4),
+                1,
+            );
+            let hint = Paragraph::new(Line::from(vec![
+                Span::styled(
+                    "Type a command and press ",
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
+                Span::styled("Enter", border_color),
+                Span::styled(
+                    " to see results",
+                    Style::default().add_modifier(Modifier::DIM),
+                ),
+            ]));
+            f.render_widget(hint, hint_area);
         }
     }
 
