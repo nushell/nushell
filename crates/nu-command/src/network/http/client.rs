@@ -32,10 +32,11 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
+    sync::{Arc, RwLock},
     time::Duration,
 };
 use ureq::{
-    Body, Error, RequestBuilder, ResponseExt, SendBody,
+    Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
     unversioned::transport::DefaultConnector,
 };
@@ -48,6 +49,8 @@ const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 type Response = http::Response<Body>;
 
 type ContentType = String;
+
+static GLOBAL_CLIENT: RwLock<Option<Arc<Agent>>> = RwLock::new(None);
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum BodyType {
@@ -110,6 +113,53 @@ pub fn expand_unix_socket_path(
     cwd: impl AsRef<Path>,
 ) -> Option<PathBuf> {
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
+}
+
+pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Agent> {
+    {
+        let guard = GLOBAL_CLIENT.read().expect("the lock should be valid");
+        if let Some(client) = guard.as_ref() {
+            return Arc::clone(client);
+        }
+    }
+    let mut config_builder = ureq::config::Config::builder()
+        .user_agent("nushell")
+        .save_redirect_history(true)
+        .http_status_as_error(false)
+        .max_redirects_will_error(false);
+    if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack)
+        && let Ok(proxy) = ureq::Proxy::new(&http_proxy)
+    {
+        config_builder = config_builder.proxy(Some(proxy));
+    };
+
+    let connector = DefaultConnector::default();
+    let resolver = DnsLookupResolver;
+    let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
+
+    let arc_agent = Arc::new(agent);
+    let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
+    *guard = Some(Arc::clone(&arc_agent));
+    arc_agent
+}
+
+pub fn reset_http_client_pool(
+    allow_insecure: bool,
+    redirect_mode: RedirectMode,
+    unix_socket_path: Option<PathBuf>,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<(), ShellError> {
+    let client = http_client(
+        allow_insecure,
+        redirect_mode,
+        unix_socket_path,
+        engine_state,
+        stack,
+    )?;
+    let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
+    *guard = Some(Arc::new(client));
+    Ok(())
 }
 
 pub fn http_client(
