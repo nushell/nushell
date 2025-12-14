@@ -481,6 +481,146 @@ mod tests {
         );
     }
 
+    /// Create an engine state with all commands and proper environment setup for external commands.
+    fn create_full_engine_state_for_external_commands() -> nu_protocol::engine::EngineState {
+        let mut engine_state = nu_protocol::engine::EngineState::new();
+        engine_state = nu_cmd_lang::add_default_context(engine_state);
+        engine_state = nu_command::add_shell_command_context(engine_state);
+
+        // Set up PWD environment variable (required for external commands)
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
+        // Set up PATH from the current environment
+        if let Ok(path) = std::env::var("PATH") {
+            engine_state.add_env_var("PATH".into(), Value::test_string(path));
+        }
+
+        engine_state
+    }
+
+    /// Test that the `complete` command works with external commands that return non-zero exit codes.
+    ///
+    /// This test verifies that `complete` correctly captures stdout, stderr, and exit_code
+    /// from external commands without the error propagating.
+    #[test]
+    fn test_complete_command_with_external_error() {
+        let engine_state = create_full_engine_state_for_external_commands();
+        let evaluator = Evaluator::new(engine_state);
+
+        // Use /bin/ls directly to avoid PATH issues, with a path that definitely doesn't exist
+        // This should work - the `complete` command should capture the non-zero exit code
+        // instead of propagating an error
+        let result = evaluator.eval("do { ^/bin/ls /nonexistent_path_12345 } | complete");
+
+        assert!(
+            result.is_ok(),
+            "complete should capture external command errors, got: {:?}",
+            result.err()
+        );
+
+        let output = result.unwrap();
+        assert!(
+            output.contains("exit_code"),
+            "Output should contain exit_code field, got: {output}"
+        );
+    }
+
+    /// Test that piping an external command directly to `complete` works.
+    ///
+    /// This is the bug reported in https://github.com/nushell/nushell/issues/17173
+    /// In MCP mode, `^ls nonexistent | complete` throws an error instead of capturing it.
+    #[test]
+    fn test_complete_command_direct_pipe() {
+        let engine_state = create_full_engine_state_for_external_commands();
+        let evaluator = Evaluator::new(engine_state);
+
+        // Use /bin/ls directly to avoid PATH issues
+        // This is the problematic case - direct piping without `do { }`
+        let result = evaluator.eval("^/bin/ls /nonexistent_path_12345 | complete");
+
+        assert!(
+            result.is_ok(),
+            "complete should capture external command errors even with direct piping, got: {:?}",
+            result.err()
+        );
+
+        let output = result.unwrap();
+        assert!(
+            output.contains("exit_code"),
+            "Output should contain exit_code field, got: {output}"
+        );
+    }
+
+    /// Test the exact command from issue #17173: `let a = (^ls nonexistent | complete); $a`
+    ///
+    /// This tests the specific case where the result is assigned to a variable.
+    #[test]
+    fn test_complete_command_with_variable_assignment() {
+        let engine_state = create_full_engine_state_for_external_commands();
+        let evaluator = Evaluator::new(engine_state);
+
+        // This is the exact command from the bug report
+        let result = evaluator.eval("let a = (^/bin/ls /nonexistent_path_12345 | complete); $a");
+
+        assert!(
+            result.is_ok(),
+            "complete with variable assignment should work, got: {:?}",
+            result.err()
+        );
+
+        let output = result.unwrap();
+        assert!(
+            output.contains("exit_code"),
+            "Output should contain exit_code field, got: {output}"
+        );
+    }
+
+    /// Test using the NushellMcpServer to see if the issue is in the server setup.
+    /// This mimics the actual MCP server configuration.
+    #[test]
+    fn test_complete_command_via_mcp_server_style_setup() {
+        use nu_protocol::UseAnsiColoring;
+        use std::sync::Arc;
+
+        // Create engine state exactly like the MCP server does (from NushellMcpServer::new)
+        let mut engine_state = nu_protocol::engine::EngineState::new();
+        engine_state = nu_cmd_lang::add_default_context(engine_state);
+        engine_state = nu_command::add_shell_command_context(engine_state);
+
+        // Set up PWD environment variable
+        let cwd = std::env::current_dir().expect("Could not get current working directory.");
+        engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
+
+        // Set up PATH
+        if let Ok(path) = std::env::var("PATH") {
+            engine_state.add_env_var("PATH".into(), Value::test_string(path));
+        }
+
+        // Configure the engine state for MCP (from NushellMcpServer::new)
+        if let Some(config) = Arc::get_mut(&mut engine_state.config) {
+            config.use_ansi_coloring = UseAnsiColoring::False;
+            config.color_config.clear();
+        }
+
+        let evaluator = Evaluator::new(engine_state);
+
+        // This is the exact command from the bug report
+        let result = evaluator.eval("let a = (^/bin/ls /nonexistent_path_12345 | complete); $a");
+
+        assert!(
+            result.is_ok(),
+            "complete via MCP-style setup should work, got: {:?}",
+            result.err()
+        );
+
+        let output = result.unwrap();
+        assert!(
+            output.contains("exit_code"),
+            "Output should contain exit_code field, got: {output}"
+        );
+    }
+
     #[test]
     fn test_history_ring_buffer() -> Result<(), Box<dyn std::error::Error>> {
         let engine_state = nu_cmd_lang::create_default_context();
@@ -516,5 +656,93 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    /// Integration test that spawns the actual worker binary and tests the complete command.
+    /// This helps isolate if the issue is in the binary setup vs the Evaluator directly.
+    #[test]
+    fn test_complete_via_spawned_worker() {
+        use std::io::{BufRead, BufReader, Write};
+        use std::os::unix::net::UnixStream;
+        use std::process::{Command, Stdio};
+
+        // Build the binary first (this should be a no-op if already built)
+        let cargo_build = Command::new("cargo")
+            .args(["build", "--features", "mcp"])
+            .current_dir(env!("CARGO_MANIFEST_DIR").to_owned() + "/../..")
+            .output()
+            .expect("Failed to build");
+        assert!(cargo_build.status.success(), "cargo build failed");
+
+        // Create a temp socket path
+        let socket_path =
+            std::env::temp_dir().join(format!("nu-mcp-test-{}.sock", std::process::id()));
+        let _ = std::fs::remove_file(&socket_path);
+
+        // Find the nu binary
+        let nu_binary =
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../target/debug/nu");
+
+        // Spawn the worker with inherited stdio (like normal process) and no config files
+        let mut child = Command::new(&nu_binary)
+            .arg("--no-config-file")
+            .arg("--mcp-worker")
+            .arg(&socket_path)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .expect("Failed to spawn worker");
+
+        // Wait for the socket to be ready
+        for _ in 0..50 {
+            if socket_path.exists() {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+        assert!(socket_path.exists(), "Worker socket not created");
+
+        // Connect to the worker
+        let stream = UnixStream::connect(&socket_path).expect("Failed to connect to worker");
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut writer = stream;
+
+        // Send the complete command
+        let request = serde_json::json!({
+            "source": "let a = (^/bin/ls /nonexistent_test_path | complete); $a"
+        });
+        writeln!(writer, "{}", request).expect("Failed to write request");
+        writer.flush().expect("Failed to flush");
+
+        // Read the response
+        let mut response_line = String::new();
+        reader
+            .read_line(&mut response_line)
+            .expect("Failed to read response");
+
+        // Parse the response
+        let response: serde_json::Value =
+            serde_json::from_str(&response_line).expect("Failed to parse response");
+
+        // Check if it succeeded
+        let result = response.get("result").expect("No result field");
+
+        // Kill the worker
+        let _ = child.kill();
+        let _ = std::fs::remove_file(&socket_path);
+
+        // The result should be Ok, not Err
+        assert!(
+            result.get("Ok").is_some(),
+            "Expected Ok result, got: {:?}",
+            result
+        );
+
+        let output = result.get("Ok").unwrap().as_str().unwrap();
+        assert!(
+            output.contains("exit_code"),
+            "Output should contain exit_code, got: {output}"
+        );
     }
 }

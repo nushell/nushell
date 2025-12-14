@@ -35,3 +35,4 @@ workspace = true
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }
+nu-command = { path = "../nu-command", version = "0.109.2" }

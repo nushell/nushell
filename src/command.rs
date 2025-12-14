@@ -50,7 +50,7 @@ pub(crate) fn gather_commandline_args() -> (Vec<String>, String, Vec<String>) {
             | "--ide-check"
             | "--experimental-options" => args.next(),
             #[cfg(feature = "mcp")]
-            "--mcp" => args.next(),
+            "--mcp-worker" => args.next(),
             #[cfg(feature = "plugin")]
             "--plugins" => args.next(),
             _ => None,
@@ -134,6 +134,13 @@ pub(crate) fn parse_commandline_args(
 
         #[cfg(feature = "mcp")]
         let mcp = call.has_flag(engine_state, &mut stack, "mcp")?;
+        #[cfg(feature = "mcp")]
+        let mcp_worker: Option<Spanned<String>> = call
+            .get_flag::<String>(engine_state, &mut stack, "mcp-worker")?
+            .map(|s| Spanned {
+                item: s,
+                span: Span::unknown(),
+            });
 
         fn extract_contents(
             expression: Option<&Expression>,
@@ -272,6 +279,8 @@ pub(crate) fn parse_commandline_args(
             experimental_options,
             #[cfg(feature = "mcp")]
             mcp,
+            #[cfg(feature = "mcp")]
+            mcp_worker,
         });
     }
 
@@ -315,6 +324,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp: bool,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_worker: Option<Spanned<String>>,
 }
 
 #[derive(Clone)]
@@ -424,7 +435,14 @@ impl Command for Nu {
 
         #[cfg(feature = "mcp")]
         {
-            signature = signature.switch("mcp", "start nu's model context protocol server", None);
+            signature = signature
+                .switch("mcp", "start nu's model context protocol server", None)
+                .named(
+                    "mcp-worker",
+                    SyntaxShape::Filepath,
+                    "run as MCP worker process (internal use)",
+                    None,
+                );
         }
         #[cfg(feature = "plugin")]
         {
