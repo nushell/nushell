@@ -1,5 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
+use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
     NuGlob,
@@ -68,6 +69,7 @@ impl Command for UMv {
                 Some('u')
             )
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .switch("all", "move hidden files if '*' is provided", Some('a'))
             .rest(
                 "paths",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
@@ -91,6 +93,7 @@ impl Command for UMv {
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        let all = call.has_flag(engine_state, stack, "all")?;
         let overwrite = if no_clobber {
             uu_mv::OverwriteMode::NoClobber
         } else if interactive {
@@ -138,12 +141,26 @@ impl Command for UMv {
             span: call.head,
         })?;
         let mut files: Vec<(Vec<PathBuf>, bool)> = Vec::new();
+        let glob_options = if all {
+            None
+        } else {
+            let glob_options = MatchOptions {
+                require_literal_leading_dot: true,
+                ..Default::default()
+            };
+            Some(glob_options)
+        };
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
-            let exp_files: Vec<Result<PathBuf, ShellError>> =
-                nu_engine::glob_from(&p, &cwd, call.head, None, engine_state.signals().clone())
-                    .map(|f| f.1)?
-                    .collect();
+            let exp_files: Vec<Result<PathBuf, ShellError>> = nu_engine::glob_from(
+                &p,
+                &cwd,
+                call.head,
+                glob_options,
+                engine_state.signals().clone(),
+            )
+            .map(|f| f.1)?
+            .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::Io(IoError::new(
                     shell_error::io::ErrorKind::FileNotFound,
