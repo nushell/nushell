@@ -645,8 +645,8 @@ fn mv_with_cd() {
 }
 
 #[test]
-fn test_cp_inside_glob_metachars_dir() {
-    Playground::setup("open_files_inside_glob_metachars_dir", |dirs, sandbox| {
+fn test_mv_inside_glob_metachars_dir() {
+    Playground::setup("uv_files_inside_glob_metachars_dir", |dirs, sandbox| {
         let sub_dir = "test[]";
         sandbox
             .within(sub_dir)
@@ -663,6 +663,35 @@ fn test_cp_inside_glob_metachars_dir() {
             dirs.test().join(sub_dir)
         ));
         assert!(files_exist_at(&["test_file.txt"], dirs.test()));
+    });
+}
+
+#[test]
+fn test_mv_wildcards() {
+    Playground::setup("uv_with_wildcards", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(&[FileWithContent(".a", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "mv * ../",
+        );
+        // by default, wildcard don't match dot files.
+        assert!(actual.err.contains("File not found"));
+        assert!(files_exist_at(&[".a"], dirs.test().join(sub_dir)));
+        assert!(!files_exist_at(&[".a"], dirs.test()));
+
+        // unless `-a` flag is provided.
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "mv -a * ../",
+        );
+        // by default, wildcard don't match dot files.
+        assert!(actual.err.is_empty());
+        assert!(!files_exist_at(&[".a"], dirs.test().join(sub_dir)));
+        assert!(files_exist_at(&[".a"], dirs.test()));
     });
 }
 
