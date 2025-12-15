@@ -438,3 +438,57 @@ fn job_tag_modifies_tagged_job_tag() {
     assert_eq!(actual.out, "beep");
     assert_eq!(actual.err, "");
 }
+
+#[test]
+fn job_unfreeze_works() {
+    let actual = nu!(r#"
+        sh -i -c "kill -s 19 $$ && echo meep"
+        job unfreeze
+    "#);
+
+    assert!(actual.out.ends_with("meep"));
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_unfreeze_rebinds_correctly_basic() {
+    let actual = nu!(r#"
+        sh -i -c "kill -s 19 $$ && echo beep"
+        sh -i -c "kill -s 19 $$ && echo boop"
+        sh -i -c "kill -s 19 $$ && echo meep"
+
+        job unfreeze
+        job unfreeze
+        job unfreeze
+    "#);
+
+    assert!(actual.out.ends_with("meepboopbeep"));
+    assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_unfreeze_rebinds_correctly_with_scramble() {
+    let actual = nu!(r#"
+        sh -i -c "kill -s 19 $$ && echo 1"
+        sh -i -c "kill -s 19 $$ && echo 2"
+        sh -i -c "kill -s 19 $$ && echo 3"
+
+        job unfreeze
+        
+        sh -i -c "kill -s 19 $$ && echo 4"
+        sh -i -c "kill -s 19 $$ && echo 5"
+
+        job unfreeze
+
+        sh -i -c "kill -s 19 $$ && echo 6"
+
+        job unfreeze
+        job unfreeze 
+        job unfreeze
+        job unfreeze
+    "#);
+
+    assert!(actual.out.ends_with("6421"));
+    assert_eq!(actual.err, "");
+}
+
