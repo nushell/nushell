@@ -1,6 +1,6 @@
-use crate::ExploreRegex;
-use crate::explore::*;
+use crate::explore::Explore;
 use crate::explore_config::ExploreConfigCommand;
+use crate::explore_regex::ExploreRegex;
 use nu_protocol::engine::{EngineState, StateWorkingSet};
 
 pub fn add_explore_context(mut engine_state: EngineState) -> EngineState {
