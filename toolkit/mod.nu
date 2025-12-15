@@ -1,4 +1,4 @@
-# this module regroups a bunch of development tools to make the development
+# This module regroups a bunch of development tools to make the development
 # process easier for anyone.
 #
 # the main purpose of `toolkit` is to offer an easy to use interface for the
@@ -16,4 +16,5 @@ export use plugins.nu *
 export use wasm.nu *
 export use wrappers.nu *
 
-export def main [] { help toolkit }
+# Show help for the toolkit _module_
+export def main [] { help modules toolkit }
