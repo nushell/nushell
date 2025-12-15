@@ -30,3 +30,6 @@ styl = "styl"
 
 [default.extend-identifiers]
 ratatui = "ratatui"
+
+[default.extend-words]
+ratatui = "ratatui"

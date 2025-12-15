@@ -10,12 +10,14 @@ use crossterm::event::{
 use crossterm::terminal::{
     EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
 };
+use nu_protocol::engine::{EngineState, Stack};
 use ratatui::Terminal;
 use ratatui::backend::CrosstermBackend;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::io;
+use std::sync::Arc;
 
 /// Run the TUI and return the modified JSON data if changes were made in config mode
 pub fn run_config_tui(
@@ -24,6 +26,8 @@ pub fn run_config_tui(
     config_mode: bool,
     nu_type_map: Option<HashMap<String, NuValueType>>,
     doc_map: Option<HashMap<String, String>>,
+    engine_state: Arc<EngineState>,
+    stack: Arc<Stack>,
 ) -> Result<Option<Value>, Box<dyn Error>> {
     // Terminal initialization
     enable_raw_mode()?;
@@ -35,7 +39,15 @@ pub fn run_config_tui(
     // Clear the screen initially
     terminal.clear()?;
 
-    let mut app = App::new(json_data, output_file, config_mode, nu_type_map, doc_map);
+    let mut app = App::new(
+        json_data,
+        output_file,
+        config_mode,
+        nu_type_map,
+        doc_map,
+        engine_state,
+        stack,
+    );
 
     // Select the first item
     app.tree_state.select_first();
@@ -77,12 +89,16 @@ fn run_config_app(
                 continue;
             }
 
-            // Global keybindings
+            // Global keybindings (skip Ctrl+S when in editing mode so it applies the edit instead)
+            let in_editing_mode =
+                app.focus == Focus::Editor && app.editor_mode == EditorMode::Editing;
             match key.code {
                 KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
                     return Ok(());
                 }
-                KeyCode::Char('s') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                KeyCode::Char('s')
+                    if key.modifiers.contains(KeyModifiers::CONTROL) && !in_editing_mode =>
+                {
                     if let Err(e) = app.save_to_file() {
                         app.status_message = format!("✗ Save failed: {}", e);
                     }

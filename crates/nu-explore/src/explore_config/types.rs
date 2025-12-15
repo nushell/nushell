@@ -1,8 +1,10 @@
 //! Type definitions for the explore config TUI application.
 
+use nu_protocol::engine::{EngineState, Stack};
 use ratatui::style::Color;
 use serde_json::Value;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 /// Path through the JSON tree represented as a vector of keys/indices
 pub type NodePath = Vec<String>;
@@ -236,4 +238,8 @@ pub struct App {
     /// Search/filter state
     pub search_query: String,
     pub search_active: bool,
+    /// Engine state for syntax highlighting
+    pub engine_state: Arc<EngineState>,
+    /// Stack for syntax highlighting
+    pub stack: Arc<Stack>,
 }
