@@ -142,7 +142,7 @@ pub fn run_worker(socket_path: PathBuf, engine_state: EngineState) -> Result<(),
             serde_json::to_string(&EvalResponse {
                 result: Err(e.to_string()),
             })
-            .unwrap()
+            .expect("serializing error response should never fail")
         });
 
         if writeln!(writer, "{}", response_json).is_err() {
