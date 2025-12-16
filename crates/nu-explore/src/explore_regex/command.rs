@@ -74,7 +74,7 @@ impl Command for ExploreRegex {
     ) -> Result<PipelineData, ShellError> {
         let input_span = input.span().unwrap_or(call.head);
         let (string_input, _span, _metadata) = input.collect_string_strict(input_span)?;
-        let regex = execute_regex_app(call, string_input)?;
+        let regex = execute_regex_app(call.head, string_input)?;
 
         Ok(PipelineData::Value(
             nu_protocol::Value::string(regex, call.head),
@@ -98,78 +98,58 @@ impl Command for ExploreRegex {
     }
 }
 
-fn execute_regex_app(call: &Call, string_input: String) -> Result<String, ShellError> {
-    // Setup terminal
-    enable_raw_mode().map_err(|e| ShellError::GenericError {
-        error: "Could not enable raw mode".into(),
-        msg: format!("terminal error: {e}"),
-        span: Some(call.head),
+/// Converts a terminal/IO error into a ShellError with consistent formatting.
+fn terminal_error(error: &str, cause: impl std::fmt::Display, span: Span) -> ShellError {
+    ShellError::GenericError {
+        error: error.into(),
+        msg: format!("terminal error: {cause}"),
+        span: Some(span),
         help: None,
         inner: vec![],
-    })?;
+    }
+}
+
+fn execute_regex_app(span: Span, string_input: String) -> Result<String, ShellError> {
+    let mut terminal = setup_terminal(span)?;
+    let mut app = App::new(string_input);
+
+    let result = run_app_loop(&mut terminal, &mut app);
+
+    // Always attempt to restore terminal, even if app loop failed
+    let restore_result = restore_terminal(&mut terminal, span);
+
+    // Propagate app loop error first, then restore error
+    result.map_err(|e| terminal_error("Application error", e, span))?;
+    restore_result?;
+
+    Ok(app.get_regex_input())
+}
+
+fn setup_terminal(span: Span) -> Result<Terminal<CrosstermBackend<io::Stdout>>, ShellError> {
+    enable_raw_mode().map_err(|e| terminal_error("Could not enable raw mode", e, span))?;
 
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture).map_err(|e| {
-        ShellError::GenericError {
-            error: "Could not enter alternate screen".into(),
-            msg: format!("terminal error: {e}"),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        }
-    })?;
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)
+        .map_err(|e| terminal_error("Could not enter alternate screen", e, span))?;
 
-    let backend = CrosstermBackend::new(stdout);
-    let mut terminal = Terminal::new(backend).map_err(|e| ShellError::GenericError {
-        error: "Could not initialize terminal".into(),
-        msg: format!("terminal error: {e}"),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
+    Terminal::new(CrosstermBackend::new(stdout))
+        .map_err(|e| terminal_error("Could not initialize terminal", e, span))
+}
 
-    let mut app = App::new(string_input);
-    let res = run_app_loop(&mut terminal, &mut app);
-
-    // Restore terminal
-    disable_raw_mode().map_err(|e| ShellError::GenericError {
-        error: "Could not disable raw mode".into(),
-        msg: format!("terminal error: {e}"),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
+fn restore_terminal(
+    terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
+    span: Span,
+) -> Result<(), ShellError> {
+    disable_raw_mode().map_err(|e| terminal_error("Could not disable raw mode", e, span))?;
 
     execute!(
         terminal.backend_mut(),
         LeaveAlternateScreen,
         DisableMouseCapture
     )
-    .map_err(|e| ShellError::GenericError {
-        error: "Could not leave alternate screen".into(),
-        msg: format!("terminal error: {e}"),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
+    .map_err(|e| terminal_error("Could not leave alternate screen", e, span))?;
 
     terminal
         .show_cursor()
-        .map_err(|e| ShellError::GenericError {
-            error: "Could not show terminal cursor".into(),
-            msg: format!("terminal error: {e}"),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
-
-    res.map_err(|err| ShellError::GenericError {
-        error: "Application error".into(),
-        msg: format!("application error: {err}"),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
-
-    Ok(app.get_regex_input())
+        .map_err(|e| terminal_error("Could not show terminal cursor", e, span))
 }
