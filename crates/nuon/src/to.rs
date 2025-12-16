@@ -314,10 +314,8 @@ fn get_true_indentation(depth: usize, indent: Option<&str>) -> String {
 /// Quote a string, using raw string syntax if `raw_strings` is true and the string
 /// contains quotes or backslashes.
 fn quote_string(s: &str, raw_strings: bool) -> String {
-    if raw_strings {
-        if let Some(raw) = as_raw_string(s) {
-            return raw;
-        }
+    if raw_strings && let Some(raw) = as_raw_string(s) {
+        return raw;
     }
     escape_quote_string(s)
 }
