@@ -235,7 +235,11 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         _ => None,
     };
 
-    let label = build_label("Regex Pattern", focused, status);
+    let label = build_label(
+        "Regex Pattern",
+        focused,
+        status.map(|(t, s)| (t.to_string(), s)),
+    );
     f.render_widget(Paragraph::new(label), label_area);
 
     // Input block
@@ -274,7 +278,7 @@ fn draw_sample_section(
     let focused = app.input_focus == InputFocus::Sample;
 
     // Label with match count
-    let status = if app.match_count > 0 {
+    let status: Option<(String, Style)> = if app.match_count > 0 {
         let text = if app.match_count == 1 {
             "1 match".to_string()
         } else {
@@ -287,7 +291,7 @@ fn draw_sample_section(
         None
     };
 
-    let label = build_label_owned("Test String", focused, status);
+    let label = build_label("Test String", focused, status);
     f.render_widget(Paragraph::new(label), label_area);
 
     // Sample block
@@ -375,8 +379,12 @@ fn draw_sample_cursor(f: &mut ratatui::Frame, app: &App, content: Rect) {
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────
 
-/// Build a label line with optional status badge (static status text).
-fn build_label(title: &str, focused: bool, status: Option<(&str, Style)>) -> Line<'static> {
+/// Build a label line with optional status badge.
+fn build_label(
+    title: &str,
+    focused: bool,
+    status: Option<(impl Into<String>, Style)>,
+) -> Line<'static> {
     let mut spans = if focused {
         vec![
             Span::styled("> ", styles::focus_indicator()),
@@ -391,30 +399,7 @@ fn build_label(title: &str, focused: bool, status: Option<(&str, Style)>) -> Lin
 
     if let Some((text, style)) = status {
         spans.push(Span::styled("  [", styles::status_bracket()));
-        spans.push(Span::styled(text.to_string(), style));
-        spans.push(Span::styled("]", styles::status_bracket()));
-    }
-
-    Line::from(spans)
-}
-
-/// Build a label line with optional status badge (owned status text).
-fn build_label_owned(title: &str, focused: bool, status: Option<(String, Style)>) -> Line<'static> {
-    let mut spans = if focused {
-        vec![
-            Span::styled("> ", styles::focus_indicator()),
-            Span::styled(title.to_string(), styles::focused()),
-        ]
-    } else {
-        vec![
-            Span::styled("  ", styles::unfocused()),
-            Span::styled(title.to_string(), styles::unfocused()),
-        ]
-    };
-
-    if let Some((text, style)) = status {
-        spans.push(Span::styled("  [", styles::status_bracket()));
-        spans.push(Span::styled(text, style));
+        spans.push(Span::styled(text.into(), style));
         spans.push(Span::styled("]", styles::status_bracket()));
     }
 

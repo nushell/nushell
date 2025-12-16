@@ -105,7 +105,7 @@ impl<'a> App<'a> {
     }
 
     /// Update match count using the already-compiled regex.
-    /// More efficient than `compile_regex()` when only the sample text changes.
+    /// This is more efficient than `compile_regex()` when only the sample text changes.
     pub fn update_match_count(&mut self) {
         if let Some(ref regex) = self.compiled_regex {
             let sample_text = self.get_sample_text();
@@ -258,5 +258,374 @@ impl<'a> App<'a> {
     /// Find the nearest selectable item at or before the given index.
     fn find_nearest_item_reverse(entries: &[QuickRefEntry], from: usize) -> Option<usize> {
         (0..=from).rev().find(|&i| Self::is_selectable(entries, i))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::explore_regex::quick_ref::QuickRefItem;
+
+    /// Create a test entry list with known structure:
+    /// [Category, Item, Item, Category, Item, Category, Item, Item]
+    fn test_entries() -> Vec<QuickRefEntry> {
+        vec![
+            QuickRefEntry::Category("Cat1"),
+            QuickRefEntry::Item(QuickRefItem {
+                syntax: "a",
+                description: "desc a",
+                insert: "a",
+            }),
+            QuickRefEntry::Item(QuickRefItem {
+                syntax: "b",
+                description: "desc b",
+                insert: "b",
+            }),
+            QuickRefEntry::Category("Cat2"),
+            QuickRefEntry::Item(QuickRefItem {
+                syntax: "c",
+                description: "desc c",
+                insert: "c",
+            }),
+            QuickRefEntry::Category("Cat3"),
+            QuickRefEntry::Item(QuickRefItem {
+                syntax: "d",
+                description: "desc d",
+                insert: "d",
+            }),
+            QuickRefEntry::Item(QuickRefItem {
+                syntax: "e",
+                description: "desc e",
+                insert: "e",
+            }),
+        ]
+    }
+
+    // ─── is_selectable tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_is_selectable_item() {
+        let entries = test_entries();
+        assert!(App::is_selectable(&entries, 1)); // Item "a"
+        assert!(App::is_selectable(&entries, 2)); // Item "b"
+        assert!(App::is_selectable(&entries, 4)); // Item "c"
+    }
+
+    #[test]
+    fn test_is_selectable_category() {
+        let entries = test_entries();
+        assert!(!App::is_selectable(&entries, 0)); // Category "Cat1"
+        assert!(!App::is_selectable(&entries, 3)); // Category "Cat2"
+        assert!(!App::is_selectable(&entries, 5)); // Category "Cat3"
+    }
+
+    #[test]
+    fn test_is_selectable_out_of_bounds() {
+        let entries = test_entries();
+        assert!(!App::is_selectable(&entries, 100));
+    }
+
+    #[test]
+    fn test_is_selectable_empty_list() {
+        let entries: Vec<QuickRefEntry> = vec![];
+        assert!(!App::is_selectable(&entries, 0));
+    }
+
+    // ─── find_next_item tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_next_item_basic() {
+        let entries = test_entries();
+        // From item 1, next item is 2
+        assert_eq!(App::find_next_item(&entries, 1), Some(2));
+    }
+
+    #[test]
+    fn test_find_next_item_skips_category() {
+        let entries = test_entries();
+        // From item 2, next is item 4 (skips category at 3)
+        assert_eq!(App::find_next_item(&entries, 2), Some(4));
+    }
+
+    #[test]
+    fn test_find_next_item_from_category() {
+        let entries = test_entries();
+        // From category 0, next item is 1
+        assert_eq!(App::find_next_item(&entries, 0), Some(1));
+        // From category 3, next item is 4
+        assert_eq!(App::find_next_item(&entries, 3), Some(4));
+    }
+
+    #[test]
+    fn test_find_next_item_at_end() {
+        let entries = test_entries();
+        // From last item (7), no next item
+        assert_eq!(App::find_next_item(&entries, 7), None);
+    }
+
+    #[test]
+    fn test_find_next_item_empty_list() {
+        let entries: Vec<QuickRefEntry> = vec![];
+        assert_eq!(App::find_next_item(&entries, 0), None);
+    }
+
+    // ─── find_prev_item tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_find_prev_item_basic() {
+        let entries = test_entries();
+        // From item 2, prev item is 1
+        assert_eq!(App::find_prev_item(&entries, 2), Some(1));
+    }
+
+    #[test]
+    fn test_find_prev_item_skips_category() {
+        let entries = test_entries();
+        // From item 4, prev is item 2 (skips category at 3)
+        assert_eq!(App::find_prev_item(&entries, 4), Some(2));
+    }
+
+    #[test]
+    fn test_find_prev_item_from_category() {
+        let entries = test_entries();
+        // From category 3, prev item is 2
+        assert_eq!(App::find_prev_item(&entries, 3), Some(2));
+        // From category 5, prev item is 4
+        assert_eq!(App::find_prev_item(&entries, 5), Some(4));
+    }
+
+    #[test]
+    fn test_find_prev_item_at_start() {
+        let entries = test_entries();
+        // From first item (1), no prev item (0 is a category)
+        assert_eq!(App::find_prev_item(&entries, 1), None);
+        // From index 0, no prev item
+        assert_eq!(App::find_prev_item(&entries, 0), None);
+    }
+
+    #[test]
+    fn test_find_prev_item_empty_list() {
+        let entries: Vec<QuickRefEntry> = vec![];
+        assert_eq!(App::find_prev_item(&entries, 0), None);
+    }
+
+    // ─── find_nearest_item tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_find_nearest_item_on_item() {
+        let entries = test_entries();
+        // On item 1, nearest is itself
+        assert_eq!(App::find_nearest_item(&entries, 1), Some(1));
+    }
+
+    #[test]
+    fn test_find_nearest_item_on_category() {
+        let entries = test_entries();
+        // On category 0, nearest forward is item 1
+        assert_eq!(App::find_nearest_item(&entries, 0), Some(1));
+        // On category 3, nearest forward is item 4
+        assert_eq!(App::find_nearest_item(&entries, 3), Some(4));
+    }
+
+    #[test]
+    fn test_find_nearest_item_past_end() {
+        let entries = test_entries();
+        assert_eq!(App::find_nearest_item(&entries, 100), None);
+    }
+
+    #[test]
+    fn test_find_nearest_item_empty_list() {
+        let entries: Vec<QuickRefEntry> = vec![];
+        assert_eq!(App::find_nearest_item(&entries, 0), None);
+    }
+
+    // ─── find_nearest_item_reverse tests ─────────────────────────────────────
+
+    #[test]
+    fn test_find_nearest_item_reverse_on_item() {
+        let entries = test_entries();
+        // On item 4, nearest reverse is itself
+        assert_eq!(App::find_nearest_item_reverse(&entries, 4), Some(4));
+    }
+
+    #[test]
+    fn test_find_nearest_item_reverse_on_category() {
+        let entries = test_entries();
+        // On category 3, nearest reverse is item 2
+        assert_eq!(App::find_nearest_item_reverse(&entries, 3), Some(2));
+        // On category 5, nearest reverse is item 4
+        assert_eq!(App::find_nearest_item_reverse(&entries, 5), Some(4));
+    }
+
+    #[test]
+    fn test_find_nearest_item_reverse_at_start_category() {
+        let entries = test_entries();
+        // On category 0, no item before or at
+        assert_eq!(App::find_nearest_item_reverse(&entries, 0), None);
+    }
+
+    #[test]
+    fn test_find_nearest_item_reverse_empty_list() {
+        let entries: Vec<QuickRefEntry> = vec![];
+        assert_eq!(App::find_nearest_item_reverse(&entries, 0), None);
+    }
+
+    // ─── Navigation method tests (quick_ref_up/down) ─────────────────────────
+
+    #[test]
+    fn test_quick_ref_down_moves_to_next_item() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 1; // Start at item "a"
+
+        app.quick_ref_down();
+
+        assert_eq!(app.quick_ref_selected, 2); // Moved to item "b"
+    }
+
+    #[test]
+    fn test_quick_ref_down_skips_category() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 2; // Start at item "b"
+
+        app.quick_ref_down();
+
+        assert_eq!(app.quick_ref_selected, 4); // Skipped category, moved to item "c"
+    }
+
+    #[test]
+    fn test_quick_ref_down_stays_at_last_item() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 7; // Start at last item "e"
+
+        app.quick_ref_down();
+
+        assert_eq!(app.quick_ref_selected, 7); // Stayed at last item
+    }
+
+    #[test]
+    fn test_quick_ref_up_moves_to_prev_item() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 2; // Start at item "b"
+
+        app.quick_ref_up();
+
+        assert_eq!(app.quick_ref_selected, 1); // Moved to item "a"
+    }
+
+    #[test]
+    fn test_quick_ref_up_skips_category() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 4; // Start at item "c"
+
+        app.quick_ref_up();
+
+        assert_eq!(app.quick_ref_selected, 2); // Skipped category, moved to item "b"
+    }
+
+    #[test]
+    fn test_quick_ref_up_stays_at_first_item() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 1; // Start at first item "a"
+
+        app.quick_ref_up();
+
+        assert_eq!(app.quick_ref_selected, 1); // Stayed at first item
+    }
+
+    // ─── Page navigation tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_quick_ref_page_down() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 1; // Start at item "a"
+        app.quick_ref_view_height = 3; // Page size of 3
+
+        app.quick_ref_page_down();
+
+        // Target would be index 4, which is item "c"
+        assert_eq!(app.quick_ref_selected, 4);
+    }
+
+    #[test]
+    fn test_quick_ref_page_down_lands_on_category() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 1; // Start at item "a"
+        app.quick_ref_view_height = 2; // Page size of 2
+
+        app.quick_ref_page_down();
+
+        // Target would be index 3 (category), should find nearest item at or before: 2
+        assert_eq!(app.quick_ref_selected, 2);
+    }
+
+    #[test]
+    fn test_quick_ref_page_down_at_end() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 7; // Start at last item "e"
+        app.quick_ref_view_height = 3;
+
+        app.quick_ref_page_down();
+
+        // Should stay at last item
+        assert_eq!(app.quick_ref_selected, 7);
+    }
+
+    #[test]
+    fn test_quick_ref_page_up() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 7; // Start at item "e"
+        app.quick_ref_view_height = 3; // Page size of 3
+
+        app.quick_ref_page_up();
+
+        // Target would be index 4, which is item "c"
+        assert_eq!(app.quick_ref_selected, 4);
+    }
+
+    #[test]
+    fn test_quick_ref_page_up_lands_on_category() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 6; // Start at item "d"
+        app.quick_ref_view_height = 3; // Page size of 3
+
+        app.quick_ref_page_up();
+
+        // Target would be index 3 (category), should find nearest item at or after: 4
+        assert_eq!(app.quick_ref_selected, 4);
+    }
+
+    #[test]
+    fn test_quick_ref_page_up_at_start() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 1; // Start at first item "a"
+        app.quick_ref_view_height = 3;
+
+        app.quick_ref_page_up();
+
+        // Should stay at first item
+        assert_eq!(app.quick_ref_selected, 1);
+    }
+
+    #[test]
+    fn test_quick_ref_page_navigation_with_zero_height() {
+        let mut app = create_test_app();
+        app.quick_ref_selected = 2;
+        app.quick_ref_view_height = 0; // Edge case: zero height
+
+        app.quick_ref_page_down();
+
+        // Should use height of 1, so move by 1
+        // From 2, target is 3 (category), nearest at or before is 2
+        assert_eq!(app.quick_ref_selected, 2);
+    }
+
+    // ─── Helper ──────────────────────────────────────────────────────────────
+
+    fn create_test_app() -> App<'static> {
+        let mut app = App::new(String::new());
+        app.quick_ref_entries = test_entries();
+        app.quick_ref_selected = 1; // Default to first item
+        app.quick_ref_view_height = 5;
+        app
     }
 }
