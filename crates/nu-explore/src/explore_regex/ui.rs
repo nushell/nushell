@@ -429,7 +429,7 @@ fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
         sep.clone(),
         help_key("F1"),
         help_desc(if app.show_quick_ref {
-            " Hide Help"
+            " Hide Quick Ref"
         } else {
             " Quick Ref"
         }),
