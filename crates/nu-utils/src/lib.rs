@@ -29,7 +29,7 @@ pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;
 pub use multilife::MultiLife;
 pub use nu_cow::NuCow;
-pub use quoting::{escape_quote_string, needs_quoting};
+pub use quoting::{as_raw_string, escape_quote_string, needs_quoting};
 pub use shared_cow::SharedCow;
 pub use split_read::SplitRead;
 

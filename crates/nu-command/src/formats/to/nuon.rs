@@ -66,7 +66,12 @@ impl Command for ToNuon {
         let span = call.head;
         let value = input.into_value(span)?;
 
-        match nuon::to_nuon(engine_state, &value, style, Some(span), serialize_types) {
+        let config = nuon::ToNuonConfig::default()
+            .style(style)
+            .span(Some(span))
+            .serialize_types(serialize_types);
+
+        match nuon::to_nuon(engine_state, &value, config) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
                 .into_pipeline_data_with_metadata(Some(metadata))),
             Err(error) => {

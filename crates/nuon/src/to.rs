@@ -1,13 +1,65 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
 use nu_protocol::{Range, ShellError, Span, Value, engine::EngineState};
-use nu_utils::{ObviousFloat, escape_quote_string, needs_quoting};
+use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
+
+/// Configuration for converting Nushell [`Value`] to NUON data.
+///
+/// Use [`ToNuonConfig::default()`] to get started, then chain builder methods.
+///
+/// # Example
+/// ```ignore
+/// let config = ToNuonConfig::default()
+///     .style(ToStyle::Spaces(2))
+///     .raw_strings(true);
+/// to_nuon(&engine_state, &value, config)?;
+/// ```
+#[derive(Clone, Debug, Default)]
+#[non_exhaustive]
+pub struct ToNuonConfig {
+    /// Formatting style (indentation)
+    pub style: ToStyle,
+    /// Optional span for error reporting
+    pub span: Option<Span>,
+    /// Serialize non-serializable types (like closures) as strings
+    pub serialize_types: bool,
+    /// Prefer raw string syntax (`r#'...'#`) when strings contain quotes or backslashes
+    pub raw_strings: bool,
+}
+
+impl ToNuonConfig {
+    /// Set the formatting style
+    pub fn style(mut self, style: ToStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Set the span for error reporting
+    pub fn span(mut self, span: Option<Span>) -> Self {
+        self.span = span;
+        self
+    }
+
+    /// Enable serialization of non-serializable types as strings
+    pub fn serialize_types(mut self, serialize_types: bool) -> Self {
+        self.serialize_types = serialize_types;
+        self
+    }
+
+    /// Prefer raw string syntax when strings contain quotes or backslashes
+    pub fn raw_strings(mut self, raw_strings: bool) -> Self {
+        self.raw_strings = raw_strings;
+        self
+    }
+}
 
 /// control the way Nushell [`Value`] is converted to NUON data
+#[derive(Clone, Debug, Default)]
 pub enum ToStyle {
     /// no extra indentation
     ///
     /// `{ a: 1, b: 2 }` will be converted to `{a: 1, b: 2}`
+    #[default]
     Default,
     /// no white space at all
     ///
@@ -45,16 +97,24 @@ pub enum ToStyle {
 /// > using this function in a command implementation such as [`to nuon`](https://www.nushell.sh/commands/docs/to_nuon.html).
 ///
 /// also see [`super::from_nuon`] for the inverse operation
+///
+/// # Example
+/// ```ignore
+/// use nuon::{to_nuon, ToNuonConfig, ToStyle};
+///
+/// let config = ToNuonConfig::default()
+///     .style(ToStyle::Spaces(2))
+///     .raw_strings(true);
+/// let result = to_nuon(&engine_state, &value, config)?;
+/// ```
 pub fn to_nuon(
     engine_state: &EngineState,
     input: &Value,
-    style: ToStyle,
-    span: Option<Span>,
-    serialize_types: bool,
+    config: ToNuonConfig,
 ) -> Result<String, ShellError> {
-    let span = span.unwrap_or(Span::unknown());
+    let span = config.span.unwrap_or(Span::unknown());
 
-    let indentation = match style {
+    let indentation = match config.style {
         ToStyle::Default => None,
         ToStyle::Raw => Some("".to_string()),
         ToStyle::Tabs(t) => Some("\t".repeat(t)),
@@ -67,7 +127,8 @@ pub fn to_nuon(
         span,
         0,
         indentation.as_deref(),
-        serialize_types,
+        config.serialize_types,
+        config.raw_strings,
     )?;
 
     Ok(res)
@@ -80,6 +141,7 @@ fn value_to_string(
     depth: usize,
     indent: Option<&str>,
     serialize_types: bool,
+    raw_strings: bool,
 ) -> Result<String, ShellError> {
     let (nl, sep, kv_sep) = get_true_separators(indent);
     let idt = get_true_indentation(depth, indent);
@@ -103,8 +165,9 @@ fn value_to_string(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                Ok(escape_quote_string(
+                Ok(quote_string(
                     &val.coerce_into_string(engine_state, span)?,
+                    raw_strings,
                 ))
             } else {
                 Err(ShellError::UnsupportedInput {
@@ -168,6 +231,7 @@ fn value_to_string(
                                 depth + 2,
                                 indent,
                                 serialize_types,
+                                raw_strings,
                             )?);
                         }
                     }
@@ -191,7 +255,8 @@ fn value_to_string(
                             span,
                             depth + 1,
                             indent,
-                            serialize_types
+                            serialize_types,
+                            raw_strings,
                         )?
                     ));
                 }
@@ -222,7 +287,8 @@ fn value_to_string(
                         span,
                         depth + 1,
                         indent,
-                        serialize_types
+                        serialize_types,
+                        raw_strings,
                     )?
                 ));
             }
@@ -233,8 +299,8 @@ fn value_to_string(
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
-        Value::String { val, .. } => Ok(escape_quote_string(val)),
-        Value::Glob { val, .. } => Ok(escape_quote_string(val)),
+        Value::String { val, .. } => Ok(quote_string(val, raw_strings)),
+        Value::Glob { val, .. } => Ok(quote_string(val, raw_strings)),
     }
 }
 
@@ -243,6 +309,17 @@ fn get_true_indentation(depth: usize, indent: Option<&str>) -> String {
         Some(i) => i.repeat(depth),
         None => "".to_string(),
     }
+}
+
+/// Quote a string, using raw string syntax if `raw_strings` is true and the string
+/// contains quotes or backslashes.
+fn quote_string(s: &str, raw_strings: bool) -> String {
+    if raw_strings {
+        if let Some(raw) = as_raw_string(s) {
+            return raw;
+        }
+    }
+    escape_quote_string(s)
 }
 
 /// Converts the provided indent into three types of separator:
@@ -264,15 +341,24 @@ fn value_to_string_without_quotes(
     depth: usize,
     indent: Option<&str>,
     serialize_types: bool,
+    raw_strings: bool,
 ) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({
             if needs_quoting(val) {
-                escape_quote_string(val)
+                quote_string(val, raw_strings)
             } else {
                 val.clone()
             }
         }),
-        _ => value_to_string(engine_state, v, span, depth, indent, serialize_types),
+        _ => value_to_string(
+            engine_state,
+            v,
+            span,
+            depth,
+            indent,
+            serialize_types,
+            raw_strings,
+        ),
     }
 }
