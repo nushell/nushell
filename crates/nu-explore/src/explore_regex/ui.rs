@@ -32,6 +32,9 @@ enum KeyAction {
     QuickRefDown,
     QuickRefPageUp,
     QuickRefPageDown,
+    QuickRefLeft,
+    QuickRefRight,
+    QuickRefHome,
     QuickRefInsert,
     SamplePageUp,
     SamplePageDown,
@@ -57,6 +60,9 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
             KeyCode::Down | KeyCode::Char('j') => KeyAction::QuickRefDown,
             KeyCode::PageUp => KeyAction::QuickRefPageUp,
             KeyCode::PageDown => KeyAction::QuickRefPageDown,
+            KeyCode::Left | KeyCode::Char('h') => KeyAction::QuickRefLeft,
+            KeyCode::Right | KeyCode::Char('l') => KeyAction::QuickRefRight,
+            KeyCode::Home => KeyAction::QuickRefHome,
             KeyCode::Enter => KeyAction::QuickRefInsert,
             KeyCode::Esc | KeyCode::Tab | KeyCode::BackTab => KeyAction::FocusRegex,
             _ => KeyAction::None,
@@ -107,6 +113,9 @@ fn execute_action(app: &mut App, action: KeyAction) -> bool {
         KeyAction::QuickRefDown => app.quick_ref_down(),
         KeyAction::QuickRefPageUp => app.quick_ref_page_up(),
         KeyAction::QuickRefPageDown => app.quick_ref_page_down(),
+        KeyAction::QuickRefLeft => app.quick_ref_scroll_left(),
+        KeyAction::QuickRefRight => app.quick_ref_scroll_right(),
+        KeyAction::QuickRefHome => app.quick_ref_scroll_home(),
         KeyAction::QuickRefInsert => app.insert_selected_quick_ref(),
         KeyAction::SamplePageUp | KeyAction::SamplePageDown => {
             handle_sample_page_navigation(app, matches!(action, KeyAction::SamplePageDown));
@@ -434,6 +443,9 @@ fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
         spans.push(help_key("↑↓"));
         spans.push(help_desc(" Navigate"));
         spans.push(Span::styled("  ", styles::separator()));
+        spans.push(help_key("←→"));
+        spans.push(help_desc(" Scroll"));
+        spans.push(Span::styled("  ", styles::separator()));
         spans.push(help_key("Enter"));
         spans.push(help_desc(" Insert"));
     }
@@ -473,7 +485,9 @@ fn draw_quick_ref_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
     f.render_widget(block, area);
 
     let visible_height = inner.height as usize;
+    let visible_width = inner.width;
     app.quick_ref_view_height = visible_height;
+    app.quick_ref_view_width = visible_width;
 
     // Adjust scroll to keep selected visible
     if app.quick_ref_selected < app.quick_ref_scroll {
@@ -489,12 +503,11 @@ fn draw_quick_ref_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
         .enumerate()
         .skip(app.quick_ref_scroll)
         .take(visible_height)
-        .map(|(idx, entry)| {
-            build_quick_ref_line(entry, idx, app.quick_ref_selected, focused, inner.width)
-        })
+        .map(|(idx, entry)| build_quick_ref_line(entry, idx, app.quick_ref_selected, focused))
         .collect();
 
-    f.render_widget(Paragraph::new(lines), inner);
+    let paragraph = Paragraph::new(lines).scroll((0, app.quick_ref_scroll_h));
+    f.render_widget(paragraph, inner);
 
     // Scrollbar
     if app.quick_ref_entries.len() > visible_height {
@@ -507,43 +520,31 @@ fn build_quick_ref_line(
     idx: usize,
     selected: usize,
     focused: bool,
-    width: u16,
 ) -> Line<'static> {
+    const SYNTAX_WIDTH: usize = 14;
+
     match entry {
         QuickRefEntry::Category(name) => Line::from(vec![Span::styled(
-            format!("─ {} ", name),
+            format!("─ {} ─────────────────────────────────────", name),
             styles::category_header(),
         )]),
         QuickRefEntry::Item(item) => {
             let is_selected = idx == selected && focused;
-            let syntax_width = 12usize;
-            let available = width.saturating_sub(syntax_width as u16 + 3) as usize;
-
-            let description = if item.description.len() > available {
-                format!("{}…", &item.description[..available.saturating_sub(1)])
-            } else {
-                item.description.to_string()
-            };
-
-            let syntax = format!("{:<width$}", item.syntax, width = syntax_width);
+            let syntax = format!("{:<width$}", item.syntax, width = SYNTAX_WIDTH);
 
             if is_selected {
-                let padding_len = width
-                    .saturating_sub(syntax_width as u16 + description.len() as u16 + 1)
-                    as usize;
-                let padding = " ".repeat(padding_len);
-
                 Line::from(vec![
                     Span::styled(syntax, styles::selected_bold()),
                     Span::styled(" ", styles::selected()),
-                    Span::styled(description, styles::selected()),
-                    Span::styled(padding, styles::selected()),
+                    Span::styled(item.description.to_string(), styles::selected()),
+                    // Extra padding for smooth horizontal scrolling
+                    Span::styled("          ", styles::selected()),
                 ])
             } else {
                 Line::from(vec![
                     Span::styled(syntax, styles::focused()),
                     Span::styled(" ", styles::unfocused()),
-                    Span::styled(description, styles::unfocused()),
+                    Span::styled(item.description.to_string(), styles::unfocused()),
                 ])
             }
         }

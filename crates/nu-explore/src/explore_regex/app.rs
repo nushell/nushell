@@ -33,7 +33,9 @@ pub struct App<'a> {
     pub show_quick_ref: bool,
     pub quick_ref_selected: usize,
     pub quick_ref_scroll: usize,
+    pub quick_ref_scroll_h: u16,
     pub quick_ref_view_height: usize,
+    pub quick_ref_view_width: u16,
     pub quick_ref_entries: Vec<QuickRefEntry>,
 }
 
@@ -63,7 +65,9 @@ impl<'a> App<'a> {
             show_quick_ref: false,
             quick_ref_selected: initial_selected,
             quick_ref_scroll: 0,
+            quick_ref_scroll_h: 0,
             quick_ref_view_height: 0,
+            quick_ref_view_width: 0,
             quick_ref_entries: entries,
         }
     }
@@ -233,6 +237,21 @@ impl<'a> App<'a> {
             self.regex_textarea.insert_str(item.insert);
             self.compile_regex();
         }
+    }
+
+    /// Scroll quick reference panel left.
+    pub fn quick_ref_scroll_left(&mut self) {
+        self.quick_ref_scroll_h = self.quick_ref_scroll_h.saturating_sub(4);
+    }
+
+    /// Scroll quick reference panel right.
+    pub fn quick_ref_scroll_right(&mut self) {
+        self.quick_ref_scroll_h = self.quick_ref_scroll_h.saturating_add(4);
+    }
+
+    /// Scroll quick reference panel to home (beginning of line).
+    pub fn quick_ref_scroll_home(&mut self) {
+        self.quick_ref_scroll_h = 0;
     }
 
     /// Check if an entry at the given index is selectable (i.e., an Item, not a Category).
@@ -617,6 +636,59 @@ mod tests {
         // Should use height of 1, so move by 1
         // From 2, target is 3 (category), nearest at or before is 2
         assert_eq!(app.quick_ref_selected, 2);
+    }
+
+    // ─── Horizontal scroll tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_quick_ref_scroll_right() {
+        let mut app = create_test_app();
+        assert_eq!(app.quick_ref_scroll_h, 0);
+
+        app.quick_ref_scroll_right();
+        assert_eq!(app.quick_ref_scroll_h, 4);
+
+        app.quick_ref_scroll_right();
+        assert_eq!(app.quick_ref_scroll_h, 8);
+    }
+
+    #[test]
+    fn test_quick_ref_scroll_left() {
+        let mut app = create_test_app();
+        app.quick_ref_scroll_h = 8;
+
+        app.quick_ref_scroll_left();
+        assert_eq!(app.quick_ref_scroll_h, 4);
+
+        app.quick_ref_scroll_left();
+        assert_eq!(app.quick_ref_scroll_h, 0);
+    }
+
+    #[test]
+    fn test_quick_ref_scroll_left_at_zero() {
+        let mut app = create_test_app();
+        assert_eq!(app.quick_ref_scroll_h, 0);
+
+        app.quick_ref_scroll_left();
+        assert_eq!(app.quick_ref_scroll_h, 0); // Should not underflow
+    }
+
+    #[test]
+    fn test_quick_ref_scroll_home() {
+        let mut app = create_test_app();
+        app.quick_ref_scroll_h = 20;
+
+        app.quick_ref_scroll_home();
+        assert_eq!(app.quick_ref_scroll_h, 0);
+    }
+
+    #[test]
+    fn test_quick_ref_scroll_home_already_at_zero() {
+        let mut app = create_test_app();
+        assert_eq!(app.quick_ref_scroll_h, 0);
+
+        app.quick_ref_scroll_home();
+        assert_eq!(app.quick_ref_scroll_h, 0);
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────
