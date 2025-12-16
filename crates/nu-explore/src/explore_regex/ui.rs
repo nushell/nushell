@@ -2,14 +2,18 @@
 
 use crate::explore_regex::app::{App, InputFocus};
 use crate::explore_regex::colors;
+use crate::explore_regex::quick_ref::QuickRefEntry;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
-    crossterm::event::{self, Event, KeyCode, KeyEventKind},
+    crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Modifier, Style, Stylize},
     text::{Line, Span},
-    widgets::{Block, BorderType, Borders, Padding, Paragraph},
+    widgets::{
+        Block, BorderType, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState,
+    },
 };
 use std::io::{self, Stdout};
 use tui_textarea::{CursorMove, Input};
@@ -32,25 +36,69 @@ pub fn run_app_loop(
         }
 
         // Handle Ctrl+Q to quit
-        if key.code == KeyCode::Char('q')
-            && key
-                .modifiers
-                .contains(ratatui::crossterm::event::KeyModifiers::CONTROL)
-        {
+        if key.code == KeyCode::Char('q') && key.modifiers.contains(KeyModifiers::CONTROL) {
             return Ok(());
         }
 
-        // Handle Tab to switch focus
+        // Handle F1 or '?' (without modifiers, when not in text input) to toggle quick reference panel
+        if key.code == KeyCode::F(1) {
+            app.toggle_quick_ref();
+            continue;
+        }
+
+        // Handle quick reference panel navigation when it's open and focused
+        if app.show_quick_ref && matches!(app.input_focus, InputFocus::QuickRef) {
+            match key.code {
+                KeyCode::Up | KeyCode::Char('k') => {
+                    app.quick_ref_up();
+                    continue;
+                }
+                KeyCode::Down | KeyCode::Char('j') => {
+                    app.quick_ref_down();
+                    continue;
+                }
+                KeyCode::PageUp => {
+                    app.quick_ref_page_up();
+                    continue;
+                }
+                KeyCode::PageDown => {
+                    app.quick_ref_page_down();
+                    continue;
+                }
+                KeyCode::Enter => {
+                    app.insert_selected_quick_ref();
+                    // Keep the panel open so user can add more patterns
+                    continue;
+                }
+                KeyCode::Esc => {
+                    app.show_quick_ref = false;
+                    app.input_focus = InputFocus::Regex;
+                    continue;
+                }
+                KeyCode::Tab | KeyCode::BackTab => {
+                    // Tab out of quick ref panel to regex/sample
+                    app.input_focus = InputFocus::Regex;
+                    continue;
+                }
+                _ => continue,
+            }
+        }
+
+        // Handle Tab to switch focus (when quick ref panel is not focused)
         if key.code == KeyCode::Tab || key.code == KeyCode::BackTab {
             app.input_focus = match app.input_focus {
                 InputFocus::Regex => InputFocus::Sample,
                 InputFocus::Sample => InputFocus::Regex,
+                InputFocus::QuickRef => InputFocus::Regex,
             };
             continue;
         }
 
-        // Escape will focus the Regex field back again
+        // Escape will focus the Regex field back again (or close quick ref if open)
         if key.code == KeyCode::Esc {
+            if app.show_quick_ref {
+                app.show_quick_ref = false;
+            }
             app.input_focus = InputFocus::Regex;
             continue;
         }
@@ -94,6 +142,9 @@ pub fn run_app_loop(
                     app.update_match_count();
                 }
             }
+            InputFocus::QuickRef => {
+                // Already handled above
+            }
         }
     }
 }
@@ -113,6 +164,24 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
     let inner_area = outer_block.inner(f.area());
     f.render_widget(outer_block, f.area());
 
+    // If quick reference panel is shown, split horizontally
+    if app.show_quick_ref {
+        let horizontal_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Min(40),    // Main content (at least 40 columns)
+                Constraint::Length(40), // Quick reference panel (fixed 40 columns)
+            ])
+            .split(inner_area);
+
+        draw_main_content(f, app, horizontal_chunks[0]);
+        draw_quick_ref_panel(f, app, horizontal_chunks[1]);
+    } else {
+        draw_main_content(f, app, inner_area);
+    }
+}
+
+fn draw_main_content(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -126,30 +195,185 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
             Constraint::Length(1), // Help
         ])
         .horizontal_margin(2)
-        .split(inner_area);
+        .split(area);
 
     draw_body(f, app, (chunks[1], chunks[2], chunks[4], chunks[5]));
-    draw_help(f, chunks[7]);
+    draw_help(f, app, chunks[7]);
 }
 
-fn draw_help(f: &mut ratatui::Frame, area: Rect) {
+fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
     let key_style = Style::new().fg(colors::FG_PRIMARY).bold();
     let desc_style = Style::new().fg(colors::FG_MUTED);
     let separator = Span::styled("  •  ", Style::new().fg(colors::FG_MUTED));
 
-    f.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled("Tab", key_style),
-            Span::styled(" Switch Focus", desc_style),
-            separator.clone(),
-            Span::styled("Esc", key_style),
-            Span::styled(" Focus Regex", desc_style),
-            separator.clone(),
-            Span::styled("Ctrl+Q", key_style),
-            Span::styled(" Exit", desc_style),
-        ])),
-        area,
-    );
+    let mut spans = vec![
+        Span::styled("Tab", key_style),
+        Span::styled(" Switch Focus", desc_style),
+        separator.clone(),
+        Span::styled("Esc", key_style),
+        Span::styled(" Focus Regex", desc_style),
+        separator.clone(),
+        Span::styled("F1", key_style),
+        if app.show_quick_ref {
+            Span::styled(" Hide Help", desc_style)
+        } else {
+            Span::styled(" Quick Ref", desc_style)
+        },
+        separator.clone(),
+        Span::styled("Ctrl+Q", key_style),
+        Span::styled(" Exit", desc_style),
+    ];
+
+    // Add quick ref navigation hints when panel is open
+    if app.show_quick_ref && matches!(app.input_focus, InputFocus::QuickRef) {
+        spans.push(separator);
+        spans.push(Span::styled("↑↓", key_style));
+        spans.push(Span::styled(" Navigate", desc_style));
+        spans.push(Span::styled("  ", desc_style));
+        spans.push(Span::styled("Enter", key_style));
+        spans.push(Span::styled(" Insert", desc_style));
+    }
+
+    f.render_widget(Paragraph::new(Line::from(spans)), area);
+}
+
+fn draw_quick_ref_panel(f: &mut ratatui::Frame, app: &mut App, area: Rect) {
+    let focused = matches!(app.input_focus, InputFocus::QuickRef);
+
+    let border_color = if focused {
+        colors::ACCENT
+    } else {
+        colors::FG_MUTED
+    };
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(Style::new().fg(border_color))
+        .title(Line::from(vec![Span::styled(
+            " Quick Reference ",
+            Style::new().fg(colors::FG_PRIMARY).bold(),
+        )]))
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(1));
+
+    let inner_area = block.inner(area);
+    f.render_widget(block, area);
+
+    let visible_height = inner_area.height as usize;
+    app.quick_ref_view_height = visible_height;
+
+    // Adjust scroll to keep selected item visible
+    if app.quick_ref_selected < app.quick_ref_scroll {
+        app.quick_ref_scroll = app.quick_ref_selected;
+    } else if app.quick_ref_selected >= app.quick_ref_scroll + visible_height {
+        app.quick_ref_scroll = app.quick_ref_selected - visible_height + 1;
+    }
+
+    // Build lines for the quick reference content
+    let mut lines: Vec<Line> = Vec::new();
+
+    for (idx, entry) in app.quick_ref_entries.iter().enumerate() {
+        // Skip entries before scroll position
+        if idx < app.quick_ref_scroll {
+            continue;
+        }
+        // Stop if we've filled the visible area
+        if lines.len() >= visible_height {
+            break;
+        }
+
+        let is_selected = idx == app.quick_ref_selected && focused;
+
+        match entry {
+            QuickRefEntry::Category(name) => {
+                // Category header with special styling
+                let header_style = Style::new()
+                    .fg(colors::ACCENT)
+                    .bold()
+                    .add_modifier(Modifier::UNDERLINED);
+                lines.push(Line::from(vec![Span::styled(
+                    format!("─ {} ", name),
+                    header_style,
+                )]));
+            }
+            QuickRefEntry::Item(item) => {
+                // Calculate available width for description
+                let syntax_width = 12; // Fixed width for syntax column
+                let available_width = inner_area.width.saturating_sub(syntax_width + 3) as usize;
+
+                // Truncate description if needed
+                let description = if item.description.len() > available_width {
+                    format!(
+                        "{}…",
+                        &item.description[..available_width.saturating_sub(1)]
+                    )
+                } else {
+                    item.description.to_string()
+                };
+
+                let (syntax_style, desc_style) = if is_selected {
+                    (
+                        Style::new().fg(colors::BG_DARK).bg(colors::ACCENT).bold(),
+                        Style::new().fg(colors::BG_DARK).bg(colors::ACCENT),
+                    )
+                } else {
+                    (
+                        Style::new().fg(colors::FG_PRIMARY).bold(),
+                        Style::new().fg(colors::FG_MUTED),
+                    )
+                };
+
+                // Format syntax with fixed width padding
+                let syntax_formatted =
+                    format!("{:<width$}", item.syntax, width = syntax_width as usize);
+
+                // Build the line with selection highlight extending full width
+                if is_selected {
+                    let remaining_width = inner_area
+                        .width
+                        .saturating_sub(syntax_width + description.len() as u16 + 1)
+                        as usize;
+                    let padding = " ".repeat(remaining_width);
+                    lines.push(Line::from(vec![
+                        Span::styled(syntax_formatted, syntax_style),
+                        Span::styled(" ", desc_style),
+                        Span::styled(description, desc_style),
+                        Span::styled(padding, desc_style),
+                    ]));
+                } else {
+                    lines.push(Line::from(vec![
+                        Span::styled(syntax_formatted, syntax_style),
+                        Span::styled(" ", desc_style),
+                        Span::styled(description, desc_style),
+                    ]));
+                }
+            }
+        }
+    }
+
+    let paragraph = Paragraph::new(lines);
+    f.render_widget(paragraph, inner_area);
+
+    // Render scrollbar if content is scrollable
+    let total_entries = app.quick_ref_entries.len();
+    if total_entries > visible_height {
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight)
+            .begin_symbol(Some("↑"))
+            .end_symbol(Some("↓"));
+
+        let mut scrollbar_state = ScrollbarState::new(total_entries).position(app.quick_ref_scroll);
+
+        // Render scrollbar in the area to the right of content
+        let scrollbar_area = Rect {
+            x: area.x + area.width - 2,
+            y: area.y + 1,
+            width: 1,
+            height: area.height.saturating_sub(2),
+        };
+
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
 }
 
 fn draw_body(f: &mut ratatui::Frame, app: &mut App, areas: (Rect, Rect, Rect, Rect)) {

@@ -1,6 +1,7 @@
 //! Application state and logic for the regex explorer.
 
 use crate::explore_regex::colors;
+use crate::explore_regex::quick_ref::{QuickRefEntry, get_flattened_entries};
 use fancy_regex::Regex;
 use ratatui::{
     style::{Color, Style},
@@ -13,6 +14,7 @@ pub enum InputFocus {
     #[default]
     Regex,
     Sample,
+    QuickRef,
 }
 
 pub struct App<'a> {
@@ -25,6 +27,12 @@ pub struct App<'a> {
     pub sample_scroll_h: u16,
     pub sample_view_height: u16,
     pub match_count: usize,
+    // Quick reference panel state
+    pub show_quick_ref: bool,
+    pub quick_ref_selected: usize,
+    pub quick_ref_scroll: usize,
+    pub quick_ref_view_height: usize,
+    pub quick_ref_entries: Vec<QuickRefEntry>,
 }
 
 impl<'a> App<'a> {
@@ -37,6 +45,10 @@ impl<'a> App<'a> {
         sample_textarea.set_cursor_line_style(Style::new());
         sample_textarea.move_cursor(CursorMove::Top);
 
+        // Initialize with first selectable item (skip first category header)
+        let entries = get_flattened_entries();
+        let initial_selected = if entries.len() > 1 { 1 } else { 0 };
+
         Self {
             input_focus: InputFocus::default(),
             regex_textarea,
@@ -47,6 +59,11 @@ impl<'a> App<'a> {
             sample_scroll_h: 0,
             sample_view_height: 0,
             match_count: 0,
+            show_quick_ref: false,
+            quick_ref_selected: initial_selected,
+            quick_ref_scroll: 0,
+            quick_ref_view_height: 0,
+            quick_ref_entries: entries,
         }
     }
 
@@ -173,5 +190,82 @@ impl<'a> App<'a> {
 
         lines.push(current_line);
         Text::from(lines)
+    }
+
+    /// Toggle the quick reference panel visibility
+    pub fn toggle_quick_ref(&mut self) {
+        self.show_quick_ref = !self.show_quick_ref;
+        if self.show_quick_ref {
+            self.input_focus = InputFocus::QuickRef;
+        } else {
+            self.input_focus = InputFocus::Regex;
+        }
+    }
+
+    /// Move selection up in the quick reference list, skipping category headers
+    pub fn quick_ref_up(&mut self) {
+        if self.quick_ref_selected > 0 {
+            self.quick_ref_selected -= 1;
+            // Skip category headers when moving up
+            while self.quick_ref_selected > 0 {
+                if let QuickRefEntry::Category(_) = &self.quick_ref_entries[self.quick_ref_selected]
+                {
+                    self.quick_ref_selected -= 1;
+                } else {
+                    break;
+                }
+            }
+            // If we landed on a category header at position 0, move to first item
+            if let QuickRefEntry::Category(_) = &self.quick_ref_entries[self.quick_ref_selected] {
+                self.quick_ref_selected += 1;
+            }
+        }
+    }
+
+    /// Move selection down in the quick reference list, skipping category headers
+    pub fn quick_ref_down(&mut self) {
+        if self.quick_ref_selected < self.quick_ref_entries.len() - 1 {
+            self.quick_ref_selected += 1;
+            // Skip category headers when moving down
+            while self.quick_ref_selected < self.quick_ref_entries.len() - 1 {
+                if let QuickRefEntry::Category(_) = &self.quick_ref_entries[self.quick_ref_selected]
+                {
+                    self.quick_ref_selected += 1;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    /// Move selection up by one page in the quick reference list
+    pub fn quick_ref_page_up(&mut self) {
+        let page_size = self.quick_ref_view_height.max(1);
+        for _ in 0..page_size {
+            if self.quick_ref_selected <= 1 {
+                break;
+            }
+            self.quick_ref_up();
+        }
+    }
+
+    /// Move selection down by one page in the quick reference list
+    pub fn quick_ref_page_down(&mut self) {
+        let page_size = self.quick_ref_view_height.max(1);
+        for _ in 0..page_size {
+            if self.quick_ref_selected >= self.quick_ref_entries.len() - 1 {
+                break;
+            }
+            self.quick_ref_down();
+        }
+    }
+
+    /// Insert the selected quick reference item into the regex input
+    pub fn insert_selected_quick_ref(&mut self) {
+        if let Some(QuickRefEntry::Item(item)) = self.quick_ref_entries.get(self.quick_ref_selected)
+        {
+            self.regex_textarea.insert_str(item.insert);
+            self.compile_regex();
+        }
     }
 }

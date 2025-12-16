@@ -6,6 +6,7 @@
 mod app;
 mod colors;
 mod command;
+pub mod quick_ref;
 mod ui;
 
 pub use command::ExploreRegex;
