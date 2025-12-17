@@ -100,7 +100,13 @@ fn main() -> Result<()> {
         report_shell_error(None, &engine_state, &err);
     }
 
-    ctrlc_protection(&mut engine_state);
+    #[cfg(feature = "mcp")]
+    let handle_ctrlc = !parsed_nu_cli_args.mcp;
+    #[cfg(not(feature = "mcp"))]
+    let handle_ctrlc = true;
+    if handle_ctrlc {
+        ctrlc_protection(&mut engine_state);
+    }
 
     #[cfg(all(feature = "rustls-tls", feature = "network"))]
     nu_command::tls::CRYPTO_PROVIDER.default();
