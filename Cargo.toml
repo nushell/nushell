@@ -205,7 +205,7 @@ web-time = "1.1.0"
 which = "8.0.0"
 windows = "0.62"
 windows-sys = "0.61"
-winreg = "0.52"
+winreg = "0.55"
 memchr = "2.7.4"
 webpki-roots = "1.0"
 
