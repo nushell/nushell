@@ -110,3 +110,23 @@ fn test_du_output_columns() {
     );
     assert_eq!(actual.out, "path,apparent,physical,directories,files");
 }
+
+#[test]
+fn du_wildcards() {
+    Playground::setup("du_wildcards", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile(".a")]);
+
+        // by default, wildcard don't match dot files.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "du * | length",
+        );
+        assert_eq!(actual.out, "0");
+        // unless `-a` flag is provided.
+        let actual = nu!(
+            cwd: dirs.test(),
+            "du -a * | length",
+        );
+        assert_eq!(actual.out, "1");
+    });
+}

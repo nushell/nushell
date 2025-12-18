@@ -1,7 +1,7 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
-use nu_glob::Pattern;
+use nu_glob::{MatchOptions, Pattern};
 use nu_protocol::{NuGlob, Signals};
 use serde::Deserialize;
 use std::path::Path;
@@ -14,6 +14,7 @@ pub struct DuArgs {
     path: Option<Spanned<NuGlob>>,
     deref: bool,
     long: bool,
+    all: bool,
     exclude: Option<Spanned<NuGlob>>,
     #[serde(rename = "max-depth")]
     max_depth: Option<Spanned<i64>>,
@@ -67,6 +68,7 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
+            .switch("all", "move hidden files if '*' is provided", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -99,6 +101,7 @@ impl Command for Du {
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
         #[allow(deprecated)]
         let current_dir = current_dir(engine_state, stack)?;
+        let all = call.has_flag(engine_state, stack, "all")?;
 
         let paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         let paths = if !call.has_positional_args(stack, 0) {
@@ -113,6 +116,7 @@ impl Command for Du {
                     path: None,
                     deref,
                     long,
+                    all,
                     exclude,
                     max_depth,
                     min_size,
@@ -129,6 +133,7 @@ impl Command for Du {
                         path: Some(p),
                         deref,
                         long,
+                        all,
                         exclude: exclude.clone(),
                         max_depth,
                         min_size,
@@ -173,9 +178,17 @@ fn du_for_one_pattern(
                 span: x.span,
             })
     })?;
-
+    let glob_options = if args.all {
+        None
+    } else {
+        let glob_options = MatchOptions {
+            require_literal_leading_dot: true,
+            ..Default::default()
+        };
+        Some(glob_options)
+    };
     let paths = match args.path {
-        Some(p) => nu_engine::glob_from(&p, current_dir, span, None, signals.clone()),
+        Some(p) => nu_engine::glob_from(&p, current_dir, span, glob_options, signals.clone()),
 
         // The * pattern should never fail.
         None => nu_engine::glob_from(

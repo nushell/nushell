@@ -1306,3 +1306,32 @@ fn cp_with_cd() {
         assert!(actual.out.contains("body"));
     });
 }
+
+#[test]
+fn test_cp_wildcards() {
+    Playground::setup("cp_with_wildcards", |dirs, sandbox| {
+        let sub_dir = "test[]";
+        sandbox
+            .within(sub_dir)
+            .with_files(&[FileWithContent(".a", "hello")]);
+
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "cp * ../",
+        );
+        // by default, wildcard don't match dot files.
+        assert!(actual.err.contains("File not found"));
+        assert!(files_exist_at(&[".a"], dirs.test().join(sub_dir)));
+        assert!(!files_exist_at(&[".a"], dirs.test()));
+
+        // unless `-a` flag is provided.
+        let actual = nu!(
+            cwd: dirs.test().join(sub_dir),
+            "cp -a * ../",
+        );
+        // by default, wildcard don't match dot files.
+        assert!(actual.err.is_empty());
+        assert!(files_exist_at(&[".a"], dirs.test().join(sub_dir)));
+        assert!(files_exist_at(&[".a"], dirs.test()));
+    });
+}

@@ -1,5 +1,6 @@
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir};
+use nu_glob::MatchOptions;
 use nu_protocol::{
     NuGlob,
     shell_error::{self, io::IoError},
@@ -61,6 +62,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
+            .switch("all", "move hidden files if '*' is provided", Some('a'))
             .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
@@ -134,6 +136,7 @@ impl Command for UCp {
         let recursive = call.has_flag(engine_state, stack, "recursive")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
+        let all = call.has_flag(engine_state, stack, "all")?;
 
         let debug = call.has_flag(engine_state, stack, "debug")?;
         let overwrite = if no_clobber {
@@ -196,13 +199,26 @@ impl Command for UCp {
         // paths now contains the sources
 
         let mut sources: Vec<(Vec<PathBuf>, bool)> = Vec::new();
-
+        let glob_options = if all {
+            None
+        } else {
+            let glob_options = MatchOptions {
+                require_literal_leading_dot: true,
+                ..Default::default()
+            };
+            Some(glob_options)
+        };
         for mut p in paths {
             p.item = p.item.strip_ansi_string_unlikely();
-            let exp_files: Vec<Result<PathBuf, ShellError>> =
-                nu_engine::glob_from(&p, &cwd, call.head, None, engine_state.signals().clone())
-                    .map(|f| f.1)?
-                    .collect();
+            let exp_files: Vec<Result<PathBuf, ShellError>> = nu_engine::glob_from(
+                &p,
+                &cwd,
+                call.head,
+                glob_options,
+                engine_state.signals().clone(),
+            )
+            .map(|f| f.1)?
+            .collect();
             if exp_files.is_empty() {
                 return Err(ShellError::Io(IoError::new(
                     shell_error::io::ErrorKind::FileNotFound,
