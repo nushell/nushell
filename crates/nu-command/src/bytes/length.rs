@@ -66,6 +66,27 @@ impl Command for BytesLen {
             },
         ]
     }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let arg = CellPathOnlyArgs::from(cell_paths);
+        operate(
+            length,
+            arg,
+            input,
+            call.head,
+            working_set.permanent().signals(),
+        )
+    }
 }
 
 fn length(val: &Value, _args: &CellPathOnlyArgs, span: Span) -> Value {
