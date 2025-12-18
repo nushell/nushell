@@ -193,6 +193,16 @@ where
     }
 }
 
+impl<T> IntoValue for Box<T>
+where
+    T: IntoValue,
+{
+    fn into_value(self, span: Span) -> Value {
+        let t: T = *self;
+        t.into_value(span)
+    }
+}
+
 impl<T> IntoValue for Option<T>
 where
     T: IntoValue,

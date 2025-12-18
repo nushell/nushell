@@ -12,7 +12,7 @@ pub mod shell_warning;
 
 pub use compile_error::CompileError;
 pub use config::{ConfigError, ConfigWarning};
-pub use labeled_error::{ErrorLabel, LabeledError};
+pub use labeled_error::{ErrorLabel, ErrorSource, LabeledError};
 pub use parse_error::{DidYouMean, ParseError};
 pub use parse_warning::ParseWarning;
 pub use report_error::{

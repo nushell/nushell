@@ -96,7 +96,7 @@ pub type Result<T, E = ErrorKind> = std::result::Result<T, E>;
 /// This approach ensures clarity about where such container transfers occur.
 /// All other I/O errors should be handled using the provided constructors for `IoError`.
 /// This way, the code explicitly indicates when and where a `ShellError` transfer might happen.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Eq, Clone, PartialEq)]
 #[non_exhaustive]
 pub struct IoError {
     /// The type of the underlying I/O error.

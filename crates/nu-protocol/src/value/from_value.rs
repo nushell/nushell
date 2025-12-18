@@ -588,6 +588,24 @@ where
     }
 }
 
+impl<A, B> FromValue for Result<A, B>
+where
+    A: FromValue,
+    B: FromValue,
+{
+    fn from_value(v: Value) -> std::result::Result<Self, ShellError> {
+        match (A::from_value(v.clone()), B::from_value(v.clone())) {
+            (Ok(a), _) => Ok(Ok(a)),
+            (_, Ok(b)) => Ok(Err(b)),
+            (Err(ea), Err(_)) => Err(ea),
+        }
+    }
+
+    fn expected_type() -> Type {
+        Type::OneOf(vec![A::expected_type(), B::expected_type()].into())
+    }
+}
+
 /// This blanket implementation permits the use of [`Cow<'_, B>`] ([`Cow<'_, str>`] etc) based on
 /// the [FromValue] implementation of `B`'s owned form ([str] => [String]).
 ///
@@ -622,6 +640,18 @@ where
 
     fn expected_type() -> Type {
         Type::Record(vec![].into_boxed_slice())
+    }
+}
+
+impl<T> FromValue for Box<T>
+where
+    T: FromValue,
+{
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match T::from_value(v) {
+            Ok(val) => Ok(Box::new(val)),
+            Err(e) => Err(e),
+        }
     }
 }
 
