@@ -14,3 +14,9 @@ fn timeit_show_stderr() {
     assert!(actual.out.contains("bar"));
     assert!(actual.err.contains("baz"));
 }
+
+#[test]
+fn timeit_show_output() {
+    let actual = nu!("timeit --output { 'this is a test' } | get output");
+    assert_eq!(actual.out, "this is a test");
+}
