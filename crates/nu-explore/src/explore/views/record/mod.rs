@@ -15,7 +15,7 @@ use super::{
     util::{make_styled_string, nu_style_to_tui},
 };
 use anyhow::Result;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::StyleComputer;
 use nu_protocol::{
     Config, Value,
@@ -33,6 +33,7 @@ pub struct RecordView {
     cfg: ExploreConfig,
     auto_tail: bool, // Track if tail mode is active for auto-scroll
     previous_row_count: usize,
+    page_size: usize,
 }
 
 impl RecordView {
@@ -45,6 +46,7 @@ impl RecordView {
             cfg,
             auto_tail: true, // Enable auto-tail by default
             previous_row_count: row_count,
+            page_size: 0,
         }
     }
 
@@ -193,18 +195,21 @@ impl View for RecordView {
 
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
+        // Update page_size
+        self.page_size = estimate_page_size(area, self.cfg.table.show_header) as usize;
+
         // Check for new rows and handle auto-tail
         let current_row_count = self.get_top_layer().record_values.len();
         if current_row_count > self.previous_row_count {
-            // Invalidate record_text to force regeneration
+            // Invalidate record_text to force redraw
             self.get_top_layer_mut().record_text = None;
             // If auto_tail, scroll to bottom
             if self.auto_tail {
-                let page_size = estimate_page_size(area, self.cfg.table.show_header);
-                if current_row_count > page_size as usize {
+                let page_size = self.page_size;
+                if current_row_count > page_size {
                     self.get_top_layer_mut()
                         .cursor
-                        .set_window_start_position(current_row_count - page_size as usize, 0);
+                        .set_window_start_position(current_row_count - page_size, 0);
                 }
             }
         }
@@ -229,12 +234,38 @@ impl View for RecordView {
 
     fn handle_input(
         &mut self,
-        _: &EngineState,
-        _: &mut Stack,
-        _: &Layout,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        _layout: &Layout,
         info: &mut ViewInfo,
         key: KeyEvent,
     ) -> Transition {
+        if key.code == KeyCode::PageUp {
+            let page_size = self.page_size;
+            let current_row = self.get_top_layer().cursor.window_origin().row;
+            let new_row = current_row.saturating_sub(page_size);
+            let layer = self.get_top_layer_mut();
+            layer
+                .cursor
+                .set_window_start_position(new_row, layer.cursor.window_origin().column);
+            let report = self.create_records_report();
+            info.status = Some(report);
+            return Transition::Ok;
+        }
+        if key.code == KeyCode::PageDown {
+            let page_size = self.page_size;
+            let current_row = self.get_top_layer().cursor.window_origin().row;
+            let row_count = self.get_top_layer().record_values.len();
+            let max_row = row_count.saturating_sub(page_size);
+            let new_row = (current_row + page_size).min(max_row);
+            let layer = self.get_top_layer_mut();
+            layer
+                .cursor
+                .set_window_start_position(new_row, layer.cursor.window_origin().column);
+            let report = self.create_records_report();
+            info.status = Some(report);
+            return Transition::Ok;
+        }
         match self.handle_input_key(&key) {
             Ok((transition, ..)) => {
                 if matches!(&transition, Transition::Ok | Transition::Cmd { .. }) {
@@ -287,7 +318,7 @@ enum UIMode {
 
 #[derive(Debug, Clone)]
 pub struct RecordLayer {
-    column_names: Vec<String>,
+    pub column_names: Vec<String>,
     // These are the raw records in the current layer. The sole reason we keep this around is so we can return the original value
     // if it's being peeked. Otherwise we could accept an iterator over it.
     // or if it could be Cloneable we could do that anyway;
@@ -300,7 +331,7 @@ pub struct RecordLayer {
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
-    cursor: WindowCursor2D,
+    pub cursor: WindowCursor2D,
 }
 
 impl RecordLayer {
@@ -633,7 +664,7 @@ mod tests {
 
     // Helper to create a simple test Value::Record
     fn create_test_record() -> Value {
-        let mut record = Record::new();
+        let mut record = nu_protocol::Record::new();
         record.insert(
             "name".to_string(),
             Value::string("sample", Span::test_data()),
@@ -654,7 +685,7 @@ mod tests {
     #[test]
     fn test_create_layer_empty_collection() {
         // Test with empty record
-        let empty_record = Value::record(Record::new(), Span::test_data());
+        let empty_record = Value::record(nu_protocol::Record::new(), Span::test_data());
         let result = create_layer(empty_record);
         assert!(result.is_err());
         assert_eq!(
