@@ -91,6 +91,13 @@ pub trait View {
         key: KeyEvent,
     ) -> Transition;
 
+    /// Called every frame to allow the view to update its internal state
+    /// (e.g., check for streaming data) and update the status bar.
+    /// Returns true if the view has pending updates that require continued polling.
+    fn update(&mut self, _info: &mut ViewInfo) -> bool {
+        false
+    }
+
     fn show_data(&mut self, _: usize) -> bool {
         false
     }
@@ -119,6 +126,10 @@ impl View for Box<dyn View> {
     ) -> Transition {
         self.as_mut()
             .handle_input(engine_state, stack, layout, info, key)
+    }
+
+    fn update(&mut self, info: &mut ViewInfo) -> bool {
+        self.as_mut().update(info)
     }
 
     fn collect_data(&self) -> Vec<NuText> {

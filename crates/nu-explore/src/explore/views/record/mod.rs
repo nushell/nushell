@@ -18,11 +18,10 @@ use anyhow::Result;
 use crossterm::event::KeyEvent;
 use nu_color_config::StyleComputer;
 use nu_protocol::{
-    Config, Record, Value,
+    Config, Value,
     engine::{EngineState, Stack},
 };
 use ratatui::{layout::Rect, widgets::Block};
-use std::collections::HashMap;
 
 pub use self::table_widget::Orientation;
 
@@ -32,15 +31,20 @@ pub struct RecordView {
     mode: UIMode,
     orientation: Orientation,
     cfg: ExploreConfig,
+    auto_tail: bool, // Track if tail mode is active for auto-scroll
+    previous_row_count: usize,
 }
 
 impl RecordView {
     pub fn new(columns: Vec<String>, records: Vec<Vec<Value>>, cfg: ExploreConfig) -> Self {
+        let row_count = records.len();
         Self {
             layer_stack: vec![RecordLayer::new(columns, records)],
             mode: UIMode::View,
             orientation: Orientation::Top,
             cfg,
+            auto_tail: true, // Enable auto-tail by default
+            previous_row_count: row_count,
         }
     }
 
@@ -48,6 +52,7 @@ impl RecordView {
         let page_size =
             estimate_page_size(Rect::new(0, 0, width, height), self.cfg.table.show_header);
         tail_data(self, page_size as usize);
+        self.auto_tail = true; // Enable auto-tail mode
     }
 
     pub fn transpose(&mut self) {
@@ -188,6 +193,23 @@ impl View for RecordView {
 
         self.update_cursors(table_layout.count_rows, table_layout.count_columns);
 
+        // Check for new rows and handle auto-tail
+        let current_row_count = self.get_top_layer().record_values.len();
+        if current_row_count > self.previous_row_count {
+            // Invalidate record_text to force regeneration
+            self.get_top_layer_mut().record_text = None;
+            // If auto_tail, scroll to bottom
+            if self.auto_tail {
+                let page_size = estimate_page_size(area, self.cfg.table.show_header);
+                if current_row_count > page_size as usize {
+                    self.get_top_layer_mut()
+                        .cursor
+                        .set_window_start_position(current_row_count - page_size as usize, 0);
+                }
+            }
+        }
+        self.previous_row_count = current_row_count;
+
         if self.mode == UIMode::Cursor {
             let Position { row, column } = self.get_cursor_position_in_window();
             let info = get_element_info(
@@ -231,48 +253,12 @@ impl View for RecordView {
         }
     }
 
-    fn collect_data(&self) -> Vec<NuText> {
-        // Create a "dummy" style_computer.
-        let dummy_engine_state = EngineState::new();
-        let dummy_stack = Stack::new();
-        let style_computer = StyleComputer::new(&dummy_engine_state, &dummy_stack, HashMap::new());
-
-        let data = convert_records_to_string(
-            &self.get_top_layer().record_values,
-            &nu_protocol::Config::default(),
-            &style_computer,
-        );
-
-        data.iter().flatten().cloned().collect()
-    }
-
-    fn show_data(&mut self, pos: usize) -> bool {
-        let data = &self.get_top_layer().record_values;
-
-        let mut i = 0;
-        for (row, cells) in data.iter().enumerate() {
-            if pos > i + cells.len() {
-                i += cells.len();
-                continue;
-            }
-
-            for (column, _) in cells.iter().enumerate() {
-                if i == pos {
-                    self.get_top_layer_mut()
-                        .cursor
-                        .set_window_start_position(row, column);
-                    return true;
-                }
-
-                i += 1;
-            }
-        }
-
+    fn update(&mut self, _info: &mut ViewInfo) -> bool {
         false
     }
 
     fn exit(&mut self) -> Option<Value> {
-        Some(build_last_value(self))
+        None
     }
 }
 
@@ -307,10 +293,10 @@ pub struct RecordLayer {
     // or if it could be Cloneable we could do that anyway;
     // cause it would keep memory footprint lower while keep everything working
     // (yee would make return O(n); we would need to traverse iterator once again; but maybe worth it)
-    record_values: Vec<Vec<Value>>,
+    pub record_values: Vec<Vec<Value>>,
     // This is the text representation of the record values (the actual text that will be displayed to users).
     // It's an Option because we need configuration to set it and we (currently) don't have access to configuration when things are created.
-    record_text: Option<Vec<Vec<NuText>>>,
+    pub record_text: Option<Vec<Vec<NuText>>>,
     orientation: Orientation,
     name: Option<String>,
     was_transposed: bool,
@@ -521,52 +507,6 @@ fn highlight_selected_cell(f: &mut Frame, info: ElementInfo, cfg: &ExploreConfig
     let highlight_block = Block::default().style(nu_style_to_tui(cell_style));
     let area = Rect::new(info.area.x, info.area.y, info.area.width, 1);
     f.render_widget(highlight_block.clone(), area)
-}
-
-fn build_last_value(v: &RecordView) -> Value {
-    if v.mode == UIMode::Cursor {
-        v.get_current_value().clone()
-    } else if v.get_top_layer().count_rows() < 2 {
-        build_table_as_record(v)
-    } else {
-        build_table_as_list(v)
-    }
-}
-
-fn build_table_as_list(v: &RecordView) -> Value {
-    let layer = v.get_top_layer();
-
-    let vals = layer
-        .record_values
-        .iter()
-        .map(|vals| {
-            let record = layer
-                .column_names
-                .iter()
-                .cloned()
-                .zip(vals.iter().cloned())
-                .collect();
-            Value::record(record, NuSpan::unknown())
-        })
-        .collect();
-
-    Value::list(vals, NuSpan::unknown())
-}
-
-fn build_table_as_record(v: &RecordView) -> Value {
-    let layer = v.get_top_layer();
-
-    let mut record = Record::new();
-    if let Some(row) = layer.record_values.first() {
-        record = layer
-            .column_names
-            .iter()
-            .cloned()
-            .zip(row.iter().cloned())
-            .collect();
-    }
-
-    Value::record(record, NuSpan::unknown())
 }
 
 fn report_cursor_position(mode: UIMode, cursor: WindowCursor2D) -> String {

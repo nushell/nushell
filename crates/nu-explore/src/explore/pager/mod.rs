@@ -196,6 +196,12 @@ fn render_ui(
             break Ok(None);
         }
 
+        // Give the view a chance to update its internal state (e.g., receive streaming data)
+        // and update the status bar before drawing.
+        if let Some(page) = view_stack.curr_view.as_mut() {
+            page.view.update(info);
+        }
+
         let mut layout = Layout::default();
         {
             let info = info.clone();
