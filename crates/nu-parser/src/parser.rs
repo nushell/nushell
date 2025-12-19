@@ -4573,30 +4573,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with no TypeMode are just present/not-present switches
-                                        // in the case, `var_type` is any.
-                                        match var_type {
-                                            Type::Bool => {
-                                                if !*type_annotated {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
-                                                }
-                                            }
-                                            t => {
-                                                if !type_compatible(t, &expression_ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value is the wrong type"
-                                                                .into(),
-                                                            format!(
-                                                                "expected default value to be `{t}`"
-                                                            ),
-                                                            expression_span,
-                                                        ),
-                                                    )
-                                                }
-                                            }
+                                        // Flags without type annotations are present/not-present
+                                        // switches *except* when they have a default value
+                                        // assigned. In that case they are regular flags and take
+                                        // on the type of their default value.
+                                        if !*type_annotated {
+                                            *arg = Some(expression_ty.to_shape());
+                                            working_set.set_variable_type(var_id, expression_ty);
+                                        } else if !type_compatible(var_type, &expression_ty) {
+                                            working_set.error(ParseError::AssignmentMismatch(
+                                                "Default value is the wrong type".into(),
+                                                format!(
+                                                    "expected default value to be `{var_type}`"
+                                                ),
+                                                expression_span,
+                                            ))
                                         }
                                     }
                                 }
