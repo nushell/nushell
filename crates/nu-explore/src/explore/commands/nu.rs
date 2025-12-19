@@ -497,7 +497,7 @@ impl View for NuView {
                 } else {
                     info.status = Some(Report::new(
                         format!("{} rows", row_count),
-                        Severity::Success,
+                        Severity::Info,
                         String::new(),
                         String::new(),
                         String::new(),
