@@ -38,7 +38,7 @@ use std::{
     io::{self, Stdout},
     result,
 };
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 pub type Frame<'a> = ratatui::Frame<'a>;
 pub type Terminal = ratatui::Terminal<CrosstermBackend<Stdout>>;
@@ -66,6 +66,7 @@ struct CommandBuf {
     is_cmd_input: bool,
     run_cmd: bool,
     buf_cmd2: String,
+    cursor_pos: usize,
     cmd_history: Vec<String>,
     cmd_history_allow: bool,
     cmd_history_pos: usize,
@@ -481,13 +482,7 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     // Account for left padding (1) + prefix char like ':' or '/' (1)
     const LEFT_OFFSET: u16 = 2;
 
-    if pager.cmd_buf.is_cmd_input {
-        // todo: deal with a situation where we exceed the bar width
-        let next_pos = pager.cmd_buf.buf_cmd2.width() as u16 + LEFT_OFFSET;
-        if next_pos < area.width {
-            f.set_cursor_position((next_pos, area.height - 1));
-        }
-    } else if pager.search_buf.is_search_input {
+    if pager.search_buf.is_search_input {
         // todo: deal with a situation where we exceed the bar width
         let next_pos = pager.search_buf.buf_cmd_input.width() as u16 + LEFT_OFFSET;
         if next_pos < area.width {
@@ -587,26 +582,73 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, config: &
 }
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, config: &ExploreConfig) {
-    let mut input = pager.cmd_buf.buf_cmd2.as_str();
-    // UnicodeWidthStr::width is a best guess
-    if input.width() > area.width as usize + 1 {
-        // in such case we take last max_cmd_len chars
-        let take_bytes = input
-            .chars()
-            .rev()
-            .take(area.width.saturating_sub(1) as usize)
-            .map(|c| c.len_utf8())
-            .sum::<usize>();
-        let skip = input.len() - take_bytes;
+    let buf = &pager.cmd_buf.buf_cmd2;
+    let cursor_pos = pager.cmd_buf.cursor_pos;
+    let before = &buf[..cursor_pos];
+    let after = &buf[cursor_pos..];
+    let input = format!("{}{}", before, after);
 
-        input = &input[skip..];
+    let input_width = input.width();
+    let max_len = area.width as usize - 1; // -1 for :
+    let mut display_input = input.as_str();
+    let mut skipped_chars = 0;
+    if input_width > max_len {
+        // Truncate from left to fit max_len
+        let mut current_width = 0;
+        let mut start_byte = 0;
+        for (i, c) in input.char_indices() {
+            let c_width = c.width().unwrap_or(1);
+            if current_width + c_width > input_width - max_len {
+                start_byte = i;
+                break;
+            }
+            current_width += c_width;
+            skipped_chars += 1;
+        }
+        display_input = &input[start_byte..];
+    }
+
+    // Further truncate to match CommandBar's max_text_width
+    let max_text_width = area.width.saturating_sub(1) as usize; // TEXT_PADDING_LEFT=1, no info padding
+    let max_for_display = max_text_width.saturating_sub(1);
+    let mut truncated_display = display_input;
+    if truncated_display.width() > max_for_display {
+        let mut current_width = 0;
+        let mut end = 0;
+        for (i, c) in truncated_display.char_indices() {
+            let c_width = c.width().unwrap_or(1);
+            if current_width + c_width > max_for_display {
+                break;
+            }
+            current_width += c_width;
+            end = i + c.len_utf8();
+        }
+        truncated_display = &truncated_display[..end];
     }
 
     let prefix = ':';
-    let text = format!("{prefix}{input}");
+    let text = format!("{prefix}{truncated_display}");
 
     let bar = CommandBar::new(&text, "", config.cmd_bar_text, config.cmd_bar_background);
     f.render_widget(bar, area);
+
+    // Set the terminal cursor position
+    if pager.cmd_buf.is_cmd_input {
+        let cursor_in_input = cursor_pos; // char index of cursor in buf
+        let cursor_col = if cursor_in_input >= skipped_chars {
+            let mut cursor_in_display = cursor_in_input - skipped_chars;
+            // Clamp to truncated_display length
+            let truncated_char_count = truncated_display.chars().count();
+            cursor_in_display = cursor_in_display.min(truncated_char_count);
+            // Get the substring before the cursor
+            let before_display: String =
+                truncated_display.chars().take(cursor_in_display).collect();
+            2 + before_display.width() as u16 // 2 for :, then visual width
+        } else {
+            2 // cursor is in truncated part, place at start after :
+        };
+        f.set_cursor_position((area.x + cursor_col, area.y));
+    }
 }
 
 fn highlight_search_results(f: &mut Frame, pager: &Pager, layout: &Layout, style: NuStyle) {
@@ -910,6 +952,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
         KeyCode::Esc => {
             buf.is_cmd_input = false;
             buf.buf_cmd2 = String::new();
+            buf.cursor_pos = 0;
             true
         }
         KeyCode::Enter => {
@@ -917,20 +960,41 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
             buf.run_cmd = true;
             buf.cmd_history.push(buf.buf_cmd2.clone());
             buf.cmd_history_pos = buf.cmd_history.len();
+            buf.cursor_pos = 0;
             true
         }
         KeyCode::Backspace => {
-            if buf.buf_cmd2.is_empty() {
+            if buf.cursor_pos > 0 {
+                buf.cursor_pos -= 1;
+                buf.buf_cmd2.remove(buf.cursor_pos);
+                buf.cmd_history_allow = false;
+            } else if buf.buf_cmd2.is_empty() {
                 buf.is_cmd_input = false;
-            } else {
-                buf.buf_cmd2.pop();
+            }
+            true
+        }
+        KeyCode::Delete => {
+            if buf.cursor_pos < buf.buf_cmd2.len() {
+                buf.buf_cmd2.remove(buf.cursor_pos);
                 buf.cmd_history_allow = false;
             }
-
+            true
+        }
+        KeyCode::Left => {
+            if buf.cursor_pos > 0 {
+                buf.cursor_pos -= 1;
+            }
+            true
+        }
+        KeyCode::Right => {
+            if buf.cursor_pos < buf.buf_cmd2.len() {
+                buf.cursor_pos += 1;
+            }
             true
         }
         KeyCode::Char(c) => {
-            buf.buf_cmd2.push(*c);
+            buf.buf_cmd2.insert(buf.cursor_pos, *c);
+            buf.cursor_pos += 1;
             buf.cmd_history_allow = false;
             true
         }
@@ -943,6 +1007,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
                 );
                 buf.buf_cmd2
                     .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
+                buf.cursor_pos = buf.buf_cmd2.len();
             }
 
             true
@@ -953,6 +1018,7 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
                 buf.cmd_history_pos = buf.cmd_history_pos.saturating_sub(1);
                 buf.buf_cmd2
                     .clone_from(&buf.cmd_history[buf.cmd_history_pos]);
+                buf.cursor_pos = buf.buf_cmd2.len();
             }
 
             true
