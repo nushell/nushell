@@ -17,15 +17,30 @@ impl Command for TimeIt {
     fn extra_description(&self) -> &str {
         "Any pipeline input given to this command is passed to the closure. Note that streaming inputs may affect timing results, and it is recommended to add a `collect` command before this if the input is a stream.
 
-This command will bubble up any errors encountered when running the closure. The return pipeline of the closure is collected into a value and then discarded."
+This command will bubble up any errors encountered when running the closure. The return pipeline of the closure is collected into a value and then discarded if `--output` is not set."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("timeit")
             .required("command", SyntaxShape::Closure(None), "The closure to run.")
+            .switch("output", "Include the closure output.", Some('o'))
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
                 (Type::Nothing, Type::Duration),
+                (
+                    Type::Any,
+                    Type::Record(Box::new([
+                        ("time".into(), Type::Duration),
+                        ("output".into(), Type::Any),
+                    ])),
+                ),
+                (
+                    Type::Nothing,
+                    Type::Record(Box::new([
+                        ("time".into(), Type::Duration),
+                        ("output".into(), Type::Any),
+                    ])),
+                ),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Debug)
@@ -49,24 +64,37 @@ This command will bubble up any errors encountered when running the closure. The
         // reset outdest, so the command can write to stdout and stderr.
         let stack = &mut stack.push_redirection(None, None);
 
+        let include_output = call.has_flag(engine_state, stack, "output")?;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let closure = ClosureEvalOnce::new_preserve_out_dest(engine_state, stack, closure);
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
-        closure.run_with_input(input)?.into_value(call.head)?;
-        let time = start_time.elapsed();
+        let closure_output = closure.run_with_input(input)?.into_value(call.head)?;
+        let time = Value::duration(start_time.elapsed().as_nanos() as i64, call.head);
 
-        let output = Value::duration(time.as_nanos() as i64, call.head);
+        let output = if include_output {
+            Value::record(
+                record! {
+                "time" => time,
+                "output" => closure_output
+                },
+                call.head,
+            )
+        } else {
+            time
+        };
+
         Ok(output.into_pipeline_data())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
+            #[cfg(not(test))]
             Example {
                 description: "Time a closure containing one command",
                 example: "timeit { sleep 500ms }",
-                result: None,
+                result: Some(Value::test_duration(500_631_800)),
             },
             Example {
                 description: "Time a closure with an input value",
@@ -82,6 +110,14 @@ This command will bubble up any errors encountered when running the closure. The
                 description: "Time a closure containing a pipeline",
                 example: "timeit { open some_file.txt | split chars }",
                 result: None,
+            },
+            #[cfg(not(test))]
+            Example {
+                description: "Time a closure and also return the output",
+                example: "timeit --output { 'example text' }",
+                result: Some(Value::test_record(record! {
+                "time" => Value::test_duration(14328),
+                "output" => Value::test_string("example text")})),
             },
         ]
     }
