@@ -44,7 +44,7 @@ impl Command for BytesLen {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
         let arg = CellPathOnlyArgs::from(cell_paths);
         operate(length, arg, input, call.head, engine_state.signals())
     }
@@ -65,6 +65,27 @@ impl Command for BytesLen {
                 )),
             },
         ]
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        let arg = CellPathOnlyArgs::from(cell_paths);
+        operate(
+            length,
+            arg,
+            input,
+            call.head,
+            working_set.permanent().signals(),
+        )
     }
 }
 
