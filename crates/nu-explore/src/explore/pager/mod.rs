@@ -582,15 +582,12 @@ fn render_cmd_bar_search(f: &mut Frame, area: Rect, pager: &Pager<'_>, config: &
 }
 
 fn render_cmd_bar_cmd(f: &mut Frame, area: Rect, pager: &Pager, config: &ExploreConfig) {
-    let buf = &pager.cmd_buf.buf_cmd2;
+    let input = pager.cmd_buf.buf_cmd2.as_str();
     let cursor_pos = pager.cmd_buf.cursor_pos;
-    let before = &buf[..cursor_pos];
-    let after = &buf[cursor_pos..];
-    let input = format!("{}{}", before, after);
 
     let input_width = input.width();
     let max_len = area.width as usize - 1; // -1 for :
-    let mut display_input = input.as_str();
+    let mut display_input = input;
     let mut skipped_chars = 0;
     if input_width > max_len {
         // Truncate from left to fit max_len
