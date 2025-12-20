@@ -216,9 +216,8 @@ where
 
                 columns = Some(cols);
             }
-        } else {
+        } else if let Some(ref cols) = columns {
             // We have columns, add to batch
-            let cols = columns.as_ref().unwrap();
             batch.push(value_to_row(cols, &value));
 
             if batch.len() >= BATCH_SIZE {
@@ -398,18 +397,8 @@ impl NuView {
                 let layer = existing_view.get_top_layer_mut();
                 layer.record_values = self.rows.clone();
                 // Update cursor limits
-                layer
-                    .cursor
-                    .y
-                    .view
-                    .set_size(layer.record_values.len())
-                    .unwrap();
-                layer
-                    .cursor
-                    .x
-                    .view
-                    .set_size(layer.column_names.len())
-                    .unwrap();
+                let _ = layer.cursor.y.view.set_size(layer.record_values.len());
+                let _ = layer.cursor.x.view.set_size(layer.column_names.len());
                 // Invalidate text to force redraw
                 layer.record_text = None;
             }
@@ -449,7 +438,7 @@ impl View for NuView {
         if self.rows.len() > self.last_row_count {
             self.last_row_count = self.rows.len();
             if let ViewState::Records(view) = &mut self.state {
-                view.tail(area.width as u16, area.height as u16);
+                view.tail(area.width, area.height);
             }
         }
 
