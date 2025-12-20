@@ -27,8 +27,20 @@ This command will bubble up any errors encountered when running the closure. The
             .input_output_types(vec![
                 (Type::Any, Type::Duration),
                 (Type::Nothing, Type::Duration),
-                (Type::Any, Type::record()),
-                (Type::Nothing, Type::record()),
+                (
+                    Type::Any,
+                    Type::Record(Box::new([
+                        ("time".into(), Type::Duration),
+                        ("output".into(), Type::Any),
+                    ])),
+                ),
+                (
+                    Type::Nothing,
+                    Type::Record(Box::new([
+                        ("time".into(), Type::Duration),
+                        ("output".into(), Type::Any),
+                    ])),
+                ),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Debug)
