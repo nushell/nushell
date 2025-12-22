@@ -48,7 +48,7 @@ impl Command for HttpHead {
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "custom headers you want to add",
                 Some('H'),
             )
             .switch(
@@ -57,6 +57,11 @@ impl Command for HttpHead {
                 Some('k'),
             )
             .switch("pool", "using a global pool as a client", None)
+            .switch(
+                "status-code",
+                "return only the status code of the request",
+                None,
+            )
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -131,6 +136,7 @@ struct Arguments {
     redirect: Option<Spanned<String>>,
     unix_socket: Option<Spanned<String>>,
     pool: bool,
+    status_code: bool,
 }
 
 fn run_head(
@@ -149,6 +155,7 @@ fn run_head(
         redirect: call.get_flag(engine_state, stack, "redirect-mode")?,
         unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
         pool: call.has_flag(engine_state, stack, "pool")?,
+        status_code: call.has_flag(engine_state, stack, "status-code")?,
     };
 
     helper(engine_state, stack, call, args, engine_state.signals())
@@ -193,8 +200,19 @@ fn helper(
         send_request_no_body(request, request_span, call.head, signals);
     let response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
-    handle_response_status(&response, redirect_mode, &requested_url, span, false)?;
-    headers_to_nu(&extract_response_headers(&response), span)
+    let handle_status =
+        handle_response_status(&response, redirect_mode, &requested_url, span, false);
+
+    if args.status_code {
+        Ok(response
+            .status()
+            .as_u16()
+            .into_value(span)
+            .into_pipeline_data())
+    } else {
+        handle_status?;
+        headers_to_nu(&extract_response_headers(&response), span)
+    }
 }
 
 #[cfg(test)]

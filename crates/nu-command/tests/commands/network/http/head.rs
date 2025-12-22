@@ -89,3 +89,25 @@ fn http_head_redirect_mode_error() {
         "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
     ));
 }
+
+#[test]
+fn http_head_status_code_500() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("HEAD", "/").with_status(502).create();
+
+    let actual = nu!(format!("http head --status-code {url}", url = server.url()));
+
+    assert_eq!(&actual.out, "502");
+}
+
+#[test]
+fn http_head_status_code_200() {
+    let mut server = Server::new();
+
+    let _mock = server.mock("HEAD", "/").with_status(200).create();
+
+    let actual = nu!(format!("http head --status-code {url}", url = server.url()));
+
+    assert_eq!(&actual.out, "200");
+}
