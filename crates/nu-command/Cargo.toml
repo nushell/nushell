@@ -72,6 +72,7 @@ lscolors = { workspace = true, default-features = false, features = [
 	"nu-ansi-term",
 ] }
 md5 = { workspace = true }
+memmap2 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
 multipart-rs = { workspace = true, optional = true }
