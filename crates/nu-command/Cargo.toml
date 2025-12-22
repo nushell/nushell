@@ -143,7 +143,7 @@ web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
 [target.'cfg(windows)'.dependencies]
-uds_windows = "1.1"
+win_uds = "0.1.5"
 winreg = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -210,19 +210,9 @@ js = ["getrandom", "getrandom/js", "rand", "uuid"]
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
 # using rustls could solve this issue.
-network = [
-	"dns-lookup",
-	"multipart-rs",
-	"update-informer",
-	"ureq",
-	"uuid",
-]
+network = ["dns-lookup", "multipart-rs", "update-informer", "ureq", "uuid"]
 
-native-tls = [
-	"dep:native-tls",
-	"update-informer/native-tls",
-	"ureq/native-tls",
-]
+native-tls = ["dep:native-tls", "update-informer/native-tls", "ureq/native-tls"]
 rustls-tls = [
 	"dep:rustls",
 	"dep:rustls-native-certs",
