@@ -691,6 +691,27 @@ mod tests {
         assert_eq!(app.quick_ref_scroll_h, 0);
     }
 
+    // ─── Unicode handling tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_compile_regex_with_unicode_pattern() {
+        let mut app = App::new(String::new());
+        app.regex_textarea = TextArea::new(vec!["\\p{L}+".to_string()]);
+        app.compile_regex();
+        assert!(app.compiled_regex.is_some());
+        assert!(app.regex_error.is_none());
+    }
+
+    #[test]
+    fn test_get_highlighted_text_with_unicode_sample() {
+        let mut app = App::new("12345abcde項目".to_string());
+        app.regex_textarea = TextArea::new(vec!["\\w+".to_string()]);
+        app.compile_regex();
+        let highlighted = app.get_highlighted_text();
+        // Should not panic and should produce some text
+        assert!(!highlighted.lines.is_empty());
+    }
+
     // ─── Helper ──────────────────────────────────────────────────────────────
 
     fn create_test_app() -> App<'static> {
