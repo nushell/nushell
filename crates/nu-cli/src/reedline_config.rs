@@ -100,7 +100,7 @@ const DEFAULT_HELP_MENU: &str = r#"
       col_width: 20
       col_padding: 2
       selection_rows: 4
-      description_rows: 10
+      description_rows: 15
   }
   style: {
       text: green,
