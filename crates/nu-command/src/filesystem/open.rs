@@ -59,6 +59,11 @@ impl Command for Open {
                 "The file(s) to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
+            .switch(
+                "allow-dtd",
+                "allow parsing documents with DTDs (may result in exponential entity expansion)",
+                None,
+            )
             .category(Category::FileSystem)
     }
 
@@ -216,12 +221,22 @@ impl Command for Open {
 
                     match converter {
                         Some((converter_id, ext)) => {
-                            let open_call = ast::Call {
+                            let mut open_call = ast::Call {
                                 decl_id: converter_id,
                                 head: call_span,
                                 arguments: vec![],
                                 parser_info: HashMap::new(),
                             };
+                            if call.has_flag(engine_state, stack, "allow-dtd")? {
+                                open_call.add_named((
+                                    "allow-dtd".to_owned().into_spanned(
+                                        call.get_flag_span(stack, "allow-dtd")
+                                            .expect("An existing flag should have a span"),
+                                    ),
+                                    None,
+                                    None,
+                                ));
+                            }
                             let command_output = if engine_state.is_debugging() {
                                 eval_call::<WithDebug>(engine_state, stack, &open_call, stream)
                             } else {
