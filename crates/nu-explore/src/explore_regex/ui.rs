@@ -338,7 +338,11 @@ fn draw_sample_section(
 fn update_sample_scroll(app: &mut App, content: Rect) {
     let (cursor_row, cursor_col) = app.sample_textarea.cursor();
     let line = &app.sample_textarea.lines()[cursor_row];
-    let cursor_display_col = line[0..cursor_col].width() as u16;
+    let cursor_display_col = line
+        .graphemes(true)
+        .take(cursor_col)
+        .map(|g| g.width())
+        .sum::<usize>() as u16;
     let cursor_row_u16 = cursor_row as u16;
 
     // Vertical scrolling
@@ -360,18 +364,22 @@ fn draw_sample_cursor(f: &mut ratatui::Frame, app: &App, content: Rect) {
     let buf = f.buffer_mut();
     let (cursor_row, cursor_col) = app.sample_textarea.cursor();
     let line = &app.sample_textarea.lines()[cursor_row];
-    let prefix_width = line[0..cursor_col].width() as u16;
+    let prefix_width = line
+        .graphemes(true)
+        .take(cursor_col)
+        .map(|g| g.width())
+        .sum::<usize>() as u16;
 
     let cursor_x = content.x + prefix_width - app.sample_scroll_h;
     let cursor_y = content.y + (cursor_row as u16) - app.sample_scroll_v;
-    let is_eol = cursor_col == line.len();
+    let grapheme_count = line.graphemes(true).count();
+    let is_eol = cursor_col == grapheme_count;
 
     let grapheme_width = if is_eol {
         1
     } else {
-        line[cursor_col..]
-            .graphemes(true)
-            .next()
+        line.graphemes(true)
+            .nth(cursor_col)
             .map(|g| g.width())
             .unwrap_or(1)
     };
