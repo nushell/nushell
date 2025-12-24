@@ -119,7 +119,7 @@ lscolors = { version = "0.20", default-features = false }
 lsp-server = "0.7.8"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.4.2"
-mach2 = "0.4"
+mach2 = "0.6"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.6"
 mime = "0.3.17"
