@@ -250,7 +250,11 @@ impl Command for UMv {
                 .into_iter()
                 .map(|(src, dest)| {
                     Value::string(
-                        format!("renamed '{}' -> '{}'", src.display(), dest.display()),
+                        translate!(
+                            "mv-verbose-renamed",
+                            "from" => format!("'{}'", src.display()),
+                            "to" => format!("'{}'", dest.display())
+                        ),
                         call.head,
                     )
                 })

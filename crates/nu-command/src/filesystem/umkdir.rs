@@ -100,7 +100,11 @@ impl Command for UMkdir {
             }
             if is_verbose {
                 verbose_out.push(Value::string(
-                    format!("created directory '{}'", dir.display()),
+                    translate!(
+                        "mkdir-verbose-created-directory",
+                        "util_name" => "mkdir",
+                        "path" => format!("'{}'", dir.display())
+                    ),
                     call.head,
                 ));
             }
