@@ -35,8 +35,8 @@ use anyhow::Result;
 /// Inside the window, the cursor can point to a specific cell.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct WindowCursor2D {
-    x: WindowCursor,
-    y: WindowCursor,
+    pub x: WindowCursor,
+    pub y: WindowCursor,
 }
 
 pub struct Position {

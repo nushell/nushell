@@ -19,7 +19,7 @@ pub use window_cursor_2d::{CursorMoveHandler, Position, WindowCursor2D};
 /// 0  1  2  3  4  5  6  7  8  9
 /// C  |  |  |  |  |  |  |  |  |
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-struct Cursor {
+pub struct Cursor {
     /// The current position of the cursor
     position: usize,
     /// The number of distinct positions the cursor can be at

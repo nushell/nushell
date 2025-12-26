@@ -31,8 +31,8 @@ use anyhow::{Ok, Result, bail};
 /// ```
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct WindowCursor {
-    view: Cursor,
-    window: Cursor,
+    pub view: Cursor,
+    pub window: Cursor,
 }
 
 impl WindowCursor {

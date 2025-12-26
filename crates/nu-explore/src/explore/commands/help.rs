@@ -38,25 +38,25 @@ static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
     {}            Move cursor up/down/left/right
     {}              Drill into a cell (select it)
     {}            Go back / exit current view
-    {}    Page up / Page down
+    {}        Page up / Page down
 
   {} Data Manipulation
 
-    {}                    Transpose (flip rows and columns)
-    {}                    Expand (show all nested data)
+    {}                  Transpose (flip rows and columns)
+    {}                  Expand (show all nested data)
 
   {} Commands {}
 
     {}              Show this help page
     {}               Open interactive REPL
-    {}        Run a Nushell command on current data
+    {}          Run a Nushell command on current data
     {}                 Exit Explore
 
   {} Search
 
     {}                  Start forward search
     {}                  Start reverse search
-    {} {} {}              Navigate search results
+    {} {} {}          Navigate search results
 
 "#,
         title.paint("━━"),
