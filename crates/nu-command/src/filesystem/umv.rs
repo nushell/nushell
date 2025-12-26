@@ -189,7 +189,7 @@ impl Command for UMv {
                 }
             }
         }
-        let mut files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
+        let source_files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
 
         // Add back the target after globbing
         let abs_target_path = expand_path_with(
@@ -197,15 +197,35 @@ impl Command for UMv {
             &cwd,
             matches!(spanned_target.item, NuGlob::Expand(..)),
         );
-        files.push(abs_target_path.clone());
-        let files = files
+
+        // Collect verbose messages before the move
+        let verbose_msgs: Vec<(PathBuf, PathBuf)> = if verbose {
+            source_files
+                .iter()
+                .map(|src| {
+                    let dest = if abs_target_path.is_dir() {
+                        abs_target_path.join(src.file_name().unwrap_or_default())
+                    } else {
+                        abs_target_path.clone()
+                    };
+                    (src.clone(), dest)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let mut files_for_mv = source_files;
+        files_for_mv.push(abs_target_path.clone());
+        let files_for_mv = files_for_mv
             .into_iter()
             .map(|p| p.into_os_string())
             .collect::<Vec<OsString>>();
         let options = uu_mv::Options {
             overwrite,
             progress_bar: progress,
-            verbose,
+            // We handle verbose output ourselves to avoid untranslated messages
+            verbose: false,
             suffix: String::from("~"),
             backup: BackupMode::None,
             update,
@@ -215,7 +235,7 @@ impl Command for UMv {
             debug: false,
             context: None,
         };
-        if let Err(error) = uu_mv::mv(&files, &options) {
+        if let Err(error) = uu_mv::mv(&files_for_mv, &options) {
             return Err(ShellError::GenericError {
                 error: format!("{error}"),
                 msg: translate!(&error.to_string()),
@@ -224,6 +244,24 @@ impl Command for UMv {
                 inner: Vec::new(),
             });
         }
-        Ok(PipelineData::empty())
+
+        if verbose {
+            let output: Vec<Value> = verbose_msgs
+                .into_iter()
+                .map(|(src, dest)| {
+                    Value::string(
+                        translate!(
+                            "mv-verbose-renamed",
+                            "from" => format!("'{}'", src.display()),
+                            "to" => format!("'{}'", dest.display())
+                        ),
+                        call.head,
+                    )
+                })
+                .collect();
+            Ok(PipelineData::Value(Value::list(output, call.head), None))
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 }

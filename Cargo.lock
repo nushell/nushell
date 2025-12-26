@@ -4145,6 +4145,7 @@ dependencies = [
  "fancy-regex",
  "filesize",
  "filetime",
+ "fluent",
  "fuzzy-matcher",
  "getrandom 0.2.15",
  "http 1.4.0",
