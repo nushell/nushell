@@ -458,14 +458,21 @@ fn rm(
         }
     });
 
+    let mut cmd_result = Ok(PipelineData::empty());
     for result in iter {
         engine_state.signals().check(&call.head)?;
         match result {
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),
-            Err(err) => report_shell_error(Some(stack), engine_state, &err),
+            Err(err) => {
+                if cmd_result.is_ok() {
+                    cmd_result = Err(err);
+                } else {
+                    report_shell_error(Some(stack), engine_state, &err)
+                }
+            }
         }
     }
 
-    Ok(PipelineData::empty())
+    cmd_result
 }

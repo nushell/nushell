@@ -589,5 +589,6 @@ fn rm_already_in_use() {
         );
 
         assert!(outcome.err.contains("nu::shell::io::already_in_use"));
+        assert!(!outcome.status.success())
     })
 }
