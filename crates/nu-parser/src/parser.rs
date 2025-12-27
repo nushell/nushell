@@ -6051,7 +6051,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
                 parse_call(working_set, &spans[pos..], spans[0])
             }
-            b"let" | b"const" | b"mut" => {
+            b"const" | b"mut" => {
                 working_set.error(ParseError::AssignInPipeline(
                     String::from_utf8(bytes)
                         .expect("builtin commands bytes should be able to convert to string"),

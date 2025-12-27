@@ -297,7 +297,7 @@ pub(crate) fn compile_let(
 ) -> Result<(), CompileError> {
     // Pseudocode:
     //
-    // %io_reg <- ...<block>... <- %io_reg
+    // %io_reg <- ...<block>... <- %io_reg  (if block provided)
     // store-variable $var, %io_reg
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "let".into(),
@@ -305,22 +305,28 @@ pub(crate) fn compile_let(
     };
 
     let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
-    let block_arg = call.positional_nth(1).ok_or_else(invalid)?;
-
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
-    let block_id = block_arg.as_block().ok_or_else(invalid)?;
-    let block = working_set.get_block(block_id);
+
+    // Handle the optional initial_value (expression after =)
+    // Two cases:
+    // 1. `let var = expr`: compile the expr block and store its result
+    // 2. `let var` (at end of pipeline): use the pipeline input directly
+    if let Some(block_arg) = call.positional_nth(1) {
+        let block_id = block_arg.as_block().ok_or_else(invalid)?;
+        let block = working_set.get_block(block_id);
+
+        compile_block(
+            working_set,
+            builder,
+            block,
+            RedirectModes::value(call.head),
+            Some(io_reg),
+            io_reg,
+        )?;
+    }
+    // If no initial_value provided, io_reg already contains the pipeline input to assign
 
     let variable = working_set.get_variable(var_id);
-
-    compile_block(
-        working_set,
-        builder,
-        block,
-        RedirectModes::value(call.head),
-        Some(io_reg),
-        io_reg,
-    )?;
 
     // If the variable is a glob type variable, we should cast it with GlobFrom
     if variable.ty == Type::Glob {
