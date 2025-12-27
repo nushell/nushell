@@ -180,7 +180,7 @@ impl Command for IntoDatetime {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "timezone", "UTC"]
+        vec!["convert", "timezone", "UTC", "POSIX"]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
