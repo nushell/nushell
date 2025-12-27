@@ -4,6 +4,8 @@
 
 use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
+use devicons::icon_for_file;
+use nu_color_config::lookup_ansi_color_style;
 use lscolors::{LsColors, Style};
 use url::Url;
 use web_time::Instant;
@@ -101,6 +103,8 @@ impl Command for Table {
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
+            .switch("icons", "adds icons to ls tables", Some('o'),
+            )
             .category(Category::Viewers)
     }
 
@@ -120,7 +124,7 @@ impl Command for Table {
 
         let input = CmdInput::parse(engine_state, stack, call, input)?;
 
-        // reset vt processing, aka ansi because illbehaved externals can break it
+        // reset vt processing, aka ansi because ill behaved externals can break it
         #[cfg(windows)]
         {
             let _ = nu_utils::enable_vt_processing();
@@ -216,6 +220,7 @@ struct TableConfig {
     abbreviation: Option<usize>,
     index: Option<usize>,
     use_ansi_coloring: bool,
+    icons: bool,
 }
 
 impl TableConfig {
@@ -226,6 +231,7 @@ impl TableConfig {
         abbreviation: Option<usize>,
         index: Option<usize>,
         use_ansi_coloring: bool,
+        icons: bool,
     ) -> Self {
         Self {
             view,
@@ -234,6 +240,7 @@ impl TableConfig {
             abbreviation,
             index,
             use_ansi_coloring,
+            icons,
         }
     }
 }
@@ -260,6 +267,7 @@ struct CLIArgs {
     collapse: bool,
     index: Option<usize>,
     use_ansi_coloring: bool,
+    icons: bool,
 }
 
 fn parse_table_config(
@@ -278,6 +286,7 @@ fn parse_table_config(
         args.abbrivation,
         args.index,
         args.use_ansi_coloring,
+        args.icons,
     );
 
     Ok(cfg)
@@ -309,6 +318,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
     let theme =
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
+    let icons = call.has_flag(state, stack, "icons")?;
 
     let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
@@ -323,6 +333,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         width,
         index,
         use_ansi_coloring,
+        icons,
     })
 }
 
@@ -696,7 +707,7 @@ fn handle_row_stream(
                         let span = value.span();
                         if let Value::String { val, .. } = value
                             && let Some(val) =
-                                render_path_name(val, &config, &ls_colors, input.cwd.clone(), span)
+                                render_path_name(val, &config, &ls_colors, input.cwd.clone(), input.cfg.icons, span)
                         {
                             *value = val;
                         }
@@ -1033,6 +1044,7 @@ fn render_path_name(
     config: &Config,
     ls_colors: &LsColors,
     cwd: Option<NuPathBuf>,
+    icons: bool,
     span: Span,
 ) -> Option<Value> {
     if !config.ls.use_ls_colors {
@@ -1049,6 +1061,9 @@ fn render_path_name(
     let has_metadata = metadata.is_ok();
     let style =
         ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), metadata.ok().as_ref());
+
+    let file_icon = icon_for_file(&path, &None);
+    let icon_style = lookup_ansi_color_style(file_icon.color);
 
     // clickable links don't work in remote SSH sessions
     let in_ssh_session = std::env::var("SSH_CLIENT").is_ok();
@@ -1091,7 +1106,16 @@ fn render_path_name(
         show_clickable_links,
     );
 
-    let val = ansi_style.paint(full_path_link).to_string();
+    let val = if icons {
+         format!(
+            "{}  {}",
+            icon_style.paint(String::from(file_icon.icon)),
+            ansi_style.paint(full_path_link).to_string()
+        )
+    } else {
+        ansi_style.paint(full_path_link).to_string()
+    };
+
     Some(Value::string(val, span))
 }
 
