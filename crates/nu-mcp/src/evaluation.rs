@@ -156,9 +156,9 @@ impl Evaluator {
         nuon::to_nuon(
             engine_state,
             &response,
-            nuon::ToStyle::Raw,
-            Some(Span::unknown()),
-            false,
+            nuon::ToNuonConfig::default()
+                .style(nuon::ToStyle::Raw)
+                .span(Some(Span::unknown())),
         )
         .map_err(|e| shell_error_to_mcp_error(e, engine_state))
     }
@@ -212,9 +212,9 @@ fn process_pipeline(
     let nuon_string = nuon::to_nuon(
         engine_state,
         &value_to_store,
-        nuon::ToStyle::Raw,
-        Some(Span::unknown()),
-        false,
+        nuon::ToNuonConfig::default()
+            .style(nuon::ToStyle::Raw)
+            .span(Some(Span::unknown())),
     )
     .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
 
