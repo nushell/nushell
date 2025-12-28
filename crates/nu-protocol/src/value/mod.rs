@@ -119,6 +119,8 @@ pub enum Value {
     #[non_exhaustive]
     Range {
         val: Box<Range>,
+        #[serde(skip)]
+        signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -135,6 +137,8 @@ pub enum Value {
     #[non_exhaustive]
     List {
         vals: Vec<Value>,
+        #[serde(skip)]
+        signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
         #[serde(rename = "span")]
@@ -192,7 +196,7 @@ pub enum Value {
 // This is to document/enforce the size of `Value` in bytes.
 // We should try to avoid increasing the size of `Value`,
 // and PRs that do so will have to change the number below so that it's noted in review.
-const _: () = assert!(std::mem::size_of::<Value>() <= 48);
+const _: () = assert!(std::mem::size_of::<Value>() <= 56);
 
 impl Clone for Value {
     fn clone(&self) -> Self {
@@ -211,8 +215,13 @@ impl Clone for Value {
                 val: *val,
                 internal_span: *internal_span,
             },
-            Value::Range { val, internal_span } => Value::Range {
+            Value::Range {
+                val,
+                signals,
+                internal_span,
+            } => Value::Range {
                 val: val.clone(),
+                signals: signals.clone(),
                 internal_span: *internal_span,
             },
             Value::Float { val, internal_span } => Value::float(*val, *internal_span),
@@ -235,9 +244,11 @@ impl Clone for Value {
             },
             Value::List {
                 vals,
+                signals,
                 internal_span,
             } => Value::List {
                 vals: vals.clone(),
+                signals: signals.clone(),
                 internal_span: *internal_span,
             },
             Value::Closure { val, internal_span } => Value::Closure {
@@ -1852,6 +1863,7 @@ impl Value {
     pub fn range(val: Range, span: Span) -> Value {
         Value::Range {
             val: val.into(),
+            signals: None,
             internal_span: span,
         }
     }
@@ -1881,6 +1893,7 @@ impl Value {
     pub fn list(vals: Vec<Value>, span: Span) -> Value {
         Value::List {
             vals,
+            signals: None,
             internal_span: span,
         }
     }
@@ -2059,6 +2072,17 @@ impl Value {
             }),
             // Value::test_custom_value(Box::new(todo!())),
         ]
+    }
+
+    /// inject signals from engine_state so iterating the value
+    /// itself can be interrupted.
+    pub fn inject_signals(&mut self, engine_state: &EngineState) {
+        match self {
+            Value::List { signals: s, .. } | Value::Range { signals: s, .. } => {
+                *s = Some(engine_state.signals().clone());
+            }
+            _ => (),
+        }
     }
 }
 

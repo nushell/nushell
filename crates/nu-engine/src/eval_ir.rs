@@ -1086,7 +1086,7 @@ fn eval_call<D: DebugContext>(
     ctx: &mut EvalContext<'_>,
     decl_id: DeclId,
     head: Span,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let EvalContext {
         engine_state,
@@ -1159,6 +1159,11 @@ fn eval_call<D: DebugContext>(
                 args_len,
             };
 
+            // Make sure that iterating value itself can be interrupted.
+            // e.g: 0..inf | to md
+            if let PipelineData::Value(v, ..) = &mut input {
+                v.inject_signals(engine_state);
+            }
             // Run the call
             decl.run(engine_state, &mut caller_stack, &(&call).into(), input)
         }
