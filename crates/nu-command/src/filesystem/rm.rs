@@ -465,10 +465,20 @@ fn rm(
             Ok(None) => {}
             Ok(Some(msg)) => eprintln!("{msg}"),
             Err(err) => {
-                if cmd_result.is_ok() {
-                    cmd_result = Err(err);
-                } else {
-                    report_shell_error(Some(stack), engine_state, &err)
+                if !(force
+                    && matches!(
+                        err,
+                        ShellError::Io(IoError {
+                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound, ..),
+                            ..
+                        })
+                    ))
+                {
+                    if cmd_result.is_ok() {
+                        cmd_result = Err(err);
+                    } else {
+                        report_shell_error(Some(stack), engine_state, &err)
+                    }
                 }
             }
         }
