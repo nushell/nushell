@@ -24,9 +24,9 @@ impl ListStyle {
 
     fn from_str(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
-            "ordered" | "o" => Some(Self::Ordered),
-            "unordered" | "u" => Some(Self::Unordered),
-            "none" | "n" => Some(Self::None),
+            "ordered" => Some(Self::Ordered),
+            "unordered" => Some(Self::Unordered),
+            "none" => Some(Self::None),
             _ => None,
         }
     }
@@ -354,13 +354,11 @@ fn format_list_item(
     let value_string = input.to_expanded_string("|", config);
     let escaped = escape_value(value_string, escape_md, escape_html, false);
 
-    let prefix = match list_style {
-        ListStyle::Ordered => format!("{}. ", index + 1),
-        ListStyle::Unordered => "* ".to_string(),
-        ListStyle::None => String::new(),
-    };
-
-    format!("{}{}\n", prefix, escaped)
+    match list_style {
+        ListStyle::Ordered => format!("{}. {}\n", index + 1, escaped),
+        ListStyle::Unordered => format!("* {}\n", escaped),
+        ListStyle::None => format!("{}\n", escaped),
+    }
 }
 
 fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -> String {
@@ -1454,5 +1452,95 @@ mod tests {
         .unwrap();
 
         assert_eq!(result, "* \\*bold\\*\n* \\[link\\]");
+    }
+
+    #[test]
+    fn test_list_none() {
+        let value = Value::test_list(vec![
+            Value::test_string("one"),
+            Value::test_string("two"),
+            Value::test_string("three"),
+        ]);
+
+        let result = to_md(
+            value.into_pipeline_data(),
+            ToMdOptions {
+                pretty: false,
+                per_element: false,
+                center: None,
+                escape_md: false,
+                escape_html: false,
+                list_style: ListStyle::None,
+            },
+            &Config::default(),
+            Span::test_data(),
+        )
+        .unwrap()
+        .into_value(Span::test_data())
+        .unwrap()
+        .into_string()
+        .unwrap();
+
+        assert_eq!(result, "one\ntwo\nthree");
+    }
+
+    #[test]
+    fn test_empty_list() {
+        let value = Value::test_list(vec![]);
+
+        let result = to_md(
+            value.into_pipeline_data(),
+            ToMdOptions {
+                pretty: false,
+                per_element: false,
+                center: None,
+                escape_md: false,
+                escape_html: false,
+                list_style: ListStyle::Unordered,
+            },
+            &Config::default(),
+            Span::test_data(),
+        )
+        .unwrap()
+        .into_value(Span::test_data())
+        .unwrap()
+        .into_string()
+        .unwrap();
+
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_mixed_input_ordered() {
+        // Test that list numbering is continuous even with h1/tables mixed in
+        let value = Value::test_list(vec![
+            Value::test_record(record! {
+                "h1" => Value::test_string("Title"),
+            }),
+            Value::test_string("first"),
+            Value::test_string("second"),
+        ]);
+
+        let result = to_md(
+            value.into_pipeline_data(),
+            ToMdOptions {
+                pretty: false,
+                per_element: true,
+                center: None,
+                escape_md: false,
+                escape_html: false,
+                list_style: ListStyle::Ordered,
+            },
+            &Config::default(),
+            Span::test_data(),
+        )
+        .unwrap()
+        .into_value(Span::test_data())
+        .unwrap()
+        .into_string()
+        .unwrap();
+
+        // h1 should not affect numbering; items should be 1. and 2.
+        assert_eq!(result, "# Title\n1. first\n2. second");
     }
 }
