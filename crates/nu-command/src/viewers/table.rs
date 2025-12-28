@@ -1062,7 +1062,7 @@ fn render_path_name(
     let style =
         ls_colors.style_for_path_with_metadata(stripped_path.as_ref(), metadata.ok().as_ref());
 
-    let file_icon = icon_for_file(&path, &None);
+    let file_icon = icon_for_file(path, &None);
     let icon_style = lookup_ansi_color_style(file_icon.color);
 
     // clickable links don't work in remote SSH sessions
@@ -1110,7 +1110,7 @@ fn render_path_name(
          format!(
             "{}  {}",
             icon_style.paint(String::from(file_icon.icon)),
-            ansi_style.paint(full_path_link).to_string()
+            ansi_style.paint(full_path_link)
         )
     } else {
         ansi_style.paint(full_path_link).to_string()
