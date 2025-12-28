@@ -5,8 +5,8 @@
 use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Duration};
 
 use devicons::icon_for_file;
-use nu_color_config::lookup_ansi_color_style;
 use lscolors::{LsColors, Style};
+use nu_color_config::lookup_ansi_color_style;
 use url::Url;
 use web_time::Instant;
 
@@ -706,8 +706,14 @@ fn handle_row_stream(
                     if let Some(value) = record.to_mut().get_mut("name") {
                         let span = value.span();
                         if let Value::String { val, .. } = value
-                            && let Some(val) =
-                                render_path_name(val, &config, &ls_colors, input.cwd.clone(), input.cfg.icons, span)
+                            && let Some(val) = render_path_name(
+                                val,
+                                &config,
+                                &ls_colors,
+                                input.cwd.clone(),
+                                input.cfg.icons,
+                                span,
+                            )
                         {
                             *value = val;
                         }
@@ -1107,7 +1113,7 @@ fn render_path_name(
     );
 
     let val = if icons {
-         format!(
+        format!(
             "{}  {}",
             icon_style.paint(String::from(file_icon.icon)),
             ansi_style.paint(full_path_link)
