@@ -236,8 +236,8 @@ fn to_md(
         .iter()
         .any(|v| matches!(v, Value::Record { .. } | Value::List { .. }));
 
-    // For simple lists, use list_style formatting (default: unordered)
-    if is_simple_list && options.list_style != ListStyle::None {
+    // For simple lists, use list_style formatting
+    if is_simple_list {
         let result = values
             .into_iter()
             .enumerate()
@@ -265,39 +265,13 @@ fn to_md(
         return Ok(Value::string(
             grouped_input
                 .into_iter()
-                .enumerate()
-                .map(|(idx, val)| match &val {
-                    Value::List { .. } => {
-                        format!(
-                            "{}\n\n",
-                            table(
-                                val.into_pipeline_data(),
-                                options.pretty,
-                                &options.center,
-                                options.escape_md,
-                                options.escape_html,
-                                config
-                            )
-                        )
-                    }
-                    // For records, check if it's a special markdown element (h1, h2, etc.)
-                    Value::Record { val: record, .. } => {
-                        if is_special_markdown_record(record) {
-                            // Special markdown elements use fragment() directly
-                            fragment(
-                                val,
-                                options.pretty,
-                                &options.center,
-                                options.escape_md,
-                                options.escape_html,
-                                config,
-                            )
-                        } else {
-                            // Regular records are rendered as tables
+                .scan(0usize, |list_idx, val| {
+                    Some(match &val {
+                        Value::List { .. } => {
                             format!(
                                 "{}\n\n",
-                                fragment(
-                                    val,
+                                table(
+                                    val.into_pipeline_data(),
                                     options.pretty,
                                     &options.center,
                                     options.escape_md,
@@ -306,15 +280,46 @@ fn to_md(
                                 )
                             )
                         }
-                    }
-                    _ => format_list_item(
-                        val,
-                        idx,
-                        options.list_style,
-                        options.escape_md,
-                        options.escape_html,
-                        config,
-                    ),
+                        // For records, check if it's a special markdown element (h1, h2, etc.)
+                        Value::Record { val: record, .. } => {
+                            if is_special_markdown_record(record) {
+                                // Special markdown elements use fragment() directly
+                                fragment(
+                                    val,
+                                    options.pretty,
+                                    &options.center,
+                                    options.escape_md,
+                                    options.escape_html,
+                                    config,
+                                )
+                            } else {
+                                // Regular records are rendered as tables
+                                format!(
+                                    "{}\n\n",
+                                    fragment(
+                                        val,
+                                        options.pretty,
+                                        &options.center,
+                                        options.escape_md,
+                                        options.escape_html,
+                                        config
+                                    )
+                                )
+                            }
+                        }
+                        _ => {
+                            let result = format_list_item(
+                                val,
+                                *list_idx,
+                                options.list_style,
+                                options.escape_md,
+                                options.escape_html,
+                                config,
+                            );
+                            *list_idx += 1;
+                            result
+                        }
+                    })
                 })
                 .collect::<Vec<String>>()
                 .join("")
@@ -347,15 +352,7 @@ fn format_list_item(
     config: &Config,
 ) -> String {
     let value_string = input.to_expanded_string("|", config);
-    let escaped = escape_markdown_characters(
-        if escape_html {
-            v_htmlescape::escape(&value_string).to_string()
-        } else {
-            value_string
-        },
-        escape_md,
-        false,
-    );
+    let escaped = escape_value(value_string, escape_md, escape_html, false);
 
     let prefix = match list_style {
         ListStyle::Ordered => format!("{}. ", index + 1),
@@ -389,6 +386,19 @@ fn escape_markdown_characters(input: String, escape_md: bool, for_table: bool) -
     output
 }
 
+/// Escapes a value string with optional HTML and Markdown escaping
+fn escape_value(value: String, escape_md: bool, escape_html: bool, for_table: bool) -> String {
+    escape_markdown_characters(
+        if escape_html {
+            v_htmlescape::escape(&value).to_string()
+        } else {
+            value
+        },
+        escape_md,
+        for_table,
+    )
+}
+
 fn fragment(
     input: Value,
     pretty: bool,
@@ -402,26 +412,17 @@ fn fragment(
     if let Value::Record { val, .. } = &input {
         match val.get_index(0) {
             Some((header, data)) if is_special_markdown_record(val) => {
+                // SAFETY: is_special_markdown_record already validated the header matches one of these
                 let markup = match header.to_ascii_lowercase().as_ref() {
                     "h1" => "# ",
                     "h2" => "## ",
                     "h3" => "### ",
-                    "blockquote" => "> ",
-                    // unreachable because is_special_markdown_record already validated the header
-                    _ => unreachable!(),
+                    _ => "> ", // blockquote as default for any other validated header
                 };
 
                 let value_string = data.to_expanded_string("|", config);
                 out.push_str(markup);
-                out.push_str(&escape_markdown_characters(
-                    if escape_html {
-                        v_htmlescape::escape(&value_string).to_string()
-                    } else {
-                        value_string
-                    },
-                    escape_md,
-                    false,
-                ));
+                out.push_str(&escape_value(value_string, escape_md, escape_html, false));
             }
             _ => {
                 out = table(
@@ -436,15 +437,7 @@ fn fragment(
         }
     } else {
         let value_string = input.to_expanded_string("|", config);
-        out = escape_markdown_characters(
-            if escape_html {
-                v_htmlescape::escape(&value_string).to_string()
-            } else {
-                value_string
-            },
-            escape_md,
-            false,
-        );
+        out = escape_value(value_string, escape_md, escape_html, false);
     }
 
     out.push('\n');
