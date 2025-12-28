@@ -18,7 +18,7 @@ impl Command for Let {
             .input_output_types(vec![(Type::Any, Type::Nothing)])
             .allow_variants_without_examples(true)
             .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
-            .required(
+            .optional(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                 "Equals sign followed by value.",
@@ -69,6 +69,11 @@ impl Command for Let {
             Example {
                 description: "Set a variable based on the condition",
                 example: "let x = if false { -1 } else { 1 }",
+                result: None,
+            },
+            Example {
+                description: "Set a variable to the output of a pipeline",
+                example: "ls | let files",
                 result: None,
             },
         ]
