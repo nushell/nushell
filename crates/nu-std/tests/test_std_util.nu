@@ -74,7 +74,7 @@ def path_add_expand [] {
         assert equal (get_path) ([$link_dir])
     }
 
-    rm $real_dir $link_dir
+    rm -f $real_dir $link_dir
 }
 
 @test
