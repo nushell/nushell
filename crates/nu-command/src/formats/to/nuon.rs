@@ -33,6 +33,11 @@ impl Command for ToNuon {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "raw-strings",
+                "use raw string syntax (r#'...'#) for strings with quotes or backslashes",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -53,6 +58,7 @@ impl Command for ToNuon {
             .with_content_type(Some("application/x-nuon".into()));
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -69,7 +75,8 @@ impl Command for ToNuon {
         let config = nuon::ToNuonConfig::default()
             .style(style)
             .span(Some(span))
-            .serialize_types(serialize_types);
+            .serialize_types(serialize_types)
+            .raw_strings(raw_strings);
 
         match nuon::to_nuon(engine_state, &value, config) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
@@ -110,6 +117,11 @@ impl Command for ToNuon {
                 result: Some(Value::test_string(
                     "{date:2000-01-01T00:00:00+00:00,data:[1,[2,3],4.56]}",
                 )),
+            },
+            Example {
+                description: "Use raw string syntax for strings with quotes or backslashes",
+                example: r#"'hello "world"' | to nuon --raw-strings"#,
+                result: Some(Value::test_string(r#"r#'hello "world"'#"#)),
             },
         ]
     }
