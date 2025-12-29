@@ -181,6 +181,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
 
         let mut completion_options = orig_options.clone();
         let mut should_sort = true;
+        let mut should_filter = true;
 
         // Parse result
         let suggestions = match result.and_then(|data| data.into_value(span)) {
@@ -202,8 +203,18 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     let options = val.get("options");
 
                     if let Some(Value::Record { val: options, .. }) = &options {
+                        if let Some(filter) =
+                            options.get("filter").and_then(|val| val.as_bool().ok())
+                        {
+                            should_filter = filter;
+                        }
+
                         if let Some(sort) = options.get("sort").and_then(|val| val.as_bool().ok()) {
                             should_sort = sort;
+
+                            if should_sort && !should_filter {
+                                log::warn!("Sorting won't happen because filtering is disabled.")
+                            };
                         }
 
                         if let Some(case_sensitive) = options
@@ -212,6 +223,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         {
                             completion_options.case_sensitive = case_sensitive;
                         }
+
                         let positional =
                             options.get("positional").and_then(|val| val.as_bool().ok());
                         if positional.is_some() {
@@ -264,6 +276,10 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 return vec![];
             }
         };
+
+        if !should_filter {
+            return suggestions;
+        }
 
         let mut matcher = NuMatcher::new(prefix, &completion_options, should_sort);
 

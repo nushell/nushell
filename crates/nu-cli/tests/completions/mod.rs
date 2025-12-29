@@ -284,6 +284,18 @@ fn customcompletions_no_sort() {
     );
 }
 
+#[test]
+fn customcompletions_no_filter() {
+    let mut completer = custom_completer_with_options(
+        "",
+        r#"filter: false"#,
+        &["zzzfoo", "foo", "not matched", "abcfoo"],
+    );
+    let suggestions = completer.complete("my-command foo", 14);
+    let expected_items = vec!["zzzfoo", "foo", "not matched", "abcfoo"];
+    match_suggestions(&expected_items, &suggestions);
+}
+
 #[rstest]
 #[case::happy("{ start: 1, end: 14 }", (7, 20))]
 #[case::no_start("{ end: 14 }", (17, 20))]
