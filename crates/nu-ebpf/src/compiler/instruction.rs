@@ -337,6 +337,11 @@ impl EbpfInsn {
         Self::new(opcode::BPF_JMP | opcode::BPF_JEQ | opcode::BPF_K, dst.as_u8(), 0, offset, imm)
     }
 
+    /// JEQ dst, src, offset - Jump if dst == src (register comparison)
+    pub const fn jeq_reg(dst: EbpfReg, src: EbpfReg, offset: i16) -> Self {
+        Self::new(opcode::BPF_JMP | opcode::BPF_JEQ | opcode::BPF_X, dst.as_u8(), src.as_u8(), offset, 0)
+    }
+
     /// NEG64 dst - Negate register (dst = -dst)
     pub const fn neg64(dst: EbpfReg) -> Self {
         Self::new(opcode::BPF_ALU64 | opcode::BPF_NEG, dst.as_u8(), 0, 0, 0)

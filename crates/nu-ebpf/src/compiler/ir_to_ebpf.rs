@@ -140,6 +140,8 @@ pub struct IrToEbpfCompiler<'a> {
     stack_offset: i16,
     /// We need to save R1 (context) at the start if we use bpf-emit
     ctx_saved: bool,
+    /// Pushed positional arguments for the next call (register IDs)
+    pushed_args: Vec<RegId>,
 }
 
 impl<'a> IrToEbpfCompiler<'a> {
@@ -180,6 +182,7 @@ impl<'a> IrToEbpfCompiler<'a> {
             relocations: Vec::new(),
             stack_offset: -8, // Start at -8 from R10
             ctx_saved: false,
+            pushed_args: Vec::new(),
         };
 
         // Save the context pointer (R1) to R9 at the start
@@ -294,7 +297,11 @@ impl<'a> IrToEbpfCompiler<'a> {
             }
             // Instructions we can safely ignore for simple closures
             Instruction::Span { .. } => Ok(()),
-            Instruction::PushPositional { .. } => Ok(()), // Args handled by Call
+            Instruction::PushPositional { src } => {
+                // Track pushed argument for filter commands
+                self.pushed_args.push(*src);
+                Ok(())
+            }
             Instruction::RedirectOut { .. } => Ok(()),
             Instruction::RedirectErr { .. } => Ok(()),
             Instruction::Drop { .. } => Ok(()),
@@ -327,6 +334,21 @@ impl<'a> IrToEbpfCompiler<'a> {
             Literal::Nothing => {
                 // Nothing is represented as 0
                 self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, 0));
+                Ok(())
+            }
+            Literal::String(data_slice) => {
+                // Get the string data from the IrBlock's data buffer
+                let start = data_slice.start as usize;
+                let end = start + data_slice.len as usize;
+                let string_bytes = &self.ir_block.data[start..end];
+
+                // Convert first 8 bytes of string to i64 for comparison
+                // This matches how bpf-comm encodes process names
+                let mut arr = [0u8; 8];
+                let len = string_bytes.len().min(8);
+                arr[..len].copy_from_slice(&string_bytes[..len]);
+                let val = i64::from_le_bytes(arr);
+                self.emit_load_64bit_imm(ebpf_dst, val);
                 Ok(())
             }
             _ => Err(CompileError::UnsupportedLiteral),
@@ -592,9 +614,22 @@ impl<'a> IrToEbpfCompiler<'a> {
         // Map known commands to BPF helpers
         match cmd_name {
             "bpf-pid" | "bpf pid" => {
-                // bpf_get_current_pid_tgid() returns (pid << 32) | tgid
+                // bpf_get_current_pid_tgid() returns (tgid << 32) | pid
                 // We'll return the full value and let user extract pid with bit ops
                 self.builder.push(EbpfInsn::call(BpfHelper::GetCurrentPidTgid));
+                // Result is in R0, move to destination register
+                let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+                if ebpf_dst.as_u8() != EbpfReg::R0.as_u8() {
+                    self.builder.push(EbpfInsn::mov64_reg(ebpf_dst, EbpfReg::R0));
+                }
+                Ok(())
+            }
+            "bpf-tgid" | "bpf tgid" => {
+                // bpf_get_current_pid_tgid() returns (tgid << 32) | pid
+                // TGID is in the upper 32 bits - this is the "process ID" users expect
+                self.builder.push(EbpfInsn::call(BpfHelper::GetCurrentPidTgid));
+                // Right-shift by 32 to get the TGID
+                self.builder.push(EbpfInsn::rsh64_imm(EbpfReg::R0, 32));
                 // Result is in R0, move to destination register
                 let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
                 if ebpf_dst.as_u8() != EbpfReg::R0.as_u8() {
@@ -631,6 +666,12 @@ impl<'a> IrToEbpfCompiler<'a> {
             }
             "bpf-count" | "bpf count" => {
                 self.compile_bpf_count(src_dst)
+            }
+            "bpf-filter-pid" | "bpf filter-pid" => {
+                self.compile_bpf_filter_pid()
+            }
+            "bpf-filter-comm" | "bpf filter-comm" => {
+                self.compile_bpf_filter_comm()
             }
             _ => Err(CompileError::UnsupportedInstruction(
                 format!("Call to unsupported command: {}", cmd_name)
@@ -871,6 +912,81 @@ impl<'a> IrToEbpfCompiler<'a> {
         // bpf-emit returns the original value for chaining
         // The value is still in ebpf_src register (we only copied it to stack)
 
+        Ok(())
+    }
+
+    /// Compile bpf-filter-pid: exit early if current TGID doesn't match
+    ///
+    /// Gets the first pushed positional argument (target PID) and compares
+    /// with the current TGID. If they don't match, exits the program early.
+    fn compile_bpf_filter_pid(&mut self) -> Result<(), CompileError> {
+        // Get the target PID from pushed arguments
+        let arg_reg = self.pushed_args.pop().ok_or_else(|| {
+            CompileError::UnsupportedInstruction("bpf-filter-pid requires a PID argument".into())
+        })?;
+
+        // Get the target PID value (should already be loaded in a register)
+        let target_reg = self.reg_alloc.get(arg_reg)?;
+
+        // Get current TGID
+        self.builder.push(EbpfInsn::call(BpfHelper::GetCurrentPidTgid));
+        // Right-shift by 32 to get the TGID
+        self.builder.push(EbpfInsn::rsh64_imm(EbpfReg::R0, 32));
+
+        // Compare R0 (current TGID) with target
+        // If equal, continue; if not equal, exit with 0
+        // jne r0, target_reg, +2 (skip to exit)
+        self.builder.push(EbpfInsn::jeq_reg(EbpfReg::R0, target_reg, 2));
+
+        // Not matching - exit early
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R0, 0));
+        self.builder.push(EbpfInsn::exit());
+
+        // Matching - continue execution (fall through)
+        Ok(())
+    }
+
+    /// Compile bpf-filter-comm: exit early if current comm doesn't match
+    ///
+    /// Gets the first pushed positional argument (target comm as i64) and
+    /// compares with the first 8 bytes of current comm. If they don't match,
+    /// exits the program early.
+    fn compile_bpf_filter_comm(&mut self) -> Result<(), CompileError> {
+        // Get the target comm from pushed arguments
+        let arg_reg = self.pushed_args.pop().ok_or_else(|| {
+            CompileError::UnsupportedInstruction("bpf-filter-comm requires a comm argument".into())
+        })?;
+
+        // Get the target comm value (should already be loaded in a register)
+        let target_reg = self.reg_alloc.get(arg_reg)?;
+
+        // Get current comm (first 8 bytes)
+        // Allocate 16 bytes on stack for TASK_COMM_LEN
+        let comm_stack_offset = self.stack_offset - 16;
+        self.stack_offset -= 16;
+
+        // R1 = pointer to buffer on stack
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R1, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R1, comm_stack_offset as i32));
+
+        // R2 = size (16 = TASK_COMM_LEN)
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R2, 16));
+
+        // Call bpf_get_current_comm
+        self.builder.push(EbpfInsn::call(BpfHelper::GetCurrentComm));
+
+        // Load first 8 bytes from buffer into R0
+        self.builder.push(EbpfInsn::ldxdw(EbpfReg::R0, EbpfReg::R10, comm_stack_offset));
+
+        // Compare R0 (current comm first 8 bytes) with target
+        // If equal, continue; if not equal, exit with 0
+        self.builder.push(EbpfInsn::jeq_reg(EbpfReg::R0, target_reg, 2));
+
+        // Not matching - exit early
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R0, 0));
+        self.builder.push(EbpfInsn::exit());
+
+        // Matching - continue execution (fall through)
         Ok(())
     }
 }

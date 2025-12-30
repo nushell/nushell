@@ -45,6 +45,52 @@ impl Command for BpfPid {
     }
 }
 
+/// Get thread group ID / process ID (maps to bpf_get_current_pid_tgid >> 32 in eBPF)
+///
+/// In Linux, bpf_get_current_pid_tgid() returns:
+/// - Lower 32 bits: PID (thread ID in kernel terminology)
+/// - Upper 32 bits: TGID (thread group ID = the "PID" that users expect)
+///
+/// This command returns the TGID, which matches getpid() from userspace.
+#[derive(Clone)]
+pub struct BpfTgid;
+
+impl Command for BpfTgid {
+    fn name(&self) -> &str {
+        "bpf-tgid"
+    }
+
+    fn description(&self) -> &str {
+        "Get the thread group ID (process ID). In eBPF, returns bpf_get_current_pid_tgid() >> 32."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-tgid")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-tgid",
+            description: "Get the thread group ID (process ID)",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, return the actual PID (which is the TGID for the main thread)
+        let pid = std::process::id() as i64;
+        Ok(Value::int(pid, call.head).into_pipeline_data())
+    }
+}
+
 /// Get current user ID (maps to bpf_get_current_uid_gid in eBPF)
 #[derive(Clone)]
 pub struct BpfUid;
@@ -281,6 +327,127 @@ impl Command for BpfEmitComm {
 
         eprintln!("[bpf-emit-comm] {}", comm);
         Ok(Value::string(comm, call.head).into_pipeline_data())
+    }
+}
+
+/// Filter by process ID - only proceed if current TGID matches
+///
+/// In eBPF, this checks the current TGID and exits early if not matching.
+/// Must be the first command in the pipeline.
+#[derive(Clone)]
+pub struct BpfFilterPid;
+
+impl Command for BpfFilterPid {
+    fn name(&self) -> &str {
+        "bpf-filter-pid"
+    }
+
+    fn description(&self) -> &str {
+        "Only proceed if current process ID matches. Must be first in pipeline."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-filter-pid")
+            .required("pid", SyntaxShape::Int, "Process ID to match")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-filter-pid 1234; bpf-tgid | bpf-emit",
+            description: "Only emit events for PID 1234",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, check if we match
+        let target_pid: i64 = call.req(engine_state, stack, 0)?;
+        let current_pid = std::process::id() as i64;
+        if current_pid != target_pid {
+            // In regular runtime, we can't "exit early" like eBPF,
+            // so we just return an error to indicate filtering
+            return Err(ShellError::GenericError {
+                error: "Filter not matched".into(),
+                msg: format!("Current PID {} does not match filter {}", current_pid, target_pid),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
+        }
+        Ok(PipelineData::Empty)
+    }
+}
+
+/// Filter by process name - only proceed if current comm matches
+///
+/// In eBPF, this checks the first 8 bytes of comm and exits early if not matching.
+/// Must be the first command in the pipeline.
+#[derive(Clone)]
+pub struct BpfFilterComm;
+
+impl Command for BpfFilterComm {
+    fn name(&self) -> &str {
+        "bpf-filter-comm"
+    }
+
+    fn description(&self) -> &str {
+        "Only proceed if current process name matches. Must be first in pipeline."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-filter-comm")
+            .required("comm", SyntaxShape::String, "Process name to match (first 8 chars)")
+            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-filter-comm 'nginx'; bpf-tgid | bpf-emit",
+            description: "Only emit events for nginx processes",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, check if we match
+        let target_comm: String = call.req(engine_state, stack, 0)?;
+        #[cfg(unix)]
+        let current_comm = std::fs::read_to_string("/proc/self/comm")
+            .unwrap_or_else(|_| "unknown\n".to_string())
+            .trim()
+            .to_string();
+        #[cfg(not(unix))]
+        let current_comm = "unknown".to_string();
+
+        // Compare first 8 characters (like eBPF does with i64)
+        let target_prefix: String = target_comm.chars().take(8).collect();
+        let current_prefix: String = current_comm.chars().take(8).collect();
+
+        if current_prefix != target_prefix {
+            return Err(ShellError::GenericError {
+                error: "Filter not matched".into(),
+                msg: format!("Current comm '{}' does not match filter '{}'", current_comm, target_comm),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            });
+        }
+        Ok(PipelineData::Empty)
     }
 }
 

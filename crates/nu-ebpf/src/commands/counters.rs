@@ -4,6 +4,20 @@ use nu_engine::command_prelude::*;
 
 use crate::loader::get_state;
 
+/// Try to decode an i64 key as a process name (comm)
+/// Returns Some(string) if the bytes look like valid UTF-8, None otherwise
+fn try_decode_comm(key: i64) -> Option<String> {
+    let bytes = key.to_le_bytes();
+    // Find null terminator or end
+    let len = bytes.iter().position(|&b| b == 0).unwrap_or(8);
+    // Check if bytes are printable ASCII (common for process names)
+    if bytes[..len].iter().all(|&b| b >= 0x20 && b < 0x7f) {
+        String::from_utf8(bytes[..len].to_vec()).ok()
+    } else {
+        None
+    }
+}
+
 /// Display counter values from an attached probe
 #[derive(Clone)]
 pub struct EbpfCounters;
@@ -55,9 +69,14 @@ impl Command for EbpfCounters {
         let records: Vec<Value> = entries
             .into_iter()
             .map(|entry| {
+                // Try to decode key as process name (comm)
+                let key_display = match try_decode_comm(entry.key) {
+                    Some(comm) => Value::string(comm, span),
+                    None => Value::int(entry.key, span),
+                };
                 Value::record(
                     record! {
-                        "key" => Value::int(entry.key, span),
+                        "key" => key_display,
                         "count" => Value::int(entry.count, span),
                     },
                     span,

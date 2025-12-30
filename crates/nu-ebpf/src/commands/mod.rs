@@ -15,7 +15,10 @@ pub use attach::EbpfAttach;
 pub use counters::EbpfCounters;
 pub use detach::EbpfDetach;
 pub use events::EbpfEvents;
-pub use helpers::{BpfComm, BpfCount, BpfEmit, BpfEmitComm, BpfKtime, BpfPid, BpfUid};
+pub use helpers::{
+    BpfComm, BpfCount, BpfEmit, BpfEmitComm, BpfFilterComm, BpfFilterPid, BpfKtime, BpfPid,
+    BpfTgid, BpfUid,
+};
 pub use list::EbpfList;
 pub use trace::EbpfTrace;
 
@@ -32,11 +35,14 @@ pub fn commands() -> Vec<Box<dyn Command>> {
         Box::new(EbpfTrace),
         // BPF helper commands (usable in closures)
         Box::new(BpfPid),
+        Box::new(BpfTgid),
         Box::new(BpfUid),
         Box::new(BpfKtime),
         Box::new(BpfComm),
         Box::new(BpfCount),
         Box::new(BpfEmit),
         Box::new(BpfEmitComm),
+        Box::new(BpfFilterPid),
+        Box::new(BpfFilterComm),
     ]
 }
