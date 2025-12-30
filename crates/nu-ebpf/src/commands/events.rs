@@ -82,7 +82,7 @@ fn run_events(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    use crate::loader::get_state;
+    use crate::loader::{get_state, BpfEventData};
 
     let probe_id: i64 = call.req(engine_state, stack, 0)?;
     let timeout: Option<i64> = call.get_flag(engine_state, stack, "timeout")?;
@@ -106,9 +106,14 @@ fn run_events(
     let values: Vec<Value> = events
         .into_iter()
         .map(|e| {
+            let value = match e.data {
+                BpfEventData::Int(v) => Value::int(v, span),
+                BpfEventData::String(s) => Value::string(s, span),
+                BpfEventData::Bytes(b) => Value::binary(b, span),
+            };
             Value::record(
                 record! {
-                    "value" => Value::int(e.value, span),
+                    "value" => value,
                     "cpu" => Value::int(e.cpu as i64, span),
                 },
                 span,

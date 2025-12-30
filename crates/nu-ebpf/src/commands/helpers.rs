@@ -233,6 +233,57 @@ impl Command for BpfEmit {
     }
 }
 
+/// Emit the current process name to the perf buffer (full 16 bytes)
+///
+/// Unlike bpf-comm which returns a truncated i64, this emits the full
+/// TASK_COMM_LEN (16 bytes) process name as a string event.
+#[derive(Clone)]
+pub struct BpfEmitComm;
+
+impl Command for BpfEmitComm {
+    fn name(&self) -> &str {
+        "bpf-emit-comm"
+    }
+
+    fn description(&self) -> &str {
+        "Emit the current process name to the perf buffer as a string."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-emit-comm")
+            .input_output_types(vec![(Type::Nothing, Type::String)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-emit-comm",
+            description: "Emit the current process name",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, get and print the process name
+        #[cfg(unix)]
+        let comm = std::fs::read_to_string("/proc/self/comm")
+            .unwrap_or_else(|_| "unknown\n".to_string())
+            .trim()
+            .to_string();
+        #[cfg(not(unix))]
+        let comm = "unknown".to_string();
+
+        eprintln!("[bpf-emit-comm] {}", comm);
+        Ok(Value::string(comm, call.head).into_pipeline_data())
+    }
+}
+
 /// Count occurrences by key (maps to hash map lookup+update in eBPF)
 ///
 /// This command increments a counter for the input value as key.

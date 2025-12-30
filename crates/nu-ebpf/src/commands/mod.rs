@@ -15,7 +15,7 @@ pub use attach::EbpfAttach;
 pub use counters::EbpfCounters;
 pub use detach::EbpfDetach;
 pub use events::EbpfEvents;
-pub use helpers::{BpfComm, BpfCount, BpfEmit, BpfKtime, BpfPid, BpfUid};
+pub use helpers::{BpfComm, BpfCount, BpfEmit, BpfEmitComm, BpfKtime, BpfPid, BpfUid};
 pub use list::EbpfList;
 pub use trace::EbpfTrace;
 
@@ -37,5 +37,6 @@ pub fn commands() -> Vec<Box<dyn Command>> {
         Box::new(BpfComm),
         Box::new(BpfCount),
         Box::new(BpfEmit),
+        Box::new(BpfEmitComm),
     ]
 }

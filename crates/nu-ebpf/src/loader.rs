@@ -84,11 +84,22 @@ impl std::fmt::Debug for ActiveProbe {
     }
 }
 
-/// An event received from an eBPF program via bpf-emit
+/// The data payload of an eBPF event
+#[derive(Debug, Clone)]
+pub enum BpfEventData {
+    /// An integer value (8 bytes from bpf-emit)
+    Int(i64),
+    /// A string value (16 bytes from bpf-emit-comm, null-terminated)
+    String(String),
+    /// Raw bytes for unknown sizes
+    Bytes(Vec<u8>),
+}
+
+/// An event received from an eBPF program via bpf-emit or bpf-emit-comm
 #[derive(Debug, Clone)]
 pub struct BpfEvent {
-    /// The value emitted by the eBPF program
-    pub value: i64,
+    /// The data emitted by the eBPF program
+    pub data: BpfEventData,
     /// Which CPU the event came from
     pub cpu: u32,
 }
@@ -275,17 +286,31 @@ impl EbpfState {
         let mut events = Vec::new();
 
         // Read events from each pre-opened buffer
-        // Use a buffer that can hold multiple 8-byte events
         let mut out_bufs: [BytesMut; 16] = std::array::from_fn(|_| BytesMut::with_capacity(64));
 
         for cpu_buf in &mut probe.perf_buffers {
             // Read available events (non-blocking)
             if let Ok(evts) = cpu_buf.buf.read_events(&mut out_bufs) {
                 for out_buf in out_bufs.iter().take(evts.read) {
-                    if out_buf.len() >= 8 {
+                    // Perf buffer may add padding, so we use size ranges
+                    // We sent 8 bytes for integers, 16 bytes for strings
+                    let data = if out_buf.len() >= 8 && out_buf.len() < 16 {
+                        // 8-15 bytes = integer from bpf-emit (may have padding)
                         let value = i64::from_le_bytes(out_buf[0..8].try_into().unwrap());
-                        events.push(BpfEvent { value, cpu: cpu_buf.cpu_id });
-                    }
+                        BpfEventData::Int(value)
+                    } else if out_buf.len() >= 16 {
+                        // 16+ bytes = string from bpf-emit-comm (TASK_COMM_LEN)
+                        // Find null terminator within first 16 bytes
+                        let null_pos = out_buf[..16].iter().position(|&b| b == 0).unwrap_or(16);
+                        let s = String::from_utf8_lossy(&out_buf[..null_pos]).to_string();
+                        BpfEventData::String(s)
+                    } else if !out_buf.is_empty() {
+                        // Unknown size - return raw bytes
+                        BpfEventData::Bytes(out_buf.to_vec())
+                    } else {
+                        continue;
+                    };
+                    events.push(BpfEvent { data, cpu: cpu_buf.cpu_id });
                 }
             }
         }
