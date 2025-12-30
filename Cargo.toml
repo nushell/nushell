@@ -68,12 +68,14 @@ members = [
   "crates/nu-utils",
   "crates/nuon",
   "crates/nu-mcp",
+  "crates/nu-ebpf",
 ]
 
 [workspace.dependencies]
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
 anyhow = "1.0.82"
+aya = { version = "0.13", default-features = false }
 base64 = "0.22.1"
 bracoxide = "0.1.7"
 brotli = "8.0"
@@ -133,6 +135,7 @@ nu-ansi-term = "0.50.3"
 nucleo-matcher = "0.3"
 num-format = "0.4"
 num-traits = "0.2"
+object = { version = "0.36", default-features = false, features = ["write"] }
 oem_cp = "2.1.0"
 omnipath = "0.1"
 open = "5.3"
@@ -265,6 +268,9 @@ nix = { workspace = true, default-features = false, features = [
   "term",
 ] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+nu-ebpf = { path = "./crates/nu-ebpf", version = "0.109.2" }
+
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.109.2" }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.109.2" }
@@ -313,6 +319,7 @@ mcp = [
 network = ["nu-command/network"]
 native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
+ebpf = ["nu-command/ebpf"]
 
 default = [
   "plugin",

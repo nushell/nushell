@@ -1,0 +1,30 @@
+[package]
+name = "nu-ebpf"
+version = "0.109.2"
+edition = "2024"
+license = "MIT"
+description = "eBPF support for Nushell - compile closures to kernel tracing programs"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-ebpf"
+authors = ["The Nushell Project Developers"]
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol" }
+nu-engine = { path = "../nu-engine" }
+
+# eBPF loading
+aya.workspace = true
+
+# ELF generation
+object.workspace = true
+
+# Error handling
+thiserror.workspace = true
+
+# Perf buffer handling
+bytes.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc.workspace = true
+
+[lints]
+workspace = true

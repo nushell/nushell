@@ -32,6 +32,7 @@ nu-table = { path = "../nu-table", version = "0.109.2" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.109.2" }
 nu-utils = { path = "../nu-utils", version = "0.109.2", default-features = false }
 nuon = { path = "../nuon", version = "0.109.2" }
+nu-ebpf = { path = "../nu-ebpf", version = "0.109.2", optional = true }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -234,6 +235,7 @@ rustls-tls = [
 plugin = ["nu-parser/plugin", "os"]
 sqlite = ["rusqlite"]
 trash-support = ["trash"]
+ebpf = ["nu-ebpf"]
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }

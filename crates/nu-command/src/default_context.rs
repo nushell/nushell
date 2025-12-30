@@ -474,6 +474,14 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             JobUnfreeze,
         }
 
+        // eBPF
+        #[cfg(feature = "ebpf")]
+        {
+            for cmd in nu_ebpf::commands::commands() {
+                working_set.add_decl(cmd);
+            }
+        }
+
         // Removed
         bind_command! {
             LetEnv,
