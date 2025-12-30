@@ -29,6 +29,49 @@ const PERF_MAP_NAME: &str = "events";
 /// Name of the counter hash map for bpf-count
 const COUNTER_MAP_NAME: &str = "counters";
 
+/// Architecture-specific pt_regs offsets for function arguments
+///
+/// These are the byte offsets into struct pt_regs where each function
+/// argument register is stored.
+#[cfg(target_arch = "x86_64")]
+mod pt_regs_offsets {
+    /// Offsets for arguments 0-5 (rdi, rsi, rdx, rcx, r8, r9)
+    pub const ARG_OFFSETS: [i16; 6] = [
+        112, // arg0: rdi
+        104, // arg1: rsi
+        96,  // arg2: rdx
+        88,  // arg3: rcx
+        72,  // arg4: r8
+        64,  // arg5: r9
+    ];
+    /// Offset for return value (rax)
+    pub const RETVAL_OFFSET: i16 = 80;
+}
+
+#[cfg(target_arch = "aarch64")]
+mod pt_regs_offsets {
+    /// Offsets for arguments 0-7 (x0-x7, each 8 bytes)
+    pub const ARG_OFFSETS: [i16; 8] = [
+        0,  // arg0: x0
+        8,  // arg1: x1
+        16, // arg2: x2
+        24, // arg3: x3
+        32, // arg4: x4
+        40, // arg5: x5
+        48, // arg6: x6
+        56, // arg7: x7
+    ];
+    /// Offset for return value (x0)
+    pub const RETVAL_OFFSET: i16 = 0;
+}
+
+// Fallback for unsupported architectures (compilation will fail at runtime)
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+mod pt_regs_offsets {
+    pub const ARG_OFFSETS: [i16; 6] = [0; 6];
+    pub const RETVAL_OFFSET: i16 = 0;
+}
+
 /// Maps Nushell register IDs to eBPF registers or stack locations
 pub struct RegisterAllocator {
     /// Maps Nu RegId -> eBPF register
@@ -142,6 +185,8 @@ pub struct IrToEbpfCompiler<'a> {
     ctx_saved: bool,
     /// Pushed positional arguments for the next call (register IDs)
     pushed_args: Vec<RegId>,
+    /// Track literal integer values loaded into registers (for compile-time constants)
+    literal_values: HashMap<u32, i64>,
 }
 
 impl<'a> IrToEbpfCompiler<'a> {
@@ -183,6 +228,7 @@ impl<'a> IrToEbpfCompiler<'a> {
             stack_offset: -8, // Start at -8 from R10
             ctx_saved: false,
             pushed_args: Vec::new(),
+            literal_values: HashMap::new(),
         };
 
         // Save the context pointer (R1) to R9 at the start
@@ -318,6 +364,9 @@ impl<'a> IrToEbpfCompiler<'a> {
 
         match lit {
             Literal::Int(val) => {
+                // Track the literal value for commands that need compile-time constants
+                self.literal_values.insert(dst.get(), *val);
+
                 // Check if value fits in i32 immediate
                 if *val >= i32::MIN as i64 && *val <= i32::MAX as i64 {
                     self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, *val as i32));
@@ -673,6 +722,12 @@ impl<'a> IrToEbpfCompiler<'a> {
             "bpf-filter-comm" | "bpf filter-comm" => {
                 self.compile_bpf_filter_comm()
             }
+            "bpf-arg" | "bpf arg" => {
+                self.compile_bpf_arg(src_dst)
+            }
+            "bpf-retval" | "bpf retval" => {
+                self.compile_bpf_retval(src_dst)
+            }
             _ => Err(CompileError::UnsupportedInstruction(
                 format!("Call to unsupported command: {}", cmd_name)
             )),
@@ -987,6 +1042,60 @@ impl<'a> IrToEbpfCompiler<'a> {
         self.builder.push(EbpfInsn::exit());
 
         // Matching - continue execution (fall through)
+        Ok(())
+    }
+
+    /// Compile bpf-arg: read a function argument from pt_regs
+    ///
+    /// The argument index is passed as a positional argument.
+    /// Reads from the context pointer (saved in R9) at the appropriate offset.
+    fn compile_bpf_arg(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Get the argument index from pushed arguments
+        let arg_reg = self.pushed_args.pop().ok_or_else(|| {
+            CompileError::UnsupportedInstruction("bpf-arg requires an index argument".into())
+        })?;
+
+        // Look up the compile-time literal value for the index
+        let index = self.literal_values.get(&arg_reg.get()).copied().ok_or_else(|| {
+            CompileError::UnsupportedInstruction(
+                "bpf-arg index must be a compile-time constant (literal integer)".into()
+            )
+        })?;
+
+        // Validate the index
+        let max_args = pt_regs_offsets::ARG_OFFSETS.len();
+        if index < 0 || index as usize >= max_args {
+            return Err(CompileError::UnsupportedInstruction(
+                format!("bpf-arg index {} out of range (0-{})", index, max_args - 1)
+            ));
+        }
+
+        // Get the offset for this argument
+        let offset = pt_regs_offsets::ARG_OFFSETS[index as usize];
+
+        // Allocate destination register
+        let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+
+        // ldxdw dst, [r9 + offset] - load 64-bit value from ctx
+        self.builder.push(EbpfInsn::ldxdw(ebpf_dst, EbpfReg::R9, offset));
+
+        Ok(())
+    }
+
+    /// Compile bpf-retval: read the return value from pt_regs (for kretprobe)
+    ///
+    /// Reads the return value register from the context pointer.
+    fn compile_bpf_retval(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Allocate destination register
+        let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+
+        // Read the return value from context (R9 has the ctx pointer)
+        // On x86_64, return value is in rax at offset 80
+        let offset = pt_regs_offsets::RETVAL_OFFSET;
+
+        // ldxdw dst, [r9 + offset] - load 64-bit value from ctx
+        self.builder.push(EbpfInsn::ldxdw(ebpf_dst, EbpfReg::R9, offset));
+
         Ok(())
     }
 }

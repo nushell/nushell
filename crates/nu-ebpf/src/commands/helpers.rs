@@ -330,6 +330,101 @@ impl Command for BpfEmitComm {
     }
 }
 
+/// Read a function argument from the probe context
+///
+/// In kprobes, reads from pt_regs to get the nth function argument.
+/// Architecture-specific: on x86_64, args are in rdi, rsi, rdx, rcx, r8, r9.
+#[derive(Clone)]
+pub struct BpfArg;
+
+impl Command for BpfArg {
+    fn name(&self) -> &str {
+        "bpf-arg"
+    }
+
+    fn description(&self) -> &str {
+        "Read a function argument from the probe context (0-5 on x86_64)."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-arg")
+            .required("index", SyntaxShape::Int, "Argument index (0-5)")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "bpf-arg 0",
+                description: "Get the first function argument",
+                result: None,
+            },
+            Example {
+                example: "bpf-arg 1 | bpf-emit",
+                description: "Emit the second function argument",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let index: i64 = call.req(engine_state, stack, 0)?;
+        // At regular runtime, we can't access function arguments
+        // Return a placeholder value indicating which arg would be read
+        eprintln!("[bpf-arg] Would read argument {}", index);
+        Ok(Value::int(0, call.head).into_pipeline_data())
+    }
+}
+
+/// Read the return value from a kretprobe context
+///
+/// Only valid in kretprobe handlers. Returns the function's return value.
+#[derive(Clone)]
+pub struct BpfRetval;
+
+impl Command for BpfRetval {
+    fn name(&self) -> &str {
+        "bpf-retval"
+    }
+
+    fn description(&self) -> &str {
+        "Read the function return value (only valid in kretprobe)."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-retval")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-retval | bpf-emit",
+            description: "Emit the function's return value",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, we can't access return values
+        eprintln!("[bpf-retval] Would read return value");
+        Ok(Value::int(0, call.head).into_pipeline_data())
+    }
+}
+
 /// Filter by process ID - only proceed if current TGID matches
 ///
 /// In eBPF, this checks the current TGID and exits early if not matching.
