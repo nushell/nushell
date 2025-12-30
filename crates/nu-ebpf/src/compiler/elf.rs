@@ -49,6 +49,17 @@ impl BpfMapDef {
         }
     }
 
+    /// Create a hash map for counting (key: i64, value: i64)
+    pub fn counter_hash() -> Self {
+        Self {
+            map_type: BpfMapType::Hash as u32,
+            key_size: 8,       // sizeof(i64) - the key to count
+            value_size: 8,     // sizeof(i64) - the count
+            max_entries: 10240, // Maximum number of unique keys
+            map_flags: 0,
+        }
+    }
+
     /// Serialize to bytes (little-endian)
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(20);

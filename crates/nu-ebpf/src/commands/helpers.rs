@@ -131,6 +131,66 @@ impl Command for BpfKtime {
     }
 }
 
+/// Get current process name/comm (maps to bpf_get_current_comm in eBPF)
+///
+/// Returns the first 8 bytes of the process name as an i64.
+/// This allows simple comparison and emission via bpf-emit.
+#[derive(Clone)]
+pub struct BpfComm;
+
+impl Command for BpfComm {
+    fn name(&self) -> &str {
+        "bpf-comm"
+    }
+
+    fn description(&self) -> &str {
+        "Get the current process name (comm). Returns first 8 bytes as int. In eBPF, maps to bpf_get_current_comm()."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-comm")
+            .input_output_types(vec![(Type::Nothing, Type::Int)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            example: "bpf-comm",
+            description: "Get the first 8 bytes of the current process name as an integer",
+            result: None,
+        }]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, get the actual process name
+        #[cfg(unix)]
+        let comm = {
+            // Read from /proc/self/comm
+            std::fs::read_to_string("/proc/self/comm")
+                .unwrap_or_else(|_| "unknown\n".to_string())
+                .trim()
+                .to_string()
+        };
+        #[cfg(not(unix))]
+        let comm = "unknown".to_string();
+
+        // Convert first 8 bytes to i64
+        let mut bytes = [0u8; 8];
+        let comm_bytes = comm.as_bytes();
+        let len = comm_bytes.len().min(8);
+        bytes[..len].copy_from_slice(&comm_bytes[..len]);
+        let value = i64::from_le_bytes(bytes);
+
+        Ok(Value::int(value, call.head).into_pipeline_data())
+    }
+}
+
 /// Emit a value to the perf buffer (maps to bpf_perf_event_output in eBPF)
 #[derive(Clone)]
 pub struct BpfEmit;
@@ -169,6 +229,56 @@ impl Command for BpfEmit {
         // (in eBPF, this would output to the perf buffer)
         let value = input.into_value(call.head)?;
         eprintln!("[bpf-emit] {}", value.to_expanded_string(", ", &nu_protocol::Config::default()));
+        Ok(value.into_pipeline_data())
+    }
+}
+
+/// Count occurrences by key (maps to hash map lookup+update in eBPF)
+///
+/// This command increments a counter for the input value as key.
+/// In eBPF, this creates a hash map and performs an atomic increment.
+#[derive(Clone)]
+pub struct BpfCount;
+
+impl Command for BpfCount {
+    fn name(&self) -> &str {
+        "bpf-count"
+    }
+
+    fn description(&self) -> &str {
+        "Count occurrences by key. In eBPF, updates a hash map counter."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-count")
+            .input_output_types(vec![(Type::Int, Type::Int)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "bpf-pid | bpf-count",
+                description: "Count events per PID",
+                result: None,
+            },
+            Example {
+                example: "bpf-comm | bpf-count",
+                description: "Count events per process name",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, just pass through (counting happens in eBPF)
+        let value = input.into_value(call.head)?;
         Ok(value.into_pipeline_data())
     }
 }

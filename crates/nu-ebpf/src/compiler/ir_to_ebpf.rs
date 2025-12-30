@@ -26,6 +26,9 @@ pub struct CompileResult {
 /// Name of the perf event array map for output
 const PERF_MAP_NAME: &str = "events";
 
+/// Name of the counter hash map for bpf-count
+const COUNTER_MAP_NAME: &str = "counters";
+
 /// Maps Nushell register IDs to eBPF registers or stack locations
 pub struct RegisterAllocator {
     /// Maps Nu RegId -> eBPF register
@@ -129,6 +132,8 @@ pub struct IrToEbpfCompiler<'a> {
     pending_jumps: Vec<PendingJump>,
     /// Whether the program needs a perf event map for output
     needs_perf_map: bool,
+    /// Whether the program needs a counter hash map
+    needs_counter_map: bool,
     /// Relocations for map references
     relocations: Vec<MapRelocation>,
     /// Current stack offset for temporary storage (grows negative from R10)
@@ -171,6 +176,7 @@ impl<'a> IrToEbpfCompiler<'a> {
             ir_to_ebpf: HashMap::new(),
             pending_jumps: Vec::new(),
             needs_perf_map: false,
+            needs_counter_map: false,
             relocations: Vec::new(),
             stack_offset: -8, // Start at -8 from R10
             ctx_saved: false,
@@ -207,6 +213,12 @@ impl<'a> IrToEbpfCompiler<'a> {
             maps.push(EbpfMap {
                 name: PERF_MAP_NAME.to_string(),
                 def: BpfMapDef::perf_event_array(),
+            });
+        }
+        if compiler.needs_counter_map {
+            maps.push(EbpfMap {
+                name: COUNTER_MAP_NAME.to_string(),
+                def: BpfMapDef::counter_hash(),
             });
         }
 
@@ -611,10 +623,130 @@ impl<'a> IrToEbpfCompiler<'a> {
             "bpf-emit" | "bpf emit" => {
                 self.compile_bpf_emit(src_dst)
             }
+            "bpf-comm" | "bpf comm" => {
+                self.compile_bpf_comm(src_dst)
+            }
+            "bpf-count" | "bpf count" => {
+                self.compile_bpf_count(src_dst)
+            }
             _ => Err(CompileError::UnsupportedInstruction(
                 format!("Call to unsupported command: {}", cmd_name)
             )),
         }
+    }
+
+    /// Compile bpf-count: increment a counter for the input key
+    ///
+    /// Uses a hash map to count occurrences by key. The input value is used
+    /// as the key, and the counter is atomically incremented.
+    fn compile_bpf_count(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Mark that we need the counter map
+        self.needs_counter_map = true;
+
+        let ebpf_src = self.reg_alloc.get(src_dst)?;
+
+        // Allocate stack space for key and value
+        // Key: 8 bytes (i64)
+        // Value: 8 bytes (i64)
+        let key_stack_offset = self.stack_offset - 8;
+        let value_stack_offset = self.stack_offset - 16;
+        self.stack_offset -= 16;
+
+        // Store the key to stack
+        self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, key_stack_offset, ebpf_src));
+
+        // Step 1: Try to look up existing value
+        // R1 = map (will be relocated)
+        let lookup_reloc_offset = self.builder.len() * 8;
+        let [insn1, insn2] = EbpfInsn::ld_map_fd(EbpfReg::R1);
+        self.builder.push(insn1);
+        self.builder.push(insn2);
+        self.relocations.push(MapRelocation {
+            insn_offset: lookup_reloc_offset,
+            map_name: COUNTER_MAP_NAME.to_string(),
+        });
+
+        // R2 = pointer to key
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R2, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R2, key_stack_offset as i32));
+
+        // Call bpf_map_lookup_elem
+        self.builder.push(EbpfInsn::call(BpfHelper::MapLookupElem));
+
+        // R0 = pointer to value or NULL
+        // If NULL, initialize to 0; otherwise, increment
+        // jeq r0, 0, +3 (skip to initialize if NULL)
+        self.builder.push(EbpfInsn::jeq_imm(EbpfReg::R0, 0, 4));
+
+        // Value exists - load it, increment, store back
+        // Load current value: r1 = *r0
+        self.builder.push(EbpfInsn::ldxdw(EbpfReg::R1, EbpfReg::R0, 0));
+        // Increment: r1 += 1
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R1, 1));
+        // Store back: *r0 = r1
+        self.builder.push(EbpfInsn::stxdw(EbpfReg::R0, 0, EbpfReg::R1));
+        // Jump to end
+        self.builder.push(EbpfInsn::jump(7)); // Skip initialization
+
+        // Value doesn't exist - initialize to 1 and insert
+        // Store 1 to value slot on stack
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R1, 1));
+        self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, value_stack_offset, EbpfReg::R1));
+
+        // R1 = map (reload for update)
+        let update_reloc_offset = self.builder.len() * 8;
+        let [insn1, insn2] = EbpfInsn::ld_map_fd(EbpfReg::R1);
+        self.builder.push(insn1);
+        self.builder.push(insn2);
+        self.relocations.push(MapRelocation {
+            insn_offset: update_reloc_offset,
+            map_name: COUNTER_MAP_NAME.to_string(),
+        });
+
+        // R2 = pointer to key
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R2, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R2, key_stack_offset as i32));
+
+        // R3 = pointer to value
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R3, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R3, value_stack_offset as i32));
+
+        // R4 = flags (0 = BPF_ANY)
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R4, 0));
+
+        // Call bpf_map_update_elem
+        self.builder.push(EbpfInsn::call(BpfHelper::MapUpdateElem));
+
+        // End: bpf-count passes through the input value unchanged
+        // (it's still in the original register)
+
+        Ok(())
+    }
+
+    /// Compile bpf-comm: get current process name
+    ///
+    /// Calls bpf_get_current_comm to get the process name, then returns
+    /// the first 8 bytes as an i64 for easy comparison/emission.
+    fn compile_bpf_comm(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Allocate 16 bytes on stack for TASK_COMM_LEN
+        let comm_stack_offset = self.stack_offset - 16;
+        self.stack_offset -= 16;
+
+        // R1 = pointer to buffer on stack
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R1, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R1, comm_stack_offset as i32));
+
+        // R2 = size (16 = TASK_COMM_LEN)
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R2, 16));
+
+        // Call bpf_get_current_comm
+        self.builder.push(EbpfInsn::call(BpfHelper::GetCurrentComm));
+
+        // Load first 8 bytes from buffer into destination register
+        let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+        self.builder.push(EbpfInsn::ldxdw(ebpf_dst, EbpfReg::R10, comm_stack_offset));
+
+        Ok(())
     }
 
     /// Compile bpf-emit: output a value to the perf event buffer

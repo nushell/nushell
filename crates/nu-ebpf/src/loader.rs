@@ -8,8 +8,8 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use aya::maps::PerfEventArray;
-use aya::programs::KProbe;
+use aya::maps::{HashMap as AyaHashMap, PerfEventArray};
+use aya::programs::{KProbe, RawTracePoint, TracePoint};
 use aya::util::online_cpus;
 use aya::Ebpf;
 use bytes::BytesMut;
@@ -63,10 +63,11 @@ pub struct ActiveProbe {
     /// When the probe was attached
     pub attached_at: Instant,
     /// The loaded eBPF object (keeps program alive)
-    #[allow(dead_code)]
     ebpf: Ebpf,
     /// Whether this probe has a perf event map for output
     has_perf_map: bool,
+    /// Whether this probe has a counter hash map
+    has_counter_map: bool,
     /// Perf buffers for each CPU (only if has_perf_map)
     perf_buffers: Vec<CpuPerfBuffer>,
 }
@@ -78,6 +79,7 @@ impl std::fmt::Debug for ActiveProbe {
             .field("probe_spec", &self.probe_spec)
             .field("attached_at", &self.attached_at)
             .field("has_perf_map", &self.has_perf_map)
+            .field("has_counter_map", &self.has_counter_map)
             .finish()
     }
 }
@@ -89,6 +91,15 @@ pub struct BpfEvent {
     pub value: i64,
     /// Which CPU the event came from
     pub cpu: u32,
+}
+
+/// A counter entry from the bpf-count hash map
+#[derive(Debug, Clone)]
+pub struct CounterEntry {
+    /// The key (e.g., PID or comm as i64)
+    pub key: i64,
+    /// The count value
+    pub count: i64,
 }
 
 /// Global state for managing eBPF probes
@@ -151,11 +162,57 @@ impl EbpfState {
                     .attach(&program.target, 0)
                     .map_err(|e| LoadError::Attach(format!("Failed to attach kprobe: {e}")))?;
             }
+            EbpfProgramType::Kretprobe => {
+                // Kretprobe uses the same KProbe type - Aya detects it from the section name
+                let kretprobe: &mut KProbe = prog.try_into().map_err(|e| {
+                    LoadError::Load(format!("Failed to convert to KRetProbe: {e}"))
+                })?;
+                kretprobe
+                    .load()
+                    .map_err(|e| LoadError::Load(format!("Failed to load kretprobe: {e}")))?;
+                kretprobe
+                    .attach(&program.target, 0)
+                    .map_err(|e| LoadError::Attach(format!("Failed to attach kretprobe: {e}")))?;
+            }
+            EbpfProgramType::Tracepoint => {
+                // Tracepoint target format: "category/name" (e.g., "syscalls/sys_enter_openat")
+                let parts: Vec<&str> = program.target.splitn(2, '/').collect();
+                if parts.len() != 2 {
+                    return Err(LoadError::Load(format!(
+                        "Invalid tracepoint target: {}. Expected format: category/name",
+                        program.target
+                    )));
+                }
+                let (category, name) = (parts[0], parts[1]);
+
+                let tracepoint: &mut TracePoint = prog.try_into().map_err(|e| {
+                    LoadError::Load(format!("Failed to convert to TracePoint: {e}"))
+                })?;
+                tracepoint
+                    .load()
+                    .map_err(|e| LoadError::Load(format!("Failed to load tracepoint: {e}")))?;
+                tracepoint
+                    .attach(category, name)
+                    .map_err(|e| LoadError::Attach(format!("Failed to attach tracepoint: {e}")))?;
+            }
+            EbpfProgramType::RawTracepoint => {
+                // Raw tracepoint target is just the name (e.g., "sys_enter")
+                let raw_tp: &mut RawTracePoint = prog.try_into().map_err(|e| {
+                    LoadError::Load(format!("Failed to convert to RawTracePoint: {e}"))
+                })?;
+                raw_tp
+                    .load()
+                    .map_err(|e| LoadError::Load(format!("Failed to load raw_tracepoint: {e}")))?;
+                raw_tp
+                    .attach(&program.target)
+                    .map_err(|e| LoadError::Attach(format!("Failed to attach raw_tracepoint: {e}")))?;
+            }
             other => return Err(LoadError::UnsupportedProgramType(other)),
         }
 
-        // Check if program has a perf event map
-        let has_perf_map = program.has_maps();
+        // Check for maps
+        let has_perf_map = ebpf.map("events").is_some();
+        let has_counter_map = ebpf.map("counters").is_some();
         let mut perf_buffers = Vec::new();
 
         // Set up perf buffers if the program uses bpf-emit
@@ -191,6 +248,7 @@ impl EbpfState {
             attached_at: Instant::now(),
             ebpf,
             has_perf_map,
+            has_counter_map,
             perf_buffers,
         };
 
@@ -233,6 +291,37 @@ impl EbpfState {
         }
 
         Ok(events)
+    }
+
+    /// Read all counter entries from a probe's counter map
+    ///
+    /// Returns all key-value pairs from the bpf-count hash map.
+    pub fn get_counters(&self, id: u32) -> Result<Vec<CounterEntry>, LoadError> {
+        let mut probes = self.probes.lock().unwrap();
+        let probe = probes
+            .get_mut(&id)
+            .ok_or(LoadError::ProbeNotFound(id))?;
+
+        if !probe.has_counter_map {
+            return Ok(Vec::new());
+        }
+
+        let mut entries = Vec::new();
+
+        // Get the counter map
+        if let Some(map) = probe.ebpf.map_mut("counters") {
+            let counter_map: AyaHashMap<_, i64, i64> = AyaHashMap::try_from(map)
+                .map_err(|e| LoadError::MapNotFound(format!("Failed to convert counters map: {e}")))?;
+
+            // Iterate over all entries
+            for item in counter_map.iter() {
+                if let Ok((key, count)) = item {
+                    entries.push(CounterEntry { key, count });
+                }
+            }
+        }
+
+        Ok(entries)
     }
 
     /// Detach a probe by ID
