@@ -6478,7 +6478,7 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.44.0"
-source = "git+https://github.com/nushell/reedline?branch=main#07fe597169ca7a96910161f42bf8d52d8cb3ef5c"
+source = "git+https://github.com/oxysoft/reedline?branch=feat%2Fauto-complete-menu#9496b30700af269d87d9ea512790a70172b5ba93"
 dependencies = [
  "arboard",
  "chrono",

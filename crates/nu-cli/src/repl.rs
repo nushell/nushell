@@ -37,9 +37,10 @@ use nu_utils::{
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
+    CompletionHinter, CursorConfig, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
     HistorySessionId, Reedline, Vi,
 };
+use std::sync::Mutex;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -400,6 +401,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         )))
         .with_quick_completions(config.completions.quick)
         .with_partial_completions(config.completions.partial)
+        .with_auto_complete_menu(config.completions.auto_menu)
         .with_ansi_colors(config.use_ansi_coloring.get(engine_state))
         .with_cwd(Some(
             engine_state
@@ -421,11 +423,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
-        line_editor.with_hinter(Box::new({
-            // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-            let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-            CwdAwareHinter::default().with_style(style)
-        }))
+        // Create a second completer for inline completion hints (fish-style autosuggestions)
+        let hint_completer = NuCompleter::new(
+            engine_reference.clone(),
+            stack_arc.clone(),
+        );
+        let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        line_editor.with_hinter(Box::new(
+            CompletionHinter::new(Arc::new(Mutex::new(hint_completer))).with_style(style)
+        ))
     } else {
         line_editor.disable_hints()
     };
