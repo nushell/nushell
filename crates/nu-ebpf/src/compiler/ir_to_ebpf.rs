@@ -685,8 +685,9 @@ impl<'a> IrToEbpfCompiler<'a> {
         self.builder.push(EbpfInsn::add64_imm(EbpfReg::R1, 1));
         // Store back: *r0 = r1
         self.builder.push(EbpfInsn::stxdw(EbpfReg::R0, 0, EbpfReg::R1));
-        // Jump to end
-        self.builder.push(EbpfInsn::jump(7)); // Skip initialization
+        // Jump to end - skip the 10 instructions of the initialization path:
+        // mov + stxdw + ld_map_fd(2) + mov + add + mov + add + mov + call = 10
+        self.builder.push(EbpfInsn::jump(10));
 
         // Value doesn't exist - initialize to 1 and insert
         // Store 1 to value slot on stack
