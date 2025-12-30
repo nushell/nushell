@@ -250,18 +250,33 @@ impl Command for BpfEmit {
         "Emit a value to the eBPF perf buffer. In eBPF, outputs to userspace via perf events."
     }
 
+    fn extra_description(&self) -> &str {
+        r#"Supports both single values (integers) and structured records.
+When given a record, all fields are emitted as a single structured event."#
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("bpf-emit")
-            .input_output_types(vec![(Type::Int, Type::Int)])
+            .input_output_types(vec![
+                (Type::Int, Type::Int),
+                (Type::Any, Type::Any),  // Support records
+            ])
             .category(Category::Experimental)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: "bpf-pid | bpf-emit",
-            description: "Emit the current PID to the perf buffer",
-            result: None,
-        }]
+        vec![
+            Example {
+                example: "bpf-pid | bpf-emit",
+                description: "Emit the current PID to the perf buffer",
+                result: None,
+            },
+            Example {
+                example: "{ pid: (bpf-tgid), time: (bpf-ktime) } | bpf-emit",
+                description: "Emit a structured event with PID and timestamp",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -422,6 +437,99 @@ impl Command for BpfRetval {
         // At regular runtime, we can't access return values
         eprintln!("[bpf-retval] Would read return value");
         Ok(Value::int(0, call.head).into_pipeline_data())
+    }
+}
+
+/// Read a string from kernel memory and emit it
+///
+/// Takes a pointer (typically from bpf-arg) and reads a null-terminated
+/// string from kernel memory, then emits it to the perf buffer.
+#[derive(Clone)]
+pub struct BpfReadStr;
+
+/// Read a string from user-space memory and emit it
+///
+/// Takes a pointer (typically from bpf-arg) and reads a null-terminated
+/// string from user-space memory, then emits it to the perf buffer.
+/// Use this for syscall arguments that are user-space pointers (like filenames).
+#[derive(Clone)]
+pub struct BpfReadUserStr;
+
+impl Command for BpfReadStr {
+    fn name(&self) -> &str {
+        "bpf-read-str"
+    }
+
+    fn description(&self) -> &str {
+        "Read a string from kernel memory pointer and emit it (max 128 bytes)."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-read-str")
+            .input_output_types(vec![(Type::Int, Type::String)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "bpf-arg 1 | bpf-read-str",
+                description: "Read filename from second argument (e.g., in openat)",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, we can't read kernel memory
+        let ptr = input.into_value(call.head)?;
+        eprintln!("[bpf-read-str] Would read string from pointer {:?}", ptr);
+        Ok(Value::string("<kernel string>", call.head).into_pipeline_data())
+    }
+}
+
+impl Command for BpfReadUserStr {
+    fn name(&self) -> &str {
+        "bpf-read-user-str"
+    }
+
+    fn description(&self) -> &str {
+        "Read a string from user-space memory pointer and emit it (max 128 bytes)."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("bpf-read-user-str")
+            .input_output_types(vec![(Type::Int, Type::String)])
+            .category(Category::Experimental)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "bpf-arg 1 | bpf-read-user-str",
+                description: "Read filename from user-space pointer (e.g., in openat)",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        _engine_state: &EngineState,
+        _stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        // At regular runtime, we can't read user memory
+        let ptr = input.into_value(call.head)?;
+        eprintln!("[bpf-read-user-str] Would read string from pointer {:?}", ptr);
+        Ok(Value::string("<user string>", call.head).into_pipeline_data())
     }
 }
 

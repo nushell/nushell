@@ -68,6 +68,10 @@ pub enum BpfHelper {
     GetCurrentComm = 16,
     /// int bpf_perf_event_output(ctx, map, flags, data, size)
     PerfEventOutput = 25,
+    /// long bpf_probe_read_user_str(dst, size, unsafe_ptr)
+    ProbeReadUserStr = 114,
+    /// long bpf_probe_read_kernel_str(dst, size, unsafe_ptr)
+    ProbeReadKernelStr = 115,
 }
 
 /// eBPF instruction opcodes

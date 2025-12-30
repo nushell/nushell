@@ -8,7 +8,7 @@ mod elf;
 mod ir_to_ebpf;
 
 pub use instruction::{EbpfInsn, EbpfReg, BpfHelper};
-pub use elf::{BpfMapDef, EbpfMap, EbpfProgram, EbpfProgramType, MapRelocation};
+pub use elf::{BpfFieldType, BpfMapDef, EbpfMap, EbpfProgram, EbpfProgramType, EventSchema, MapRelocation, SchemaField};
 pub use ir_to_ebpf::{CompileResult, IrToEbpfCompiler};
 
 use thiserror::Error;

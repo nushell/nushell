@@ -143,6 +143,7 @@ fn run_attach(
                     bytecode: builder.build(),
                     maps: Vec::new(),
                     relocations: Vec::new(),
+                    event_schema: None,
                 }
             }
         }
@@ -157,6 +158,7 @@ fn run_attach(
             bytecode: builder.build(),
             maps: Vec::new(),
             relocations: Vec::new(),
+            event_schema: None,
         }
     };
 
@@ -167,6 +169,7 @@ fn run_attach(
         compile_result.bytecode,
         compile_result.maps,
         compile_result.relocations,
+        compile_result.event_schema,
     );
 
     if dry_run {

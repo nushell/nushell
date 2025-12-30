@@ -15,7 +15,7 @@ use aya::Ebpf;
 use bytes::BytesMut;
 use thiserror::Error;
 
-use crate::compiler::{CompileError, EbpfProgram, EbpfProgramType};
+use crate::compiler::{BpfFieldType, CompileError, EbpfProgram, EbpfProgramType, EventSchema};
 
 /// Errors that can occur during eBPF loading
 #[derive(Debug, Error)]
@@ -70,6 +70,8 @@ pub struct ActiveProbe {
     has_counter_map: bool,
     /// Perf buffers for each CPU (only if has_perf_map)
     perf_buffers: Vec<CpuPerfBuffer>,
+    /// Optional schema for structured events
+    event_schema: Option<EventSchema>,
 }
 
 impl std::fmt::Debug for ActiveProbe {
@@ -80,8 +82,18 @@ impl std::fmt::Debug for ActiveProbe {
             .field("attached_at", &self.attached_at)
             .field("has_perf_map", &self.has_perf_map)
             .field("has_counter_map", &self.has_counter_map)
+            .field("event_schema", &self.event_schema.is_some())
             .finish()
     }
+}
+
+/// A field value in a structured event
+#[derive(Debug, Clone)]
+pub enum BpfFieldValue {
+    /// An integer value
+    Int(i64),
+    /// A string value
+    String(String),
 }
 
 /// The data payload of an eBPF event
@@ -93,6 +105,8 @@ pub enum BpfEventData {
     String(String),
     /// Raw bytes for unknown sizes
     Bytes(Vec<u8>),
+    /// A structured record with named fields
+    Record(Vec<(String, BpfFieldValue)>),
 }
 
 /// An event received from an eBPF program via bpf-emit or bpf-emit-comm
@@ -261,6 +275,7 @@ impl EbpfState {
             has_perf_map,
             has_counter_map,
             perf_buffers,
+            event_schema: program.event_schema.clone(),
         };
 
         self.probes.lock().unwrap().insert(id, active_probe);
@@ -285,37 +300,96 @@ impl EbpfState {
 
         let mut events = Vec::new();
 
+        // Clone the schema for use in parsing (to avoid borrow issues)
+        let schema = probe.event_schema.clone();
+
         // Read events from each pre-opened buffer
-        let mut out_bufs: [BytesMut; 16] = std::array::from_fn(|_| BytesMut::with_capacity(64));
+        let mut out_bufs: [BytesMut; 16] = std::array::from_fn(|_| BytesMut::with_capacity(256));
 
         for cpu_buf in &mut probe.perf_buffers {
             // Read available events (non-blocking)
             if let Ok(evts) = cpu_buf.buf.read_events(&mut out_bufs) {
                 for out_buf in out_bufs.iter().take(evts.read) {
-                    // Perf buffer may add padding, so we use size ranges
-                    // We sent 8 bytes for integers, 16 bytes for strings
-                    let data = if out_buf.len() >= 8 && out_buf.len() < 16 {
-                        // 8-15 bytes = integer from bpf-emit (may have padding)
-                        let value = i64::from_le_bytes(out_buf[0..8].try_into().unwrap());
-                        BpfEventData::Int(value)
-                    } else if out_buf.len() >= 16 {
-                        // 16+ bytes = string from bpf-emit-comm (TASK_COMM_LEN)
-                        // Find null terminator within first 16 bytes
-                        let null_pos = out_buf[..16].iter().position(|&b| b == 0).unwrap_or(16);
-                        let s = String::from_utf8_lossy(&out_buf[..null_pos]).to_string();
-                        BpfEventData::String(s)
-                    } else if !out_buf.is_empty() {
-                        // Unknown size - return raw bytes
-                        BpfEventData::Bytes(out_buf.to_vec())
+                    let data = if let Some(ref event_schema) = schema {
+                        // We have a schema - deserialize structured event
+                        Self::deserialize_structured_event(out_buf, event_schema)
                     } else {
-                        continue;
+                        // No schema - use legacy size-based detection
+                        Self::deserialize_simple_event(out_buf)
                     };
-                    events.push(BpfEvent { data, cpu: cpu_buf.cpu_id });
+
+                    if let Some(data) = data {
+                        events.push(BpfEvent { data, cpu: cpu_buf.cpu_id });
+                    }
                 }
             }
         }
 
         Ok(events)
+    }
+
+    /// Deserialize a simple (non-structured) event based on size
+    fn deserialize_simple_event(buf: &[u8]) -> Option<BpfEventData> {
+        // Perf buffer may add padding, so we use size ranges
+        // - 8-15 bytes: integer from bpf-emit
+        // - 16+ bytes: string (bpf-emit-comm uses 16, bpf-read-str uses 128)
+        if buf.len() >= 8 && buf.len() < 16 {
+            // 8-15 bytes = integer from bpf-emit (may have padding)
+            let value = i64::from_le_bytes(buf[0..8].try_into().unwrap());
+            Some(BpfEventData::Int(value))
+        } else if buf.len() >= 16 {
+            // 16+ bytes = string (from bpf-emit-comm or bpf-read-str)
+            // Find null terminator within the buffer
+            let null_pos = buf.iter().position(|&b| b == 0).unwrap_or(buf.len());
+            let s = String::from_utf8_lossy(&buf[..null_pos]).to_string();
+            Some(BpfEventData::String(s))
+        } else if !buf.is_empty() {
+            // Unknown size - return raw bytes
+            Some(BpfEventData::Bytes(buf.to_vec()))
+        } else {
+            None
+        }
+    }
+
+    /// Deserialize a structured event using the schema
+    fn deserialize_structured_event(buf: &[u8], schema: &EventSchema) -> Option<BpfEventData> {
+        if buf.len() < schema.total_size {
+            // Buffer too small for the expected schema
+            return Self::deserialize_simple_event(buf);
+        }
+
+        let mut fields = Vec::with_capacity(schema.fields.len());
+
+        for field in &schema.fields {
+            let field_buf = &buf[field.offset..];
+            let value = match field.field_type {
+                BpfFieldType::Int => {
+                    if field_buf.len() >= 8 {
+                        let val = i64::from_le_bytes(field_buf[0..8].try_into().unwrap());
+                        BpfFieldValue::Int(val)
+                    } else {
+                        BpfFieldValue::Int(0)
+                    }
+                }
+                BpfFieldType::Comm => {
+                    // 16-byte comm string
+                    let max_len = field_buf.len().min(16);
+                    let null_pos = field_buf[..max_len].iter().position(|&b| b == 0).unwrap_or(max_len);
+                    let s = String::from_utf8_lossy(&field_buf[..null_pos]).to_string();
+                    BpfFieldValue::String(s)
+                }
+                BpfFieldType::String => {
+                    // 128-byte string
+                    let max_len = field_buf.len().min(128);
+                    let null_pos = field_buf[..max_len].iter().position(|&b| b == 0).unwrap_or(max_len);
+                    let s = String::from_utf8_lossy(&field_buf[..null_pos]).to_string();
+                    BpfFieldValue::String(s)
+                }
+            };
+            fields.push((field.name.clone(), value));
+        }
+
+        Some(BpfEventData::Record(fields))
     }
 
     /// Read all counter entries from a probe's counter map

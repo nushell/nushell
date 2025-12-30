@@ -9,7 +9,7 @@ use nu_protocol::engine::EngineState;
 use nu_protocol::ir::{Instruction, IrBlock, Literal};
 use nu_protocol::{DeclId, RegId, VarId};
 
-use super::elf::{BpfMapDef, EbpfMap, MapRelocation};
+use super::elf::{BpfFieldType, BpfMapDef, EbpfMap, EventSchema, MapRelocation, SchemaField};
 use super::instruction::{BpfHelper, EbpfBuilder, EbpfInsn, EbpfReg, opcode};
 use super::CompileError;
 
@@ -21,6 +21,8 @@ pub struct CompileResult {
     pub maps: Vec<EbpfMap>,
     /// Relocations for map references
     pub relocations: Vec<MapRelocation>,
+    /// Optional schema for structured events
+    pub event_schema: Option<EventSchema>,
 }
 
 /// Name of the perf event array map for output
@@ -163,6 +165,28 @@ struct PendingJump {
     target_ir_idx: usize,
 }
 
+/// Tracks a field being built in a record
+#[derive(Debug, Clone)]
+struct RecordFieldBuilder {
+    /// Field name
+    name: String,
+    /// Stack offset where the field value is stored (relative to R10)
+    stack_offset: i16,
+    /// Type of the field (determined from how the value was computed)
+    field_type: BpfFieldType,
+}
+
+/// Tracks a record being built
+#[derive(Debug, Clone, Default)]
+struct RecordBuilder {
+    /// Fields in the order they were inserted
+    fields: Vec<RecordFieldBuilder>,
+    /// Current write offset within the record (relative to record start)
+    current_offset: i16,
+    /// Base stack offset for this record (relative to R10)
+    base_offset: i16,
+}
+
 /// Compiles Nushell IR to eBPF bytecode
 pub struct IrToEbpfCompiler<'a> {
     ir_block: &'a IrBlock,
@@ -187,6 +211,14 @@ pub struct IrToEbpfCompiler<'a> {
     pushed_args: Vec<RegId>,
     /// Track literal integer values loaded into registers (for compile-time constants)
     literal_values: HashMap<u32, i64>,
+    /// Track literal string values loaded into registers (for field names)
+    literal_strings: HashMap<u32, String>,
+    /// Track records being built (RegId -> RecordBuilder)
+    record_builders: HashMap<u32, RecordBuilder>,
+    /// Track the type of value produced by each register (for schema inference)
+    register_types: HashMap<u32, BpfFieldType>,
+    /// The event schema if structured events are used
+    event_schema: Option<EventSchema>,
 }
 
 impl<'a> IrToEbpfCompiler<'a> {
@@ -229,6 +261,10 @@ impl<'a> IrToEbpfCompiler<'a> {
             ctx_saved: false,
             pushed_args: Vec::new(),
             literal_values: HashMap::new(),
+            literal_strings: HashMap::new(),
+            record_builders: HashMap::new(),
+            register_types: HashMap::new(),
+            event_schema: None,
         };
 
         // Save the context pointer (R1) to R9 at the start
@@ -275,6 +311,7 @@ impl<'a> IrToEbpfCompiler<'a> {
             bytecode: compiler.builder.build(),
             maps,
             relocations: compiler.relocations,
+            event_schema: compiler.event_schema,
         })
     }
 
@@ -354,6 +391,9 @@ impl<'a> IrToEbpfCompiler<'a> {
             Instruction::Drain { .. } => Ok(()),
             Instruction::DrainIfEnd { .. } => Ok(()),
             Instruction::Collect { .. } => Ok(()),
+            Instruction::RecordInsert { src_dst, key, val } => {
+                self.compile_record_insert(*src_dst, *key, *val)
+            }
             // Unsupported instructions
             other => Err(CompileError::UnsupportedInstruction(format!("{:?}", other))),
         }
@@ -391,6 +431,11 @@ impl<'a> IrToEbpfCompiler<'a> {
                 let end = start + data_slice.len as usize;
                 let string_bytes = &self.ir_block.data[start..end];
 
+                // Track the string value for field names in records
+                if let Ok(s) = std::str::from_utf8(string_bytes) {
+                    self.literal_strings.insert(dst.get(), s.to_string());
+                }
+
                 // Convert first 8 bytes of string to i64 for comparison
                 // This matches how bpf-comm encodes process names
                 let mut arr = [0u8; 8];
@@ -398,6 +443,20 @@ impl<'a> IrToEbpfCompiler<'a> {
                 arr[..len].copy_from_slice(&string_bytes[..len]);
                 let val = i64::from_le_bytes(arr);
                 self.emit_load_64bit_imm(ebpf_dst, val);
+                Ok(())
+            }
+            Literal::Record { .. } => {
+                // Create a RecordBuilder for this register
+                // Records are built on the stack - we'll allocate space as fields are added
+                // For now, just track the starting position
+                let record_builder = RecordBuilder {
+                    fields: Vec::new(),
+                    current_offset: 0,
+                    base_offset: self.stack_offset, // Will be updated as fields are added
+                };
+                self.record_builders.insert(dst.get(), record_builder);
+                // Records in eBPF are represented as 0 (a placeholder)
+                self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, 0));
                 Ok(())
             }
             _ => Err(CompileError::UnsupportedLiteral),
@@ -728,6 +787,12 @@ impl<'a> IrToEbpfCompiler<'a> {
             "bpf-retval" | "bpf retval" => {
                 self.compile_bpf_retval(src_dst)
             }
+            "bpf-read-str" | "bpf read-str" => {
+                self.compile_bpf_read_str(src_dst, false)
+            }
+            "bpf-read-user-str" | "bpf read-user-str" => {
+                self.compile_bpf_read_str(src_dst, true)
+            }
             _ => Err(CompileError::UnsupportedInstruction(
                 format!("Call to unsupported command: {}", cmd_name)
             )),
@@ -886,6 +951,9 @@ impl<'a> IrToEbpfCompiler<'a> {
     /// Calls bpf_get_current_comm to get the process name, then returns
     /// the first 8 bytes as an i64 for easy comparison/emission.
     fn compile_bpf_comm(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Track that this register contains a comm value
+        self.register_types.insert(src_dst.get(), BpfFieldType::Comm);
+
         // Allocate 16 bytes on stack for TASK_COMM_LEN
         let comm_stack_offset = self.stack_offset - 16;
         self.stack_offset -= 16;
@@ -911,7 +979,13 @@ impl<'a> IrToEbpfCompiler<'a> {
     ///
     /// This uses bpf_perf_event_output to send a 64-bit value to userspace.
     /// The event structure is simple: just the 64-bit value.
+    /// If the input is a record, emits all fields as a structured event.
     fn compile_bpf_emit(&mut self, src_dst: RegId) -> Result<(), CompileError> {
+        // Check if the source is a record
+        if let Some(record) = self.record_builders.remove(&src_dst.get()) {
+            return self.compile_bpf_emit_record(src_dst, record);
+        }
+
         // Mark that we need the perf event map
         self.needs_perf_map = true;
 
@@ -1095,6 +1169,236 @@ impl<'a> IrToEbpfCompiler<'a> {
 
         // ldxdw dst, [r9 + offset] - load 64-bit value from ctx
         self.builder.push(EbpfInsn::ldxdw(ebpf_dst, EbpfReg::R9, offset));
+
+        Ok(())
+    }
+
+    /// Compile bpf-read-str / bpf-read-user-str: read a string and emit it
+    ///
+    /// Takes a pointer from the pipeline input, reads up to 128 bytes of
+    /// null-terminated string from memory, and emits to perf buffer.
+    ///
+    /// If `user_space` is true, reads from user-space memory (for syscall args).
+    /// If `user_space` is false, reads from kernel memory.
+    fn compile_bpf_read_str(&mut self, src_dst: RegId, user_space: bool) -> Result<(), CompileError> {
+        // Mark that we need the perf event map
+        self.needs_perf_map = true;
+
+        // Get the source pointer from the input register
+        let src_ptr = self.reg_alloc.get(src_dst)?;
+
+        // Allocate stack space for the string buffer (128 bytes max)
+        const STR_BUF_SIZE: i16 = 128;
+        let str_stack_offset = self.stack_offset - STR_BUF_SIZE;
+        self.stack_offset -= STR_BUF_SIZE;
+
+        // Call bpf_probe_read_{kernel,user}_str(dst, size, unsafe_ptr)
+        // R1 = dst (stack buffer)
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R1, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R1, str_stack_offset as i32));
+
+        // R2 = size
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R2, STR_BUF_SIZE as i32));
+
+        // R3 = src pointer (from input)
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R3, src_ptr));
+
+        // Call appropriate helper based on memory type
+        let helper = if user_space {
+            BpfHelper::ProbeReadUserStr
+        } else {
+            BpfHelper::ProbeReadKernelStr
+        };
+        self.builder.push(EbpfInsn::call(helper));
+
+        // R0 now contains the number of bytes read (including null terminator)
+        // or negative error code
+
+        // Now emit the string to perf buffer
+        // bpf_perf_event_output(ctx, map, flags, data, size)
+
+        // R2 = map (will be relocated)
+        let reloc_offset = self.builder.len() * 8;
+        let [insn1, insn2] = EbpfInsn::ld_map_fd(EbpfReg::R2);
+        self.builder.push(insn1);
+        self.builder.push(insn2);
+        self.relocations.push(MapRelocation {
+            insn_offset: reloc_offset,
+            map_name: PERF_MAP_NAME.to_string(),
+        });
+
+        // R3 = flags (BPF_F_CURRENT_CPU)
+        self.builder.push(EbpfInsn::mov32_imm(EbpfReg::R3, -1));
+
+        // R4 = pointer to data on stack
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R4, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R4, str_stack_offset as i32));
+
+        // R5 = size (use the return value from probe_read_kernel_str if positive,
+        // otherwise use full buffer size)
+        // For simplicity, just use the full buffer size
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R5, STR_BUF_SIZE as i32));
+
+        // R1 = ctx (restore from R9)
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R1, EbpfReg::R9));
+
+        // Call bpf_perf_event_output
+        self.builder.push(EbpfInsn::call(BpfHelper::PerfEventOutput));
+
+        // Set result to 0 (success indicator)
+        let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+        self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, 0));
+
+        Ok(())
+    }
+
+    /// Compile RecordInsert: add a field to a record being built
+    ///
+    /// This immediately stores the field value to the stack to preserve it.
+    fn compile_record_insert(&mut self, src_dst: RegId, key: RegId, val: RegId) -> Result<(), CompileError> {
+        // Get the field name from the key register's literal string
+        let field_name = self.literal_strings.get(&key.get()).cloned().ok_or_else(|| {
+            CompileError::UnsupportedInstruction(
+                "Record field name must be a literal string".into()
+            )
+        })?;
+
+        // Determine the field type from the value register
+        let field_type = self.register_types.get(&val.get()).copied().unwrap_or(BpfFieldType::Int);
+        let field_size = field_type.size() as i16;
+
+        // Get the eBPF register containing the value
+        // Use get_or_alloc in case the value comes from a literal that wasn't separately allocated
+        let ebpf_val = self.reg_alloc.get_or_alloc(val)?;
+
+        // Allocate stack space for this field and store immediately
+        let field_stack_offset = self.stack_offset - field_size;
+        self.stack_offset -= field_size;
+
+        // Store the value to the stack based on field type
+        match field_type {
+            BpfFieldType::Int => {
+                self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, field_stack_offset, ebpf_val));
+            }
+            BpfFieldType::Comm => {
+                // Store 8-byte value we have (first 8 bytes of comm)
+                self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, field_stack_offset, ebpf_val));
+                // Zero-fill remaining 8 bytes
+                self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R0, 0));
+                self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, field_stack_offset + 8, EbpfReg::R0));
+            }
+            BpfFieldType::String => {
+                // Store 8-byte value we have
+                self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, field_stack_offset, ebpf_val));
+                // Zero-fill remaining bytes (simplified)
+                self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R0, 0));
+                for i in 1..16 {
+                    self.builder.push(EbpfInsn::stxdw(EbpfReg::R10, field_stack_offset + (i * 8), EbpfReg::R0));
+                }
+            }
+        }
+
+        // Get or create the record builder for the destination register
+        let record = self.record_builders.entry(src_dst.get()).or_insert_with(|| RecordBuilder {
+            fields: Vec::new(),
+            current_offset: 0,
+            base_offset: field_stack_offset, // First field determines base
+        });
+
+        // Update base_offset if this is the first field
+        if record.fields.is_empty() {
+            record.base_offset = field_stack_offset;
+        }
+
+        // Add the field to the record
+        record.fields.push(RecordFieldBuilder {
+            name: field_name,
+            stack_offset: field_stack_offset,
+            field_type,
+        });
+
+        Ok(())
+    }
+
+    /// Compile bpf-emit for a structured record
+    ///
+    /// The field values are already on the stack (stored during RecordInsert).
+    /// We just need to emit them to the perf buffer.
+    fn compile_bpf_emit_record(&mut self, src_dst: RegId, record: RecordBuilder) -> Result<(), CompileError> {
+        self.needs_perf_map = true;
+
+        if record.fields.is_empty() {
+            // Empty record - just emit nothing
+            let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+            self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, 0));
+            return Ok(());
+        }
+
+        // Build schema from fields
+        // Fields are stored in descending stack order (later fields have lower addresses)
+        // So when we emit the buffer starting from the lowest address, we get fields in reverse order
+        // We need to reverse the schema to match the actual memory layout
+        let mut fields_schema = Vec::new();
+        let mut offset = 0usize;
+
+        // Iterate in reverse to match memory layout (lowest address = last field inserted)
+        for field in record.fields.iter().rev() {
+            let size = field.field_type.size();
+            fields_schema.push(SchemaField {
+                name: field.name.clone(),
+                field_type: field.field_type,
+                offset,
+            });
+            offset += size;
+        }
+
+        let total_size = offset;
+
+        // Store the schema for the loader
+        self.event_schema = Some(EventSchema {
+            fields: fields_schema,
+            total_size,
+        });
+
+        // The first field's stack offset is the start of our data
+        // Fields are stored contiguously in reverse order on stack
+        // So we need to find the lowest stack offset (most recent allocation)
+        let record_start_offset = record.fields.last()
+            .map(|f| f.stack_offset)
+            .unwrap_or(record.base_offset);
+
+        // Emit the record to perf buffer
+        // bpf_perf_event_output(ctx, map, flags, data, size)
+
+        // R2 = map (will be relocated)
+        let reloc_offset = self.builder.len() * 8;
+        let [insn1, insn2] = EbpfInsn::ld_map_fd(EbpfReg::R2);
+        self.builder.push(insn1);
+        self.builder.push(insn2);
+        self.relocations.push(MapRelocation {
+            insn_offset: reloc_offset,
+            map_name: PERF_MAP_NAME.to_string(),
+        });
+
+        // R3 = flags (BPF_F_CURRENT_CPU)
+        self.builder.push(EbpfInsn::mov32_imm(EbpfReg::R3, -1));
+
+        // R4 = pointer to record on stack (use the first field's offset as start)
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R4, EbpfReg::R10));
+        self.builder.push(EbpfInsn::add64_imm(EbpfReg::R4, record_start_offset as i32));
+
+        // R5 = total record size
+        self.builder.push(EbpfInsn::mov64_imm(EbpfReg::R5, total_size as i32));
+
+        // R1 = ctx (restore from R9)
+        self.builder.push(EbpfInsn::mov64_reg(EbpfReg::R1, EbpfReg::R9));
+
+        // Call bpf_perf_event_output
+        self.builder.push(EbpfInsn::call(BpfHelper::PerfEventOutput));
+
+        // Set destination to 0
+        let ebpf_dst = self.reg_alloc.get_or_alloc(src_dst)?;
+        self.builder.push(EbpfInsn::mov64_imm(ebpf_dst, 0));
 
         Ok(())
     }

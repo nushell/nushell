@@ -88,6 +88,48 @@ pub struct MapRelocation {
     pub map_name: String,
 }
 
+/// Field type for structured events
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BpfFieldType {
+    /// 64-bit integer (8 bytes)
+    Int,
+    /// Short string from bpf-comm (16 bytes, TASK_COMM_LEN)
+    Comm,
+    /// Long string from bpf-read-str (128 bytes max)
+    String,
+}
+
+impl BpfFieldType {
+    /// Get the size in bytes for this field type
+    pub fn size(&self) -> usize {
+        match self {
+            BpfFieldType::Int => 8,
+            BpfFieldType::Comm => 16,
+            BpfFieldType::String => 128,
+        }
+    }
+}
+
+/// A field in a structured event schema
+#[derive(Debug, Clone)]
+pub struct SchemaField {
+    /// Field name
+    pub name: String,
+    /// Field type
+    pub field_type: BpfFieldType,
+    /// Byte offset within the event struct
+    pub offset: usize,
+}
+
+/// Schema describing the structure of events emitted by an eBPF program
+#[derive(Debug, Clone)]
+pub struct EventSchema {
+    /// Fields in the event, in order
+    pub fields: Vec<SchemaField>,
+    /// Total size of the event struct in bytes
+    pub total_size: usize,
+}
+
 /// eBPF program type
 #[derive(Debug, Clone, Copy)]
 pub enum EbpfProgramType {
@@ -130,6 +172,8 @@ pub struct EbpfProgram {
     pub maps: Vec<EbpfMap>,
     /// Relocations for map references
     pub relocations: Vec<MapRelocation>,
+    /// Optional schema for structured events
+    pub event_schema: Option<EventSchema>,
 }
 
 impl EbpfProgram {
@@ -148,6 +192,7 @@ impl EbpfProgram {
             license: "GPL".to_string(),
             maps: Vec::new(),
             relocations: Vec::new(),
+            event_schema: None,
         }
     }
 
@@ -166,6 +211,7 @@ impl EbpfProgram {
             license: "GPL".to_string(),
             maps: Vec::new(),
             relocations: Vec::new(),
+            event_schema: None,
         }
     }
 
@@ -177,6 +223,7 @@ impl EbpfProgram {
         bytecode: Vec<u8>,
         maps: Vec<EbpfMap>,
         relocations: Vec<MapRelocation>,
+        event_schema: Option<EventSchema>,
     ) -> Self {
         Self {
             prog_type,
@@ -186,6 +233,7 @@ impl EbpfProgram {
             license: "GPL".to_string(),
             maps,
             relocations,
+            event_schema,
         }
     }
 

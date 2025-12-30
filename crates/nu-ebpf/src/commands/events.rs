@@ -82,7 +82,7 @@ fn run_events(
     stack: &mut Stack,
     call: &Call,
 ) -> Result<PipelineData, ShellError> {
-    use crate::loader::{get_state, BpfEventData};
+    use crate::loader::{get_state, BpfEventData, BpfFieldValue};
 
     let probe_id: i64 = call.req(engine_state, stack, 0)?;
     let timeout: Option<i64> = call.get_flag(engine_state, stack, "timeout")?;
@@ -106,18 +106,38 @@ fn run_events(
     let values: Vec<Value> = events
         .into_iter()
         .map(|e| {
-            let value = match e.data {
-                BpfEventData::Int(v) => Value::int(v, span),
-                BpfEventData::String(s) => Value::string(s, span),
-                BpfEventData::Bytes(b) => Value::binary(b, span),
-            };
-            Value::record(
-                record! {
-                    "value" => value,
-                    "cpu" => Value::int(e.cpu as i64, span),
-                },
-                span,
-            )
+            match e.data {
+                BpfEventData::Record(fields) => {
+                    // Structured event - create a record with named fields
+                    let mut rec = Record::new();
+                    for (name, value) in fields {
+                        let val = match value {
+                            BpfFieldValue::Int(v) => Value::int(v, span),
+                            BpfFieldValue::String(s) => Value::string(s, span),
+                        };
+                        rec.push(name, val);
+                    }
+                    // Add CPU field
+                    rec.push("cpu", Value::int(e.cpu as i64, span));
+                    Value::record(rec, span)
+                }
+                _ => {
+                    // Simple event - wrap in a "value" field
+                    let value = match e.data {
+                        BpfEventData::Int(v) => Value::int(v, span),
+                        BpfEventData::String(s) => Value::string(s, span),
+                        BpfEventData::Bytes(b) => Value::binary(b, span),
+                        BpfEventData::Record(_) => unreachable!(),
+                    };
+                    Value::record(
+                        record! {
+                            "value" => value,
+                            "cpu" => Value::int(e.cpu as i64, span),
+                        },
+                        span,
+                    )
+                }
+            }
         })
         .collect();
 
