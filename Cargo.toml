@@ -180,6 +180,7 @@ syn = "2.0"
 sysinfo = "0.37.2"
 tabled = { version = "0.20", default-features = false }
 tempfile = "3.23"
+terminal-colorsaurus = "1.0"
 thiserror = "2.0.12"
 titlecase = "3.6"
 toml = "0.9"
