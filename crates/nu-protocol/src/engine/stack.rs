@@ -299,11 +299,13 @@ impl Stack {
             })
     }
 
+    /// Like [`captures_to_stack_preserve_out_dest`], but sets the new scope up to collect output into a Value.
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
         self.captures_to_stack_preserve_out_dest(captures)
             .collect_value()
     }
 
+    /// Creates a derived stack for a new scope, with the given captures.
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
