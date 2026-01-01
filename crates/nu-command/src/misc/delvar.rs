@@ -83,6 +83,26 @@ impl Command for DeleteVar {
     fn requires_ast_for_arguments(&self) -> bool {
         true
     }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "let x = 42; delvar $x",
+                description: "Delete a variable from memory",
+                result: None,
+            },
+            Example {
+                example: "delvar $nu",
+                description: "Attempting to delete a built-in variable fails",
+                result: None,
+            },
+            Example {
+                example: "delvar 42",
+                description: "Attempting to delete a non-variable fails",
+                result: None,
+            },
+        ]
+    }
 }
 
 impl DeleteVar {}
