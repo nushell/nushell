@@ -3,7 +3,7 @@ use std::sync::Arc;
 use nu_protocol::{
     IntoSpanned, RegId, Span, Spanned,
     ast::{Argument, Call, Expression, ExternalArgument},
-    engine::StateWorkingSet,
+    engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet},
     ir::{Instruction, IrAstRef, Literal},
 };
 
@@ -75,6 +75,11 @@ pub(crate) fn compile_call(
             }
             _ => (),
         }
+    }
+
+    // Special handling for builtin commands that have direct IR equivalents
+    if decl.name() == "delvar" {
+        return compile_delvar(working_set, builder, call, io_reg);
     }
 
     // Keep AST if the decl needs it.
@@ -269,4 +274,74 @@ pub(crate) fn compile_external_call(
     }
 
     compile_call(working_set, builder, &call, redirect_modes, io_reg)
+}
+
+pub(crate) fn compile_delvar(
+    _working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // delvar takes exactly one positional argument which should be a variable reference
+    if call.positional_len() != 1 {
+        return Err(CompileError::InvalidLiteral {
+            msg: format!(
+                "delvar takes exactly one argument, got {}",
+                call.positional_len()
+            ),
+            span: call.head,
+        });
+    }
+
+    let Some(arg) = call.positional_nth(0) else {
+        return Err(CompileError::InvalidLiteral {
+            msg: "Expected one positional argument".into(),
+            span: call.head,
+        });
+    };
+    // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
+    // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
+    // This change allows delvar to work with variables parsed in different contexts.
+    let var_id = match &arg.expr {
+        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
+        nu_protocol::ast::Expr::FullCellPath(cell_path) => {
+            if cell_path.tail.is_empty() {
+                match &cell_path.head.expr {
+                    nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    };
+
+    match var_id {
+        Some(var_id) => {
+            // Check for built-in variables that cannot be deleted
+            if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID {
+                return Err(CompileError::InvalidLiteral {
+                    msg: format!(
+                        "'${}' is a built-in variable and cannot be deleted",
+                        match var_id {
+                            NU_VARIABLE_ID => "nu",
+                            ENV_VARIABLE_ID => "env",
+                            IN_VARIABLE_ID => "in",
+                            _ => unreachable!(),
+                        }
+                    ),
+                    span: arg.span,
+                });
+            }
+
+            builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
+            builder.load_empty(io_reg)?;
+            Ok(())
+        }
+        None => Err(CompileError::InvalidLiteral {
+            msg: "Argument must be a variable reference like $x".into(),
+            span: arg.span,
+        }),
+    }
 }

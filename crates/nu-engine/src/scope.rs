@@ -64,6 +64,13 @@ impl<'e, 's> ScopeData<'e, 's> {
                 .or(var.const_val.clone())
                 .unwrap_or(Value::nothing(span));
 
+            // Skip variables that have no value and are not constants.
+            // This change ensures that variables deleted with delvar disappear from scope variables,
+            // as they no longer have a value in the stack.
+            if var_value.is_nothing() && var.const_val.is_none() {
+                continue;
+            }
+
             let var_id_val = Value::int(var_id.get() as i64, span);
 
             vars.push(Value::record(
