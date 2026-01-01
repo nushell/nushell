@@ -114,9 +114,6 @@ impl DeleteVar {
                         nu_protocol::engine::Argument::Positional {
                             ast: Some(expr), ..
                         } => Some(expr.clone()),
-                        nu_protocol::engine::Argument::Named {
-                            ast: Some(expr), ..
-                        } => Some(expr.clone()),
                         _ => None,
                     })
                     .collect::<Vec<_>>()
@@ -127,9 +124,6 @@ impl DeleteVar {
                     .iter()
                     .filter_map(|arg| match arg {
                         nu_protocol::engine::Argument::Positional {
-                            ast: Some(expr), ..
-                        } => Some(expr.clone()),
-                        nu_protocol::engine::Argument::Named {
                             ast: Some(expr), ..
                         } => Some(expr.clone()),
                         _ => None,
