@@ -42,11 +42,12 @@ def get-annotated [
     | from nuon
     | each {|e|
         # filter commands with test attributes, and map attributes to annotation name
-        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -o $x }
+        let test_attributes = $e.attributes.name | each {|x| $valid_annotations | get -o $x } | compact
         if ($test_attributes | is-not-empty) {
           $e | update attributes $test_attributes.0
         }
       }
+    | compact
     | rename function_name annotation
 }
 

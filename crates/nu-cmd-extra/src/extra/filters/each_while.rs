@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_protocol::{DeprecationEntry, engine::Closure};
 
 #[derive(Clone)]
 pub struct EachWhile;
@@ -29,6 +29,16 @@ impl Command for EachWhile {
                 "The closure to run.",
             )
             .category(Category::Filters)
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: nu_protocol::DeprecationType::Command,
+            report_mode: nu_protocol::ReportMode::FirstUse,
+            since: Some("0.108.0".into()),
+            expected_removal: Some("0.109.0".into()),
+            help: Some("use `each {..} | take while { $in != null }`".into()),
+        }]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
