@@ -1,6 +1,5 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
-use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct DeleteVar;
@@ -32,10 +31,8 @@ impl Command for DeleteVar {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Extract positional arguments from the call, handling both AST and IR representations
-        let positional = Self::extract_positional_args(call, stack);
-
-        if positional.len() != 1 {
+        // Get the single required positional argument
+        let Some(expr) = call.positional_nth(stack, 0) else {
             return Err(ShellError::GenericError {
                 error: "Wrong number of arguments".into(),
                 msg: "delvar takes exactly one argument".into(),
@@ -43,9 +40,7 @@ impl Command for DeleteVar {
                 help: None,
                 inner: vec![],
             });
-        }
-
-        let expr = positional[0].as_ref();
+        };
 
         // Check if the expression is a variable reference
         match &expr.expr {
@@ -90,46 +85,4 @@ impl Command for DeleteVar {
     }
 }
 
-impl DeleteVar {
-    /// Helper function to extract positional arguments from the call.
-    /// This handles the different representations of calls (AST and IR).
-    fn extract_positional_args(
-        call: &Call,
-        stack: &mut Stack,
-    ) -> Vec<Arc<nu_protocol::ast::Expression>> {
-        match &call.inner {
-            nu_protocol::engine::CallImpl::AstRef(ast_call) => ast_call
-                .positional_iter()
-                .map(|e| Arc::new(e.clone()))
-                .collect::<Vec<_>>(),
-            nu_protocol::engine::CallImpl::AstBox(ast_call) => ast_call
-                .positional_iter()
-                .map(|e| Arc::new(e.clone()))
-                .collect::<Vec<_>>(),
-            nu_protocol::engine::CallImpl::IrRef(ir_call) => {
-                let arguments = ir_call.arguments(stack);
-                arguments
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        nu_protocol::engine::Argument::Positional {
-                            ast: Some(expr), ..
-                        } => Some(expr.clone()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            }
-            nu_protocol::engine::CallImpl::IrBox(ir_call) => {
-                let arguments = ir_call.arguments(stack);
-                arguments
-                    .iter()
-                    .filter_map(|arg| match arg {
-                        nu_protocol::engine::Argument::Positional {
-                            ast: Some(expr), ..
-                        } => Some(expr.clone()),
-                        _ => None,
-                    })
-                    .collect::<Vec<_>>()
-            }
-        }
-    }
-}
+impl DeleteVar {}
