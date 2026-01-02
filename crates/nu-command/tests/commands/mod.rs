@@ -22,7 +22,7 @@ mod date;
 mod debug_info;
 mod def;
 mod default;
-mod delvar;
+mod unlet;
 mod detect_columns;
 mod do_;
 mod drop;

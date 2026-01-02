@@ -78,8 +78,8 @@ pub(crate) fn compile_call(
     }
 
     // Special handling for builtin commands that have direct IR equivalents
-    if decl.name() == "delvar" {
-        return compile_delvar(working_set, builder, call, io_reg);
+    if decl.name() == "unlet" {
+        return compile_unlet(working_set, builder, call, io_reg);
     }
 
     // Keep AST if the decl needs it.
@@ -276,17 +276,17 @@ pub(crate) fn compile_external_call(
     compile_call(working_set, builder, &call, redirect_modes, io_reg)
 }
 
-pub(crate) fn compile_delvar(
+pub(crate) fn compile_unlet(
     _working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // delvar takes exactly one positional argument which should be a variable reference
+    // unlet takes exactly one positional argument which should be a variable reference
     if call.positional_len() != 1 {
         return Err(CompileError::InvalidLiteral {
             msg: format!(
-                "delvar takes exactly one argument, got {}",
+                "unlet takes exactly one argument, got {}",
                 call.positional_len()
             ),
             span: call.head,
@@ -301,7 +301,7 @@ pub(crate) fn compile_delvar(
     };
     // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
     // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-    // This change allows delvar to work with variables parsed in different contexts.
+    // This change allows unlet to work with variables parsed in different contexts.
     let var_id = match &arg.expr {
         nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
         nu_protocol::ast::Expr::FullCellPath(cell_path) => {

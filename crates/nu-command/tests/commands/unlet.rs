@@ -1,29 +1,29 @@
 use nu_test_support::nu;
 
 #[test]
-fn delvar_basic() {
-    let actual = nu!("let x = 42; delvar $x; $x");
+fn unlet_basic() {
+    let actual = nu!("let x = 42; unlet $x; $x");
 
     assert!(actual.err.contains("Variable not found"));
 }
 
 #[test]
-fn delvar_builtin_nu() {
-    let actual = nu!("delvar $nu");
+fn unlet_builtin_nu() {
+    let actual = nu!("unlet $nu");
 
     assert!(actual.err.contains("cannot be deleted"));
 }
 
 #[test]
-fn delvar_builtin_env() {
-    let actual = nu!("delvar $env");
+fn unlet_builtin_env() {
+    let actual = nu!("unlet $env");
 
     assert!(actual.err.contains("cannot be deleted"));
 }
 
 #[test]
-fn delvar_not_variable() {
-    let actual = nu!("delvar 42");
+fn unlet_not_variable() {
+    let actual = nu!("unlet 42");
 
     assert!(
         actual
@@ -33,15 +33,15 @@ fn delvar_not_variable() {
 }
 
 #[test]
-fn delvar_wrong_number_args() {
-    let actual = nu!("delvar");
+fn unlet_wrong_number_args() {
+    let actual = nu!("unlet");
 
     assert!(actual.err.contains("Missing required positional argument"));
 }
 
 #[test]
-fn delvar_multiple_args() {
-    let actual = nu!("let x = 1; let y = 2; delvar $x $y");
+fn unlet_multiple_args() {
+    let actual = nu!("let x = 1; let y = 2; unlet $x $y");
 
     assert!(actual.err.contains("Extra positional argument"));
 }

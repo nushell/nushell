@@ -60,7 +60,7 @@ impl<'e, 's> ScopeData<'e, 's> {
             let var_value_result = self.stack.get_var(**var_id, span);
 
             // Skip variables that have no value in the stack and are not constants.
-            // This ensures that variables deleted with delvar disappear from scope variables.
+            // This ensures that variables deleted with unlet disappear from scope variables.
             if var_value_result.is_err() && var.const_val.is_none() {
                 continue;
             }

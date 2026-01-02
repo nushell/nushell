@@ -6,7 +6,7 @@ pub struct DeleteVar;
 
 impl Command for DeleteVar {
     fn name(&self) -> &str {
-        "delvar"
+        "unlet"
     }
 
     fn description(&self) -> &str {
@@ -14,7 +14,7 @@ impl Command for DeleteVar {
     }
 
     fn signature(&self) -> nu_protocol::Signature {
-        Signature::build("delvar")
+        Signature::build("unlet")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required(
                 "variable",
@@ -35,7 +35,7 @@ impl Command for DeleteVar {
         let Some(expr) = call.positional_nth(stack, 0) else {
             return Err(ShellError::GenericError {
                 error: "Wrong number of arguments".into(),
-                msg: "delvar takes exactly one argument".into(),
+                msg: "unlet takes exactly one argument".into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
@@ -87,17 +87,17 @@ impl Command for DeleteVar {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                example: "let x = 42; delvar $x",
+                example: "let x = 42; unlet $x",
                 description: "Delete a variable from memory",
                 result: None,
             },
             Example {
-                example: "delvar $nu",
+                example: "unlet $nu",
                 description: "Attempting to delete a built-in variable fails",
                 result: None,
             },
             Example {
-                example: "delvar 42",
+                example: "unlet 42",
                 description: "Attempting to delete a non-variable fails",
                 result: None,
             },
