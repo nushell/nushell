@@ -282,66 +282,78 @@ pub(crate) fn compile_unlet(
     call: &Call,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
-    // unlet takes exactly one positional argument which should be a variable reference
-    if call.positional_len() != 1 {
+    // unlet takes one or more positional arguments which should be variable references
+    if call.positional_len() == 0 {
         return Err(CompileError::InvalidLiteral {
-            msg: format!(
-                "unlet takes exactly one argument, got {}",
-                call.positional_len()
-            ),
+            msg: "unlet takes at least one argument".into(),
             span: call.head,
         });
     }
 
-    let Some(arg) = call.positional_nth(0) else {
-        return Err(CompileError::InvalidLiteral {
-            msg: "Expected one positional argument".into(),
-            span: call.head,
-        });
-    };
-    // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
-    // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
-    // This change allows unlet to work with variables parsed in different contexts.
-    let var_id = match &arg.expr {
-        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-        nu_protocol::ast::Expr::FullCellPath(cell_path) => {
-            if cell_path.tail.is_empty() {
-                match &cell_path.head.expr {
-                    nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
-                    _ => None,
-                }
-            } else {
-                None
-            }
-        }
-        _ => None,
-    };
+    // Process each positional argument
+    for i in 0..call.positional_len() {
+        let Some(arg) = call.positional_nth(i) else {
+            return Err(CompileError::InvalidLiteral {
+                msg: "Expected positional argument".into(),
+                span: call.head,
+            });
+        };
 
-    match var_id {
-        Some(var_id) => {
-            // Check for built-in variables that cannot be deleted
-            if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID {
+        // Extract variable ID from the expression
+        // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
+        // that represent simple variables (e.g., $var parsed as FullCellPath with empty tail).
+        // This allows unlet to work with variables parsed in different contexts.
+        let var_id = match &arg.expr {
+            nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
+            nu_protocol::ast::Expr::FullCellPath(cell_path) => {
+                if cell_path.tail.is_empty() {
+                    match &cell_path.head.expr {
+                        nu_protocol::ast::Expr::Var(var_id) => Some(*var_id),
+                        _ => None,
+                    }
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        match var_id {
+            Some(var_id) => {
+                // Prevent deletion of built-in variables that are essential for nushell operation
+                if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID || var_id == IN_VARIABLE_ID
+                {
+                    // Determine the variable name for the error message
+                    let var_name = match var_id {
+                        NU_VARIABLE_ID => "nu",
+                        ENV_VARIABLE_ID => "env",
+                        IN_VARIABLE_ID => "in",
+                        _ => "unknown", // This should never happen due to the check above
+                    };
+
+                    return Err(CompileError::InvalidLiteral {
+                        msg: format!(
+                            "'${}' is a built-in variable and cannot be deleted",
+                            var_name
+                        ),
+                        span: arg.span,
+                    });
+                }
+
+                // Emit instruction to drop the variable
+                builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
+            }
+            None => {
+                // Argument is not a valid variable reference
                 return Err(CompileError::InvalidLiteral {
-                    msg: format!(
-                        "'${}' is a built-in variable and cannot be deleted",
-                        match var_id {
-                            NU_VARIABLE_ID => "nu",
-                            ENV_VARIABLE_ID => "env",
-                            IN_VARIABLE_ID => "in",
-                            _ => unreachable!(),
-                        }
-                    ),
+                    msg: "Argument must be a variable reference like $x".into(),
                     span: arg.span,
                 });
             }
-
-            builder.push(Instruction::DropVariable { var_id }.into_spanned(call.head))?;
-            builder.load_empty(io_reg)?;
-            Ok(())
         }
-        None => Err(CompileError::InvalidLiteral {
-            msg: "Argument must be a variable reference like $x".into(),
-            span: arg.span,
-        }),
     }
+
+    // Load empty value as the result
+    builder.load_empty(io_reg)?;
+    Ok(())
 }

@@ -22,7 +22,6 @@ mod date;
 mod debug_info;
 mod def;
 mod default;
-mod unlet;
 mod detect_columns;
 mod do_;
 mod drop;
@@ -120,6 +119,7 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+mod unlet;
 mod window;
 
 mod debug;

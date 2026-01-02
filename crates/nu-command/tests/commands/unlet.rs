@@ -36,12 +36,19 @@ fn unlet_not_variable() {
 fn unlet_wrong_number_args() {
     let actual = nu!("unlet");
 
-    assert!(actual.err.contains("Missing required positional argument"));
+    assert!(actual.err.contains("unlet takes at least one argument"));
 }
 
 #[test]
 fn unlet_multiple_args() {
-    let actual = nu!("let x = 1; let y = 2; unlet $x $y");
+    let actual = nu!("let x = 1; let y = 2; unlet $x $y; $x");
 
-    assert!(actual.err.contains("Extra positional argument"));
+    assert!(actual.err.contains("Variable not found"));
+}
+
+#[test]
+fn unlet_multiple_deletes_both() {
+    let actual = nu!("let x = 1; let y = 2; unlet $x $y; $y");
+
+    assert!(actual.err.contains("Variable not found"));
 }

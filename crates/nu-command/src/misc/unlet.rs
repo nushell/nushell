@@ -10,16 +10,16 @@ impl Command for DeleteVar {
     }
 
     fn description(&self) -> &str {
-        "Delete a variable from nushell memory, making it unrecoverable."
+        "Delete variables from nushell memory, making them unrecoverable."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("unlet")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required(
-                "variable",
+            .rest(
+                "rest",
                 SyntaxShape::Any,
-                "The variable to delete (pass as $variable_name).",
+                "The variables to delete (pass as $variable_name).",
             )
             .category(Category::Core)
     }
@@ -31,53 +31,70 @@ impl Command for DeleteVar {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // Get the single required positional argument
-        let Some(expr) = call.positional_nth(stack, 0) else {
+        // Collect all positional arguments passed to the command
+        let expressions: Vec<_> = (0..).map_while(|i| call.positional_nth(stack, i)).collect();
+
+        // Ensure at least one argument is provided
+        if expressions.is_empty() {
             return Err(ShellError::GenericError {
                 error: "Wrong number of arguments".into(),
-                msg: "unlet takes exactly one argument".into(),
+                msg: "unlet takes at least one argument".into(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
             });
-        };
+        }
 
-        // Check if the expression is a variable reference
-        match &expr.expr {
-            nu_protocol::ast::Expr::Var(var_id) => {
-                // Prevent deletion of built-in variables
-                if var_id == &NU_VARIABLE_ID
-                    || var_id == &ENV_VARIABLE_ID
-                    || var_id == &IN_VARIABLE_ID
-                {
+        // Validate each argument and collect valid variable IDs
+        let mut var_ids = Vec::with_capacity(expressions.len());
+        for expr in expressions {
+            match &expr.expr {
+                nu_protocol::ast::Expr::Var(var_id) => {
+                    // Prevent deletion of built-in variables that are essential for nushell operation
+                    if var_id == &NU_VARIABLE_ID
+                        || var_id == &ENV_VARIABLE_ID
+                        || var_id == &IN_VARIABLE_ID
+                    {
+                        // Determine the variable name for the error message
+                        let var_name = match *var_id {
+                            NU_VARIABLE_ID => "nu",
+                            ENV_VARIABLE_ID => "env",
+                            IN_VARIABLE_ID => "in",
+                            _ => "unknown", // This should never happen due to the check above
+                        };
+
+                        return Err(ShellError::GenericError {
+                            error: "Cannot delete built-in variable".into(),
+                            msg: format!(
+                                "'${}' is a built-in variable and cannot be deleted",
+                                var_name
+                            ),
+                            span: Some(expr.span),
+                            help: None,
+                            inner: vec![],
+                        });
+                    }
+                    var_ids.push(*var_id);
+                }
+                _ => {
+                    // Argument is not a variable reference
                     return Err(ShellError::GenericError {
-                        error: "Cannot delete built-in variable".into(),
-                        msg: format!(
-                            "'${}' is a built-in variable and cannot be deleted",
-                            match var_id {
-                                var_id if var_id == &NU_VARIABLE_ID => "nu",
-                                var_id if var_id == &ENV_VARIABLE_ID => "env",
-                                var_id if var_id == &IN_VARIABLE_ID => "in",
-                                _ => unreachable!(),
-                            }
-                        ),
+                        error: "Not a variable".into(),
+                        msg: "Argument must be a variable reference like $x".into(),
                         span: Some(expr.span),
-                        help: None,
+                        help: Some("Use $variable_name to refer to the variable".into()),
                         inner: vec![],
                     });
                 }
-                // Remove the variable from the stack
-                stack.remove_var(*var_id);
-                Ok(PipelineData::empty())
             }
-            _ => Err(ShellError::GenericError {
-                error: "Not a variable".into(),
-                msg: "Argument must be a variable reference like $x".into(),
-                span: Some(expr.span),
-                help: Some("Use $variable_name to refer to the variable".into()),
-                inner: vec![],
-            }),
         }
+
+        // Remove all valid variables from the stack
+        for var_id in var_ids {
+            stack.remove_var(var_id);
+        }
+
+        Ok(PipelineData::empty())
     }
 
     fn requires_ast_for_arguments(&self) -> bool {
@@ -89,6 +106,11 @@ impl Command for DeleteVar {
             Example {
                 example: "let x = 42; unlet $x",
                 description: "Delete a variable from memory",
+                result: None,
+            },
+            Example {
+                example: "let x = 1; let y = 2; unlet $x $y",
+                description: "Delete multiple variables from memory",
                 result: None,
             },
             Example {
