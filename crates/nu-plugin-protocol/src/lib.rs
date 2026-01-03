@@ -22,12 +22,13 @@ mod tests;
 pub mod test_util;
 
 use nu_protocol::{
-    ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
+    BlockId, ByteStreamType, Config, DeclId, DynamicSuggestion, LabeledError, PipelineData,
     PipelineMetadata, PluginMetadata, PluginSignature, ShellError, SignalAction, Span, Spanned,
     Value, ast,
     ast::Operator,
     casing::Casing,
     engine::{ArgType, Closure},
+    ir::IrBlock,
 };
 use nu_utils::SharedCow;
 use serde::{Deserialize, Serialize};
@@ -601,6 +602,8 @@ pub enum EngineCall<D> {
     },
     /// Find a declaration by name
     FindDecl(String),
+    /// Get the compiled IR for a block
+    GetBlockIR(BlockId),
     /// Call a declaration with args
     CallDecl {
         /// The id of the declaration to be called (can be found with `FindDecl`)
@@ -632,6 +635,7 @@ impl<D> EngineCall<D> {
             EngineCall::GetSpanContents(_) => "GetSpanContents",
             EngineCall::EvalClosure { .. } => "EvalClosure",
             EngineCall::FindDecl(_) => "FindDecl",
+            EngineCall::GetBlockIR(_) => "GetBlockIR",
             EngineCall::CallDecl { .. } => "CallDecl",
         }
     }
@@ -667,6 +671,7 @@ impl<D> EngineCall<D> {
                 redirect_stderr,
             },
             EngineCall::FindDecl(name) => EngineCall::FindDecl(name),
+            EngineCall::GetBlockIR(block_id) => EngineCall::GetBlockIR(block_id),
             EngineCall::CallDecl {
                 decl_id,
                 call,
@@ -693,6 +698,7 @@ pub enum EngineCallResponse<D> {
     Config(SharedCow<Config>),
     ValueMap(HashMap<String, Value>),
     Identifier(DeclId),
+    IrBlock(Box<IrBlock>),
 }
 
 impl<D> EngineCallResponse<D> {
@@ -708,6 +714,7 @@ impl<D> EngineCallResponse<D> {
             EngineCallResponse::Config(config) => EngineCallResponse::Config(config),
             EngineCallResponse::ValueMap(map) => EngineCallResponse::ValueMap(map),
             EngineCallResponse::Identifier(id) => EngineCallResponse::Identifier(id),
+            EngineCallResponse::IrBlock(ir) => EngineCallResponse::IrBlock(ir),
         })
     }
 }
