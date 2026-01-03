@@ -4072,7 +4072,6 @@ dependencies = [
  "nu-utils",
  "num-traits",
  "quote",
- "rust-embed",
  "serde",
  "serde_json",
  "serde_urlencoded",
@@ -6755,40 +6754,6 @@ dependencies = [
  "hashlink",
  "libsqlite3-sys",
  "smallvec",
-]
-
-[[package]]
-name = "rust-embed"
-version = "8.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5fbc0ee50fcb99af7cebb442e5df7b5b45e9460ffa3f8f549cd26b862bec49d"
-dependencies = [
- "rust-embed-impl",
- "rust-embed-utils",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-impl"
-version = "8.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bf418c9a2e3f6663ca38b8a7134cc2c2167c9d69688860e8961e3faa731702e"
-dependencies = [
- "proc-macro2",
- "quote",
- "rust-embed-utils",
- "syn 2.0.110",
- "walkdir",
-]
-
-[[package]]
-name = "rust-embed-utils"
-version = "8.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "08d55b95147fe01265d06b3955db798bdaed52e60e2211c41137701b3aba8e21"
-dependencies = [
- "sha2",
- "walkdir",
 ]
 
 [[package]]
