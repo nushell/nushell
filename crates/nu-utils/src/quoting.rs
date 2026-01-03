@@ -41,3 +41,32 @@ pub fn escape_quote_string(string: &str) -> String {
     output.push('"');
     output
 }
+
+/// Returns a raw string representation if the string contains quotes or backslashes.
+/// Otherwise returns None (caller should use regular quoting or bare string).
+///
+/// Raw strings avoid escaping by using `r#'...'#` syntax with enough `#` characters
+/// to ensure the closing delimiter is unambiguous.
+///
+/// Note: Nushell requires at least one `#` in raw strings (i.e., `r#'...'#` not `r'...'`).
+pub fn as_raw_string(s: &str) -> Option<String> {
+    // Only use raw strings if they would avoid escaping
+    if !s.contains('"') && !s.contains('\\') {
+        return None;
+    }
+
+    // Find minimum # count needed for delimiter
+    // Nushell requires at least one #, so start at 1
+    // Need to avoid `'#...#` patterns in content that would close early
+    let mut hash_count = 1;
+    loop {
+        let closing = format!("'{}", "#".repeat(hash_count));
+        if !s.contains(&closing) {
+            break;
+        }
+        hash_count += 1;
+    }
+
+    let hashes = "#".repeat(hash_count);
+    Some(format!("r{hashes}'{s}'{hashes}"))
+}

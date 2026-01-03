@@ -338,9 +338,9 @@ fn into_sqlite_big_insert() {
             let nuon = nuon::to_nuon(
                 &engine_state,
                 &value,
-                nuon::ToStyle::Default,
-                Some(Span::unknown()),
-                serialize_types,
+                nuon::ToNuonConfig::default()
+                    .span(Some(Span::unknown()))
+                    .serialize_types(serialize_types),
             )
             .unwrap()
                 + &line_ending();
