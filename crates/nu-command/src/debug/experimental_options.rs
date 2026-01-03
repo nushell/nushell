@@ -10,7 +10,7 @@ impl Command for DebugExperimentalOptions {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name())
+        Signature::build(self.name())
             .input_output_type(
                 Type::Nothing,
                 Type::Table(Box::from([
@@ -22,7 +22,6 @@ impl Command for DebugExperimentalOptions {
                     (String::from("issue"), Type::String),
                 ])),
             )
-            .add_help()
             .category(Category::Debug)
     }
 
