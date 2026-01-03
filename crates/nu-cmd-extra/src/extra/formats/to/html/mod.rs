@@ -7,6 +7,13 @@ use rust_embed::RustEmbed;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, error::Error, fmt::Write};
 
+mod theme;
+
+mod theme_list {
+    use super::theme::HtmlTheme;
+    include!(concat!(env!("OUT_DIR"), "/html_theme_list.rs"));
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct HtmlThemes {
     themes: Vec<HtmlTheme>,

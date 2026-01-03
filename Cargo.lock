@@ -4071,8 +4071,10 @@ dependencies = [
  "nu-test-support",
  "nu-utils",
  "num-traits",
+ "quote",
  "rust-embed",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "v_htmlescape",
 ]
