@@ -1,3 +1,4 @@
+use memmap2::Mmap;
 #[allow(deprecated)]
 use nu_engine::{command_prelude::*, current_dir, eval_call};
 use nu_path::is_windows_device_path;
@@ -8,8 +9,33 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
+    io::{self, Read},
     path::{Path, PathBuf},
 };
+
+struct MmapReader {
+    mmap: Mmap,
+    pos: usize,
+}
+
+impl MmapReader {
+    fn new(mmap: Mmap) -> Self {
+        Self { mmap, pos: 0 }
+    }
+}
+
+impl Read for MmapReader {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let remaining = self.mmap.len().saturating_sub(self.pos);
+        if remaining == 0 {
+            return Ok(0);
+        }
+        let to_read = buf.len().min(remaining);
+        buf[..to_read].copy_from_slice(&self.mmap[self.pos..self.pos + to_read]);
+        self.pos += to_read;
+        Ok(to_read)
+    }
+}
 
 #[cfg(feature = "sqlite")]
 use crate::database::SQLiteDatabase;
@@ -26,7 +52,7 @@ impl Command for Open {
     }
 
     fn description(&self) -> &str {
-        "Load a file into a cell, converting to table if possible (avoid by appending '--raw')."
+        "Load a file into a cell, converting to table if possible (avoid by appending '--raw' or use '--large' for memory-mapped access)."
     }
 
     fn extra_description(&self) -> &str {
@@ -59,6 +85,11 @@ impl Command for Open {
                 "The file(s) to open.",
             )
             .switch("raw", "open file as raw binary", Some('r'))
+            .switch(
+                "large",
+                "open file using memory mapping for large files",
+                None,
+            )
             .category(Category::FileSystem)
     }
 
@@ -70,6 +101,7 @@ impl Command for Open {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
+        let large = call.has_flag(engine_state, stack, "large")?;
         let call_span = call.head;
         #[allow(deprecated)]
         let cwd = current_dir(engine_state, stack)?;
@@ -183,17 +215,38 @@ impl Command for Open {
                         )));
                     }
 
-                    let file = std::fs::File::open(path)
-                        .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
+                    let stream = if large {
+                        let file = std::fs::File::open(path)
+                            .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
+                        let mmap = unsafe { Mmap::map(&file) }
+                            .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
+                        let len = mmap.len() as u64;
+                        PipelineData::byte_stream(
+                            ByteStream::read(
+                                MmapReader::new(mmap),
+                                call_span,
+                                engine_state.signals().clone(),
+                                ByteStreamType::Unknown,
+                            )
+                            .with_known_size(Some(len)),
+                            Some(PipelineMetadata {
+                                data_source: DataSource::FilePath(path.to_path_buf()),
+                                ..Default::default()
+                            }),
+                        )
+                    } else {
+                        let file = std::fs::File::open(path)
+                            .map_err(|err| IoError::new(err, arg_span, PathBuf::from(path)))?;
 
-                    // No content_type by default - Is added later if no converter is found
-                    let stream = PipelineData::byte_stream(
-                        ByteStream::file(file, call_span, engine_state.signals().clone()),
-                        Some(PipelineMetadata {
-                            data_source: DataSource::FilePath(path.to_path_buf()),
-                            ..Default::default()
-                        }),
-                    );
+                        // No content_type by default - Is added later if no converter is found
+                        PipelineData::byte_stream(
+                            ByteStream::file(file, call_span, engine_state.signals().clone()),
+                            Some(PipelineMetadata {
+                                data_source: DataSource::FilePath(path.to_path_buf()),
+                                ..Default::default()
+                            }),
+                        )
+                    };
 
                     let exts_opt: Option<Vec<String>> = if raw {
                         None
@@ -279,6 +332,11 @@ impl Command for Open {
             Example {
                 description: "Open a file, as raw bytes",
                 example: "open myfile.json --raw",
+                result: None,
+            },
+            Example {
+                description: "Open a large file using memory mapping",
+                example: "open largefile.txt --large",
                 result: None,
             },
             Example {

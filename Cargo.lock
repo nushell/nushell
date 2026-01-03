@@ -4155,6 +4155,7 @@ dependencies = [
  "log",
  "lscolors",
  "md-5",
+ "memmap2",
  "mime",
  "mime_guess",
  "mockito",
