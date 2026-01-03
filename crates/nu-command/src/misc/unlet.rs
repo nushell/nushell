@@ -126,5 +126,3 @@ impl Command for DeleteVar {
         ]
     }
 }
-
-impl DeleteVar {}
