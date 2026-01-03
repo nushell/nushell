@@ -123,9 +123,7 @@ fn get_theme_from_asset_file(
     let themes = HtmlTheme::list();
 
     // Find the theme by theme name
-    let th = themes
-        .into_iter()
-        .find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
+    let th = themes.iter().find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
 
     let th = match th {
         Some(t) => t,
@@ -137,7 +135,7 @@ fn get_theme_from_asset_file(
         }
     };
 
-    Ok(convert_html_theme_to_hash_map(is_dark, &th))
+    Ok(convert_html_theme_to_hash_map(is_dark, th))
 }
 
 fn convert_html_theme_to_hash_map(

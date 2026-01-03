@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, reason = "unwrap is fine in build scripts")]
+
 use serde::Deserialize;
 use std::{
     env,
@@ -7,14 +9,14 @@ use std::{
     sync::LazyLock,
 };
 
+static OUT_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| PathBuf::from(env::var_os("OUT_DIR").expect("set by cargo")));
+
 fn main() {
     println!("cargo::rerun-if-changed=build.rs");
 
     prepare_html_themes();
 }
-
-static OUT_DIR: LazyLock<PathBuf> =
-    LazyLock::new(|| PathBuf::from(env::var_os("OUT_DIR").expect("set by cargo")));
 
 fn prepare_html_themes() {
     #[path = "src/extra/formats/to/html/theme.rs"]
