@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use nu_protocol::IntoValue;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize, IntoValue)]
+#[derive(Debug, Clone, Serialize, Deserialize, IntoValue)]
 #[serde(rename_all = "camelCase")]
 #[nu_value(rename_all = "camelCase")]
 pub struct HtmlTheme {
