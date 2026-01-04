@@ -52,7 +52,7 @@ const DEFAULT_IDE_COMPLETION_MENU: &str = r#"
     border: true,
     cursor_offset: 0,
     description_mode: "prefer_right"
-    min_description_width: 0
+    min_description_width: 15
     max_description_width: 50
     max_description_height: 10
     description_offset: 1
