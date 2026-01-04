@@ -722,7 +722,7 @@ fn transpose_to(layer: &mut RecordLayer) {
     }
 
     layer.record_values = data;
-    layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+    layer.column_names = (1..=count_rows + 1).map(|i| i.to_string()).collect();
     // Invalidate the text cache so it gets regenerated with the new structure
     layer.record_text = None;
 }
