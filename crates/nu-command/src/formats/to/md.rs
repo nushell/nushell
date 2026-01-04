@@ -415,7 +415,8 @@ fn fragment(
                     "h1" => "# ",
                     "h2" => "## ",
                     "h3" => "### ",
-                    _ => "> ", // blockquote as default for any other validated header
+                    "blockquote" => "> ",
+                    _ => "> ", // Fallback for any future validated headers not yet listed explicitly
                 };
 
                 let value_string = data.to_expanded_string("|", config);
