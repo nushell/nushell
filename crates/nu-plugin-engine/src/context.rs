@@ -2,10 +2,10 @@ use crate::util::MutableCow;
 use nu_engine::{ClosureEvalOnce, get_eval_block_with_early_return, get_full_help};
 use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
-    Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError, Signals, Span,
-    Spanned, Value,
+    BlockId, Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError,
+    Signals, Span, Spanned, Value,
     engine::{Call, Closure, EngineState, Redirection, Stack},
-    ir,
+    ir::{self, IrBlock},
 };
 use std::{
     borrow::Cow,
@@ -48,6 +48,8 @@ pub trait PluginExecutionContext: Send + Sync {
     ) -> Result<PipelineData, ShellError>;
     /// Find a declaration by name
     fn find_decl(&self, name: &str) -> Result<Option<DeclId>, ShellError>;
+    /// Get the compiled IR for a block
+    fn get_block_ir(&self, block_id: BlockId) -> Result<IrBlock, ShellError>;
     /// Call a declaration with arguments and input
     fn call_decl(
         &mut self,
@@ -222,6 +224,33 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
         Ok(self.engine_state.find_decl(name.as_bytes(), &[]))
     }
 
+    fn get_block_ir(&self, block_id: BlockId) -> Result<IrBlock, ShellError> {
+        let block =
+            self.engine_state
+                .try_get_block(block_id)
+                .ok_or_else(|| ShellError::GenericError {
+                    error: "Plugin misbehaving".into(),
+                    msg: format!("Tried to get IR for unknown block id: {}", block_id.get()),
+                    span: Some(self.call.head),
+                    help: None,
+                    inner: vec![],
+                })?;
+
+        block
+            .ir_block
+            .clone()
+            .ok_or_else(|| ShellError::GenericError {
+                error: "Block has no IR".into(),
+                msg: format!("Block {} was not compiled to IR", block_id.get()),
+                span: Some(self.call.head),
+                help: Some(
+                    "This block may be a declaration or built-in that has no IR representation"
+                        .into(),
+                ),
+                inner: vec![],
+            })
+    }
+
     fn call_decl(
         &mut self,
         decl_id: DeclId,
@@ -356,6 +385,12 @@ impl PluginExecutionContext for PluginExecutionBogusContext {
     fn find_decl(&self, _name: &str) -> Result<Option<DeclId>, ShellError> {
         Err(ShellError::NushellFailed {
             msg: "find_decl not implemented on bogus".into(),
+        })
+    }
+
+    fn get_block_ir(&self, _block_id: BlockId) -> Result<IrBlock, ShellError> {
+        Err(ShellError::NushellFailed {
+            msg: "get_block_ir not implemented on bogus".into(),
         })
     }
 

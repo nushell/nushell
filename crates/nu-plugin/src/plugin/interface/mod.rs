@@ -11,9 +11,10 @@ use nu_plugin_protocol::{
     PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
 use nu_protocol::{
-    Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
+    BlockId, Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
     PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
     engine::{Closure, Sequence},
+    ir::IrBlock,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -940,6 +941,34 @@ impl EngineInterface {
             EngineCallResponse::PipelineData(PipelineData::Empty) => Ok(None),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: "Received unexpected response type for EngineCall::FindDecl".into(),
+            }),
+        }
+    }
+
+    /// Get the compiled IR for a block.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use nu_protocol::{ShellError, Spanned};
+    /// # use nu_protocol::engine::Closure;
+    /// # use nu_plugin::EngineInterface;
+    /// # fn example(engine: &EngineInterface, closure: &Spanned<Closure>) -> Result<(), ShellError> {
+    /// let ir_block = engine.get_block_ir(closure.item.block_id)?;
+    /// for instruction in &ir_block.instructions {
+    ///     // ...
+    /// }
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn get_block_ir(&self, block_id: BlockId) -> Result<IrBlock, ShellError> {
+        let call = EngineCall::GetBlockIR(block_id);
+
+        match self.engine_call(call)? {
+            EngineCallResponse::Error(err) => Err(err),
+            EngineCallResponse::IrBlock(ir) => Ok(*ir),
+            _ => Err(ShellError::PluginFailedToDecode {
+                msg: "Received unexpected response type for EngineCall::GetBlockIR".into(),
             }),
         }
     }

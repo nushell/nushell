@@ -848,12 +848,17 @@ impl IntoIterator for PipelineData {
             PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
-                    Value::List { vals, .. } => PipelineIteratorInner::ListStream(
-                        ListStream::new(vals.into_iter(), span, Signals::empty()).into_iter(),
-                    ),
-                    Value::Range { val, .. } => PipelineIteratorInner::ListStream(
+                    Value::List { vals, signals, .. } => PipelineIteratorInner::ListStream(
                         ListStream::new(
-                            val.into_range_iter(span, Signals::empty()),
+                            vals.into_iter(),
+                            span,
+                            signals.unwrap_or_else(Signals::empty),
+                        )
+                        .into_iter(),
+                    ),
+                    Value::Range { val, signals, .. } => PipelineIteratorInner::ListStream(
+                        ListStream::new(
+                            val.into_range_iter(span, signals.unwrap_or_else(Signals::empty)),
                             span,
                             Signals::empty(),
                         )

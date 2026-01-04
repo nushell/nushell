@@ -8,7 +8,7 @@ use polars::{
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
-use crate::{Cacheable, PolarsPlugin};
+use crate::{Cacheable, PolarsPlugin, values::NuDataFrame};
 
 pub use self::custom_value::NuExpressionCustomValue;
 
@@ -524,6 +524,12 @@ impl CustomValueSupport for NuExpression {
                     polars::prelude::TimeUnit::Nanoseconds,
                 ))
                 .into()),
+            Value::List { vals, .. } => {
+                NuDataFrame::try_from_iter(plugin, vals.iter().cloned(), None).and_then(|ndf| {
+                    let series = ndf.as_series(value.span())?;
+                    Ok(series.lit().into())
+                })
+            }
             x => Err(ShellError::CantConvert {
                 to_type: "lazy expression".into(),
                 from_type: x.get_type().to_string(),

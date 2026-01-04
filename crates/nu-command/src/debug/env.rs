@@ -9,7 +9,7 @@ impl Command for DebugEnv {
     }
 
     fn signature(&self) -> Signature {
-        Signature::new(self.name())
+        Signature::build(self.name())
             .input_output_type(Type::Nothing, Type::record())
             .category(Category::Debug)
     }
