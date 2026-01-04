@@ -681,11 +681,7 @@ fn transpose_from(layer: &mut RecordLayer) {
     let count_rows = layer.record_values.len();
     let count_columns = layer.column_names.len();
 
-    if let Some(data) = &mut layer.record_text {
-        pop_first_column(data);
-        *data = _transpose_table(data, count_rows, count_columns - 1);
-    }
-
+    // Extract the original column names from the first column
     let headers = pop_first_column(&mut layer.record_values);
     let headers = headers
         .into_iter()
@@ -699,28 +695,8 @@ fn transpose_from(layer: &mut RecordLayer) {
 
     layer.record_values = data;
     layer.column_names = headers;
-}
-
-fn transpose_to(layer: &mut RecordLayer) {
-    let count_rows = layer.record_values.len();
-    let count_columns = layer.column_names.len();
-
-    if let Some(data) = &mut layer.record_text {
-        *data = _transpose_table(data, count_rows, count_columns);
-        for (column, column_name) in layer.column_names.iter().enumerate() {
-            let value = (column_name.to_owned(), Default::default());
-            data[column].insert(0, value);
-        }
-    }
-
-    let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
-    for (column, column_name) in layer.column_names.iter().enumerate() {
-        let value = Value::string(column_name, NuSpan::unknown());
-        data[column].insert(0, value);
-    }
-
-    layer.record_values = data;
-    layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+    // Invalidate the text cache so it gets regenerated with the new structure
+    layer.record_text = None;
 }
 
 fn pop_first_column<T>(values: &mut [Vec<T>]) -> Vec<T>
@@ -733,6 +709,22 @@ where
     }
 
     data
+}
+
+fn transpose_to(layer: &mut RecordLayer) {
+    let count_rows = layer.record_values.len();
+    let count_columns = layer.column_names.len();
+
+    let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
+    for (column, column_name) in layer.column_names.iter().enumerate() {
+        let value = Value::string(column_name, NuSpan::unknown());
+        data[column].insert(0, value);
+    }
+
+    layer.record_values = data;
+    layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+    // Invalidate the text cache so it gets regenerated with the new structure
+    layer.record_text = None;
 }
 
 fn _transpose_table<T>(values: &[Vec<T>], count_rows: usize, count_columns: usize) -> Vec<Vec<T>>
