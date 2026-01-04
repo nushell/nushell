@@ -80,7 +80,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "value" => var_value,
                     "is_const" => is_const,
                     "var_id" => var_id_val,
-                    "memory_size" => memory_size,
+                    "mem_size" => memory_size,
                 },
                 span,
             ));
