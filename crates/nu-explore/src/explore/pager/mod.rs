@@ -853,6 +853,24 @@ fn handle_general_key_events2<V>(
                 }
             }
         }
+        KeyCode::Char('N') => {
+            if !search.search_results.is_empty() {
+                if search.buf_cmd_input.is_empty() {
+                    search.buf_cmd_input.clone_from(&search.buf_cmd);
+                }
+
+                if search.search_index == 0 {
+                    search.search_index = search.search_results.len() - 1;
+                } else {
+                    search.search_index -= 1;
+                }
+
+                let pos = search.search_results[search.search_index];
+                if let Some(view) = view {
+                    view.show_data(pos);
+                }
+            }
+        }
         _ => {}
     }
 }
@@ -881,6 +899,19 @@ fn search_input_key_event(
         KeyCode::Enter => {
             buf.buf_cmd.clone_from(&buf.buf_cmd_input);
             buf.is_search_input = false;
+
+            if let Some(view) = view
+                && !buf.buf_cmd.is_empty()
+            {
+                let data = view.collect_data().into_iter().map(|(text, _)| text);
+                buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                buf.search_index = 0;
+
+                if !buf.search_results.is_empty() {
+                    let pos = buf.search_results[buf.search_index];
+                    view.show_data(pos);
+                }
+            }
 
             true
         }

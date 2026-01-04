@@ -16,7 +16,7 @@ use super::{
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_color_config::StyleComputer;
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_protocol::{
     Config, Value,
     engine::{EngineState, Stack},
@@ -282,6 +282,58 @@ impl View for RecordView {
                 Transition::None
             }
         }
+    }
+
+    fn collect_data(&self) -> Vec<NuText> {
+        let layer = self.get_top_layer();
+        let mut texts = Vec::new();
+
+        // Add headers
+        for name in &layer.column_names {
+            texts.push((name.clone(), TextStyle::default()));
+        }
+
+        // Add data
+        for row in &layer.record_values {
+            for value in row {
+                let text = value.to_abbreviated_string(&Config::default());
+                let text = strip_string(&text);
+                texts.push((text, TextStyle::default()));
+            }
+        }
+
+        texts
+    }
+
+    fn show_data(&mut self, pos: usize) -> bool {
+        let layer = self.get_top_layer();
+        let num_headers = layer.column_names.len();
+
+        if pos < num_headers {
+            // Header
+            let column = pos;
+            let row = 0;
+            self.get_top_layer_mut()
+                .cursor
+                .set_window_start_position(row, column);
+            return true;
+        } else {
+            let data_pos = pos - num_headers;
+            let mut i = 0;
+            for (data_row, cells) in layer.record_values.iter().enumerate() {
+                if data_pos >= i && data_pos < i + cells.len() {
+                    let column = data_pos - i;
+                    let row = data_row + 1; // +1 for header row
+                    self.get_top_layer_mut()
+                        .cursor
+                        .set_window_start_position(row, column);
+                    return true;
+                }
+                i += cells.len();
+            }
+        }
+
+        false
     }
 
     fn update(&mut self, _info: &mut ViewInfo) -> bool {
