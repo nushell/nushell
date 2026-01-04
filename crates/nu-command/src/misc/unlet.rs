@@ -21,7 +21,7 @@ impl Command for DeleteVar {
                 SyntaxShape::Any,
                 "The variables to delete (pass as $variable_name).",
             )
-            .category(Category::Core)
+            .category(Category::Experimental)
     }
 
     fn run(
