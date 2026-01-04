@@ -57,9 +57,15 @@ impl<'e, 's> ScopeData<'e, 's> {
             let var_type = Value::string(var.ty.to_string(), span);
             let is_const = Value::bool(var.const_val.is_some(), span);
 
-            let var_value = self
-                .stack
-                .get_var(**var_id, span)
+            let var_value_result = self.stack.get_var(**var_id, span);
+
+            // Skip variables that have no value in the stack and are not constants.
+            // This ensures that variables deleted with unlet disappear from scope variables.
+            if var_value_result.is_err() && var.const_val.is_none() {
+                continue;
+            }
+
+            let var_value = var_value_result
                 .ok()
                 .or(var.const_val.clone())
                 .unwrap_or(Value::nothing(span));

@@ -119,6 +119,7 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+mod unlet;
 mod window;
 
 mod debug;
