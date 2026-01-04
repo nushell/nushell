@@ -4688,7 +4688,7 @@ mod tests {
 
             assert_eq!(Value::test_bool(true).memory_size(), base_size);
             assert_eq!(Value::test_int(42).memory_size(), base_size);
-            assert_eq!(Value::test_float(3.14).memory_size(), base_size);
+            assert_eq!(Value::test_float(1.5).memory_size(), base_size);
             assert_eq!(Value::test_nothing().memory_size(), base_size);
         }
 
