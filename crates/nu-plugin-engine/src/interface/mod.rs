@@ -1390,6 +1390,9 @@ pub(crate) fn handle_engine_call(
                 EngineCallResponse::empty()
             }
         }),
+        EngineCall::GetBlockIR(block_id) => context
+            .get_block_ir(block_id)
+            .map(|ir| EngineCallResponse::IrBlock(Box::new(ir))),
         EngineCall::CallDecl {
             decl_id,
             call,
