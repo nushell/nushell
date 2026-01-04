@@ -18,7 +18,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use nu_color_config::{StyleComputer, TextStyle};
 use nu_protocol::{
-    Config, Value,
+    Config, Record, Value,
     engine::{EngineState, Stack},
 };
 use ratatui::{layout::Rect, widgets::Block};
@@ -341,8 +341,54 @@ impl View for RecordView {
     }
 
     fn exit(&mut self) -> Option<Value> {
-        None
+        Some(build_last_value(self))
     }
+}
+
+fn build_last_value(v: &RecordView) -> Value {
+    if v.mode == UIMode::Cursor {
+        v.get_current_value().clone()
+    } else if v.get_top_layer().count_rows() < 2 {
+        build_table_as_record(v)
+    } else {
+        build_table_as_list(v)
+    }
+}
+
+fn build_table_as_list(v: &RecordView) -> Value {
+    let layer = v.get_top_layer();
+
+    let vals = layer
+        .record_values
+        .iter()
+        .map(|vals| {
+            let record = layer
+                .column_names
+                .iter()
+                .cloned()
+                .zip(vals.iter().cloned())
+                .collect();
+            Value::record(record, NuSpan::unknown())
+        })
+        .collect();
+
+    Value::list(vals, NuSpan::unknown())
+}
+
+fn build_table_as_record(v: &RecordView) -> Value {
+    let layer = v.get_top_layer();
+
+    let mut record = Record::new();
+    if let Some(row) = layer.record_values.first() {
+        record = layer
+            .column_names
+            .iter()
+            .cloned()
+            .zip(row.iter().cloned())
+            .collect();
+    }
+
+    Value::record(record, NuSpan::unknown())
 }
 
 fn get_element_info(
