@@ -405,14 +405,14 @@ fn list_all_columns() {
         // Normal Operation
         let actual = nu!(
             cwd: dirs.test(),
-            "ls | columns | to md"
+            "ls | columns | to md --list none"
         );
         let expected = ["name", "type", "size", "modified"].join("");
         assert_eq!(actual.out, expected, "column names are incorrect for ls");
         // Long
         let actual = nu!(
             cwd: dirs.test(),
-            "ls -l | columns | to md"
+            "ls -l | columns | to md --list none"
         );
         let expected = {
             #[cfg(unix)]

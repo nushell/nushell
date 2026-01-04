@@ -24,7 +24,7 @@ fn md_simple() {
             echo 3 | to md
         "#);
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual.out, "* 3");
 }
 
 #[test]
@@ -33,7 +33,7 @@ fn md_simple_pretty() {
             echo 3 | to md -p
         "#);
 
-    assert_eq!(actual.out, "3");
+    assert_eq!(actual.out, "* 3");
 }
 
 #[test]
