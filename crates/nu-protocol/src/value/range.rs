@@ -635,6 +635,11 @@ impl Range {
             Range::FloatRange(range) => Iter::FloatIter(range.into_range_iter(signals), span),
         }
     }
+
+    /// Returns an estimate of the memory size used by this Range in bytes
+    pub fn memory_size(&self) -> usize {
+        std::mem::size_of::<Self>()
+    }
 }
 
 impl Ord for Range {

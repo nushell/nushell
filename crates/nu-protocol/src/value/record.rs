@@ -271,6 +271,16 @@ impl Record {
         }
     }
 
+    /// Returns an estimate of the memory size used by this Record in bytes
+    pub fn memory_size(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self
+                .inner
+                .iter()
+                .map(|(k, v)| k.capacity() + v.memory_size())
+                .sum::<usize>()
+    }
+
     pub fn cased(&self, casing: Casing) -> DynCasedRecord<&Record> {
         DynCasedRecord {
             record: self,

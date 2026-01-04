@@ -32,4 +32,14 @@ impl Closure {
             })
         }
     }
+
+    /// Returns an estimate of the memory size used by this Closure in bytes
+    pub fn memory_size(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self
+                .captures
+                .iter()
+                .map(|(_, v)| v.memory_size())
+                .sum::<usize>()
+    }
 }

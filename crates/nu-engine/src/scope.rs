@@ -71,6 +71,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                 .unwrap_or(Value::nothing(span));
 
             let var_id_val = Value::int(var_id.get() as i64, span);
+            let memory_size = Value::int(var_value.memory_size() as i64, span);
 
             vars.push(Value::record(
                 record! {
@@ -79,6 +80,7 @@ impl<'e, 's> ScopeData<'e, 's> {
                     "value" => var_value,
                     "is_const" => is_const,
                     "var_id" => var_id_val,
+                    "memory_size" => memory_size,
                 },
                 span,
             ));

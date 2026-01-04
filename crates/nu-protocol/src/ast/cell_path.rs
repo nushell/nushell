@@ -82,6 +82,14 @@ impl PathMember {
             PathMember::Int { span, .. } => *span,
         }
     }
+
+    /// Returns an estimate of the memory size used by this PathMember in bytes
+    pub fn memory_size(&self) -> usize {
+        match self {
+            PathMember::String { val, .. } => std::mem::size_of::<Self>() + val.capacity(),
+            PathMember::Int { .. } => std::mem::size_of::<Self>(),
+        }
+    }
 }
 
 impl PartialEq for PathMember {
@@ -214,6 +222,11 @@ impl CellPath {
 
         s.pop(); // Easier than checking whether to insert the '.' on every iteration.
         s
+    }
+
+    /// Returns an estimate of the memory size used by this CellPath in bytes
+    pub fn memory_size(&self) -> usize {
+        std::mem::size_of::<Self>() + self.members.iter().map(|m| m.memory_size()).sum::<usize>()
     }
 }
 

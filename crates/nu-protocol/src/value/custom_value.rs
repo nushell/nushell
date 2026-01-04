@@ -148,4 +148,11 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn notify_plugin_on_drop(&self) -> bool {
         false
     }
+
+    /// Returns an estimate of the memory size used by this CustomValue in bytes
+    ///
+    /// The default implementation returns the size of the trait object.
+    fn memory_size(&self) -> usize {
+        std::mem::size_of_val(self)
+    }
 }
