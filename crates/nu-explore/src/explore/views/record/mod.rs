@@ -16,9 +16,9 @@ use super::{
 };
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
-use nu_color_config::StyleComputer;
+use nu_color_config::{StyleComputer, TextStyle};
 use nu_protocol::{
-    Config, Value,
+    Config, Record, Value,
     engine::{EngineState, Stack},
 };
 use ratatui::{layout::Rect, widgets::Block};
@@ -284,13 +284,111 @@ impl View for RecordView {
         }
     }
 
+    fn collect_data(&self) -> Vec<NuText> {
+        let layer = self.get_top_layer();
+        let mut texts = Vec::new();
+
+        // Add headers
+        for name in &layer.column_names {
+            texts.push((name.clone(), TextStyle::default()));
+        }
+
+        // Add data
+        for row in &layer.record_values {
+            for value in row {
+                let text = value.to_abbreviated_string(&Config::default());
+                let text = strip_string(&text);
+                texts.push((text, TextStyle::default()));
+            }
+        }
+
+        texts
+    }
+
+    fn show_data(&mut self, pos: usize) -> bool {
+        let layer = self.get_top_layer();
+        let num_headers = layer.column_names.len();
+
+        if pos < num_headers {
+            // Header
+            let column = pos;
+            let row = 0;
+            self.get_top_layer_mut()
+                .cursor
+                .set_window_start_position(row, column);
+            return true;
+        } else {
+            let data_pos = pos - num_headers;
+            let mut i = 0;
+            for (data_row, cells) in layer.record_values.iter().enumerate() {
+                if data_pos >= i && data_pos < i + cells.len() {
+                    let column = data_pos - i;
+                    let row = data_row + 1; // +1 for header row
+                    self.get_top_layer_mut()
+                        .cursor
+                        .set_window_start_position(row, column);
+                    return true;
+                }
+                i += cells.len();
+            }
+        }
+
+        false
+    }
+
     fn update(&mut self, _info: &mut ViewInfo) -> bool {
         false
     }
 
     fn exit(&mut self) -> Option<Value> {
-        None
+        Some(build_last_value(self))
     }
+}
+
+fn build_last_value(v: &RecordView) -> Value {
+    if v.mode == UIMode::Cursor {
+        v.get_current_value().clone()
+    } else if v.get_top_layer().count_rows() < 2 {
+        build_table_as_record(v)
+    } else {
+        build_table_as_list(v)
+    }
+}
+
+fn build_table_as_list(v: &RecordView) -> Value {
+    let layer = v.get_top_layer();
+
+    let vals = layer
+        .record_values
+        .iter()
+        .map(|vals| {
+            let record = layer
+                .column_names
+                .iter()
+                .cloned()
+                .zip(vals.iter().cloned())
+                .collect();
+            Value::record(record, NuSpan::unknown())
+        })
+        .collect();
+
+    Value::list(vals, NuSpan::unknown())
+}
+
+fn build_table_as_record(v: &RecordView) -> Value {
+    let layer = v.get_top_layer();
+
+    let mut record = Record::new();
+    if let Some(row) = layer.record_values.first() {
+        record = layer
+            .column_names
+            .iter()
+            .cloned()
+            .zip(row.iter().cloned())
+            .collect();
+    }
+
+    Value::record(record, NuSpan::unknown())
 }
 
 fn get_element_info(
@@ -583,11 +681,7 @@ fn transpose_from(layer: &mut RecordLayer) {
     let count_rows = layer.record_values.len();
     let count_columns = layer.column_names.len();
 
-    if let Some(data) = &mut layer.record_text {
-        pop_first_column(data);
-        *data = _transpose_table(data, count_rows, count_columns - 1);
-    }
-
+    // Extract the original column names from the first column
     let headers = pop_first_column(&mut layer.record_values);
     let headers = headers
         .into_iter()
@@ -601,28 +695,8 @@ fn transpose_from(layer: &mut RecordLayer) {
 
     layer.record_values = data;
     layer.column_names = headers;
-}
-
-fn transpose_to(layer: &mut RecordLayer) {
-    let count_rows = layer.record_values.len();
-    let count_columns = layer.column_names.len();
-
-    if let Some(data) = &mut layer.record_text {
-        *data = _transpose_table(data, count_rows, count_columns);
-        for (column, column_name) in layer.column_names.iter().enumerate() {
-            let value = (column_name.to_owned(), Default::default());
-            data[column].insert(0, value);
-        }
-    }
-
-    let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
-    for (column, column_name) in layer.column_names.iter().enumerate() {
-        let value = Value::string(column_name, NuSpan::unknown());
-        data[column].insert(0, value);
-    }
-
-    layer.record_values = data;
-    layer.column_names = (1..count_rows + 1 + 1).map(|i| i.to_string()).collect();
+    // Invalidate the text cache so it gets regenerated with the new structure
+    layer.record_text = None;
 }
 
 fn pop_first_column<T>(values: &mut [Vec<T>]) -> Vec<T>
@@ -635,6 +709,22 @@ where
     }
 
     data
+}
+
+fn transpose_to(layer: &mut RecordLayer) {
+    let count_rows = layer.record_values.len();
+    let count_columns = layer.column_names.len();
+
+    let mut data = _transpose_table(&layer.record_values, count_rows, count_columns);
+    for (column, column_name) in layer.column_names.iter().enumerate() {
+        let value = Value::string(column_name, NuSpan::unknown());
+        data[column].insert(0, value);
+    }
+
+    layer.record_values = data;
+    layer.column_names = (1..=count_rows + 1).map(|i| i.to_string()).collect();
+    // Invalidate the text cache so it gets regenerated with the new structure
+    layer.record_text = None;
 }
 
 fn _transpose_table<T>(values: &[Vec<T>], count_rows: usize, count_columns: usize) -> Vec<Vec<T>>
