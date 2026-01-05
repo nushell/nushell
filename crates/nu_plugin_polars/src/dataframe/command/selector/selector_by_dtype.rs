@@ -26,7 +26,7 @@ impl PluginCommand for SelectorByDtype {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .rest(
-                "data types",
+                "dtypes",
                 SyntaxShape::String,
                 "Data types to select (e.g., i64, f64, str, bool)",
             )
