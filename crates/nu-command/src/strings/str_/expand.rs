@@ -312,6 +312,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_zero_padding_actual_zero() {
+        assert_eq!(
+            str_expand("{0..10}", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("0"), Span::test_data(),),
+                    Value::string(String::from("1"), Span::test_data(),),
+                    Value::string(String::from("2"), Span::test_data(),),
+                    Value::string(String::from("3"), Span::test_data(),),
+                    Value::string(String::from("4"), Span::test_data(),),
+                    Value::string(String::from("5"), Span::test_data(),),
+                    Value::string(String::from("6"), Span::test_data(),),
+                    Value::string(String::from("7"), Span::test_data(),),
+                    Value::string(String::from("8"), Span::test_data(),),
+                    Value::string(String::from("9"), Span::test_data(),),
+                    Value::string(String::from("10"), Span::test_data(),),
+                ],
+                Span::test_data(),
+            )
+        );
+        assert_eq!(
+            str_expand("{00..10}", Span::test_data(), Span::test_data()),
+            Value::list(
+                vec![
+                    Value::string(String::from("00"), Span::test_data(),),
+                    Value::string(String::from("01"), Span::test_data(),),
+                    Value::string(String::from("02"), Span::test_data(),),
+                    Value::string(String::from("03"), Span::test_data(),),
+                    Value::string(String::from("04"), Span::test_data(),),
+                    Value::string(String::from("05"), Span::test_data(),),
+                    Value::string(String::from("06"), Span::test_data(),),
+                    Value::string(String::from("07"), Span::test_data(),),
+                    Value::string(String::from("08"), Span::test_data(),),
+                    Value::string(String::from("09"), Span::test_data(),),
+                    Value::string(String::from("10"), Span::test_data(),),
+                ],
+                Span::test_data(),
+            )
+        );
+    }
+
+    #[test]
     fn test_double_dots_outside_curly() {
         assert_eq!(
             str_expand("..{a,b}..", Span::test_data(), Span::test_data()),
