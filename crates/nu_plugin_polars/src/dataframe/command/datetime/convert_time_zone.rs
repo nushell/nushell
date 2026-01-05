@@ -7,7 +7,8 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, Spanned, SyntaxShape, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Value,
 };
 
 use chrono::DateTime;
@@ -31,10 +32,16 @@ impl PluginCommand for ConvertTimeZone {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )])
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .required(
                 "time_zone",
                 SyntaxShape::String,
@@ -145,19 +152,31 @@ impl PluginCommand for ConvertTimeZone {
         let value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuExpression(expr) => {
-                let time_zone_spanned: Spanned<String> = call.req(0)?;
-                let time_zone =
-                    timezone_from_str(&time_zone_spanned.item, Some(time_zone_spanned.span))?;
-                let expr: NuExpression =
-                    expr.into_polars().dt().convert_time_zone(time_zone).into();
-                expr.to_pipeline_data(plugin, engine, call.head)
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            PolarsPluginObject::NuSelector(selector) => {
+                let expr = selector.into_expr();
+                command_expr(plugin, engine, call, expr)
             }
-            _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
+            )),
         }
         .map_err(LabeledError::from)
         .map(|pd| pd.set_metadata(metadata))
     }
+}
+
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    let time_zone_spanned: Spanned<String> = call.req(0)?;
+    let time_zone = timezone_from_str(&time_zone_spanned.item, Some(time_zone_spanned.span))?;
+    let expr: NuExpression = expr.into_polars().dt().convert_time_zone(time_zone).into();
+    expr.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

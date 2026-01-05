@@ -72,11 +72,8 @@ impl PolarsPluginCustomValue for NuSelectorCustomValue {
         right: Value,
     ) -> Result<Value, ShellError> {
         // Convert selector to expression, then perform operation
-        use crate::values::NuExpression;
-        use polars::prelude::Expr;
-
         let selector = NuSelector::try_from_custom_value(plugin, self)?;
-        let expr = NuExpression::from(Expr::Selector(selector.into_polars()));
+        let expr = selector.into_expr();
 
         // Now perform the operation on the expression
         let expr_cv = expr.custom_value();

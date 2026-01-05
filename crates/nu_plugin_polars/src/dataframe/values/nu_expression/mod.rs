@@ -1,6 +1,6 @@
 mod custom_value;
 
-use crate::values::NuSelector;
+use crate::values::{NuSelector, NuSelectorCustomValue};
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
@@ -498,6 +498,9 @@ impl CustomValueSupport for NuExpression {
             Value::Custom { val, .. } => {
                 if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
+                } else if let Some(cv) = val.as_any().downcast_ref::<NuSelectorCustomValue>() {
+                    let selector = NuSelector::try_from_custom_value(plugin, cv)?;
+                    Ok(selector.into_expr())
                 } else {
                     Err(ShellError::CantConvert {
                         to_type: Self::get_type_static().to_string(),

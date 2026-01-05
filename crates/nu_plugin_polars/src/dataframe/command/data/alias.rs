@@ -76,17 +76,7 @@ impl PluginCommand for ExprAlias {
         // Convert input to Value first to check type
         let value = input.into_value(call.head)?;
 
-        // Try to get as NuExpression first, or convert NuSelector to expression
-        let expr = match NuExpression::try_from_value(plugin, &value) {
-            Ok(expr) => expr,
-            Err(_) => {
-                // Try NuSelector
-                use crate::values::{CustomValueSupport, NuSelector};
-                let selector = NuSelector::try_from_value(plugin, &value)?;
-                NuExpression::from(polars::prelude::Expr::Selector(selector.into_polars()))
-            }
-        };
-
+        let expr = NuExpression::try_from_value(plugin, &value)?;
         let expr: NuExpression = expr.into_polars().alias(alias.as_str()).into();
 
         expr.to_pipeline_data(plugin, engine, call.head)

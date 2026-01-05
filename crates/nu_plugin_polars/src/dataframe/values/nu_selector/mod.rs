@@ -1,13 +1,13 @@
 mod custom_value;
 
 use nu_protocol::{ShellError, Span, Value};
-use polars::prelude::Selector;
+use polars::prelude::{Expr, Selector};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
 pub use self::custom_value::NuSelectorCustomValue;
 
-use super::{CustomValueSupport, PolarsPluginObject, PolarsPluginType};
+use super::{CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType};
 use crate::Cacheable;
 
 #[derive(Default, Clone, Debug)]
@@ -59,6 +59,10 @@ impl NuSelector {
 
     pub fn into_polars(self) -> Selector {
         self.selector.expect("Selector cannot be none to convert")
+    }
+
+    pub fn into_expr(self) -> NuExpression {
+        NuExpression::from(Expr::Selector(self.into_polars()))
     }
 
     pub fn to_value(&self, span: Span) -> Result<Value, ShellError> {
