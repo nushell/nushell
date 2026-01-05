@@ -124,9 +124,24 @@ impl ExtractedExpr {
     fn extract_exprs(plugin: &PolarsPlugin, value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
-                .map(NuExpression::into_polars)
-                .map(ExtractedExpr::Single),
+            Value::Custom { .. } => {
+                // Try NuExpression first
+                if let Ok(expr) = NuExpression::try_from_value(plugin, &value) {
+                    return Ok(ExtractedExpr::Single(expr.into_polars()));
+                }
+                // Try NuSelector as fallback
+                if let Ok(selector) = NuSelector::try_from_value(plugin, &value) {
+                    return Ok(ExtractedExpr::Single(Expr::Selector(
+                        selector.into_polars(),
+                    )));
+                }
+                Err(ShellError::CantConvert {
+                    to_type: "expression".into(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                })
+            }
             Value::Record { val, .. } => val
                 .iter()
                 .map(|(key, value)| {
