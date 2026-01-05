@@ -130,6 +130,7 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuWhen(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuDataType(cv) => cv.custom_value_to_base_value(self, engine),
             CustomValueType::NuSchema(cv) => cv.custom_value_to_base_value(self, engine),
+            CustomValueType::NuSelector(cv) => cv.custom_value_to_base_value(self, engine),
         };
         Ok(result?)
     }
@@ -161,6 +162,9 @@ impl Plugin for PolarsPlugin {
                 cv.custom_value_operation(self, engine, left.span, operator, right)
             }
             CustomValueType::NuSchema(cv) => {
+                cv.custom_value_operation(self, engine, left.span, operator, right)
+            }
+            CustomValueType::NuSelector(cv) => {
                 cv.custom_value_operation(self, engine, left.span, operator, right)
             }
         };
@@ -195,6 +199,9 @@ impl Plugin for PolarsPlugin {
                 cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
             }
             CustomValueType::NuSchema(cv) => {
+                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+            }
+            CustomValueType::NuSelector(cv) => {
                 cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
             }
         };
@@ -232,6 +239,9 @@ impl Plugin for PolarsPlugin {
             CustomValueType::NuSchema(cv) => {
                 cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
             }
+            CustomValueType::NuSelector(cv) => {
+                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+            }
         };
         Ok(result?)
     }
@@ -260,6 +270,9 @@ impl Plugin for PolarsPlugin {
                 cv.custom_value_partial_cmp(self, engine, other_value)
             }
             CustomValueType::NuSchema(cv) => cv.custom_value_partial_cmp(self, engine, other_value),
+            CustomValueType::NuSelector(cv) => {
+                cv.custom_value_partial_cmp(self, engine, other_value)
+            }
         };
         Ok(result?)
     }

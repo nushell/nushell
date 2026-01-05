@@ -1,5 +1,6 @@
 mod custom_value;
 
+use crate::values::NuSelector;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
@@ -401,14 +402,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg_span: span,
             input_span: Span::unknown(),
         }),
-        // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
-        // I am not sure what we can meaningfully do with this at this time.
-        Expr::Selector(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type Selector to Nu Value is not yet supported".to_string(),
-            input: format!("Expression is {expr:?}"),
-            msg_span: span,
-            input_span: Span::unknown(),
-        }),
+        Expr::Selector(selector) => {
+            // Convert Selector to NuSelector and then to Value
+            let nu_selector = NuSelector::from(selector.clone());
+            nu_selector.to_value(span)
+        }
         Expr::Eval { .. } => Err(ShellError::UnsupportedInput {
             msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
