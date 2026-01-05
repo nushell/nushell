@@ -3,6 +3,7 @@ mod from;
 mod to;
 
 pub use from::from_nuon;
+pub use to::ToNuonConfig;
 pub use to::ToStyle;
 pub use to::to_nuon;
 
@@ -17,7 +18,7 @@ mod tests {
         record,
     };
 
-    use crate::{ToStyle, from_nuon, to_nuon};
+    use crate::{ToNuonConfig, ToStyle, from_nuon, to_nuon};
 
     /// test something of the form
     /// ```nushell
@@ -33,7 +34,7 @@ mod tests {
             assert_eq!(val, m);
         }
         assert_eq!(
-            to_nuon(&engine_state, &val, ToStyle::Default, None, false).unwrap(),
+            to_nuon(&engine_state, &val, ToNuonConfig::default()).unwrap(),
             input
         );
     }
@@ -189,9 +190,7 @@ mod tests {
                     block_id: BlockId::new(0),
                     captures: vec![]
                 }),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap_err()
             .to_string()
@@ -215,9 +214,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &from_nuon("0x[1f ff]", None).unwrap(),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "0x[1FFF]"
@@ -265,9 +262,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(1.0),
-                ToStyle::Default,
-                None,
-                false
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "1.0"
@@ -282,9 +277,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::INFINITY),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "inf"
@@ -299,9 +292,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(f64::NEG_INFINITY),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "-inf"
@@ -316,9 +307,7 @@ mod tests {
             to_nuon(
                 &engine_state,
                 &Value::test_float(-f64::NAN),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "NaN"
@@ -345,9 +334,7 @@ mod tests {
                             "c d" => Value::test_int(6)
                         ))
                     ]),
-                    ToStyle::Default,
-                    None,
-                    false,
+                    ToNuonConfig::default(),
                 )
                 .unwrap(),
                 None,
@@ -363,9 +350,7 @@ mod tests {
         let res = to_nuon(
             &engine_state,
             &Value::test_string(""),
-            ToStyle::Default,
-            None,
-            false,
+            ToNuonConfig::default(),
         );
         assert!(res.is_ok());
         assert_eq!(res.unwrap(), r#""""#);
@@ -439,9 +424,7 @@ mod tests {
                         "c d" => Value::test_int(6)
                     ))
                 ]),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]"
@@ -454,9 +437,7 @@ mod tests {
                     "ro name" => Value::test_string("sam"),
                     "rank" => Value::test_int(10)
                 )),
-                ToStyle::Default,
-                None,
-                false,
+                ToNuonConfig::default(),
             )
             .unwrap(),
             "{\"ro name\": sam, rank: 10}"
@@ -508,5 +489,150 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    // Raw string tests
+
+    #[test]
+    fn raw_string_parses_correctly() {
+        // Verify raw strings are parsed correctly
+        let input = r#"r#'hello "world"'#"#;
+        let val = from_nuon(input, None).unwrap();
+        assert_eq!(val, Value::test_string(r#"hello "world""#));
+    }
+
+    #[test]
+    fn raw_string_parses_backslash() {
+        // Raw string with backslash parses correctly
+        let input = r"r#'path\to\file'#";
+        let val = from_nuon(input, None).unwrap();
+        assert_eq!(val, Value::test_string(r"path\to\file"));
+    }
+
+    #[test]
+    fn raw_string_parses_with_hashes() {
+        // String containing '# parses correctly with more hashes
+        let input = r"r##'contains '# in middle'##";
+        let val = from_nuon(input, None).unwrap();
+        assert_eq!(val, Value::test_string("contains '# in middle"));
+    }
+
+    #[test]
+    fn raw_strings_option_generates_raw() {
+        let engine_state = EngineState::new();
+        let val = Value::test_string(r#"hello "world""#);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        // Nushell requires at least one # in raw strings
+        assert_eq!(result, r#"r#'hello "world"'#"#);
+    }
+
+    #[test]
+    fn raw_strings_option_with_backslash() {
+        let engine_state = EngineState::new();
+        let val = Value::test_string(r"path\to\file");
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        // Nushell requires at least one # in raw strings
+        assert_eq!(result, r"r#'path\to\file'#");
+    }
+
+    #[test]
+    fn raw_strings_option_no_raw_when_not_needed() {
+        // Should use regular quoting when no escaping needed
+        let engine_state = EngineState::new();
+        let val = Value::test_string("hello world");
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#""hello world""#);
+    }
+
+    #[test]
+    fn raw_strings_option_in_list() {
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![Value::test_string(r#"a "b" c"#)]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#"[r#'a "b" c'#]"#);
+    }
+
+    #[test]
+    fn raw_strings_option_in_record() {
+        let engine_state = EngineState::new();
+        let val = Value::test_record(record!(
+            "key" => Value::test_string(r#"value "quoted""#)
+        ));
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#"{key: r#'value "quoted"'#}"#);
+    }
+
+    #[test]
+    fn raw_strings_combined_with_raw_style() {
+        // Test that raw_strings works with ToStyle::Raw (no whitespace)
+        let engine_state = EngineState::new();
+        let val = Value::test_record(record!(
+            "a" => Value::test_string(r#"hello "world""#),
+            "b" => Value::test_int(42)
+        ));
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default()
+                .style(ToStyle::Raw)
+                .raw_strings(true),
+        )
+        .unwrap();
+        assert_eq!(result, r#"{a:r#'hello "world"'#,b:42}"#);
+    }
+
+    #[test]
+    fn raw_strings_roundtrip_with_raw_strings_option() {
+        // Verify roundtrip: Value -> raw NUON -> Value
+        let engine_state = EngineState::new();
+        let original = Value::test_string(r#"path\to\"file""#);
+        let nuon = to_nuon(
+            &engine_state,
+            &original,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        let parsed = from_nuon(&nuon, None).unwrap();
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn raw_strings_needs_more_hashes_when_content_has_quote_hash() {
+        // Content with '# AND a quote/backslash needs at least two hashes
+        let engine_state = EngineState::new();
+        let val = Value::test_string(r#"contains '# and "quote""#);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+        // Has '# so needs r##'...'##
+        assert_eq!(result, r#"r##'contains '# and "quote"'##"#);
     }
 }
