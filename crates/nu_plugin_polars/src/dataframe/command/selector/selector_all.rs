@@ -28,11 +28,40 @@ impl PluginCommand for SelectorAll {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Create a selector for all columns",
-            example: "polars selector all",
-            result: None,
-        }]
+        use crate::values::{Column, NuDataFrame};
+        use nu_protocol::{Span, Value};
+
+        vec![
+            Example {
+                description: "Create a selector for all columns",
+                example: "polars selector all",
+                result: None,
+            },
+            Example {
+                description: "Multiply all columns by 2 using with-column",
+                example: r#"[[a b]; [1 2] [3 4]]
+                    | polars into-df
+                    | polars with-column ((polars selector all) * 2)
+                    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(4), Value::test_int(8)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn search_terms(&self) -> Vec<&str> {

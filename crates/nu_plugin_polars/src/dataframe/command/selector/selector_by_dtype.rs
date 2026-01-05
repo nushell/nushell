@@ -35,11 +35,44 @@ impl PluginCommand for SelectorByDtype {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Create a selector for numeric columns",
-            example: "polars selector by-dtype i64 f64",
-            result: None,
-        }]
+        use crate::values::{Column, NuDataFrame};
+        use nu_protocol::{Span, Value};
+
+        vec![
+            Example {
+                description: "Create a selector for numeric columns",
+                example: "polars selector by-dtype i64 f64",
+                result: None,
+            },
+            Example {
+                description: "Double all integer columns using with-column",
+                example: r#"[[a b c]; [1 2 "x"] [3 4 "y"]]
+                    | polars into-df
+                    | polars with-column ((polars selector by-dtype i64) * 2)
+                    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(4), Value::test_int(8)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_string("x"), Value::test_string("y")],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn search_terms(&self) -> Vec<&str> {

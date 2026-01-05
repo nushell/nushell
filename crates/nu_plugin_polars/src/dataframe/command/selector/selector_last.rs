@@ -1,10 +1,13 @@
+use crate::values::{Column, NuDataFrame};
 use crate::{
     PolarsPlugin,
     dataframe::values::NuSelector,
     values::{CustomValueSupport, PolarsPluginType},
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Type};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+};
 use polars::prelude::Selector;
 
 #[derive(Clone)]
@@ -43,6 +46,38 @@ impl PluginCommand for SelectorLast {
                 description: "Create a selector for the last 3 columns",
                 example: "polars selector last 3",
                 result: None,
+            },
+            Example {
+                description: "Create a new column from the last column using with-column",
+                example: r#"[[a b c]; [1 2 3] [4 5 6]]
+                    | polars into-df
+                    | polars with-column ((polars selector last) * 100 | polars as c_times_100)
+                    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(5)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(3), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "c_times_100".to_string(),
+                                vec![Value::test_int(300), Value::test_int(600)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
             },
         ]
     }
