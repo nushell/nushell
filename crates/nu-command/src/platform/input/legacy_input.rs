@@ -125,9 +125,7 @@ pub trait LegacyInput {
             }
         }
         crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
-        if !suppress_output {
-            std::io::stdout().write_all(b"\n").map_err(&from_io_error)?;
-        }
+        std::io::stdout().write_all(b"\n").map_err(&from_io_error)?;
         match default_val {
             Some(val) if buf.is_empty() => Ok(Value::string(val, call.head).into_pipeline_data()),
             _ => Ok(Value::string(buf, call.head).into_pipeline_data()),
