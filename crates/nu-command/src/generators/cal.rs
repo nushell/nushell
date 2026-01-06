@@ -47,7 +47,7 @@ impl Command for Cal {
             )
             .switch(
                 "month-names",
-                "Display the month names instead of integers",
+                "Display the month names in a separate column",
                 None,
             )
             .input_output_types(vec![
@@ -346,14 +346,18 @@ fn add_month_to_table(
             );
         }
 
-        if should_show_month_column || should_show_month_names {
-            let month_value = if should_show_month_names {
-                Value::string(month_helper.month_name.clone(), tag)
-            } else {
-                Value::int(month_helper.selected_month as i64, tag)
-            };
+        if should_show_month_column {
+            record.insert(
+                "month".to_string(),
+                Value::int(month_helper.selected_month as i64, tag),
+            );
+        }
 
-            record.insert("month".to_string(), month_value);
+        if should_show_month_names {
+            record.insert(
+                "month_name".to_string(),
+                Value::string(month_helper.month_name.clone(), tag),
+            );
         }
 
         for day in &days_of_the_week {
