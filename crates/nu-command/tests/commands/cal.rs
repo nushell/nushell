@@ -14,12 +14,23 @@ fn cal_full_year() {
 #[test]
 fn cal_february_2020_leap_year() {
     let actual = nu!(r#"
-    cal --as-table -ym --full-year 2020 --month-names | where month == "february" | to json -r
+    cal --as-table -y --full-year 2020 --month-names | where month_name == "february" | to json -r
     "#);
 
-    let cal_february_json = r#"[{"year":2020,"month":"february","su":null,"mo":null,"tu":null,"we":null,"th":null,"fr":null,"sa":1},{"year":2020,"month":"february","su":2,"mo":3,"tu":4,"we":5,"th":6,"fr":7,"sa":8},{"year":2020,"month":"february","su":9,"mo":10,"tu":11,"we":12,"th":13,"fr":14,"sa":15},{"year":2020,"month":"february","su":16,"mo":17,"tu":18,"we":19,"th":20,"fr":21,"sa":22},{"year":2020,"month":"february","su":23,"mo":24,"tu":25,"we":26,"th":27,"fr":28,"sa":29}]"#;
+    let cal_february_json = r#"[{"year":2020,"month_name":"february","su":null,"mo":null,"tu":null,"we":null,"th":null,"fr":null,"sa":1},{"year":2020,"month_name":"february","su":2,"mo":3,"tu":4,"we":5,"th":6,"fr":7,"sa":8},{"year":2020,"month_name":"february","su":9,"mo":10,"tu":11,"we":12,"th":13,"fr":14,"sa":15},{"year":2020,"month_name":"february","su":16,"mo":17,"tu":18,"we":19,"th":20,"fr":21,"sa":22},{"year":2020,"month_name":"february","su":23,"mo":24,"tu":25,"we":26,"th":27,"fr":28,"sa":29}]"#;
 
     assert_eq!(actual.out, cal_february_json);
+}
+
+#[test]
+fn cal_month_int_matches_name() {
+    let actual = nu!(r#"
+        cal --as-table --full-year 2015 --month --month-names | where month_name == "august" and month == 8 | to json -r
+    "#);
+
+    let cal_august_json = r#"[{"month":8,"month_name":"august","su":null,"mo":null,"tu":null,"we":null,"th":null,"fr":null,"sa":1},{"month":8,"month_name":"august","su":2,"mo":3,"tu":4,"we":5,"th":6,"fr":7,"sa":8},{"month":8,"month_name":"august","su":9,"mo":10,"tu":11,"we":12,"th":13,"fr":14,"sa":15},{"month":8,"month_name":"august","su":16,"mo":17,"tu":18,"we":19,"th":20,"fr":21,"sa":22},{"month":8,"month_name":"august","su":23,"mo":24,"tu":25,"we":26,"th":27,"fr":28,"sa":29},{"month":8,"month_name":"august","su":30,"mo":31,"tu":null,"we":null,"th":null,"fr":null,"sa":null}]"#;
+
+    assert_eq!(actual.out, cal_august_json);
 }
 
 #[test]
@@ -43,10 +54,10 @@ fn cal_rows_in_2020() {
 #[test]
 fn cal_week_day_start_mo() {
     let actual = nu!(r#"
-    cal --as-table --full-year 2020 -m --month-names --week-start mo | where month == january | to json -r
+    cal --as-table --full-year 2020 -m --month-names --week-start mo | where month_name == january | to json -r
     "#);
 
-    let cal_january_json = r#"[{"month":"january","mo":null,"tu":null,"we":1,"th":2,"fr":3,"sa":4,"su":5},{"month":"january","mo":6,"tu":7,"we":8,"th":9,"fr":10,"sa":11,"su":12},{"month":"january","mo":13,"tu":14,"we":15,"th":16,"fr":17,"sa":18,"su":19},{"month":"january","mo":20,"tu":21,"we":22,"th":23,"fr":24,"sa":25,"su":26},{"month":"january","mo":27,"tu":28,"we":29,"th":30,"fr":31,"sa":null,"su":null}]"#;
+    let cal_january_json = r#"[{"month":1,"month_name":"january","mo":null,"tu":null,"we":1,"th":2,"fr":3,"sa":4,"su":5},{"month":1,"month_name":"january","mo":6,"tu":7,"we":8,"th":9,"fr":10,"sa":11,"su":12},{"month":1,"month_name":"january","mo":13,"tu":14,"we":15,"th":16,"fr":17,"sa":18,"su":19},{"month":1,"month_name":"january","mo":20,"tu":21,"we":22,"th":23,"fr":24,"sa":25,"su":26},{"month":1,"month_name":"january","mo":27,"tu":28,"we":29,"th":30,"fr":31,"sa":null,"su":null}]"#;
 
     assert_eq!(actual.out, cal_january_json);
 }
