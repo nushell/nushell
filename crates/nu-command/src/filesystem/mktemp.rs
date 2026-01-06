@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, env::current_dir};
+use nu_engine::command_prelude::*;
 use std::path::PathBuf;
 use uucore::{localized_help_template, translate};
 
@@ -92,13 +91,31 @@ impl Command for Mktemp {
             .get_flag(engine_state, stack, "tmpdir-path")?
             .map(|i: Spanned<PathBuf>| i.item);
 
-        let tmpdir = if tmpdir_path.is_some() {
-            tmpdir_path
-        } else if directory || tmpdir {
-            Some(std::env::temp_dir())
-        } else {
-            #[allow(deprecated)]
-            Some(current_dir(engine_state, stack)?)
+        let tmpdir = match tmpdir_path {
+            Some(path) => Some(path),
+            None => {
+                if directory || tmpdir {
+                    // This is a very strange case on Windows where std::env::temp_dir()
+                    // returns "C:\WINDOWS\" instead of "C:\WINDOWS\Temp" or a user's temp folder.
+                    // Since normal users do not have write access to "C:\WINDOWS\", we need to
+                    // adjust for that here. I've only see this happen with "mktemp -d" so far.
+                    // So, let's check for a path like "C:\WINDOWS\" (length 11, ending with
+                    // "\WINDOWS\" or "\WINDOWS"), then append "\TEMP\" to create a path string
+                    // pointing to an end user writable directory like "C:\WINDOWS\TEMP\".
+                    let td = std::env::temp_dir();
+                    let td_str = td.display().to_string();
+                    if cfg!(target_os = "windows")
+                        && (td_str.ends_with(r"\WINDOWS\") || td_str.ends_with(r"\WINDOWS"))
+                        && td_str.len() == 11
+                    {
+                        Some(td.join("TEMP"))
+                    } else {
+                        Some(td)
+                    }
+                } else {
+                    Some(engine_state.cwd(Some(stack))?.into_std_path_buf())
+                }
+            }
         };
 
         let options = uu_mktemp::Options {

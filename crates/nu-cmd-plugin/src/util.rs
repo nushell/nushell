@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_protocol::{
     PluginRegistryFile,
     engine::StateWorkingSet,
@@ -19,8 +18,7 @@ fn get_plugin_registry_file_path(
     span: Span,
     custom_path: &Option<Spanned<String>>,
 ) -> Result<PathBuf, ShellError> {
-    #[allow(deprecated)]
-    let cwd = current_dir(engine_state, stack)?;
+    let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
 
     if let Some(custom_path) = custom_path {
         Ok(nu_path::expand_path_with(&custom_path.item, cwd, true))
@@ -121,8 +119,7 @@ pub(crate) fn canonicalize_possible_filename_arg(
     arg: &str,
 ) -> PathBuf {
     // This results in the best possible chance of a match with the plugin item
-    #[allow(deprecated)]
-    if let Ok(cwd) = nu_engine::current_dir(engine_state, stack) {
+    if let Ok(cwd) = engine_state.cwd(Some(stack)) {
         let path = nu_path::expand_path_with(arg, &cwd, true);
         // Try to canonicalize
         nu_path::locate_in_dirs(&path, &cwd, || get_plugin_dirs(engine_state, stack))

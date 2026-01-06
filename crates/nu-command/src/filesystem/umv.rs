@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
@@ -107,8 +106,7 @@ impl Command for UMv {
             UpdateMode::All
         };
 
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
             return Err(ShellError::GenericError {

@@ -228,8 +228,7 @@ fn which(
 
     let mut output = vec![];
 
-    #[allow(deprecated)]
-    let cwd = env::current_dir_str(engine_state, stack)?;
+    let cwd = engine_state.cwd_as_string(Some(stack))?;
     let paths = env::path_str(engine_state, stack, head)?;
 
     if which_args.applications.is_empty() {

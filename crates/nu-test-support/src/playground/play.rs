@@ -31,7 +31,7 @@ pub struct Playground<'a> {
     dirs: &'a Dirs,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Dirs {
     pub root: AbsolutePathBuf,
     pub test: AbsolutePathBuf,

@@ -1,6 +1,5 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_glob::{MatchOptions, Pattern};
 use nu_protocol::{NuGlob, Signals};
 use serde::Deserialize;
@@ -99,8 +98,7 @@ impl Command for Du {
         let deref = call.has_flag(engine_state, stack, "deref")?;
         let long = call.has_flag(engine_state, stack, "long")?;
         let exclude = call.get_flag(engine_state, stack, "exclude")?;
-        #[allow(deprecated)]
-        let current_dir = current_dir(engine_state, stack)?;
+        let current_dir = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let all = call.has_flag(engine_state, stack, "all")?;
 
         let paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;

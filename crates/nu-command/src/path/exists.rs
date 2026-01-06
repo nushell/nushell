@@ -1,6 +1,5 @@
 use super::PathSubcommandArguments;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir, current_dir_const};
+use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::{engine::StateWorkingSet, shell_error::io::IoError};
 use std::path::{Path, PathBuf};
@@ -55,9 +54,8 @@ Also note that if you don't have a permission to a directory of a path, false wi
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        #[allow(deprecated)]
         let args = Arguments {
-            pwd: current_dir(engine_state, stack)?,
+            pwd: engine_state.cwd(Some(stack))?.into_std_path_buf(),
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
@@ -77,9 +75,8 @@ Also note that if you don't have a permission to a directory of a path, false wi
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        #[allow(deprecated)]
         let args = Arguments {
-            pwd: current_dir_const(working_set)?,
+            pwd: working_set.permanent_state.cwd(None)?.into_std_path_buf(),
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls
