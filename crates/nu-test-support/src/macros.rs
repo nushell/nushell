@@ -438,6 +438,10 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
             n.starts_with("System") // System variables for disks, paths, etc.
                 || n == "NUSHELL_CARGO_PROFILE" // Variable for crate::fs::binaries()
                 || n == "PATHEXT" // Needed for Windows translate `nu` to `.../nu.exe`
+                || n == "TMP"
+                || n == "TEMP"
+                || n == "USERPROFILE"
+                || n == "TMPDIR"
                 || n.starts_with("CARGO_")
                 || n.starts_with("RUSTUP_")
         })
