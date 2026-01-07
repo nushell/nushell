@@ -98,7 +98,7 @@ dirs-sys = "0.5"
 dns-lookup = "3.0.1"
 dtparse = "2.0"
 encoding_rs = "0.8"
-fancy-regex = "0.16"
+fancy-regex = "0.17"
 filesize = "0.2"
 filetime = "0.2"
 fuzzy-matcher = { version = "^0.3.7" }
