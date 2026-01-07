@@ -29,7 +29,7 @@ strip-ansi-escapes = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sys-locale = "0.3"
-unicase = "2.8.0"
+unicase = "2.9.0"
 
 [features]
 default = ["os"]
