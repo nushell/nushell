@@ -140,8 +140,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     }
 
     fn get_current_dir(&self) -> Result<Spanned<String>, ShellError> {
-        #[allow(deprecated)]
-        let cwd = nu_engine::env::current_dir_str(&self.engine_state, &self.stack)?;
+        let cwd = self.engine_state.cwd_as_string(Some(&self.stack))?;
         // The span is not really used, so just give it call.head
         Ok(cwd.into_spanned(self.call.head))
     }

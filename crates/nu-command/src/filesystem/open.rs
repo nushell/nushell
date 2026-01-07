@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir, eval_call};
+use nu_engine::{command_prelude::*, eval_call};
 use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
@@ -71,8 +70,7 @@ impl Command for Open {
     ) -> Result<PipelineData, ShellError> {
         let raw = call.has_flag(engine_state, stack, "raw")?;
         let call_span = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
         if paths.is_empty() && !call.has_positional_args(stack, 0) {

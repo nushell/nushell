@@ -1,7 +1,5 @@
 use crate::progress_bar;
-use nu_engine::get_eval_block;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::{command_prelude::*, get_eval_block};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
     ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
@@ -71,8 +69,7 @@ impl Command for Save {
         let progress = call.has_flag(engine_state, stack, "progress")?;
 
         let span = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
 
         let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
         let path = Spanned {

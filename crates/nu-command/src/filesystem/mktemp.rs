@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, env::current_dir};
+use nu_engine::command_prelude::*;
 use std::path::PathBuf;
 use uucore::{localized_help_template, translate};
 
@@ -97,8 +96,7 @@ impl Command for Mktemp {
         } else if directory || tmpdir {
             Some(std::env::temp_dir())
         } else {
-            #[allow(deprecated)]
-            Some(current_dir(engine_state, stack)?)
+            Some(engine_state.cwd(Some(stack))?.into_std_path_buf())
         };
 
         let options = uu_mktemp::Options {

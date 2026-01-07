@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
 #[cfg(not(windows))]
@@ -61,8 +60,7 @@ impl Command for UMkdir {
         // setup the uutils error translation
         let _ = localized_help_template("mkdir");
 
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let mut directories = call
             .rest::<Spanned<NuGlob>>(engine_state, stack, 0)?
             .into_iter()

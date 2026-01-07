@@ -1,6 +1,5 @@
 use super::util::try_interaction;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, env::current_dir};
+use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
@@ -127,8 +126,7 @@ fn rm(
 
     let mut unique_argument_check = None;
 
-    #[allow(deprecated)]
-    let currentdir_path = current_dir(engine_state, stack)?;
+    let currentdir_path = engine_state.cwd(Some(stack))?.into_std_path_buf();
 
     let home: Option<String> = nu_path::home_dir().map(|path| {
         {

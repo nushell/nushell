@@ -1,8 +1,6 @@
 use crate::{DirBuilder, DirInfo};
 use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
-use nu_engine::glob_from;
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, env::current_dir};
+use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::{
@@ -98,8 +96,7 @@ impl Command for Ls {
         let use_mime_type = call.has_flag(engine_state, stack, "mime-type")?;
         let use_threads = call.has_flag(engine_state, stack, "threads")?;
         let call_span = call.head;
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
 
         let args = Args {
             all,

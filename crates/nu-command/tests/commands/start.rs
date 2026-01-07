@@ -1,6 +1,6 @@
 use super::*;
 use nu_engine::test_help::{convert_single_value_to_cmd_args, eval_block_with_input};
-use nu_engine::{current_dir, eval_expression};
+use nu_engine::{eval_expression};
 use nu_protocol::{
     PipelineData, Span, Spanned, Type, Value,
     ast::Call,

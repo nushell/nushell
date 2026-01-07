@@ -1,9 +1,5 @@
 use super::PathSubcommandArguments;
-#[allow(deprecated)]
-use nu_engine::{
-    command_prelude::*,
-    env::{current_dir_str, current_dir_str_const},
-};
+use nu_engine::command_prelude::*;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::engine::StateWorkingSet;
 use std::path::Path;
@@ -58,10 +54,9 @@ impl Command for PathExpand {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        #[allow(deprecated)]
         let args = Arguments {
             strict: call.has_flag(engine_state, stack, "strict")?,
-            cwd: current_dir_str(engine_state, stack)?,
+            cwd: engine_state.cwd_as_string(Some(stack))?,
             not_follow_symlink: call.has_flag(engine_state, stack, "no-symlink")?,
         };
         // This doesn't match explicit nulls
@@ -84,7 +79,7 @@ impl Command for PathExpand {
         #[allow(deprecated)]
         let args = Arguments {
             strict: call.has_flag_const(working_set, "strict")?,
-            cwd: current_dir_str_const(working_set)?,
+            cwd: working_set.permanent_state.cwd_as_string(None)?,
             not_follow_symlink: call.has_flag_const(working_set, "no-symlink")?,
         };
         // This doesn't match explicit nulls

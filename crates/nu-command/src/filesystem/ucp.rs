@@ -1,5 +1,4 @@
-#[allow(deprecated)]
-use nu_engine::{command_prelude::*, current_dir};
+use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_protocol::{
     NuGlob,
@@ -183,8 +182,7 @@ impl Command for UCp {
         let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
             target.item.to_string(),
         ));
-        #[allow(deprecated)]
-        let cwd = current_dir(engine_state, stack)?;
+        let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
             return Err(ShellError::GenericError {
