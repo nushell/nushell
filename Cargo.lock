@@ -916,9 +916,9 @@ dependencies = [
 
 [[package]]
 name = "calamine"
-version = "0.28.0"
+version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "15e02a18e79de779a78b0a6ec84a3deed1ff0607dd970a11369f993263f99f1a"
+checksum = "41bdeb83af82cd9cb686a19ed7efc2f50a21c262610f51ce945a8528860725ce"
 dependencies = [
  "atoi_simd",
  "byteorder",
@@ -927,7 +927,7 @@ dependencies = [
  "encoding_rs",
  "fast-float2",
  "log",
- "quick-xml 0.37.5",
+ "quick-xml 0.38.3",
  "serde",
  "zip",
 ]
@@ -6206,7 +6206,6 @@ version = "0.37.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
 dependencies = [
- "encoding_rs",
  "memchr",
  "serde",
 ]
@@ -6217,6 +6216,7 @@ version = "0.38.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "42a232e7487fc2ef313d96dde7948e7a3c05101870d8985e4fd8d26aedd27b89"
 dependencies = [
+ "encoding_rs",
  "memchr",
 ]
 
@@ -10031,9 +10031,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "4.1.0"
+version = "4.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af7dcdb4229c0e79c2531a24de7726a0e980417a74fb4d030a35f535665439a0"
+checksum = "caa8cd6af31c3b31c6631b8f483848b91589021b28fffe50adada48d4f4d2ed1"
 dependencies = [
  "arbitrary",
  "crc32fast",
