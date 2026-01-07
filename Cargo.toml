@@ -81,7 +81,7 @@ byteorder = "1.5"
 bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
-calamine = "0.28"
+calamine = "0.32"
 chardetng = "0.1.17"
 chrono = { default-features = false, version = "0.4.34" }
 chrono-humanize = "0.2.3"
