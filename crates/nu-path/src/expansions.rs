@@ -1,7 +1,7 @@
 #[cfg(windows)]
 use omnipath::WinPathExt;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, absolute};
 
 use super::dots::{expand_dots, expand_ndots};
 use super::tilde::expand_tilde;
@@ -47,6 +47,8 @@ fn canonicalize_path(path: &std::path::Path) -> std::io::Result<std::path::PathB
 /// Resolve all symbolic links and all components (tilde, ., .., ...+) and return the path in its
 /// absolute form.
 ///
+/// Consider using [`absolute_with`] if you don't need to resolve symlinks.
+///
 /// Fails under the same conditions as
 /// [`std::fs::canonicalize`](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
 /// The input path is specified relative to another path
@@ -58,6 +60,25 @@ where
     let path = join_path_relative(path, relative_to, true);
 
     canonicalize(path)
+}
+
+/// Returns the path in its absolute form without resolving symlinks.
+///
+/// On Unix systems, .. components are a kind of link so these aren't resolved.
+/// On Windows .. components are resoloved.
+///
+/// Fails under the same conditions as
+/// [`std::path::absolute`](https://doc.rust-lang.org/std/path/fn.absolute.html).
+/// In practice this is only likely to fail if both paths are empty.
+pub fn absolute_with<P, Q>(path: P, relative_to: Q) -> io::Result<PathBuf>
+where
+    P: AsRef<Path>,
+    Q: AsRef<Path>,
+{
+    let path = join_path_relative(path, relative_to, true);
+    let path = expand_tilde(path);
+    let path = expand_ndots(path);
+    absolute(path)
 }
 
 /// Resolve only path components (tilde, ., .., ...+), if possible.

@@ -208,16 +208,23 @@ impl Command for Glob {
         };
 
         let path = engine_state.cwd_as_string(Some(stack))?;
-        let path = match nu_path::canonicalize_with(prefix, path) {
-            Ok(path) => path,
-            Err(e) if e.to_string().contains("os error 2") =>
+        let path = nu_path::absolute_with(prefix, path).map_err(|e| ShellError::GenericError {
+            error: "invalid path".into(),
+            msg: format!("{e}"),
+            span: Some(glob_span),
+            help: None,
+            inner: vec![],
+        })?;
+        let path = match path.try_exists() {
+            Ok(true) => path,
+            Ok(false) =>
             // path we're trying to glob doesn't exist,
             {
                 std::path::PathBuf::new() // user should get empty list not an error
             }
             Err(e) => {
                 return Err(ShellError::GenericError {
-                    error: "error in canonicalize".into(),
+                    error: "error accessing path".into(),
                     msg: format!("{e}"),
                     span: Some(glob_span),
                     help: None,
