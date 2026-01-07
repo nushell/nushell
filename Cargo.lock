@@ -1214,24 +1214,11 @@ dependencies = [
 
 [[package]]
 name = "console"
-version = "0.15.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e1f83fc076bd6dd27517eacdf25fef6c4dfe5f1d7448bafaaf3a26f13b5e4eb"
-dependencies = [
- "encode_unicode 0.3.6",
- "lazy_static",
- "libc",
- "unicode-width 0.1.11",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "console"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b430743a6eb14e9764d4260d4c0d8123087d504eeb9c48f2b2a5e810dd369df4"
 dependencies = [
- "encode_unicode 1.0.0",
+ "encode_unicode",
  "libc",
  "once_cell",
  "unicode-width 0.2.0",
@@ -1717,14 +1704,13 @@ dependencies = [
 
 [[package]]
 name = "dialoguer"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658bce805d770f407bc62102fca7c2c64ceef2fbcb2b8bd19d2765ce093980de"
+checksum = "25f104b501bf2364e78d0d3974cbc774f738f5865306ed128e1e0d7499c0ad96"
 dependencies = [
- "console 0.15.8",
+ "console",
  "fuzzy-matcher",
  "shell-words",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -1902,12 +1888,6 @@ dependencies = [
  "regex",
  "rfc2047-decoder",
 ]
-
-[[package]]
-name = "encode_unicode"
-version = "0.3.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
 name = "encode_unicode"
@@ -3031,7 +3011,7 @@ version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "70a646d946d06bedbbc4cac4c218acf4bbf2d87757a784857025f4d447e4e1cd"
 dependencies = [
- "console 0.16.1",
+ "console",
  "portable-atomic",
  "unicode-width 0.2.0",
  "unit-prefix",
