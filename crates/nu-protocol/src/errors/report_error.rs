@@ -76,7 +76,7 @@ where
             let mut report_log = engine_state
                 .report_log
                 .lock()
-                .expect("report log lock is poisioned");
+                .expect("report log lock is poisoned");
 
             match report_log.0.contains(&hash) {
                 true => false,
