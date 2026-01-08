@@ -10,7 +10,7 @@ use std::path::PathBuf;
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 #[cfg(windows)]
-use uds_windows::UnixStream;
+use win_uds::net::UnixStream;
 
 use ureq::Error;
 use ureq::unversioned::transport::{
