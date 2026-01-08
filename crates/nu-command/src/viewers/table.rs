@@ -1102,8 +1102,7 @@ fn render_path_name(
             prefix_with_reset: false,
         });
 
-    let full_path = PathBuf::from(stripped_path.as_ref())
-        .canonicalize()
+    let full_path = std::path::absolute(stripped_path.as_ref())
         .unwrap_or_else(|_| PathBuf::from(stripped_path.as_ref()));
 
     let full_path_link = make_clickable_link(

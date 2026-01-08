@@ -1,5 +1,5 @@
 use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
-use nu_path::{canonicalize_with, is_windows_device_path};
+use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{BlockId, engine::CommandType, shell_error::io::IoError};
 
 /// Source a file for environment variables.
@@ -58,9 +58,16 @@ impl Command for Source {
         let file_path = if is_windows_device_path(pb.as_path()) {
             pb.clone()
         } else {
-            canonicalize_with(pb.as_path(), cwd).map_err(|err| {
-                IoError::new(err.not_found_as(NotFound::File), call.head, pb.clone())
-            })?
+            let path = absolute_with(pb.as_path(), cwd)
+                .map_err(|err| IoError::new(err, call.head, pb.clone()))?;
+            match path.try_exists() {
+                Ok(true) => {}
+                Ok(false) => {
+                    return Err(IoError::new(ErrorKind::FileNotFound, call.head, pb.clone()).into());
+                }
+                Err(e) => return Err(IoError::new(e, call.head, pb.clone()).into()),
+            };
+            path
         };
 
         // Note: We intentionally left out PROCESS_PATH since it's supposed to

@@ -131,7 +131,7 @@ fn rm(
     let home: Option<String> = nu_path::home_dir().map(|path| {
         {
             if path.exists() {
-                nu_path::canonicalize_with(&path, &currentdir_path).unwrap_or(path.into())
+                nu_path::absolute_with(&path, &currentdir_path).unwrap_or(path.into())
             } else {
                 path.into()
             }
