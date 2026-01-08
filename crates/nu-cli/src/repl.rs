@@ -1058,6 +1058,12 @@ fn run_shell_integration_osc7(
     if let Ok(path) = engine_state.cwd_as_string(Some(stack)) {
         let start_time = Instant::now();
 
+        let path = if cfg!(windows) {
+            path.replace('\\', "/")
+        } else {
+            path
+        };
+
         // Otherwise, communicate the path as OSC 7 (often used for spawning new tabs in the same dir)
         run_ansi_sequence(&format!(
             "\x1b]7;file://{}{}{}\x1b\\",
@@ -1083,10 +1089,7 @@ fn run_shell_integration_osc9_9(engine_state: &EngineState, stack: &mut Stack, u
 
         // Otherwise, communicate the path as OSC 9;9 from ConEmu (often used for spawning new tabs in the same dir)
         // This is helpful in Windows Terminal with Duplicate Tab
-        run_ansi_sequence(&format!(
-            "\x1b]9;9;{}\x1b\\",
-            percent_encoding::utf8_percent_encode(&path, percent_encoding::CONTROLS)
-        ));
+        run_ansi_sequence(&format!("\x1b]9;9;{}\x1b\\", path));
 
         perf!(
             "communicate path to terminal with osc9;9",
