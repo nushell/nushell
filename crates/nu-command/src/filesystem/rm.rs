@@ -399,13 +399,12 @@ fn rm(
                     // std::fs::remove_dir instead of std::fs::remove_file.
                     #[cfg(windows)]
                     {
-                        f.metadata().and_then(|metadata| {
-                            if metadata.is_dir() {
-                                std::fs::remove_dir(&f)
-                            } else {
-                                std::fs::remove_file(&f)
-                            }
-                        })
+                        use std::os::windows::fs::FileTypeExt;
+                        if metadata.file_type().is_symlink_dir() {
+                            std::fs::remove_dir(&f)
+                        } else {
+                            std::fs::remove_file(&f)
+                        }
                     }
 
                     #[cfg(not(windows))]
