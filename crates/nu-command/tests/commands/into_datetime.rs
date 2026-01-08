@@ -51,6 +51,13 @@ fn into_datetime_from_record_round_trip() {
 }
 
 #[test]
+fn into_datetime_float() {
+    let actual = nu!(r#"(1.743348798 | into datetime | into int) == 1743348798"#);
+
+    assert!(actual.out.contains("true"));
+}
+
+#[test]
 fn into_datetime_table_column() {
     let actual = nu!(r#"[[date]; ["2022-01-01"] ["2023-01-01"]] | into datetime date"#);
 

@@ -79,6 +79,7 @@ impl Command for IntoDatetime {
             .input_output_types(vec![
                 (Type::Date, Type::Date),
                 (Type::Int, Type::Date),
+                (Type::Float, Type::Date),
                 (Type::String, Type::Date),
                 (
                     Type::List(Box::new(Type::String)),
@@ -347,6 +348,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     let timestamp = match input {
         Value::Int { val, .. } => Ok(*val),
         Value::String { val, .. } => val.parse::<i64>(),
+        Value::Float { val, .. } => {
+            // Assume floats are going to be written as `seconds`
+            Ok((*val * 1_000_000_000.0) as i64)
+        }
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => return input.clone(),
         other => {
@@ -505,6 +510,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val, .. } => parse_as_string(val),
         Value::Int { val, .. } => parse_as_string(&val.to_string()),
+        Value::Float { val, .. } => parse_as_string(&val.to_string()),
 
         // Propagate errors by explicitly matching them before the final case.
         Value::Error { .. } => input.clone(),
