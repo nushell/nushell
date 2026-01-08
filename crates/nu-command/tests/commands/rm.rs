@@ -394,6 +394,27 @@ fn removes_symlink_pointing_to_directory() {
 }
 
 #[test]
+fn removes_broken_symlink() {
+    let symlink_target = "symlink_target_does_not_exist";
+    let symlink = "symlink";
+    Playground::setup("rm_test_broken_symlink", |dirs, sandbox| {
+        #[cfg(not(windows))]
+        std::os::unix::fs::symlink(dirs.test().join(symlink_target), dirs.test().join(symlink))
+            .unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(
+            dirs.test().join(symlink_target),
+            dirs.test().join(symlink),
+        )
+        .unwrap();
+
+        let _ = nu!(cwd: sandbox.cwd(), "rm symlink");
+
+        assert!(!dirs.test().join(symlink).exists());
+    });
+}
+
+#[test]
 fn removes_file_after_cd() {
     Playground::setup("rm_after_cd", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("delete.txt")]);
