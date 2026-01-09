@@ -1026,10 +1026,12 @@ fn truncate_columns_by_columns(
     termwidth: usize,
 ) -> WidthEstimation {
     const MIN_ACCEPTABLE_WIDTH: usize = 10;
+    const TERMWIDTH_COLUMN_WIDTH_STEP: usize = 100;
     const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
 
     let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
-    let min_column_width = MIN_ACCEPTABLE_WIDTH + pad;
+    let min_acceptable_width = MIN_ACCEPTABLE_WIDTH * (max(termwidth, TERMWIDTH_COLUMN_WIDTH_STEP) / TERMWIDTH_COLUMN_WIDTH_STEP);
+    let min_column_width = min_acceptable_width + pad;
 
     let count_columns = data[0].len();
 
@@ -1065,17 +1067,14 @@ fn truncate_columns_by_columns(
 
     let mut available = termwidth - width;
 
-    if available > 0 {
+    while available > 0 {
         for i in 0..truncate_pos {
             let used_width = widths[i];
             let col_width = widths_original[i];
             if used_width < col_width {
-                let need = col_width - used_width;
-                let take = min(available, need);
-                available -= take;
-
-                widths[i] += take;
-                width += take;
+                available -= 1;
+                widths[i] += 1;
+                width += 1;
 
                 if available == 0 {
                     break;
