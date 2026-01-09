@@ -5,6 +5,25 @@ use std::{io::Cursor, iter::Peekable, str::CharIndices, sync::Arc};
 
 type Input<'t> = Peekable<CharIndices<'t>>;
 
+/// Helper function to check if a character is a box drawing character.
+/// Includes Unicode box drawing symbols (horizontal, vertical, intersections, corners)
+/// as well as ASCII equivalents like '-' and '|'.
+fn is_box_char(c: char) -> bool {
+    matches!(
+        c,
+        // Horizontal box drawing characters (Unicode and ASCII)
+        '─' | '━' | '┄' | '┅' | '┈' | '┉' | '-' | '=' |
+        // Vertical box drawing characters (Unicode and ASCII)
+        '│' | '┃' | '┆' | '┇' | '┊' | '┋' | '|' |
+        // Box intersection and corner characters
+        '+' | '├' | '┤' | '┬' | '┴' | '┼' | '┌' | '┐' | '└' | '┘'
+    )
+}
+
+/// Attempts to automatically split text into multiple columns.
+///
+/// This command parses tabular data from strings or passes through existing tables.
+/// When `--ignore-box-chars` is used, it ignores separator lines and cleans box drawing characters from tokens.
 #[derive(Clone)]
 pub struct DetectColumns;
 
@@ -21,8 +40,16 @@ impl Command for DetectColumns {
                 "number of rows to skip before detecting",
                 Some('s'),
             )
-            .input_output_types(vec![(Type::String, Type::table())])
+            .input_output_types(vec![
+                (Type::String, Type::table()),
+                (Type::table(), Type::table()),
+            ])
             .switch("no-headers", "don't detect headers", Some('n'))
+            .switch(
+                "ignore-box-chars",
+                "ignore lines consisting entirely of box drawing characters and clean box characters from tokens",
+                Some('i'),
+            )
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
@@ -90,6 +117,40 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
                 example: "^ls -lh | detect columns --no-headers --skip 1 --combine-columns 5..7",
                 result: None,
             },
+            Example {
+                description: "Table literal input is passed through unchanged",
+                example: "[[name, age]; [Alice, 25]] | detect columns",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "name" => Value::test_string("Alice"),
+                    "age" => Value::test_int(25)
+                })])),
+            },
+            Example {
+                description: "List of records input is passed through unchanged",
+                example: "[{name: Alice, age: 25}, {name: Bob, age: 30}] | detect columns",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Alice"),
+                        "age" => Value::test_int(25)
+                    }),
+                    Value::test_record(record! {
+                        "name" => Value::test_string("Bob"),
+                        "age" => Value::test_int(30)
+                    }),
+                ])),
+            },
+            Example {
+                description: "Parse a box-bordered table by ignoring separator lines and using header positions",
+                example: r#""+-------+-------+
+| col1  | col2  |
++-------+-------+
+| a     | b     |
++-------+-------+" | detect columns --ignore-box-chars"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "col1" => Value::test_string("a"),
+                    "col2" => Value::test_string("b"),
+                })])),
+            },
         ]
     }
 
@@ -104,9 +165,11 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // Extract command arguments
         let num_rows_to_skip: Option<usize> = call.get_flag(engine_state, stack, "skip")?;
         let noheader = call.has_flag(engine_state, stack, "no-headers")?;
         let range: Option<Range> = call.get_flag(engine_state, stack, "combine-columns")?;
+        let ignore_box_chars = call.has_flag(engine_state, stack, "ignore-box-chars")?;
         let config = stack.get_config(engine_state);
 
         let args = Arguments {
@@ -114,8 +177,10 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
             num_rows_to_skip,
             range,
             config,
+            ignore_box_chars,
         };
 
+        // Dispatch to appropriate implementation based on guess flag
         if call.has_flag(engine_state, stack, "guess")? {
             guess_width(engine_state, call, input, args)
         } else {
@@ -132,6 +197,7 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
         let num_rows_to_skip: Option<usize> = call.get_flag_const(working_set, "skip")?;
         let noheader = call.has_flag_const(working_set, "no-headers")?;
         let range: Option<Range> = call.get_flag_const(working_set, "combine-columns")?;
+        let ignore_box_chars = call.has_flag_const(working_set, "ignore-box-chars")?;
         let config = working_set.get_config().clone();
 
         let args = Arguments {
@@ -139,6 +205,7 @@ none             8150224         4   8150220   1% /mnt/c' | detect columns --gue
             num_rows_to_skip,
             range,
             config,
+            ignore_box_chars,
         };
 
         if call.has_flag_const(working_set, "guess")? {
@@ -154,6 +221,7 @@ struct Arguments {
     noheader: bool,
     range: Option<Range>,
     config: Arc<Config>,
+    ignore_box_chars: bool,
 }
 
 fn guess_width(
@@ -168,6 +236,12 @@ fn guess_width(
     let mut input = input.collect_string("", &args.config)?;
     if let Some(rows) = args.num_rows_to_skip {
         input = input.lines().skip(rows).map(|x| x.to_string()).join("\n");
+    }
+
+    // Apply box character filtering if requested
+    if args.ignore_box_chars {
+        let filtered_lines = filter_box_chars(input.lines().map(|s| s.to_string()));
+        input = filtered_lines.join("\n");
     }
 
     let mut guess_width = GuessWidth::new_reader(Box::new(Cursor::new(input)));
@@ -230,127 +304,444 @@ fn guess_width(
     }
 }
 
+/// Core function to detect columns from input data.
+/// Handles different input types: passes through tables, parses strings.
+/// Applies filtering and cleaning based on the ignore_box_chars flag.
 fn detect_columns(
-    engine_state: &EngineState,
+    _engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
     let input_span = input.span().unwrap_or(Span::unknown());
-    let input = input.collect_string("", &args.config)?;
 
-    let input: Vec<_> = input
-        .lines()
-        .skip(args.num_rows_to_skip.unwrap_or_default())
-        .map(|x| x.to_string())
-        .collect();
-
-    let mut input = input.into_iter();
-    let headers = input.next();
-
-    if let Some(orig_headers) = headers {
-        let mut headers = find_columns(&orig_headers);
-
-        if args.noheader {
-            for header in headers.iter_mut().enumerate() {
-                header.1.item = format!("column{}", header.0);
+    // Handle different input types
+    match input {
+        // If input is already a table (list of records), pass it through unchanged
+        PipelineData::Value(val, _) => {
+            if let Value::List { vals, .. } = &val
+                && vals.iter().all(|v| matches!(v, Value::Record { .. }))
+            {
+                return Ok(val.into_pipeline_data());
             }
+            // Otherwise, coerce to string for parsing
+            let input_str = val.coerce_str()?.to_string();
+            process_string_input(input_str, args, name_span, input_span)
         }
+        // Table streams are passed through directly
+        PipelineData::ListStream(_, _) => Ok(input),
+        // External command output is collected as string
+        PipelineData::ByteStream(_, _) => {
+            let input_str = input.collect_string("", &args.config)?;
+            process_string_input(input_str, args, name_span, input_span)
+        }
+        // Empty input yields empty string
+        PipelineData::Empty => Ok(PipelineData::empty()),
+    }
+}
 
-        Ok(args
-            .noheader
-            .then_some(orig_headers)
-            .into_iter()
-            .chain(input)
-            .map(move |x| {
-                let row = find_columns(&x);
+/// Process string input for column detection.
+fn process_string_input(
+    input_str: String,
+    args: Arguments,
+    name_span: Span,
+    input_span: Span,
+) -> Result<PipelineData, ShellError> {
+    // Split input string into lines and skip the specified number of rows
+    let lines_iter = input_str
+        .lines()
+        .skip(args.num_rows_to_skip.unwrap_or_default());
 
-                let mut record = Record::new();
+    // Conditionally filter out lines consisting entirely of box drawing characters
+    // and clean box characters from the remaining lines
+    // This helps clean up tabular output from commands like `iptab` that use box drawings
+    let filtered_lines: Vec<_> = if args.ignore_box_chars {
+        filter_box_chars(lines_iter.map(|s| s.to_string()))
+    } else {
+        // No filtering: pass through all lines as-is
+        lines_iter.map(|x| x.to_string()).collect()
+    };
 
-                if headers.len() == row.len() {
-                    for (header, val) in headers.iter().zip(row.iter()) {
-                        record.push(&header.item, Value::string(&val.item, name_span));
-                    }
-                } else {
-                    let mut pre_output = vec![];
+    let mut lines = filtered_lines.into_iter();
+    let header_line = lines.next();
 
-                    // column counts don't line up, so see if we can figure out why
-                    for cell in row {
-                        for header in &headers {
-                            if cell.span.start <= header.span.end
-                                && cell.span.end > header.span.start
-                            {
-                                pre_output.push((
-                                    header.item.to_string(),
-                                    Value::string(&cell.item, name_span),
-                                ));
-                            }
-                        }
-                    }
-
-                    for header in &headers {
-                        let mut found = false;
-                        for pre_o in &pre_output {
-                            if pre_o.0 == header.item {
-                                found = true;
-                                break;
-                            }
-                        }
-
-                        if !found {
-                            pre_output.push((header.item.to_string(), Value::nothing(name_span)));
-                        }
-                    }
-
-                    for header in &headers {
-                        for pre_o in &pre_output {
-                            if pre_o.0 == header.item {
-                                record.push(&header.item, pre_o.1.clone());
-                            }
-                        }
-                    }
-                }
-
-                let has_column_duplicates = record.columns().duplicates().count() > 0;
-                if has_column_duplicates {
-                    return Err(ShellError::ColumnDetectionFailure {
-                        bad_value: input_span,
-                        failure_site: name_span,
-                    });
-                }
-
-                Ok(match &args.range {
-                    Some(range) => merge_record(record, range, name_span),
-                    None => Value::record(record, name_span),
-                })
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_pipeline_data(call.head, engine_state.signals().clone()))
+    if let Some(header_line) = header_line {
+        if args.ignore_box_chars {
+            process_with_box_filter(header_line, lines, args, name_span, input_span)
+        } else {
+            process_standard(header_line, lines, args, name_span, input_span)
+        }
     } else {
         Ok(PipelineData::empty())
     }
 }
 
+/// Process input when ignore_box_chars is enabled.
+/// Handles both position-based and whitespace-based splitting depending on table format.
+fn process_with_box_filter(
+    header_line: String,
+    lines: impl Iterator<Item = String>,
+    args: Arguments,
+    name_span: Span,
+    input_span: Span,
+) -> Result<PipelineData, ShellError> {
+    // Check if the header line contains internal | separators
+    // If so, replace them with spaces so whitespace-based detection works
+    let has_internal_separators = header_line.contains('|') || header_line.contains('│');
+
+    let (processed_headers, processed_lines): (String, Vec<String>) = if has_internal_separators {
+        // Replace internal | with spaces for whitespace-based splitting
+        let replace_separators = |s: &str| {
+            s.chars()
+                .map(|c| if c == '|' || c == '│' { ' ' } else { c })
+                .collect::<String>()
+        };
+        (
+            replace_separators(&header_line),
+            lines.map(|line| replace_separators(&line)).collect(),
+        )
+    } else {
+        // No internal separators - use position-based splitting
+        (header_line.clone(), lines.collect())
+    };
+
+    // Use position-based splitting for tables without internal separators (like iptab)
+    if !has_internal_separators {
+        let header_positions = find_header_positions(&header_line);
+
+        if header_positions.is_empty() {
+            return Ok(PipelineData::empty());
+        }
+
+        // Extract header names
+        let mut header_names: Vec<String> = header_positions
+            .iter()
+            .map(|(_, name)| name.clone())
+            .collect();
+
+        if args.noheader {
+            for (i, name) in header_names.iter_mut().enumerate() {
+                *name = format!("column{i}");
+            }
+        }
+
+        // Check for duplicate column names
+        check_duplicate_string_headers(&header_names, input_span, name_span)?;
+
+        // Collect all lines for processing
+        let all_lines: Vec<_> = args
+            .noheader
+            .then_some(header_line.clone())
+            .into_iter()
+            .chain(processed_lines)
+            .collect();
+
+        return Ok(Value::list(
+            all_lines
+                .into_iter()
+                .map(|line| {
+                    let values = split_line_by_positions(&line, &header_positions);
+                    let mut record = Record::new();
+
+                    for (header, val) in header_names.iter().zip(values.iter()) {
+                        record.push(header, Value::string(val, name_span));
+                    }
+
+                    // Fill in missing columns with empty strings
+                    for header in header_names.iter().skip(values.len()) {
+                        record.push(header, Value::string("", name_span));
+                    }
+
+                    Ok::<Value, ShellError>(match &args.range {
+                        Some(range) => merge_record(record, range, name_span),
+                        None => Value::record(record, name_span),
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?,
+            name_span,
+        )
+        .into_pipeline_data());
+    }
+
+    // Tables with internal separators: use whitespace-based splitting on processed data
+    let mut headers = find_columns(&processed_headers);
+
+    if args.noheader {
+        for header in headers.iter_mut().enumerate() {
+            header.1.item = format!("column{}", header.0);
+        }
+    }
+
+    // Check for duplicate column names
+    check_duplicate_headers(&headers, input_span, name_span)?;
+
+    // Collect all lines for processing
+    let all_lines: Vec<_> = args
+        .noheader
+        .then_some(processed_headers.clone())
+        .into_iter()
+        .chain(processed_lines)
+        .collect();
+
+    Ok(Value::list(
+        all_lines
+            .into_iter()
+            .map(|line| {
+                let row = find_columns(&line);
+                let mut record = Record::new();
+
+                for (header, val) in headers.iter().zip(row.iter()) {
+                    record.push(&header.item, Value::string(&val.item, name_span));
+                }
+
+                // Fill in missing columns with empty strings
+                for header in headers.iter().skip(row.len()) {
+                    record.push(&header.item, Value::string("", name_span));
+                }
+
+                Ok::<Value, ShellError>(match &args.range {
+                    Some(range) => merge_record(record, range, name_span),
+                    None => Value::record(record, name_span),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        name_span,
+    )
+    .into_pipeline_data())
+}
+
+/// Process input with standard whitespace-based column detection.
+fn process_standard(
+    header_line: String,
+    lines: impl Iterator<Item = String>,
+    args: Arguments,
+    name_span: Span,
+    input_span: Span,
+) -> Result<PipelineData, ShellError> {
+    // Standard whitespace-based column detection
+    let mut headers = find_columns(&header_line);
+
+    if args.noheader {
+        for header in headers.iter_mut().enumerate() {
+            header.1.item = format!("column{}", header.0);
+        }
+    }
+
+    // Check for duplicate column names - this would create an invalid record
+    check_duplicate_headers(&headers, input_span, name_span)?;
+
+    // Collect remaining lines
+    let remaining_lines: Vec<_> = lines.collect();
+
+    // Check if column detection is working: if the first data row doesn't match
+    // the header structure, detection has failed and we should output all lines
+    // in a consistent "data" column to preserve the original data.
+    let detection_failed = remaining_lines
+        .first()
+        .is_some_and(|first_line| find_columns(first_line).len() != headers.len());
+
+    // When detection fails, include ALL original lines (including the first "header" line)
+    // When detection succeeds, only include header line if --no-headers was specified
+    let all_lines: Vec<_> = if detection_failed {
+        // Include the original first line since detection failed
+        std::iter::once(header_line.clone())
+            .chain(remaining_lines)
+            .collect()
+    } else {
+        // Detection succeeded - only include first line if --no-headers
+        args.noheader
+            .then_some(header_line.clone())
+            .into_iter()
+            .chain(remaining_lines)
+            .collect()
+    };
+
+    Ok(Value::list(
+        all_lines
+            .into_iter()
+            .map(move |x| {
+                let row = find_columns(&x);
+
+                let mut record = Record::new();
+
+                if !detection_failed && headers.len() == row.len() {
+                    for (header, val) in headers.iter().zip(row.iter()) {
+                        record.push(&header.item, Value::string(&val.item, name_span));
+                    }
+                } else {
+                    // Output the raw data - either detection failed or row doesn't match
+                    record.push("data", Value::string(&x, name_span));
+                }
+
+                Ok::<Value, ShellError>(match &args.range {
+                    Some(range) => merge_record(record, range, name_span),
+                    None => Value::record(record, name_span),
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?,
+        name_span,
+    )
+    .into_pipeline_data())
+}
+
 pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
+    // For space-separated format, use the original baseline method
     let mut chars = input.char_indices().peekable();
     let mut output = vec![];
 
     while let Some((_, c)) = chars.peek() {
         if c.is_whitespace() {
             // If the next character is non-newline whitespace, skip it.
-
             let _ = chars.next();
         } else {
             // Otherwise, try to consume an unclassified token.
-
             let result = baseline(&mut chars);
-
             output.push(result);
         }
     }
 
     output
+}
+
+/// Check for duplicate column names and return an error if found.
+fn check_duplicate_headers(
+    headers: &[Spanned<String>],
+    input_span: Span,
+    name_span: Span,
+) -> Result<(), ShellError> {
+    let has_duplicate_headers = headers
+        .iter()
+        .map(|h| &h.item)
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        != headers.len();
+
+    if has_duplicate_headers {
+        Err(ShellError::ColumnDetectionFailure {
+            bad_value: input_span,
+            failure_site: name_span,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Check for duplicate column names in string headers and return an error if found.
+fn check_duplicate_string_headers(
+    headers: &[String],
+    input_span: Span,
+    name_span: Span,
+) -> Result<(), ShellError> {
+    let has_duplicate_headers = headers
+        .iter()
+        .collect::<std::collections::HashSet<_>>()
+        .len()
+        != headers.len();
+
+    if has_duplicate_headers {
+        Err(ShellError::ColumnDetectionFailure {
+            bad_value: input_span,
+            failure_site: name_span,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// Filter and clean box drawing characters from lines.
+/// Returns filtered lines with box-only lines removed and border characters stripped.
+fn filter_box_chars<I>(lines_iter: I) -> Vec<String>
+where
+    I: Iterator<Item = String>,
+{
+    lines_iter
+        // Filter out lines where all non-whitespace characters are box drawing characters
+        .filter(|r| !r.trim().chars().all(is_box_char))
+        // Clean border characters from each line
+        .map(|line| {
+            let trimmed = line.trim();
+            // Strip only leading border character (| or │) and one optional space
+            let cleaned = trimmed
+                .strip_prefix('|')
+                .or_else(|| trimmed.strip_prefix('│'))
+                .unwrap_or(trimmed);
+            let cleaned = cleaned.strip_prefix(' ').unwrap_or(cleaned);
+            // Strip only trailing border character and one optional space
+            let cleaned = cleaned
+                .strip_suffix('|')
+                .or_else(|| cleaned.strip_suffix('│'))
+                .unwrap_or(cleaned);
+            let cleaned = cleaned.strip_suffix(' ').unwrap_or(cleaned);
+            cleaned.to_string()
+        })
+        .collect()
+}
+
+/// Find column positions (start indices) from a header line.
+/// Returns a vector of (start_position, header_name) pairs.
+fn find_header_positions(header_line: &str) -> Vec<(usize, String)> {
+    let mut positions = vec![];
+    let mut in_word = false;
+    let mut word_start = 0;
+    let mut current_word = String::new();
+
+    for (idx, c) in header_line.char_indices() {
+        if c.is_whitespace() {
+            if in_word {
+                // End of a word
+                positions.push((word_start, current_word.clone()));
+                current_word.clear();
+                in_word = false;
+            }
+        } else {
+            if !in_word {
+                // Start of a new word
+                word_start = idx;
+                in_word = true;
+            }
+            current_word.push(c);
+        }
+    }
+
+    // Don't forget the last word if the line doesn't end with whitespace
+    if in_word && !current_word.is_empty() {
+        positions.push((word_start, current_word));
+    }
+
+    positions
+}
+
+/// Split a data line into columns based on header positions.
+/// Each column's value is the substring from its header position to the next header position.
+fn split_line_by_positions(line: &str, positions: &[(usize, String)]) -> Vec<String> {
+    if positions.is_empty() {
+        return vec![line.to_string()];
+    }
+
+    let mut values = vec![];
+    let line_len = line.len();
+
+    for (i, (start, _)) in positions.iter().enumerate() {
+        let start = *start;
+        let end = if i + 1 < positions.len() {
+            positions[i + 1].0
+        } else {
+            line_len
+        };
+
+        // Extract the substring for this column using byte indices
+        if start < line_len {
+            let actual_end = end.min(line_len);
+            // Safe slice since we're using char boundaries from the header
+            let value = &line[start..actual_end];
+            values.push(value.trim().to_string());
+        } else {
+            values.push(String::new());
+        }
+    }
+
+    values
 }
 
 #[derive(Clone, Copy)]
@@ -360,6 +751,11 @@ enum BlockKind {
     Bracket,
 }
 
+/// Tokenizes a single "baseline" token from the input stream.
+/// A baseline token is a sequence of characters that can span multiple lines,
+/// but is bounded by whitespace, pipes, semicolons, or other shell syntax elements.
+/// It handles string literals, nested delimiters (parentheses, braces, brackets),
+/// and stops at terminating characters.
 fn baseline(src: &mut Input) -> Spanned<String> {
     let mut token_contents = String::new();
 
