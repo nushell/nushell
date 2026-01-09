@@ -271,11 +271,12 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): How errors are displayed.
-# "fancy": Use line-drawing characters to point to error location.
-# "plain": Plain-text errors suitable for screen readers.
-# "short": Concise, single-line error messages.
-# Default: "fancy"
+# error_style (string): One of "fancy", "plain", "short" or "nested"
+# Plain: Display plain-text errors for screen-readers
+# Fancy: Display errors using line-drawing characters to point to the span in which the
+#        problem occurred.
+# Short: Display errors as concise, single-line messages similar to classic shells.
+# Nested: Same as Fancy but with nesting for related errors.
 $env.config.error_style = "fancy"
 
 # display_errors.exit_code (bool): Show Nushell error when external command returns non-zero.
@@ -290,6 +291,10 @@ $env.config.display_errors.exit_code = false
 # false: Don't show error for signal termination.
 # Default: true
 $env.config.display_errors.termination_signal = true
+
+# error_lines (int):
+# Sets the number of context lines in the error output. Must be a positive integer.
+$env.config.error_lines = 1
 
 # -------------
 # Table Display

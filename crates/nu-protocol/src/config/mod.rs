@@ -69,6 +69,7 @@ pub struct Config {
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
+    pub error_lines: i64,
     pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
@@ -124,7 +125,8 @@ impl Default for Config {
 
             keybindings: Vec::new(),
 
-            error_style: ErrorStyle::Fancy,
+            error_style: ErrorStyle::default(),
+            error_lines: 1,
             display_errors: DisplayErrors::default(),
 
             use_kitty_protocol: false,
@@ -204,6 +206,17 @@ impl UpdateFromValue for Config {
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),
                 "error_style" => self.error_style.update(val, path, errors),
+                "error_lines" => {
+                    if let Ok(lines) = val.as_int() {
+                        if lines >= 0 {
+                            self.error_lines = lines;
+                        } else {
+                            errors.invalid_value(path, "an int greater than or equal to 0", val);
+                        }
+                    } else {
+                        errors.type_mismatch(path, Type::Int, val);
+                    }
+                }
                 "recursion_limit" => {
                     if let Ok(limit) = val.as_int() {
                         if limit > 1 {
