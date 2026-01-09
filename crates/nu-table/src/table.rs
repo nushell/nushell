@@ -1068,6 +1068,8 @@ fn truncate_columns_by_columns(
     let mut available = termwidth - width;
 
     while available > 0 {
+        let mut changed = false;
+        
         for i in 0..truncate_pos {
             let used_width = widths[i];
             let col_width = widths_original[i];
@@ -1075,11 +1077,16 @@ fn truncate_columns_by_columns(
                 available -= 1;
                 widths[i] += 1;
                 width += 1;
+                changed = true;
 
                 if available == 0 {
                     break;
                 }
             }
+        }
+
+        if !changed {
+            break;
         }
     }
 
