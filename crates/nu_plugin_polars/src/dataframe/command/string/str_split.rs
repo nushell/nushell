@@ -26,10 +26,16 @@ impl PluginCommand for StrSplit {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("expr", SyntaxShape::Any, "Separator expression")
-            .input_output_types(vec![(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )])
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 

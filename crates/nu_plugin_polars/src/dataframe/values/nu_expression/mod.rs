@@ -1,5 +1,6 @@
 mod custom_value;
 
+use crate::values::{NuSelector, NuSelectorCustomValue};
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
@@ -123,9 +124,24 @@ impl ExtractedExpr {
     fn extract_exprs(plugin: &PolarsPlugin, value: Value) -> Result<ExtractedExpr, ShellError> {
         match value {
             Value::String { val, .. } => Ok(ExtractedExpr::Single(col(val.as_str()))),
-            Value::Custom { .. } => NuExpression::try_from_value(plugin, &value)
-                .map(NuExpression::into_polars)
-                .map(ExtractedExpr::Single),
+            Value::Custom { .. } => {
+                // Try NuExpression first
+                if let Ok(expr) = NuExpression::try_from_value(plugin, &value) {
+                    return Ok(ExtractedExpr::Single(expr.into_polars()));
+                }
+                // Try NuSelector as fallback
+                if let Ok(selector) = NuSelector::try_from_value(plugin, &value) {
+                    return Ok(ExtractedExpr::Single(Expr::Selector(
+                        selector.into_polars(),
+                    )));
+                }
+                Err(ShellError::CantConvert {
+                    to_type: "expression".into(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                })
+            }
             Value::Record { val, .. } => val
                 .iter()
                 .map(|(key, value)| {
@@ -401,14 +417,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg_span: span,
             input_span: Span::unknown(),
         }),
-        // the parameter polars_plan::dsl::selector::Selector is not publicly exposed.
-        // I am not sure what we can meaningfully do with this at this time.
-        Expr::Selector(_) => Err(ShellError::UnsupportedInput {
-            msg: "Expressions of type Selector to Nu Value is not yet supported".to_string(),
-            input: format!("Expression is {expr:?}"),
-            msg_span: span,
-            input_span: Span::unknown(),
-        }),
+        Expr::Selector(selector) => {
+            // Convert Selector to NuSelector and then to Value
+            let nu_selector = NuSelector::from(selector.clone());
+            nu_selector.to_value(span)
+        }
         Expr::Eval { .. } => Err(ShellError::UnsupportedInput {
             msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
@@ -485,6 +498,9 @@ impl CustomValueSupport for NuExpression {
             Value::Custom { val, .. } => {
                 if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
+                } else if let Some(cv) = val.as_any().downcast_ref::<NuSelectorCustomValue>() {
+                    let selector = NuSelector::try_from_custom_value(plugin, cv)?;
+                    Ok(selector.into_expr())
                 } else {
                     Err(ShellError::CantConvert {
                         to_type: Self::get_type_static().to_string(),

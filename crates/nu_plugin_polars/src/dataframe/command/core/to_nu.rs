@@ -121,6 +121,10 @@ fn command(
             let value = schema.base_value(call.head)?;
             Ok(PipelineData::value(value, None))
         }
+        PolarsPluginObject::NuSelector(selector) => {
+            let value = selector.to_value(call.head)?;
+            Ok(PipelineData::value(value, None))
+        }
         _ => Err(cant_convert_err(
             &value,
             &[
@@ -129,6 +133,7 @@ fn command(
                 PolarsPluginType::NuExpression,
                 PolarsPluginType::NuDataType,
                 PolarsPluginType::NuSchema,
+                PolarsPluginType::NuSelector,
             ],
         )),
     }

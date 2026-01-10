@@ -26,10 +26,16 @@ impl PluginCommand for ExprIsIn {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .required("list", SyntaxShape::Any, "List to check if values are in")
-            .input_output_types(vec![(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )])
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .category(Category::Custom("expression".into()))
     }
 
@@ -155,12 +161,17 @@ impl PluginCommand for ExprIsIn {
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            PolarsPluginObject::NuSelector(selector) => {
+                let expr = selector.into_expr();
+                command_expr(plugin, engine, call, expr)
+            }
             _ => Err(cant_convert_err(
                 &value,
                 &[
                     PolarsPluginType::NuDataFrame,
                     PolarsPluginType::NuLazyFrame,
                     PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
                 ],
             )),
         }

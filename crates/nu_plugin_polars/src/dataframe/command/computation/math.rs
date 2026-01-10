@@ -103,10 +103,16 @@ impl PluginCommand for ExprMath {
                 SyntaxShape::Any,
                 "Extra arguments required by some functions",
             )
-            .input_output_types(vec![(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )])
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .category(Category::Custom("dataframe".into()))
     }
 
@@ -185,7 +191,14 @@ impl PluginCommand for ExprMath {
             PolarsPluginObject::NuExpression(expr) => {
                 command_expr(plugin, engine, call, func_type, expr)
             }
-            _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
+            PolarsPluginObject::NuSelector(selector) => {
+                let expr = selector.into_expr();
+                command_expr(plugin, engine, call, func_type, expr)
+            }
+            _ => Err(cant_convert_err(
+                &value,
+                &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
+            )),
         }
         .map_err(LabeledError::from)
         .map(|pd| pd.set_metadata(metadata))

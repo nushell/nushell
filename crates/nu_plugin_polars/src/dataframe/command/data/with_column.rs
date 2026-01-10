@@ -179,6 +179,62 @@ impl PluginCommand for WithColumn {
                     .into_value(Span::test_data()),
                 ),
             },
+            Example {
+                description: "Add columns using a selector to multiply all columns by 2",
+                example: r#"[[a b]; [1 2] [3 4]]
+    | polars into-df
+    | polars with-column ((polars selector all) * 2)
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(2), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(4), Value::test_int(8)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Add a new column using a selector on the first column",
+                example: r#"[[a b c]; [1 2 3] [4 5 6]]
+    | polars into-df
+    | polars with-column ((polars selector first) * 10 | polars as a_times_10)
+    | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![Value::test_int(1), Value::test_int(4)],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(2), Value::test_int(5)],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_int(3), Value::test_int(6)],
+                            ),
+                            Column::new(
+                                "a_times_10".to_string(),
+                                vec![Value::test_int(10), Value::test_int(40)],
+                            ),
+                        ],
+                        None,
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
         ]
     }
 
