@@ -9,8 +9,9 @@ use rmcp::ErrorData as McpError;
 mod evaluation;
 mod history;
 mod server;
+pub mod worker;
 
-pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError> {
+pub fn initialize_mcp_server() -> Result<(), ShellError> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
         .with_writer(std::io::stderr)
@@ -27,15 +28,30 @@ pub fn initialize_mcp_server(engine_state: EngineState) -> Result<(), ShellError
     })?;
 
     runtime.block_on(async {
-        if let Err(e) = run_server(engine_state).await {
+        if let Err(e) = run_server().await {
             tracing::error!("Error running MCP server: {:?}", e);
         }
     });
     Ok(())
 }
 
-async fn run_server(engine_state: EngineState) -> Result<(), Box<dyn std::error::Error>> {
-    NushellMcpServer::new(engine_state)
+/// Run the MCP worker process that handles nushell evaluation.
+/// This is called when `nu --mcp-worker <socket-path>` is invoked.
+pub fn run_mcp_worker(
+    socket_path: std::path::PathBuf,
+    engine_state: EngineState,
+) -> Result<(), ShellError> {
+    worker::run_worker(socket_path, engine_state).map_err(|e| ShellError::GenericError {
+        error: format!("MCP worker error: {e}"),
+        msg: "".into(),
+        span: None,
+        help: None,
+        inner: vec![],
+    })
+}
+
+async fn run_server() -> Result<(), Box<dyn std::error::Error>> {
+    NushellMcpServer::new()
         .serve(stdio())
         .await
         .inspect_err(|e| {
