@@ -20,6 +20,8 @@ impl Command for ErrorMake {
                 // {...} | error make
                 // try {...} catch {error make}
                 (Type::record(), Type::Error),
+                // As a catch-all for when it's used in certain structures
+                (Type::Any, Type::Error),
             ])
             .optional(
                 "error_struct",
