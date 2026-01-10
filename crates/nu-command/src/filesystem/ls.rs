@@ -25,6 +25,7 @@ pub struct Ls;
 struct Args {
     all: bool,
     long: bool,
+    numeric: bool,
     short_names: bool,
     full_paths: bool,
     du: bool,
@@ -60,6 +61,11 @@ impl Command for Ls {
                 Some('l'),
             )
             .switch(
+                "numeric",
+                "Use integer values for uid and gid, mode (only affects `-l`)",
+                Some('n'),
+            )
+            .switch(
                 "short-names",
                 "Only print the file names, and not the path",
                 Some('s'),
@@ -89,6 +95,7 @@ impl Command for Ls {
     ) -> Result<PipelineData, ShellError> {
         let all = call.has_flag(engine_state, stack, "all")?;
         let long = call.has_flag(engine_state, stack, "long")?;
+        let numeric = call.has_flag(engine_state, stack, "numeric")?;
         let short_names = call.has_flag(engine_state, stack, "short-names")?;
         let full_paths = call.has_flag(engine_state, stack, "full-paths")?;
         let du = call.has_flag(engine_state, stack, "du")?;
@@ -101,6 +108,7 @@ impl Command for Ls {
         let args = Args {
             all,
             long,
+            numeric,
             short_names,
             full_paths,
             du,
@@ -208,6 +216,11 @@ impl Command for Ls {
                 example: "['/path/to/directory' '/path/to/file'] | each {|| ls -D $in } | flatten",
                 result: None,
             },
+            Example {
+                description: "Add the integer mode of the file",
+                example: "ls -ln",
+                result: None,
+            },
         ]
     }
 }
@@ -239,6 +252,7 @@ fn ls_for_one_pattern(
     let Args {
         all,
         long,
+        numeric,
         short_names,
         full_paths,
         du,
@@ -445,6 +459,7 @@ fn ls_for_one_pattern(
                                     metadata.as_ref(),
                                     call_span,
                                     long,
+                                    numeric,
                                     du,
                                     &signals_clone,
                                     use_mime_type,
@@ -568,6 +583,7 @@ pub(crate) fn dir_entry_dict(
     metadata: Option<&std::fs::Metadata>,
     span: Span,
     long: bool,
+    #[allow(unused_variables)] numeric: bool,
     du: bool,
     signals: &Signals,
     use_mime_type: bool,
@@ -637,7 +653,11 @@ pub(crate) fn dir_entry_dict(
             let mode = md.permissions().mode();
             record.push(
                 "mode",
-                Value::string(umask::Mode::from(mode).to_string(), span),
+                if numeric {
+                    Value::int(mode as i64, span)
+                } else {
+                    Value::string(umask::Mode::from(mode).to_string(), span)
+                },
             );
 
             let nlinks = md.nlink();
@@ -648,7 +668,7 @@ pub(crate) fn dir_entry_dict(
 
             record.push(
                 "user",
-                if let Some(user) = users::get_user_by_uid(md.uid().into()) {
+                if !numeric && let Some(user) = users::get_user_by_uid(md.uid().into()) {
                     Value::string(user.name, span)
                 } else {
                     Value::int(md.uid().into(), span)
@@ -657,7 +677,7 @@ pub(crate) fn dir_entry_dict(
 
             record.push(
                 "group",
-                if let Some(group) = users::get_group_by_gid(md.gid().into()) {
+                if !numeric && let Some(group) = users::get_group_by_gid(md.gid().into()) {
                     Value::string(group.name, span)
                 } else {
                     Value::int(md.gid().into(), span)
