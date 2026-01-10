@@ -1,4 +1,12 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(
+    not(target_arch = "wasm32"),
+    allow(
+        clippy::disallowed_types,
+        reason = "This file may be compiled as host build-script code while building the wasm target"
+    )
+)]
+
 mod exit_status;
 mod foreground;
 mod util;

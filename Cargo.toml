@@ -161,7 +161,6 @@ roxmltree = "0.20"
 rstest = { version = "0.23", default-features = false }
 rstest_reuse = "0.7"
 rusqlite = "0.37"
-rust-embed = "8.7.0"
 # We have to fix rustls and ureq versions
 # because we use unversioned api to allow users set up their own
 # crypto providers (grep for "unversioned")
