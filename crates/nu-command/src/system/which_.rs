@@ -35,6 +35,7 @@ impl Command for Which {
             "command",
             "whereis",     // linux binary to find binary locations in path
             "get-command", // powershell command to find commands and binaries in path
+            "type",
         ]
     }
 
