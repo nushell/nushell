@@ -14,6 +14,8 @@ use serde::{Deserialize, Serialize};
 pub struct DynamicSuggestion {
     /// String replacement that will be introduced to the the buffer
     pub value: String,
+    /// If given, overrides `value` as text displayed to user
+    pub display_override: Option<String>,
     /// Optional description for the replacement
     pub description: Option<String>,
     /// Optional vector of strings in the suggestion. These can be used to
@@ -35,6 +37,7 @@ impl Default for DynamicSuggestion {
         Self {
             append_whitespace: true,
             value: String::new(),
+            display_override: None,
             description: None,
             extra: None,
             match_indices: None,

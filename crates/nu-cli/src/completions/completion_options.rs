@@ -250,7 +250,7 @@ impl<T> NuMatcher<'_, T> {
 
 impl NuMatcher<'_, SemanticSuggestion> {
     pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
-        let value = sugg.suggestion.value.to_string();
+        let value = sugg.suggestion.display_value().to_string();
         self.add(value, sugg)
     }
 

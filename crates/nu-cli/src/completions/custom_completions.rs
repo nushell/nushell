@@ -9,7 +9,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
-use nu_utils::SharedCow;
+use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
 use std::{collections::HashMap, sync::Arc};
 
@@ -56,6 +56,11 @@ fn map_value_completions<'a>(
                         value_type = value.get_type();
                         if let Ok(val_str) = value.coerce_string() {
                             suggestion.value = val_str;
+                        }
+                    }
+                    "display_override" => {
+                        if let Ok(display_str) = value.coerce_string() {
+                            suggestion.display_override = Some(display_str);
                         }
                     }
                     "description" => {
@@ -281,10 +286,13 @@ impl<T: Completer> Completer for CustomCompletion<T> {
             return suggestions;
         }
 
-        let mut matcher = NuMatcher::new(prefix, &completion_options, should_sort);
+        let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
 
         for sugg in suggestions {
-            matcher.add_semantic_suggestion(sugg);
+            matcher.add(
+                strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string()),
+                sugg,
+            );
         }
         matcher.suggestion_results()
     }
