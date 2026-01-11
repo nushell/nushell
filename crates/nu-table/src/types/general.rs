@@ -35,6 +35,7 @@ fn list_table(input: Vec<Value>, opts: TableOpts<'_>) -> Result<Option<String>, 
     colorize_space(out.table.get_records_mut(), &opts.style_computer);
 
     configure_table(&mut out, opts.config, &opts.style_computer, opts.mode);
+    out.table.set_column_interest(opts.column_interest);
     let table = out.table.draw(opts.width);
 
     Ok(table)
@@ -48,6 +49,7 @@ fn kv_table(record: Record, opts: TableOpts<'_>) -> StringResult {
     let mut table = NuTable::new(record.len(), 2);
     table.set_index_style(get_key_style(&opts));
     table.set_indent(opts.config.table.padding);
+    table.set_column_interest(opts.column_interest);
 
     for (i, (key, value)) in record.into_iter().enumerate() {
         opts.signals.check(&opts.span)?;
