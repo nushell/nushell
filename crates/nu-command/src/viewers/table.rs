@@ -103,7 +103,12 @@ impl Command for Table {
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to ls tables", Some('o'),
+            .switch("icons", "adds icons to ls tables", Some('o'))
+            .named(
+                "column-widths",
+                SyntaxShape::List(Box::new(SyntaxShape::Int)),
+                "set importance of columns, so more content will be preserved for them",
+                None
             )
             .category(Category::Viewers)
     }
@@ -221,6 +226,7 @@ struct TableConfig {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
+    column_widths: Vec<usize>,
 }
 
 impl TableConfig {
@@ -232,6 +238,7 @@ impl TableConfig {
         index: Option<usize>,
         use_ansi_coloring: bool,
         icons: bool,
+        column_widths: Vec<usize>,
     ) -> Self {
         Self {
             view,
@@ -241,6 +248,7 @@ impl TableConfig {
             index,
             use_ansi_coloring,
             icons,
+            column_widths,
         }
     }
 }
@@ -268,6 +276,7 @@ struct CLIArgs {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
+    column_widths: Option<Vec<usize>>,
 }
 
 fn parse_table_config(
@@ -278,6 +287,7 @@ fn parse_table_config(
     let args = get_cli_args(call, state, stack)?;
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
+    let column_widths = args.column_widths.unwrap_or_default();
 
     let cfg = TableConfig::new(
         table_view,
@@ -287,6 +297,7 @@ fn parse_table_config(
         args.index,
         args.use_ansi_coloring,
         args.icons,
+        column_widths,
     );
 
     Ok(cfg)
@@ -319,6 +330,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
     let icons = call.has_flag(state, stack, "icons")?;
+    let column_widths = call.get_flag(state, stack, "column-widths")?;
 
     let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
@@ -334,6 +346,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         index,
         use_ansi_coloring,
         icons,
+        column_widths,
     })
 }
 
@@ -1240,8 +1253,11 @@ fn create_table_opts<'a>(
     let index = table_cfg.index.is_none();
     let width = table_cfg.width;
     let theme = table_cfg.theme;
+    let interest = table_cfg.column_widths.clone();
 
-    TableOpts::new(cfg, comp, signals, span, width, theme, offset, index)
+    TableOpts::new(
+        cfg, comp, signals, span, width, theme, offset, index, interest,
+    )
 }
 
 fn get_cwd(engine_state: &EngineState, stack: &mut Stack) -> ShellResult<Option<NuPathBuf>> {

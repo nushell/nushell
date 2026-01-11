@@ -52,6 +52,7 @@ pub struct NuTable {
     count_cols: usize,
     styles: Styles,
     config: TableConfig,
+    column_interest: Vec<usize>,
 }
 
 impl NuTable {
@@ -81,6 +82,7 @@ impl NuTable {
                 expand: false,
                 border_color: None,
             },
+            column_interest: vec![],
         }
     }
 
@@ -277,6 +279,10 @@ impl NuTable {
         self.config.border_color = None;
     }
 
+    pub fn set_column_interest(&mut self, columns: Vec<usize>) {
+        self.column_interest = columns;
+    }
+
     // NOTE: BE CAREFUL TO KEEP WIDTH UNCHANGED
     // TODO: fix interface
     pub fn get_records_mut(&mut self) -> &mut [Vec<NuRecordsValue>] {
@@ -461,7 +467,13 @@ fn table_insert_footer_if(t: &mut NuTable) {
 }
 
 fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
-    let widths = maybe_truncate_columns(&mut t.data, t.widths.clone(), &t.config, termwidth);
+    let widths = maybe_truncate_columns(
+        &mut t.data,
+        t.widths.clone(),
+        &t.config,
+        termwidth,
+        &t.column_interest,
+    );
     if widths.needed.is_empty() {
         return None;
     }
@@ -831,6 +843,7 @@ fn maybe_truncate_columns(
     widths: Vec<usize>,
     cfg: &TableConfig,
     termwidth: usize,
+    interest: &[usize],
 ) -> WidthEstimation {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
@@ -838,7 +851,7 @@ fn maybe_truncate_columns(
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
 
     if preserve_content {
-        truncate_columns_by_columns(data, widths, &cfg.theme, pad, termwidth)
+        truncate_columns_by_columns(data, widths, &cfg.theme, pad, termwidth, interest)
     } else {
         truncate_columns_by_content(data, widths, &cfg.theme, pad, termwidth)
     }
@@ -1024,13 +1037,15 @@ fn truncate_columns_by_columns(
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
+    interest: &[usize],
 ) -> WidthEstimation {
     const MIN_ACCEPTABLE_WIDTH: usize = 10;
     const TERMWIDTH_COLUMN_WIDTH_STEP: usize = 100;
     const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
 
     let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
-    let min_acceptable_width = MIN_ACCEPTABLE_WIDTH * (max(termwidth, TERMWIDTH_COLUMN_WIDTH_STEP) / TERMWIDTH_COLUMN_WIDTH_STEP);
+    let min_acceptable_width = MIN_ACCEPTABLE_WIDTH
+        * (max(termwidth, TERMWIDTH_COLUMN_WIDTH_STEP) / TERMWIDTH_COLUMN_WIDTH_STEP);
     let min_column_width = min_acceptable_width + pad;
 
     let count_columns = data[0].len();
@@ -1067,9 +1082,34 @@ fn truncate_columns_by_columns(
 
     let mut available = termwidth - width;
 
+    if available > 0 && !interest.is_empty() {
+        for &column in interest {
+            if column >= truncate_pos {
+                continue;
+            }
+
+            let used_width = widths[column];
+            let col_width = widths_original[column];
+            if used_width == col_width {
+                continue;
+            }
+
+            let need = col_width - used_width;
+            let take = min(available, need);
+
+            available -= take;
+            widths[column] += take;
+            width += take;
+
+            if available == 0 {
+                break;
+            }
+        }
+    }
+
     while available > 0 {
         let mut changed = false;
-        
+
         for i in 0..truncate_pos {
             let used_width = widths[i];
             let col_width = widths_original[i];
