@@ -230,6 +230,7 @@ struct TableConfig {
 }
 
 impl TableConfig {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         view: TableView,
         width: usize,
