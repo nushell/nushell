@@ -280,3 +280,22 @@ match 1 {
         assert_eq!(actual.out, "success");
     });
 }
+
+// Regression test for issue #1: pattern match variable not found when
+// recursive function with try/catch is called inside do block
+#[test]
+fn match_in_do_with_try_catch_recursive() {
+    let actual = nu!(r#"
+        def test_match [data] {
+            if $data == 0 { "done" } else {
+                try {
+                    match {value: "x"} {
+                        {value: $v} => { $v; test_match 0 }
+                    }
+                } catch { |err| test_match 0 }
+            }
+        }
+        do { test_match 1 }
+    "#);
+    assert_eq!(actual.out, "done");
+}
