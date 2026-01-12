@@ -89,6 +89,21 @@ fn locale_format_respect_different_locale() {
 }
 
 #[test]
+fn format_respects_locale_from_with_env() {
+    // Tests for https://github.com/nushell/nushell/issues/17321
+
+    let actual = nu!(r#"
+    "2021-10-22 20:00:12 +01:00" | with-env { NU_TEST_LOCALE_OVERRIDE: ko_KR.UTF-8 } { format date "%x %X" }
+    "#);
+    assert!(actual.out.contains("2021년 10월 22일 20시 00분 12초"));
+
+    let actual = nu!(r#"
+    "2021-10-22 20:00:12 +01:00" | with-env { NU_TEST_LOCALE_OVERRIDE: en_US.UTF-8 } { format date "%x %X" }
+    "#);
+    assert!(actual.out.contains("10/22/2021 08:00:12 PM"));
+}
+
+#[test]
 fn locale_with_different_format_specifiers() {
     let actual = nu!(locale: "en_US", r#"
         "Thu, 26 Oct 2023 22:52:14 +0200" | format date "%x %X"
