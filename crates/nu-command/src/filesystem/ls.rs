@@ -111,7 +111,13 @@ impl LsEntry {
     fn get_metadata(&self) -> Option<Metadata> {
         #[cfg(windows)]
         {
-            self.metadata.clone()
+            // If metadata was cached from DirEntry, use it; otherwise fetch it
+            // (needed for entries created via from_path, e.g., from glob results)
+            if self.metadata.is_some() {
+                self.metadata.clone()
+            } else {
+                std::fs::symlink_metadata(&self.path).ok()
+            }
         }
         #[cfg(not(windows))]
         {
@@ -552,8 +558,14 @@ fn ls_for_one_pattern(
                                 // Use cached metadata from LsEntry when available (free on Windows)
                                 // On Unix, this will call symlink_metadata() but only once per entry
                                 let metadata = entry.get_metadata();
+                                // When full_paths is enabled, ensure path is absolute for symlink target expansion
+                                let path_for_dict = if full_paths && !path.is_absolute() {
+                                    std::borrow::Cow::Owned(cwd.join(path))
+                                } else {
+                                    std::borrow::Cow::Borrowed(path)
+                                };
                                 let result = dir_entry_dict(
-                                    path,
+                                    &path_for_dict,
                                     &name,
                                     metadata.as_ref(),
                                     call_span,
@@ -561,7 +573,7 @@ fn ls_for_one_pattern(
                                     du,
                                     &signals_clone,
                                     use_mime_type,
-                                    args.full_paths,
+                                    full_paths,
                                 );
                                 match result {
                                     Ok(value) => Some(value),
