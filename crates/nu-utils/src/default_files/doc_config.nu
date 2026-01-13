@@ -64,6 +64,12 @@ $env.config.history.sync_on_enter = true
 # Default: false
 $env.config.history.isolation = false
 
+# history.ignore_space (bool): Whether commands that start with a space are saved to history.
+# true: Commands starting with a space will NOT be saved to history.
+# false: All commands will be saved to history, including those starting with a space.
+# Default: true
+$env.config.history.ignore_space = true
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------
