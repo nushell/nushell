@@ -37,6 +37,6 @@ ratatui = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
 strip-ansi-escapes = { workspace = true }
 tui-textarea = "0.7.0"
-tui-tree-widget = "0.23"
+tui-tree-widget = "0.24"
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
