@@ -32,10 +32,16 @@ impl PluginCommand for Truncate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .input_output_types(vec![(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )])
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
             .required(
                 "every",
                 SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String]),
@@ -187,18 +193,33 @@ fn command(
     }?;
 
     match PolarsPluginObject::try_from_value(plugin, &value)? {
-        PolarsPluginObject::NuExpression(expr) => {
-            let res: NuExpression = expr
-                .into_polars()
-                .dt()
-                .truncate(Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
-                    PlSmallStr::from_string(every),
-                ))))
-                .into();
-            res.to_pipeline_data(plugin, engine, call.head)
+        PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr, every),
+        PolarsPluginObject::NuSelector(selector) => {
+            let expr = selector.into_expr();
+            command_expr(plugin, engine, call, expr, every)
         }
-        _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),
+        _ => Err(cant_convert_err(
+            &value,
+            &[PolarsPluginType::NuExpression, PolarsPluginType::NuSelector],
+        )),
     }
+}
+
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    expr: NuExpression,
+    every: String,
+) -> Result<PipelineData, ShellError> {
+    let res: NuExpression = expr
+        .into_polars()
+        .dt()
+        .truncate(Expr::Literal(LiteralValue::Dyn(DynLiteralValue::Str(
+            PlSmallStr::from_string(every),
+        ))))
+        .into();
+    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]
