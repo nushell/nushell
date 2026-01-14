@@ -461,13 +461,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
-        
+
         line_editor = line_editor.with_history_exclusion_prefix(if history.ignore_space {
             Some(" ".into())
         } else {
             None
         });
-        
+
         if history.sync_on_enter
             && let Err(e) = line_editor.sync_history()
         {
@@ -1279,11 +1279,7 @@ fn update_line_editor_history(
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(if ignore_space {
-            Some(" ".into())
-        } else {
-            None
-        })
+        .with_history_exclusion_prefix(if ignore_space { Some(" ".into()) } else { None })
         .with_history(history);
 
     store_history_id_in_engine(engine_state, &line_editor);
