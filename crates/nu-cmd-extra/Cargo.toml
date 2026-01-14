@@ -29,7 +29,6 @@ heck = { workspace = true }
 num-traits = { workspace = true }
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
-rust-embed = { workspace = true }
 serde = { workspace = true }
 serde_urlencoded = { workspace = true }
 v_htmlescape = { workspace = true }
@@ -40,3 +39,10 @@ mime = { workspace = true }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.109.2" }
 nu-command = { path = "../nu-command", version = "0.109.2" }
 nu-test-support = { path = "../nu-test-support", version = "0.109.2" }
+
+[build-dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.109.2", default-features = false }
+
+serde = { workspace = true }
+serde_json = { workspace = true }
+quote = { workspace = true }
