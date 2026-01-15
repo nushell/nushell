@@ -212,6 +212,20 @@ fn process(
     // step 1: convert value to string
     let val_str = val.coerce_str().unwrap_or_default();
 
+    // Determine the order of checking ambiguous date formats (DMY vs MDY) based on the prefer_dmy flag.
+    // This ensures that when dates like "01/02/2025" are encountered, we check the preferred format first
+    // (e.g., DMY for day-month-year or MDY for month-day-year) to handle ambiguity correctly.
+    let (first_regex, first_dayfirst, first_name) = if prefer_dmy {
+        (&DATETIME_DMY_RE, true, "DATETIME_DMY_RE")
+    } else {
+        (&DATETIME_MDY_RE, false, "DATETIME_MDY_RE")
+    };
+    let (second_regex, second_dayfirst, second_name) = if prefer_dmy {
+        (&DATETIME_MDY_RE, false, "DATETIME_MDY_RE")
+    } else {
+        (&DATETIME_DMY_RE, true, "DATETIME_DMY_RE")
+    };
+
     // step 2: bounce string up against regexes
     if BOOLEAN_RE.is_match(&val_str).unwrap_or(false) {
         let bval = val_str
@@ -277,51 +291,30 @@ fn process(
         } else {
             Ok(Value::int(ival, span))
         }
-    } else if if prefer_dmy {
-        DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false)
-    } else {
-        DATETIME_MDY_RE.is_match(&val_str).unwrap_or(false)
-    } {
-        let regex_name = if prefer_dmy {
-            "DATETIME_DMY_RE"
-        } else {
-            "DATETIME_MDY_RE"
-        };
-        let dayfirst = prefer_dmy;
-        let dt = parse_date_from_string_with_dayfirst(&val_str, span, dayfirst).map_err(|_| {
-            ShellError::CantConvert {
-                to_type: "datetime".to_string(),
-                from_type: "string".to_string(),
-                span,
-                help: Some(format!(
-                    r#""{val_str}" does not represent a valid {regex_name} value"#
-                )),
-            }
-        })?;
-
+    } else if first_regex.is_match(&val_str).unwrap_or(false) {
+        let dt =
+            parse_date_from_string_with_dayfirst(&val_str, span, first_dayfirst).map_err(|_| {
+                ShellError::CantConvert {
+                    to_type: "datetime".to_string(),
+                    from_type: "string".to_string(),
+                    span,
+                    help: Some(format!(
+                        r#""{val_str}" does not represent a valid {first_name} value"#
+                    )),
+                }
+            })?;
         Ok(Value::date(dt, span))
-    } else if if prefer_dmy {
-        DATETIME_MDY_RE.is_match(&val_str).unwrap_or(false)
-    } else {
-        DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false)
-    } {
-        let regex_name = if prefer_dmy {
-            "DATETIME_MDY_RE"
-        } else {
-            "DATETIME_DMY_RE"
-        };
-        let dayfirst = !prefer_dmy;
-        let dt = parse_date_from_string_with_dayfirst(&val_str, span, dayfirst).map_err(|_| {
-            ShellError::CantConvert {
+    } else if second_regex.is_match(&val_str).unwrap_or(false) {
+        let dt = parse_date_from_string_with_dayfirst(&val_str, span, second_dayfirst).map_err(
+            |_| ShellError::CantConvert {
                 to_type: "datetime".to_string(),
                 from_type: "string".to_string(),
                 span,
                 help: Some(format!(
-                    r#""{val_str}" does not represent a valid {regex_name} value"#
+                    r#""{val_str}" does not represent a valid {second_name} value"#
                 )),
-            }
-        })?;
-
+            },
+        )?;
         Ok(Value::date(dt, span))
     } else if DATETIME_YMD_RE.is_match(&val_str).unwrap_or(false) {
         let dt = parse_date_from_string_with_dayfirst(&val_str, span, false).map_err(|_| {
