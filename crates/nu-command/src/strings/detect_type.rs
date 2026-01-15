@@ -1,4 +1,3 @@
-use crate::parse_date_from_string;
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
@@ -19,6 +18,11 @@ impl Command for DetectType {
                 "prefer-filesize",
                 "For ints display them as human-readable file sizes",
                 Some('f'),
+            )
+            .switch(
+                "prefer-dmy",
+                "Prefer day-month-year format for ambiguous dates",
+                None,
             )
             .category(Category::Strings)
             .allow_variants_without_examples(true)
@@ -100,6 +104,20 @@ impl Command for DetectType {
                 )),
             },
             Example {
+                description: "Date M-D-Y (default for ambiguous)",
+                example: "'01/02/2025' | detect type",
+                result: Some(Value::test_date(
+                    Local.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap().into(),
+                )),
+            },
+            Example {
+                description: "Prefer DMY for ambiguous dates",
+                example: "'01/02/2025' | detect type --prefer-dmy",
+                result: Some(Value::test_date(
+                    Local.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap().into(),
+                )),
+            },
+            Example {
                 description: "Unknown stays a string",
                 example: "'not-a-number' | detect type",
                 result: Some(Value::test_string("not-a-number")),
@@ -119,15 +137,72 @@ impl Command for DetectType {
             .map(|metadata| metadata.with_content_type(None));
         let span = call.head;
         let display_as_filesize = call.has_flag(engine_state, stack, "prefer-filesize")?;
+        let prefer_dmy = call.has_flag(engine_state, stack, "prefer-dmy")?;
         let val = input.into_value(call.head)?;
-        let val = process(val, display_as_filesize, span)?;
+        let val = process(val, display_as_filesize, prefer_dmy, span)?;
         Ok(val.into_pipeline_data_with_metadata(metadata))
+    }
+}
+
+fn swap_day_month(input: &str) -> String {
+    let re_slash =
+        fancy_regex::Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{4,})").expect("regex should be valid");
+    let swapped_slash = re_slash.replace_all(input, "$2/$1/$3");
+    let re_dash =
+        fancy_regex::Regex::new(r"(\d{1,2})-(\d{1,2})-(\d{4,})").expect("regex should be valid");
+    re_dash.replace_all(&swapped_slash, "$2-$1-$3").to_string()
+}
+
+fn parse_date_from_string_with_dayfirst(
+    input: &str,
+    span: Span,
+    dayfirst: bool,
+) -> Result<chrono::DateTime<chrono::FixedOffset>, nu_protocol::Value> {
+    let input = if dayfirst {
+        swap_day_month(input)
+    } else {
+        input.to_string()
+    };
+    match dtparse::parse(&input) {
+        Ok((native_dt, fixed_offset)) => {
+            let offset = match fixed_offset {
+                Some(offset) => offset,
+                None => *chrono::Local
+                    .from_local_datetime(&native_dt)
+                    .single()
+                    .unwrap_or_default()
+                    .offset(),
+            };
+            match offset.from_local_datetime(&native_dt) {
+                chrono::LocalResult::Single(d) => Ok(d),
+                chrono::LocalResult::Ambiguous(d, _) => Ok(d),
+                chrono::LocalResult::None => Err(nu_protocol::Value::error(
+                    nu_protocol::ShellError::DatetimeParseError {
+                        msg: input.to_string(),
+                        span,
+                    },
+                    span,
+                )),
+            }
+        }
+        Err(_) => Err(nu_protocol::Value::error(
+            nu_protocol::ShellError::DatetimeParseError {
+                msg: input.to_string(),
+                span,
+            },
+            span,
+        )),
     }
 }
 
 // This function will check if a value matches a regular expression for a particular datatype.
 // If it does, it will convert the value to that datatype.
-fn process(val: Value, display_as_filesize: bool, span: Span) -> Result<Value, ShellError> {
+fn process(
+    val: Value,
+    display_as_filesize: bool,
+    prefer_dmy: bool,
+    span: Span,
+) -> Result<Value, ShellError> {
     // step 1: convert value to string
     let val_str = val.coerce_str().unwrap_or_default();
 
@@ -196,36 +271,75 @@ fn process(val: Value, display_as_filesize: bool, span: Span) -> Result<Value, S
         } else {
             Ok(Value::int(ival, span))
         }
-    } else if DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false) {
-        let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "datetime".to_string(),
-            from_type: "string".to_string(),
-            span,
-            help: Some(format!(
-                r#""{val_str}" does not represent a valid DATETIME_MDY_RE value"#
-            )),
+    } else if if prefer_dmy {
+        DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false)
+    } else {
+        DATETIME_MDY_RE.is_match(&val_str).unwrap_or(false)
+    } {
+        let regex_name = if prefer_dmy {
+            "DATETIME_DMY_RE"
+        } else {
+            "DATETIME_MDY_RE"
+        };
+        let dayfirst = prefer_dmy;
+        let dt = parse_date_from_string_with_dayfirst(&val_str, span, dayfirst).map_err(|_| {
+            ShellError::CantConvert {
+                to_type: "datetime".to_string(),
+                from_type: "string".to_string(),
+                span,
+                help: Some(format!(
+                    r#""{val_str}" does not represent a valid {regex_name} value"#
+                )),
+            }
+        })?;
+
+        Ok(Value::date(dt, span))
+    } else if if prefer_dmy {
+        DATETIME_MDY_RE.is_match(&val_str).unwrap_or(false)
+    } else {
+        DATETIME_DMY_RE.is_match(&val_str).unwrap_or(false)
+    } {
+        let regex_name = if prefer_dmy {
+            "DATETIME_MDY_RE"
+        } else {
+            "DATETIME_DMY_RE"
+        };
+        let dayfirst = !prefer_dmy;
+        let dt = parse_date_from_string_with_dayfirst(&val_str, span, dayfirst).map_err(|_| {
+            ShellError::CantConvert {
+                to_type: "datetime".to_string(),
+                from_type: "string".to_string(),
+                span,
+                help: Some(format!(
+                    r#""{val_str}" does not represent a valid {regex_name} value"#
+                )),
+            }
         })?;
 
         Ok(Value::date(dt, span))
     } else if DATETIME_YMD_RE.is_match(&val_str).unwrap_or(false) {
-        let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "datetime".to_string(),
-            from_type: "string".to_string(),
-            span,
-            help: Some(format!(
-                r#""{val_str}" does not represent a valid DATETIME_YMD_RE value"#
-            )),
+        let dt = parse_date_from_string_with_dayfirst(&val_str, span, false).map_err(|_| {
+            ShellError::CantConvert {
+                to_type: "datetime".to_string(),
+                from_type: "string".to_string(),
+                span,
+                help: Some(format!(
+                    r#""{val_str}" does not represent a valid DATETIME_YMD_RE value"#
+                )),
+            }
         })?;
 
         Ok(Value::date(dt, span))
     } else if DATETIME_YMDZ_RE.is_match(&val_str).unwrap_or(false) {
-        let dt = parse_date_from_string(&val_str, span).map_err(|_| ShellError::CantConvert {
-            to_type: "datetime".to_string(),
-            from_type: "string".to_string(),
-            span,
-            help: Some(format!(
-                r#""{val_str}" does not represent a valid DATETIME_YMDZ_RE value"#
-            )),
+        let dt = parse_date_from_string_with_dayfirst(&val_str, span, false).map_err(|_| {
+            ShellError::CantConvert {
+                to_type: "datetime".to_string(),
+                from_type: "string".to_string(),
+                span,
+                help: Some(format!(
+                    r#""{val_str}" does not represent a valid DATETIME_YMDZ_RE value"#
+                )),
+            }
         })?;
 
         Ok(Value::date(dt, span))
@@ -236,12 +350,13 @@ fn process(val: Value, display_as_filesize: bool, span: Span) -> Result<Value, S
 }
 
 // region: datatype regexes
+// Examples: "31-12-2021", "01/01/2022", "15-06-2023 12:30"
 const DATETIME_DMY_PATTERN: &str = r#"(?x)
         ^
         ['"]?                        # optional quotes
         (?:\d{1,2})                  # day
         [-/]                         # separator
-        (?P<month>[01]?\d{1})        # month
+        (?P<month>0?[1-9]|1[0-2])        # month
         [-/]                         # separator
         (?:\d{4,})                   # year
         (?:
@@ -264,12 +379,13 @@ const DATETIME_DMY_PATTERN: &str = r#"(?x)
 static DATETIME_DMY_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(DATETIME_DMY_PATTERN).expect("datetime_dmy_pattern should be valid")
 });
+// Examples: "2022-01-01", "2022/01/01", "2022-01-01T00:00:00"
 const DATETIME_YMD_PATTERN: &str = r#"(?x)
         ^
         ['"]?                      # optional quotes
         (?:\d{4,})                 # year
         [-/]                       # separator
-        (?P<month>[01]?\d{1})      # month
+        (?P<month>0?[1-9]|1[0-2])      # month
         [-/]                       # separator
         (?:\d{1,2})                # day
         (?:
@@ -291,13 +407,13 @@ const DATETIME_YMD_PATTERN: &str = r#"(?x)
 static DATETIME_YMD_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(DATETIME_YMD_PATTERN).expect("datetime_ymd_pattern should be valid")
 });
-//2023-03-24 16:44:17.865147299 -05:00
+// Examples: "2022-01-01T00:00:00Z", "2022-01-01T00:00:00+01:00"
 const DATETIME_YMDZ_PATTERN: &str = r#"(?x)
         ^
         ['"]?                  # optional quotes
         (?:\d{4,})             # year
         [-/]                   # separator
-        (?P<month>[01]?\d{1})  # month
+        (?P<month>0?[1-9]|1[0-2])  # month
         [-/]                   # separator
         (?:\d{1,2})            # day
         [T\ ]                  # separator
@@ -327,19 +443,53 @@ static DATETIME_YMDZ_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(DATETIME_YMDZ_PATTERN).expect("datetime_ymdz_pattern should be valid")
 });
 
+// Examples: "09/24/2012", "09/24/2012 02:43:48", "01/01/2022"
+const DATETIME_MDY_PATTERN: &str = r#"(?x)
+        ^
+        ['"]?                        # optional quotes
+        (?P<month>0?[1-9]|1[0-2])        # month
+        [-/]                         # separator
+        (?:\d{1,2})                  # day
+        [-/]                         # separator
+        (?:\d{4,})                   # year
+        (?:
+            [T\ ]                    # separator
+            (?:\d{2})                # hour
+            :?                       # separator
+            (?:\d{2})                # minute
+            (?:
+                :?                   # separator
+                (?:\d{2})            # second
+                (?:
+                    \.(?:\d{1,9})    # subsecond
+                )?
+            )?
+        )?
+        ['"]?                        # optional quotes
+        $
+        "#;
+
+static DATETIME_MDY_RE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(DATETIME_MDY_PATTERN).expect("datetime_mdy_pattern should be valid")
+});
+
+// Examples: "0.1", "3.0", "3.00001", "-9.9990e-003", "inf", "NaN"
 static FLOAT_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*[-+]?((\d*\.\d+)([eE][-+]?\d+)?|inf|NaN|(\d+)[eE][-+]?\d+|\d+\.)$")
         .expect("float pattern should be valid")
 });
 
+// Examples: "0", "1", "10", "100", "1000"
 static INTEGER_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\s*-?(\d+)$").expect("integer pattern should be valid"));
 
+// Examples: "1_000", "10_000", "100_000", "1,000", "10,000"
 static INTEGER_WITH_DELIMS_RE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"^\s*-?(\d{1,3}([,_]\d{3})+)$")
         .expect("integer with delimiters pattern should be valid")
 });
 
+// Examples: "true", "false", "True", "FALSE"
 static BOOLEAN_RE: LazyLock<Regex> = LazyLock::new(|| {
     RegexBuilder::new(r"^\s*(true)$|^(false)$")
         .case_insensitive(true)
@@ -547,5 +697,95 @@ mod test {
         assert!(!DATETIME_DMY_RE.is_match("2022-13-01").unwrap());
         assert!(!DATETIME_DMY_RE.is_match("2022-01-32").unwrap());
         assert!(!DATETIME_DMY_RE.is_match("2022-01-01 24:00").unwrap());
+    }
+
+    #[test]
+    fn test_datetime_mdy_pattern() {
+        assert!(DATETIME_MDY_RE.is_match("09/24/2012").unwrap());
+        assert!(DATETIME_MDY_RE.is_match("09/24/2012 02:43:48").unwrap());
+        assert!(DATETIME_MDY_RE.is_match("01/01/2022").unwrap());
+        assert!(!DATETIME_MDY_RE.is_match("09/24/123").unwrap());
+        assert!(!DATETIME_MDY_RE.is_match("09/24/2012 2:43:48").unwrap());
+        assert!(!DATETIME_MDY_RE.is_match("009/24/2012").unwrap());
+    }
+
+    #[test]
+    fn test_ambiguous_date_default() {
+        use chrono::{DateTime, FixedOffset, Local, TimeZone};
+        let span = Span::test_data();
+        // Ambiguous date defaults to MDY (Jan 2)
+        let result = process(Value::string("01/02/2025", span), false, false, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(Local.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap())
+            );
+        } else {
+            panic!("Expected date");
+        }
+        // Non-ambiguous DMY (Feb 13)
+        let result = process(Value::string("13/02/2025", span), false, false, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(
+                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                )
+            );
+        } else {
+            panic!("Expected date");
+        }
+        // Non-ambiguous MDY (Feb 13)
+        let result = process(Value::string("02/13/2025", span), false, false, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(
+                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                )
+            );
+        } else {
+            panic!("Expected date");
+        }
+    }
+
+    #[test]
+    fn test_ambiguous_date_prefer_dmy() {
+        use chrono::{DateTime, FixedOffset, Local, TimeZone};
+        let span = Span::test_data();
+        // Ambiguous date with prefer_dmy=true -> parsed as Feb 1 (DMY)
+        let result = process(Value::string("01/02/2025", span), false, true, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(Local.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap())
+            );
+        } else {
+            panic!("Expected date");
+        }
+        // Non-ambiguous still works (Feb 13)
+        let result = process(Value::string("13/02/2025", span), false, true, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(
+                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                )
+            );
+        } else {
+            panic!("Expected date");
+        }
+        // Non-ambiguous still works (Feb 13)
+        let result = process(Value::string("02/13/2025", span), false, true, span).unwrap();
+        if let Value::Date { val, .. } = result {
+            assert_eq!(
+                val,
+                DateTime::<FixedOffset>::from(
+                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                )
+            );
+        } else {
+            panic!("Expected date");
+        }
     }
 }
