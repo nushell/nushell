@@ -180,7 +180,7 @@ fn mutate_nu_config_history_warning() -> TestResult {
 #[test]
 fn mutate_nu_config_history_ignore_space() -> TestResult {
     run_test_std(
-        r#"$env.config.history.ignore_space = false; $env.config.history.ignore_space"#,
+        r#"$env.config.history.ignore_space_prefixed = false; $env.config.history.ignore_space_prefixed"#,
         "false",
     )
 }
