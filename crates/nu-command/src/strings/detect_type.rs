@@ -144,6 +144,12 @@ impl Command for DetectType {
     }
 }
 
+// This function serves to modify the input string by swapping the day and month components
+// (e.g., turning `"01/02/2025"` into `"02/01/2025"`) so that `dtparse::parse`, which defaults to interpreting
+// ambiguous dates as month-day-year (MDY), correctly parses it as day-month-year (DMY) when `dayfirst` is true.
+// This is necessary because `dtparse::parse` doesn't expose a direct `dayfirst` option in its API, and the
+// swap ensures consistent parsing based on the regex match. It could be written more idiomatically and with
+// the regexes but this is a simpler approach and doesn't have to mess with parsing the time component.
 fn swap_day_month(input: &str) -> String {
     let re_slash =
         fancy_regex::Regex::new(r"(\d{1,2})/(\d{1,2})/(\d{4,})").expect("regex should be valid");
