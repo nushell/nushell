@@ -59,6 +59,7 @@ struct SearchBuf {
     search_index: usize,
     is_reversed: bool,
     is_search_input: bool,
+    cursor_pos: usize,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -483,8 +484,14 @@ fn set_cursor_cmd_bar(f: &mut Frame, area: Rect, pager: &Pager) {
     const LEFT_OFFSET: u16 = 2;
 
     if pager.search_buf.is_search_input {
-        // todo: deal with a situation where we exceed the bar width
-        let next_pos = pager.search_buf.buf_cmd_input.width() as u16 + LEFT_OFFSET;
+        // Calculate cursor position based on characters before cursor
+        let before_cursor: String = pager
+            .search_buf
+            .buf_cmd_input
+            .chars()
+            .take(pager.search_buf.cursor_pos)
+            .collect();
+        let next_pos = before_cursor.width() as u16 + LEFT_OFFSET;
         if next_pos < area.width {
             f.set_cursor_position((next_pos, area.height - 1));
         }
@@ -816,6 +823,7 @@ fn handle_general_key_events2<V>(
     match key.code {
         KeyCode::Char('?') => {
             search.buf_cmd_input.clear();
+            search.cursor_pos = 0;
             search.is_search_input = true;
             search.is_reversed = true;
 
@@ -823,6 +831,7 @@ fn handle_general_key_events2<V>(
         }
         KeyCode::Char('/') => {
             search.buf_cmd_input.clear();
+            search.cursor_pos = 0;
             search.is_search_input = true;
             search.is_reversed = false;
 
@@ -830,6 +839,7 @@ fn handle_general_key_events2<V>(
         }
         KeyCode::Char(':') => {
             command.buf_cmd2.clear();
+            command.cursor_pos = 0;
             command.is_cmd_input = true;
             command.cmd_exec_info = None;
 
@@ -880,9 +890,83 @@ fn search_input_key_event(
     view: Option<&mut impl View>,
     key: &KeyEvent,
 ) -> bool {
+    // Handle Emacs keybindings (Ctrl+key)
+    if key.modifiers == KeyModifiers::CONTROL {
+        match key.code {
+            KeyCode::Char('a') => {
+                buf.cursor_pos = 0;
+                return true;
+            }
+            KeyCode::Char('e') => {
+                buf.cursor_pos = buf.buf_cmd_input.len();
+                return true;
+            }
+            KeyCode::Char('b') => {
+                if buf.cursor_pos > 0 {
+                    buf.cursor_pos -= 1;
+                }
+                return true;
+            }
+            KeyCode::Char('f') => {
+                if buf.cursor_pos < buf.buf_cmd_input.len() {
+                    buf.cursor_pos += 1;
+                }
+                return true;
+            }
+            KeyCode::Char('j') => {
+                // Same as Enter
+                buf.buf_cmd.clone_from(&buf.buf_cmd_input);
+                buf.is_search_input = false;
+                buf.cursor_pos = 0;
+
+                if let Some(view) = view
+                    && !buf.buf_cmd.is_empty()
+                {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd, buf.is_reversed);
+                    buf.search_index = 0;
+
+                    if !buf.search_results.is_empty() {
+                        let pos = buf.search_results[buf.search_index];
+                        view.show_data(pos);
+                    }
+                }
+                return true;
+            }
+            KeyCode::Char('u') => {
+                // Kill line before cursor
+                buf.buf_cmd_input = buf.buf_cmd_input[buf.cursor_pos..].to_string();
+                buf.cursor_pos = 0;
+                return true;
+            }
+            KeyCode::Char('k') => {
+                // Kill line after cursor
+                buf.buf_cmd_input.truncate(buf.cursor_pos);
+                return true;
+            }
+            KeyCode::Char('d') => {
+                // Delete character at cursor
+                if buf.cursor_pos < buf.buf_cmd_input.len() {
+                    buf.buf_cmd_input.remove(buf.cursor_pos);
+                }
+                return true;
+            }
+            KeyCode::Char('h') => {
+                // Backward delete (same as Backspace)
+                if buf.cursor_pos > 0 {
+                    buf.cursor_pos -= 1;
+                    buf.buf_cmd_input.remove(buf.cursor_pos);
+                }
+                return true;
+            }
+            _ => {}
+        }
+    }
+
     match &key.code {
         KeyCode::Esc => {
             buf.buf_cmd_input.clear();
+            buf.cursor_pos = 0;
 
             if let Some(view) = view
                 && !buf.buf_cmd.is_empty()
@@ -899,6 +983,7 @@ fn search_input_key_event(
         KeyCode::Enter => {
             buf.buf_cmd.clone_from(&buf.buf_cmd_input);
             buf.is_search_input = false;
+            buf.cursor_pos = 0;
 
             if let Some(view) = view
                 && !buf.buf_cmd.is_empty()
@@ -919,8 +1004,10 @@ fn search_input_key_event(
             if buf.buf_cmd_input.is_empty() {
                 buf.is_search_input = false;
                 buf.is_reversed = false;
-            } else {
-                buf.buf_cmd_input.pop();
+                buf.cursor_pos = 0;
+            } else if buf.cursor_pos > 0 {
+                buf.cursor_pos -= 1;
+                buf.buf_cmd_input.remove(buf.cursor_pos);
 
                 if let Some(view) = view
                     && !buf.buf_cmd_input.is_empty()
@@ -938,8 +1025,52 @@ fn search_input_key_event(
 
             true
         }
+        KeyCode::Delete => {
+            if buf.cursor_pos < buf.buf_cmd_input.len() {
+                buf.buf_cmd_input.remove(buf.cursor_pos);
+
+                if let Some(view) = view
+                    && !buf.buf_cmd_input.is_empty()
+                {
+                    let data = view.collect_data().into_iter().map(|(text, _)| text);
+                    buf.search_results = search_pattern(data, &buf.buf_cmd_input, buf.is_reversed);
+                    buf.search_index = 0;
+
+                    if !buf.search_results.is_empty() {
+                        let pos = buf.search_results[buf.search_index];
+                        view.show_data(pos);
+                    }
+                }
+            }
+            true
+        }
+        KeyCode::Left => {
+            if buf.cursor_pos > 0 {
+                buf.cursor_pos -= 1;
+            }
+            true
+        }
+        KeyCode::Right => {
+            if buf.cursor_pos < buf.buf_cmd_input.len() {
+                buf.cursor_pos += 1;
+            }
+            true
+        }
+        KeyCode::Home => {
+            buf.cursor_pos = 0;
+            true
+        }
+        KeyCode::End => {
+            buf.cursor_pos = buf.buf_cmd_input.len();
+            true
+        }
         KeyCode::Char(c) => {
-            buf.buf_cmd_input.push(*c);
+            // Skip if modifier keys are pressed (except shift)
+            if key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
+                return true;
+            }
+            buf.buf_cmd_input.insert(buf.cursor_pos, *c);
+            buf.cursor_pos += 1;
 
             if let Some(view) = view
                 && !buf.buf_cmd_input.is_empty()
@@ -976,6 +1107,72 @@ fn search_pattern(data: impl Iterator<Item = String>, pat: &str, rev: bool) -> V
 }
 
 fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
+    // Handle Emacs keybindings (Ctrl+key)
+    if key.modifiers == KeyModifiers::CONTROL {
+        match key.code {
+            KeyCode::Char('a') => {
+                buf.cursor_pos = 0;
+                return true;
+            }
+            KeyCode::Char('e') => {
+                buf.cursor_pos = buf.buf_cmd2.len();
+                return true;
+            }
+            KeyCode::Char('b') => {
+                if buf.cursor_pos > 0 {
+                    buf.cursor_pos -= 1;
+                }
+                return true;
+            }
+            KeyCode::Char('f') => {
+                if buf.cursor_pos < buf.buf_cmd2.len() {
+                    buf.cursor_pos += 1;
+                }
+                return true;
+            }
+            KeyCode::Char('j') => {
+                // Same as Enter
+                buf.is_cmd_input = false;
+                buf.run_cmd = true;
+                buf.cmd_history.push(buf.buf_cmd2.clone());
+                buf.cmd_history_pos = buf.cmd_history.len();
+                buf.cursor_pos = 0;
+                return true;
+            }
+            KeyCode::Char('u') => {
+                // Kill line before cursor
+                buf.buf_cmd2 = buf.buf_cmd2[buf.cursor_pos..].to_string();
+                buf.cursor_pos = 0;
+                buf.cmd_history_allow = false;
+                return true;
+            }
+            KeyCode::Char('k') => {
+                // Kill line after cursor
+                buf.buf_cmd2.truncate(buf.cursor_pos);
+                buf.cmd_history_allow = false;
+                return true;
+            }
+            KeyCode::Char('d') => {
+                // Delete character at cursor
+                if buf.cursor_pos < buf.buf_cmd2.len() {
+                    buf.buf_cmd2.remove(buf.cursor_pos);
+                    buf.cmd_history_allow = false;
+                }
+                return true;
+            }
+            KeyCode::Char('h') => {
+                // Backward delete (same as Backspace)
+                if buf.cursor_pos > 0 {
+                    buf.cursor_pos -= 1;
+                    buf.buf_cmd2.remove(buf.cursor_pos);
+                    buf.cmd_history_allow = false;
+                }
+                return true;
+            }
+            _ => {}
+        }
+    }
+
     match &key.code {
         KeyCode::Esc => {
             buf.is_cmd_input = false;
@@ -1020,7 +1217,19 @@ fn cmd_input_key_event(buf: &mut CommandBuf, key: &KeyEvent) -> bool {
             }
             true
         }
+        KeyCode::Home => {
+            buf.cursor_pos = 0;
+            true
+        }
+        KeyCode::End => {
+            buf.cursor_pos = buf.buf_cmd2.len();
+            true
+        }
         KeyCode::Char(c) => {
+            // Skip if modifier keys are pressed (except shift)
+            if key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) {
+                return true;
+            }
             buf.buf_cmd2.insert(buf.cursor_pos, *c);
             buf.cursor_pos += 1;
             buf.cmd_history_allow = false;
