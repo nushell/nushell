@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, exit::cleanup_exit};
+use nu_engine::{command_prelude::*, exit::cleanup_exit, exit::request_exit};
 
 #[derive(Clone)]
 pub struct Exit;
@@ -38,7 +38,14 @@ impl Command for Exit {
 
         let exit_code = exit_code.map_or(0, |it| it as i32);
 
-        cleanup_exit((), engine_state, exit_code);
+        if engine_state.is_interactive {
+            // In interactive mode, request exit instead of exiting immediately.
+            // This allows the REPL to save history before exiting.
+            request_exit(engine_state, exit_code);
+        } else {
+            // In non-interactive mode (scripts), exit immediately.
+            cleanup_exit((), engine_state, exit_code);
+        }
 
         Ok(Value::nothing(call.head).into_pipeline_data())
     }
