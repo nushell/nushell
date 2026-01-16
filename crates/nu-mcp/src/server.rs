@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::process::Child;
+use std::sync::Mutex;
 
-use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
@@ -10,25 +10,38 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::evaluation::Evaluator;
+use crate::worker::WorkerClient;
 
 pub struct NushellMcpServer {
     tool_router: ToolRouter<Self>,
-    evaluator: Evaluator,
+    worker_client: Mutex<WorkerClient>,
+    #[allow(dead_code)]
+    worker_process: Child,
 }
 
 #[tool_router]
 impl NushellMcpServer {
-    pub fn new(mut engine_state: EngineState) -> Self {
-        // Configure the engine state for MCP
-        if let Some(config) = Arc::get_mut(&mut engine_state.config) {
-            config.use_ansi_coloring = UseAnsiColoring::False;
-            config.color_config.clear();
-        }
+    pub fn new() -> Self {
+        // Spawn the worker process
+        let (worker_process, socket_path) =
+            crate::worker::spawn_worker().expect("Failed to spawn MCP worker");
+
+        // Connect to the worker
+        let worker_client =
+            WorkerClient::connect(&socket_path).expect("Failed to connect to MCP worker");
+
         NushellMcpServer {
             tool_router: Self::tool_router(),
-            evaluator: Evaluator::new(engine_state),
+            worker_client: Mutex::new(worker_client),
+            worker_process,
         }
+    }
+
+    fn eval(&self, source: &str) -> Result<String, McpError> {
+        let mut client = self.worker_client.lock().expect("worker lock poisoned");
+        client
+            .eval(source)
+            .map_err(|e| McpError::internal_error(e, None))
     }
 
     #[tool(description = r#"List available Nushell native commands.
@@ -43,7 +56,7 @@ By default all available commands will be returned. To find a specific command b
             "help commands".to_string()
         };
 
-        self.evaluator.eval(&cmd)
+        self.eval(&cmd)
     }
 
     #[tool(
@@ -54,7 +67,7 @@ By default all available commands will be returned. To find a specific command b
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
     ) -> Result<String, McpError> {
         let cmd = format!("help {name}");
-        self.evaluator.eval(&cmd)
+        self.eval(&cmd)
     }
 
     #[doc = include_str!("evaluate_tool.md")]
@@ -63,7 +76,7 @@ By default all available commands will be returned. To find a specific command b
         &self,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
     ) -> Result<String, McpError> {
-        self.evaluator.eval(&input)
+        self.eval(&input)
     }
 }
 

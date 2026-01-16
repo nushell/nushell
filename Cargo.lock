@@ -4332,6 +4332,7 @@ dependencies = [
  "futures",
  "indoc",
  "nu-cmd-lang",
+ "nu-command",
  "nu-engine",
  "nu-parser",
  "nu-protocol",

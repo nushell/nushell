@@ -465,8 +465,9 @@ fn main() -> Result<()> {
     start_time = std::time::Instant::now();
 
     #[cfg(feature = "mcp")]
-    if parsed_nu_cli_args.mcp {
-        perf!("mcp starting", start_time, use_color);
+    if let Some(socket_path) = parsed_nu_cli_args.mcp_worker {
+        // Run as MCP worker process - this handles actual nushell evaluation
+        perf!("mcp worker starting", start_time, use_color);
         if parsed_nu_cli_args.no_config_file.is_none() {
             let mut stack = nu_protocol::engine::Stack::new();
             config_files::setup_config(
@@ -479,7 +480,15 @@ fn main() -> Result<()> {
                 parsed_nu_cli_args.login_shell.is_some(),
             );
         }
-        nu_mcp::initialize_mcp_server(engine_state)?;
+        nu_mcp::run_mcp_worker(socket_path.item.into(), engine_state)?;
+        return Ok(());
+    }
+
+    #[cfg(feature = "mcp")]
+    if parsed_nu_cli_args.mcp {
+        // Run as MCP server - spawns a worker process for evaluation
+        perf!("mcp starting", start_time, use_color);
+        nu_mcp::initialize_mcp_server()?;
         return Ok(());
     }
 
