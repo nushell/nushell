@@ -99,13 +99,10 @@ fn find_decl_with_alias_resolution(engine_state: &EngineState, name: &[u8]) -> O
         return None;
     }
 
-    // Try to find the full name first
     if let Some(decl_id) = engine_state.find_decl(name, &[]) {
         return Some(decl_id);
     }
 
-    // If not found, try resolving through aliases
-    // Start with the first part
     if let Some(first_decl_id) = engine_state.find_decl(parts[0].as_bytes(), &[]) {
         let first_decl = engine_state.get_decl(first_decl_id);
 
