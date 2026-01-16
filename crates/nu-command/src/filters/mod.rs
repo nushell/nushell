@@ -84,7 +84,7 @@ pub use items::Items;
 pub use join::Join;
 pub use last::Last;
 pub use length::Length;
-pub use lines::Lines;
+pub use lines::{Lines, LinesJoin};
 pub use merge::Merge;
 pub use merge::MergeDeep;
 pub use move_::Move;

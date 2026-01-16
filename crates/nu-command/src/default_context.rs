@@ -67,6 +67,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Last,
             Length,
             Lines,
+            LinesJoin,
             ParEach,
             ChunkBy,
             Prepend,
