@@ -76,7 +76,7 @@ pub fn help_commands(
             name.push_str(&r.item);
         }
 
-        // Try to find the command, resolving through aliases if necessary
+        // Try to find the command, resolving aliases if necessary
         let decl_id = find_decl_with_alias_resolution(engine_state, name.as_bytes());
 
         if let Some(decl) = decl_id {
@@ -91,47 +91,45 @@ pub fn help_commands(
     }
 }
 
-/// Helper function to resolve a command name through aliases, similar to what the parser does
 fn find_decl_with_alias_resolution(engine_state: &EngineState, name: &[u8]) -> Option<DeclId> {
-    // Split the name into parts (e.g., "h get" -> ["h", "get"])
     let name_str = String::from_utf8_lossy(name);
     let parts: Vec<&str> = name_str.split_whitespace().collect();
-    
+
     if parts.is_empty() {
         return None;
     }
-    
+
     // Try to find the full name first
     if let Some(decl_id) = engine_state.find_decl(name, &[]) {
         return Some(decl_id);
     }
-    
+
     // If not found, try resolving through aliases
     // Start with the first part
     if let Some(first_decl_id) = engine_state.find_decl(parts[0].as_bytes(), &[]) {
         let first_decl = engine_state.get_decl(first_decl_id);
-        
+
         // If it's an alias, try to resolve with remaining parts
         if let Some(alias) = first_decl.as_alias()
             && let nu_protocol::ast::Expression {
                 expr: nu_protocol::ast::Expr::Call(call),
                 ..
             } = &alias.wrapped_call
-            {
-                let aliased_decl = engine_state.get_decl(call.decl_id);
-                let aliased_name = aliased_decl.name();
-                
-                // If we have more parts, try to find "aliased_name + remaining parts"
-                if parts.len() > 1 {
-                    let full_name = format!("{} {}", aliased_name, parts[1..].join(" "));
-                    return engine_state.find_decl(full_name.as_bytes(), &[]);
-                } else {
-                    // Just the alias, return the aliased command
-                    return Some(call.decl_id);
-                }
+        {
+            let aliased_decl = engine_state.get_decl(call.decl_id);
+            let aliased_name = aliased_decl.name();
+
+            // If we have more parts, try to find "aliased_name + remaining parts"
+            if parts.len() > 1 {
+                let full_name = format!("{} {}", aliased_name, parts[1..].join(" "));
+                return engine_state.find_decl(full_name.as_bytes(), &[]);
+            } else {
+                // Just the alias, return the aliased command
+                return Some(call.decl_id);
             }
+        }
     }
-    
+
     None
 }
 
