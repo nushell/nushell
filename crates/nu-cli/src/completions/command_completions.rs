@@ -29,6 +29,12 @@ impl CommandCompletion {
 
         let paths = working_set.permanent_state.get_env_var_insensitive("path");
 
+        let pathext = working_set
+            .permanent_state
+            .get_env_var_insensitive("pathext")
+            .and_then(|(_, v)| v.coerce_str().ok())
+            .map(|s| s.to_string());
+
         if let Some((_, paths)) = paths
             && let Ok(paths) = paths.as_list()
         {
@@ -60,11 +66,9 @@ impl CommandCompletion {
                         if external_commands.contains(&value) {
                             continue;
                         }
-                        // TODO: check name matching before a relative heavy IO involved
-                        // `is_executable` for performance consideration, should avoid
-                        // duplicated `match_aux` call for matched items in the future
+
                         if matcher.check_match(&name).is_some()
-                            && is_executable_command(item.path())
+                            && is_executable_command(item.path(), pathext.as_deref())
                         {
                             external_commands.insert(value.clone());
                             matcher.add(
@@ -149,15 +153,31 @@ impl Completer for CommandCompletion {
     }
 }
 
-fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
+fn is_executable_command(path: impl AsRef<std::path::Path>, pathext: Option<&str>) -> bool {
     let path = path.as_ref();
     if is_executable::is_executable(path) {
         return true;
     }
 
     if cfg!(windows) {
-        if let Some(ext) = path.extension() {
-            return ext.eq_ignore_ascii_case("ps1") && path.is_file();
+        if let Some(ext) = path.extension()
+            && let Some(pathext) = pathext
+        {
+            let ext = ext.to_string_lossy();
+            return pathext
+                .split(';')
+                // Filter out empty tokens and ';' at the end
+                .filter(|f| f.len() > 1)
+                .any(|p_ext| {
+                    // Cut off the leading '.' character
+                    let p_ext = if p_ext.starts_with('.') {
+                        &p_ext[1..]
+                    } else {
+                        p_ext
+                    };
+                    ext.eq_ignore_ascii_case(p_ext)
+                })
+                && path.is_file();
         }
     }
 

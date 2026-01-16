@@ -168,6 +168,10 @@ pub fn new_external_engine() -> EngineState {
         "PATH".to_string(),
         Value::list(vec![Value::string(dir_str, span)], span),
     );
+    engine.add_env_var(
+        "PATHEXT".to_string(),
+        Value::string(".COM;.EXE;.BAT;.CMD;.PS1".to_string(), span),
+    );
     engine
 }
 
