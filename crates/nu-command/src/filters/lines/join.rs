@@ -30,7 +30,7 @@ impl Command for LinesJoin {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["join", "concat", "merge", "combine", "newline"]
+        vec!["concat", "merge", "combine", "newline"]
     }
 
     fn run(
