@@ -1187,9 +1187,9 @@ fn truncate_columns_by_interest(
             let left_space = termwidth - width - next_move;
             if left_space > truncate_column_space {
                 let available_space = left_space - truncate_column_space;
-                let additinal_space = min(available_space, width_orig - use_width);
-                use_width += additinal_space;
-                next_move += additinal_space;
+                let additional_space = min(available_space, width_orig - use_width);
+                use_width += additional_space;
+                next_move += additional_space;
             }
         }
 
