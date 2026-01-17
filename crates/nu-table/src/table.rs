@@ -1202,6 +1202,50 @@ fn truncate_columns_by_interest(
         return WidthEstimation::new(widths_original, widths, width, false, false);
     }
 
+    // Before hand we must check if there unsorted 'interesting' columns involved
+    // For example [8, 3]
+    // We DID prioritize 3d column first and then 8th
+    // But we MUST do 8th first and then 3d
+    // Because of this we do reallocation of this space once again.
+    if !interest.is_sorted() {
+        let mut additional_space = 0;
+        for &column in interest {
+            if column >= truncate_pos {
+                continue;
+            }
+
+            let original_width = widths_original[column];
+            let used_width = widths[column];
+            let min_width = min(min_column_width, original_width);
+            let extra_width = used_width - min_width;
+
+            widths[column] -= extra_width;
+            additional_space += extra_width;
+        }
+
+        for &column in interest {
+            if column >= truncate_pos {
+                continue;
+            }
+
+            if additional_space == 0 {
+                break;
+            }
+
+            let original_width = widths_original[column];
+            let used_width = widths[column];
+            if used_width == original_width {
+                continue;
+            }
+
+            let need_width = original_width - used_width;
+            let extra_width = min(additional_space, need_width);
+
+            widths[column] += extra_width;
+            additional_space -= extra_width;
+        }
+    }
+
     let mut available = termwidth - width;
 
     let mut available_space = available;
