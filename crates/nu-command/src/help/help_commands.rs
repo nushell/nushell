@@ -119,7 +119,7 @@ fn find_decl_with_alias_resolution(engine_state: &EngineState, name: &[u8]) -> O
             // If we have more parts, try to find "aliased_name + remaining parts"
             if parts.len() > 1 {
                 let full_name = format!("{} {}", aliased_name, parts[1..].join(" "));
-                return engine_state.find_decl(full_name.as_bytes(), &[]);
+                return find_decl_with_alias_resolution(engine_state, full_name.as_bytes());
             } else {
                 // Just the alias, return the aliased command
                 return Some(call.decl_id);
