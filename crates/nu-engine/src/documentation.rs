@@ -81,11 +81,23 @@ pub fn get_full_help(
         ),
     };
 
-    if !nu_config.use_ansi_coloring.get(engine_state) {
+    let mut final_help = if !nu_config.use_ansi_coloring.get(engine_state) {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
+    };
+
+    if let Some(alias) = command.as_alias()
+        && let Some(command) = &alias.command
+    {
+        let nested_help = get_full_help(command.as_ref(), engine_state, stack);
+        if !nested_help.is_empty() {
+            final_help.push_str("\n\n");
+            final_help.push_str(&nested_help);
+        }
     }
+
+    final_help
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available
