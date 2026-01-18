@@ -1206,29 +1206,29 @@ fn truncate_columns_by_interest(
         let interesting_column = interest
             .iter()
             .find(|column_interest| column_interest.column == i);
-        if let Some(interesting_column) = interesting_column {
-            if use_width < width_orig {
-                // We need to reserve space for truncating column (just in case)
-                let is_last_column = i + 1 == widths_original.len();
-                let truncate_column_space = if is_last_column {
-                    0
-                } else {
-                    trailing_column_width + vertical
-                };
+        if let Some(interesting_column) = interesting_column
+            && use_width < width_orig
+        {
+            // We need to reserve space for truncating column (just in case)
+            let is_last_column = i + 1 == widths_original.len();
+            let truncate_column_space = if is_last_column {
+                0
+            } else {
+                trailing_column_width + vertical
+            };
 
-                let left_space = termwidth - width - next_move;
-                if left_space > truncate_column_space {
-                    let available_space = left_space - truncate_column_space;
-                    let additional_space = min(available_space, width_orig - use_width);
-                    use_width += additional_space;
-                    next_move += additional_space;
+            let left_space = termwidth - width - next_move;
+            if left_space > truncate_column_space {
+                let available_space = left_space - truncate_column_space;
+                let additional_space = min(available_space, width_orig - use_width);
+                use_width += additional_space;
+                next_move += additional_space;
 
-                    if let Some(limit) = interesting_column.limit_width {
-                        if limit < use_width {
-                            use_width = limit;
-                            next_move = limit + border_width;
-                        }
-                    }
+                if let Some(limit) = interesting_column.limit_width
+                    && limit < use_width
+                {
+                    use_width = limit;
+                    next_move = limit + border_width;
                 }
             }
         }
@@ -1280,10 +1280,10 @@ fn truncate_columns_by_interest(
 
             let need_width = original_width - used_width;
             let mut extra_width = min(additional_space, need_width);
-            if let Some(limit) = c.limit_width {
-                if used_width + extra_width > limit {
-                    extra_width = limit - used_width;
-                }
+            if let Some(limit) = c.limit_width
+                && used_width + extra_width > limit
+            {
+                extra_width = limit - used_width;
             }
 
             widths[c.column] += extra_width;
