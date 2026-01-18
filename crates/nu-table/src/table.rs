@@ -283,7 +283,7 @@ impl NuTable {
     }
 
     pub fn set_column_interest(&mut self, columns: Vec<(usize, usize)>) {
-        // Remove all duplicates except the last occurence
+        // Remove all duplicates except the last occurrence
         let mut m = HashSet::with_capacity(columns.len());
         let mut v = Vec::with_capacity(columns.len());
 
