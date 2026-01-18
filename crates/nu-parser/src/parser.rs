@@ -6918,19 +6918,17 @@ pub fn discover_captures_in_expr(
         }
         Expr::Block(block_id) => {
             let block = working_set.get_block(*block_id);
-            // FIXME: is this correct?
-            let results = {
-                let mut seen = vec![];
-                let mut results = vec![];
-                discover_captures_in_closure(
-                    working_set,
-                    block,
-                    &mut seen,
-                    seen_blocks,
-                    &mut results,
-                )?;
-                results
-            };
+            // Blocks should inherit the `seen` from the outer context, unlike closures
+            // which create a fresh scope. This ensures that variables like pattern-match
+            // bindings are visible inside the block body.
+            let mut results = vec![];
+            discover_captures_in_closure(
+                working_set,
+                block,
+                seen, // Pass through the outer `seen`
+                seen_blocks,
+                &mut results,
+            )?;
 
             seen_blocks.insert(*block_id, results.clone());
             for (var_id, span) in results.into_iter() {
@@ -6963,14 +6961,14 @@ pub fn discover_captures_in_expr(
                             }
                         } else {
                             let result = {
-                                let mut seen = vec![];
+                                let mut fresh_seen = vec![];
                                 seen_blocks.insert(block_id, output.clone());
 
                                 let mut result = vec![];
                                 discover_captures_in_closure(
                                     working_set,
                                     block,
-                                    &mut seen,
+                                    &mut fresh_seen,
                                     seen_blocks,
                                     &mut result,
                                 )?;
