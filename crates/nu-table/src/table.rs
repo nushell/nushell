@@ -5,7 +5,10 @@
 // TODO: (not hard) We could properly handle dimension - we already do it for width - just need to do height as well
 // TODO: (need to check) Maybe Vec::with_dimension and insert "Iterators" would be better instead of preallocated Vec<Vec<>> and index.
 
-use std::cmp::{max, min};
+use std::{
+    cmp::{max, min},
+    collections::HashSet,
+};
 
 use nu_ansi_term::Style;
 use nu_color_config::TextStyle;
@@ -52,7 +55,7 @@ pub struct NuTable {
     count_cols: usize,
     styles: Styles,
     config: TableConfig,
-    column_interest: Vec<usize>,
+    column_interest: Vec<ColumnInterest>,
 }
 
 impl NuTable {
@@ -279,8 +282,20 @@ impl NuTable {
         self.config.border_color = None;
     }
 
-    pub fn set_column_interest(&mut self, columns: Vec<usize>) {
-        self.column_interest = columns;
+    pub fn set_column_interest(&mut self, columns: Vec<(usize, usize)>) {
+        // Remove all duplicates except the last occurence
+        let mut m = HashSet::with_capacity(columns.len());
+        let mut v = Vec::with_capacity(columns.len());
+
+        for (col, limit) in columns.into_iter().rev() {
+            if m.insert(col) {
+                v.push(ColumnInterest::new(col, (limit != 0).then_some(limit)));
+            }
+        }
+
+        v.reverse();
+
+        self.column_interest = v;
     }
 
     // NOTE: BE CAREFUL TO KEEP WIDTH UNCHANGED
@@ -338,6 +353,21 @@ impl From<Vec<Vec<Text<String>>>> for NuTable {
 fn table_recalculate_widths(t: &mut NuTable) {
     let pad = indent_sum(t.config.indent);
     t.widths = build_width(&t.data, t.count_cols, t.count_rows, pad);
+}
+
+#[derive(Debug, Clone)]
+pub struct ColumnInterest {
+    pub column: usize,
+    pub limit_width: Option<usize>,
+}
+
+impl ColumnInterest {
+    pub fn new(column: usize, limit_width: Option<usize>) -> Self {
+        Self {
+            column,
+            limit_width,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord, Copy, Hash)]
@@ -843,7 +873,7 @@ fn maybe_truncate_columns(
     widths: Vec<usize>,
     cfg: &TableConfig,
     termwidth: usize,
-    interest: &[usize],
+    interest: &[ColumnInterest],
 ) -> WidthEstimation {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
@@ -1140,7 +1170,7 @@ fn truncate_columns_by_interest(
     theme: &TableTheme,
     pad: usize,
     termwidth: usize,
-    interest: &[usize],
+    interest: &[ColumnInterest],
 ) -> WidthEstimation {
     const MIN_ACCEPTABLE_WIDTH: usize = 10;
     const TERMWIDTH_COLUMN_WIDTH_STEP: usize = 100;
@@ -1164,32 +1194,42 @@ fn truncate_columns_by_interest(
     let mut truncate_pos = 0;
 
     for (i, &width_orig) in widths_original.iter().enumerate() {
+        let border_width = if i > 0 { vertical } else { 0 };
+
         let mut use_width = min(min_column_width, width_orig);
-        let mut next_move = use_width;
-        if i > 0 {
-            next_move += vertical;
-        }
+        let mut next_move = use_width + border_width;
 
         if width + next_move > termwidth {
             break;
         }
 
-        let is_interesting_column = interest.contains(&i);
-        if is_interesting_column && use_width < width_orig {
-            // We need to reserve space for truncating column (just in case)
-            let is_last_column = i + 1 == widths_original.len();
-            let truncate_column_space = if is_last_column {
-                0
-            } else {
-                trailing_column_width + vertical
-            };
+        let interesting_column = interest
+            .iter()
+            .find(|column_interest| column_interest.column == i);
+        if let Some(interesting_column) = interesting_column {
+            if use_width < width_orig {
+                // We need to reserve space for truncating column (just in case)
+                let is_last_column = i + 1 == widths_original.len();
+                let truncate_column_space = if is_last_column {
+                    0
+                } else {
+                    trailing_column_width + vertical
+                };
 
-            let left_space = termwidth - width - next_move;
-            if left_space > truncate_column_space {
-                let available_space = left_space - truncate_column_space;
-                let additional_space = min(available_space, width_orig - use_width);
-                use_width += additional_space;
-                next_move += additional_space;
+                let left_space = termwidth - width - next_move;
+                if left_space > truncate_column_space {
+                    let available_space = left_space - truncate_column_space;
+                    let additional_space = min(available_space, width_orig - use_width);
+                    use_width += additional_space;
+                    next_move += additional_space;
+
+                    if let Some(limit) = interesting_column.limit_width {
+                        if limit < use_width {
+                            use_width = limit;
+                            next_move = limit + border_width;
+                        }
+                    }
+                }
             }
         }
 
@@ -1207,24 +1247,24 @@ fn truncate_columns_by_interest(
     // We DID prioritize 3d column first and then 8th
     // But we MUST do 8th first and then 3d
     // Because of this we do reallocation of this space once again.
-    if !interest.is_sorted() {
+    if !interest.is_sorted_by_key(|i| i.column) {
         let mut additional_space = 0;
-        for &column in interest {
-            if column >= truncate_pos {
+        for c in interest {
+            if c.column >= truncate_pos {
                 continue;
             }
 
-            let original_width = widths_original[column];
-            let used_width = widths[column];
+            let original_width = widths_original[c.column];
+            let used_width = widths[c.column];
             let min_width = min(min_column_width, original_width);
             let extra_width = used_width - min_width;
 
-            widths[column] -= extra_width;
+            widths[c.column] -= extra_width;
             additional_space += extra_width;
         }
 
-        for &column in interest {
-            if column >= truncate_pos {
+        for c in interest {
+            if c.column >= truncate_pos {
                 continue;
             }
 
@@ -1232,16 +1272,21 @@ fn truncate_columns_by_interest(
                 break;
             }
 
-            let original_width = widths_original[column];
-            let used_width = widths[column];
+            let original_width = widths_original[c.column];
+            let used_width = widths[c.column];
             if used_width == original_width {
                 continue;
             }
 
             let need_width = original_width - used_width;
-            let extra_width = min(additional_space, need_width);
+            let mut extra_width = min(additional_space, need_width);
+            if let Some(limit) = c.limit_width {
+                if used_width + extra_width > limit {
+                    extra_width = limit - used_width;
+                }
+            }
 
-            widths[column] += extra_width;
+            widths[c.column] += extra_width;
             additional_space -= extra_width;
         }
     }
@@ -1254,13 +1299,13 @@ fn truncate_columns_by_interest(
     }
 
     if available_space > 0 {
-        for &column in interest {
-            if column >= truncate_pos {
+        for c in interest {
+            if c.column >= truncate_pos {
                 continue;
             }
 
-            let used_width = widths[column];
-            let col_width = widths_original[column];
+            let used_width = widths[c.column];
+            let col_width = widths_original[c.column];
             if used_width == col_width {
                 continue;
             }
@@ -1270,7 +1315,7 @@ fn truncate_columns_by_interest(
 
             available -= take;
             available_space -= take;
-            widths[column] += take;
+            widths[c.column] += take;
             width += take;
 
             if available_space == 0 {

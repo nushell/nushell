@@ -106,7 +106,7 @@ impl Command for Table {
             .switch("icons", "adds icons to ls tables", Some('o'))
             .named(
                 "column-widths",
-                SyntaxShape::List(Box::new(SyntaxShape::Int)),
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
                 "set importance of columns, so more content will be preserved for them",
                 None
             )
@@ -226,7 +226,7 @@ struct TableConfig {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
-    column_widths: Vec<usize>,
+    column_widths: Vec<(usize, usize)>,
 }
 
 impl TableConfig {
@@ -239,7 +239,7 @@ impl TableConfig {
         index: Option<usize>,
         use_ansi_coloring: bool,
         icons: bool,
-        column_widths: Vec<usize>,
+        column_widths: Vec<(usize, usize)>,
     ) -> Self {
         Self {
             view,
@@ -277,7 +277,7 @@ struct CLIArgs {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
-    column_widths: Option<Vec<usize>>,
+    column_widths: Option<Vec<Value>>,
 }
 
 fn parse_table_config(
@@ -288,7 +288,7 @@ fn parse_table_config(
     let args = get_cli_args(call, state, stack)?;
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
-    let column_widths = args.column_widths.unwrap_or_default();
+    let column_widths = parse_column_widths(args.column_widths.unwrap_or_default(), call)?;
 
     let cfg = TableConfig::new(
         table_view,
@@ -349,6 +349,56 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         icons,
         column_widths,
     })
+}
+
+fn parse_column_widths(values: Vec<Value>, call: &Call<'_>) -> ShellResult<Vec<(usize, usize)>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let (column, limit) = match value {
+            Value::Int { val, .. } => (val as usize, 0),
+            Value::Record {
+                val, internal_span, ..
+            } => {
+                let column = match val.get("column") {
+                    Some(value) => value.as_int()? as usize,
+                    None => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: String::from("expected to get \"column\" value"),
+                            input: String::from("value originates from here"),
+                            msg_span: call.span(),
+                            input_span: internal_span,
+                        });
+                    }
+                };
+
+                let limit = match val.get("limit") {
+                    Some(value) => value.as_int()? as usize,
+                    None => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: String::from("expected to get \"limit\" value"),
+                            input: String::from("value originates from here"),
+                            msg_span: call.span(),
+                            input_span: internal_span,
+                        });
+                    }
+                };
+
+                (column, limit)
+            }
+            _ => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: String::from("got unexpected input"),
+                    input: String::from(""),
+                    msg_span: call.span(),
+                    input_span: value.span(),
+                });
+            }
+        };
+
+        out.push((column, limit));
+    }
+
+    Ok(out)
 }
 
 fn get_index_flag(
