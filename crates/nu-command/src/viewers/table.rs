@@ -213,6 +213,16 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
+            Example {
+                description: "Set second column priority higher then others",
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --column-widths [1]"#,
+                result: None,
+            },
+            Example {
+                description: "Set second column priority higher then others and controll its maximum size",
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --column-widths [{column: 1, limit: 100}, {column: 3, limit: 30}]"#,
+                result: None,
+            },
         ]
     }
 }
