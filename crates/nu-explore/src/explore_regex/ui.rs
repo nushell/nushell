@@ -88,11 +88,9 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     }
 
     // Default: pass to text input
-    if is_typable_char(key) {
-        KeyAction::TextInput(Input::from(Event::Key(*key)))
-    } else {
-        KeyAction::None
-    }
+    // Normalize AltGr keys so international keyboard characters work properly
+    let normalized_key = normalize_altgr_key(key);
+    KeyAction::TextInput(Input::from(Event::Key(normalized_key)))
 }
 
 /// Execute a key action, modifying app state.
@@ -162,13 +160,39 @@ fn handle_text_input(app: &mut App, input: Input) {
     }
 }
 
-/// Check if a key event represents a typable character (including AltGr combinations)
-fn is_typable_char(key: &event::KeyEvent) -> bool {
-    matches!(key.code, KeyCode::Char(_))
-        && (key.modifiers.is_empty()
-            || key.modifiers == KeyModifiers::SHIFT
-            || key.modifiers.contains(KeyModifiers::CONTROL | KeyModifiers::ALT)  // AltGr
-            || key.modifiers == KeyModifiers::ALT) // some terminals report AltGr as just ALT
+/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from character keys.
+///
+/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
+/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
+/// `Ctrl+Alt+Char` by crossterm/Windows. However, `tui_textarea` interprets `Ctrl+Alt`
+/// combinations as control sequences rather than character input.
+///
+/// This function detects AltGr patterns and strips the modifiers so that `tui_textarea`
+/// treats them as plain character input, while preserving the Shift modifier for
+/// uppercase variants.
+fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
+    if let KeyCode::Char(_) = key.code {
+        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
+        // Some terminals may report it as just Alt
+        let is_altgr = key
+            .modifiers
+            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            || key.modifiers == KeyModifiers::ALT;
+
+        if is_altgr {
+            // Strip Ctrl+Alt, keep only Shift if present
+            let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
+            return event::KeyEvent::new_with_kind_and_state(
+                key.code,
+                new_modifiers,
+                key.kind,
+                key.state,
+            );
+        }
+    }
+
+    // Return the key unchanged for non-AltGr or non-Char keys
+    *key
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
