@@ -1,7 +1,7 @@
 //! UI drawing functions and application loop for the regex explorer.
 
 use crate::explore_regex::app::{App, InputFocus};
-use crate::explore_regex::colors::styles;
+use crate::explore_regex::colors::{BG_DARK, FG_PRIMARY, styles};
 use crate::explore_regex::quick_ref::QuickRefEntry;
 use ratatui::{
     Terminal,
@@ -26,6 +26,8 @@ use unicode_width::UnicodeWidthStr;
 enum KeyAction {
     Quit,
     ToggleQuickRef,
+    ShowHelp,
+    CloseHelp,
     SwitchFocus,
     FocusRegex,
     QuickRefUp,
@@ -44,6 +46,11 @@ enum KeyAction {
 
 /// Determine the action for a key event based on current app state.
 fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
+    // If help modal is shown, any key closes it
+    if app.show_help {
+        return KeyAction::CloseHelp;
+    }
+
     // Global shortcuts
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('q') {
         return KeyAction::Quit;
@@ -51,6 +58,10 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
 
     if key.code == KeyCode::F(1) {
         return KeyAction::ToggleQuickRef;
+    }
+
+    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('h') {
+        return KeyAction::ShowHelp;
     }
 
     // Quick reference panel navigation
@@ -96,6 +107,8 @@ fn execute_action(app: &mut App, action: KeyAction) -> bool {
     match action {
         KeyAction::Quit => return true,
         KeyAction::ToggleQuickRef => app.toggle_quick_ref(),
+        KeyAction::ShowHelp => app.toggle_help(),
+        KeyAction::CloseHelp => app.show_help = false,
         KeyAction::SwitchFocus => {
             app.input_focus = match app.input_focus {
                 InputFocus::Regex => InputFocus::Sample,
@@ -208,6 +221,10 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
         draw_quick_ref_panel(f, app, chunks[1]);
     } else {
         draw_main_content(f, app, inner_area);
+    }
+
+    if app.show_help {
+        draw_help_modal_overlay(f, app, f.area());
     }
 }
 
@@ -442,6 +459,9 @@ fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
             " Quick Ref"
         }),
         sep.clone(),
+        help_key("Ctrl+h"),
+        help_desc(" Help"),
+        sep.clone(),
         help_key("Ctrl+Q"),
         help_desc(" Exit"),
     ];
@@ -574,4 +594,112 @@ fn draw_scrollbar(f: &mut ratatui::Frame, area: Rect, total: usize, position: us
     };
 
     f.render_stateful_widget(scrollbar, scrollbar_area, &mut state);
+}
+
+// ─── Help Modal Overlay ───────────────────────────────────────────────────────
+
+fn draw_help_modal_overlay(f: &mut ratatui::Frame, _app: &App, area: Rect) {
+    // Define help content
+    let help_lines = vec![
+        "Global Shortcuts",
+        "  Ctrl+Q     Exit",
+        "  Ctrl+h     Toggle Help",
+        "  F1         Toggle Quick Ref",
+        "  Tab        Switch Focus",
+        "  Esc        Focus Regex",
+        "",
+        "Quick Reference Panel (when active)",
+        "  ↑↓ / jk    Navigate",
+        "  ←→ / hl    Scroll",
+        "  Enter      Insert",
+        "  PageUp/PageDown  Page Scroll",
+        "  Home       Scroll to Start",
+        "",
+        "Sample Text Editing",
+        "  PageUp/PageDown  Scroll Page",
+        "",
+        "Press any key to close",
+    ];
+
+    // Calculate required dimensions
+    let content_height = help_lines.len() as u16;
+    let content_width = help_lines
+        .iter()
+        .map(|line| line.width() as u16)
+        .max()
+        .unwrap_or(30);
+
+    // Add padding and borders
+    let modal_width = (content_width + 6).min(area.width - 4);
+    let modal_height = (content_height + 4).min(area.height - 4);
+
+    let modal_x = (area.width - modal_width) / 2;
+    let modal_y = (area.height - modal_height) / 2;
+    let modal_area = Rect::new(modal_x, modal_y, modal_width, modal_height);
+
+    // Modal background style using existing color scheme
+    let modal_bg = Style::default().bg(BG_DARK).fg(FG_PRIMARY);
+
+    // Fill the entire modal area with solid background color by directly writing to buffer
+    // This ensures complete opacity - Clear widget alone doesn't fill with a color
+    let buf = f.buffer_mut();
+    for y in modal_area.y..modal_area.y + modal_area.height {
+        for x in modal_area.x..modal_area.x + modal_area.width {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char(' ');
+                cell.set_style(modal_bg);
+            }
+        }
+    }
+
+    // Modal block
+    let modal_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(styles::border_focused().bg(BG_DARK))
+        .style(modal_bg)
+        .title(Line::from(vec![Span::styled(
+            " Keybindings Help ",
+            styles::focused().bg(BG_DARK),
+        )]))
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(2));
+
+    let inner_area = modal_block.inner(modal_area);
+    f.render_widget(modal_block, modal_area);
+
+    // Convert to styled lines using existing color scheme
+    let help_text: Vec<Line> = help_lines
+        .into_iter()
+        .map(|line| {
+            if line.is_empty() {
+                Line::from(Span::styled(" ", modal_bg))
+            } else if line.starts_with("  ") {
+                // Key-value line
+                let parts: Vec<&str> = line.splitn(2, "  ").collect();
+                if parts.len() == 2 {
+                    Line::from(vec![
+                        Span::styled(parts[0].trim_end(), styles::focused().bg(BG_DARK)),
+                        Span::styled(" ", modal_bg),
+                        Span::styled(parts[1], styles::modal_desc().bg(BG_DARK)),
+                    ])
+                } else {
+                    Line::from(vec![Span::styled(line, styles::modal_desc().bg(BG_DARK))])
+                }
+            } else {
+                // Header
+                Line::from(vec![Span::styled(
+                    line,
+                    styles::category_header().bg(BG_DARK),
+                )])
+            }
+        })
+        .collect();
+
+    let paragraph = Paragraph::new(help_text)
+        .style(modal_bg)
+        .wrap(ratatui::widgets::Wrap { trim: false })
+        .scroll((0, 0));
+
+    f.render_widget(paragraph, inner_area);
 }

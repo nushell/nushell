@@ -31,6 +31,7 @@ pub struct App<'a> {
     pub match_count: usize,
     // Quick reference panel state
     pub show_quick_ref: bool,
+    pub show_help: bool,
     pub quick_ref_selected: usize,
     pub quick_ref_scroll: usize,
     pub quick_ref_scroll_h: u16,
@@ -63,6 +64,7 @@ impl<'a> App<'a> {
             sample_view_height: 0,
             match_count: 0,
             show_quick_ref: false,
+            show_help: false,
             quick_ref_selected: initial_selected,
             quick_ref_scroll: 0,
             quick_ref_scroll_h: 0,
@@ -195,6 +197,11 @@ impl<'a> App<'a> {
     pub fn close_quick_ref(&mut self) {
         self.show_quick_ref = false;
         self.input_focus = InputFocus::Regex;
+    }
+
+    /// Toggle the help modal visibility.
+    pub fn toggle_help(&mut self) {
+        self.show_help = !self.show_help;
     }
 
     /// Move selection up in the quick reference list.
