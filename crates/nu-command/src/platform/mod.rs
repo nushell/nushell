@@ -7,6 +7,8 @@ mod sleep;
 mod term;
 #[cfg(unix)]
 mod ulimit;
+#[cfg(unix)]
+mod umask_;
 mod whoami;
 
 pub use clear::Clear;
@@ -20,4 +22,6 @@ pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
 #[cfg(unix)]
 pub use ulimit::ULimit;
+#[cfg(unix)]
+pub use umask_::UMask;
 pub use whoami::Whoami;
