@@ -88,7 +88,11 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     }
 
     // Default: pass to text input
-    KeyAction::TextInput(Input::from(Event::Key(*key)))
+    if is_typable_char(key) {
+        KeyAction::TextInput(Input::from(Event::Key(*key)))
+    } else {
+        KeyAction::None
+    }
 }
 
 /// Execute a key action, modifying app state.
@@ -156,6 +160,15 @@ fn handle_text_input(app: &mut App, input: Input) {
         }
         InputFocus::QuickRef => {}
     }
+}
+
+/// Check if a key event represents a typable character (including AltGr combinations)
+fn is_typable_char(key: &event::KeyEvent) -> bool {
+    matches!(key.code, KeyCode::Char(_))
+        && (key.modifiers.is_empty()
+            || key.modifiers == KeyModifiers::SHIFT
+            || key.modifiers.contains(KeyModifiers::CONTROL | KeyModifiers::ALT)  // AltGr
+            || key.modifiers == KeyModifiers::ALT) // some terminals report AltGr as just ALT
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
