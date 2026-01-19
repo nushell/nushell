@@ -87,10 +87,8 @@ pub fn get_full_help(
         long_desc
     };
 
-    if let Some(alias) = command.as_alias()
-        && let Some(command) = &alias.command
-    {
-        let nested_help = get_full_help(command.as_ref(), engine_state, stack);
+    if let Some(cmd) = command.as_alias().and_then(|alias| alias.command.as_ref()) {
+        let nested_help = get_full_help(cmd.as_ref(), engine_state, stack);
         if !nested_help.is_empty() {
             final_help.push_str("\n\n");
             final_help.push_str(&nested_help);
