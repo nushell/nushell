@@ -250,11 +250,17 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::OnError { index } => {
                 write!(f, "{:WIDTH$} {index}", "on-error")
             }
+            Instruction::FinallyRun { index } => {
+                write!(f, "{:WIDTH$} {index}", "finally")
+            }
             Instruction::OnErrorInto { index, dst } => {
                 write!(f, "{:WIDTH$} {index}, {dst}", "on-error-into")
             }
             Instruction::PopErrorHandler => {
                 write!(f, "{:WIDTH$}", "pop-error-handler")
+            }
+            Instruction::PopFinallyRun=> {
+                write!(f, "{:WIDTH$}", "pop-finally")
             }
             Instruction::ReturnEarly { src } => {
                 write!(f, "{:WIDTH$} {src}", "return-early")

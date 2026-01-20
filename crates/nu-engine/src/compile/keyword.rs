@@ -437,6 +437,10 @@ pub(crate) fn compile_try(
             closure_reg: RegId,
         },
     }
+    let has_finally = finally_expr.is_some();
+    if has_finally {
+        builder.push(Instruction::FinallyRun {index: end_label.0}.into_spanned(call.head))?;
+    }
 
     let catch_type = catch_expr
         .map(|catch_expr| match catch_expr.as_block() {
@@ -585,6 +589,9 @@ pub(crate) fn compile_try(
             // Just set out to empty.
             builder.load_empty(io_reg)?;
         }
+    }
+    if finally_expr.is_some() {
+        builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
     }
 
     // This is the end - whatever we succeeded or not, should jump here for finally clause.

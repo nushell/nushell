@@ -250,9 +250,11 @@ pub enum Instruction {
     /// Push an error handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
     OnErrorInto { index: usize, dst: RegId },
+    FinallyRun { index: usize },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
+    PopFinallyRun,
     /// Return early from the block, raising a `ShellError::Return` instead.
     ///
     /// Collecting the value is unavoidable.
@@ -327,8 +329,10 @@ impl Instruction {
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,
+            Instruction::FinallyRun{ .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::PopErrorHandler => None,
+            Instruction::PopFinallyRun => None,
             Instruction::ReturnEarly { .. } => None,
             Instruction::Return { .. } => None,
         }
@@ -353,6 +357,7 @@ impl Instruction {
             } => Some(*end_index),
             Instruction::OnError { index } => Some(*index),
             Instruction::OnErrorInto { index, dst: _ } => Some(*index),
+            Instruction::FinallyRun{ index } => Some(*index),
             _ => None,
         }
     }
@@ -378,6 +383,7 @@ impl Instruction {
             } => *end_index = target_index,
             Instruction::OnError { index } => *index = target_index,
             Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
+            Instruction::FinallyRun{ index } => *index = target_index,
             _ => return Err(target_index),
         }
         Ok(())
