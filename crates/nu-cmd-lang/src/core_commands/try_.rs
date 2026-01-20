@@ -18,15 +18,44 @@ impl Command for Try {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required("try_block", SyntaxShape::Block, "Block to run.")
             .optional(
-                "catch_closure",
-                SyntaxShape::Keyword(
-                    b"catch".to_vec(),
-                    Box::new(SyntaxShape::OneOf(vec![
-                        SyntaxShape::Closure(None),
-                        SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    ])),
-                ),
+                "catch",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Keyword(
+                        b"catch".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                    SyntaxShape::Keyword(
+                        b"finally".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                ]),
                 "Closure to run if try block fails.",
+            )
+            .optional(
+                "finally",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Keyword(
+                        b"catch".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                    SyntaxShape::Keyword(
+                        b"finally".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                ]),
+                "Closure to run anyway",
             )
             .category(Category::Core)
     }

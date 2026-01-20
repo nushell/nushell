@@ -71,6 +71,13 @@ impl Expression {
         }
     }
 
+    pub fn as_keyword_with_name(&self) -> Option<(&[u8], &Expression)> {
+        match &self.expr {
+            Expr::Keyword(kw) => Some((&kw.keyword, &kw.expr)),
+            _ => None,
+        }
+    }
+
     pub fn as_var(&self) -> Option<VarId> {
         match self.expr {
             Expr::Var(var_id) => Some(var_id),

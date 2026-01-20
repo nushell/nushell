@@ -396,10 +396,31 @@ pub(crate) fn compile_try(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    let catch_expr = match call.positional_nth(1) {
-        Some(kw_expr) => Some(kw_expr.as_keyword().ok_or_else(invalid)?),
-        None => None,
+    // manually parsing for `catch` or `finally`.
+    let mut catch_expr = None;
+    let mut finally_expr = None;
+    if let Some(kw_expr) = call.positional_nth(1) {
+        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
+        if keyword == b"catch" {
+            catch_expr = Some(expr);
+        } else if keyword == b"finally" {
+            finally_expr = Some(expr);
+        }
     };
+    if let Some(kw_expr) = call.positional_nth(2) {
+        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
+        if keyword == b"catch" {
+            // just deny it.
+            return Err(invalid());
+        } else if keyword == b"finally" {
+            // deny duplicate finally.
+            if finally_expr.is_some() {
+                return Err(invalid());
+            }
+            finally_expr = Some(expr);
+        }
+    };
+
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     let err_label = builder.label(None);
