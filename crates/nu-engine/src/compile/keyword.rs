@@ -410,7 +410,7 @@ pub(crate) fn compile_try(
     if let Some(kw_expr) = call.positional_nth(2) {
         let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
         if keyword == b"catch" {
-            // just deny it.
+            // just deny it, because it should only be valid in 1st positional arguments.
             return Err(invalid());
         } else if keyword == b"finally" {
             // deny duplicate finally.
@@ -542,7 +542,7 @@ pub(crate) fn compile_try(
                 working_set,
                 builder,
                 block,
-                redirect_modes,
+                redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
             )?;
@@ -587,8 +587,25 @@ pub(crate) fn compile_try(
         }
     }
 
-    // This is the end - if we succeeded, should jump here
+    // This is the end - whatever we succeeded or not, should jump here for finally clause.
     builder.set_label(end_label, builder.here())?;
+    // This is the finally part.
+    if let Some(finally_expr) = finally_expr {
+        match finally_expr.as_block() {
+            Some(block_id) => {
+                let block = working_set.get_block(block_id);
+                compile_block(
+                    working_set,
+                    builder,
+                    block,
+                    redirect_modes,
+                    Some(io_reg),
+                    io_reg,
+                )?;
+            }
+            None => return Err(invalid()),
+        };
+    }
 
     Ok(())
 }
