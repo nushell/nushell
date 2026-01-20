@@ -99,7 +99,9 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     }
 
     // Default: pass to text input
-    KeyAction::TextInput(Input::from(Event::Key(*key)))
+    // Normalize AltGr keys so international keyboard characters work properly
+    let normalized_key = normalize_altgr_key(key);
+    KeyAction::TextInput(Input::from(Event::Key(normalized_key)))
 }
 
 /// Execute a key action, modifying app state.
@@ -169,6 +171,57 @@ fn handle_text_input(app: &mut App, input: Input) {
         }
         InputFocus::QuickRef => {}
     }
+}
+
+/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
+///
+/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
+/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
+/// `Ctrl+Alt+Char` by crossterm/Windows. However, `tui_textarea` interprets `Ctrl+Alt`
+/// combinations as control sequences rather than character input.
+///
+/// To distinguish between AltGr character input and intentional keybindings:
+/// - ASCII letters (a-z, A-Z) with Ctrl+Alt or Alt are treated as keybindings
+///   (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head)
+/// - Non-alphabetic characters with Ctrl+Alt or Alt are treated as AltGr input
+///   (e.g., AltGr+[ to type `[`, AltGr+{ to type `{`)
+///
+/// This heuristic works because:
+/// 1. All tui_textarea Alt/Ctrl+Alt keybindings use letters (f, b, h, d, n, p, v, etc.)
+/// 2. AltGr typically produces symbols/punctuation, not letters
+fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
+    if let KeyCode::Char(c) = key.code {
+        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
+        // Some terminals may report it as just Alt
+        let has_altgr_modifiers = key
+            .modifiers
+            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            || key.modifiers == KeyModifiers::ALT;
+
+        if has_altgr_modifiers {
+            // Only treat as AltGr character input if it's NOT an ASCII letter.
+            // ASCII letters with Alt/Ctrl+Alt are likely intentional keybindings
+            // (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head).
+            // Symbols/punctuation with Ctrl+Alt are likely AltGr character input
+            // (e.g., AltGr+ü for [ on Swiss German keyboard).
+            if !c.is_ascii_alphabetic() {
+                // Strip Ctrl+Alt, keep only Shift if present
+                let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
+                return event::KeyEvent::new_with_kind_and_state(
+                    key.code,
+                    new_modifiers,
+                    key.kind,
+                    key.state,
+                );
+            }
+        }
+    }
+
+    // Return the key unchanged for:
+    // - Non-Char keys (Backspace, Delete, arrows, etc.)
+    // - ASCII letters with Alt/Ctrl+Alt (keybindings)
+    // - Characters without Alt modifiers (regular typing)
+    *key
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
