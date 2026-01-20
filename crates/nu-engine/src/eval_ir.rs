@@ -205,6 +205,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
+    let mut ret_val = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -230,11 +231,17 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
+            Ok(InstructionResult::Return(reg_id)) => {
+                match ret_val {
+                    Some(err) => return Err(err),
+                    None => return Ok(ctx.take_reg(reg_id))
+                }
+            }
+            Err(err @ (ShellError::Continue{..} | ShellError::Break{..})) => {
+                return Err(err);
+            }
             Err(
-                err @ (ShellError::Return { .. }
-                | ShellError::Continue { .. }
-                | ShellError::Break { .. }),
+                err @ ShellError::Return {..}
             ) => {
                 if let Some(always_run_handler) = ctx
                     .stack
@@ -243,6 +250,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                 {
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
                 } else {
                     // These block control related errors should be passed through
                     return Err(err);
