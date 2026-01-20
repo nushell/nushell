@@ -1,3 +1,4 @@
+use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
 use uucore::mode::get_umask;
 
@@ -18,14 +19,7 @@ impl Command for UMask {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec![
-            "mask",
-            "permissions",
-            "create",
-            "file",
-            "directory",
-            "folder",
-        ]
+        vec!["permissions", "create", "file", "directory", "folder"]
     }
 
     fn signature(&self) -> Signature {
@@ -59,7 +53,7 @@ impl Command for UMask {
 
             // The `umask` syscall wants the bits to mask *out*, not *in*, so
             // the mask needs inverted before passing it in.
-            let mask_bits = 0o777 ^ u32::from(perms);
+            let mask_bits = 0o777 ^ mode_t::from(perms);
 
             let mask =
                 nix::sys::stat::Mode::from_bits(mask_bits).ok_or(ShellError::IncorrectValue {
@@ -72,7 +66,7 @@ impl Command for UMask {
 
             nix::sys::stat::umask(mask).bits()
         } else {
-            get_umask()
+            get_umask() as mode_t
         };
 
         // The `umask` syscall wants the bits to mask *out*, not *in*, so
@@ -90,7 +84,7 @@ impl Command for UMask {
                 result: None,
             },
             Example {
-                description: "Make new files read-only to group and inaccessable to others.",
+                description: "Make new files read-only to group and inaccessible to others.",
                 example: "umask rwxr-x---",
                 result: None,
             },
