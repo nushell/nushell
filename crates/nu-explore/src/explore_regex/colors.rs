@@ -12,6 +12,7 @@ pub const WARNING: Color = Color::Yellow;
 pub const BG_DARK: Color = Color::Black;
 pub const FG_PRIMARY: Color = Color::Reset; // Uses terminal default
 pub const FG_MUTED: Color = Color::DarkGray;
+pub const FG_LIGHT: Color = Color::Gray; // Brighter than muted, for modal descriptions
 
 // Highlight colors for regex matches as an array for easy iteration
 pub const HIGHLIGHT_COLORS: &[Color] = &[
@@ -126,5 +127,10 @@ pub mod styles {
     /// Border style for unfocused panels
     pub fn border_unfocused() -> Style {
         Style::new().fg(FG_MUTED)
+    }
+
+    /// Style for modal help description text (brighter than separator)
+    pub fn modal_desc() -> Style {
+        Style::new().fg(FG_LIGHT)
     }
 }
