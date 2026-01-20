@@ -108,6 +108,7 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
+    /// Base index on the finally handler stack to reset to after a call
     finally_handler_base: usize,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
@@ -232,6 +233,8 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
+                // need to check if the return value is set by
+                // `Shell::Return` first.  If so, we need to return the `Shell::Return`.
                 match ret_val {
                     Some(err) => return Err(err),
                     None => return Ok(ctx.take_reg(reg_id))
@@ -248,6 +251,8 @@ fn eval_ir_block_impl<D: DebugContext>(
                     .finally_run_handlers
                     .pop(ctx.finally_handler_base)
                 {
+                    // need to run finally block before return.
+                    // and record the return value firstly.
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
                     ret_val = Some(err);
