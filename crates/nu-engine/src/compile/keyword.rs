@@ -438,9 +438,6 @@ pub(crate) fn compile_try(
         },
     }
     let has_finally = finally_expr.is_some();
-    if has_finally {
-        builder.push(Instruction::FinallyRun {index: end_label.0}.into_spanned(call.head))?;
-    }
 
     let catch_type = catch_expr
         .map(|catch_expr| match catch_expr.as_block() {
@@ -483,6 +480,9 @@ pub(crate) fn compile_try(
     builder.begin_try();
 
     builder.add_comment("try");
+    if has_finally {
+        builder.push(Instruction::FinallyInto {index: end_label.0}.into_spanned(call.head))?;
+    }
 
     // Compile the block
     compile_block(
