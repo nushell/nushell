@@ -2432,6 +2432,97 @@ fn local_variable_completion() {
 }
 
 #[test]
+fn unlet_variable_current_stack_not_in_completions() {
+    // Test that variables deleted with `unlet` in the current stack
+    // are not available for tab completion
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    // Define a variable
+    let command = b"let myvar = 123";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Verify myvar IS available before unlet
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let suggestions = completer.complete("$my", 3);
+    assert!(
+        suggestions.iter().any(|s| s.value == "$myvar"),
+        "Expected $myvar to be in completions before unlet"
+    );
+
+    // Unlet the variable
+    let command = b"unlet $myvar";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Verify myvar is NOT available after unlet
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete("$my", 3);
+    assert!(
+        !suggestions.iter().any(|s| s.value == "$myvar"),
+        "Expected $myvar to NOT be in completions after unlet"
+    );
+}
+
+#[test]
+fn unlet_variable_parent_stack_not_in_completions() {
+    use nu_protocol::engine::Stack;
+
+    // Test that variables deleted with `unlet` in the parent stack
+    // are not available for tab completion in a child stack
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    // Define a variable in the parent stack
+    let command = b"let myvar = 123";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Unlet the variable (this adds the var_id to stack.deletions)
+    let command = b"unlet $myvar";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Create a child stack from the parent
+    let child_stack = Stack::with_parent(Arc::new(stack));
+
+    // Verify myvar is NOT available in child stack completions
+    // (the parent's deletions should be propagated via parent_deletions check)
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(child_stack));
+    let suggestions = completer.complete("$my", 3);
+    assert!(
+        !suggestions.iter().any(|s| s.value == "$myvar"),
+        "Expected $myvar to NOT be in completions in child stack after parent unlet"
+    );
+}
+
+#[test]
+fn unlet_variable_grandparent_stack_not_in_completions() {
+    use nu_protocol::engine::Stack;
+
+    // Test that variables deleted with `unlet` in a grandparent stack
+    // are not available for tab completion in a grandchild stack
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    // Define a variable in the grandparent stack
+    let command = b"let myvar = 123";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Unlet the variable in grandparent
+    let command = b"unlet $myvar";
+    assert!(support::merge_input(command, &mut engine, &mut stack).is_ok());
+
+    // Create a child stack (parent level)
+    let child_stack = Stack::with_parent(Arc::new(stack));
+
+    // Create a grandchild stack
+    let grandchild_stack = Stack::with_parent(Arc::new(child_stack));
+
+    // Verify myvar is NOT available in grandchild stack completions
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(grandchild_stack));
+    let suggestions = completer.complete("$my", 3);
+    assert!(
+        !suggestions.iter().any(|s| s.value == "$myvar"),
+        "Expected $myvar to NOT be in completions in grandchild stack after grandparent unlet"
+    );
+}
+
+#[test]
 fn record_cell_path_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;

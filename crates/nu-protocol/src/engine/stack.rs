@@ -52,6 +52,8 @@ pub struct Stack {
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
     pub parent_deletions: Vec<VarId>,
+    /// Variables deleted in this stack
+    pub deletions: Vec<VarId>,
     /// Locally updated config. Use [`.get_config()`](Self::get_config) to access correctly.
     pub config: Option<Arc<Config>>,
     pub(crate) out_dest: StackOutDest,
@@ -82,6 +84,7 @@ impl Stack {
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
+            deletions: vec![],
             config: None,
             out_dest: StackOutDest::new(),
         }
@@ -102,6 +105,7 @@ impl Stack {
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
+            deletions: vec![],
             config: parent.config.clone(),
             out_dest: parent.out_dest.clone(),
             parent_stack: Some(parent),
@@ -249,6 +253,7 @@ impl Stack {
         if self.parent_stack.is_some() {
             self.parent_deletions.push(var_id);
         }
+        self.deletions.push(var_id);
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
@@ -318,6 +323,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
@@ -351,6 +357,7 @@ impl Stack {
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
+            deletions: vec![],
             config: self.config.clone(),
             out_dest: self.out_dest.clone(),
         }
