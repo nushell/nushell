@@ -365,6 +365,7 @@ pub(crate) fn compile_try(
     // Pseudocode (literal block):
     //
     //       on-error-into ERR, %io_reg           // or without
+    //       finally-into  FINALLY
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler
@@ -372,12 +373,14 @@ pub(crate) fn compile_try(
     // ERR:  clone %err_reg, %io_reg
     //       store-variable $err_var, %err_reg         // or without
     //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
+    //       pop-finally
     // END:
     //
     // with expression that can't be inlined:
     //
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
+    //       finally-into  FINALLY
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler
@@ -386,6 +389,7 @@ pub(crate) fn compile_try(
     //       push-positional %closure_reg
     //       push-positional %err_reg
     //       call "do", %io_reg
+    //       pop-finally
     // END:
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "try".into(),
@@ -481,7 +485,7 @@ pub(crate) fn compile_try(
 
     builder.add_comment("try");
     if has_finally {
-        builder.push(Instruction::FinallyInto {index: end_label.0}.into_spanned(call.head))?;
+        builder.push(Instruction::FinallyInto { index: end_label.0 }.into_spanned(call.head))?;
     }
 
     // Compile the block
