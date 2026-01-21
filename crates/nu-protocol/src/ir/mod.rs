@@ -258,7 +258,7 @@ pub enum Instruction {
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
-    /// bb
+    /// Pop an finally handler.
     PopFinallyRun,
     /// Return early from the block, raising a `ShellError::Return` instead.
     ///

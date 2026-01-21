@@ -287,8 +287,8 @@ fn finally_should_run_before_return() {
 }
 
 #[test]
-fn retrun_statement_in_finally_should_be_used() {
-    // finally should run after return.
+fn return_statement_in_finally_should_be_used() {
+    // finally should run before return.
     let actual = nu!("def aa [] { try { return 3 } finally { return 4 } }; let x = aa; $x == 4");
     assert!(actual.out.contains("true"));
 }
