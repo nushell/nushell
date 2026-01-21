@@ -302,3 +302,15 @@ fn try_finally_with_variable() {
     let actual = nu!("try { 3 } finally {|x| $x == 3 }");
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn catch_finally_with_variable() {
+    // try catch with finally
+    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| $x == 33}");
+    assert_eq!(actual.out, "true");
+
+    let actual = nu!(
+        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}"
+    );
+    assert_eq!(actual.out, "true");
+}
