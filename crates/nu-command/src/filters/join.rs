@@ -143,6 +143,15 @@ impl Command for Join {
                     "x_b" => Value::test_int(30),
                 })])),
             },
+            Example {
+                description: "Join multiple tables with a prefix for the right table's columns",
+                example: "[{id: 1 x: 10}] | join --prefix r_ [{id: 1 x: 20}] id",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "id" => Value::test_int(1),
+                    "x" => Value::test_int(10),
+                    "r_x" => Value::test_int(20),
+                })])),
+            },
         ]
     }
 }
