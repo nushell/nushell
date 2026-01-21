@@ -252,6 +252,8 @@ pub enum Instruction {
     OnErrorInto { index: usize, dst: RegId },
     /// aa
     Finally { index: usize },
+    /// aa
+    FinallyInto { index: usize, dst: RegId },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
@@ -333,6 +335,7 @@ impl Instruction {
             Instruction::OnError { .. } => None,
             Instruction::Finally { .. } => None,
             Instruction::OnErrorInto { .. } => None,
+            Instruction::FinallyInto { .. } => None,
             Instruction::PopErrorHandler => None,
             Instruction::PopFinallyRun => None,
             Instruction::ReturnEarly { .. } => None,
@@ -360,6 +363,7 @@ impl Instruction {
             Instruction::OnError { index } => Some(*index),
             Instruction::OnErrorInto { index, dst: _ } => Some(*index),
             Instruction::Finally { index } => Some(*index),
+            Instruction::FinallyInto { index, dst: _ } => Some(*index),
             _ => None,
         }
     }
@@ -386,6 +390,7 @@ impl Instruction {
             Instruction::OnError { index } => *index = target_index,
             Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
             Instruction::Finally { index } => *index = target_index,
+            Instruction::FinallyInto { index, dst: _ } => *index = target_index,
             _ => return Err(target_index),
         }
         Ok(())

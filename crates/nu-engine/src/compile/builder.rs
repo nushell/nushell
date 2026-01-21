@@ -283,6 +283,7 @@ impl BlockBuilder {
             Instruction::OnError { index: _ } => Ok(()),
             Instruction::Finally { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
+            Instruction::FinallyInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
             Instruction::PopFinallyRun => Ok(()),
             Instruction::ReturnEarly { src } => allocate(&[*src], &[]),

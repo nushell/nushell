@@ -253,6 +253,9 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::Finally { index } => {
                 write!(f, "{:WIDTH$} {index}", "finally")
             }
+            Instruction::FinallyInto { index, dst } => {
+                write!(f, "{:WIDTH$} {index}, {dst}", "finally-into")
+            }
             Instruction::OnErrorInto { index, dst } => {
                 write!(f, "{:WIDTH$} {index}, {dst}", "on-error-into")
             }

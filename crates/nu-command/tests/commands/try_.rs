@@ -292,3 +292,13 @@ fn retrun_statement_in_finally_should_be_used() {
     let actual = nu!("def aa [] { try { return 3 } finally { return 4 } }; let x = aa; $x == 4");
     assert!(actual.out.contains("true"));
 }
+
+#[test]
+fn try_finally_with_variable() {
+    // try failed with finally
+    let actual = nu!("try { 1 / 0 } finally {|x| $x.msg }");
+    assert_eq!(actual.out, "Division by zero.");
+
+    let actual = nu!("try { 3 } finally {|x| $x == 3 }");
+    assert_eq!(actual.out, "true");
+}

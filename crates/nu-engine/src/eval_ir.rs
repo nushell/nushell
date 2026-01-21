@@ -265,7 +265,7 @@ fn eval_ir_block_impl<D: DebugContext>(
                 } else if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    prepare_error_handler(ctx, always_run_handler, None);
+                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
                     pc = always_run_handler.handler_index;
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
@@ -923,6 +923,13 @@ fn eval_instruction<D: DebugContext>(
             ctx.stack.finally_run_handlers.push(ErrorHandler {
                 handler_index: *index,
                 error_register: None,
+            });
+            Ok(Continue)
+        }
+        Instruction::FinallyInto { index, dst } => {
+            ctx.stack.finally_run_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_register: Some(*dst),
             });
             Ok(Continue)
         }
