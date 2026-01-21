@@ -1,7 +1,7 @@
 //! UI drawing functions and application loop for the regex explorer.
 
 use crate::explore_regex::app::{App, InputFocus};
-use crate::explore_regex::colors::styles;
+use crate::explore_regex::colors::{BG_DARK, FG_PRIMARY, styles};
 use crate::explore_regex::quick_ref::QuickRefEntry;
 use ratatui::{
     Terminal,
@@ -26,6 +26,8 @@ use unicode_width::UnicodeWidthStr;
 enum KeyAction {
     Quit,
     ToggleQuickRef,
+    ShowHelp,
+    CloseHelp,
     SwitchFocus,
     FocusRegex,
     QuickRefUp,
@@ -44,6 +46,11 @@ enum KeyAction {
 
 /// Determine the action for a key event based on current app state.
 fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
+    // If help modal is shown, any key closes it
+    if app.show_help {
+        return KeyAction::CloseHelp;
+    }
+
     // Global shortcuts
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('q') {
         return KeyAction::Quit;
@@ -51,6 +58,10 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
 
     if key.code == KeyCode::F(1) {
         return KeyAction::ToggleQuickRef;
+    }
+
+    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('h') {
+        return KeyAction::ShowHelp;
     }
 
     // Quick reference panel navigation
@@ -88,7 +99,9 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     }
 
     // Default: pass to text input
-    KeyAction::TextInput(Input::from(Event::Key(*key)))
+    // Normalize AltGr keys so international keyboard characters work properly
+    let normalized_key = normalize_altgr_key(key);
+    KeyAction::TextInput(Input::from(Event::Key(normalized_key)))
 }
 
 /// Execute a key action, modifying app state.
@@ -96,6 +109,8 @@ fn execute_action(app: &mut App, action: KeyAction) -> bool {
     match action {
         KeyAction::Quit => return true,
         KeyAction::ToggleQuickRef => app.toggle_quick_ref(),
+        KeyAction::ShowHelp => app.toggle_help(),
+        KeyAction::CloseHelp => app.show_help = false,
         KeyAction::SwitchFocus => {
             app.input_focus = match app.input_focus {
                 InputFocus::Regex => InputFocus::Sample,
@@ -158,6 +173,57 @@ fn handle_text_input(app: &mut App, input: Input) {
     }
 }
 
+/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
+///
+/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
+/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
+/// `Ctrl+Alt+Char` by crossterm/Windows. However, `tui_textarea` interprets `Ctrl+Alt`
+/// combinations as control sequences rather than character input.
+///
+/// To distinguish between AltGr character input and intentional keybindings:
+/// - ASCII letters (a-z, A-Z) with Ctrl+Alt or Alt are treated as keybindings
+///   (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head)
+/// - Non-alphabetic characters with Ctrl+Alt or Alt are treated as AltGr input
+///   (e.g., AltGr+[ to type `[`, AltGr+{ to type `{`)
+///
+/// This heuristic works because:
+/// 1. All tui_textarea Alt/Ctrl+Alt keybindings use letters (f, b, h, d, n, p, v, etc.)
+/// 2. AltGr typically produces symbols/punctuation, not letters
+fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
+    if let KeyCode::Char(c) = key.code {
+        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
+        // Some terminals may report it as just Alt
+        let has_altgr_modifiers = key
+            .modifiers
+            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            || key.modifiers == KeyModifiers::ALT;
+
+        if has_altgr_modifiers {
+            // Only treat as AltGr character input if it's NOT an ASCII letter.
+            // ASCII letters with Alt/Ctrl+Alt are likely intentional keybindings
+            // (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head).
+            // Symbols/punctuation with Ctrl+Alt are likely AltGr character input
+            // (e.g., AltGr+ü for [ on Swiss German keyboard).
+            if !c.is_ascii_alphabetic() {
+                // Strip Ctrl+Alt, keep only Shift if present
+                let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
+                return event::KeyEvent::new_with_kind_and_state(
+                    key.code,
+                    new_modifiers,
+                    key.kind,
+                    key.state,
+                );
+            }
+        }
+    }
+
+    // Return the key unchanged for:
+    // - Non-Char keys (Backspace, Delete, arrows, etc.)
+    // - ASCII letters with Alt/Ctrl+Alt (keybindings)
+    // - Characters without Alt modifiers (regular typing)
+    *key
+}
+
 // ─── Main Loop ───────────────────────────────────────────────────────────────
 
 pub fn run_app_loop(
@@ -208,6 +274,10 @@ fn draw_ui(f: &mut ratatui::Frame, app: &mut App) {
         draw_quick_ref_panel(f, app, chunks[1]);
     } else {
         draw_main_content(f, app, inner_area);
+    }
+
+    if app.show_help {
+        draw_help_modal_overlay(f, app, f.area());
     }
 }
 
@@ -442,6 +512,9 @@ fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
             " Quick Ref"
         }),
         sep.clone(),
+        help_key("Ctrl+h"),
+        help_desc(" Help"),
+        sep.clone(),
         help_key("Ctrl+Q"),
         help_desc(" Exit"),
     ];
@@ -574,4 +647,126 @@ fn draw_scrollbar(f: &mut ratatui::Frame, area: Rect, total: usize, position: us
     };
 
     f.render_stateful_widget(scrollbar, scrollbar_area, &mut state);
+}
+
+// ─── Help Modal Overlay ───────────────────────────────────────────────────────
+
+fn draw_help_modal_overlay(f: &mut ratatui::Frame, _app: &App, area: Rect) {
+    // Define help content
+    let help_lines = vec![
+        "Global Shortcuts",
+        "  Ctrl+Q       Exit",
+        "  Ctrl+h       Toggle Help",
+        "  F1           Toggle Quick Ref",
+        "  Tab          Switch Focus",
+        "  Esc          Focus Regex",
+        "",
+        "Quick Reference Panel",
+        "  ↑↓ / jk      Navigate",
+        "  ←→ / hl      Scroll",
+        "  Enter        Insert",
+        "  PgUp/PgDn    Page Scroll",
+        "  Home         Scroll to Start",
+        "",
+        "Regex Pattern Pane",
+        "  ←→↑↓                  Move cursor",
+        "  Shift+←→              Select text",
+        "  Ctrl+F/B              Forward/Back char",
+        "  Ctrl+A/E              Line head/end",
+        "  Alt+F/B               Forward/Back word",
+        "  Backspace             Delete char before",
+        "  Ctrl+D, Del           Delete char after",
+        "  Ctrl+K/J              Delete to line end/head",
+        "  Alt+H/Alt+Bksp/Ctrl+W Delete word before",
+        "  Alt+D/Alt+Del         Delete word after",
+        "  Ctrl+U                Undo",
+        "  Ctrl+R                Redo",
+        "  Ctrl+M/Enter/Return   Insert newline",
+        "  Ctrl+V                Paste from clipboard",
+        "  Ctrl+Y/X/C            Paste/Cut/Copy from selection",
+        "",
+        "Press any key to close",
+    ];
+
+    // Calculate required dimensions
+    let content_height = help_lines.len() as u16;
+    let content_width = help_lines
+        .iter()
+        .map(|line| line.width() as u16)
+        .max()
+        .unwrap_or(30);
+
+    // Add padding and borders
+    let modal_width = (content_width + 6).min(area.width - 4);
+    let modal_height = (content_height + 4).min(area.height - 4);
+
+    let modal_x = (area.width - modal_width) / 2;
+    let modal_y = (area.height - modal_height) / 2;
+    let modal_area = Rect::new(modal_x, modal_y, modal_width, modal_height);
+
+    // Modal background style using existing color scheme
+    let modal_bg = Style::default().bg(BG_DARK).fg(FG_PRIMARY);
+
+    // Fill the entire modal area with solid background color by directly writing to buffer
+    // This ensures complete opacity - Clear widget alone doesn't fill with a color
+    let buf = f.buffer_mut();
+    for y in modal_area.y..modal_area.y + modal_area.height {
+        for x in modal_area.x..modal_area.x + modal_area.width {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_char(' ');
+                cell.set_style(modal_bg);
+            }
+        }
+    }
+
+    // Modal block
+    let modal_block = Block::default()
+        .borders(Borders::ALL)
+        .border_type(BorderType::Rounded)
+        .border_style(styles::border_focused().bg(BG_DARK))
+        .style(modal_bg)
+        .title(Line::from(vec![Span::styled(
+            " Keybindings Help ",
+            styles::focused().bg(BG_DARK),
+        )]))
+        .title_alignment(Alignment::Center)
+        .padding(Padding::horizontal(2));
+
+    let inner_area = modal_block.inner(modal_area);
+    f.render_widget(modal_block, modal_area);
+
+    // Convert to styled lines using existing color scheme
+    let help_text: Vec<Line> = help_lines
+        .into_iter()
+        .map(|line| {
+            if line.is_empty() {
+                Line::from(Span::styled(" ", modal_bg))
+            } else if line.starts_with("  ") {
+                // Key-value line
+                let parts: Vec<&str> = line.splitn(2, "  ").collect();
+                if parts.len() == 2 {
+                    Line::from(vec![
+                        Span::styled(parts[0].trim_end(), styles::focused().bg(BG_DARK)),
+                        Span::styled(" ", modal_bg),
+                        Span::styled(parts[1], styles::modal_desc().bg(BG_DARK)),
+                    ])
+                } else {
+                    Line::from(vec![Span::styled(line, styles::modal_desc().bg(BG_DARK))])
+                }
+            } else {
+                // Header
+                Line::from(vec![Span::styled(
+                    line,
+                    styles::category_header().bg(BG_DARK),
+                )])
+            }
+        })
+        .collect();
+
+    let paragraph = Paragraph::new(help_text)
+        .style(modal_bg)
+        .wrap(ratatui::widgets::Wrap { trim: false })
+        .scroll((0, 0));
+
+    f.render_widget(paragraph, inner_area);
 }

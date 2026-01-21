@@ -1,5 +1,6 @@
 use crate::filters::find_internal;
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::DeclId;
 
 #[derive(Clone)]
 pub struct HelpCommands;
@@ -75,7 +76,10 @@ pub fn help_commands(
             name.push_str(&r.item);
         }
 
-        if let Some(decl) = engine_state.find_decl(name.as_bytes(), &[]) {
+        // Try to find the command, resolving aliases if necessary
+        let decl_id = find_decl_with_alias_resolution(engine_state, name.as_bytes());
+
+        if let Some(decl) = decl_id {
             let cmd = engine_state.get_decl(decl);
             let help_text = get_full_help(cmd, engine_state, stack);
             Ok(Value::string(help_text, call.head).into_pipeline_data())
@@ -85,6 +89,45 @@ pub fn help_commands(
             })
         }
     }
+}
+
+fn find_decl_with_alias_resolution(engine_state: &EngineState, name: &[u8]) -> Option<DeclId> {
+    let name_str = String::from_utf8_lossy(name);
+    let parts: Vec<&str> = name_str.split_whitespace().collect();
+
+    if parts.is_empty() {
+        return None;
+    }
+
+    if let Some(decl_id) = engine_state.find_decl(name, &[]) {
+        return Some(decl_id);
+    }
+
+    if let Some(first_decl_id) = engine_state.find_decl(parts[0].as_bytes(), &[]) {
+        let first_decl = engine_state.get_decl(first_decl_id);
+
+        // If it's an alias, try to resolve with remaining parts
+        if let Some(alias) = first_decl.as_alias()
+            && let nu_protocol::ast::Expression {
+                expr: nu_protocol::ast::Expr::Call(call),
+                ..
+            } = &alias.wrapped_call
+        {
+            let aliased_decl = engine_state.get_decl(call.decl_id);
+            let aliased_name = aliased_decl.name();
+
+            // If we have more parts, try to find "aliased_name + remaining parts"
+            if parts.len() > 1 {
+                let full_name = format!("{} {}", aliased_name, parts[1..].join(" "));
+                return find_decl_with_alias_resolution(engine_state, full_name.as_bytes());
+            } else {
+                // Just the alias, return the aliased command
+                return Some(call.decl_id);
+            }
+        }
+    }
+
+    None
 }
 
 fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {

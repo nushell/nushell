@@ -101,6 +101,11 @@ impl Command for Try {
                 example: "try { 1 / 0 } catch { |err| $err.msg }",
                 result: None,
             },
+            Example {
+                description: "Try to run a division by zero, report the message, and run finally",
+                example: "try { 1 / 0 } catch { |err| print $err.msg } finally { 'clean' }",
+                result: None,
+            },
         ]
     }
 }

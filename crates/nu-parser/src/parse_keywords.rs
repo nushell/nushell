@@ -58,7 +58,7 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"overlay use",
 ];
 
-pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
+pub const RESERVED_VARIABLE_NAMES: [&str; 4] = ["in", "nu", "env", "it"];
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[

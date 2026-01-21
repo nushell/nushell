@@ -20,6 +20,12 @@ enum IncludeInner {
     Yes,
 }
 
+#[derive(Debug, Default)]
+struct RightColumnRename {
+    prefix: Option<String>,
+    suffix: Option<String>,
+}
+
 impl Command for Join {
     fn name(&self) -> &str {
         "join"
@@ -41,6 +47,18 @@ impl Command for Join {
                 "right-on",
                 SyntaxShape::String,
                 "Name of column in right table to join on. Defaults to same column as left table.",
+            )
+            .named(
+                "prefix",
+                SyntaxShape::String,
+                "Prefix columns from the right table with this string (excluding the shared join key).",
+                None,
+            )
+            .named(
+                "suffix",
+                SyntaxShape::String,
+                "Suffix columns from the right table with this string (excluding the shared join key).",
+                None,
             )
             .switch("inner", "Inner join (default)", Some('i'))
             .switch("left", "Left-outer join", Some('l'))
@@ -73,6 +91,10 @@ impl Command for Join {
             .unwrap_or_else(|| l_on.clone());
         let span = call.head;
         let join_type = join_type(engine_state, stack, call)?;
+        let rename = RightColumnRename {
+            prefix: call.get_flag(engine_state, stack, "prefix")?,
+            suffix: call.get_flag(engine_state, stack, "suffix")?,
+        };
 
         // FIXME: we should handle ListStreams properly instead of collecting
         let collected_input = input.into_value(span)?;
@@ -84,7 +106,7 @@ impl Command for Join {
                 Value::String { val: l_on, .. },
                 Value::String { val: r_on, .. },
             ) => {
-                let result = join(rows_1, rows_2, l_on, r_on, join_type, span);
+                let result = join(rows_1, rows_2, l_on, r_on, join_type, &rename, span);
                 Ok(PipelineData::value(result, metadata))
             }
             _ => Err(ShellError::UnsupportedInput {
@@ -103,13 +125,34 @@ impl Command for Join {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Join two tables",
-            example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
-            result: Some(Value::test_list(vec![Value::test_record(record! {
-                "a" => Value::test_int(1), "b" => Value::test_int(2), "c" => Value::test_int(3),
-            })])),
-        }]
+        vec![
+            Example {
+                description: "Join two tables",
+                example: "[{a: 1 b: 2}] | join [{a: 1 c: 3}] a",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "a" => Value::test_int(1), "b" => Value::test_int(2), "c" => Value::test_int(3),
+                })])),
+            },
+            Example {
+                description: "Join multiple tables with distinct suffixes for the right table's columns",
+                example: "[{id: 1 x: 10}] | join --suffix _a [{id: 1 x: 20}] id | join --suffix _b [{id: 1 x: 30}] id",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "id" => Value::test_int(1),
+                    "x" => Value::test_int(10),
+                    "x_a" => Value::test_int(20),
+                    "x_b" => Value::test_int(30),
+                })])),
+            },
+            Example {
+                description: "Join multiple tables with a prefix for the right table's columns",
+                example: "[{id: 1 x: 10}] | join --prefix r_ [{id: 1 x: 20}] id",
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "id" => Value::test_int(1),
+                    "x" => Value::test_int(10),
+                    "r_x" => Value::test_int(20),
+                })])),
+            },
+        ]
     }
 }
 
@@ -143,6 +186,7 @@ fn join(
     left_join_key: &str,
     right_join_key: &str,
     join_type: JoinType,
+    rename: &RightColumnRename,
     span: Span,
 ) -> Value {
     // Inner / Right Join
@@ -212,6 +256,7 @@ fn join(
         IncludeInner::Yes,
         sep,
         &config,
+        rename,
         span,
     );
     if is_outer {
@@ -233,6 +278,7 @@ fn join(
             IncludeInner::No,
             sep,
             &config,
+            rename,
             span,
         );
     }
@@ -253,6 +299,7 @@ fn join_rows(
     include_inner: IncludeInner,
     sep: &str,
     config: &Config,
+    rename: &RightColumnRename,
     span: Span,
 ) {
     if !this
@@ -281,11 +328,13 @@ fn join_rows(
                                 other_record, // `other` (lookup) is the left input table
                                 this_record,
                                 shared_join_key,
+                                rename,
                             ),
                             JoinType::Left => merge_records(
                                 this_record, // `this` is the left input table
                                 other_record,
                                 shared_join_key,
+                                rename,
                             ),
                             _ => panic!("not implemented"),
                         };
@@ -317,9 +366,11 @@ fn join_rows(
 
                 let record = match join_type {
                     JoinType::Inner | JoinType::Right => {
-                        merge_records(&other_record, this_record, shared_join_key)
+                        merge_records(&other_record, this_record, shared_join_key, rename)
                     }
-                    JoinType::Left => merge_records(this_record, &other_record, shared_join_key),
+                    JoinType::Left => {
+                        merge_records(this_record, &other_record, shared_join_key, rename)
+                    }
                     _ => panic!("not implemented"),
                 };
 
@@ -365,22 +416,47 @@ fn lookup_table<'a>(
 // Merge `left` and `right` records, renaming keys in `right` where they clash
 // with keys in `left`. If `shared_key` is supplied then it is the name of a key
 // that should not be renamed (its values are guaranteed to be equal).
-fn merge_records(left: &Record, right: &Record, shared_key: Option<&str>) -> Record {
+fn merge_records(
+    left: &Record,
+    right: &Record,
+    shared_key: Option<&str>,
+    rename: &RightColumnRename,
+) -> Record {
     let cap = max(left.len(), right.len());
     let mut seen = HashSet::with_capacity(cap);
     let mut record = Record::with_capacity(cap);
     for (k, v) in left {
         record.push(k.clone(), v.clone());
-        seen.insert(k);
+        seen.insert(k.clone());
     }
 
     for (k, v) in right {
-        let k_seen = seen.contains(k);
         let k_shared = shared_key == Some(k.as_str());
         // Do not output shared join key twice
-        if !(k_seen && k_shared) {
-            record.push(if k_seen { format!("{k}_") } else { k.clone() }, v.clone());
+        if k_shared && seen.contains(k) {
+            continue;
         }
+
+        let mut out_key = if rename.prefix.is_some() || rename.suffix.is_some() {
+            format!(
+                "{}{}{}",
+                rename.prefix.as_deref().unwrap_or(""),
+                k,
+                rename.suffix.as_deref().unwrap_or("")
+            )
+        } else if seen.contains(k) {
+            format!("{k}_")
+        } else {
+            k.clone()
+        };
+
+        // Ensure the output key is truly unique. If not, keep appending "_" until it is.
+        while seen.contains(&out_key) {
+            out_key.push('_');
+        }
+
+        record.push(out_key.clone(), v.clone());
+        seen.insert(out_key);
     }
     record
 }

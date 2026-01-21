@@ -365,7 +365,7 @@ pub(crate) fn compile_try(
     // Pseudocode (literal block):
     //
     //       on-error-into ERR, %io_reg           // or without
-    //       finally-into  FINALLY
+    //       finally-into  FINALLY, $io_reg       // or without
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler
@@ -380,7 +380,7 @@ pub(crate) fn compile_try(
     //
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
-    //       finally-into  FINALLY
+    //       finally-into  FINALLY, $io_reg
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler

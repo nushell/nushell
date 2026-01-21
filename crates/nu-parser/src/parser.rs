@@ -1576,6 +1576,40 @@ pub fn find_longest_decl_with_prefix(
         }
         maybe_decl_id = working_set.find_decl(&name);
     }
+
+    // If there is a declaration and there are remaining spans, check if it's an alias.
+    // If it is, try to see if there are sub commands
+    if let Some(decl_id) = maybe_decl_id
+        && pos < spans.len()
+    {
+        let decl = working_set.get_decl(decl_id);
+        if let Some(alias) = decl.as_alias() {
+            // Extract the command name from the alias
+            // The wrapped_call should be a Call expression for internal commands
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = &alias.wrapped_call
+            {
+                let aliased_decl_id = call.decl_id;
+                let aliased_name = working_set.get_decl(aliased_decl_id).name().to_string();
+
+                // Try to find a longer match using the aliased command name with remaining spans
+                let (_, new_pos, new_name, new_decl_id) = find_longest_decl_with_prefix(
+                    working_set,
+                    &spans[pos..],
+                    aliased_name.as_bytes(),
+                );
+
+                // If we find a sub command, use it instead.
+                if new_decl_id.is_some() && new_pos > 0 {
+                    let total_pos = pos + new_pos;
+                    return (cmd_start, total_pos, new_name, new_decl_id);
+                }
+            }
+        }
+    }
+
     (cmd_start, pos, name, maybe_decl_id)
 }
 
