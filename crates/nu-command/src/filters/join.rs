@@ -52,13 +52,13 @@ impl Command for Join {
                 "prefix",
                 SyntaxShape::String,
                 "Prefix columns from the right table with this string (excluding the shared join key).",
-                None,
+                Some('p'),
             )
             .named(
                 "suffix",
                 SyntaxShape::String,
                 "Suffix columns from the right table with this string (excluding the shared join key).",
-                None,
+                Some('s'),
             )
             .switch("inner", "Inner join (default)", Some('i'))
             .switch("left", "Left-outer join", Some('l'))
