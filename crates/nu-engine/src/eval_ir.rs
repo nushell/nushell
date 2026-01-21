@@ -45,7 +45,7 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
-        let always_run_handler_base = stack.finally_run_handlers.get_base();
+        let finally_run_handler_base = stack.finally_run_handlers.get_base();
 
         // Allocate and initialize registers. I've found that it's not really worth trying to avoid
         // the heap allocation here by reusing buffers - our allocator is fast enough
@@ -65,7 +65,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 block_span: &block.span,
                 args_base,
                 error_handler_base,
-                finally_handler_base: always_run_handler_base,
+                finally_handler_base: finally_run_handler_base,
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -79,7 +79,7 @@ pub fn eval_ir_block<D: DebugContext>(
         stack.error_handlers.leave_frame(error_handler_base);
         stack
             .finally_run_handlers
-            .leave_frame(always_run_handler_base);
+            .leave_frame(finally_run_handler_base);
         stack.arguments.leave_frame(args_base);
 
         D::leave_block(engine_state, block);

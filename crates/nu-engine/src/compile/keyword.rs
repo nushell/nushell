@@ -594,7 +594,7 @@ pub(crate) fn compile_try(
             builder.load_empty(io_reg)?;
         }
     }
-    if finally_expr.is_some() {
+    if has_finally {
         builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
     }
 
