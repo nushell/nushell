@@ -102,106 +102,53 @@ pub enum Instruction {
     /// Unreachable code path (error)
     Unreachable,
     /// Load a literal value into the `dst` register
-    LoadLiteral {
-        dst: RegId,
-        lit: Literal,
-    },
+    LoadLiteral { dst: RegId, lit: Literal },
     /// Load a clone of a boxed value into the `dst` register (e.g. from const evaluation)
-    LoadValue {
-        dst: RegId,
-        val: Box<Value>,
-    },
+    LoadValue { dst: RegId, val: Box<Value> },
     /// Move a register. Value is taken from `src` (used by this instruction).
-    Move {
-        dst: RegId,
-        src: RegId,
-    },
+    Move { dst: RegId, src: RegId },
     /// Copy a register (must be a collected value). Value is still in `src` after this instruction.
-    Clone {
-        dst: RegId,
-        src: RegId,
-    },
+    Clone { dst: RegId, src: RegId },
     /// Collect a stream in a register to a value
-    Collect {
-        src_dst: RegId,
-    },
+    Collect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
-    Span {
-        src_dst: RegId,
-    },
+    Span { src_dst: RegId },
     /// Drop the value/stream in a register, without draining
-    Drop {
-        src: RegId,
-    },
+    Drop { src: RegId },
     /// Drain the value/stream in a register and discard (e.g. semicolon).
     ///
     /// If passed a stream from an external command, sets $env.LAST_EXIT_CODE to the resulting exit
     /// code, and invokes any available error handler with Empty, or if not available, returns an
     /// exit-code-only stream, leaving the block.
-    Drain {
-        src: RegId,
-    },
+    Drain { src: RegId },
     /// Drain the value/stream in a register and discard only if this is the last pipeline element.
     // TODO: see if it's possible to remove this
-    DrainIfEnd {
-        src: RegId,
-    },
+    DrainIfEnd { src: RegId },
     /// Load the value of a variable into the `dst` register
-    LoadVariable {
-        dst: RegId,
-        var_id: VarId,
-    },
+    LoadVariable { dst: RegId, var_id: VarId },
     /// Store the value of a variable from the `src` register
-    StoreVariable {
-        var_id: VarId,
-        src: RegId,
-    },
+    StoreVariable { var_id: VarId, src: RegId },
     /// Remove a variable from the stack, freeing up whatever resources were associated with it
-    DropVariable {
-        var_id: VarId,
-    },
+    DropVariable { var_id: VarId },
     /// Load the value of an environment variable into the `dst` register
-    LoadEnv {
-        dst: RegId,
-        key: DataSlice,
-    },
+    LoadEnv { dst: RegId, key: DataSlice },
     /// Load the value of an environment variable into the `dst` register, or `Nothing` if it
     /// doesn't exist
-    LoadEnvOpt {
-        dst: RegId,
-        key: DataSlice,
-    },
+    LoadEnvOpt { dst: RegId, key: DataSlice },
     /// Store the value of an environment variable from the `src` register
-    StoreEnv {
-        key: DataSlice,
-        src: RegId,
-    },
+    StoreEnv { key: DataSlice, src: RegId },
     /// Add a positional arg to the next (internal) call.
-    PushPositional {
-        src: RegId,
-    },
+    PushPositional { src: RegId },
     /// Add a list of args to the next (internal) call (spread/rest).
-    AppendRest {
-        src: RegId,
-    },
+    AppendRest { src: RegId },
     /// Add a named arg with no value to the next (internal) call.
-    PushFlag {
-        name: DataSlice,
-    },
+    PushFlag { name: DataSlice },
     /// Add a short named arg with no value to the next (internal) call.
-    PushShortFlag {
-        short: DataSlice,
-    },
+    PushShortFlag { short: DataSlice },
     /// Add a named arg with a value to the next (internal) call.
-    PushNamed {
-        name: DataSlice,
-        src: RegId,
-    },
+    PushNamed { name: DataSlice, src: RegId },
     /// Add a short named arg with a value to the next (internal) call.
-    PushShortNamed {
-        short: DataSlice,
-        src: RegId,
-    },
+    PushShortNamed { short: DataSlice, src: RegId },
     /// Add parser info to the next (internal) call.
     PushParserInfo {
         name: DataSlice,
@@ -210,19 +157,13 @@ pub enum Instruction {
     /// Set the redirection for stdout for the next call (only).
     ///
     /// The register for a file redirection is not consumed.
-    RedirectOut {
-        mode: RedirectMode,
-    },
+    RedirectOut { mode: RedirectMode },
     /// Set the redirection for stderr for the next call (only).
     ///
     /// The register for a file redirection is not consumed.
-    RedirectErr {
-        mode: RedirectMode,
-    },
+    RedirectErr { mode: RedirectMode },
     /// Throw an error if stderr wasn't redirected in the given stream. `src` is preserved.
-    CheckErrRedirected {
-        src: RegId,
-    },
+    CheckErrRedirected { src: RegId },
     /// Open a file for redirection, pushing it onto the file stack.
     OpenFile {
         file_num: u32,
@@ -231,42 +172,22 @@ pub enum Instruction {
     },
     /// Write data from the register to a file. This is done to finish a file redirection, in case
     /// an internal command or expression was evaluated rather than an external one.
-    WriteFile {
-        file_num: u32,
-        src: RegId,
-    },
+    WriteFile { file_num: u32, src: RegId },
     /// Pop a file used for redirection from the file stack.
-    CloseFile {
-        file_num: u32,
-    },
+    CloseFile { file_num: u32 },
     /// Make a call. The input is taken from `src_dst`, and the output is placed in `src_dst`,
     /// overwriting it. The argument stack is used implicitly and cleared when the call ends.
-    Call {
-        decl_id: DeclId,
-        src_dst: RegId,
-    },
+    Call { decl_id: DeclId, src_dst: RegId },
     /// Append a value onto the end of a string. Uses `to_expanded_string(", ", ...)` on the value.
     /// Used for string interpolation literals. Not the same thing as the `++` operator.
-    StringAppend {
-        src_dst: RegId,
-        val: RegId,
-    },
+    StringAppend { src_dst: RegId, val: RegId },
     /// Convert a string into a glob. Used for glob interpolation and setting glob variables. If the
     /// value is already a glob, it won't be modified (`no_expand` will have no effect).
-    GlobFrom {
-        src_dst: RegId,
-        no_expand: bool,
-    },
+    GlobFrom { src_dst: RegId, no_expand: bool },
     /// Push a value onto the end of a list. Used to construct list literals.
-    ListPush {
-        src_dst: RegId,
-        item: RegId,
-    },
+    ListPush { src_dst: RegId, item: RegId },
     /// Spread a value onto the end of a list. Used to construct list literals.
-    ListSpread {
-        src_dst: RegId,
-        items: RegId,
-    },
+    ListSpread { src_dst: RegId, items: RegId },
     /// Insert a key-value pair into a record. Used to construct record literals. Raises an error if
     /// the key already existed in the record.
     RecordInsert {
@@ -276,14 +197,9 @@ pub enum Instruction {
     },
     /// Spread a record onto a record. Used to construct record literals. Any existing value for the
     /// key is overwritten.
-    RecordSpread {
-        src_dst: RegId,
-        items: RegId,
-    },
+    RecordSpread { src_dst: RegId, items: RegId },
     /// Negate a boolean.
-    Not {
-        src_dst: RegId,
-    },
+    Not { src_dst: RegId },
     /// Do a binary operation on `lhs_dst` (left) and `rhs` (right) and write the result to
     /// `lhs_dst`.
     BinaryOp {
@@ -292,17 +208,10 @@ pub enum Instruction {
         rhs: RegId,
     },
     /// Follow a cell path on the value in `src_dst`, storing the result back to `src_dst`
-    FollowCellPath {
-        src_dst: RegId,
-        path: RegId,
-    },
+    FollowCellPath { src_dst: RegId, path: RegId },
     /// Clone the value at a cell path in `src`, storing the result to `dst`. The original value
     /// remains in `src`. Must be a collected value.
-    CloneCellPath {
-        dst: RegId,
-        src: RegId,
-        path: RegId,
-    },
+    CloneCellPath { dst: RegId, src: RegId, path: RegId },
     /// Update/insert a cell path to `new_value` on the value in `src_dst`, storing the modified
     /// value back to `src_dst`
     UpsertCellPath {
@@ -311,21 +220,13 @@ pub enum Instruction {
         new_value: RegId,
     },
     /// Jump to an offset in this block
-    Jump {
-        index: usize,
-    },
+    Jump { index: usize },
     /// Branch to an offset in this block if the value of the `cond` register is a true boolean,
     /// otherwise continue execution
-    BranchIf {
-        cond: RegId,
-        index: usize,
-    },
+    BranchIf { cond: RegId, index: usize },
     /// Branch to an offset in this block if the value of the `src` register is Empty or Nothing,
     /// otherwise continue execution. The original value in `src` is preserved.
-    BranchIfEmpty {
-        src: RegId,
-        index: usize,
-    },
+    BranchIfEmpty { src: RegId, index: usize },
     /// Match a pattern on `src`. If the pattern matches, branch to `index` after having set any
     /// variables captured by the pattern. If the pattern doesn't match, continue execution. The
     /// original value is preserved in `src` through this instruction.
@@ -336,9 +237,7 @@ pub enum Instruction {
     },
     /// Check that a match guard is a boolean, throwing
     /// [`MatchGuardNotBool`](crate::ShellError::MatchGuardNotBool) if it isn't. Preserves `src`.
-    CheckMatchGuard {
-        src: RegId,
-    },
+    CheckMatchGuard { src: RegId },
     /// Iterate on register `stream`, putting the next value in `dst` if present, or jumping to
     /// `end_index` if the iterator is finished
     Iterate {
@@ -347,32 +246,23 @@ pub enum Instruction {
         end_index: usize,
     },
     /// Push an error handler, without capturing the error value
-    OnError {
-        index: usize,
-    },
+    OnError { index: usize },
     /// Push an error handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
-    OnErrorInto {
-        index: usize,
-        dst: RegId,
-    },
-    Finally {
-        index: usize,
-    },
+    OnErrorInto { index: usize, dst: RegId },
+    /// aa
+    Finally { index: usize },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.
     PopErrorHandler,
+    /// bb
     PopFinallyRun,
     /// Return early from the block, raising a `ShellError::Return` instead.
     ///
     /// Collecting the value is unavoidable.
-    ReturnEarly {
-        src: RegId,
-    },
+    ReturnEarly { src: RegId },
     /// Return from the block with the value in the register
-    Return {
-        src: RegId,
-    },
+    Return { src: RegId },
 }
 
 impl Instruction {
