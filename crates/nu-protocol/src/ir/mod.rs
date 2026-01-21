@@ -329,7 +329,7 @@ impl Instruction {
             Instruction::CheckMatchGuard { .. } => None,
             Instruction::Iterate { dst, .. } => Some(dst),
             Instruction::OnError { .. } => None,
-            Instruction::FinallyInto{ .. } => None,
+            Instruction::FinallyInto { .. } => None,
             Instruction::OnErrorInto { .. } => None,
             Instruction::PopErrorHandler => None,
             Instruction::PopFinallyRun => None,
@@ -357,7 +357,7 @@ impl Instruction {
             } => Some(*end_index),
             Instruction::OnError { index } => Some(*index),
             Instruction::OnErrorInto { index, dst: _ } => Some(*index),
-            Instruction::FinallyInto{ index } => Some(*index),
+            Instruction::FinallyInto { index } => Some(*index),
             _ => None,
         }
     }
@@ -383,7 +383,7 @@ impl Instruction {
             } => *end_index = target_index,
             Instruction::OnError { index } => *index = target_index,
             Instruction::OnErrorInto { index, dst: _ } => *index = target_index,
-            Instruction::FinallyInto{ index } => *index = target_index,
+            Instruction::FinallyInto { index } => *index = target_index,
             _ => return Err(target_index),
         }
         Ok(())

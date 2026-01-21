@@ -259,7 +259,7 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::PopErrorHandler => {
                 write!(f, "{:WIDTH$}", "pop-error-handler")
             }
-            Instruction::PopFinallyRun=> {
+            Instruction::PopFinallyRun => {
                 write!(f, "{:WIDTH$}", "pop-finally")
             }
             Instruction::ReturnEarly { src } => {

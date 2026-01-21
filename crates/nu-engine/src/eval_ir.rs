@@ -237,19 +237,15 @@ fn eval_ir_block_impl<D: DebugContext>(
                 // `Shell::Return` first.  If so, we need to return the `Shell::Return`.
                 match ret_val {
                     Some(err) => return Err(err),
-                    None => return Ok(ctx.take_reg(reg_id))
+                    None => return Ok(ctx.take_reg(reg_id)),
                 }
             }
-            Err(err @ (ShellError::Continue{..} | ShellError::Break{..})) => {
+            Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(
-                err @ ShellError::Return {..}
-            ) => {
-                if let Some(always_run_handler) = ctx
-                    .stack
-                    .finally_run_handlers
-                    .pop(ctx.finally_handler_base)
+            Err(err @ ShellError::Return { .. }) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
                     // need to run finally block before return.
                     // and record the return value firstly.
@@ -266,10 +262,8 @@ fn eval_ir_block_impl<D: DebugContext>(
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
-                } else if let Some(always_run_handler) = ctx
-                    .stack
-                    .finally_run_handlers
-                    .pop(ctx.finally_handler_base)
+                } else if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
                     prepare_error_handler(ctx, always_run_handler, None);
                     pc = always_run_handler.handler_index;
@@ -937,9 +931,7 @@ fn eval_instruction<D: DebugContext>(
             Ok(Continue)
         }
         Instruction::PopFinallyRun => {
-            ctx.stack
-                .finally_run_handlers
-                .pop(ctx.finally_handler_base);
+            ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
