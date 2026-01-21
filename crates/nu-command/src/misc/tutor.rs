@@ -97,6 +97,7 @@ fn tutor(
             vec!["var", "vars", "variable", "variables"],
             variable_tutor(),
         ),
+        (vec!["block", "blocks"], block_tutor()),
         (vec!["closure", "closures"], closure_tutor()),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
     ];
@@ -348,6 +349,33 @@ instance of Nushell. The `$it` variable is the name given to closure parameters
 if you don't specify one. And `$in` is the variable that allows you to work
 with all of the data coming in from the pipeline in one place.
 
+"#
+}
+
+fn block_tutor() -> &'static str {
+    r#"
+Blocks are pieces of code wrapped in curly braces `{}` that are used with
+control flow commands. Unlike closures, blocks don't have parameters and
+can't be passed as values. (You can learn more about closures by running
+`tutor closures`)
+
+You'll most commonly see blocks used with `if`:
+```
+if true { print "it's true" } else { print "it's not true" }
+```
+This runs the first block if the expression is true, or the second block
+if the expression is false.
+
+Blocks can also be used with loops like `while` and `for`:
+```
+mut x = 0
+while $x < 5 {
+    $x += 1
+}
+```
+One special feature of blocks is that they can modify mutable variables
+from the parent scope. For example, the `while` loop above mutates `$x`
+even though it was declared outside the block.
 "#
 }
 
