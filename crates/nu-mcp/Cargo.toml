@@ -19,10 +19,10 @@ schemars = "1.2.0"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { version = "1.49.0", features = ["full"] }
-tracing = { version = "0.1.41", features = ["log"] }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing = { version = "0.1.44", features = ["log"] }
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 bytes = { workspace = true }
-indoc = "2.0.6"
+indoc = "2.0.7"
 nuon = { path = "../nuon", version = "0.110.1" }
 chrono = { workspace = true }
 
