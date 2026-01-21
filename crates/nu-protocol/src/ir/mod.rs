@@ -250,9 +250,10 @@ pub enum Instruction {
     /// Push an error handler, capturing the error value into `dst`. If the error handler is not
     /// called, the register should be freed manually.
     OnErrorInto { index: usize, dst: RegId },
-    /// aa
+    /// Push an finally handler, without capturing the error value
     Finally { index: usize },
-    /// aa
+    /// Push an finally handler, capturing the error value into `dst`. If the finally handler is not
+    /// called, the register should be freed manually.
     FinallyInto { index: usize, dst: RegId },
     /// Pop an error handler. This is not necessary when control flow is directed to the error
     /// handler due to an error.

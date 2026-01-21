@@ -469,7 +469,6 @@ pub(crate) fn compile_try(
         block: &'a Block,
         var_id: Option<VarId>,
     }
-    let has_finally = finally_expr.is_some();
     let finally_type = finally_expr
         .map(|finally_expr| match finally_expr.as_block() {
             Some(block_id) => {
@@ -483,6 +482,7 @@ pub(crate) fn compile_try(
 
     // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
+    let mut has_try_comment = false;
     if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
@@ -492,10 +492,13 @@ pub(crate) fn compile_try(
             .into_spanned(call.head),
         )?;
         builder.add_comment("try");
+        has_try_comment = true;
     } else if finally_expr.is_none() {
-        // Otherwise, we don't need the error value.
+        // Simply try, without `catch` and `finally` block, need to set up OnErrorHandler.
+        // so `try { 1 / 0 }` works
         builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
         builder.add_comment("try");
+        has_try_comment = true;
     };
 
     builder.begin_try();
@@ -511,6 +514,9 @@ pub(crate) fn compile_try(
             )?;
         } else {
             builder.push(Instruction::Finally { index: end_label.0 }.into_spanned(call.head))?;
+        }
+        if !has_try_comment {
+            builder.add_comment("try");
         }
     }
 
@@ -625,7 +631,7 @@ pub(crate) fn compile_try(
             builder.load_empty(io_reg)?;
         }
     }
-    if has_finally {
+    if finally_type.is_some() {
         builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
     }
 
