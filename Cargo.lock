@@ -3541,9 +3541,9 @@ dependencies = [
 
 [[package]]
 name = "lsp-textdocument"
-version = "0.4.2"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d564d595f4e3dcd3c071bf472dbd2cac53bc3665ae7222d2abfecd18feaed2c"
+checksum = "2da72ba568f141737cbaf0ce7c7f757a00f94f204352bb1297ae0f28ae43398a"
 dependencies = [
  "lsp-types",
  "serde_json",
