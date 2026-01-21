@@ -281,7 +281,7 @@ impl BlockBuilder {
                 end_index: _,
             } => allocate(&[*stream], &[*dst, *stream]),
             Instruction::OnError { index: _ } => Ok(()),
-            Instruction::FinallyInto { index: _ } => Ok(()),
+            Instruction::Finally { index: _ } => Ok(()),
             Instruction::OnErrorInto { index: _, dst } => allocate(&[], &[*dst]),
             Instruction::PopErrorHandler => Ok(()),
             Instruction::PopFinallyRun => Ok(()),

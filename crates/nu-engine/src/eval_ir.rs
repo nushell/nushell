@@ -919,7 +919,7 @@ fn eval_instruction<D: DebugContext>(
             });
             Ok(Continue)
         }
-        Instruction::FinallyInto { index } => {
+        Instruction::Finally { index } => {
             ctx.stack.finally_run_handlers.push(ErrorHandler {
                 handler_index: *index,
                 error_register: None,

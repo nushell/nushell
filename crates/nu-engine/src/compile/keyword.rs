@@ -485,7 +485,7 @@ pub(crate) fn compile_try(
 
     builder.add_comment("try");
     if has_finally {
-        builder.push(Instruction::FinallyInto { index: end_label.0 }.into_spanned(call.head))?;
+        builder.push(Instruction::Finally { index: end_label.0 }.into_spanned(call.head))?;
     }
 
     // Compile the block
