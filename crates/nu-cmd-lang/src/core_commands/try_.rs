@@ -55,7 +55,7 @@ impl Command for Try {
                         ])),
                     ),
                 ]),
-                "Closure to run anyway",
+                "Closure to run anyway.",
             )
             .category(Category::Core)
     }
