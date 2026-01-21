@@ -1,6 +1,42 @@
+use std::ops::Deref;
+
 use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
 use uucore::mode::get_umask;
+
+/// Wraps umask::Mode, providing conversions to and from mode_t regardless of its
+/// size.
+//
+// The nix::sys::stat::Mode struct (used for setting the umask) only provides
+// conversions to and from nix::libc::mode_t, the size of which is
+// platform-dependant. However, umask::Mode (used for parsing and formatting)
+// only provides conversions for u32, which causes problems on platforms where
+// mode_t is u16.
+struct Mode(umask::Mode);
+
+impl Deref for Mode {
+    type Target = umask::Mode;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl From<Mode> for mode_t {
+    #[allow(clippy::unnecessary_cast)]
+    fn from(mode: Mode) -> Self {
+        // This is "u32 as u16" or "u32 as u32", depending on platform.
+        u32::from(mode.0) as mode_t
+    }
+}
+
+impl From<mode_t> for Mode {
+    #[allow(clippy::unnecessary_cast)]
+    fn from(value: mode_t) -> Self {
+        // This is "u16 as u32" or "u32 as u32", depending on platform.
+        Self((value as u32).into())
+    }
+}
 
 #[derive(Clone)]
 pub struct UMask;
@@ -43,13 +79,16 @@ impl Command for UMask {
         let maybe_perms_val = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
 
         let prev_mask_bits = if let Some(perms_val) = maybe_perms_val {
-            let perms = perms_val.item.parse::<umask::Mode>().map_err(|err| {
-                ShellError::IncorrectValue {
-                    msg: format!("Invalid mode: {0}.", err),
-                    val_span: perms_val.span,
-                    call_span: call.head,
-                }
-            })?;
+            let perms = Mode(
+                perms_val
+                    .item
+                    .parse()
+                    .map_err(|err| ShellError::IncorrectValue {
+                        msg: format!("Invalid mode: {0}.", err),
+                        val_span: perms_val.span,
+                        call_span: call.head,
+                    })?,
+            );
 
             // The `umask` syscall wants the bits to mask *out*, not *in*, so
             // the mask needs inverted before passing it in.
@@ -71,7 +110,7 @@ impl Command for UMask {
 
         // The `umask` syscall wants the bits to mask *out*, not *in*, so
         // the old mask needs uninverted before outputting it.
-        let prev_perms = umask::Mode::from(0o777 ^ prev_mask_bits);
+        let prev_perms = Mode::from(0o777 ^ prev_mask_bits);
 
         Ok(Value::string(prev_perms.to_string(), call.head).into_pipeline_data())
     }
