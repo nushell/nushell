@@ -57,7 +57,7 @@ impl PluginCommand for Entropy {
                         df!(
                             "a" => [1.4591479170272448f64]
                         )
-                        .unwrap(),
+                        .expect("should be able to create a dataframe"),
                     )
                     .into_value(Span::unknown()),
                 ),
@@ -71,7 +71,7 @@ impl PluginCommand for Entropy {
                         df!(
                             "a" => [-6.754887502163469f64]
                         )
-                        .unwrap(),
+                        .expect("should be able to create a dataframe"),
                     )
                     .into_value(Span::unknown()),
                 ),
