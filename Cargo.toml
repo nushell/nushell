@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.90.0"
+rust-version = "1.91.1"
 version = "0.110.1"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -118,7 +118,7 @@ lru = "0.16"
 lscolors = { version = "0.20", default-features = false }
 lsp-server = "0.7.8"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
-lsp-textdocument = "0.4.2"
+lsp-textdocument = "0.5.0"
 mach2 = "0.6"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.6"

@@ -98,6 +98,7 @@ fn tutor(
             variable_tutor(),
         ),
         (vec!["block", "blocks"], block_tutor()),
+        (vec!["closure", "closures"], closure_tutor()),
         (vec!["shorthand", "shorthands"], shorthand_tutor()),
     ];
 
@@ -311,17 +312,17 @@ fn each_tutor() -> &'static str {
     r#"
 The `each` command gives us a way of working with the individual elements
 (sometimes called 'rows') of a list one at a time. It reads these in from
-the pipeline and runs a block on each one. A block is a group of pipelines.
+the pipeline and runs a closure on each one.
 ```
 echo 1 2 3 | each { |it| $it + 10}
 ```
 This example iterates over each element sent by `echo`, giving us three new
-values that are the original value + 10. Here, the `$it` is a variable that
-is the name given to the block's parameter by default.
+values that are the original value + 10. Here, `|it|` declares a closure
+parameter named `$it` that receives each element.
 
-You can learn more about blocks by running:
+You can learn more about closures by running:
 ```
-tutor blocks
+tutor closures
 ```
 You can also learn more about variables by running:
 ```
@@ -336,7 +337,7 @@ Variables are an important way to store values to be used later. To create a
 variable, you can use the `let` keyword. The `let` command will create a
 variable and then assign it a value in one step.
 ```
-let $x = 3
+let x = 3
 ```
 Once created, we can refer to this variable by name.
 ```
@@ -344,7 +345,7 @@ $x
 ```
 Nushell also comes with built-in variables. The `$nu` variable is a reserved
 variable that contains a lot of information about the currently running
-instance of Nushell. The `$it` variable is the name given to block parameters
+instance of Nushell. The `$it` variable is the name given to closure parameters
 if you don't specify one. And `$in` is the variable that allows you to work
 with all of the data coming in from the pipeline in one place.
 
@@ -353,18 +354,50 @@ with all of the data coming in from the pipeline in one place.
 
 fn block_tutor() -> &'static str {
     r#"
-Blocks are a special form of expression that hold code to be run at a later
-time. Often, you'll see blocks as one of the arguments given to commands
-like `each` and `if`.
+Blocks are pieces of code wrapped in curly braces `{}` that are used with
+control flow commands. Unlike closures, blocks don't have parameters and
+can't be passed as values. (You can learn more about closures by running
+`tutor closures`)
+
+You'll most commonly see blocks used with `if`:
 ```
-ls | each {|x| $x.name}
+if true { print "it's true" } else { print "it's not true" }
 ```
-The above will create a list of the filenames in the directory.
+This runs the first block if the expression is true, or the second block
+if the expression is false.
+
+Blocks can also be used with loops like `while` and `for`:
 ```
-if true { echo "it's true" } else { echo "it's not true" }
+mut x = 0
+while $x < 5 {
+    $x += 1
+}
 ```
-This `if` call will run the first block if the expression is true, or the
-second block if the expression is false.
+One special feature of blocks is that they can modify mutable variables
+from the parent scope. For example, the `while` loop above mutates `$x`
+even though it was declared outside the block.
+"#
+}
+
+fn closure_tutor() -> &'static str {
+    r#"
+Closures are blocks of code you can pass to commands. They can accept
+parameters and are commonly used with commands like `each`, `where`, and
+`reduce`.
+
+The parameter list is written between `|` symbols. Inside the closure, you
+refer to the parameter with a `$` prefix:
+```
+[1 2 3] | each { |x| $x + 10 }
+```
+
+Closures can also use values from the surrounding scope:
+```
+let multiplier = 3
+[1 2 3] | each { |x| $x * $multiplier }
+```
+
+Many commands also make the incoming pipeline value available as `$in` inside the closure.
 
 "#
 }

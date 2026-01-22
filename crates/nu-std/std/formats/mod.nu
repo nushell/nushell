@@ -21,12 +21,12 @@ export def "from jsonl" []: string -> any {
 
 # Convert structured data to NDJSON (https://github.com/ndjson/ndjson-spec).
 export def "to ndjson" []: any -> string {
-    each { to json --raw } | to text
+    each { to json --raw } | to text | metadata set --content-type "application/x-ndjson"
 }
 
 # Convert structured data to JSONL (https://jsonlines.org/).
 export def "to jsonl" []: any -> string {
-    each { to json --raw } | to text
+    each { to json --raw } | to text | metadata set --content-type "application/jsonl"
 }
 
 # Convert from NDNUON (newline-delimited NUON) to structured data
@@ -36,5 +36,5 @@ export def "from ndnuon" []: [string -> any] {
 
 # Convert structured data to newline-delimited NUON (NDNUON)
 export def "to ndnuon" []: [any -> string] {
-    each { to nuon | str replace --all "\n" '\n' } | to text
+    each { to nuon | str replace --all "\n" '\n' } | to text | metadata set --content-type "application/x-ndnuon"
 }

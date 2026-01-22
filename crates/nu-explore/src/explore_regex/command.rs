@@ -62,7 +62,8 @@ impl Command for ExploreRegex {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output."#
+        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
+Supports AltGr key combinations for international keyboard layouts."#
     }
 
     fn run(
