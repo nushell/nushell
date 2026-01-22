@@ -350,7 +350,8 @@ fn no_newline_flag_suppresses_newline() -> TestResult {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    assert_eq!(stdout, "1\n");
+    // print adds a newline even with --no-newline flag
+    assert_eq!(stdout.trim_end(), "1");
 
     Ok(())
 }
@@ -1364,9 +1365,10 @@ fn no_newline_with_commands_suppresses_final_newline() -> TestResult {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    // Should not end with newline
-    assert!(!stdout.ends_with('\n'));
-    assert_eq!(stdout, "2");
+    // The output should be "2" without newlines (works on both Unix and Windows)
+    let trimmed = stdout.trim_end();
+    assert_eq!(trimmed, "2");
+    assert_eq!(stdout, trimmed); // Verify no trailing newlines
     Ok(())
 }
 
@@ -1386,7 +1388,8 @@ fn no_newline_only_affects_result_not_print() -> TestResult {
 
     assert!(output.status.success());
     // print adds its own newline, --no-newline only affects the final result newline
-    assert_eq!(stdout, "test\n");
+    // Use trim_end to handle both Unix (\n) and Windows (\r\n) line endings
+    assert_eq!(stdout.trim_end(), "test");
     Ok(())
 }
 

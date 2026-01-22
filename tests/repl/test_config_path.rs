@@ -67,12 +67,10 @@ fn run(playground: &mut Playground, command: &str) -> String {
 
 #[cfg(not(windows))]
 fn run_interactive_stderr(xdg_config_home: impl AsRef<Path>) -> String {
-    let child_output = std::process::Command::new("sh")
+    let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+        .arg("-i")
         .arg("-c")
-        .arg(format!(
-            "{:?} -i -c 'echo $nu.is-interactive'",
-            nu_test_support::fs::executable_path()
-        ))
+        .arg("echo $nu.is-interactive")
         .env("XDG_CONFIG_HOME", adjust_canonicalization(xdg_config_home))
         .output()
         .expect("Should have outputted");
@@ -150,16 +148,18 @@ fn test_alternate_config_path() {
 
     let config_path =
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
+    let config_path_str = config_path.to_string_lossy();
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --config {config_path:?} -c '$nu.config-path'")
+        format!("nu --config '{}' -c '$nu.config-path'", config_path_str)
     );
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
+    let env_path_str = env_path.to_string_lossy();
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --env-config {env_path:?} -c '$nu.env-path'")
+        format!("nu --env-config '{}' -c '$nu.env-path'", env_path_str)
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }
@@ -173,16 +173,18 @@ fn use_last_config_path() {
 
     let config_path =
         nu_path::canonicalize_with(config_file, &cwd).expect("Could not get config path");
+    let config_path_str = config_path.to_string_lossy();
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --config non-existing-path --config another-random-path.nu --config {config_path:?} -c '$nu.config-path'")
+        format!("nu --config non-existing-path --config another-random-path.nu --config '{}' -c '$nu.config-path'", config_path_str)
     );
     assert_eq!(actual.out, config_path.to_string_lossy().to_string());
 
     let env_path = nu_path::canonicalize_with(env_file, &cwd).expect("Could not get env path");
+    let env_path_str = env_path.to_string_lossy();
     let actual = nu!(
         cwd: &cwd,
-        format!("nu --env-config non-existing-path --env-config {env_path:?} -c '$nu.env-path'")
+        format!("nu --env-config non-existing-path --env-config '{}' -c '$nu.env-path'", env_path_str)
     );
     assert_eq!(actual.out, env_path.to_string_lossy().to_string());
 }

@@ -4,7 +4,7 @@ use nu_parser::escape_for_script_arg;
 use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
-use nu_utils::{escape_quote_string, stdout_write_all_and_flush};
+use nu_utils::stdout_write_all_and_flush;
 use std::{ffi::OsString, fmt, path::Path};
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -556,11 +556,11 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             Long("no-std-lib") => cli.no_std_lib = Some(spanned_true()),
             Long("config") => {
                 let value = parse_string_value(&mut parser, "config")?;
-                cli.config_file = Some(spanned_value(escape_quote_string(&value)));
+                cli.config_file = Some(spanned_value(value));
             }
             Long("env-config") => {
                 let value = parse_string_value(&mut parser, "env-config")?;
-                cli.env_file = Some(spanned_value(escape_quote_string(&value)));
+                cli.env_file = Some(spanned_value(value));
             }
             Long("log-level") => {
                 let value = parse_validated_option(
@@ -623,7 +623,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             #[cfg(feature = "plugin")]
             Long("plugin-config") => {
                 let value = parse_string_value(&mut parser, "plugin-config")?;
-                cli.plugin_file = Some(spanned_value(escape_quote_string(&value)));
+                cli.plugin_file = Some(spanned_value(value));
             }
             #[cfg(feature = "plugin")]
             Long("plugins") => {
