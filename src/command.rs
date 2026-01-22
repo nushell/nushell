@@ -461,8 +461,7 @@ impl From<CliError> for ShellError {
     }
 }
 
-impl CliError {
-}
+impl CliError {}
 
 // Parse CLI args from the current process environment.
 pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
