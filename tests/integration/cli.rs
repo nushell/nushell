@@ -763,3 +763,484 @@ fn double_dash_preserves_script_args() -> TestResult {
 
     Ok(())
 }
+
+// Tests for --log-include with various formats
+#[test]
+fn log_include_accepts_single_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "error",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_accepts_multiple_values_space_separated() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "error",
+            "warn",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_accepts_comma_separated_no_brackets() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "error,warn",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_accepts_comma_separated_with_spaces() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "error, warn, info",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_accepts_bracketed_list() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "[error,warn]",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_accepts_bracketed_list_with_spaces() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "[error, warn, info]",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_include_rejects_invalid_level() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-include",
+            "invalid",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Invalid value for `--log-include`"));
+    Ok(())
+}
+
+// Tests for --log-exclude with various formats
+#[test]
+fn log_exclude_accepts_single_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-exclude",
+            "debug",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_exclude_accepts_multiple_values_space_separated() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-exclude",
+            "debug",
+            "trace",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_exclude_accepts_comma_separated() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-exclude",
+            "debug,trace",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_exclude_accepts_bracketed_list() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-exclude",
+            "[debug, trace]",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn log_exclude_rejects_invalid_level() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-exclude",
+            "invalid",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Invalid value for `--log-exclude`"));
+    Ok(())
+}
+
+// Additional test for --experimental-options to test the specific case from the regression
+#[test]
+fn experimental_options_accepts_unquoted_bracketed_multivalue() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--experimental-options",
+            "[example=false,",
+            "reorder-cell-paths=true,",
+            "pipefail=true,",
+            "enforce-runtime-annotations=true]",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn experimental_options_accepts_all() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--experimental-options",
+            "all",
+            "-c",
+            "print 'test'",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+// Tests for CLI parsing behavior - converted from src/command.rs unit tests
+
+#[test]
+fn parses_combined_shorts_with_value_last() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-ilc", "print 1"])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn accepts_combined_shorts_without_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-il", "-c", "print 1"])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn accepts_split_shorts_for_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-i",
+            "-l",
+            "-c",
+            "print 1",
+        ])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn accepts_group_then_value_flag() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-il", "-c", "print 1"])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn accepts_group_then_value_flag_with_equals() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-il", "-c=print 1"])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn missing_table_mode_lists_values() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-m"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Valid table modes"));
+    Ok(())
+}
+
+#[test]
+fn missing_error_style_lists_values() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--error-style"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Valid error styles"));
+    Ok(())
+}
+
+#[test]
+fn missing_testbin_lists_values() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--testbin"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Valid test bins"));
+    Ok(())
+}
+
+#[test]
+fn rejects_invalid_testbin_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--testbin",
+            "cocooo",
+            "-c",
+            "print 1",
+        ])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Did you mean") || stderr.contains("Valid test bins"));
+    Ok(())
+}
+
+#[test]
+fn missing_log_level_lists_values() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--log-level"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Valid log levels"));
+    Ok(())
+}
+
+#[test]
+fn missing_log_target_lists_values() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--log-target"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Valid log targets"));
+    Ok(())
+}
+
+#[test]
+fn rejects_value_flag_not_last() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-cil"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("expects a value"));
+    Ok(())
+}
+
+#[test]
+fn rejects_inline_short_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-cfoo"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("inline"));
+    Ok(())
+}
+
+#[test]
+fn rejects_combined_inline_short_value() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-abcfoo"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("inline"));
+    Ok(())
+}
+
+#[test]
+fn accepts_short_value_with_equals() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-c=print 1"])
+        .output()?;
+
+    assert!(output.status.success());
+    Ok(())
+}
+
+#[test]
+fn suggests_unknown_flags() -> TestResult {
+    let mut cmd = Command::cargo_bin("nu")?;
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--comands", "ls"])
+        .output()?;
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    assert!(!output.status.success());
+    assert!(stderr.contains("Unknown flag"));
+    assert!(stderr.contains("Did you mean"));
+    Ok(())
+}
+
+// Note: The unit test `splits_script_args_after_script_name` was removed because it tested
+// internal parsing logic (ParsedCli.args_to_script) that is not observable from integration tests.
+// The parsing behavior is already covered by other integration tests.

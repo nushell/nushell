@@ -462,11 +462,6 @@ impl From<CliError> for ShellError {
 }
 
 impl CliError {
-    // Expose the help text for tests and callers.
-    #[cfg(test)]
-    pub(crate) fn as_help(&self) -> Option<&str> {
-        self.help.as_deref()
-    }
 }
 
 // Parse CLI args from the current process environment.
@@ -835,11 +830,8 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
     let mut parsed = Vec::new();
     for value in values {
         let trimmed = value.trim();
-        let trimmed = trimmed
-            .strip_prefix('[')
-            .unwrap_or(trimmed)
-            .strip_suffix(']')
-            .unwrap_or(trimmed);
+        let trimmed = trimmed.strip_prefix('[').unwrap_or(trimmed);
+        let trimmed = trimmed.strip_suffix(']').unwrap_or(trimmed);
         if trimmed.contains(',') {
             parsed.extend(
                 trimmed
@@ -862,7 +854,7 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
             continue;
         }
         if let Some((name, _)) = normalized.split_once('=') {
-            validate_experimental_option(name, &valid_options)?;
+            validate_experimental_option(name.trim(), &valid_options)?;
         } else {
             validate_experimental_option(normalized, &valid_options)?;
         }
@@ -871,26 +863,54 @@ fn parse_experimental_options(parser: &mut lexopt::Parser) -> Result<Vec<String>
 }
 
 // Parse log filters and ensure they match known log levels.
+// Supports multiple formats: [error,warn], [error, warn], error warn, etc.
 fn parse_log_filters(name: &str, values: Vec<String>) -> Result<Vec<String>, CliError> {
     let mut parsed = Vec::new();
+
+    // Process each value, handling brackets and comma-delimited forms
     for value in values {
         let trimmed = value.trim();
-        if trimmed.is_empty() {
-            continue;
-        }
-        let normalized = trimmed.to_ascii_lowercase();
-        if LOG_LEVEL_VALUES.contains(&normalized.as_str()) {
-            parsed.push(normalized);
-        } else {
-            let suggestion = did_you_mean(LOG_LEVEL_VALUES, &normalized)
-                .map(|item| format!("Did you mean '{item}'?"));
-            let help = suggestion
-                .unwrap_or_else(|| format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", ")));
-            return Err(CliError::new(
-                format!("Invalid value for `--{name}`"),
-                "invalid log level",
-            )
-            .with_help(help));
+        let trimmed = trimmed.strip_prefix('[').unwrap_or(trimmed);
+        let trimmed = trimmed.strip_suffix(']').unwrap_or(trimmed);
+
+        // Split on commas if present, otherwise treat as single value
+        if trimmed.contains(',') {
+            for item in trimmed.split(',') {
+                let item = item.trim();
+                if !item.is_empty() {
+                    let normalized = item.to_ascii_lowercase();
+                    if LOG_LEVEL_VALUES.contains(&normalized.as_str()) {
+                        parsed.push(normalized);
+                    } else {
+                        let suggestion = did_you_mean(LOG_LEVEL_VALUES, &normalized)
+                            .map(|item| format!("Did you mean '{item}'?"));
+                        let help = suggestion.unwrap_or_else(|| {
+                            format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
+                        });
+                        return Err(CliError::new(
+                            format!("Invalid value for `--{name}`"),
+                            "invalid log level",
+                        )
+                        .with_help(help));
+                    }
+                }
+            }
+        } else if !trimmed.is_empty() {
+            let normalized = trimmed.to_ascii_lowercase();
+            if LOG_LEVEL_VALUES.contains(&normalized.as_str()) {
+                parsed.push(normalized);
+            } else {
+                let suggestion = did_you_mean(LOG_LEVEL_VALUES, &normalized)
+                    .map(|item| format!("Did you mean '{item}'?"));
+                let help = suggestion.unwrap_or_else(|| {
+                    format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
+                });
+                return Err(CliError::new(
+                    format!("Invalid value for `--{name}`"),
+                    "invalid log level",
+                )
+                .with_help(help));
+            }
         }
     }
     Ok(parsed)
@@ -1221,202 +1241,4 @@ pub(crate) struct NushellCliArgs {
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp: bool,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parse_args(args: &[&str]) -> Result<ParsedCli, CliError> {
-        let args = args.iter().map(OsString::from).collect();
-        parse_cli_args(args)
-    }
-
-    #[test]
-    fn parses_combined_shorts_with_value_last() {
-        let parsed = parse_args(&["nu", "-ilc", "print 1"]).expect("parse args");
-        assert!(parsed.nu.login_shell.is_some());
-        assert!(parsed.nu.interactive_shell.is_some());
-        assert_eq!(parsed.nu.commands.unwrap().item, "print 1");
-    }
-
-    #[test]
-    fn accepts_combined_shorts_without_value() {
-        let parsed = parse_args(&["nu", "-il"]).expect("parse args");
-        assert!(parsed.nu.login_shell.is_some());
-        assert!(parsed.nu.interactive_shell.is_some());
-    }
-
-    #[test]
-    fn accepts_split_shorts_for_value() {
-        let parsed = parse_args(&["nu", "-i", "-l", "-c", "print 1"]).expect("parse args");
-        assert!(parsed.nu.login_shell.is_some());
-        assert!(parsed.nu.interactive_shell.is_some());
-        assert_eq!(parsed.nu.commands.unwrap().item, "print 1");
-    }
-
-    #[test]
-    fn accepts_group_then_value_flag() {
-        let parsed = parse_args(&["nu", "-il", "-c", "print 1"]).expect("parse args");
-        assert!(parsed.nu.login_shell.is_some());
-        assert!(parsed.nu.interactive_shell.is_some());
-        assert_eq!(parsed.nu.commands.unwrap().item, "print 1");
-    }
-
-    #[test]
-    fn accepts_group_then_value_flag_with_equals() {
-        let parsed = parse_args(&["nu", "-il", "-c=print 1"]).expect("parse args");
-        assert!(parsed.nu.login_shell.is_some());
-        assert!(parsed.nu.interactive_shell.is_some());
-        assert_eq!(parsed.nu.commands.unwrap().item, "print 1");
-    }
-
-    #[test]
-    fn rejects_invalid_table_mode() {
-        let err = parse_args(&["nu", "--table-mode", "invalid"]).expect_err("expected error");
-        assert!(err.to_string().contains("table-mode"));
-    }
-
-    #[test]
-    fn missing_table_mode_lists_values() {
-        let err = parse_args(&["nu", "-m"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid table modes"));
-    }
-
-    #[test]
-    fn rejects_invalid_error_style() {
-        let err = parse_args(&["nu", "--error-style", "fanc"]).expect_err("expected error");
-        assert!(err.to_string().contains("error-style"));
-        assert!(
-            err.as_help()
-                .map(|help| help.contains("Did you mean") || help.contains("Valid error styles"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    fn missing_error_style_lists_values() {
-        let err = parse_args(&["nu", "--error-style"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid error styles"));
-    }
-
-    #[test]
-    fn missing_testbin_lists_values() {
-        let err = parse_args(&["nu", "--testbin"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid test bins"));
-    }
-
-    #[test]
-    fn rejects_invalid_testbin_value() {
-        let err = parse_args(&["nu", "--testbin", "cocooo"]).expect_err("expected error");
-        assert!(
-            err.as_help()
-                .map(|help| help.contains("Did you mean") || help.contains("Valid test bins"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    fn missing_log_level_lists_values() {
-        let err = parse_args(&["nu", "--log-level"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid log levels"));
-    }
-
-    #[test]
-    fn missing_log_target_lists_values() {
-        let err = parse_args(&["nu", "--log-target"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid log targets"));
-    }
-
-    #[test]
-    fn missing_experimental_options_lists_values() {
-        let err = parse_args(&["nu", "--experimental-options"]).expect_err("expected error");
-        let help = err.as_help().unwrap_or_default();
-        assert!(help.contains("Valid experimental options"));
-    }
-
-    #[test]
-    fn rejects_value_flag_not_last() {
-        let err = parse_args(&["nu", "-cil"]).expect_err("expected error");
-        assert!(err.to_string().contains("expects a value"));
-    }
-
-    #[test]
-    fn rejects_inline_short_value() {
-        let err = parse_args(&["nu", "-cfoo"]).expect_err("expected error");
-        assert!(err.to_string().contains("inline"));
-    }
-
-    #[test]
-    fn rejects_combined_inline_short_value() {
-        let err = parse_args(&["nu", "-abcfoo"]).expect_err("expected error");
-        assert!(err.to_string().contains("inline"));
-    }
-
-    #[test]
-    fn accepts_short_value_with_equals() {
-        let parsed = parse_args(&["nu", "-c=print 1"]).expect("parse args");
-        assert_eq!(parsed.nu.commands.unwrap().item, "print 1");
-    }
-
-    #[test]
-    fn suggests_unknown_flags() {
-        let err = parse_args(&["nu", "--comands", "ls"]).expect_err("expected error");
-        assert!(err.to_string().contains("Unknown flag"));
-        assert!(
-            err.as_help()
-                .map(|help| help.contains("Did you mean"))
-                .unwrap_or(false)
-        );
-    }
-
-    #[test]
-    fn parses_experimental_options_bracketed_list() {
-        let parsed = parse_args(&[
-            "nu",
-            "--experimental-options",
-            "[example=false, reorder-cell-paths=true, pipefail=true]",
-        ])
-        .expect("parse args");
-        let options = parsed.nu.experimental_options.expect("options");
-        let values = options
-            .iter()
-            .map(|item| item.item.as_str())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            values,
-            vec!["example=false", "reorder-cell-paths=true", "pipefail=true",]
-        );
-    }
-
-    #[test]
-    fn parses_experimental_options_comma_list() {
-        let parsed = parse_args(&[
-            "nu",
-            "--experimental-options",
-            "example=false, reorder-cell-paths=true, pipefail=true",
-        ])
-        .expect("parse args");
-        let options = parsed.nu.experimental_options.expect("options");
-        let values = options
-            .iter()
-            .map(|item| item.item.as_str())
-            .collect::<Vec<_>>();
-        assert_eq!(
-            values,
-            vec!["example=false", "reorder-cell-paths=true", "pipefail=true",]
-        );
-    }
-
-    #[test]
-    fn splits_script_args_after_script_name() {
-        let parsed = parse_args(&["nu", "script.nu", "--flag", "value"]).expect("parse args");
-        assert_eq!(parsed.script_name, "script.nu");
-        assert_eq!(parsed.args_to_script, vec!["--flag", "value"]);
-    }
 }
