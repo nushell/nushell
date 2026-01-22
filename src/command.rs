@@ -478,7 +478,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
         ));
     }
 
-    validate_short_groups(&args)?;
+    prevalidate_short_groups_before_lexopt(&args)?;
 
     let argv0 = args
         .first()
@@ -1023,16 +1023,70 @@ fn unknown_short_flag(short: char) -> CliError {
 }
 
 // Validate combined short flags and reject unsupported inline values.
-fn validate_short_groups(args: &[OsString]) -> Result<(), CliError> {
-    for arg in args.iter().skip(1) {
-        let arg = arg.to_string_lossy();
+fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliError> {
+    let mut i = 1; // skip argv0
+    let mut skip_next = false;
+
+    while i < args.len() {
+        let arg = args[i].to_string_lossy();
+
+        // Skip validation for values following certain flags
+        if skip_next {
+            skip_next = false;
+            i += 1;
+            continue;
+        }
+
+        // Flags that take command/script strings - stop all validation after these
+        if arg == "-c" || arg == "--commands" {
+            // Everything after -c/--commands is nushell code, not CLI args
+            break;
+        }
+
+        // Flags that take values - skip validation of their values
+        if arg == "-e"
+            || arg == "--execute"
+            || arg == "--config"
+            || arg == "--env-config"
+            || arg == "--plugin-config"
+            || arg == "--log-level"
+            || arg == "-l"
+            || arg == "--log-target"
+            || arg == "-t"
+            || arg == "-I"
+            || arg == "-n"
+            || arg == "--threads"
+            || arg == "-m"
+            || arg == "--table-mode"
+            || arg == "--error-style"
+            || arg == "--ide-check"
+            || arg == "--ide-goto-def"
+            || arg == "--ide-hover"
+            || arg == "--ide-complete"
+            || arg == "--lsp"
+            || arg == "--include-path"
+            || arg == "--plugins"
+            || arg == "--experimental-options"
+        {
+            skip_next = true;
+            i += 1;
+            continue;
+        }
+
+        // Stop validation at script name or positional args
+        if !arg.starts_with('-') {
+            break;
+        }
+
         if arg == "-" {
             return Err(CliError::new(
                 "Invalid short flag",
                 "expected a flag after '-'",
             ));
         }
-        if !arg.starts_with('-') || arg.starts_with("--") {
+
+        if arg.starts_with("--") {
+            i += 1;
             continue;
         }
 
@@ -1090,6 +1144,7 @@ fn validate_short_groups(args: &[OsString]) -> Result<(), CliError> {
                     "Move `-{short}` to the end, then pass a value like `-{short} <value>` or `-{short}=<value>`."
                 )));
             }
+            i += 1;
             continue;
         }
 
@@ -1117,6 +1172,8 @@ fn validate_short_groups(args: &[OsString]) -> Result<(), CliError> {
                 "Use `-{short} <value>` or `-{short}=<value>` instead."
             )));
         }
+
+        i += 1;
     }
     Ok(())
 }
