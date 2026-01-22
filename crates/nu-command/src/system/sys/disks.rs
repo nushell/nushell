@@ -33,7 +33,7 @@ impl Command for SysDisks {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system disks",
+            description: "Show info about the system disks.",
             example: "sys disks",
             result: None,
         }]

@@ -19,7 +19,7 @@ impl Command for Which {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .rest("applications", SyntaxShape::String, "Application(s).")
-            .switch("all", "list all executables", Some('a'))
+            .switch("all", "List all executables.", Some('a'))
             .category(Category::System)
     }
 
@@ -51,12 +51,12 @@ impl Command for Which {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Find if the 'myapp' application is available",
+                description: "Find if the 'myapp' application is available.",
                 example: "which myapp",
                 result: None,
             },
             Example {
-                description: "Find all executables across all paths without deduplication",
+                description: "Find all executables across all paths without deduplication.",
                 example: "which -a",
                 result: None,
             },

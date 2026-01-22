@@ -27,7 +27,7 @@ impl Command for First {
                 SyntaxShape::Int,
                 "Starting from the front, the number of rows to return.",
             )
-            .switch("strict", "Throw an error if input is empty", Some('s'))
+            .switch("strict", "Throw an error if input is empty.", Some('s'))
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -49,12 +49,12 @@ impl Command for First {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return the first item of a list/table",
+                description: "Return the first item of a list/table.",
                 example: "[1 2 3] | first",
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Return the first 2 items of a list/table",
+                description: "Return the first 2 items of a list/table.",
                 example: "[1 2 3] | first 2",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(2)],
@@ -62,12 +62,12 @@ impl Command for First {
                 )),
             },
             Example {
-                description: "Return the first 2 bytes of a binary value",
+                description: "Return the first 2 bytes of a binary value.",
                 example: "0x[01 23 45] | first 2",
                 result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
             Example {
-                description: "Return the first item of a range",
+                description: "Return the first item of a range.",
                 example: "1..3 | first",
                 result: Some(Value::test_int(1)),
             },

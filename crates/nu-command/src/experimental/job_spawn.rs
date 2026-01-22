@@ -133,7 +133,7 @@ impl Command for JobSpawn {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "job spawn { sleep 5sec; rm evidence.pdf }",
-            description: "Spawn a background job to do some time consuming work",
+            description: "Spawn a background job to do some time consuming work.",
             result: None,
         }]
     }

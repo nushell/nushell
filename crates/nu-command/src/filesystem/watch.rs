@@ -250,12 +250,12 @@ impl Command for Watch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Run `cargo test` whenever a Rust file changes",
+                description: "Run `cargo test` whenever a Rust file changes.",
                 example: r#"watch . --glob=**/*.rs {|| cargo test }"#,
                 result: None,
             },
             Example {
-                description: "Watch all changes in the current directory",
+                description: "Watch all changes in the current directory.",
                 example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
                 result: None,
             },
@@ -270,12 +270,12 @@ impl Command for Watch {
                 result: None,
             },
             Example {
-                description: "Print file changes with a debounce time of 5 minutes",
+                description: "Print file changes with a debounce time of 5 minutes.",
                 example: r#"watch /foo/bar --debounce 5min { |op, path| $"Registered ($op) on ($path)" | print }"#,
                 result: None,
             },
             Example {
-                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
+                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep.",
                 example: r#"loop { command; sleep duration }"#,
                 result: None,
             },

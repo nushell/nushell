@@ -26,7 +26,7 @@ impl Command for ErrorMake {
                 SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::String]),
                 "The error to create.",
             )
-            .switch("unspanned", "remove the labels from the error", Some('u'))
+            .switch("unspanned", "Remove the labels from the error.", Some('u'))
     }
 
     fn description(&self) -> &str {
@@ -75,22 +75,22 @@ the most recent `error make`."
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Create a simple, default error",
+                description: "Create a simple, default error.",
                 example: "error make",
                 result: None,
             },
             Example {
-                description: "Create a simple error from a string",
+                description: "Create a simple error from a string.",
                 example: "error make 'my error message'",
                 result: None,
             },
             Example {
-                description: "Create a simple error from an `error_struct` record",
+                description: "Create a simple error from an `error_struct` record.",
                 example: "error make {msg: 'my error message'}",
                 result: None,
             },
             Example {
-                description: "A complex error utilizing spans and inners",
+                description: "A complex error utilizing spans and inners.",
                 example: r#"def foo [x: int, y: int] {
         let z = $x + $y
         error make {
@@ -108,12 +108,12 @@ the most recent `error make`."
                 result: None,
             },
             Example {
-                description: "Chain errors using a pipeline",
+                description: "Chain errors using a pipeline.",
                 example: r#"try {error make "foo"} catch {error make "bar"}"#,
                 result: None,
             },
             Example {
-                description: "Chain errors using arguments (note the extra command in `catch`)",
+                description: "Chain errors using arguments (note the extra command in `catch`).",
                 example: r#"try {
         error make "foo"
     } catch {|err|

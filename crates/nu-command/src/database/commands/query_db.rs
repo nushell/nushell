@@ -38,18 +38,18 @@ impl Command for QueryDb {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Execute SQL against a SQLite database",
+                description: "Execute SQL against a SQLite database.",
                 example: r#"open foo.db | query db "SELECT * FROM Bar""#,
                 result: None,
             },
             Example {
-                description: "Execute a SQL statement with parameters",
+                description: "Execute a SQL statement with parameters.",
                 example: r#"stor create -t my_table -c { first: str, second: int }
         stor open | query db "INSERT INTO my_table VALUES (?, ?)" -p [hello 123]"#,
                 result: None,
             },
             Example {
-                description: "Execute a SQL statement with named parameters",
+                description: "Execute a SQL statement with named parameters.",
                 example: r#"stor create -t my_table -c { first: str, second: int }
 stor insert -t my_table -d { first: 'hello', second: '123' }
 stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p { search_second: 123 }"#,
@@ -59,7 +59,7 @@ stor open | query db "SELECT * FROM my_table WHERE second = :search_second" -p {
                 })])),
             },
             Example {
-                description: "Execute a SQL query, selecting a declared JSON(B) column that will automatically be parsed",
+                description: "Execute a SQL query, selecting a declared JSON(B) column that will automatically be parsed.",
                 example: r#"stor create -t my_table -c {data: jsonb}
 [{data: {name: Albert, age: 40}} {data: {name: Barnaby, age: 54}}] | stor insert -t my_table
 stor open | query db "SELECT data FROM my_table WHERE data->>'age' < 45""#,

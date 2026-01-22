@@ -119,27 +119,27 @@ impl Command for StrTrim {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Trim whitespace",
+                description: "Trim whitespace.",
                 example: "'Nu shell ' | str trim",
                 result: Some(Value::test_string("Nu shell")),
             },
             Example {
-                description: "Trim a specific character (not the whitespace)",
+                description: "Trim a specific character (not the whitespace).",
                 example: "'=== Nu shell ===' | str trim --char '='",
                 result: Some(Value::test_string(" Nu shell ")),
             },
             Example {
-                description: "Trim whitespace from the beginning of string",
+                description: "Trim whitespace from the beginning of string.",
                 example: "' Nu shell ' | str trim --left",
                 result: Some(Value::test_string("Nu shell ")),
             },
             Example {
-                description: "Trim whitespace from the end of string",
+                description: "Trim whitespace from the end of string.",
                 example: "' Nu shell ' | str trim --right",
                 result: Some(Value::test_string(" Nu shell")),
             },
             Example {
-                description: "Trim a specific character only from the end of the string",
+                description: "Trim a specific character only from the end of the string.",
                 example: "'=== Nu shell ===' | str trim --right --char '='",
                 result: Some(Value::test_string("=== Nu shell ")),
             },

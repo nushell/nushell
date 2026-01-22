@@ -10,7 +10,7 @@ impl Command for MathCos {
 
     fn signature(&self) -> Signature {
         Signature::build("math cos")
-            .switch("degrees", "Use degrees instead of radians", Some('d'))
+            .switch("degrees", "Use degrees instead of radians.", Some('d'))
             .input_output_types(vec![
                 (Type::Number, Type::Float),
                 (

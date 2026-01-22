@@ -34,12 +34,12 @@ impl Command for DebugEnv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get PATH variable that externals see",
+                description: "Get PATH variable that externals see.",
                 example: "debug env | get PATH!",
                 result: None,
             },
             Example {
-                description: "Create a .env file",
+                description: "Create a .env file.",
                 example: r#"debug env | transpose key value | each {$"($in.key)=($in.value | to json)"} | save .env"#,
                 result: None,
             },

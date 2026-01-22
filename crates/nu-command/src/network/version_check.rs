@@ -30,7 +30,7 @@ impl Command for VersionCheck {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Check if you have the latest version of nushell",
+            description: "Check if you have the latest version of nushell.",
             example: "version check",
             result: None,
         }]

@@ -30,7 +30,7 @@ impl Command for External {
     }
 
     fn description(&self) -> &str {
-        "Runs external command."
+        "Run an external command."
     }
 
     fn extra_description(&self) -> &str {
@@ -350,17 +350,17 @@ If you create a custom command with this name, that will be used instead."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Run an external command",
+                description: "Run an external command.",
                 example: r#"run-external "echo" "-n" "hello""#,
                 result: None,
             },
             Example {
-                description: "Redirect stdout from an external command into the pipeline",
+                description: "Redirect stdout from an external command into the pipeline.",
                 example: r#"run-external "echo" "-n" "hello" | split chars"#,
                 result: None,
             },
             Example {
-                description: "Redirect stderr from an external command into the pipeline",
+                description: "Redirect stderr from an external command into the pipeline.",
                 example: r#"run-external "nu" "-c" "print -e hello" e>| split chars"#,
                 result: None,
             },

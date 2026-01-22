@@ -9,7 +9,7 @@ impl Command for SeqChar {
     }
 
     fn description(&self) -> &str {
-        "Print a sequence of ASCII characters."
+        "Generate a sequence of ASCII characters."
     }
 
     fn signature(&self) -> Signature {
@@ -31,7 +31,7 @@ impl Command for SeqChar {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "sequence a to e",
+                description: "Sequence a to e.",
                 example: "seq char a e",
                 result: Some(Value::list(
                     vec![
@@ -45,7 +45,7 @@ impl Command for SeqChar {
                 )),
             },
             Example {
-                description: "Sequence a to e, and join the characters with a pipe",
+                description: "Sequence a to e, and join the characters with a pipe.",
                 example: "seq char a e | str join '|'",
                 // TODO: it would be nice to test this example, but it currently breaks the input/output type tests
                 // result: Some(Value::test_string("a|b|c|d|e")),

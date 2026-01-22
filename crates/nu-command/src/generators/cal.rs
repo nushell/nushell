@@ -30,7 +30,7 @@ impl Command for Cal {
             .switch("year", "Display the year column", Some('y'))
             .switch("quarter", "Display the quarter column", Some('q'))
             .switch("month", "Display the month column", Some('m'))
-            .switch("as-table", "output as a table", Some('t'))
+            .switch("as-table", "Output as a table.", Some('t'))
             .named(
                 "full-year",
                 SyntaxShape::Int,
@@ -59,7 +59,7 @@ impl Command for Cal {
     }
 
     fn description(&self) -> &str {
-        "Display a calendar."
+        "Display a calendar for the specified month, quarter, or year."
     }
 
     fn run(
@@ -75,22 +75,22 @@ impl Command for Cal {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "This month's calendar",
+                description: "This month's calendar.",
                 example: "cal",
                 result: None,
             },
             Example {
-                description: "The calendar for all of 2012",
+                description: "The calendar for all of 2012.",
                 example: "cal --full-year 2012",
                 result: None,
             },
             Example {
-                description: "This month's calendar with the week starting on Monday",
+                description: "This month's calendar with the week starting on Monday.",
                 example: "cal --week-start mo",
                 result: None,
             },
             Example {
-                description: "How many 'Friday the Thirteenths' occurred in 2015?",
+                description: "How many 'Friday the Thirteenths' occurred in 2015?.",
                 example: "cal --as-table --full-year 2015 | where fr == 13 | length",
                 result: None,
             },

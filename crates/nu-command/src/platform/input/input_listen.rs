@@ -45,7 +45,7 @@ impl Command for InputListen {
     }
 
     fn description(&self) -> &str {
-        "Listen for user interface event."
+        "Listen for user interface events."
     }
 
     fn extra_description(&self) -> &str {
@@ -67,7 +67,7 @@ There are 4 `key_type` variants:
     }
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Listen for a keyboard shortcut and find out how nu receives it",
+            description: "Listen for a keyboard shortcut and find out how nu receives it.",
             example: "input listen --types [key]",
             result: None,
         }]

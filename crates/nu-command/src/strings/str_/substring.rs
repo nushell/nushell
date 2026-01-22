@@ -125,17 +125,17 @@ impl Command for StrSubstring {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get a substring \"nushell\" from the text \"good nushell\" using a range",
+                description: "Get a substring \"nushell\" from the text \"good nushell\" using a range.",
                 example: " 'good nushell' | str substring 5..11",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
-                description: "Count indexes and split using grapheme clusters",
+                description: "Count indexes and split using grapheme clusters.",
                 example: " '🇯🇵ほげ ふが ぴよ' | str substring --grapheme-clusters 4..5",
                 result: Some(Value::test_string("ふが")),
             },
             Example {
-                description: "sub string by negative index",
+                description: "sub string by negative index.",
                 example: " 'good nushell' | str substring 5..-2",
                 result: Some(Value::test_string("nushel")),
             },

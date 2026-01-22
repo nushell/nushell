@@ -91,19 +91,19 @@ impl Command for ToJson {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a JSON string, with default indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with default indentation, representing the contents of this table.",
                 example: "[a b c] | to json",
                 result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
             },
             Example {
-                description: "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with 4-space indentation, representing the contents of this table.",
                 example: "[Joe Bob Sam] | to json --indent 4",
                 result: Some(Value::test_string(
                     "[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]",
                 )),
             },
             Example {
-                description: "Outputs an unformatted JSON string representing the contents of this table",
+                description: "Outputs an unformatted JSON string representing the contents of this table.",
                 example: "[1 2 3] | to json -r",
                 result: Some(Value::test_string("[1,2,3]")),
             },

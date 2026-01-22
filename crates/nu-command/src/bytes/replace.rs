@@ -37,12 +37,12 @@ impl Command for BytesReplace {
                 SyntaxShape::CellPath,
                 "For a data structure input, replace bytes in data at the given cell paths.",
             )
-            .switch("all", "replace all occurrences of find binary", Some('a'))
+            .switch("all", "Replace all occurrences of find binary.", Some('a'))
             .category(Category::Bytes)
     }
 
     fn description(&self) -> &str {
-        "Find and replace binary."
+        "Find and replace bytes in binary data."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -79,17 +79,17 @@ impl Command for BytesReplace {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Find and replace contents",
+                description: "Find and replace contents.",
                 example: "0x[10 AA FF AA FF] | bytes replace 0x[10 AA] 0x[FF]",
                 result: Some(Value::test_binary(vec![0xFF, 0xFF, 0xAA, 0xFF])),
             },
             Example {
-                description: "Find and replace all occurrences of find binary",
+                description: "Find and replace all occurrences of find binary.",
                 example: "0x[10 AA 10 BB 10] | bytes replace --all 0x[10] 0x[A0]",
                 result: Some(Value::test_binary(vec![0xA0, 0xAA, 0xA0, 0xBB, 0xA0])),
             },
             Example {
-                description: "Find and replace all occurrences of find binary in table",
+                description: "Find and replace all occurrences of find binary in table.",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes replace --all 0x[11] 0x[13] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x13, 0x12, 0x13]),

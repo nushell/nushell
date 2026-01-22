@@ -53,12 +53,12 @@ This command is a parser keyword. For details, check:
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Hide the alias just defined",
+                description: "Hide the alias just defined.",
                 example: r#"alias lll = ls -l; hide lll"#,
                 result: None,
             },
             Example {
-                description: "Hide a custom command",
+                description: "Hide a custom command.",
                 example: r#"def say-hi [] { echo 'Hi!' }; hide say-hi"#,
                 result: None,
             },

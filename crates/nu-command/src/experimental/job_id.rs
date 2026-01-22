@@ -43,7 +43,7 @@ was instead spawned by main nushell execution thread."
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "job id",
-            description: "Get id of current job",
+            description: "Get id of current job.",
             result: None,
         }]
     }

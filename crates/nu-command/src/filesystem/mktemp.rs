@@ -34,7 +34,7 @@ impl Command for Mktemp {
                 "Optional pattern from which the name of the file or directory is derived. Must contain at least three 'X's in last component.",
             )
             .named("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
-            .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR", Some('p'))
+            .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR.", Some('p'))
             .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
             .switch("directory", "Create a directory instead of a file.", Some('d'))
             .switch("dry", "Don't create a file and just return the path that would have been created.", None)

@@ -35,7 +35,7 @@ impl Command for Sys {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system",
+            description: "Show info about the system.",
             example: "sys",
             result: None,
         }]

@@ -42,8 +42,8 @@ impl Command for BytesIndexOf {
                 SyntaxShape::CellPath,
                 "For a data structure input, find the indexes at the given cell paths.",
             )
-            .switch("all", "returns all matched index", Some('a'))
-            .switch("end", "search from the end of the binary", Some('e'))
+            .switch("all", "Returns all matched index.", Some('a'))
+            .switch("end", "Search from the end of the binary.", Some('e'))
             .category(Category::Bytes)
     }
 
@@ -77,17 +77,17 @@ impl Command for BytesIndexOf {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Returns index of pattern in bytes",
+                description: "Returns index of pattern in bytes.",
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of 0x[44 55]",
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Returns index of pattern, search from end",
+                description: "Returns index of pattern, search from end.",
                 example: " 0x[33 44 55 10 01 13 44 55] | bytes index-of --end 0x[44 55]",
                 result: Some(Value::test_int(6)),
             },
             Example {
-                description: "Returns all matched index",
+                description: "Returns all matched index.",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all 0x[33 44]",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
@@ -96,7 +96,7 @@ impl Command for BytesIndexOf {
                 ])),
             },
             Example {
-                description: "Returns all matched index, searching from end",
+                description: "Returns all matched index, searching from end.",
                 example: " 0x[33 44 55 10 01 33 44 33 44] | bytes index-of --all --end 0x[33 44]",
                 result: Some(Value::test_list(vec![
                     Value::test_int(7),
@@ -105,7 +105,7 @@ impl Command for BytesIndexOf {
                 ])),
             },
             Example {
-                description: "Returns index of pattern for specific column",
+                description: "Returns index of pattern for specific column.",
                 example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_int(0),

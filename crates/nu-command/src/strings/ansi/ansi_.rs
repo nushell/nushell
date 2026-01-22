@@ -548,7 +548,7 @@ impl Command for Ansi {
                 r"operating system command (osc) escape sequence without the escape character(s) ('\x1b]' is not required)",
                 Some('o'),
             )
-            .switch("list", "list available ansi code names", Some('l'))
+            .switch("list", "List available ansi code names.", Some('l'))
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }

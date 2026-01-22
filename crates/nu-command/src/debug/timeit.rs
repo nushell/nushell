@@ -92,28 +92,28 @@ This command will bubble up any errors encountered when running the closure. The
         vec![
             #[cfg(not(test))]
             Example {
-                description: "Time a closure containing one command",
+                description: "Time a closure containing one command.",
                 example: "timeit { sleep 500ms }",
                 result: Some(Value::test_duration(500_631_800)),
             },
             Example {
-                description: "Time a closure with an input value",
+                description: "Time a closure with an input value.",
                 example: "'A really long string' | timeit { split chars }",
                 result: None,
             },
             Example {
-                description: "Time a closure with an input stream",
+                description: "Time a closure with an input stream.",
                 example: "open some_file.txt | collect | timeit { split chars }",
                 result: None,
             },
             Example {
-                description: "Time a closure containing a pipeline",
+                description: "Time a closure containing a pipeline.",
                 example: "timeit { open some_file.txt | split chars }",
                 result: None,
             },
             #[cfg(not(test))]
             Example {
-                description: "Time a closure and also return the output",
+                description: "Time a closure and also return the output.",
                 example: "timeit --output { 'example text' }",
                 result: Some(Value::test_record(record! {
                 "time" => Value::test_duration(14328),

@@ -15,7 +15,7 @@ impl Command for SeqDate {
     }
 
     fn description(&self) -> &str {
-        "Print sequences of dates."
+        "Generate sequences of dates between start and end dates."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -39,7 +39,7 @@ impl Command for SeqDate {
                 "beginning date range",
                 Some('b'),
             )
-            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
+            .named("end-date", SyntaxShape::String, "Ending date.", Some('e'))
             .named(
                 "increment",
                 SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::Int]),
@@ -58,29 +58,29 @@ impl Command for SeqDate {
                 "number of periods to print",
                 Some('p'),
             )
-            .switch("reverse", "print dates in reverse", Some('r'))
+            .switch("reverse", "Print dates in reverse.", Some('r'))
             .category(Category::Generators)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return a list of the next 10 days in the YYYY-MM-DD format",
+                description: "Return a list of the next 10 days in the YYYY-MM-DD format.",
                 example: "seq date --days 10",
                 result: None,
             },
             Example {
-                description: "Return the previous 10 days in the YYYY-MM-DD format",
+                description: "Return the previous 10 days in the YYYY-MM-DD format.",
                 example: "seq date --days 10 --reverse",
                 result: None,
             },
             Example {
-                description: "Return the previous 10 days, starting today, in the MM/DD/YYYY format",
+                description: "Return the previous 10 days, starting today, in the MM/DD/YYYY format.",
                 example: "seq date --days 10 -o '%m/%d/%Y' --reverse",
                 result: None,
             },
             Example {
-                description: "Return the first 10 days in January, 2020",
+                description: "Return the first 10 days in January, 2020.",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-10' --increment 1day",
                 result: Some(Value::list(
                     vec![
@@ -99,7 +99,7 @@ impl Command for SeqDate {
                 )),
             },
             Example {
-                description: "Return the first 10 days in January, 2020 using --days flag",
+                description: "Return the first 10 days in January, 2020 using --days flag.",
                 example: "seq date --begin-date '2020-01-01' --days 10 --increment 1day",
                 result: Some(Value::list(
                     vec![
@@ -118,7 +118,7 @@ impl Command for SeqDate {
                 )),
             },
             Example {
-                description: "Return the first five 5-minute periods starting January 1, 2020",
+                description: "Return the first five 5-minute periods starting January 1, 2020.",
                 example: "seq date --begin-date '2020-01-01' --periods 5 --increment 5min --output-format '%Y-%m-%d %H:%M:%S'",
                 result: Some(Value::list(
                     vec![
@@ -132,7 +132,7 @@ impl Command for SeqDate {
                 )),
             },
             Example {
-                description: "print every fifth day between January 1st 2020 and January 31st 2020",
+                description: "Print every fifth day between January 1st 2020 and January 31st 2020.",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5day",
                 result: Some(Value::list(
                     vec![
@@ -148,7 +148,7 @@ impl Command for SeqDate {
                 )),
             },
             Example {
-                description: "increment defaults to days if no duration is supplied",
+                description: "Increment defaults to days if no duration is supplied.",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-31' --increment 5",
                 result: Some(Value::list(
                     vec![
@@ -164,7 +164,7 @@ impl Command for SeqDate {
                 )),
             },
             Example {
-                description: "print every six hours starting January 1st, 2020 until January 3rd, 2020",
+                description: "Print every six hours starting January 1st, 2020 until January 3rd, 2020.",
                 example: "seq date --begin-date '2020-01-01' --end-date '2020-01-03' --increment 6hr --output-format '%Y-%m-%d %H:%M:%S'",
                 result: Some(Value::list(
                     vec![

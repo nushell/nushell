@@ -68,32 +68,32 @@ impl Command for Start {
     fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
-                description: "Open a text file with the default text editor",
+                description: "Open a text file with the default text editor.",
                 example: "start file.txt",
                 result: None,
             },
             Example {
-                description: "Open an image with the default image viewer",
+                description: "Open an image with the default image viewer.",
                 example: "start file.jpg",
                 result: None,
             },
             Example {
-                description: "Open the current directory with the default file manager",
+                description: "Open the current directory with the default file manager.",
                 example: "start .",
                 result: None,
             },
             Example {
-                description: "Open a PDF with the default PDF viewer",
+                description: "Open a PDF with the default PDF viewer.",
                 example: "start file.pdf",
                 result: None,
             },
             Example {
-                description: "Open a website with the default browser",
+                description: "Open a website with the default browser.",
                 example: "start https://www.nushell.sh",
                 result: None,
             },
             Example {
-                description: "Open an application-registered protocol URL",
+                description: "Open an application-registered protocol URL.",
                 example: "start obsidian://open?vault=Test",
                 result: None,
             },

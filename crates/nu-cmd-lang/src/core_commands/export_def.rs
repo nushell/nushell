@@ -16,11 +16,11 @@ impl Command for ExportDef {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export def")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("def_name", SyntaxShape::String, "Command name.")
-            .required("params", SyntaxShape::Signature, "Parameters.")
-            .required("block", SyntaxShape::Block, "Body of the definition.")
-            .switch("env", "keep the environment defined inside the command", None)
-            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .required("def_name", SyntaxShape::String, "Command name to define.")
+            .required("params", SyntaxShape::Signature, "Command parameters: comma-separated list inside [].")
+            .required("block", SyntaxShape::Block, "Command body: list of instructions inside {}.")
+            .switch("env", "Environment: defined inside the command.", None)
+            .switch("wrapped", "Unknown flags and arguments: strings that require rest-like parameter in signature.", None)
             .category(Category::Core)
     }
 
@@ -45,7 +45,7 @@ impl Command for ExportDef {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Define a custom command in a module and call it",
+            description: "Define a custom command in a module and call it.",
             example: r#"module spam { export def foo [] { "foo" } }; use spam foo; foo"#,
             result: Some(Value::test_string("foo")),
         }]

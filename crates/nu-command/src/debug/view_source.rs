@@ -233,34 +233,34 @@ impl Command for ViewSource {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "View the source of a code block",
+                description: "View the source of a code block.",
                 example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
                 result: Some(Value::test_string("{|| echo 'hi' }")),
             },
             Example {
-                description: "View the source of a custom command",
+                description: "View the source of a custom command.",
                 example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
                 result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
-                description: "View the source of a custom command, which participates in the caller environment",
+                description: "View the source of a custom command, which participates in the caller environment.",
                 example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
                 result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
-                description: "View the source of a custom command with flags and arguments",
+                description: "View the source of a custom command with flags and arguments.",
                 example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
                 result: Some(Value::test_string(
                     "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
                 )),
             },
             Example {
-                description: "View the source of a module",
+                description: "View the source of a module.",
                 example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
                 result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
-                description: "View the source of an alias",
+                description: "View the source of an alias.",
                 example: r#"alias hello = echo hi; view source hello"#,
                 result: Some(Value::test_string("echo hi")),
             },

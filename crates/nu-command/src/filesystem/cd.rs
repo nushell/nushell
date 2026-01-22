@@ -13,7 +13,7 @@ impl Command for Cd {
     }
 
     fn description(&self) -> &str {
-        "Change directory."
+        "Change the current working directory."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -23,7 +23,7 @@ impl Command for Cd {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("cd")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("physical", "use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
+            .switch("physical", "Use the physical directory structure; resolve symbolic links before processing instances of ..", Some('P'))
             .optional("path", SyntaxShape::Directory, "The path to change to.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
@@ -146,17 +146,17 @@ impl Command for Cd {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Change to your home directory",
+                description: "Change to your home directory.",
                 example: r#"cd ~"#,
                 result: None,
             },
             Example {
-                description: r#"Change to the previous working directory (same as "cd $env.OLDPWD")"#,
+                description: r#"Change to the previous working directory (same as "cd $env.OLDPWD")."#,
                 example: r#"cd -"#,
                 result: None,
             },
             Example {
-                description: "Changing directory with a custom command requires 'def --env'",
+                description: "Changing directory with a custom command requires 'def --env'.",
                 example: r#"def --env gohome [] { cd ~ }"#,
                 result: None,
             },

@@ -98,17 +98,17 @@ impl Command for FormatFilesize {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert the size column to KB",
+                description: "Convert the size column to KB.",
                 example: "ls | format filesize kB size",
                 result: None,
             },
             Example {
-                description: "Convert the apparent column to B",
+                description: "Convert the apparent column to B.",
                 example: "du | format filesize B apparent",
                 result: None,
             },
             Example {
-                description: "Convert the size data to MB",
+                description: "Convert the size data to MB.",
                 example: "4GB | format filesize MB",
                 result: Some(Value::test_string("4000 MB")),
             },

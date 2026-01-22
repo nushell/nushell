@@ -120,12 +120,12 @@ impl Command for FormatDuration {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert µs duration to the requested second duration as a string",
+                description: "Convert µs duration to the requested second duration as a string.",
                 example: "1000000µs | format duration sec",
                 result: Some(Value::test_string("1 sec")),
             },
             Example {
-                description: "Convert durations to µs duration as strings",
+                description: "Convert durations to µs duration as strings.",
                 example: "[1sec 2sec] | format duration µs",
                 result: Some(Value::test_list(vec![
                     Value::test_string("1000000 µs"),
@@ -133,7 +133,7 @@ impl Command for FormatDuration {
                 ])),
             },
             Example {
-                description: "Convert duration to µs as a string if unit asked for was us",
+                description: "Convert duration to µs as a string if unit asked for was us.",
                 example: "1sec | format duration us",
                 result: Some(Value::test_string("1000000 µs")),
             },

@@ -63,22 +63,22 @@ impl Command for DateFromHuman {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Parsing human readable datetime",
+                description: "Parsing human readable datetime.",
                 example: "'Today at 18:30' | date from-human",
                 result: None,
             },
             Example {
-                description: "Parsing human readable datetime",
+                description: "Parsing human readable datetime.",
                 example: "'Last Friday at 19:45' | date from-human",
                 result: None,
             },
             Example {
-                description: "Parsing human readable datetime",
+                description: "Parsing human readable datetime.",
                 example: "'In 5 minutes and 30 seconds' | date from-human",
                 result: None,
             },
             Example {
-                description: "PShow human-readable datetime parsing examples",
+                description: "Show human-readable datetime parsing examples.",
                 example: "date from-human --list",
                 result: None,
             },

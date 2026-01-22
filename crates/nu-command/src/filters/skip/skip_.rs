@@ -37,7 +37,7 @@ impl Command for Skip {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Skip the first value of a list",
+                description: "Skip the first value of a list.",
                 example: "[2 4 6 8] | skip 1",
                 result: Some(Value::test_list(vec![
                     Value::test_int(4),
@@ -46,14 +46,14 @@ impl Command for Skip {
                 ])),
             },
             Example {
-                description: "Skip two rows of a table",
+                description: "Skip two rows of a table.",
                 example: "[[editions]; [2015] [2018] [2021]] | skip 2",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "editions" => Value::test_int(2021),
                 })])),
             },
             Example {
-                description: "Skip 2 bytes of a binary value",
+                description: "Skip 2 bytes of a binary value.",
                 example: "0x[01 23 45 67] | skip 2",
                 result: Some(Value::test_binary(vec![0x45, 0x67])),
             },

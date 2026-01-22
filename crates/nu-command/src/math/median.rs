@@ -58,12 +58,12 @@ impl Command for MathMedian {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute the median of a list of numbers",
+                description: "Compute the median of a list of numbers.",
                 example: "[3 8 9 12 12 15] | math median",
                 result: Some(Value::test_float(10.5)),
             },
             Example {
-                description: "Compute the medians of the columns of a table",
+                description: "Compute the medians of the columns of a table.",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: -3 b: 5}] | math median",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -71,7 +71,7 @@ impl Command for MathMedian {
                 })),
             },
             Example {
-                description: "Find the median of a list of file sizes",
+                description: "Find the median of a list of file sizes.",
                 example: "[5KB 10MB 200B] | math median",
                 result: Some(Value::test_filesize(5 * 1_000)),
             },

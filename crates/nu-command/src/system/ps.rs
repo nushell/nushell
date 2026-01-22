@@ -49,27 +49,27 @@ impl Command for Ps {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "List the system processes",
+                description: "List the system processes.",
                 example: "ps",
                 result: None,
             },
             Example {
-                description: "List the top 5 system processes with the highest memory usage",
+                description: "List the top 5 system processes with the highest memory usage.",
                 example: "ps | sort-by mem | last 5",
                 result: None,
             },
             Example {
-                description: "List the top 3 system processes with the highest CPU usage",
+                description: "List the top 3 system processes with the highest CPU usage.",
                 example: "ps | sort-by cpu | last 3",
                 result: None,
             },
             Example {
-                description: "List the system processes with 'nu' in their names",
+                description: "List the system processes with 'nu' in their names.",
                 example: "ps | where name =~ 'nu'",
                 result: None,
             },
             Example {
-                description: "Get the parent process id of the current nu process",
+                description: "Get the parent process id of the current nu process.",
                 example: "ps | where pid == $nu.pid | get ppid",
                 result: None,
             },

@@ -45,7 +45,7 @@ impl Command for BytesAt {
     }
 
     fn description(&self) -> &str {
-        "Get bytes defined by a range."
+        "Get bytes from the input defined by a range."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -98,34 +98,34 @@ impl Command for BytesAt {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Extract bytes starting from a specific index",
+                description: "Extract bytes starting from a specific index.",
                 example: "{ data: 0x[33 44 55 10 01 13 10] } | bytes at 3.. data",
                 result: Some(Value::test_record(record! {
                     "data" => Value::test_binary(vec![0x10, 0x01, 0x13, 0x10]),
                 })),
             },
             Example {
-                description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`",
+                description: "Slice out `0x[10 01 13]` from `0x[33 44 55 10 01 13]`.",
                 example: "0x[33 44 55 10 01 13] | bytes at 3..5",
                 result: Some(Value::test_binary(vec![0x10, 0x01, 0x13])),
             },
             Example {
-                description: "Extract bytes from the start up to a specific index",
+                description: "Extract bytes from the start up to a specific index.",
                 example: "0x[33 44 55 10 01 13 10] | bytes at ..4",
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10, 0x01])),
             },
             Example {
-                description: "Extract byte `0x[10]` using an exclusive end index",
+                description: "Extract byte `0x[10]` using an exclusive end index.",
                 example: "0x[33 44 55 10 01 13 10] | bytes at 3..<4",
                 result: Some(Value::test_binary(vec![0x10])),
             },
             Example {
-                description: "Extract bytes up to a negative index (inclusive)",
+                description: "Extract bytes up to a negative index (inclusive).",
                 example: "0x[33 44 55 10 01 13 10] | bytes at ..-4",
                 result: Some(Value::test_binary(vec![0x33, 0x44, 0x55, 0x10])),
             },
             Example {
-                description: "Slice bytes across multiple table columns",
+                description: "Slice bytes across multiple table columns.",
                 example: r#"[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
@@ -134,7 +134,7 @@ impl Command for BytesAt {
                 })])),
             },
             Example {
-                description: "Extract the last three bytes using a negative start index",
+                description: "Extract the last three bytes using a negative start index.",
                 example: "0x[33 44 55 10 01 13 10] | bytes at (-3)..",
                 result: Some(Value::test_binary(vec![0x01, 0x13, 0x10])),
             },

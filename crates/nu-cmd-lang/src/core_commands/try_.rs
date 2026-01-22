@@ -58,17 +58,17 @@ impl Command for Try {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Try to run a division by zero",
+                description: "Try to run a division by zero.",
                 example: "try { 1 / 0 }",
                 result: None,
             },
             Example {
-                description: "Try to run a division by zero and return a string instead",
+                description: "Try to run a division by zero and return a string instead.",
                 example: "try { 1 / 0 } catch { 'divided by zero' }",
                 result: Some(Value::test_string("divided by zero")),
             },
             Example {
-                description: "Try to run a division by zero and report the message",
+                description: "Try to run a division by zero and report the message.",
                 example: "try { 1 / 0 } catch { |err| $err.msg }",
                 result: None,
             },

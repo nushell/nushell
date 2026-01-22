@@ -15,7 +15,7 @@ impl Command for Hash {
     }
 
     fn description(&self) -> &str {
-        "Apply hash function."
+        "Apply a hash function to the input."
     }
 
     fn extra_description(&self) -> &str {

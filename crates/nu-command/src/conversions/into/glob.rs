@@ -41,7 +41,7 @@ impl Command for IntoGlob {
     }
 
     fn description(&self) -> &str {
-        "Convert value to glob."
+        "Convert value to a glob pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -61,17 +61,17 @@ impl Command for IntoGlob {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "convert string to glob",
+                description: "Convert string to glob.",
                 example: "'1234' | into glob",
                 result: Some(Value::test_glob("1234")),
             },
             Example {
-                description: "convert glob to glob",
+                description: "Convert glob to glob.",
                 example: "'1234' | into glob | into glob",
                 result: Some(Value::test_glob("1234")),
             },
             Example {
-                description: "convert filepath to glob",
+                description: "Convert filepath to glob.",
                 example: "ls Cargo.toml | get name | into glob",
                 result: None,
             },

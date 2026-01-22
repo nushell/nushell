@@ -12,12 +12,16 @@ impl Command for Seq {
     fn signature(&self) -> Signature {
         Signature::build("seq")
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::Number)))])
-            .rest("rest", SyntaxShape::Number, "Sequence values.")
+            .rest(
+                "rest",
+                SyntaxShape::Number,
+                "The sequence of numbers to generate.",
+            )
             .category(Category::Generators)
     }
 
     fn description(&self) -> &str {
-        "Output sequences of numbers."
+        "Generate sequences of numbers."
     }
 
     fn run(
@@ -33,7 +37,7 @@ impl Command for Seq {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "sequence 1 to 10",
+                description: "Sequence 1 to 10.",
                 example: "seq 1 10",
                 result: Some(Value::list(
                     vec![
@@ -52,7 +56,7 @@ impl Command for Seq {
                 )),
             },
             Example {
-                description: "sequence 1.0 to 2.0 by 0.1s",
+                description: "Sequence 1.0 to 2.0 by 0.1s.",
                 example: "seq 1.0 0.1 2.0",
                 result: Some(Value::list(
                     vec![
@@ -72,7 +76,7 @@ impl Command for Seq {
                 )),
             },
             Example {
-                description: "sequence 1 to 5, then convert to a string with a pipe separator",
+                description: "Sequence 1 to 5, then convert to a string with a pipe separator.",
                 example: "seq 1 5 | str join '|'",
                 result: None,
             },

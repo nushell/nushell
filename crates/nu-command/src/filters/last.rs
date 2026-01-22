@@ -27,7 +27,7 @@ impl Command for Last {
                 SyntaxShape::Int,
                 "Starting from the back, the number of rows to return.",
             )
-            .switch("strict", "Throw an error if input is empty", Some('s'))
+            .switch("strict", "Throw an error if input is empty.", Some('s'))
             .category(Category::Filters)
     }
 
@@ -39,7 +39,7 @@ impl Command for Last {
         vec![
             Example {
                 example: "[1,2,3] | last 2",
-                description: "Return the last 2 items of a list/table",
+                description: "Return the last 2 items of a list/table.",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3)],
                     Span::test_data(),
@@ -47,17 +47,17 @@ impl Command for Last {
             },
             Example {
                 example: "[1,2,3] | last",
-                description: "Return the last item of a list/table",
+                description: "Return the last item of a list/table.",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 example: "0x[01 23 45] | last 2",
-                description: "Return the last 2 bytes of a binary value",
+                description: "Return the last 2 bytes of a binary value.",
                 result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
             },
             Example {
                 example: "1..3 | last",
-                description: "Return the last item of a range",
+                description: "Return the last item of a range.",
                 result: Some(Value::test_int(3)),
             },
         ]

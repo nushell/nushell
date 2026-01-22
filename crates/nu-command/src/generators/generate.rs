@@ -22,7 +22,11 @@ impl Command for Generate {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any, SyntaxShape::Any])),
                 "Generator function.",
             )
-            .optional("initial", SyntaxShape::Any, "Initial value.")
+            .optional(
+                "initial",
+                SyntaxShape::Any,
+                "The initial value for generation.",
+            )
             .allow_variants_without_examples(true)
             .category(Category::Generators)
     }
@@ -51,7 +55,7 @@ In this case, generation also stops when the input stream stops."#
         vec![
             Example {
                 example: "generate {|i| if $i <= 10 { {out: $i, next: ($i + 2)} }} 0",
-                description: "Generate a sequence of numbers",
+                description: "Generate a sequence of numbers.",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(0),
@@ -66,17 +70,17 @@ In this case, generation also stops when the input stream stops."#
             },
             Example {
                 example: "generate {|fib| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} } [0, 1]",
-                description: "Generate a continuous stream of Fibonacci numbers",
+                description: "Generate a continuous stream of Fibonacci numbers.",
                 result: None,
             },
             Example {
                 example: "generate {|fib=[0, 1]| {out: $fib.0, next: [$fib.1, ($fib.0 + $fib.1)]} }",
-                description: "Generate a continuous stream of Fibonacci numbers, using default parameters",
+                description: "Generate a continuous stream of Fibonacci numbers, using default parameters.",
                 result: None,
             },
             Example {
                 example: "1..5 | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum} }",
-                description: "Generate a running sum of the inputs",
+                description: "Generate a running sum of the inputs.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(3),

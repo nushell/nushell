@@ -69,12 +69,12 @@ impl Command for IntoInt {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .named("radix", SyntaxShape::Number, "radix of integer", Some('r'))
+            .named("radix", SyntaxShape::Number, "Radix of integer.", Some('r'))
             .param(
                 Flag::new("endian")
                     .short('e')
                     .arg(SyntaxShape::String)
-                    .desc("byte encode endian, available options: native(default), little, big")
+                    .desc("Byte encode endian, available options: native(default), little, big.")
                     .completion(Completion::new_list(&["native", "little", "big"])),
             )
             .switch(
@@ -91,7 +91,7 @@ impl Command for IntoInt {
     }
 
     fn description(&self) -> &str {
-        "Convert value to integer."
+        "Convert value to an integer."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -165,32 +165,32 @@ impl Command for IntoInt {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert string to int in table",
+                description: "Convert string to int in table.",
                 example: "[[num]; ['-5'] [4] [1.5]] | into int num",
                 result: None,
             },
             Example {
-                description: "Convert string to int",
+                description: "Convert string to int.",
                 example: "'2' | into int",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Convert float to int",
+                description: "Convert float to int.",
                 example: "5.9 | into int",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Convert decimal string to int",
+                description: "Convert decimal string to int.",
                 example: "'5.9' | into int",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Convert file size to int",
+                description: "Convert file size to int.",
                 example: "4KB | into int",
                 result: Some(Value::test_int(4000)),
             },
             Example {
-                description: "Convert bool to int",
+                description: "Convert bool to int.",
                 example: "[false, true] | into int",
                 result: Some(Value::list(
                     vec![Value::test_int(0), Value::test_int(1)],
@@ -198,42 +198,42 @@ impl Command for IntoInt {
                 )),
             },
             Example {
-                description: "Convert date to int (Unix nanosecond timestamp)",
+                description: "Convert date to int (Unix nanosecond timestamp).",
                 example: "1983-04-13T12:09:14.123456789-05:00 | into int",
                 result: Some(Value::test_int(419101754123456789)),
             },
             Example {
-                description: "Convert to int from binary data (radix: 2)",
+                description: "Convert to int from binary data (radix: 2).",
                 example: "'1101' | into int --radix 2",
                 result: Some(Value::test_int(13)),
             },
             Example {
-                description: "Convert to int from hex",
+                description: "Convert to int from hex.",
                 example: "'FF' |  into int --radix 16",
                 result: Some(Value::test_int(255)),
             },
             Example {
-                description: "Convert octal string to int",
+                description: "Convert octal string to int.",
                 example: "'0o10132' | into int",
                 result: Some(Value::test_int(4186)),
             },
             Example {
-                description: "Convert 0 padded string to int",
+                description: "Convert 0 padded string to int.",
                 example: "'0010132' | into int",
                 result: Some(Value::test_int(10132)),
             },
             Example {
-                description: "Convert 0 padded string to int with radix 8",
+                description: "Convert 0 padded string to int with radix 8.",
                 example: "'0010132' | into int --radix 8",
                 result: Some(Value::test_int(4186)),
             },
             Example {
-                description: "Convert binary value to int",
+                description: "Convert binary value to int.",
                 example: "0x[10] | into int",
                 result: Some(Value::test_int(16)),
             },
             Example {
-                description: "Convert binary value to signed int",
+                description: "Convert binary value to signed int.",
                 example: "0x[a0] | into int --signed",
                 result: Some(Value::test_int(-96)),
             },

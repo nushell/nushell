@@ -24,27 +24,27 @@ impl Command for UMv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Rename a file",
+                description: "Rename a file.",
                 example: "mv before.txt after.txt",
                 result: None,
             },
             Example {
-                description: "Move a file into a directory",
+                description: "Move a file into a directory.",
                 example: "mv test.txt my/subdirectory",
                 result: None,
             },
             Example {
-                description: "Move only if source file is newer than target file",
+                description: "Move only if source file is newer than target file.",
                 example: "mv -u new/test.txt old/",
                 result: None,
             },
             Example {
-                description: "Move many files into a directory",
+                description: "Move many files into a directory.",
                 example: "mv *.txt my/subdirectory",
                 result: None,
             },
             Example {
-                description: r#"Move a file into the "my" directory two levels up in the directory tree"#,
+                description: r#"Move a file into the "my" directory two levels up in the directory tree."#,
                 example: "mv test.txt .../my/",
                 result: None,
             },
@@ -58,17 +58,17 @@ impl Command for UMv {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("force", "do not prompt before overwriting", Some('f'))
-            .switch("verbose", "explain what is being done.", Some('v'))
-            .switch("progress", "display a progress bar", Some('p'))
-            .switch("interactive", "prompt before overwriting", Some('i'))
+            .switch("force", "Do not prompt before overwriting.", Some('f'))
+            .switch("verbose", "Explain what is being done.", Some('v'))
+            .switch("progress", "Display a progress bar.", Some('p'))
+            .switch("interactive", "Prompt before overwriting.", Some('i'))
             .switch(
                 "update",
                 "move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing",
                 Some('u')
             )
-            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
-            .switch("all", "move hidden files if '*' is provided", Some('a'))
+            .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
+            .switch("all", "Move hidden files if '*' is provided.", Some('a'))
             .rest(
                 "paths",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),

@@ -45,7 +45,7 @@ impl Command for Exit {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Exit the current shell",
+            description: "Exit the current shell.",
             example: "exit",
             result: None,
         }]

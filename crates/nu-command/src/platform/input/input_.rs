@@ -15,7 +15,7 @@ impl Command for Input {
     }
 
     fn description(&self) -> &str {
-        "Get input from the user."
+        "Get input from the user via the terminal."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -64,7 +64,7 @@ impl Command for Input {
                 "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. Implies `--reedline`.",
                 None,
             )
-            .switch("suppress-output", "don't print keystroke values", Some('s'))
+            .switch("suppress-output", "Don't print keystroke values.", Some('s'))
             .category(Category::Platform)
     }
 
@@ -204,32 +204,32 @@ impl Command for Input {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get input from the user, and assign to a variable",
+                description: "Get input from the user, and assign to a variable.",
                 example: "let user_input = (input)",
                 result: None,
             },
             Example {
-                description: "Get two characters from the user, and assign to a variable",
+                description: "Get two characters from the user, and assign to a variable.",
                 example: "let user_input = (input --numchar 2)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with default value, and assign to a variable",
+                description: "Get input from the user with default value, and assign to a variable.",
                 example: "let user_input = (input --default 10)",
                 result: None,
             },
             Example {
-                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
+                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable.",
                 example: "let multiline_input = (input --reedline)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with history, and assign to a variable",
+                description: "Get input from the user with history, and assign to a variable.",
                 example: "let user_input = ([past,command,entries] | input --reedline)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with history backed by a file, and assign to a variable",
+                description: "Get input from the user with history backed by a file, and assign to a variable.",
                 example: "let user_input = (input --reedline --history-file ./history.txt)",
                 result: None,
             },

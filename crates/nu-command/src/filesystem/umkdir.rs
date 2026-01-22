@@ -122,12 +122,12 @@ impl Command for UMkdir {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Make a directory named foo",
+                description: "Make a directory named foo.",
                 example: "mkdir foo",
                 result: None,
             },
             Example {
-                description: "Make multiple directories and show the paths created",
+                description: "Make multiple directories and show the paths created.",
                 example: "mkdir -v foo/bar foo2",
                 result: None,
             },

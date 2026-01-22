@@ -50,18 +50,18 @@ impl Command for Histogram {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute a histogram of file types",
+                description: "Compute a histogram of file types.",
                 example: "ls | histogram type",
                 result: None,
             },
             Example {
                 description: "Compute a histogram for the types of files, with frequency column \
-                              named freq",
+                              named freq.",
                 example: "ls | histogram type freq",
                 result: None,
             },
             Example {
-                description: "Compute a histogram for a list of numbers",
+                description: "Compute a histogram for a list of numbers.",
                 example: "[1 2 1] | histogram",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -82,7 +82,7 @@ impl Command for Histogram {
             },
             Example {
                 description: "Compute a histogram for a list of numbers, and percentage is based \
-                              on the maximum value",
+                              on the maximum value.",
                 example: "[1 2 3 1 1 1 2 2 1 1] | histogram --percentage-type relative",
                 result: None,
             },
