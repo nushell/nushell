@@ -547,22 +547,14 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 }
             }
             Long("error-style") => {
-                let value = parse_string_value(&mut parser, "error-style")?;
-                let normalized = value.trim().to_ascii_lowercase();
-                if ERROR_STYLE_VALUES.contains(&normalized.as_str()) {
-                    cli.error_style = Some(Value::string(value, Span::unknown()));
-                } else {
-                    let suggestion = did_you_mean(ERROR_STYLE_VALUES, &normalized)
-                        .map(|item| format!("Did you mean '{item}'?"));
-                    let help = suggestion.unwrap_or_else(|| {
-                        format!("Valid error styles: {}", ERROR_STYLE_VALUES.join(", "))
-                    });
-                    return Err(CliError::new(
-                        "Invalid value for `--error-style`",
-                        "invalid error style",
-                    )
-                    .with_help(help));
-                }
+                let normalized = parse_validated_option(
+                    &mut parser,
+                    "error-style",
+                    ERROR_STYLE_VALUES,
+                    "error style",
+                )?;
+                // Store original case value for error-style
+                cli.error_style = Some(Value::string(normalized, Span::unknown()));
             }
             Long("no-newline") => cli.no_newline = Some(spanned_true()),
             Short('n') | Long("no-config-file") => cli.no_config_file = Some(spanned_true()),
@@ -577,11 +569,21 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 cli.env_file = Some(spanned_value(escape_quote_string(&value)));
             }
             Long("log-level") => {
-                let value = parse_log_option_value(&mut parser, "log-level", LOG_LEVEL_VALUES)?;
+                let value = parse_validated_option(
+                    &mut parser,
+                    "log-level",
+                    LOG_LEVEL_VALUES,
+                    "log level",
+                )?;
                 cli.log_level = Some(spanned_value(value));
             }
             Long("log-target") => {
-                let value = parse_log_option_value(&mut parser, "log-target", LOG_TARGET_VALUES)?;
+                let value = parse_validated_option(
+                    &mut parser,
+                    "log-target",
+                    LOG_TARGET_VALUES,
+                    "log target",
+                )?;
                 cli.log_target = Some(spanned_value(value));
             }
             Long("log-include") => {
@@ -600,21 +602,9 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             Long("stdin") => cli.redirect_stdin = Some(spanned_true()),
             Long("testbin") => {
-                let value = parse_string_value(&mut parser, "testbin")?;
-                let normalized = value.trim().to_ascii_lowercase();
-                if TEST_BIN_VALUES.contains(&normalized.as_str()) {
-                    cli.testbin = Some(spanned_value(normalized));
-                } else {
-                    let suggestion = did_you_mean(TEST_BIN_VALUES, &normalized)
-                        .map(|item| format!("Did you mean '{item}'?"));
-                    let help = suggestion.unwrap_or_else(|| {
-                        format!("Valid test bins: {}", TEST_BIN_VALUES.join(", "))
-                    });
-                    return Err(
-                        CliError::new("Invalid value for `--testbin`", "invalid testbin")
-                            .with_help(help),
-                    );
-                }
+                let normalized =
+                    parse_validated_option(&mut parser, "testbin", TEST_BIN_VALUES, "test bin")?;
+                cli.testbin = Some(spanned_value(normalized));
             }
             Long("experimental-options") => {
                 let values = parse_experimental_options(&mut parser)?;
@@ -624,20 +614,16 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             Long("lsp") => cli.lsp = true,
             Long("ide-goto-def") => {
-                let value = parse_int_value(&mut parser, "ide-goto-def")?;
-                cli.ide_goto_def = Some(Value::int(value, Span::unknown()));
+                cli.ide_goto_def = Some(parse_ide_int_option(&mut parser, "ide-goto-def")?)
             }
             Long("ide-hover") => {
-                let value = parse_int_value(&mut parser, "ide-hover")?;
-                cli.ide_hover = Some(Value::int(value, Span::unknown()));
+                cli.ide_hover = Some(parse_ide_int_option(&mut parser, "ide-hover")?)
             }
             Long("ide-complete") => {
-                let value = parse_int_value(&mut parser, "ide-complete")?;
-                cli.ide_complete = Some(Value::int(value, Span::unknown()));
+                cli.ide_complete = Some(parse_ide_int_option(&mut parser, "ide-complete")?)
             }
             Long("ide-check") => {
-                let value = parse_int_value(&mut parser, "ide-check")?;
-                cli.ide_check = Some(Value::int(value, Span::unknown()));
+                cli.ide_check = Some(parse_ide_int_option(&mut parser, "ide-check")?)
             }
             Long("ide-ast") => cli.ide_ast = Some(spanned_true()),
             #[cfg(feature = "plugin")]
@@ -679,9 +665,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                         ));
                     }
                 }
-                cli.plugins
-                    .get_or_insert_with(Vec::new)
-                    .extend(parsed);
+                cli.plugins.get_or_insert_with(Vec::new).extend(parsed);
             }
             #[cfg(feature = "mcp")]
             Long("mcp") => cli.mcp = true,
@@ -780,22 +764,33 @@ fn parse_string_value(parser: &mut lexopt::Parser, name: &str) -> Result<String,
         })
 }
 
-// Parse a required log option value with validation and suggestion support.
-fn parse_log_option_value(
+// Parse and validate a string value against a list of allowed values.
+// Returns the normalized (trimmed, lowercase) value if valid.
+fn parse_validated_option(
     parser: &mut lexopt::Parser,
-    name: &str,
+    option_name: &str,
     valid_values: &[&str],
+    value_description: &str,
 ) -> Result<String, CliError> {
-    let value = parse_string_value(parser, name)?;
+    let value = parse_string_value(parser, option_name)?;
     let normalized = value.trim().to_ascii_lowercase();
     if valid_values.contains(&normalized.as_str()) {
         Ok(normalized)
     } else {
         let suggestion =
             did_you_mean(valid_values, &normalized).map(|item| format!("Did you mean '{item}'?"));
-        let help = suggestion
-            .unwrap_or_else(|| format!("Valid {} values: {}", name, valid_values.join(", ")));
-        Err(CliError::new(format!("Invalid value for `--{name}`"), "invalid value").with_help(help))
+        let help = suggestion.unwrap_or_else(|| {
+            format!(
+                "Valid {} values: {}",
+                value_description,
+                valid_values.join(", ")
+            )
+        });
+        Err(CliError::new(
+            format!("Invalid value for `--{option_name}`"),
+            format!("invalid {value_description}"),
+        )
+        .with_help(help))
     }
 }
 
@@ -809,6 +804,12 @@ fn parse_int_value(parser: &mut lexopt::Parser, name: &str) -> Result<i64, CliEr
         )
         .with_help("Provide a whole number for this option.")
     })
+}
+
+// Helper to parse IDE integer options and wrap in Value::int.
+fn parse_ide_int_option(parser: &mut lexopt::Parser, name: &str) -> Result<Value, CliError> {
+    let value = parse_int_value(parser, name)?;
+    Ok(Value::int(value, Span::unknown()))
 }
 
 // Parse a list of UTF-8 values for options that accept repeated values.
@@ -912,58 +913,41 @@ fn validate_experimental_option(name: &str, valid_options: &[&str]) -> Result<()
     }
 }
 
+// Helper to generate help text for missing value errors based on option name.
+fn missing_value_help(option: &str) -> String {
+    match option {
+        "-m" | "--table-mode" => format!("Valid table modes: {}", TABLE_MODE_VALUES.join(", ")),
+        "--error-style" => format!("Valid error styles: {}", ERROR_STYLE_VALUES.join(", ")),
+        "--testbin" => format!("Valid test bins: {}", TEST_BIN_VALUES.join(", ")),
+        "--log-level" | "--log-include" | "--log-exclude" => {
+            format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", "))
+        }
+        "--log-target" => format!("Valid log targets: {}", LOG_TARGET_VALUES.join(", ")),
+        "--experimental-options" => {
+            let valid_options = experimental_options::ALL
+                .iter()
+                .map(|opt| opt.identifier())
+                .collect::<Vec<_>>();
+            format!("Valid experimental options: {}", valid_options.join(", "))
+        }
+        _ => format!("Provide a value: `{option} <value>` or `{option}=<value>`."),
+    }
+}
+
 // Map lexopt errors into user-friendly CLI errors.
 fn map_lexopt_error(error: lexopt::Error) -> CliError {
     match error {
         lexopt::Error::MissingValue { option } => {
-            if let Some(option) = option {
-                if option == "-m" || option == "--table-mode" {
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!(
-                            "Valid table modes: {}",
-                            TABLE_MODE_VALUES.join(", ")
-                        ));
-                }
-                if option == "--error-style" {
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!(
-                            "Valid error styles: {}",
-                            ERROR_STYLE_VALUES.join(", ")
-                        ));
-                }
-                if option == "--testbin" {
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!("Valid test bins: {}", TEST_BIN_VALUES.join(", ")));
-                }
-                if option == "--log-level" || option == "--log-include" || option == "--log-exclude"
-                {
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!("Valid log levels: {}", LOG_LEVEL_VALUES.join(", ")));
-                }
-                if option == "--log-target" {
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!(
-                            "Valid log targets: {}",
-                            LOG_TARGET_VALUES.join(", ")
-                        ));
-                }
-                if option == "--experimental-options" {
-                    let valid_options = experimental_options::ALL
-                        .iter()
-                        .map(|option| option.identifier())
-                        .collect::<Vec<_>>();
-                    return CliError::new(format!("{option} expects a value"), "missing value")
-                        .with_help(format!(
-                            "Valid experimental options: {}",
-                            valid_options.join(", ")
-                        ));
-                }
-                let help = format!("Provide a value: `{option} <value>` or `{option}=<value>`.");
-                CliError::new(format!("{option} expects a value"), "missing value").with_help(help)
+            let (message, help) = if let Some(option) = option {
+                let help = missing_value_help(&option);
+                (format!("{option} expects a value"), help)
             } else {
-                CliError::new("Missing value", "missing value")
-                    .with_help("Provide a value after the option.")
-            }
+                (
+                    "Missing value".to_string(),
+                    "Provide a value after the option.".to_string(),
+                )
+            };
+            CliError::new(message, "missing value").with_help(help)
         }
         lexopt::Error::UnexpectedValue { option, value } => CliError::new(
             format!("{option} does not take a value"),
