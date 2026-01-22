@@ -2,7 +2,9 @@ use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
-use reedline::{FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal};
+use reedline::{
+    EditCommand, FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal,
+};
 
 #[derive(Clone)]
 pub struct Input;
@@ -172,6 +174,12 @@ impl Command for Input {
             None => line_editor,
         };
 
+        // In reedline mode, treat `--default` as the initial editable buffer contents.
+        // This keeps options minimal while supporting the "prefilled but editable" UX.
+        if let Some(val) = default_val.as_ref() {
+            prefill_reedline_buffer(&mut line_editor, val);
+        }
+
         let mut buf = String::new();
 
         match line_editor.read_line(&prompt) {
@@ -237,13 +245,45 @@ impl Command for Input {
     }
 }
 
+fn prefill_reedline_buffer(line_editor: &mut Reedline, default_val: &str) {
+    if default_val.is_empty() {
+        return;
+    }
+
+    // Start with a clean buffer. This also ensures idempotency if this function is ever called
+    // more than once.
+    line_editor.run_edit_commands(&[EditCommand::Clear]);
+    line_editor.run_edit_commands(&[EditCommand::InsertString(default_val.to_string())]);
+    // Keep cursor at end (insertion point is naturally advanced by InsertString).
+}
+
 #[cfg(test)]
 mod tests {
     use super::Input;
+    use super::prefill_reedline_buffer;
+    use reedline::Reedline;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
         test_examples(Input {})
+    }
+
+    #[test]
+    fn reedline_default_prefills_editable_buffer() {
+        let mut line_editor = Reedline::create();
+        prefill_reedline_buffer(&mut line_editor, "foobar.txt");
+
+        assert_eq!(line_editor.current_buffer_contents(), "foobar.txt");
+        assert_eq!(line_editor.current_insertion_point(), "foobar.txt".len());
+    }
+
+    #[test]
+    fn reedline_default_empty_does_not_prefill() {
+        let mut line_editor = Reedline::create();
+        prefill_reedline_buffer(&mut line_editor, "");
+
+        assert_eq!(line_editor.current_buffer_contents(), "");
+        assert_eq!(line_editor.current_insertion_point(), 0);
     }
 }
