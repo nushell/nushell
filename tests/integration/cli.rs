@@ -116,7 +116,7 @@ fn inline_short_value_is_rejected() -> TestResult {
 fn unknown_flag_suggests_correction() -> TestResult {
     let mut cmd = Command::cargo_bin("nu")?;
     let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--comands"])
+        .args(["--no-config-file", "--no-std-lib", "--comma"])
         .output()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
 
@@ -1231,7 +1231,7 @@ fn accepts_short_value_with_equals() -> TestResult {
 fn suggests_unknown_flags() -> TestResult {
     let mut cmd = Command::cargo_bin("nu")?;
     let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--comands", "ls"])
+        .args(["--no-config-file", "--no-std-lib", "--comma", "ls"])
         .output()?;
     let stderr = String::from_utf8_lossy(&output.stderr);
 
