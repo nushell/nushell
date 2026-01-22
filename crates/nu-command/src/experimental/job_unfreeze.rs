@@ -73,7 +73,7 @@ impl Command for JobUnfreeze {
             },
             Example {
                 example: "job unfreeze 4",
-                description: "Unfreeze a specific frozen job by its PID."
+                description: "Unfreeze a specific frozen job by its PID.",
                 result: None,
             },
         ]
