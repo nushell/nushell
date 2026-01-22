@@ -41,17 +41,26 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
 
     for (cli_arg_warning, ctx) in
         nu_experimental::parse_iter(cli_args.experimental_options.iter().flatten().map(|entry| {
-            entry
+            let cleaned = entry
                 .item
+                .trim()
+                .trim_matches(['[', ']'])
+                .trim_end_matches(',');
+            cleaned
                 .split_once("=")
                 .map(|(key, val)| (key.into(), Some(val.into()), entry))
-                .unwrap_or((entry.item.clone().into(), None, entry))
+                .unwrap_or((cleaned.into(), None, entry))
         }))
     {
+        let labels = if ctx.span == nu_protocol::Span::unknown() {
+            Vec::new()
+        } else {
+            vec![miette::LabeledSpan::new_with_span(None, ctx.span)]
+        };
         let diagnostic = miette::diagnostic!(
             severity = miette::Severity::Warning,
             code = cli_arg_warning.code(),
-            labels = vec![miette::LabeledSpan::new_with_span(None, ctx.span)],
+            labels = labels,
             "{}",
             cli_arg_warning,
         );
