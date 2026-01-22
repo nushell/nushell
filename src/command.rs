@@ -631,7 +631,8 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let mut parsed = Vec::new();
                 for value in values {
                     let trimmed = value.trim();
-                    if trimmed.is_empty() {
+                    // Skip empty strings and bracket-wrapped empty lists like "[]"
+                    if trimmed.is_empty() || trimmed == "[]" {
                         continue;
                     }
                     let path = Path::new(trimmed);
@@ -659,7 +660,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                         ));
                     }
                 }
-                cli.plugins.get_or_insert_with(Vec::new).extend(parsed);
+                // Only set plugins if we actually parsed some valid paths
+                if !parsed.is_empty() {
+                    cli.plugins.get_or_insert_with(Vec::new).extend(parsed);
+                }
             }
             #[cfg(feature = "mcp")]
             Long("mcp") => cli.mcp = true,
@@ -1043,19 +1047,17 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
             break;
         }
 
-        // Flags that take values - skip validation of their values
+        // Flags that take a single value - skip validation of their values
+        // Note: Multi-value flags (--plugins, --log-include, etc.) are not included here
+        // because they consume multiple arguments and the validator can't know how many.
         if arg == "-e"
             || arg == "--execute"
             || arg == "--config"
             || arg == "--env-config"
             || arg == "--plugin-config"
             || arg == "--log-level"
-            || arg == "-l"
             || arg == "--log-target"
-            || arg == "-t"
             || arg == "-I"
-            || arg == "-n"
-            || arg == "--threads"
             || arg == "-m"
             || arg == "--table-mode"
             || arg == "--error-style"
@@ -1063,10 +1065,8 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
             || arg == "--ide-goto-def"
             || arg == "--ide-hover"
             || arg == "--ide-complete"
-            || arg == "--lsp"
             || arg == "--include-path"
-            || arg == "--plugins"
-            || arg == "--experimental-options"
+            || arg == "--testbin"
         {
             skip_next = true;
             i += 1;
