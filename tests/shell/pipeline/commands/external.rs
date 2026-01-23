@@ -506,7 +506,8 @@ mod tilde_expansion {
         "#);
 
         assert!(!actual.out.contains('~'));
-        assert!(actual.out.contains("/foo"));
+        // Check for path separator (/ on Unix, \ on Windows)
+        assert!(actual.out.contains("/foo") || actual.out.contains("\\foo"));
     }
 
     #[test]
