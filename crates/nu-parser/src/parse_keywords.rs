@@ -9,7 +9,7 @@ use crate::{
 };
 
 use log::trace;
-use nu_path::canonicalize_with;
+use nu_path::absolute_with;
 use nu_path::is_windows_device_path;
 use nu_protocol::{
     Alias, BlockId, CommandWideCompleter, CustomExample, DeclId, FromValue, Module, ModuleId,
@@ -4039,8 +4039,10 @@ pub fn find_in_dirs(
             }
         }
 
-        // Try if we have an existing physical path
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+        // Try if we have an existing filesystem path
+        if let Ok(p) = absolute_with(filename, actual_cwd)
+            && p.exists()
+        {
             return Some(ParserPath::RealPath(p));
         }
 
@@ -4062,8 +4064,9 @@ pub fn find_in_dirs(
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
                 let dir = lib_dir.to_path().ok()?;
-                let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
-                canonicalize_with(filename, dir_abs).ok()
+                let dir_abs = absolute_with(dir, actual_cwd).ok()?;
+                let path = absolute_with(filename, dir_abs).ok()?;
+                path.exists().then_some(path)
             })
             .find(Option::is_some)
             .flatten()
@@ -4084,7 +4087,9 @@ pub fn find_in_dirs(
             .current_working_directory()
             .unwrap_or(Path::new(cwd));
 
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+        if let Ok(p) = absolute_with(filename, actual_cwd)
+            && p.exists()
+        {
             Some(p)
         } else {
             let path = Path::new(filename);
@@ -4097,8 +4102,9 @@ pub fn find_in_dirs(
                         for lib_dir in dirs {
                             if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
-                                if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd)
-                                    && let Ok(path) = canonicalize_with(filename, dir_abs)
+                                if let Ok(dir_abs) = absolute_with(dir, actual_cwd)
+                                    && let Ok(path) = absolute_with(filename, dir_abs)
+                                    && path.exists()
                                 {
                                     return Some(path);
                                 }

@@ -1,5 +1,5 @@
 use crate::ClosureEvalOnce;
-use nu_path::canonicalize_with;
+use nu_path::absolute_with;
 use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
     ast::Expr,
@@ -263,7 +263,11 @@ pub fn find_in_dirs_env(
     };
 
     let check_dir = |lib_dirs: Option<&Value>| -> Option<PathBuf> {
-        if let Ok(p) = canonicalize_with(filename, &cwd) {
+        fn exists_with<P: AsRef<Path>, Q: AsRef<Path>>(path: P, relative_to: Q) -> Option<PathBuf> {
+            let path = absolute_with(path, relative_to).ok()?;
+            path.exists().then_some(path)
+        }
+        if let Some(p) = exists_with(filename, &cwd) {
             return Some(p);
         }
         let path = Path::new(filename);
@@ -277,8 +281,8 @@ pub fn find_in_dirs_env(
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
                 let dir = lib_dir.to_path().ok()?;
-                let dir_abs = canonicalize_with(dir, &cwd).ok()?;
-                canonicalize_with(filename, dir_abs).ok()
+                let dir_abs = exists_with(dir, &cwd)?;
+                exists_with(filename, dir_abs)
             })
             .find(Option::is_some)
             .flatten()
