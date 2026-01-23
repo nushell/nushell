@@ -251,7 +251,7 @@ fn parse_unknown_arg(
     // For wrapped commands (allows_unknown_args), parse like external command arguments
     // so that globs and tildes are preserved for expansion by run-external
     if signature.allows_unknown_args {
-        return parse_external_string(working_set, span);
+        return parse_regular_external_arg(working_set, span);
     }
 
     let shape = signature
@@ -1332,7 +1332,7 @@ pub fn parse_internal_call(
                         >= signature.required_positional.len()
                             + signature.optional_positional.len() =>
                 {
-                    parse_external_string(working_set, spans[spans_idx])
+                    parse_regular_external_arg(working_set, spans[spans_idx])
                 }
                 _ => parse_multispan_value(
                     working_set,
