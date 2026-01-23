@@ -278,8 +278,8 @@ impl Stack {
                 ));
             }
         } else {
-            // TODO: Remove panic
-            panic!("internal error: no active overlay");
+            eprint!("internal error: no active overlay");
+            std::process::exit(1);
         }
     }
 
