@@ -461,8 +461,6 @@ impl From<CliError> for ShellError {
     }
 }
 
-impl CliError {}
-
 // Parse CLI args from the current process environment.
 pub(crate) fn parse_cli_args_from_env() -> Result<ParsedCli, CliError> {
     let args = std::env::args_os().collect::<Vec<_>>();
