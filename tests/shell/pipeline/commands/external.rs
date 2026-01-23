@@ -485,6 +485,27 @@ mod tilde_expansion {
 
         assert_eq!(actual.out, "1~1");
     }
+
+    #[test]
+    fn expands_tilde_in_wrapped_function_arguments() {
+        let actual = nu!(r#"
+            def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }
+            test-wrapper ~
+        "#);
+
+        assert!(!actual.out.contains('~'));
+    }
+
+    #[test]
+    fn expands_tilde_path_in_wrapped_function_arguments() {
+        let actual = nu!(r#"
+            def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }
+            test-wrapper ~/foo
+        "#);
+
+        assert!(!actual.out.contains('~'));
+        assert!(actual.out.contains("/foo"));
+    }
 }
 
 mod external_command_arguments {

@@ -248,6 +248,12 @@ fn parse_unknown_arg(
     span: Span,
     signature: &Signature,
 ) -> Expression {
+    // For wrapped commands (allows_unknown_args), parse like external command arguments
+    // so that globs and tildes are preserved for expansion by run-external
+    if signature.allows_unknown_args {
+        return parse_external_string(working_set, span);
+    }
+
     let shape = signature
         .rest_positional
         .as_ref()
@@ -1317,6 +1323,16 @@ pub fn parse_internal_call(
             let arg = match arg_parsing_level {
                 ArgumentParsingLevel::FirstK { k } if k <= positional_idx => {
                     Expression::garbage(working_set, spans[spans_idx])
+                }
+                // For wrapped commands, parse rest args like external command arguments
+                // so globs and tildes are preserved for expansion by run-external
+                _ if signature.allows_unknown_args
+                    && signature.rest_positional.is_some()
+                    && positional_idx
+                        >= signature.required_positional.len()
+                            + signature.optional_positional.len() =>
+                {
+                    parse_external_string(working_set, spans[spans_idx])
                 }
                 _ => parse_multispan_value(
                     working_set,
