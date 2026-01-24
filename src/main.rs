@@ -21,7 +21,7 @@ use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_engine::{convert_env_values, exit::cleanup_exit};
 use nu_lsp::LanguageServer;
-use nu_path::{absolute_with, canonicalize_with};
+use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
     engine::{EngineState, Stack},
@@ -432,8 +432,8 @@ fn main() -> Result<()> {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         for plugin_filename in plugins {
-            // Make sure the plugin filenames are canonicalized
-            let filename = canonicalize_with(&plugin_filename.item, &init_cwd)
+            // Make sure the plugin filenames are absolute
+            let filename = absolute_with(&plugin_filename.item, &init_cwd)
                 .map_err(|err| {
                     nu_protocol::shell_error::io::IoError::new(
                         err,

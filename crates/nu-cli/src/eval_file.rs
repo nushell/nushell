@@ -2,7 +2,7 @@ use crate::util::{eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::eval_block;
 use nu_parser::parse;
-use nu_path::canonicalize_with;
+use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
     debugger::WithoutDebug,
@@ -27,20 +27,14 @@ pub fn evaluate_file(
     let cwd = engine_state.cwd_as_string(Some(stack))?;
 
     let file_path = {
-        match canonicalize_with(&path, cwd) {
+        match absolute_with(&path, cwd) {
             Ok(t) => Ok(t),
-            Err(err) => {
-                let cmdline = format!("nu {path} {}", args.join(" "));
-                let mut working_set = StateWorkingSet::new(engine_state);
-                let file_id = working_set.add_file("<commandline>".into(), cmdline.as_bytes());
-                let span = working_set
-                    .get_span_for_file(file_id)
-                    .subspan(3, path.len() + 3)
-                    .expect("<commandline> to contain script path");
-                engine_state.merge_delta(working_set.render())?;
-                let e = IoError::new(err.not_found_as(NotFound::File), span, PathBuf::from(&path));
-                Err(e)
-            }
+            Err(err) => Err(IoError::new_internal_with_path(
+                err,
+                "Invalid path",
+                nu_protocol::location!(),
+                PathBuf::from(&path),
+            )),
         }
     }?;
 
@@ -55,12 +49,18 @@ pub fn evaluate_file(
         })?;
 
     let file = std::fs::read(&file_path).map_err(|err| {
-        IoError::new_internal_with_path(
-            err.not_found_as(NotFound::File),
-            "Could not read file",
-            nu_protocol::location!(),
-            file_path.clone(),
-        )
+        let cmdline = format!("nu {path} {}", args.join(" "));
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let file_id = working_set.add_file("<commandline>".into(), cmdline.as_bytes());
+        let span = working_set
+            .get_span_for_file(file_id)
+            .subspan(3, path.len() + 3)
+            .expect("<commandline> to contain script path");
+        if let Err(err) = engine_state.merge_delta(working_set.render()) {
+            err
+        } else {
+            IoError::new(err.not_found_as(NotFound::File), span, PathBuf::from(&path)).into()
+        }
     })?;
     engine_state.file = Some(file_path.clone());
 

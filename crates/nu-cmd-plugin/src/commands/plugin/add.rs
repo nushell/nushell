@@ -99,8 +99,7 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let shell_expanded = shell
             .as_ref()
             .map(|s| {
-                nu_path::canonicalize_with(&s.item, &cwd)
-                    .map_err(|err| IoError::new(err, s.span, None))
+                nu_path::absolute_with(&s.item, &cwd).map_err(|err| IoError::new(err, s.span, None))
             })
             .transpose()?;
 
