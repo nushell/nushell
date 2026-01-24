@@ -322,6 +322,29 @@ fn custom_completions_override_span(
     assert_eq!(Span::new(start, end), suggestions[0].span);
 }
 
+#[test]
+fn custom_completions_override_display_value() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            {
+                completions: [
+                    { value: first, display_override: "\u{1b}[2mansi\u{1b}[3mrocks" },
+                    { value: second, display_override: "sir\u{1b}[1mlancelot" },
+                    { value: nonmatching, display_override: "asdf" },
+                ],
+                options: { completion_algorithm: "substring" }
+            }
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command sir";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["first", "second"], &suggestions);
+}
+
 #[rstest]
 /// Fallback to file completions if custom completer returns null
 #[case::fallback(r#"
@@ -975,6 +998,14 @@ fn external_completer_override_span(
         ..Default::default()
     }];
     assert_eq!(expected, suggestions);
+}
+
+#[test]
+fn external_completer_override_display_value() {
+    let block = "{|spans| [{ value: foo, display_override: blah }] }";
+    let suggestions = run_external_completion(block, "extcommand irrelevant");
+    assert_eq!(1, suggestions.len());
+    assert_eq!("blah", suggestions[0].display_value());
 }
 
 /// Fallback to external completions for flags of `sudo`

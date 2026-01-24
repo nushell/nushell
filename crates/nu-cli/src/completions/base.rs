@@ -34,6 +34,7 @@ impl SemanticSuggestion {
         SemanticSuggestion {
             suggestion: Suggestion {
                 value: suggestion.value,
+                display_override: suggestion.display_override,
                 description: suggestion.description,
                 extra: suggestion.extra,
                 append_whitespace: suggestion.append_whitespace,
