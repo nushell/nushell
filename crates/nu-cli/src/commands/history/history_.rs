@@ -169,7 +169,10 @@ impl Command for History {
                             .to_string(),
                     );
                 }
-                table.execute(head)
+                Ok(PipelineData::Value(
+                    Value::custom(Box::new(table), head),
+                    None,
+                ))
             }
         }
     }
