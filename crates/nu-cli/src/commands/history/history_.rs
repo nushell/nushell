@@ -165,14 +165,11 @@ impl Command for History {
                     table = table.with_select("id as item_id, start_timestamp, command_line as command, session_id, hostname, cwd, duration_ms as duration, exit_status, rowid as idx".to_string());
                 } else {
                     table = table.with_select(
-                        "start_timestamp, command_line ascommand, cwd, duration_ms as duration, exit_status"
+                        "start_timestamp, command_line as command, cwd, duration_ms as duration, exit_status"
                             .to_string(),
                     );
                 }
-                Ok(PipelineData::Value(
-                    Value::custom(Box::new(table), head),
-                    None,
-                ))
+                table.execute(head)
             }
         }
     }

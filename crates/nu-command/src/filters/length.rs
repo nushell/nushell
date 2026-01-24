@@ -100,14 +100,17 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
             Ok(Value::int(count, call.head).into_pipeline_data())
         }
         #[cfg(feature = "sqlite")]
-        PipelineData::Value(Value::Custom { .. }, ..) => {
-            Err(ShellError::OnlySupportsThisInputType {
-                exp_input_type: "list, table, binary, and nothing".into(),
-                wrong_type: "custom".into(),
-                dst_span: call.head,
-                src_span: span,
-            })
-        }
+        PipelineData::Value(
+            Value::Custom {
+                val, internal_span, ..
+            },
+            ..,
+        ) => Err(ShellError::OnlySupportsThisInputType {
+            exp_input_type: "list, table, binary, and nothing".into(),
+            wrong_type: val.type_name(),
+            dst_span: call.head,
+            src_span: internal_span,
+        }),
         PipelineData::Value(Value::List { vals, .. }, ..) => {
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }

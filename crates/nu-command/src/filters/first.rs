@@ -172,7 +172,9 @@ fn first_helper(
                 #[cfg(feature = "sqlite")]
                 // Pushdown optimization: handle 'first' on SQLiteQueryBuilder for lazy SQL execution
                 Value::Custom {
-                    val: custom_val, ..
+                    val: custom_val,
+                    internal_span,
+                    ..
                 } => {
                     if let Some(table) = custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>() {
                         if return_single_element {
@@ -204,9 +206,9 @@ fn first_helper(
                     } else {
                         Err(ShellError::OnlySupportsThisInputType {
                             exp_input_type: "list, binary or range".into(),
-                            wrong_type: "custom".into(),
+                            wrong_type: custom_val.type_name(),
                             dst_span: head,
-                            src_span: span,
+                            src_span: internal_span,
                         })
                     }
                 }
