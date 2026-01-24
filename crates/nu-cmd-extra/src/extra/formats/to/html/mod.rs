@@ -3,76 +3,15 @@ use nu_cmd_base::formats::to::delimited::merge_descriptors;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, DataSource, PipelineMetadata};
 use nu_utils::IgnoreCaseExt;
-use rust_embed::RustEmbed;
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, error::Error, fmt::Write};
+use std::{collections::HashMap, fmt::Write};
+use theme::HtmlTheme;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HtmlThemes {
-    themes: Vec<HtmlTheme>,
+mod theme;
+
+mod theme_list {
+    use super::theme::HtmlTheme;
+    include!(concat!(env!("OUT_DIR"), "/html_theme_list.rs"));
 }
-
-#[allow(non_snake_case)]
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HtmlTheme {
-    name: String,
-    black: String,
-    red: String,
-    green: String,
-    yellow: String,
-    blue: String,
-    purple: String,
-    cyan: String,
-    white: String,
-    brightBlack: String,
-    brightRed: String,
-    brightGreen: String,
-    brightYellow: String,
-    brightBlue: String,
-    brightPurple: String,
-    brightCyan: String,
-    brightWhite: String,
-    background: String,
-    foreground: String,
-}
-
-impl Default for HtmlThemes {
-    fn default() -> Self {
-        HtmlThemes {
-            themes: vec![HtmlTheme::default()],
-        }
-    }
-}
-
-impl Default for HtmlTheme {
-    fn default() -> Self {
-        HtmlTheme {
-            name: "nu_default".to_string(),
-            black: "black".to_string(),
-            red: "red".to_string(),
-            green: "green".to_string(),
-            yellow: "#717100".to_string(),
-            blue: "blue".to_string(),
-            purple: "#c800c8".to_string(),
-            cyan: "#037979".to_string(),
-            white: "white".to_string(),
-            brightBlack: "black".to_string(),
-            brightRed: "red".to_string(),
-            brightGreen: "green".to_string(),
-            brightYellow: "#717100".to_string(),
-            brightBlue: "blue".to_string(),
-            brightPurple: "#c800c8".to_string(),
-            brightCyan: "#037979".to_string(),
-            brightWhite: "white".to_string(),
-            background: "white".to_string(),
-            foreground: "black".to_string(),
-        }
-    }
-}
-
-#[derive(RustEmbed)]
-#[folder = "assets/"]
-struct Assets;
 
 #[derive(Clone)]
 pub struct ToHtml;
@@ -181,16 +120,10 @@ fn get_theme_from_asset_file(
 
     let theme_span = theme.map(|s| s.span).unwrap_or(Span::unknown());
 
-    // 228 themes come from
-    // https://github.com/mbadolato/iTerm2-Color-Schemes/tree/master/windowsterminal
-    // we should find a hit on any name in there
-    let asset = get_html_themes("228_themes.json").unwrap_or_default();
+    let themes = HtmlTheme::list();
 
     // Find the theme by theme name
-    let th = asset
-        .themes
-        .into_iter()
-        .find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
+    let th = themes.iter().find(|n| n.name.eq_ignore_case(theme_name)); // case insensitive search
 
     let th = match th {
         Some(t) => t,
@@ -202,7 +135,7 @@ fn get_theme_from_asset_file(
         }
     };
 
-    Ok(convert_html_theme_to_hash_map(is_dark, &th))
+    Ok(convert_html_theme_to_hash_map(is_dark, th))
 }
 
 fn convert_html_theme_to_hash_map(
@@ -211,14 +144,14 @@ fn convert_html_theme_to_hash_map(
 ) -> HashMap<&'static str, String> {
     let mut hm: HashMap<&str, String> = HashMap::with_capacity(18);
 
-    hm.insert("bold_black", theme.brightBlack[..].to_string());
-    hm.insert("bold_red", theme.brightRed[..].to_string());
-    hm.insert("bold_green", theme.brightGreen[..].to_string());
-    hm.insert("bold_yellow", theme.brightYellow[..].to_string());
-    hm.insert("bold_blue", theme.brightBlue[..].to_string());
-    hm.insert("bold_magenta", theme.brightPurple[..].to_string());
-    hm.insert("bold_cyan", theme.brightCyan[..].to_string());
-    hm.insert("bold_white", theme.brightWhite[..].to_string());
+    hm.insert("bold_black", theme.bright_black[..].to_string());
+    hm.insert("bold_red", theme.bright_red[..].to_string());
+    hm.insert("bold_green", theme.bright_green[..].to_string());
+    hm.insert("bold_yellow", theme.bright_yellow[..].to_string());
+    hm.insert("bold_blue", theme.bright_blue[..].to_string());
+    hm.insert("bold_magenta", theme.bright_purple[..].to_string());
+    hm.insert("bold_cyan", theme.bright_cyan[..].to_string());
+    hm.insert("bold_white", theme.bright_white[..].to_string());
 
     hm.insert("black", theme.black[..].to_string());
     hm.insert("red", theme.red[..].to_string());
@@ -241,13 +174,6 @@ fn convert_html_theme_to_hash_map(
     }
 
     hm
-}
-
-fn get_html_themes(json_name: &str) -> Result<HtmlThemes, Box<dyn Error>> {
-    match Assets::get(json_name) {
-        Some(content) => Ok(nu_json::from_slice(&content.data)?),
-        None => Ok(HtmlThemes::default()),
-    }
 }
 
 fn to_html(
@@ -274,7 +200,7 @@ fn to_html(
     let mut regex_hm: HashMap<u32, (&str, String)> = HashMap::with_capacity(17);
 
     if list {
-        // Being essentially a 'help' option, this can afford to be relatively unoptimised
+        // Being essentially a 'help' option, this can afford to be relatively unoptimized
         return Ok(theme_demo(head));
     }
     let theme_span = match &theme {
@@ -367,42 +293,12 @@ fn to_html(
 }
 
 fn theme_demo(span: Span) -> PipelineData {
-    // If asset doesn't work, make sure to return the default theme
-    let html_themes = get_html_themes("228_themes.json").unwrap_or_default();
-    let result: Vec<Value> = html_themes
-        .themes
-        .into_iter()
-        .map(|n| {
-            Value::record(
-                record! {
-                    "name" => Value::string(n.name, span),
-                    "black" => Value::string(n.black, span),
-                    "red" => Value::string(n.red, span),
-                    "green" => Value::string(n.green, span),
-                    "yellow" => Value::string(n.yellow, span),
-                    "blue" => Value::string(n.blue, span),
-                    "purple" => Value::string(n.purple, span),
-                    "cyan" => Value::string(n.cyan, span),
-                    "white" => Value::string(n.white, span),
-                    "brightBlack" => Value::string(n.brightBlack, span),
-                    "brightRed" => Value::string(n.brightRed, span),
-                    "brightGreen" => Value::string(n.brightGreen, span),
-                    "brightYellow" => Value::string(n.brightYellow, span),
-                    "brightBlue" => Value::string(n.brightBlue, span),
-                    "brightPurple" => Value::string(n.brightPurple, span),
-                    "brightCyan" => Value::string(n.brightCyan, span),
-                    "brightWhite" => Value::string(n.brightWhite, span),
-                    "background" => Value::string(n.background, span),
-                    "foreground" => Value::string(n.foreground, span),
-                },
-                span,
-            )
+    Vec::from(HtmlTheme::list())
+        .into_value(span)
+        .into_pipeline_data_with_metadata(PipelineMetadata {
+            data_source: DataSource::HtmlThemes,
+            ..Default::default()
         })
-        .collect();
-    Value::list(result, span).into_pipeline_data_with_metadata(PipelineMetadata {
-        data_source: DataSource::HtmlThemes,
-        ..Default::default()
-    })
 }
 
 fn html_list(list: Vec<Value>, raw: bool, config: &Config) -> String {

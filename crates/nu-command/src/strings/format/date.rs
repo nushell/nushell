@@ -105,11 +105,11 @@ impl Command for FormatDate {
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = engine_state
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| engine_state.get_env_var("LC_ALL"))
-            .or_else(|| engine_state.get_env_var("LC_TIME"))
-            .or_else(|| engine_state.get_env_var("LANG"))
+        let locale = if let Some(loc) = stack
+            .get_env_var(engine_state, LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| stack.get_env_var(engine_state, "LC_ALL"))
+            .or_else(|| stack.get_env_var(engine_state, "LC_TIME"))
+            .or_else(|| stack.get_env_var(engine_state, "LANG"))
         {
             let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
             locale_str.try_into().unwrap_or(Locale::en_US)

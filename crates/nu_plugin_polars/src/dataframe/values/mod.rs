@@ -5,6 +5,7 @@ mod nu_expression;
 mod nu_lazyframe;
 mod nu_lazygroupby;
 mod nu_schema;
+mod nu_selector;
 mod nu_when;
 pub mod utils;
 
@@ -26,6 +27,7 @@ pub use nu_expression::{NuExpression, NuExpressionCustomValue};
 pub use nu_lazyframe::{NuLazyFrame, NuLazyFrameCustomValue};
 pub use nu_lazygroupby::{NuLazyGroupBy, NuLazyGroupByCustomValue};
 pub use nu_schema::NuSchema;
+pub use nu_selector::{NuSelector, NuSelectorCustomValue};
 pub use nu_when::{NuWhen, NuWhenCustomValue, NuWhenType};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -38,6 +40,7 @@ pub enum PolarsPluginType {
     NuPolarsTestData,
     NuDataType,
     NuSchema,
+    NuSelector,
 }
 
 impl PolarsPluginType {
@@ -51,6 +54,7 @@ impl PolarsPluginType {
             Self::NuPolarsTestData => "polars_test_data",
             Self::NuDataType => "polars_datatype",
             Self::NuSchema => "polars_schema",
+            Self::NuSelector => "polars_selector",
         }
     }
 
@@ -63,6 +67,7 @@ impl PolarsPluginType {
             PolarsPluginType::NuWhen,
             PolarsPluginType::NuDataType,
             PolarsPluginType::NuSchema,
+            PolarsPluginType::NuSelector,
         ]
     }
 }
@@ -84,6 +89,7 @@ impl fmt::Display for PolarsPluginType {
             Self::NuPolarsTestData => write!(f, "NuPolarsTestData"),
             Self::NuDataType => write!(f, "NuDataType"),
             Self::NuSchema => write!(f, "NuSchema"),
+            Self::NuSelector => write!(f, "NuSelector"),
         }
     }
 }
@@ -98,6 +104,7 @@ pub enum PolarsPluginObject {
     NuPolarsTestData(Uuid, String),
     NuDataType(NuDataType),
     NuSchema(NuSchema),
+    NuSelector(NuSelector),
 }
 
 impl PolarsPluginObject {
@@ -119,6 +126,8 @@ impl PolarsPluginObject {
             NuSchema::try_from_value(plugin, value).map(PolarsPluginObject::NuSchema)
         } else if NuDataType::can_downcast(value) {
             NuDataType::try_from_value(plugin, value).map(PolarsPluginObject::NuDataType)
+        } else if NuSelector::can_downcast(value) {
+            NuSelector::try_from_value(plugin, value).map(PolarsPluginObject::NuSelector)
         } else {
             Err(cant_convert_err(
                 value,
@@ -130,6 +139,7 @@ impl PolarsPluginObject {
                     PolarsPluginType::NuWhen,
                     PolarsPluginType::NuDataType,
                     PolarsPluginType::NuSchema,
+                    PolarsPluginType::NuSelector,
                 ],
             ))
         }
@@ -154,6 +164,7 @@ impl PolarsPluginObject {
             Self::NuPolarsTestData(_, _) => PolarsPluginType::NuPolarsTestData,
             Self::NuDataType(_) => PolarsPluginType::NuDataType,
             Self::NuSchema(_) => PolarsPluginType::NuSchema,
+            Self::NuSelector(_) => PolarsPluginType::NuSelector,
         }
     }
 
@@ -167,6 +178,7 @@ impl PolarsPluginObject {
             PolarsPluginObject::NuPolarsTestData(id, _) => *id,
             PolarsPluginObject::NuDataType(dt) => dt.id,
             PolarsPluginObject::NuSchema(schema) => schema.id,
+            PolarsPluginObject::NuSelector(selector) => selector.id,
         }
     }
 
@@ -182,6 +194,7 @@ impl PolarsPluginObject {
             }
             PolarsPluginObject::NuDataType(dt) => dt.into_value(span),
             PolarsPluginObject::NuSchema(schema) => schema.into_value(span),
+            PolarsPluginObject::NuSelector(selector) => selector.into_value(span),
         }
     }
 
@@ -209,6 +222,7 @@ pub enum CustomValueType {
     NuWhen(NuWhenCustomValue),
     NuDataType(NuDataTypeCustomValue),
     NuSchema(NuSchemaCustomValue),
+    NuSelector(NuSelectorCustomValue),
 }
 
 impl CustomValueType {
@@ -221,6 +235,7 @@ impl CustomValueType {
             CustomValueType::NuWhen(w_cv) => w_cv.id,
             CustomValueType::NuDataType(dt_cv) => dt_cv.id,
             CustomValueType::NuSchema(schema_cv) => schema_cv.id,
+            CustomValueType::NuSelector(selector_cv) => selector_cv.id,
         }
     }
 
@@ -235,10 +250,12 @@ impl CustomValueType {
             Ok(CustomValueType::NuLazyGroupBy(lg_cv.clone()))
         } else if let Some(w_cv) = val.as_any().downcast_ref::<NuWhenCustomValue>() {
             Ok(CustomValueType::NuWhen(w_cv.clone()))
-        } else if let Some(w_cv) = val.as_any().downcast_ref::<NuDataTypeCustomValue>() {
-            Ok(CustomValueType::NuDataType(w_cv.clone()))
-        } else if let Some(w_cv) = val.as_any().downcast_ref::<NuSchemaCustomValue>() {
-            Ok(CustomValueType::NuSchema(w_cv.clone()))
+        } else if let Some(dt_cv) = val.as_any().downcast_ref::<NuDataTypeCustomValue>() {
+            Ok(CustomValueType::NuDataType(dt_cv.clone()))
+        } else if let Some(schema_cv) = val.as_any().downcast_ref::<NuSchemaCustomValue>() {
+            Ok(CustomValueType::NuSchema(schema_cv.clone()))
+        } else if let Some(selector_cv) = val.as_any().downcast_ref::<NuSelectorCustomValue>() {
+            Ok(CustomValueType::NuSelector(selector_cv.clone()))
         } else {
             Err(ShellError::CantConvert {
                 to_type: "physical type".into(),

@@ -13,10 +13,118 @@ use rayon::prelude::*;
 use std::os::unix::fs::PermissionsExt;
 use std::{
     cmp::Ordering,
+    fs::{DirEntry, Metadata},
     path::PathBuf,
     sync::{Arc, Mutex, mpsc},
     time::{SystemTime, UNIX_EPOCH},
 };
+
+/// Entry from directory listing with cached metadata/file type to avoid repeated syscalls.
+/// On Windows, DirEntry::metadata() is free (no extra syscalls).
+/// On Unix, DirEntry::file_type() is usually free, but metadata requires stat().
+struct LsEntry {
+    path: PathBuf,
+    /// Cached metadata - on Windows this is free from DirEntry, on Unix we may need to fetch it later
+    #[cfg(windows)]
+    metadata: Option<Metadata>,
+    /// Cached file type - free on most platforms from DirEntry::file_type()
+    #[cfg(not(windows))]
+    file_type: Option<std::fs::FileType>,
+}
+
+impl LsEntry {
+    fn from_dir_entry(entry: &DirEntry) -> Self {
+        let path = entry.path();
+        #[cfg(windows)]
+        {
+            // On Windows, DirEntry::metadata() is free (no extra syscalls)
+            let metadata = entry.metadata().ok();
+            LsEntry { path, metadata }
+        }
+        #[cfg(not(windows))]
+        {
+            // On Unix, DirEntry::file_type() is free, but metadata requires stat()
+            let file_type = entry.file_type().ok();
+            LsEntry { path, file_type }
+        }
+    }
+
+    fn from_path(path: PathBuf) -> Self {
+        LsEntry {
+            path,
+            #[cfg(windows)]
+            metadata: None,
+            #[cfg(not(windows))]
+            file_type: None,
+        }
+    }
+
+    /// Check if this is a directory. Uses cached info if available.
+    fn is_dir(&self) -> bool {
+        #[cfg(windows)]
+        {
+            if let Some(ref md) = self.metadata {
+                return md.is_dir();
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            if let Some(ref ft) = self.file_type {
+                return ft.is_dir();
+            }
+        }
+        // Fallback: need to query
+        self.path
+            .symlink_metadata()
+            .map(|m| m.file_type().is_dir())
+            .unwrap_or(false)
+    }
+
+    /// Check if this is hidden on the current platform.
+    #[cfg(windows)]
+    fn is_hidden(&self) -> bool {
+        use std::os::windows::fs::MetadataExt;
+        // https://docs.microsoft.com/en-us/windows/win32/fileio/file-attribute-constants
+        const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+        if let Some(ref md) = self.metadata {
+            (md.file_attributes() & FILE_ATTRIBUTE_HIDDEN) != 0
+        } else {
+            // Fallback
+            self.path
+                .metadata()
+                .map(|m| (m.file_attributes() & FILE_ATTRIBUTE_HIDDEN) != 0)
+                .unwrap_or(false)
+        }
+    }
+
+    #[cfg(not(windows))]
+    fn is_hidden(&self) -> bool {
+        self.path
+            .file_name()
+            .map(|name| name.to_string_lossy().starts_with('.'))
+            .unwrap_or(false)
+    }
+
+    /// Get metadata, fetching it if not cached.
+    /// On Windows this should always be cached from DirEntry.
+    /// On Unix this will call symlink_metadata() if needed.
+    fn get_metadata(&self) -> Option<Metadata> {
+        #[cfg(windows)]
+        {
+            // If metadata was cached from DirEntry, use it; otherwise fetch it
+            // (needed for entries created via from_path, e.g., from glob results)
+            if self.metadata.is_some() {
+                self.metadata.clone()
+            } else {
+                std::fs::symlink_metadata(&self.path).ok()
+            }
+        }
+        #[cfg(not(windows))]
+        {
+            std::fs::symlink_metadata(&self.path).ok()
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Ls;
@@ -318,7 +426,10 @@ fn ls_for_one_pattern(
     let hidden_dir_specified = is_hidden_dir(pattern_arg.as_ref());
 
     let path = pattern_arg.into_spanned(p_tag);
-    let (prefix, paths) = if just_read_dir {
+    let (prefix, paths): (
+        Option<PathBuf>,
+        Box<dyn Iterator<Item = Result<LsEntry, ShellError>> + Send>,
+    ) = if just_read_dir {
         let expanded = nu_path::expand_path_with(path.item.as_ref(), &cwd, path.item.is_expand());
         let paths = read_dir(expanded.clone(), p_tag, use_threads, signals.clone())?;
         // just need to read the directory, so prefix is path itself.
@@ -333,7 +444,11 @@ fn ls_for_one_pattern(
             };
             Some(glob_options)
         };
-        glob_from(&path, &cwd, call_span, glob_options, signals.clone())?
+        let (prefix, glob_paths) =
+            glob_from(&path, &cwd, call_span, glob_options, signals.clone())?;
+        // Convert PathBuf results to LsEntry (without cached file type from glob)
+        let paths = glob_paths.map(|r| r.map(LsEntry::from_path));
+        (prefix, Box::new(paths))
     };
 
     let mut paths_peek = paths.peekable();
@@ -374,23 +489,24 @@ fn ls_for_one_pattern(
             let result = paths_peek
                 .par_bridge()
                 .filter_map(move |x| match x {
-                    Ok(path) => {
-                        let metadata = std::fs::symlink_metadata(&path).ok();
+                    Ok(entry) => {
                         let hidden_dir_clone = Arc::clone(&hidden_dirs);
                         let mut hidden_dir_mutex = hidden_dir_clone
                             .lock()
                             .expect("Unable to acquire lock for hidden_dirs");
-                        if path_contains_hidden_folder(&path, &hidden_dir_mutex) {
+                        if path_contains_hidden_folder(&entry.path, &hidden_dir_mutex) {
                             return None;
                         }
 
-                        if !all && !hidden_dir_specified && is_hidden_dir(&path) {
-                            if path.is_dir() {
-                                hidden_dir_mutex.push(path);
+                        if !all && !hidden_dir_specified && entry.is_hidden() {
+                            if entry.is_dir() {
+                                hidden_dir_mutex.push(entry.path.clone());
                                 drop(hidden_dir_mutex);
                             }
                             return None;
                         }
+                        // Get reference to path first for display_name calculation
+                        let path = &entry.path;
 
                         let display_name = if short_names {
                             path.file_name().map(|os| os.to_string_lossy().to_string())
@@ -401,7 +517,7 @@ fn ls_for_one_pattern(
                                 if directory {
                                     // When the path is the same as the cwd, path_diff should be "."
                                     let path_diff = if let Some(path_diff_not_dot) =
-                                        diff_paths(&path, &cwd)
+                                        diff_paths(path, &cwd)
                                     {
                                         let path_diff_not_dot = path_diff_not_dot.to_string_lossy();
                                         if path_diff_not_dot.is_empty() {
@@ -439,8 +555,17 @@ fn ls_for_one_pattern(
 
                         match display_name {
                             Ok(name) => {
-                                let entry = dir_entry_dict(
-                                    &path,
+                                // Use cached metadata from LsEntry when available (free on Windows)
+                                // On Unix, this will call symlink_metadata() but only once per entry
+                                let metadata = entry.get_metadata();
+                                // When full_paths is enabled, ensure path is absolute for symlink target expansion
+                                let path_for_dict = if full_paths && !path.is_absolute() {
+                                    std::borrow::Cow::Owned(cwd.join(path))
+                                } else {
+                                    std::borrow::Cow::Borrowed(path)
+                                };
+                                let result = dir_entry_dict(
+                                    &path_for_dict,
                                     &name,
                                     metadata.as_ref(),
                                     call_span,
@@ -448,9 +573,9 @@ fn ls_for_one_pattern(
                                     du,
                                     &signals_clone,
                                     use_mime_type,
-                                    args.full_paths,
+                                    full_paths,
                                 );
-                                match entry {
+                                match result {
                                     Ok(value) => Some(value),
                                     Err(err) => Some(Value::error(err, call_span)),
                                 }
@@ -966,14 +1091,14 @@ fn read_dir(
     span: Span,
     use_threads: bool,
     signals: Signals,
-) -> Result<Box<dyn Iterator<Item = Result<PathBuf, ShellError>> + Send>, ShellError> {
+) -> Result<Box<dyn Iterator<Item = Result<LsEntry, ShellError>> + Send>, ShellError> {
     let signals_clone = signals.clone();
     let items = f
         .read_dir()
         .map_err(|err| IoError::new(err, span, f.clone()))?
         .map(move |d| {
             signals_clone.check(&span)?;
-            d.map(|r| r.path())
+            d.map(|entry| LsEntry::from_dir_entry(&entry))
                 .map_err(|err| IoError::new(err, span, f.clone()))
                 .map_err(ShellError::from)
         });
@@ -981,7 +1106,7 @@ fn read_dir(
         let mut collected = items.collect::<Vec<_>>();
         signals.check(&span)?;
         collected.sort_by(|a, b| match (a, b) {
-            (Ok(a), Ok(b)) => a.cmp(b),
+            (Ok(a), Ok(b)) => a.path.cmp(&b.path),
             (Ok(_), Err(_)) => Ordering::Greater,
             (Err(_), Ok(_)) => Ordering::Less,
             (Err(_), Err(_)) => Ordering::Equal,

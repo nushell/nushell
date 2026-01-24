@@ -69,22 +69,34 @@ fn entry(
     arg: impl Into<String>,
     path: impl Into<String>,
     cmd_type: CommandType,
+    definition: Option<String>,
     span: Span,
 ) -> Value {
-    Value::record(
-        record! {
-            "command" => Value::string(arg, span),
-            "path" => Value::string(path, span),
-            "type" => Value::string(cmd_type.to_string(), span),
-        },
-        span,
-    )
+    let mut record = record! {
+        "command" => Value::string(arg, span),
+        "path" => Value::string(path, span),
+        "type" => Value::string(cmd_type.to_string(), span),
+    };
+
+    if let Some(def) = definition {
+        record.insert("definition", Value::string(def, span));
+    }
+
+    Value::record(record, span)
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
     if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
         let decl = engine_state.get_decl(decl_id);
-        Some(entry(name, "", decl.command_type(), span))
+        let definition = if decl.command_type() == CommandType::Alias {
+            decl.as_alias().map(|alias| {
+                String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
+                    .to_string()
+            })
+        } else {
+            None
+        };
+        Some(entry(name, "", decl.command_type(), definition, span))
     } else {
         None
     }
@@ -97,7 +109,15 @@ fn get_first_entry_in_path(
     paths: impl AsRef<OsStr>,
 ) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
-        .map(|path| entry(item, path.to_string_lossy(), CommandType::External, span))
+        .map(|path| {
+            entry(
+                item,
+                path.to_string_lossy(),
+                CommandType::External,
+                None,
+                span,
+            )
+        })
         .ok()
 }
 
@@ -109,8 +129,16 @@ fn get_all_entries_in_path(
 ) -> Vec<Value> {
     which::which_in_all(&item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| entry(item, path.to_string_lossy(), CommandType::External, span))
-                .collect()
+            iter.map(|path| {
+                entry(
+                    item,
+                    path.to_string_lossy(),
+                    CommandType::External,
+                    None,
+                    span,
+                )
+            })
+            .collect()
         })
         .unwrap_or_default()
 }
@@ -129,10 +157,19 @@ fn list_all_executables(
         let name = String::from_utf8_lossy(&name_bytes).to_string();
         seen_commands.insert(name.clone());
         let decl = engine_state.get_decl(decl_id);
+        let definition = if decl.command_type() == CommandType::Alias {
+            decl.as_alias().map(|alias| {
+                String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
+                    .to_string()
+            })
+        } else {
+            None
+        };
         results.push(entry(
             name,
             String::new(),
             decl.command_type(),
+            definition,
             Span::unknown(),
         ));
     }
@@ -159,6 +196,7 @@ fn list_all_executables(
                 filename,
                 full_path,
                 CommandType::External,
+                None,
                 Span::unknown(),
             ))
         });

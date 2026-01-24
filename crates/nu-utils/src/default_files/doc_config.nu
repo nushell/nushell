@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.109.2"
+# version = "0.110.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -260,7 +260,7 @@ $env.config.shell_integration.reset_application_mode = true
 $env.config.bracketed_paste = true
 
 # use_ansi_coloring ("auto"|bool): Control ANSI coloring in Nushell output.
-# "auto": Determine based on FORCE_COLOR, NO_COLOR, CLICOLOR env vars, or if stdout is a terminal.
+# "auto": Determine based on FORCE_COLOR, NO_COLOR, CLICOLOR, TERM="dumb" env vars, or if stdout is a terminal.
 # true: Always enable ANSI coloring.
 # false: Disable ANSI coloring (use default foreground only).
 # Note: Does not affect the `ansi` command.
