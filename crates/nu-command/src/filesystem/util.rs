@@ -1,5 +1,13 @@
-use dialoguer::Input;
-use std::error::Error;
+use crossterm::{
+    cursor::Show,
+    event::{self, Event, KeyCode},
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode},
+};
+use std::{
+    error::Error,
+    io::{self, Write},
+};
 
 pub fn try_interaction(
     interactive: bool,
@@ -23,25 +31,58 @@ pub fn try_interaction(
 }
 
 fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> {
-    let input = Input::new()
-        .with_prompt(prompt)
-        .validate_with(|c_input: &String| -> Result<(), String> {
-            if c_input.len() == 1
-                && (c_input == "y" || c_input == "Y" || c_input == "n" || c_input == "N")
-            {
-                Ok(())
-            } else if c_input.len() > 1 {
-                Err("Enter only one letter (Y/N)".to_string())
-            } else {
-                Err("Input not valid".to_string())
-            }
-        })
-        .default("Y/N".into())
-        .interact_text()?;
+    let mut stderr = io::stderr();
 
-    if input == "y" || input == "Y" {
-        Ok(true)
-    } else {
-        Ok(false)
+    // Print prompt
+    eprint!("{} [y/n]: ", prompt);
+    stderr.flush()?;
+
+    enable_raw_mode()?;
+    scopeguard::defer! {
+        let _ = disable_raw_mode();
+        let _ = execute!(io::stderr(), Show);
+    }
+
+    let mut input = String::new();
+
+    loop {
+        if event::poll(std::time::Duration::from_millis(100))? {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event.code {
+                    KeyCode::Char('y') | KeyCode::Char('Y') => {
+                        eprintln!("y");
+                        return Ok(true);
+                    }
+                    KeyCode::Char('n') | KeyCode::Char('N') => {
+                        eprintln!("n");
+                        return Ok(false);
+                    }
+                    KeyCode::Enter => {
+                        // Validate current input
+                        if input.eq_ignore_ascii_case("y") {
+                            eprintln!();
+                            return Ok(true);
+                        } else if input.eq_ignore_ascii_case("n") {
+                            eprintln!();
+                            return Ok(false);
+                        }
+                        // Invalid input, continue waiting
+                    }
+                    KeyCode::Backspace => {
+                        if !input.is_empty() {
+                            input.pop();
+                            // Clear and reprint
+                            eprint!("\r{} [y/n]: {}", prompt, input);
+                            stderr.flush()?;
+                        }
+                    }
+                    KeyCode::Esc => {
+                        eprintln!();
+                        return Ok(false);
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 }

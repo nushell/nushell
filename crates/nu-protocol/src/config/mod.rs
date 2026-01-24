@@ -66,6 +66,7 @@ pub struct Config {
     pub bracketed_paste: bool,
     pub render_right_prompt_on_last_line: bool,
     pub explore: HashMap<String, Value>,
+    pub input_list: HashMap<String, Value>,
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
@@ -95,6 +96,7 @@ impl Default for Config {
             datetime_format: DatetimeFormatConfig::default(),
 
             explore: HashMap::new(),
+            input_list: HashMap::new(),
 
             history: HistoryConfig::default(),
 
@@ -161,6 +163,7 @@ impl UpdateFromValue for Config {
                 "table" => self.table.update(val, path, errors),
                 "filesize" => self.filesize.update(val, path, errors),
                 "explore" => self.explore.update(val, path, errors),
+                "input_list" => self.input_list.update(val, path, errors),
                 "color_config" => self.color_config.update(val, path, errors),
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
