@@ -25,6 +25,7 @@ impl Command for Length {
                 #[cfg(feature = "sqlite")]
                 (Type::Custom("SQLiteQueryBuilder".into()), Type::Int),
             ])
+            .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
 

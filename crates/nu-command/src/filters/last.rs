@@ -30,6 +30,7 @@ impl Command for Last {
                 SyntaxShape::Int,
                 "Starting from the back, the number of rows to return.",
             )
+            .allow_variants_without_examples(true)
             .switch("strict", "Throw an error if input is empty", Some('s'))
             .category(Category::Filters)
     }
