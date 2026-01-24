@@ -1880,9 +1880,9 @@ dependencies = [
 
 [[package]]
 name = "eml-parser"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7db8d15f812e08f76427c555195583e3ab8a99fd8b208f8d9e2899262e80f2e"
+checksum = "f7576d323bbbfa47706337f5c01ff8de2e238c6a1c774fe8c8aa4ca4c596eb6d"
 dependencies = [
  "regex",
  "rfc2047-decoder",
