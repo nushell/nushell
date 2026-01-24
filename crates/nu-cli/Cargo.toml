@@ -20,6 +20,7 @@ tempfile = { workspace = true }
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.110.1" }
+nu-command = { path = "../nu-command", version = "0.110.1" }
 nu-engine = { path = "../nu-engine", version = "0.110.1", features = ["os"] }
 nu-glob = { path = "../nu-glob", version = "0.110.1" }
 nu-path = { path = "../nu-path", version = "0.110.1" }
