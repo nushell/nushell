@@ -22,6 +22,50 @@ impl Command for ViewSource {
             .category(Category::Debug)
     }
 
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "View the source of a code block",
+                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
+                result: Some(Value::test_string("{|| echo 'hi' }")),
+            },
+            Example {
+                description: "View the source of a custom command",
+                example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
+                result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
+            },
+            Example {
+                description: "View the source of a custom command, which participates in the caller environment",
+                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                result: Some(Value::test_string("def --env foo [] { $env.BAR = 'BAZ' }")),
+            },
+            Example {
+                description: "View the source of a custom command with flags",
+                example: r#"def --wrapped --env foo [...rest: string] { print $rest }; view source foo"#,
+                result: Some(Value::test_string(
+                    "def --env --wrapped foo [ ...rest: string] { print $rest }",
+                )),
+            },
+            Example {
+                description: "View the source of a custom command with flags and arguments",
+                example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
+                result: Some(Value::test_string(
+                    "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
+                )),
+            },
+            Example {
+                description: "View the source of a module",
+                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
+                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
+            },
+            Example {
+                description: "View the source of an alias",
+                example: r#"alias hello = echo hi; view source hello"#,
+                result: Some(Value::test_string("echo hi")),
+            },
+        ]
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
@@ -89,10 +133,23 @@ impl Command for ViewSource {
                             let contents = engine_state.get_span_contents(block_span);
                             // name of function
                             let mut final_contents = String::new();
-                            if val.contains(' ') {
-                                let _ = write!(&mut final_contents, "def \"{val}\" [");
+                            // Collect def flags based on block and signature properties
+                            let flags: Vec<&str> = [
+                                block.redirect_env.then_some("--env"),
+                                sig.allows_unknown_args.then_some("--wrapped"),
+                            ]
+                            .into_iter()
+                            .flatten()
+                            .collect();
+                            let flags_str = if flags.is_empty() {
+                                String::new()
                             } else {
-                                let _ = write!(&mut final_contents, "def {val} [");
+                                format!("{} ", flags.join(" "))
+                            };
+                            if val.contains(' ') {
+                                let _ = write!(&mut final_contents, "def {flags_str}\"{val}\" [");
+                            } else {
+                                let _ = write!(&mut final_contents, "def {flags_str}{val} [");
                             };
                             if !vec_of_required.is_empty()
                                 || !vec_of_optional.is_empty()
@@ -228,42 +285,5 @@ impl Command for ViewSource {
                 ..Default::default()
             }))
         })
-    }
-
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "View the source of a code block",
-                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
-                result: Some(Value::test_string("{|| echo 'hi' }")),
-            },
-            Example {
-                description: "View the source of a custom command",
-                example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
-                result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
-            },
-            Example {
-                description: "View the source of a custom command, which participates in the caller environment",
-                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
-                result: Some(Value::test_string("def foo [] { $env.BAR = 'BAZ' }")),
-            },
-            Example {
-                description: "View the source of a custom command with flags and arguments",
-                example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
-                result: Some(Value::test_string(
-                    "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
-                )),
-            },
-            Example {
-                description: "View the source of a module",
-                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
-                result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
-            },
-            Example {
-                description: "View the source of an alias",
-                example: r#"alias hello = echo hi; view source hello"#,
-                result: Some(Value::test_string("echo hi")),
-            },
-        ]
     }
 }
