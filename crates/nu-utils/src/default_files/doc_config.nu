@@ -950,6 +950,46 @@ $env.config.explore = {}
 #     try: { reactive: true }
 # }
 
+# ---------------------------
+# Input List Command Settings
+# ---------------------------
+
+# input_list (record): Configuration for the `input list` command.
+# Configures styles and behavior for the interactive list selection UI.
+# Default: {}
+$env.config.input_list = {}
+
+# input_list.match_text (style): Style for highlighted fuzzy match characters.
+# Applies to matched characters when using `input list --fuzzy`.
+# Default: bold italic underline
+$env.config.input_list.match_text = { attr: "biu" }
+
+# input_list.footer (style): Style for the footer showing item count.
+# The footer displays "[X-Y of Z]" when the list is scrollable.
+# Default: dark_gray
+$env.config.input_list.footer = "dark_gray"
+
+# input_list.separator (string): Character(s) for the separator line.
+# Displayed between the search box and results in fuzzy mode.
+# Default: "─"
+$env.config.input_list.separator = "─"
+
+# input_list.case_sensitive (string): Case sensitivity for fuzzy matching.
+# "smart": Case-insensitive unless query contains uppercase (default).
+# "true": Always case-sensitive matching.
+# "false": Always case-insensitive matching.
+# Note: Can be overridden per-invocation with --case-sensitive flag.
+# Default: "smart"
+$env.config.input_list.case_sensitive = "smart"
+
+# Example input_list configuration:
+# $env.config.input_list = {
+#     match_text: { fg: "green", attr: "b" }
+#     footer: { fg: "blue" }
+#     separator: "="
+#     case_sensitive: "false"
+# }
+
 # ---------------------------------------------------------------------------------------
 # Environment Variables
 # ---------------------------------------------------------------------------------------

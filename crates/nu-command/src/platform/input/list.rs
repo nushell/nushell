@@ -17,27 +17,35 @@ use std::{
     collections::HashSet,
     io::{self, Stderr, Write},
 };
-use unicode_width::UnicodeWidthStr;
+use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+enum CaseSensitivity {
+    #[default]
+    Smart,
+    CaseSensitive,
+    CaseInsensitive,
+}
 
 #[derive(Debug, Clone)]
 struct InputListConfig {
-    match_text: Style,     // For fuzzy match highlighting
-    footer: Style,         // For footer "[1-5 of 10]"
-    separator_style: Style, // For separator line
-    show_footer: bool,     // Whether to show the footer
-    separator: String,     // Character(s) for separator line between search and results
-    show_separator: bool,  // Whether to show the separator line
+    match_text: Style,              // For fuzzy match highlighting
+    footer: Style,                  // For footer "[1-5 of 10]"
+    show_footer: bool,              // Whether to show the footer
+    separator: String,              // Character(s) for separator line between search and results
+    show_separator: bool,           // Whether to show the separator line
+    case_sensitivity: CaseSensitivity, // Fuzzy match case sensitivity
 }
 
 impl Default for InputListConfig {
     fn default() -> Self {
         Self {
-            match_text: Style::new().italic().underline(),
+            match_text: Style::new().bold().italic().underline(),
             footer: Style::new().fg(nu_ansi_term::Color::DarkGray),
-            separator_style: Style::new(),
             show_footer: true,
             separator: "─".to_string(),
             show_separator: true,
+            case_sensitivity: CaseSensitivity::default(),
         }
     }
 }
@@ -52,12 +60,19 @@ impl InputListConfig {
         if let Some(s) = colors.get("footer") {
             ret.footer = *s;
         }
-        if let Some(s) = colors.get("separator_style") {
-            ret.separator_style = *s;
-        }
         if let Some(val) = config.input_list.get("separator") {
             if let Ok(s) = val.as_str() {
                 ret.separator = s.to_string();
+            }
+        }
+        if let Some(val) = config.input_list.get("case_sensitive") {
+            if let Ok(s) = val.as_str() {
+                ret.case_sensitivity = match s {
+                    "smart" => CaseSensitivity::Smart,
+                    "true" => CaseSensitivity::CaseSensitive,
+                    "false" => CaseSensitivity::CaseInsensitive,
+                    _ => CaseSensitivity::Smart,
+                };
             }
         }
         ret
@@ -109,6 +124,12 @@ impl Command for InputList {
                 None,
             )
             .named(
+                "case-sensitive",
+                SyntaxShape::String,
+                "Case sensitivity for fuzzy matching: 'true', 'false', or 'smart' (default)",
+                Some('s'),
+            )
+            .named(
                 "display",
                 SyntaxShape::CellPath,
                 "Field to use as display value",
@@ -119,27 +140,45 @@ impl Command for InputList {
     }
 
     fn description(&self) -> &str {
-        "Interactive list selection."
+        "Interactive list selection with fuzzy search support."
     }
 
     fn extra_description(&self) -> &str {
-        r#"Keybindings:
-- Single/Multi mode: up/down or j/k to navigate, enter to confirm, esc or q to cancel
-- Multi mode: space to toggle selection, a to toggle all
-- Fuzzy mode: type to filter, up/down or ctrl+p/n to navigate results, enter to confirm, esc to cancel
-  Readline-style editing: ctrl+a/e (home/end), ctrl+b/f (char left/right), alt+b/f (word left/right),
-  ctrl+u/k (delete to start/end), ctrl+w (delete word back), ctrl+d (delete char), ctrl+t (transpose)
-- All modes: home/end for first/last item, pageup/pagedown for pagination
+        r#"Presents an interactive list in the terminal for selecting items.
 
-Configuration (in $config.input_list):
-- match_text: style for fuzzy match highlighting (default: italic underline)
-- footer: style for the footer text (default: dark gray)
-- separator_style: style for the separator line (default: none)
-- separator: character(s) for the separator line (default: "─")"#
+Three modes are available:
+- Single (default): Select one item with arrow keys, confirm with Enter
+- Multi (--multi): Select multiple items with Space, toggle all with 'a'
+- Fuzzy (--fuzzy): Type to filter, matches are highlighted
+
+Keyboard shortcuts:
+- Up/Down, j/k: Navigate items
+- Home/End: Jump to first/last item
+- PageUp/PageDown: Navigate by page
+- Enter: Confirm selection
+- Esc: Cancel (all modes)
+- q: Cancel (single/multi modes only)
+- Ctrl+C: Cancel (all modes)
+
+Fuzzy mode supports readline-style editing:
+- Ctrl+A/E: Beginning/end of line
+- Ctrl+B/F, Left/Right: Move cursor
+- Alt+B/F: Move by word
+- Ctrl+U/K: Kill to beginning/end of line
+- Ctrl+W, Alt+Backspace: Delete previous word
+- Ctrl+D, Delete: Delete character at cursor
+
+Configuration ($env.config.input_list):
+- match_text: Style for fuzzy match highlighting (default: bold italic underline)
+- footer: Style for the footer text (default: dark_gray)
+- separator: Character(s) for separator line (default: "─")
+- case_sensitive: "smart", "true", or "false" (default: "smart")
+
+Use --no-footer and --no-separator to hide the footer and separator line."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["prompt", "ask", "menu"]
+        vec!["prompt", "ask", "menu", "select", "pick", "choose", "fzf", "fuzzy"]
     }
 
     fn run(
@@ -157,6 +196,7 @@ Configuration (in $config.input_list):
         let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
         let no_footer = call.has_flag(engine_state, stack, "no-footer")?;
         let no_separator = call.has_flag(engine_state, stack, "no-separator")?;
+        let case_sensitive: Option<String> = call.get_flag(engine_state, stack, "case-sensitive")?;
         let config = stack.get_config(engine_state);
         let mut input_list_config = InputListConfig::from_nu_config(&config);
         if no_footer {
@@ -164,6 +204,20 @@ Configuration (in $config.input_list):
         }
         if no_separator {
             input_list_config.show_separator = false;
+        }
+        if let Some(cs) = case_sensitive {
+            input_list_config.case_sensitivity = match cs.as_str() {
+                "smart" => CaseSensitivity::Smart,
+                "true" => CaseSensitivity::CaseSensitive,
+                "false" => CaseSensitivity::CaseInsensitive,
+                _ => {
+                    return Err(ShellError::InvalidValue {
+                        valid: "'true', 'false', or 'smart'".to_string(),
+                        actual: format!("'{cs}'"),
+                        span: call.head,
+                    });
+                }
+            };
         }
 
         let options: Vec<Options> = match input {
@@ -292,8 +346,18 @@ Configuration (in $config.input_list):
                 result: None,
             },
             Example {
-                description: "Select from a list with a minimal UI (no footer or separator)",
-                example: r#"[1 2 3] | input list --no-footer --no-separator"#,
+                description: "Fuzzy search with case-sensitive matching",
+                example: r#"[abc ABC aBc] | input list --fuzzy --case-sensitive true"#,
+                result: None,
+            },
+            Example {
+                description: "Fuzzy search without the footer showing item count",
+                example: r#"ls | input list --fuzzy --no-footer"#,
+                result: None,
+            },
+            Example {
+                description: "Fuzzy search without the separator line",
+                example: r#"ls | input list --fuzzy --no-separator"#,
                 result: None,
             },
         ]
@@ -353,6 +417,11 @@ impl<'a> SelectWidget<'a> {
         config: InputListConfig,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
+        let matcher = match config.case_sensitivity {
+            CaseSensitivity::Smart => SkimMatcherV2::default().smart_case(),
+            CaseSensitivity::CaseSensitive => SkimMatcherV2::default().respect_case(),
+            CaseSensitivity::CaseInsensitive => SkimMatcherV2::default().ignore_case(),
+        };
         Self {
             mode,
             prompt,
@@ -363,7 +432,7 @@ impl<'a> SelectWidget<'a> {
             filtered_indices,
             scroll_offset: 0,
             visible_height: 10,
-            matcher: SkimMatcherV2::default(),
+            matcher,
             rendered_lines: 0,
             prev_cursor: 0,
             prev_scroll_offset: 0,
@@ -393,16 +462,18 @@ impl<'a> SelectWidget<'a> {
 
     /// Update terminal dimensions and recalculate visible height
     fn update_term_size(&mut self, width: u16, height: u16) {
-        let old_width = self.term_width;
-        self.term_width = width;
+        // Subtract 1 to avoid issues with writing to the very last terminal column
+        let new_width = width.saturating_sub(1);
+        let width_changed = self.term_width != new_width;
+        self.term_width = new_width;
 
         // Regenerate separator line if width changed
-        if old_width != width && self.config.show_separator {
+        if width_changed && self.config.show_separator {
             self.generate_separator_line();
         }
 
         // Recalculate visible height
-        let mut reserved: u16 = 1; // prompt
+        let mut reserved: u16 = if self.prompt.is_some() { 1 } else { 0 };
         if self.mode == SelectMode::Fuzzy {
             reserved += 1; // filter line
             if self.config.show_separator {
@@ -458,6 +529,8 @@ impl<'a> SelectWidget<'a> {
                         self.render(&mut stderr)?;
                     }
                     Event::Resize(width, height) => {
+                        // Clear old content first - terminal reflow may have corrupted positions
+                        self.clear_display(&mut stderr)?;
                         self.update_term_size(width, height);
                         // Force full redraw on resize
                         self.first_render = true;
@@ -487,32 +560,27 @@ impl<'a> SelectWidget<'a> {
             KeyCode::Esc | KeyCode::Char('q') => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
             KeyCode::Up | KeyCode::Char('k') => {
-                self.move_cursor_up();
+                self.navigate_up();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                self.move_cursor_down();
+                self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::Home => {
-                self.cursor = 0;
-                self.scroll_offset = 0;
+                self.navigate_home();
                 KeyAction::Continue
             }
             KeyCode::End => {
-                self.cursor = self.items.len().saturating_sub(1);
-                self.adjust_scroll_down();
+                self.navigate_end();
                 KeyAction::Continue
             }
             KeyCode::PageUp => {
-                self.cursor = self.cursor.saturating_sub(self.visible_height as usize);
-                self.adjust_scroll_down();
+                self.navigate_page_up();
                 KeyAction::Continue
             }
             KeyCode::PageDown => {
-                self.cursor = (self.cursor + self.visible_height as usize)
-                    .min(self.items.len().saturating_sub(1));
-                self.adjust_scroll_down();
+                self.navigate_page_down();
                 KeyAction::Continue
             }
             _ => KeyAction::Continue,
@@ -524,11 +592,11 @@ impl<'a> SelectWidget<'a> {
             KeyCode::Esc | KeyCode::Char('q') => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
             KeyCode::Up | KeyCode::Char('k') => {
-                self.move_cursor_up();
+                self.navigate_up();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                self.move_cursor_down();
+                self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::Char(' ') => {
@@ -540,24 +608,19 @@ impl<'a> SelectWidget<'a> {
                 KeyAction::Continue
             }
             KeyCode::Home => {
-                self.cursor = 0;
-                self.scroll_offset = 0;
+                self.navigate_home();
                 KeyAction::Continue
             }
             KeyCode::End => {
-                self.cursor = self.items.len().saturating_sub(1);
-                self.adjust_scroll_down();
+                self.navigate_end();
                 KeyAction::Continue
             }
             KeyCode::PageUp => {
-                self.cursor = self.cursor.saturating_sub(self.visible_height as usize);
-                self.adjust_scroll_down();
+                self.navigate_page_up();
                 KeyAction::Continue
             }
             KeyCode::PageDown => {
-                self.cursor = (self.cursor + self.visible_height as usize)
-                    .min(self.items.len().saturating_sub(1));
-                self.adjust_scroll_down();
+                self.navigate_page_down();
                 KeyAction::Continue
             }
             _ => KeyAction::Continue,
@@ -574,19 +637,19 @@ impl<'a> SelectWidget<'a> {
 
             // List navigation
             KeyCode::Up | KeyCode::Char('p' | 'P') if ctrl => {
-                self.move_fuzzy_cursor_up();
+                self.navigate_up();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('n' | 'N') if ctrl => {
-                self.move_fuzzy_cursor_down();
+                self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::Up => {
-                self.move_fuzzy_cursor_up();
+                self.navigate_up();
                 KeyAction::Continue
             }
             KeyCode::Down => {
-                self.move_fuzzy_cursor_down();
+                self.navigate_down();
                 KeyAction::Continue
             }
 
@@ -689,9 +752,14 @@ impl<'a> SelectWidget<'a> {
                 KeyAction::Continue
             }
             KeyCode::Backspace => {
-                // Delete character before cursor
+                // Delete character before cursor (handle UTF-8)
                 if self.filter_cursor > 0 {
-                    self.filter_cursor -= 1;
+                    // Find previous char boundary
+                    let mut new_pos = self.filter_cursor - 1;
+                    while new_pos > 0 && !self.filter_text.is_char_boundary(new_pos) {
+                        new_pos -= 1;
+                    }
+                    self.filter_cursor = new_pos;
                     self.filter_text.remove(self.filter_cursor);
                     self.update_filter();
                 }
@@ -707,94 +775,49 @@ impl<'a> SelectWidget<'a> {
             // Character input
             KeyCode::Char(c) => {
                 self.filter_text.insert(self.filter_cursor, c);
-                self.filter_cursor += 1;
+                self.filter_cursor += c.len_utf8();
                 self.update_filter();
                 KeyAction::Continue
             }
 
             // List navigation with Home/End/PageUp/PageDown
             KeyCode::Home => {
-                self.cursor = 0;
-                self.scroll_offset = 0;
+                self.navigate_home();
                 KeyAction::Continue
             }
             KeyCode::End => {
-                self.cursor = self.filtered_indices.len().saturating_sub(1);
-                self.adjust_scroll_down();
+                self.navigate_end();
                 KeyAction::Continue
             }
             KeyCode::PageUp => {
-                // Go to top of current page, or previous page if already at top
-                let page_top = self.scroll_offset;
-                if self.cursor == page_top {
-                    // Already at top of page, go to previous page
-                    self.cursor = self.cursor.saturating_sub(self.visible_height as usize);
-                    self.adjust_scroll_up();
-                } else {
-                    // Go to top of current page
-                    self.cursor = page_top;
-                }
+                self.navigate_page_up();
                 KeyAction::Continue
             }
             KeyCode::PageDown => {
-                // Go to bottom of current page, or next page if already at bottom
-                let list_len = self.filtered_indices.len();
-                let page_bottom =
-                    (self.scroll_offset + self.visible_height as usize - 1).min(list_len - 1);
-                if self.cursor == page_bottom {
-                    // Already at bottom of page, go to next page
-                    self.cursor = (self.cursor + self.visible_height as usize)
-                        .min(list_len.saturating_sub(1));
-                    self.adjust_scroll_down();
-                } else {
-                    // Go to bottom of current page
-                    self.cursor = page_bottom;
-                }
+                self.navigate_page_down();
                 KeyAction::Continue
             }
             _ => KeyAction::Continue,
         }
     }
 
-    fn move_cursor_up(&mut self) {
+    /// Move cursor up with wrapping
+    fn navigate_up(&mut self) {
+        let list_len = self.current_list_len();
         if self.cursor > 0 {
             self.cursor -= 1;
-            if self.cursor < self.scroll_offset {
-                self.scroll_offset = self.cursor;
-            }
-        } else if !self.items.is_empty() {
+            self.adjust_scroll_up();
+        } else if list_len > 0 {
             // Wrap to bottom
-            self.cursor = self.items.len() - 1;
+            self.cursor = list_len - 1;
             self.adjust_scroll_down();
         }
     }
 
-    fn move_cursor_down(&mut self) {
-        if self.cursor + 1 < self.items.len() {
-            self.cursor += 1;
-            self.adjust_scroll_down();
-        } else {
-            // Wrap to top
-            self.cursor = 0;
-            self.scroll_offset = 0;
-        }
-    }
-
-    fn move_fuzzy_cursor_up(&mut self) {
-        if self.cursor > 0 {
-            self.cursor -= 1;
-            if self.cursor < self.scroll_offset {
-                self.scroll_offset = self.cursor;
-            }
-        } else if !self.filtered_indices.is_empty() {
-            // Wrap to bottom
-            self.cursor = self.filtered_indices.len() - 1;
-            self.adjust_scroll_down();
-        }
-    }
-
-    fn move_fuzzy_cursor_down(&mut self) {
-        if self.cursor + 1 < self.filtered_indices.len() {
+    /// Move cursor down with wrapping
+    fn navigate_down(&mut self) {
+        let list_len = self.current_list_len();
+        if self.cursor + 1 < list_len {
             self.cursor += 1;
             self.adjust_scroll_down();
         } else {
@@ -814,6 +837,55 @@ impl<'a> SelectWidget<'a> {
     fn adjust_scroll_up(&mut self) {
         if self.cursor < self.scroll_offset {
             self.scroll_offset = self.cursor;
+        }
+    }
+
+    /// Get the current list length (filtered for fuzzy mode, full for others)
+    fn current_list_len(&self) -> usize {
+        match self.mode {
+            SelectMode::Fuzzy => self.filtered_indices.len(),
+            _ => self.items.len(),
+        }
+    }
+
+    /// Navigate to the start of the list
+    fn navigate_home(&mut self) {
+        self.cursor = 0;
+        self.scroll_offset = 0;
+    }
+
+    /// Navigate to the end of the list
+    fn navigate_end(&mut self) {
+        self.cursor = self.current_list_len().saturating_sub(1);
+        self.adjust_scroll_down();
+    }
+
+    /// Navigate page up: go to top of current page, or previous page if already at top
+    fn navigate_page_up(&mut self) {
+        let page_top = self.scroll_offset;
+        if self.cursor == page_top {
+            // Already at top of page, go to previous page
+            self.cursor = self.cursor.saturating_sub(self.visible_height as usize);
+            self.adjust_scroll_up();
+        } else {
+            // Go to top of current page
+            self.cursor = page_top;
+        }
+    }
+
+    /// Navigate page down: go to bottom of current page, or next page if already at bottom
+    fn navigate_page_down(&mut self) {
+        let list_len = self.current_list_len();
+        let page_bottom =
+            (self.scroll_offset + self.visible_height as usize - 1).min(list_len.saturating_sub(1));
+        if self.cursor == page_bottom {
+            // Already at bottom of page, go to next page
+            self.cursor = (self.cursor + self.visible_height as usize)
+                .min(list_len.saturating_sub(1));
+            self.adjust_scroll_down();
+        } else {
+            // Go to bottom of current page
+            self.cursor = page_bottom;
         }
     }
 
@@ -1081,12 +1153,13 @@ impl<'a> SelectWidget<'a> {
         let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
         let curr_display_row = (self.cursor - self.scroll_offset) as u16;
 
-        // Lines to move up from current position (end of rendered content)
-        // Current position is after all rendered lines
-        let items_rendered = self.rendered_lines - header_lines as usize;
+        // Lines to move up from current position (end of last content line)
+        // Cursor is at end of last line, not beginning of next line
+        let items_rendered = (self.rendered_lines - header_lines as usize) as u16;
 
         // Move to previous cursor row and clear the '>'
-        let lines_up_to_prev = items_rendered as u16 - prev_display_row;
+        // Subtract 1 because cursor is on last line, not after it
+        let lines_up_to_prev = items_rendered.saturating_sub(1).saturating_sub(prev_display_row);
         execute!(
             stderr,
             MoveUp(lines_up_to_prev),
@@ -1103,8 +1176,8 @@ impl<'a> SelectWidget<'a> {
             execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print("> "))?;
         }
 
-        // Move back to end position
-        let lines_down_to_end = items_rendered as u16 - curr_display_row;
+        // Move back to end position (last content line)
+        let lines_down_to_end = items_rendered.saturating_sub(1).saturating_sub(curr_display_row);
         execute!(stderr, MoveDown(lines_down_to_end))?;
 
         // Update state
@@ -1118,50 +1191,52 @@ impl<'a> SelectWidget<'a> {
     fn render_fuzzy_cursor_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
-        // Calculate header offset (prompt + filter line + separator)
+        // Calculate header lines (prompt + filter + separator)
         let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
         if self.config.show_separator {
             header_lines += 1;
         }
 
-        // Calculate display positions relative to scroll
+        // Display rows are 0-indexed within the visible items area
         let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
         let curr_display_row = (self.cursor - self.scroll_offset) as u16;
 
-        // We're at the filter line; need to move down to items area first
-        // Items start after filter line (which is 1 line below prompt or at line 1)
-        // fuzzy_cursor_offset tells us how many lines up we are from the end
+        // Calculate absolute row positions from the top of our render area:
+        // - Row 0: prompt (if present)
+        // - Row 1 (or 0): filter line
+        // - Row 2 (or 1): separator (if enabled)
+        // - Remaining rows: items
+        // header_lines = rows before items (prompt + filter + separator as applicable)
+        let prev_item_row = header_lines + prev_display_row;
+        let curr_item_row = header_lines + curr_display_row;
 
-        // Move down from filter line to end of rendered area
-        execute!(stderr, MoveDown(self.fuzzy_cursor_offset as u16))?;
+        // We're at the filter line, which is row 1 if prompt exists, row 0 otherwise
+        let filter_row: u16 = if self.prompt.is_some() { 1 } else { 0 };
 
-        // Now at end of rendered content; figure out lines to items
-        let items_rendered = self.rendered_lines - header_lines as usize;
-
-        // Move to previous cursor row and clear the '>'
-        let lines_up_to_prev = items_rendered as u16 - prev_display_row;
+        // Clear old cursor: move from filter line to prev item row
+        let down_to_prev = prev_item_row.saturating_sub(filter_row);
         execute!(
             stderr,
-            MoveUp(lines_up_to_prev),
+            MoveDown(down_to_prev),
             MoveToColumn(0),
             Print("  ")
         )?;
 
-        // Move to new cursor row and set the '>'
-        if curr_display_row > prev_display_row {
-            let lines_down = curr_display_row - prev_display_row;
+        // Draw new cursor: move from prev item row to curr item row
+        if curr_item_row > prev_item_row {
+            let lines_down = curr_item_row - prev_item_row;
             execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print("> "))?;
-        } else {
-            let lines_up = prev_display_row - curr_display_row;
+        } else if curr_item_row < prev_item_row {
+            let lines_up = prev_item_row - curr_item_row;
             execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print("> "))?;
+        } else {
+            // Same row, just redraw
+            execute!(stderr, MoveToColumn(0), Print("> "))?;
         }
 
-        // Move back to end position, then up to filter line
-        let lines_down_to_end = items_rendered as u16 - curr_display_row;
-        execute!(stderr, MoveDown(lines_down_to_end))?;
-
-        // Now move back up to filter line
-        execute!(stderr, MoveUp(self.fuzzy_cursor_offset as u16))?;
+        // Move back to filter line
+        let up_to_filter = curr_item_row.saturating_sub(filter_row);
+        execute!(stderr, MoveUp(up_to_filter))?;
 
         // Position cursor within filter text
         let text_before_cursor = &self.filter_text[..self.filter_cursor];
@@ -1189,7 +1264,10 @@ impl<'a> SelectWidget<'a> {
         let items_rendered = self.rendered_lines - header_lines as usize;
 
         // Move to the toggled row
-        let lines_up = items_rendered as u16 - display_row;
+        // Cursor is at end of last content line, so subtract 1 from items_rendered
+        let lines_up = (items_rendered as u16)
+            .saturating_sub(1)
+            .saturating_sub(display_row);
         execute!(stderr, MoveUp(lines_up))?;
 
         // Move to checkbox column (after "> " or "  ")
@@ -1227,7 +1305,8 @@ impl<'a> SelectWidget<'a> {
         let visible_count = visible_end - self.scroll_offset;
 
         // Move to first item row
-        execute!(stderr, MoveUp(items_rendered as u16))?;
+        // Cursor is at end of last content line, so subtract 1 to get to first item
+        execute!(stderr, MoveUp((items_rendered as u16).saturating_sub(1)))?;
 
         // Update each visible item's checkbox
         for i in 0..visible_count {
@@ -1244,13 +1323,12 @@ impl<'a> SelectWidget<'a> {
             }
         }
 
-        // Move back to end position
+        // Move back to end position (last content line)
         let remaining = items_rendered as u16 - visible_count as u16;
         if remaining > 0 {
             execute!(stderr, MoveDown(remaining))?;
         }
-        // Move down one more to get past the last item line
-        execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+        // Note: cursor is now at end of last content line (no extra line after)
 
         // Reset toggle tracking
         self.toggled_all = false;
@@ -1282,35 +1360,63 @@ impl<'a> SelectWidget<'a> {
 
         execute!(stderr, BeginSynchronizedUpdate)?;
 
-        // In fuzzy mode, cursor may be at filter line; move back to end first
+        // Calculate how many lines we'll render
+        let total_count = self.current_list_len();
+        let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
+        let has_scroll_indicator =
+            self.config.show_footer && total_count > self.visible_height as usize;
+        let items_to_render = end - self.scroll_offset;
+
+        // Calculate total lines needed for this render
+        let mut lines_needed: usize = 0;
+        if self.prompt.is_some() {
+            lines_needed += 1;
+        }
+        if self.mode == SelectMode::Fuzzy {
+            lines_needed += 1; // filter line
+            if self.config.show_separator {
+                lines_needed += 1;
+            }
+        }
+        lines_needed += items_to_render;
+        if has_scroll_indicator {
+            lines_needed += 1;
+        }
+
+        // On first render, claim vertical space by printing newlines (causes scroll if needed)
+        if self.first_render && lines_needed > 1 {
+            for _ in 0..(lines_needed - 1) {
+                execute!(stderr, Print("\n"))?;
+            }
+            execute!(stderr, MoveUp((lines_needed - 1) as u16))?;
+        }
+
+        // In fuzzy mode, cursor may be at filter line; move to last content line first
         if self.fuzzy_cursor_offset > 0 {
             execute!(stderr, MoveDown(self.fuzzy_cursor_offset as u16))?;
             self.fuzzy_cursor_offset = 0;
         }
 
-        // Move to start of our render area
-        if self.rendered_lines > 0 {
-            execute!(stderr, MoveUp(self.rendered_lines as u16), MoveToColumn(0))?;
+        // Move to start of our render area (first line, column 0)
+        // Cursor is on last content line, move up to first line
+        if self.rendered_lines > 1 {
+            execute!(stderr, MoveUp((self.rendered_lines - 1) as u16))?;
         }
+        execute!(stderr, MoveToColumn(0))?;
 
-        let mut lines_rendered = 0;
+        let mut lines_rendered: usize = 0;
 
         // Render prompt (only on first render, it doesn't change)
         if self.first_render {
             if let Some(prompt) = self.prompt {
-                execute!(
-                    stderr,
-                    Print(prompt),
-                    Clear(ClearType::UntilNewLine),
-                    Print("\r\n")
-                )?;
+                execute!(stderr, Print(prompt), Clear(ClearType::UntilNewLine))?;
             }
-        } else if self.prompt.is_some() {
-            // Skip past prompt line
-            execute!(stderr, MoveDown(1))?;
         }
         if self.prompt.is_some() {
             lines_rendered += 1;
+            if lines_rendered < lines_needed {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
         }
 
         // Render filter line for fuzzy mode
@@ -1320,91 +1426,78 @@ impl<'a> SelectWidget<'a> {
                 Print("> "),
                 Print(&self.filter_text),
                 Clear(ClearType::UntilNewLine),
-                Print("\r\n")
             )?;
             lines_rendered += 1;
+            if lines_rendered < lines_needed {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
 
-            // Render separator line (uses cached separator_line, regenerated on resize)
+            // Render separator line
             if self.config.show_separator {
                 execute!(
                     stderr,
-                    Print(self.config.separator_style.paint(&self.separator_line)),
+                    Print(&self.separator_line),
                     Clear(ClearType::UntilNewLine),
-                    Print("\r\n")
                 )?;
                 lines_rendered += 1;
+                if lines_rendered < lines_needed {
+                    execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+                }
             }
         }
 
-        // Calculate which items to show
-        let (display_items, total_count) = match self.mode {
-            SelectMode::Fuzzy => {
-                let count = self.filtered_indices.len();
-                let end = (self.scroll_offset + self.visible_height as usize).min(count);
-                let indices: Vec<usize> = (self.scroll_offset..end).collect();
-                (indices, count)
-            }
-            _ => {
-                let count = self.items.len();
-                let end = (self.scroll_offset + self.visible_height as usize).min(count);
-                let indices: Vec<usize> = (self.scroll_offset..end).collect();
-                (indices, count)
-            }
-        };
-
-        // Render items with clear to end of line
-        for (display_idx, idx) in display_items.iter().enumerate() {
-            let actual_cursor_pos = self.scroll_offset + display_idx;
-            let is_active = actual_cursor_pos == self.cursor;
+        // Render items
+        for idx in self.scroll_offset..end {
+            let is_active = idx == self.cursor;
+            let is_last_line = lines_rendered + 1 == lines_needed;
 
             match self.mode {
                 SelectMode::Single => {
-                    let item = &self.items[*idx];
+                    let item = &self.items[idx];
                     self.render_single_item_inline(stderr, &item.name, is_active)?;
                 }
                 SelectMode::Multi => {
-                    let item = &self.items[*idx];
-                    let is_checked = self.selected.contains(idx);
+                    let item = &self.items[idx];
+                    let is_checked = self.selected.contains(&idx);
                     self.render_multi_item_inline(stderr, &item.name, is_checked, is_active)?;
                 }
                 SelectMode::Fuzzy => {
-                    let real_idx = self.filtered_indices[*idx];
+                    let real_idx = self.filtered_indices[idx];
                     let item = &self.items[real_idx];
                     self.render_fuzzy_item_inline(stderr, &item.name, is_active)?;
                 }
             }
             lines_rendered += 1;
+            if !is_last_line {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
         }
 
-        // Show scroll indicator if needed and footer is enabled
-        let has_scroll_indicator =
-            self.config.show_footer && total_count > self.visible_height as usize;
+        // Show scroll indicator if needed
         if has_scroll_indicator {
             let indicator = format!(
                 "[{}-{} of {}]",
                 self.scroll_offset + 1,
-                (self.scroll_offset + display_items.len()).min(total_count),
+                end.min(total_count),
                 total_count
             );
             execute!(
                 stderr,
                 Print(self.config.footer.paint(&indicator)),
                 Clear(ClearType::UntilNewLine),
-                Print("\r\n")
             )?;
             lines_rendered += 1;
         }
 
         // Clear any extra lines from previous render
+        // Cursor is on last rendered line
         if lines_rendered < self.rendered_lines {
-            for _ in 0..(self.rendered_lines - lines_rendered) {
-                execute!(stderr, Clear(ClearType::CurrentLine), Print("\r\n"))?;
+            let extra_lines = self.rendered_lines - lines_rendered;
+            for _ in 0..extra_lines {
+                execute!(stderr, MoveDown(1), MoveToColumn(0), Clear(ClearType::CurrentLine))?;
             }
-            // Move back up to end of actual content
-            execute!(
-                stderr,
-                MoveUp((self.rendered_lines - lines_rendered) as u16)
-            )?;
+            // Move back to last content line
+            execute!(stderr, MoveUp(extra_lines as u16))?;
         }
 
         // Update state
@@ -1419,11 +1512,9 @@ impl<'a> SelectWidget<'a> {
 
         // In fuzzy mode, position cursor within filter text
         if self.mode == SelectMode::Fuzzy {
-            // Cursor is currently at line (lines_rendered + 1) relative to start
-            // Filter line is at position (prompt_lines + 1)
-            // Move up: (lines_rendered + 1) - (prompt_lines + 1) = lines_rendered - prompt_lines
+            // Cursor is on last content line, move up to filter line
             let prompt_lines = if self.prompt.is_some() { 1usize } else { 0 };
-            self.fuzzy_cursor_offset = lines_rendered - prompt_lines;
+            self.fuzzy_cursor_offset = lines_rendered.saturating_sub(prompt_lines + 1);
             if self.fuzzy_cursor_offset > 0 {
                 execute!(stderr, MoveUp(self.fuzzy_cursor_offset as u16))?;
             }
@@ -1444,14 +1535,12 @@ impl<'a> SelectWidget<'a> {
         active: bool,
     ) -> io::Result<()> {
         let prefix = if active { "> " } else { "  " };
-        execute!(
-            stderr,
-            Print(prefix),
-            Print(text),
-            Print(RESET),
-            Clear(ClearType::UntilNewLine),
-            Print("\r\n")
-        )
+        let prefix_width = 2;
+
+        execute!(stderr, Print(prefix))?;
+        self.render_truncated_text(stderr, text, prefix_width)?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
     }
 
     fn render_multi_item_inline(
@@ -1463,15 +1552,12 @@ impl<'a> SelectWidget<'a> {
     ) -> io::Result<()> {
         let cursor = if active { "> " } else { "  " };
         let checkbox = if checked { "[x] " } else { "[ ] " };
-        execute!(
-            stderr,
-            Print(cursor),
-            Print(checkbox),
-            Print(text),
-            Print(RESET),
-            Clear(ClearType::UntilNewLine),
-            Print("\r\n")
-        )
+        let prefix_width = 6; // "> [x] " or "  [ ] "
+
+        execute!(stderr, Print(cursor), Print(checkbox))?;
+        self.render_truncated_text(stderr, text, prefix_width)?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
     }
 
     fn render_fuzzy_item_inline(
@@ -1481,44 +1567,123 @@ impl<'a> SelectWidget<'a> {
         active: bool,
     ) -> io::Result<()> {
         let prefix = if active { "> " } else { "  " };
+        let prefix_width = 2;
         execute!(stderr, Print(prefix))?;
 
         if self.filter_text.is_empty() {
-            execute!(
-                stderr,
-                Print(text),
-                Print(RESET),
-                Clear(ClearType::UntilNewLine),
-                Print("\r\n")
-            )
+            self.render_truncated_text(stderr, text, prefix_width)?;
         } else if let Some((_score, indices)) = self.matcher.fuzzy_indices(text, &self.filter_text)
         {
-            // Highlight matching characters using the configured style
+            self.render_truncated_fuzzy_text(stderr, text, &indices, prefix_width)?;
+        } else {
+            self.render_truncated_text(stderr, text, prefix_width)?;
+        }
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render text, truncating with ellipsis if it exceeds available width.
+    fn render_truncated_text(
+        &self,
+        stderr: &mut Stderr,
+        text: &str,
+        prefix_width: usize,
+    ) -> io::Result<()> {
+        let available_width = (self.term_width as usize).saturating_sub(prefix_width);
+        let text_width = UnicodeWidthStr::width(text);
+
+        if text_width <= available_width {
+            // Text fits, render as-is
+            execute!(stderr, Print(text))?;
+        } else if available_width <= 1 {
+            // Only room for ellipsis
+            execute!(stderr, Print("…"))?;
+        } else {
+            // Find the substring that fits in available_width - 1 (reserve 1 for ellipsis)
+            let target_width = available_width - 1;
+            let mut current_width = 0;
+            let mut end_pos = 0;
+
+            for (byte_pos, c) in text.char_indices() {
+                let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
+                if current_width + char_width > target_width {
+                    break;
+                }
+                end_pos = byte_pos + c.len_utf8();
+                current_width += char_width;
+            }
+            execute!(stderr, Print(&text[..end_pos]))?;
+            execute!(stderr, Print("…"))?;
+        }
+        Ok(())
+    }
+
+    /// Render fuzzy-highlighted text, truncating with ellipsis if needed.
+    /// The ellipsis is highlighted if any matches fall in the truncated portion.
+    fn render_truncated_fuzzy_text(
+        &self,
+        stderr: &mut Stderr,
+        text: &str,
+        match_indices: &[usize],
+        prefix_width: usize,
+    ) -> io::Result<()> {
+        let available_width = (self.term_width as usize).saturating_sub(prefix_width);
+        let text_width = UnicodeWidthStr::width(text);
+
+        if text_width <= available_width {
+            // Text fits, render with highlighting
             for (idx, c) in text.chars().enumerate() {
-                if indices.contains(&idx) {
-                    execute!(
-                        stderr,
-                        Print(self.config.match_text.paint(c.to_string()))
-                    )?;
+                if match_indices.contains(&idx) {
+                    execute!(stderr, Print(self.config.match_text.paint(c.to_string())))?;
                 } else {
                     execute!(stderr, Print(c))?;
                 }
             }
-            execute!(
-                stderr,
-                Print(RESET),
-                Clear(ClearType::UntilNewLine),
-                Print("\r\n")
-            )
+        } else if available_width <= 1 {
+            // Only room for ellipsis
+            let has_any_matches = !match_indices.is_empty();
+            if has_any_matches {
+                execute!(stderr, Print(self.config.match_text.paint("…")))?;
+            } else {
+                execute!(stderr, Print("…"))?;
+            }
         } else {
-            execute!(
-                stderr,
-                Print(text),
-                Print(RESET),
-                Clear(ClearType::UntilNewLine),
-                Print("\r\n")
-            )
+            // Find how many chars fit in available_width - 1 (reserve 1 for ellipsis)
+            let target_width = available_width - 1;
+            let mut current_width = 0;
+            let mut chars_to_render: usize = 0;
+
+            for c in text.chars() {
+                let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
+                if current_width + char_width > target_width {
+                    break;
+                }
+                current_width += char_width;
+                chars_to_render += 1;
+            }
+
+            // Render the characters that fit
+            for (idx, c) in text.chars().enumerate() {
+                if idx >= chars_to_render {
+                    break;
+                }
+                if match_indices.contains(&idx) {
+                    execute!(stderr, Print(self.config.match_text.paint(c.to_string())))?;
+                } else {
+                    execute!(stderr, Print(c))?;
+                }
+            }
+
+            // Check if any matches are in the truncated portion
+            let has_hidden_matches = match_indices.iter().any(|&idx| idx >= chars_to_render);
+
+            if has_hidden_matches {
+                execute!(stderr, Print(self.config.match_text.paint("…")))?;
+            } else {
+                execute!(stderr, Print("…"))?;
+            }
         }
+        Ok(())
     }
 
     fn clear_display(&mut self, stderr: &mut Stderr) -> io::Result<()> {
@@ -1529,10 +1694,15 @@ impl<'a> SelectWidget<'a> {
         }
 
         if self.rendered_lines > 0 {
-            execute!(stderr, MoveUp(self.rendered_lines as u16), MoveToColumn(0))?;
+            // Cursor is on the last content line, move up to first line
+            if self.rendered_lines > 1 {
+                execute!(stderr, MoveUp((self.rendered_lines - 1) as u16))?;
+            }
+            execute!(stderr, MoveToColumn(0))?;
             for _ in 0..self.rendered_lines {
                 execute!(stderr, Clear(ClearType::CurrentLine), MoveDown(1))?;
             }
+            // After clearing, we're one line past the end, move back to start
             execute!(stderr, MoveUp(self.rendered_lines as u16))?;
         }
         self.rendered_lines = 0;
