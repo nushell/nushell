@@ -394,9 +394,9 @@ impl CustomValue for SQLiteDatabase {
         _optional: bool,
         _casing: Casing,
     ) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, path_span)?;
-        read_single_table(db, column_name, path_span, &self.signals)
-            .map_err(|e| e.into_shell_error(path_span, "Failed to read from SQLite database"))
+        // Return a lazy SQLiteQueryBuilder instead of executing the query immediately
+        let table = SQLiteQueryBuilder::new(self.path.clone(), column_name, self.signals.clone());
+        Ok(Value::custom(Box::new(table), path_span))
     }
 
     fn typetag_name(&self) -> &'static str {
@@ -560,17 +560,6 @@ impl SqliteOrShellError {
             Self::ShellError(err) => err,
         }
     }
-}
-
-fn read_single_table(
-    conn: Connection,
-    table_name: String,
-    call_span: Span,
-    signals: &Signals,
-) -> Result<Value, SqliteOrShellError> {
-    // TODO: Should use params here?
-    let stmt = conn.prepare(&format!("SELECT * FROM [{table_name}]"))?;
-    prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
 }
 
 /// The SQLite type behind a query column returned as some raw type (e.g. 'text')
@@ -939,6 +928,10 @@ impl CustomValue for SQLiteQueryBuilder {
 
     fn typetag_deserialize(&self) {
         unimplemented!("typetag_deserialize")
+    }
+
+    fn is_iterable(&self) -> bool {
+        true
     }
 }
 

@@ -169,6 +169,30 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 };
                 Ok(out)
             }
+            // Handle iterable custom values (like SQLiteQueryBuilder)
+            PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
+                let mut closure = ClosureEval::new(engine_state, stack, closure);
+
+                let out = if flatten {
+                    input
+                        .into_iter()
+                        .flat_map(move |value| {
+                            closure.run_with_value(value).unwrap_or_else(|error| {
+                                Value::error(error, head).into_pipeline_data()
+                            })
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                } else {
+                    input
+                        .into_iter()
+                        .map(move |value| {
+                            each_map(value, &mut closure, head)
+                                .unwrap_or_else(|error| Value::error(error, head))
+                        })
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                };
+                Ok(out)
+            }
             PipelineData::ByteStream(stream, ..) => {
                 let Some(chunks) = stream.chunks() else {
                     return Ok(PipelineData::empty().set_metadata(metadata));
