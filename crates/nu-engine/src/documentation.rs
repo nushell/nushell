@@ -175,7 +175,7 @@ fn highlight_capture_group(
         .map(|text| {
             let resets = text.match_indices(RESET).count();
             // replace resets with reset + italic, so the whole string is italicized, excluding the final reset
-            let text = text.replacen(RESET, &format!("{RESET}{DEFAULT_ITALIC}"), resets - 1);
+            let text = text.replacen(RESET, &format!("{RESET}{DEFAULT_ITALIC}"), resets.saturating_sub(1));
             // start italicized
             format!("{DEFAULT_ITALIC}{text}")
         });
