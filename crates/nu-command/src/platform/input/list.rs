@@ -84,7 +84,7 @@ enum InteractMode {
     Multi(Option<Vec<usize>>),
 }
 
-struct Options {
+struct SelectItem {
     name: String,
     value: Value,
 }
@@ -126,7 +126,7 @@ impl Command for InputList {
             .named(
                 "case-sensitive",
                 SyntaxShape::String,
-                "Case sensitivity for fuzzy matching: 'true', 'false', or 'smart' (default)",
+                "Case sensitivity for fuzzy matching: 'smart' (case-insensitive unless query has uppercase), 'true', or 'false'",
                 Some('s'),
             )
             .named(
@@ -220,7 +220,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             };
         }
 
-        let options: Vec<Options> = match input {
+        let options: Vec<SelectItem> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream { .. } => input
@@ -232,7 +232,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                     } else {
                         val.to_expanded_string(", ", &config)
                     };
-                    Ok(Options {
+                    Ok(SelectItem {
                         name: display_value,
                         value: val,
                     })
@@ -249,7 +249,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
 
         if options.is_empty() {
             return Err(ShellError::TypeMismatch {
-                err_message: "expected a list or table, it can also be a problem with the an inner type of your list.".to_string(),
+                err_message: "expected a list or table, it can also be a problem with the inner type of your list.".to_string(),
                 span: head,
             });
         }
@@ -374,7 +374,7 @@ enum SelectMode {
 struct SelectWidget<'a> {
     mode: SelectMode,
     prompt: Option<&'a str>,
-    items: &'a [Options],
+    items: &'a [SelectItem],
     cursor: usize,
     selected: HashSet<usize>,
     filter_text: String,
@@ -413,7 +413,7 @@ impl<'a> SelectWidget<'a> {
     fn new(
         mode: SelectMode,
         prompt: Option<&'a str>,
-        items: &'a [Options],
+        items: &'a [SelectItem],
         config: InputListConfig,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
