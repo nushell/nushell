@@ -1,6 +1,6 @@
 use crossterm::{
     cursor::Show,
-    event::{self, Event, KeyCode},
+    event::{self, Event, KeyCode, KeyModifiers},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode},
 };
@@ -34,7 +34,7 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     let mut stderr = io::stderr();
 
     // Print prompt
-    eprint!("{} [y/n]: ", prompt);
+    eprint!("{} [Y/N]: ", prompt);
     stderr.flush()?;
 
     enable_raw_mode()?;
@@ -48,22 +48,30 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     loop {
         if event::poll(std::time::Duration::from_millis(100))? {
             if let Event::Key(key_event) = event::read()? {
+                // Handle Ctrl+C
+                if key_event.modifiers.contains(KeyModifiers::CONTROL)
+                    && key_event.code == KeyCode::Char('c')
+                {
+                    eprint!("\r\n");
+                    return Ok(false);
+                }
+
                 match key_event.code {
                     KeyCode::Char('y') | KeyCode::Char('Y') => {
-                        eprintln!("y");
+                        eprint!("y\r\n");
                         return Ok(true);
                     }
                     KeyCode::Char('n') | KeyCode::Char('N') => {
-                        eprintln!("n");
+                        eprint!("n\r\n");
                         return Ok(false);
                     }
                     KeyCode::Enter => {
                         // Validate current input
                         if input.eq_ignore_ascii_case("y") {
-                            eprintln!();
+                            eprint!("\r\n");
                             return Ok(true);
                         } else if input.eq_ignore_ascii_case("n") {
-                            eprintln!();
+                            eprint!("\r\n");
                             return Ok(false);
                         }
                         // Invalid input, continue waiting
@@ -72,12 +80,12 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
                         if !input.is_empty() {
                             input.pop();
                             // Clear and reprint
-                            eprint!("\r{} [y/n]: {}", prompt, input);
+                            eprint!("\r{} [Y/N]: {}", prompt, input);
                             stderr.flush()?;
                         }
                     }
                     KeyCode::Esc => {
-                        eprintln!();
+                        eprint!("\r\n");
                         return Ok(false);
                     }
                     _ => {}
