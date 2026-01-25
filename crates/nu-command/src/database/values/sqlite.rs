@@ -394,9 +394,9 @@ impl CustomValue for SQLiteDatabase {
         _optional: bool,
         _casing: Casing,
     ) -> Result<Value, ShellError> {
-        // Return a lazy SQLiteQueryBuilder instead of executing the query immediately
-        let table = SQLiteQueryBuilder::new(self.path.clone(), column_name, self.signals.clone());
-        Ok(Value::custom(Box::new(table), path_span))
+        let db = open_sqlite_db(&self.path, path_span)?;
+        read_single_table(db, column_name, path_span, &self.signals)
+            .map_err(|e| e.into_shell_error(path_span, "Failed to read from SQLite database"))
     }
 
     fn typetag_name(&self) -> &'static str {
@@ -562,7 +562,6 @@ impl SqliteOrShellError {
     }
 }
 
-#[allow(dead_code)]
 fn read_single_table(
     conn: Connection,
     table_name: String,
@@ -901,14 +900,18 @@ impl CustomValue for SQLiteQueryBuilder {
     fn follow_path_int(
         &self,
         _self_span: Span,
-        _index: usize,
+        index: usize,
         path_span: Span,
-        _optional: bool,
+        optional: bool,
     ) -> Result<Value, ShellError> {
-        Err(ShellError::IncompatiblePathAccess {
-            type_name: "SQLite query builders do not support integer-indexed access".into(),
+        // Execute and then index - this could be optimized with LIMIT/OFFSET later
+        let data = self.to_base_value(path_span)?;
+        data.follow_cell_path(&[ast::PathMember::Int {
+            val: index,
             span: path_span,
-        })
+            optional,
+        }])
+        .map(|v| v.into_owned())
     }
 
     fn follow_path_string(
