@@ -3,6 +3,7 @@ use chrono::{DateTime, FixedOffset};
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
+    path::PathBuf,
 };
 
 /// A trait for converting a value into a [`Value`].
@@ -333,5 +334,14 @@ where
 {
     fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
         Ok(self.into_value(span))
+    }
+}
+
+impl IntoValue for PathBuf {
+    fn into_value(self, span: Span) -> Value {
+        Value::String {
+            val: self.to_string_lossy().to_string(),
+            internal_span: span,
+        }
     }
 }
