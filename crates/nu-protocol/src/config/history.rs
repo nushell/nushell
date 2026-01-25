@@ -1,5 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
 use crate::{self as nu_protocol, ConfigWarning};
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
@@ -50,20 +51,32 @@ impl UpdateFromValue for HistoryFileFormat {
     }
 }
 
-#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HistoryPath {
+    Default,
+    Custom(PathBuf),
+    Disabled,
+}
+
+#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryConfig {
     pub max_size: i64,
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+    pub path: HistoryPath,
 }
 
 impl HistoryConfig {
-    pub fn file_path(&self) -> Option<std::path::PathBuf> {
-        nu_path::nu_config_dir().map(|mut history_path| {
-            history_path.push(self.file_format.default_file_name());
-            history_path.into()
-        })
+    pub fn file_path(&self) -> Option<PathBuf> {
+        match &self.path {
+            HistoryPath::Custom(path) => Some(path.clone()),
+            HistoryPath::Disabled => None,
+            HistoryPath::Default => nu_path::nu_config_dir().map(|mut history_path| {
+                history_path.push(self.file_format.default_file_name());
+                history_path.into()
+            }),
+        }
     }
 }
 
@@ -74,6 +87,7 @@ impl Default for HistoryConfig {
             sync_on_enter: true,
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
+            path: HistoryPath::Default,
         }
     }
 }
@@ -104,6 +118,21 @@ impl UpdateFromValue for HistoryConfig {
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
+                "path" => match val {
+                    Value::String { val: s, .. } => {
+                        if s.eq_ignore_ascii_case("null") {
+                            return self.path = HistoryPath::Disabled;
+                        }
+
+                        self.path = HistoryPath::Custom(PathBuf::from(s));
+                    }
+                    Value::Nothing { .. } => {
+                        self.path = HistoryPath::Disabled;
+                    }
+                    _ => {
+                        errors.type_mismatch(path, Type::custom("string or nothing"), val);
+                    }
+                },
                 _ => errors.unknown_option(path, val),
             }
         }

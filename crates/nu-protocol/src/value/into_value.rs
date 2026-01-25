@@ -1,4 +1,4 @@
-use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
+use crate::{HistoryPath, Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
 use std::{
     borrow::{Borrow, Cow},
@@ -333,5 +333,14 @@ where
 {
     fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
         Ok(self.into_value(span))
+    }
+}
+
+impl IntoValue for HistoryPath {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            HistoryPath::Default | HistoryPath::Disabled => Value::nothing(span),
+            HistoryPath::Custom(path) => Value::string(path.display().to_string(), span),
+        }
     }
 }
