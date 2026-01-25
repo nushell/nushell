@@ -1,4 +1,5 @@
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path};
+use nu_protocol::{HistoryConfig, HistoryFileFormat, HistoryPath};
 use nu_test_support::nu;
 use nu_test_support::playground::{Executable, Playground};
 use pretty_assertions::assert_eq;
@@ -314,4 +315,78 @@ fn commandstring_populates_config_record() {
     let actual = nu!(cmd);
 
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn history_config_disabled() {
+    let config = HistoryConfig {
+        path: HistoryPath::Disabled,
+        ..Default::default()
+    };
+
+    assert_eq!(config.file_path(), None);
+}
+
+#[test]
+fn history_path_disabled_null() {
+    Playground::setup("history_null", |_, playground| {
+        let config_path = playground.cwd().join("config.nu");
+        std::fs::write(&config_path, "$env.config.history.path = null").unwrap();
+
+        let actual = nu!(
+            cwd: playground.cwd(),
+            format!("nu --config '{}' -c '$nu.history-path'", config_path.to_string_lossy())
+        );
+
+        assert_eq!(actual.out, "");
+    });
+}
+
+#[test]
+fn history_path_custom_string() {
+    Playground::setup("history_custom", |_, playground| {
+        let custom_file = playground.cwd().join("my_history.txt");
+        let config_path = playground.cwd().join("config.nu");
+        std::fs::write(
+            &config_path,
+            format!(
+                "$env.config.history.path = '{}'",
+                custom_file.to_string_lossy()
+            ),
+        )
+        .unwrap();
+
+        let actual = nu!(
+            cwd: playground.cwd(),
+            format!("nu --config '{}' -c '$nu.history-path'", config_path.to_string_lossy())
+        );
+
+        assert_eq!(actual.out, custom_file.to_string_lossy().to_string());
+    });
+}
+
+#[test]
+fn history_config_default_path_plaintext() {
+    let config_dir = nu_path::nu_config_dir().unwrap();
+    let config = HistoryConfig {
+        path: HistoryPath::Default,
+        file_format: HistoryFileFormat::Plaintext,
+        ..Default::default()
+    };
+
+    let expected_path = config_dir.join("history.txt");
+    assert_eq!(config.file_path(), Some(expected_path.into()));
+}
+
+#[test]
+fn history_config_default_path_sqlite() {
+    let config_dir = nu_path::nu_config_dir().unwrap();
+    let config = HistoryConfig {
+        path: HistoryPath::Default,
+        file_format: HistoryFileFormat::Sqlite,
+        ..Default::default()
+    };
+
+    let expected_path = config_dir.join("history.sqlite3");
+    assert_eq!(config.file_path(), Some(expected_path.into()));
 }
