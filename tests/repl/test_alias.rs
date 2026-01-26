@@ -38,20 +38,18 @@ fn test_three_level_alias() -> TestResult {
 
 #[test]
 fn test_non_shadowed() -> TestResult {
-    let expected = "10";
     run_test_contains(
         r#"
             let x = 10
             alias xx = echo $x
             xx
         "#,
-        expected,
+        "10",
     )
 }
 
 #[test]
 fn test_shadowed() -> TestResult {
-    let expected = "10";
     run_test_contains(
         r#"
             let x = 10
@@ -59,13 +57,12 @@ fn test_shadowed() -> TestResult {
             let x = 20
             xx
         "#,
-        expected,
+        "10",
     )
 }
 
 #[test]
 fn test_mut() -> TestResult {
-    let expected = "20";
     run_test_contains(
         r#"
             mut x = 10
@@ -73,6 +70,6 @@ fn test_mut() -> TestResult {
             $x = 20
             xx
         "#,
-        expected,
+        "20",
     )
 }
