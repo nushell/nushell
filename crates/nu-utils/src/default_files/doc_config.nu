@@ -970,13 +970,15 @@ $env.config.input_list.style.match_text = "yellow"
 
 # input_list.style.footer (style): Style for the footer showing item count.
 # The footer displays "[X-Y of Z]" when the list is scrollable.
+# In multi modes (--multi), the footer always shows and includes selection count:
+# "[X-Y of Z, N selected]"
 # Default: dark_gray
 $env.config.input_list.style.footer = "dark_gray"
 
 # input_list.style.separator (style): Style for the separator line.
 # The horizontal line between the search box and results in fuzzy mode.
-# Default: dark_gray
-$env.config.input_list.style.separator = "dark_gray"
+# Default: Inherits from $env.config.color_config.separator
+# $env.config.input_list.style.separator = "dark_gray"
 
 # input_list.style.prompt_marker (style): Style for the prompt marker (">").
 # The marker shown before the filter input in fuzzy mode.
@@ -987,6 +989,39 @@ $env.config.input_list.style.prompt_marker = "green"
 # The marker shown next to the currently highlighted item.
 # Default: green
 $env.config.input_list.style.selected_marker = "green"
+
+# input_list.style.table_header (style): Style for table column headers.
+# Applied to column names in the header row when displaying tables.
+# Default: Inherits from $env.config.color_config.header (typically green_bold)
+# $env.config.input_list.style.table_header = { attr: "b" }
+
+# input_list.style.table_separator (style): Style for table column separators.
+# Applied to the separator character between columns and scroll indicators (< >).
+# Default: Inherits from $env.config.color_config.separator
+# $env.config.input_list.style.table_separator = "dark_gray"
+
+# Note: Table cell values are automatically styled based on their type, using the same
+# colors and alignment as regular Nushell table output. This includes:
+# - Colors from $env.config.color_config for types like int, string, bool, filesize, etc.
+# - Right-alignment for numeric types (int, float, filesize, duration)
+# - Left-alignment for text types (string, bool, date)
+# For example, if you have `$env.config.color_config.bool = "cyan"`, boolean values
+# in `input list` tables will also be colored cyan.
+#
+# The table also displays a header separator line between column names and data rows,
+# using characters that match your configured table theme ($env.config.table.mode).
+
+# input_list.table_column_separator (string): Character for table column separators.
+# Single character displayed between columns in table mode. Should be a single character.
+# Default: Inherits from $env.config.table.mode - uses the vertical separator from the table theme:
+#   - ASCII themes (basic, psql, markdown): "|"
+#   - Modern themes (thin, rounded, single): "│"
+#   - Heavy theme: "┃"
+#   - Double themes: "║"
+#   - with_love: "❤"
+#   - dots: ":"
+#   - none/restructured: " "
+# $env.config.input_list.table_column_separator = "│"
 
 # input_list.separator_char (string): Character(s) for the separator line.
 # Displayed between the search box and results in fuzzy mode.
@@ -1023,10 +1058,13 @@ $env.config.input_list.case_sensitive = "smart"
 #         separator: "dark_gray"
 #         prompt_marker: { fg: "cyan" }
 #         selected_marker: { fg: "cyan", attr: "b" }
+#         table_header: { attr: "bu" }  # bold underline
+#         table_separator: { fg: "dark_gray" }
 #     }
 #     separator_char: "="
 #     prompt_marker_text: "❯ "
 #     selected_marker_char: "▸"
+#     table_column_separator: "|"  # use ASCII pipe instead of box-drawing character
 #     case_sensitive: false  # or "false" or "smart"
 # }
 

@@ -10,9 +10,10 @@ use crossterm::{
 };
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nu_ansi_term::{Style, ansi::RESET};
-use nu_color_config::get_color_map;
-use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
+use nu_table::common::nu_value_to_string;
+use nu_engine::{command_prelude::*, get_columns};
+use nu_protocol::{TableMode, shell_error::io::IoError};
 use std::{
     collections::HashSet,
     io::{self, Stderr, Write},
@@ -34,16 +35,67 @@ struct InputListConfig {
     separator: Style,               // For separator line
     prompt_marker: Style,        // For prompt marker (">") in fuzzy mode
     selected_marker: Style,      // For selection marker (">") in item list
+    table_header: Style,            // For table column headers
+    table_separator: Style,         // For table column separators
     show_footer: bool,              // Whether to show the footer
     separator_char: String,         // Character(s) for separator line between search and results
     show_separator: bool,           // Whether to show the separator line
     prompt_marker_text: String,  // Text for prompt marker (default: "> ")
     selected_marker_char: char,  // Single character for selection marker (default: '>')
+    table_column_separator: char,   // Character for table column separator (default: '│')
+    table_header_separator: char,   // Horizontal line character for header separator (default: '─')
+    table_header_intersection: char, // Intersection character for header separator (default: '┼')
     case_sensitivity: CaseSensitivity, // Fuzzy match case sensitivity
 }
 
 const DEFAULT_PROMPT_MARKER: &str = "> ";
 const DEFAULT_SELECTED_MARKER: char = '>';
+
+const DEFAULT_TABLE_COLUMN_SEPARATOR: char = '│';
+
+/// Maps TableMode to the appropriate vertical separator character
+fn table_mode_to_separator(mode: TableMode) -> char {
+    match mode {
+        // ASCII-based themes
+        TableMode::Basic | TableMode::BasicCompact | TableMode::Psql | TableMode::Markdown => '|',
+        TableMode::AsciiRounded => '|',
+        // Modern unicode (single line)
+        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => '│',
+        TableMode::Reinforced | TableMode::Light => '│',
+        // Heavy borders
+        TableMode::Heavy => '┃',
+        // Double line
+        TableMode::Double | TableMode::CompactDouble => '║',
+        // Special themes
+        TableMode::WithLove => '❤',
+        TableMode::Dots => ':',
+        // Minimal/no borders
+        TableMode::Restructured | TableMode::None => ' ',
+    }
+}
+
+/// Maps TableMode to (horizontal_line_char, intersection_char) for header separator
+fn table_mode_to_header_separator(mode: TableMode) -> (char, char) {
+    match mode {
+        // ASCII-based themes
+        TableMode::Basic | TableMode::BasicCompact | TableMode::Psql => ('-', '+'),
+        TableMode::AsciiRounded => ('-', '+'),
+        TableMode::Markdown => ('-', '|'),
+        // Modern unicode (single line)
+        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => ('─', '┼'),
+        TableMode::Reinforced => ('─', '┼'),
+        TableMode::Light => ('─', '─'), // Light has no vertical lines, so no intersection
+        // Heavy borders
+        TableMode::Heavy => ('━', '╋'),
+        // Double line
+        TableMode::Double | TableMode::CompactDouble => ('═', '╬'),
+        // Special themes
+        TableMode::WithLove => ('❤', '❤'),
+        TableMode::Dots => ('.', ':'),
+        // Minimal/no borders - use simple dashes
+        TableMode::Restructured | TableMode::None => (' ', ' '),
+    }
+}
 
 impl Default for InputListConfig {
     fn default() -> Self {
@@ -53,20 +105,43 @@ impl Default for InputListConfig {
             separator: Style::new().fg(nu_ansi_term::Color::DarkGray),
             prompt_marker: Style::new().fg(nu_ansi_term::Color::Green),
             selected_marker: Style::new().fg(nu_ansi_term::Color::Green),
+            table_header: Style::new().bold(),
+            table_separator: Style::new().fg(nu_ansi_term::Color::DarkGray),
             show_footer: true,
             separator_char: "─".to_string(),
             show_separator: true,
             prompt_marker_text: DEFAULT_PROMPT_MARKER.to_string(),
             selected_marker_char: DEFAULT_SELECTED_MARKER,
+            table_column_separator: DEFAULT_TABLE_COLUMN_SEPARATOR,
+            table_header_separator: '─',
+            table_header_intersection: '┼',
             case_sensitivity: CaseSensitivity::default(),
         }
     }
 }
 
 impl InputListConfig {
-    fn from_nu_config(config: &nu_protocol::Config) -> Self {
+    fn from_nu_config(config: &nu_protocol::Config, style_computer: &StyleComputer) -> Self {
         let mut ret = Self::default();
-        // Style options are nested under "style" key
+
+        // Get default table styles from color_config (same as regular table command)
+        let color_config_header =
+            style_computer.compute("header", &Value::string("", Span::unknown()));
+        let color_config_separator =
+            style_computer.compute("separator", &Value::nothing(Span::unknown()));
+
+        // Use color_config styles as defaults for table rendering and separator line
+        ret.table_header = color_config_header;
+        ret.table_separator = color_config_separator;
+        ret.separator = color_config_separator; // Separator line also inherits from color_config
+
+        // Derive table separators from user's table mode
+        ret.table_column_separator = table_mode_to_separator(config.table.mode);
+        let (header_sep, header_int) = table_mode_to_header_separator(config.table.mode);
+        ret.table_header_separator = header_sep;
+        ret.table_header_intersection = header_int;
+
+        // Style options are nested under "style" key - these override color_config defaults
         if let Some(style_val) = config.input_list.get("style") {
             if let Ok(style_record) = style_val.as_record() {
                 let style_map: std::collections::HashMap<String, Value> =
@@ -86,6 +161,13 @@ impl InputListConfig {
                 }
                 if let Some(s) = colors.get("selected_marker") {
                     ret.selected_marker = *s;
+                }
+                // These override the color_config defaults if explicitly set
+                if let Some(s) = colors.get("table_header") {
+                    ret.table_header = *s;
+                }
+                if let Some(s) = colors.get("table_separator") {
+                    ret.table_separator = *s;
                 }
             }
         }
@@ -112,6 +194,19 @@ impl InputListConfig {
                     eprintln!(
                         "Warning: input_list.selected_marker_char must be a single character, using default '{}' (got '{}')",
                         DEFAULT_SELECTED_MARKER, s
+                    );
+                }
+            }
+        }
+        if let Some(val) = config.input_list.get("table_column_separator") {
+            if let Ok(s) = val.as_str() {
+                let chars: Vec<char> = s.chars().collect();
+                if chars.len() == 1 {
+                    ret.table_column_separator = chars[0];
+                } else {
+                    eprintln!(
+                        "Warning: input_list.table_column_separator must be a single character, using default '{}' (got '{}')",
+                        DEFAULT_TABLE_COLUMN_SEPARATOR, s
                     );
                 }
             }
@@ -143,8 +238,16 @@ enum InteractMode {
 }
 
 struct SelectItem {
-    name: String,  // Display text (also used for search)
-    value: Value,  // Original value to return
+    name: String,                               // Search text (concatenated cells in table mode)
+    cells: Option<Vec<(String, TextStyle)>>,    // Cell values with TextStyle for type-based styling (None = single-line mode)
+    value: Value,                               // Original value to return
+}
+
+/// Layout information for table rendering
+struct TableLayout {
+    columns: Vec<String>,           // Column names
+    col_widths: Vec<usize>,         // Computed width per column (content only, not separators)
+    truncated_cols: usize,          // Number of columns that fit in terminal starting from horizontal_offset
 }
 
 #[derive(Clone)]
@@ -166,7 +269,7 @@ impl Command for InputList {
             .optional("prompt", SyntaxShape::String, "The prompt to display.")
             .switch(
                 "multi",
-                "Use multiple results, you can press a to toggle all options on/off",
+                "Use multiple results, you can press a to toggle all, Ctrl+R to refine",
                 Some('m'),
             )
             .switch("fuzzy", "Use a fuzzy select.", Some('f'))
@@ -193,6 +296,11 @@ impl Command for InputList {
                 "Field to display and search on (returns full record when selected)",
                 Some('d'),
             )
+            .switch(
+                "no-table",
+                "Disable table rendering for table input (show as single lines)",
+                Some('t'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -204,18 +312,37 @@ impl Command for InputList {
     fn extra_description(&self) -> &str {
         r#"Presents an interactive list in the terminal for selecting items.
 
-Three modes are available:
+Four modes are available:
 - Single (default): Select one item with arrow keys, confirm with Enter
 - Multi (--multi): Select multiple items with Space, toggle all with 'a'
 - Fuzzy (--fuzzy): Type to filter, matches are highlighted
+- Fuzzy Multi (--fuzzy --multi): Type to filter AND select multiple items with Tab
 
-For tables, use --display to specify which column to show and search on.
-The full record is returned when an item is selected.
+Multi mode features:
+- The footer always shows the selection count (e.g., "[1-5 of 10, 3 selected]")
+- Use Ctrl+R to "refine" the list: narrow down to only selected items, keeping them
+  selected so you can deselect the ones you don't want. Can be used multiple times.
+
+Table rendering:
+When piping a table (list of records), items are displayed with aligned columns.
+Use Left/Right arrows (or h/l) to scroll horizontally when columns exceed terminal width.
+In fuzzy mode, use Shift+Left/Right for horizontal scrolling.
+Ellipsis (…) shows when more columns are available in each direction.
+In fuzzy mode, the ellipsis is highlighted when matches exist in hidden columns.
+Use --no-table to disable table rendering and show records as single lines.
+Use --display to specify a single column to show (disables table mode).
 
 Keyboard shortcuts:
 - Up/Down, j/k: Navigate items
+- Left/Right, h/l: Scroll columns horizontally (table mode, single/multi)
+- Shift+Left/Right: Scroll columns horizontally (fuzzy mode)
 - Home/End: Jump to first/last item
 - PageUp/PageDown: Navigate by page
+- Space: Toggle selection (multi mode)
+- Tab: Toggle selection and move down (fuzzy multi mode)
+- Shift+Tab: Toggle selection and move up (fuzzy multi mode)
+- a: Toggle all visible items (multi modes)
+- Ctrl+R: Refine list to only selected items (multi modes)
 - Enter: Confirm selection
 - Esc: Cancel (all modes)
 - q: Cancel (single/multi modes only)
@@ -235,6 +362,8 @@ Configuration ($env.config.input_list):
 - style.separator: Style for the separator line (default: dark_gray)
 - style.prompt_marker: Style for the prompt marker (default: green)
 - style.selected_marker: Style for the selection marker (default: green)
+- style.table_header: Style for table column headers (inherits from color_config.header)
+- style.table_separator: Style for table column separators (inherits from color_config.separator)
 - separator_char: Character(s) for separator line (default: "─")
 - prompt_marker_text: Text for prompt marker (default: "> ")
 - selected_marker_char: Single character for selection marker (default: ">")
@@ -263,8 +392,10 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         let no_footer = call.has_flag(engine_state, stack, "no-footer")?;
         let no_separator = call.has_flag(engine_state, stack, "no-separator")?;
         let case_sensitive: Option<Value> = call.get_flag(engine_state, stack, "case-sensitive")?;
+        let no_table = call.has_flag(engine_state, stack, "no-table")?;
         let config = stack.get_config(engine_state);
-        let mut input_list_config = InputListConfig::from_nu_config(&config);
+        let style_computer = StyleComputer::from_config(engine_state, stack);
+        let mut input_list_config = InputListConfig::from_nu_config(&config, &style_computer);
         if no_footer {
             input_list_config.show_footer = false;
         }
@@ -288,31 +419,80 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             };
         }
 
-        let options: Vec<SelectItem> = match input {
+        // Collect all values first for table detection
+        let values: Vec<Value> = match input {
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => input
-                .into_iter()
-                .map(move |val| {
-                    let display_value = if let Some(ref cellpath) = display_path {
-                        val.follow_cell_path(&cellpath.members)?
-                            .to_expanded_string(", ", &config)
-                    } else {
-                        val.to_expanded_string(", ", &config)
-                    };
-                    Ok(SelectItem {
-                        name: display_value,
-                        value: val,
-                    })
-                })
-                .collect::<Result<Vec<_>, ShellError>>()?,
-
+            | PipelineData::ListStream { .. } => input.into_iter().collect(),
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected a list, a table, or a range".to_string(),
                     span: head,
                 });
             }
+        };
+
+        // Detect table mode: enable if we have columns AND --display is not provided AND --no-table is not set
+        let columns = if display_path.is_none() && !no_table {
+            get_columns(&values)
+        } else {
+            vec![]
+        };
+        let is_table_mode = !columns.is_empty();
+
+        // Create SelectItems, with cells for table mode
+        // Use nu_value_to_string to get consistent formatting and styling with regular tables
+        let options: Vec<SelectItem> = if is_table_mode {
+            values
+                .into_iter()
+                .map(|val| {
+                    let cells: Vec<(String, TextStyle)> = columns
+                        .iter()
+                        .map(|col| {
+                            if let Value::Record { val: record, .. } = &val {
+                                record
+                                    .get(col)
+                                    .map(|v| nu_value_to_string(v, &config, &style_computer))
+                                    .unwrap_or_else(|| (String::new(), TextStyle::default()))
+                            } else {
+                                (String::new(), TextStyle::default())
+                            }
+                        })
+                        .collect();
+                    // Search text is space-separated concatenation of all cell strings
+                    let name = cells.iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>().join(" ");
+                    SelectItem {
+                        name,
+                        cells: Some(cells),
+                        value: val,
+                    }
+                })
+                .collect()
+        } else {
+            values
+                .into_iter()
+                .map(|val| {
+                    let display_value = if let Some(ref cellpath) = display_path {
+                        val.follow_cell_path(&cellpath.members)
+                            .map(|v| v.to_expanded_string(", ", &config))
+                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config))
+                    } else {
+                        val.to_expanded_string(", ", &config)
+                    };
+                    SelectItem {
+                        name: display_value,
+                        cells: None,
+                        value: val,
+                    }
+                })
+                .collect()
+        };
+
+        // Calculate table layout if in table mode
+        let table_layout = if is_table_mode {
+            Some(Self::calculate_table_layout(&columns, &options))
+        } else {
+            None
         };
 
         if options.is_empty() {
@@ -322,14 +502,9 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             });
         }
 
-        if multi && fuzzy {
-            return Err(ShellError::TypeMismatch {
-                err_message: "Fuzzy search is not supported for multi select".to_string(),
-                span: head,
-            });
-        }
-
-        let mode = if multi {
+        let mode = if multi && fuzzy {
+            SelectMode::FuzzyMulti
+        } else if multi {
             SelectMode::Multi
         } else if fuzzy {
             SelectMode::Fuzzy
@@ -337,7 +512,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             SelectMode::Single
         };
 
-        let mut widget = SelectWidget::new(mode, prompt.as_deref(), &options, input_list_config);
+        let mut widget = SelectWidget::new(mode, prompt.as_deref(), &options, input_list_config, table_layout);
         let answer = widget.run().map_err(|err| {
             IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
         })?;
@@ -433,7 +608,46 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                 example: r#"$env.config.input_list.style.match_text = "red"; ls | input list --fuzzy"#,
                 result: None,
             },
+            Example {
+                description: "Display a table with column rendering",
+                example: r#"[[name size]; [file1.txt "1.2 KB"] [file2.txt "3.4 KB"]] | input list"#,
+                result: None,
+            },
+            Example {
+                description: "Display a table as single lines (no table rendering)",
+                example: r#"ls | input list --no-table"#,
+                result: None,
+            },
+            Example {
+                description: "Fuzzy search with multiple selection (use Tab to toggle)",
+                example: r#"ls | input list --fuzzy --multi"#,
+                result: None,
+            },
         ]
+    }
+}
+
+impl InputList {
+    /// Calculate column widths for table rendering
+    fn calculate_table_layout(columns: &[String], options: &[SelectItem]) -> TableLayout {
+        let mut col_widths: Vec<usize> = columns.iter().map(|c| c.width()).collect();
+
+        // Find max width for each column from all rows
+        for item in options {
+            if let Some(cells) = &item.cells {
+                for (i, (cell_text, _)) in cells.iter().enumerate() {
+                    if i < col_widths.len() {
+                        col_widths[i] = col_widths[i].max(cell_text.width());
+                    }
+                }
+            }
+        }
+
+        TableLayout {
+            columns: columns.to_vec(),
+            col_widths,
+            truncated_cols: 0, // Will be calculated when terminal width is known
+        }
     }
 }
 
@@ -442,6 +656,7 @@ enum SelectMode {
     Single,
     Multi,
     Fuzzy,
+    FuzzyMulti,
 }
 
 struct SelectWidget<'a> {
@@ -480,6 +695,18 @@ struct SelectWidget<'a> {
     term_width: u16,
     /// Cached separator line (regenerated on terminal resize)
     separator_line: String,
+    /// Table layout for table mode (None if single-line mode)
+    table_layout: Option<TableLayout>,
+    /// First visible column index (for horizontal scrolling)
+    horizontal_offset: usize,
+    /// Whether horizontal scroll changed since last render
+    horizontal_scroll_changed: bool,
+    /// Whether terminal width changed since last render
+    width_changed: bool,
+    /// Whether the list has been refined to only show selected items (Multi/FuzzyMulti)
+    refined: bool,
+    /// Base indices for refined mode (the subset to filter from in FuzzyMulti)
+    refined_base_indices: Vec<usize>,
 }
 
 impl<'a> SelectWidget<'a> {
@@ -488,6 +715,7 @@ impl<'a> SelectWidget<'a> {
         prompt: Option<&'a str>,
         items: &'a [SelectItem],
         config: InputListConfig,
+        table_layout: Option<TableLayout>,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
         let matcher = match config.case_sensitivity {
@@ -519,6 +747,12 @@ impl<'a> SelectWidget<'a> {
             config,
             term_width: 0,
             separator_line: String::new(),
+            table_layout,
+            horizontal_offset: 0,
+            horizontal_scroll_changed: false,
+            width_changed: false,
+            refined: false,
+            refined_base_indices: Vec::new(),
         }
     }
 
@@ -556,6 +790,106 @@ impl<'a> SelectWidget<'a> {
         )
     }
 
+    /// Check if we're in table mode
+    fn is_table_mode(&self) -> bool {
+        self.table_layout.is_some()
+    }
+
+    /// Check if we're in a multi-selection mode
+    fn is_multi_mode(&self) -> bool {
+        self.mode == SelectMode::Multi || self.mode == SelectMode::FuzzyMulti
+    }
+
+    /// Get the row prefix width (selection marker + optional checkbox)
+    fn row_prefix_width(&self) -> usize {
+        match self.mode {
+            SelectMode::Multi | SelectMode::FuzzyMulti => 6, // "> [x] " or "  [ ] "
+            _ => 2,                 // "> " or "  "
+        }
+    }
+
+    /// Get the table column separator string (e.g., " │ ")
+    fn table_column_separator(&self) -> String {
+        format!(" {} ", self.config.table_column_separator)
+    }
+
+    /// Get the width of the table column separator (char width + 2 for surrounding spaces)
+    fn table_column_separator_width(&self) -> usize {
+        UnicodeWidthChar::width(self.config.table_column_separator).unwrap_or(1) + 2
+    }
+
+    /// Calculate how many columns fit starting from horizontal_offset
+    /// Returns (number of columns that fit, whether there are more columns to the right)
+    fn calculate_visible_columns(&self) -> (usize, bool) {
+        let Some(layout) = &self.table_layout else {
+            return (0, false);
+        };
+
+        Self::calculate_visible_columns_for_layout(
+            layout,
+            self.horizontal_offset,
+            self.term_width as usize,
+            self.row_prefix_width(),
+            self.table_column_separator_width(),
+        )
+    }
+
+    /// Static helper to calculate visible columns without borrowing self
+    fn calculate_visible_columns_for_layout(
+        layout: &TableLayout,
+        horizontal_offset: usize,
+        term_width: usize,
+        prefix_width: usize,
+        separator_width: usize,
+    ) -> (usize, bool) {
+        // Account for scroll indicators: 2 chars for "… " on left side
+        let scroll_indicator_width = if horizontal_offset > 0 { 2 } else { 0 };
+        let available = term_width
+            .saturating_sub(prefix_width)
+            .saturating_sub(scroll_indicator_width);
+
+        let mut used_width = 0;
+        let mut cols_fit = 0;
+
+        for (i, &col_width) in layout.col_widths.iter().enumerate().skip(horizontal_offset) {
+            // Add separator width for all but first visible column
+            let sep_width = if i > horizontal_offset { separator_width } else { 0 };
+            let needed = col_width + sep_width;
+
+            // Reserve space for right scroll indicator if not the last column
+            let reserve_right = if i + 1 < layout.col_widths.len() { 2 } else { 0 };
+
+            if used_width + needed + reserve_right <= available {
+                used_width += needed;
+                cols_fit += 1;
+            } else {
+                break;
+            }
+        }
+
+        let has_more_right = horizontal_offset + cols_fit < layout.col_widths.len();
+        (cols_fit.max(1), has_more_right) // Always show at least 1 column
+    }
+
+    /// Update table layout's truncated_cols based on current terminal width
+    fn update_table_layout(&mut self) {
+        let prefix_width = self.row_prefix_width();
+        let term_width = self.term_width as usize;
+        let horizontal_offset = self.horizontal_offset;
+        let separator_width = self.table_column_separator_width();
+
+        if let Some(layout) = &mut self.table_layout {
+            let (cols_fit, _) = Self::calculate_visible_columns_for_layout(
+                layout,
+                horizontal_offset,
+                term_width,
+                prefix_width,
+                separator_width,
+            );
+            layout.truncated_cols = cols_fit;
+        }
+    }
+
     /// Update terminal dimensions and recalculate visible height
     fn update_term_size(&mut self, width: u16, height: u16) {
         // Subtract 1 to avoid issues with writing to the very last terminal column
@@ -563,18 +897,31 @@ impl<'a> SelectWidget<'a> {
         let width_changed = self.term_width != new_width;
         self.term_width = new_width;
 
+        // Track width change for full redraw
+        if width_changed {
+            self.width_changed = true;
+        }
+
         // Regenerate separator line if width changed
         if width_changed && self.config.show_separator {
             self.generate_separator_line();
         }
 
+        // Update table layout if width changed
+        if width_changed {
+            self.update_table_layout();
+        }
+
         // Recalculate visible height
         let mut reserved: u16 = if self.prompt.is_some() { 1 } else { 0 };
-        if self.mode == SelectMode::Fuzzy {
+        if self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti {
             reserved += 1; // filter line
             if self.config.show_separator {
                 reserved += 1; // separator line
             }
+        }
+        if self.is_table_mode() {
+            reserved += 2; // table header + header separator
         }
         if self.config.show_footer {
             reserved += 1; // footer
@@ -590,8 +937,8 @@ impl<'a> SelectWidget<'a> {
             let _ = disable_raw_mode();
         }
 
-        // Only hide cursor for non-fuzzy modes
-        if self.mode != SelectMode::Fuzzy {
+        // Only hide cursor for non-fuzzy modes (fuzzy modes need visible cursor for text input)
+        if self.mode != SelectMode::Fuzzy && self.mode != SelectMode::FuzzyMulti {
             execute!(stderr, Hide)?;
         }
         scopeguard::defer! {
@@ -648,6 +995,7 @@ impl<'a> SelectWidget<'a> {
             SelectMode::Single => self.handle_single_key(key),
             SelectMode::Multi => self.handle_multi_key(key),
             SelectMode::Fuzzy => self.handle_fuzzy_key(key),
+            SelectMode::FuzzyMulti => self.handle_fuzzy_multi_key(key),
         }
     }
 
@@ -661,6 +1009,14 @@ impl<'a> SelectWidget<'a> {
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.scroll_columns_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.scroll_columns_right();
                 KeyAction::Continue
             }
             KeyCode::Home => {
@@ -684,15 +1040,30 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn handle_multi_key(&mut self, key: KeyEvent) -> KeyAction {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
+            // Ctrl+R: Refine list to only show selected items
+            KeyCode::Char('r' | 'R') if ctrl => {
+                self.refine_list();
+                KeyAction::Continue
+            }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.navigate_up();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::Left | KeyCode::Char('h') => {
+                self.scroll_columns_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right | KeyCode::Char('l') => {
+                self.scroll_columns_right();
                 KeyAction::Continue
             }
             KeyCode::Char(' ') => {
@@ -726,6 +1097,7 @@ impl<'a> SelectWidget<'a> {
     fn handle_fuzzy_key(&mut self, key: KeyEvent) -> KeyAction {
         let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         let alt = key.modifiers.contains(KeyModifiers::ALT);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
 
         match key.code {
             KeyCode::Esc => KeyAction::Cancel,
@@ -746,6 +1118,16 @@ impl<'a> SelectWidget<'a> {
             }
             KeyCode::Down => {
                 self.navigate_down();
+                KeyAction::Continue
+            }
+
+            // Horizontal scrolling for table mode (Shift+Left/Right)
+            KeyCode::Left if shift => {
+                self.scroll_columns_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right if shift => {
+                self.scroll_columns_right();
                 KeyAction::Continue
             }
 
@@ -897,6 +1279,211 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    fn handle_fuzzy_multi_key(&mut self, key: KeyEvent) -> KeyAction {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        let alt = key.modifiers.contains(KeyModifiers::ALT);
+        let shift = key.modifiers.contains(KeyModifiers::SHIFT);
+
+        match key.code {
+            KeyCode::Esc => KeyAction::Cancel,
+            KeyCode::Enter => KeyAction::Confirm,
+
+            // Ctrl+R: Refine list to only show selected items
+            KeyCode::Char('r' | 'R') if ctrl => {
+                self.refine_list();
+                KeyAction::Continue
+            }
+
+            // Tab: Toggle selection of current item and move down
+            // Note: Some terminals may report Tab as Char('\t')
+            KeyCode::Tab | KeyCode::Char('\t') => {
+                // Get the real index from filtered_indices
+                if !self.filtered_indices.is_empty() {
+                    let real_idx = self.filtered_indices[self.cursor];
+                    if self.selected.contains(&real_idx) {
+                        self.selected.remove(&real_idx);
+                    } else {
+                        self.selected.insert(real_idx);
+                    }
+                    self.toggled_item = Some(self.cursor); // For optimized redraw
+                    self.navigate_down();
+                }
+                KeyAction::Continue
+            }
+
+            // Shift-Tab: Toggle selection and move up
+            KeyCode::BackTab => {
+                if !self.filtered_indices.is_empty() {
+                    let real_idx = self.filtered_indices[self.cursor];
+                    if self.selected.contains(&real_idx) {
+                        self.selected.remove(&real_idx);
+                    } else {
+                        self.selected.insert(real_idx);
+                    }
+                    self.toggled_item = Some(self.cursor);
+                    self.navigate_up();
+                }
+                KeyAction::Continue
+            }
+
+            // List navigation
+            KeyCode::Up | KeyCode::Char('p' | 'P') if ctrl => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
+            KeyCode::Down | KeyCode::Char('n' | 'N') if ctrl => {
+                self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::Up => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
+            KeyCode::Down => {
+                self.navigate_down();
+                KeyAction::Continue
+            }
+
+            // Horizontal scrolling for table mode (Shift+Left/Right)
+            KeyCode::Left if shift => {
+                self.scroll_columns_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right if shift => {
+                self.scroll_columns_right();
+                KeyAction::Continue
+            }
+
+            // Readline: Cursor movement
+            KeyCode::Char('a' | 'A') if ctrl => {
+                self.filter_cursor = 0;
+                KeyAction::Continue
+            }
+            KeyCode::Char('e' | 'E') if ctrl => {
+                self.filter_cursor = self.filter_text.len();
+                KeyAction::Continue
+            }
+            KeyCode::Char('b' | 'B') if ctrl => {
+                self.move_filter_cursor_left();
+                KeyAction::Continue
+            }
+            KeyCode::Char('f' | 'F') if ctrl => {
+                self.move_filter_cursor_right();
+                KeyAction::Continue
+            }
+            KeyCode::Char('b' | 'B') if alt => {
+                self.move_filter_cursor_word_left();
+                KeyAction::Continue
+            }
+            KeyCode::Char('f' | 'F') if alt => {
+                self.move_filter_cursor_word_right();
+                KeyAction::Continue
+            }
+            KeyCode::Left if ctrl || alt => {
+                self.move_filter_cursor_word_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right if ctrl || alt => {
+                self.move_filter_cursor_word_right();
+                KeyAction::Continue
+            }
+            KeyCode::Left => {
+                self.move_filter_cursor_left();
+                KeyAction::Continue
+            }
+            KeyCode::Right => {
+                self.move_filter_cursor_right();
+                KeyAction::Continue
+            }
+
+            // Readline: Deletion
+            KeyCode::Char('u' | 'U') if ctrl => {
+                self.filter_text.drain(..self.filter_cursor);
+                self.filter_cursor = 0;
+                self.update_filter();
+                KeyAction::Continue
+            }
+            KeyCode::Char('k' | 'K') if ctrl => {
+                self.filter_text.truncate(self.filter_cursor);
+                self.update_filter();
+                KeyAction::Continue
+            }
+            KeyCode::Char('d' | 'D') if ctrl => {
+                if self.filter_cursor < self.filter_text.len() {
+                    self.filter_text.remove(self.filter_cursor);
+                    self.update_filter();
+                }
+                KeyAction::Continue
+            }
+            KeyCode::Delete => {
+                if self.filter_cursor < self.filter_text.len() {
+                    self.filter_text.remove(self.filter_cursor);
+                    self.update_filter();
+                }
+                KeyAction::Continue
+            }
+            KeyCode::Char('d' | 'D') if alt => {
+                self.delete_word_forwards();
+                self.update_filter();
+                KeyAction::Continue
+            }
+            KeyCode::Char('w' | 'W' | 'h' | 'H') if ctrl => {
+                self.delete_word_backwards();
+                self.update_filter();
+                KeyAction::Continue
+            }
+            KeyCode::Backspace if alt => {
+                self.delete_word_backwards();
+                self.update_filter();
+                KeyAction::Continue
+            }
+            KeyCode::Backspace => {
+                if self.filter_cursor > 0 {
+                    let mut new_pos = self.filter_cursor - 1;
+                    while new_pos > 0 && !self.filter_text.is_char_boundary(new_pos) {
+                        new_pos -= 1;
+                    }
+                    self.filter_cursor = new_pos;
+                    self.filter_text.remove(self.filter_cursor);
+                    self.update_filter();
+                }
+                KeyAction::Continue
+            }
+            KeyCode::Char('t' | 'T') if ctrl => {
+                self.transpose_chars();
+                self.update_filter();
+                KeyAction::Continue
+            }
+
+            // Character input
+            KeyCode::Char(c) => {
+                self.filter_text.insert(self.filter_cursor, c);
+                self.filter_cursor += c.len_utf8();
+                self.update_filter();
+                KeyAction::Continue
+            }
+
+            // List navigation with Home/End/PageUp/PageDown
+            KeyCode::Home => {
+                self.navigate_home();
+                KeyAction::Continue
+            }
+            KeyCode::End => {
+                self.navigate_end();
+                KeyAction::Continue
+            }
+            KeyCode::PageUp => {
+                self.navigate_page_up();
+                KeyAction::Continue
+            }
+            KeyCode::PageDown => {
+                self.navigate_page_down();
+                KeyAction::Continue
+            }
+            _ => KeyAction::Continue,
+        }
+    }
+
     /// Move cursor up with wrapping
     fn navigate_up(&mut self) {
         let list_len = self.current_list_len();
@@ -936,10 +1523,11 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
-    /// Get the current list length (filtered for fuzzy mode, full for others)
+    /// Get the current list length (filtered for fuzzy modes or refined multi, full for others)
     fn current_list_len(&self) -> usize {
         match self.mode {
-            SelectMode::Fuzzy => self.filtered_indices.len(),
+            SelectMode::Fuzzy | SelectMode::FuzzyMulti => self.filtered_indices.len(),
+            SelectMode::Multi if self.refined => self.filtered_indices.len(),
             _ => self.items.len(),
         }
     }
@@ -985,22 +1573,109 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    /// Scroll table columns left (show earlier columns)
+    fn scroll_columns_left(&mut self) -> bool {
+        if !self.is_table_mode() || self.horizontal_offset == 0 {
+            return false;
+        }
+        self.horizontal_offset -= 1;
+        self.horizontal_scroll_changed = true;
+        self.update_table_layout();
+        true
+    }
+
+    /// Scroll table columns right (show later columns)
+    fn scroll_columns_right(&mut self) -> bool {
+        let Some(layout) = &self.table_layout else {
+            return false;
+        };
+        let (cols_visible, has_more_right) = self.calculate_visible_columns();
+        if !has_more_right {
+            return false;
+        }
+        // Don't scroll past the last column
+        if self.horizontal_offset + cols_visible >= layout.col_widths.len() {
+            return false;
+        }
+        self.horizontal_offset += 1;
+        self.horizontal_scroll_changed = true;
+        self.update_table_layout();
+        true
+    }
+
     fn toggle_current(&mut self) {
-        if self.selected.contains(&self.cursor) {
-            self.selected.remove(&self.cursor);
+        // Guard against empty list when refined
+        if self.refined && self.filtered_indices.is_empty() {
+            return;
+        }
+        // Get the real item index (may differ from cursor when refined)
+        let real_idx = if self.refined {
+            self.filtered_indices[self.cursor]
         } else {
-            self.selected.insert(self.cursor);
+            self.cursor
+        };
+        if self.selected.contains(&real_idx) {
+            self.selected.remove(&real_idx);
+        } else {
+            self.selected.insert(real_idx);
         }
         self.toggled_item = Some(self.cursor);
     }
 
     fn toggle_all(&mut self) {
-        if self.selected.len() == self.items.len() {
-            self.selected.clear();
+        let indices: Vec<usize> = if self.refined {
+            self.filtered_indices.clone()
         } else {
-            self.selected = (0..self.items.len()).collect();
+            (0..self.items.len()).collect()
+        };
+        // Check if all current items are selected
+        let all_selected = indices.iter().all(|i| self.selected.contains(i));
+        if all_selected {
+            // Deselect all current items
+            for i in &indices {
+                self.selected.remove(i);
+            }
+        } else {
+            // Select all current items
+            self.selected.extend(indices);
         }
         self.toggled_all = true;
+    }
+
+    /// Refine the list to only show currently selected items
+    /// This allows users to narrow down to their selections and continue selecting
+    fn refine_list(&mut self) {
+        if self.selected.is_empty() {
+            return;
+        }
+
+        // Set filtered_indices to sorted selected indices
+        let mut indices: Vec<usize> = self.selected.iter().copied().collect();
+        indices.sort();
+
+        // Store as base indices for filtering in FuzzyMulti mode
+        self.refined_base_indices = indices;
+        self.filtered_indices = self.refined_base_indices.clone();
+
+        // Reset cursor and scroll
+        self.cursor = 0;
+        self.scroll_offset = 0;
+
+        // Keep all items selected (don't clear selection)
+        // User can deselect items they don't want
+
+        // Clear filter text in FuzzyMulti mode
+        if self.mode == SelectMode::FuzzyMulti {
+            self.filter_text.clear();
+            self.filter_cursor = 0;
+            self.filter_text_changed = true;
+        }
+
+        // Mark as refined (for Multi mode rendering)
+        self.refined = true;
+
+        // Force full redraw
+        self.first_render = true;
     }
 
     // Filter cursor movement helpers
@@ -1151,19 +1826,36 @@ impl<'a> SelectWidget<'a> {
     fn update_filter(&mut self) {
         let old_indices = std::mem::take(&mut self.filtered_indices);
 
+        // Determine whether to filter from refined subset or all items
+        let use_refined = self.refined && !self.refined_base_indices.is_empty();
+
         if self.filter_text.is_empty() {
-            self.filtered_indices = (0..self.items.len()).collect();
+            // When empty, copy the base indices
+            self.filtered_indices = if use_refined {
+                self.refined_base_indices.clone()
+            } else {
+                (0..self.items.len()).collect()
+            };
         } else {
-            let mut scored: Vec<(usize, i64)> = self
-                .items
-                .iter()
-                .enumerate()
-                .filter_map(|(i, opt)| {
-                    self.matcher
-                        .fuzzy_match(&opt.name, &self.filter_text)
-                        .map(|score| (i, score))
-                })
-                .collect();
+            // When filtering, iterate without cloning the base indices
+            let mut scored: Vec<(usize, i64)> = if use_refined {
+                self.refined_base_indices
+                    .iter()
+                    .filter_map(|&i| {
+                        self.matcher
+                            .fuzzy_match(&self.items[i].name, &self.filter_text)
+                            .map(|score| (i, score))
+                    })
+                    .collect()
+            } else {
+                (0..self.items.len())
+                    .filter_map(|i| {
+                        self.matcher
+                            .fuzzy_match(&self.items[i].name, &self.filter_text)
+                            .map(|score| (i, score))
+                    })
+                    .collect()
+            };
             // Sort by score descending
             scored.sort_by(|a, b| b.1.cmp(&a.1));
             self.filtered_indices = scored.into_iter().map(|(i, _)| i).collect();
@@ -1195,24 +1887,33 @@ impl<'a> SelectWidget<'a> {
                     InteractMode::Single(Some(self.filtered_indices[self.cursor]))
                 }
             }
+            SelectMode::FuzzyMulti => {
+                // Return all selected items regardless of current filter
+                // This allows selecting items across multiple filter searches
+                let mut indices: Vec<usize> = self.selected.iter().copied().collect();
+                indices.sort();
+                InteractMode::Multi(Some(indices))
+            }
         }
     }
 
     /// Check if we can do a cursor-only update in fuzzy mode
-    /// (just navigating, no text changes)
+    /// (just navigating, no text changes, no toggles)
     fn can_do_fuzzy_cursor_only_update(&self) -> bool {
         !self.first_render
-            && self.mode == SelectMode::Fuzzy
+            && !self.width_changed
+            && (self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti)
             && !self.filter_text_changed
             && !self.results_changed
             && self.scroll_offset == self.prev_scroll_offset
             && self.cursor != self.prev_cursor
+            && self.toggled_item.is_none() // FuzzyMulti: no item was toggled
     }
 
     /// Check if we can do a toggle-only update in multi mode
     /// (just toggled a single visible item, no cursor movement)
     fn can_do_multi_toggle_only_update(&self) -> bool {
-        if self.first_render || self.mode != SelectMode::Multi {
+        if self.first_render || self.width_changed || self.mode != SelectMode::Multi {
             return false;
         }
         if let Some(toggled) = self.toggled_item {
@@ -1225,20 +1926,124 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    /// Check if we can do a toggle+move update in fuzzy multi mode
+    /// (toggled an item and moved cursor, both visible, no scroll change)
+    fn can_do_fuzzy_multi_toggle_update(&self) -> bool {
+        if self.first_render || self.width_changed || self.mode != SelectMode::FuzzyMulti {
+            return false;
+        }
+        if self.scroll_offset != self.prev_scroll_offset {
+            return false; // Scrolled, need full redraw
+        }
+        if self.filter_text_changed || self.results_changed {
+            return false; // Filter changed, need full redraw
+        }
+        if let Some(toggled) = self.toggled_item {
+            // Check if both toggled item and new cursor are visible
+            let visible_start = self.scroll_offset;
+            let visible_end = self.scroll_offset + self.visible_height as usize;
+            let toggled_visible = toggled >= visible_start && toggled < visible_end;
+            let cursor_visible = self.cursor >= visible_start && self.cursor < visible_end;
+            toggled_visible && cursor_visible
+        } else {
+            false
+        }
+    }
+
     /// Check if we can do a toggle-all update in multi mode
     /// (toggled all items with 'a' key)
     fn can_do_multi_toggle_all_update(&self) -> bool {
-        !self.first_render && self.mode == SelectMode::Multi && self.toggled_all
+        !self.first_render && !self.width_changed && self.mode == SelectMode::Multi && self.toggled_all
+    }
+
+    /// Check if we can do a cursor-only update in single/multi mode
+    /// (just navigating without scrolling or horizontal scroll changes)
+    fn can_do_cursor_only_update(&self) -> bool {
+        !self.first_render
+            && !self.width_changed
+            && (self.mode == SelectMode::Single || self.mode == SelectMode::Multi)
+            && self.scroll_offset == self.prev_scroll_offset
+            && self.cursor != self.prev_cursor
+            && !self.horizontal_scroll_changed
+            && self.toggled_item.is_none() // Multi mode: no item was toggled
+            && !self.toggled_all // Multi mode: 'a' wasn't pressed
+    }
+
+    /// Single/Multi mode: cursor-only update (just update the selection markers)
+    fn render_cursor_only_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+        execute!(stderr, BeginSynchronizedUpdate)?;
+
+        // Calculate header lines (prompt + table header + table header separator)
+        let mut header_lines: u16 = if self.prompt.is_some() { 1 } else { 0 };
+        if self.is_table_mode() {
+            header_lines += 2; // table header + header separator line
+        }
+
+        // Display rows are 0-indexed within the visible items area
+        let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
+        let curr_display_row = (self.cursor - self.scroll_offset) as u16;
+
+        // Cursor is at the end of the last rendered content line
+        // rendered_lines includes header + items + footer
+        // We need to go from there to the previous cursor row, then to the new cursor row
+
+        // Calculate how many item lines were rendered
+        let footer_lines: u16 = if self.config.show_footer
+            && (self.is_multi_mode() || self.current_list_len() > self.visible_height as usize)
+        {
+            1
+        } else {
+            0
+        };
+        let items_rendered = self.rendered_lines - header_lines as usize - footer_lines as usize;
+
+        // Current position is at last rendered line. Move up to first item row.
+        let last_item_display_row = (items_rendered as u16).saturating_sub(1);
+
+        // Move from last line to prev cursor row
+        // Last line = header_lines + last_item_display_row + footer_lines
+        // Prev item = header_lines + prev_display_row
+        let lines_up_to_prev = last_item_display_row + footer_lines - prev_display_row;
+        execute!(stderr, MoveUp(lines_up_to_prev), MoveToColumn(0))?;
+
+        // Clear the old marker
+        execute!(stderr, Print("  "))?;
+
+        // Move to new cursor row and draw marker
+        let marker = self.selected_marker();
+        if curr_display_row > prev_display_row {
+            let lines_down = curr_display_row - prev_display_row;
+            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print(&marker))?;
+        } else if curr_display_row < prev_display_row {
+            let lines_up = prev_display_row - curr_display_row;
+            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
+        } else {
+            // Same row (shouldn't happen since cursor != prev_cursor), just redraw
+            execute!(stderr, MoveToColumn(0), Print(&marker))?;
+        }
+
+        // Move back to the last rendered line (where cursor should be at end of render)
+        let lines_down_to_end = last_item_display_row + footer_lines - curr_display_row;
+        execute!(stderr, MoveDown(lines_down_to_end))?;
+
+        // Update state
+        self.prev_cursor = self.cursor;
+
+        execute!(stderr, EndSynchronizedUpdate)?;
+        stderr.flush()
     }
 
     /// Fuzzy mode: cursor-only update (just navigating the list)
     fn render_fuzzy_cursor_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
-        // Calculate header lines (prompt + filter + separator)
+        // Calculate header lines (prompt + filter + separator + table header + table header separator)
         let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
         if self.config.show_separator {
             header_lines += 1;
+        }
+        if self.is_table_mode() {
+            header_lines += 2; // table header + header separator line
         }
 
         // Display rows are 0-indexed within the visible items area
@@ -1295,12 +2100,87 @@ impl<'a> SelectWidget<'a> {
         stderr.flush()
     }
 
+    /// FuzzyMulti mode: update toggled row and new cursor row
+    fn render_fuzzy_multi_toggle_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+        let toggled = self.toggled_item.expect("toggled_item must be Some");
+        execute!(stderr, BeginSynchronizedUpdate)?;
+
+        // Calculate header lines (prompt + filter + separator + table header)
+        let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
+        if self.config.show_separator {
+            header_lines += 1;
+        }
+        if self.is_table_mode() {
+            header_lines += 2;
+        }
+
+        let toggled_display_row = (toggled - self.scroll_offset) as u16;
+        let cursor_display_row = (self.cursor - self.scroll_offset) as u16;
+
+        let toggled_item_row = header_lines + toggled_display_row;
+        let cursor_item_row = header_lines + cursor_display_row;
+
+        // We're at the filter line
+        let filter_row: u16 = if self.prompt.is_some() { 1 } else { 0 };
+
+        // Move to toggled row and redraw it (checkbox changed, marker removed)
+        let down_to_toggled = toggled_item_row.saturating_sub(filter_row);
+        execute!(stderr, MoveDown(down_to_toggled), MoveToColumn(0))?;
+
+        // Redraw toggled row (now without marker, checkbox state changed)
+        let toggled_real_idx = self.filtered_indices[toggled];
+        let toggled_item = &self.items[toggled_real_idx];
+        let toggled_checked = self.selected.contains(&toggled_real_idx);
+        if self.is_table_mode() {
+            self.render_table_row_fuzzy_multi(stderr, toggled_item, toggled_checked, false)?;
+        } else {
+            self.render_fuzzy_multi_item_inline(stderr, &toggled_item.name, toggled_checked, false)?;
+        }
+
+        // Move to cursor row and redraw it (marker added)
+        if cursor_item_row > toggled_item_row {
+            let lines_down = cursor_item_row - toggled_item_row;
+            execute!(stderr, MoveDown(lines_down), MoveToColumn(0))?;
+        } else if cursor_item_row < toggled_item_row {
+            let lines_up = toggled_item_row - cursor_item_row;
+            execute!(stderr, MoveUp(lines_up), MoveToColumn(0))?;
+        }
+
+        let cursor_real_idx = self.filtered_indices[self.cursor];
+        let cursor_item = &self.items[cursor_real_idx];
+        let cursor_checked = self.selected.contains(&cursor_real_idx);
+        if self.is_table_mode() {
+            self.render_table_row_fuzzy_multi(stderr, cursor_item, cursor_checked, true)?;
+        } else {
+            self.render_fuzzy_multi_item_inline(stderr, &cursor_item.name, cursor_checked, true)?;
+        }
+
+        // Move back to filter line
+        let up_to_filter = cursor_item_row.saturating_sub(filter_row);
+        execute!(stderr, MoveUp(up_to_filter))?;
+
+        // Position cursor within filter text
+        let text_before_cursor = &self.filter_text[..self.filter_cursor];
+        let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
+        execute!(stderr, MoveToColumn(cursor_col as u16))?;
+
+        // Update state
+        self.prev_cursor = self.cursor;
+        self.toggled_item = None;
+
+        execute!(stderr, EndSynchronizedUpdate)?;
+        stderr.flush()
+    }
+
     /// Multi mode: only update the checkbox for the toggled item
     fn render_multi_toggle_only(&mut self, stderr: &mut Stderr) -> io::Result<()> {
         let toggled = self.toggled_item.expect("toggled_item must be Some");
         execute!(stderr, BeginSynchronizedUpdate)?;
 
-        let header_lines = if self.prompt.is_some() { 1u16 } else { 0u16 };
+        let mut header_lines: u16 = if self.prompt.is_some() { 1 } else { 0 };
+        if self.is_table_mode() {
+            header_lines += 2; // table header + header separator line
+        }
 
         // Calculate display position of toggled item relative to scroll
         let display_row = (toggled - self.scroll_offset) as u16;
@@ -1340,7 +2220,10 @@ impl<'a> SelectWidget<'a> {
     fn render_multi_toggle_all(&mut self, stderr: &mut Stderr) -> io::Result<()> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
-        let header_lines = if self.prompt.is_some() { 1u16 } else { 0u16 };
+        let mut header_lines: u16 = if self.prompt.is_some() { 1 } else { 0 };
+        if self.is_table_mode() {
+            header_lines += 2; // table header + header separator line
+        }
 
         // Current position is at end of rendered content
         let items_rendered = self.rendered_lines - header_lines as usize;
@@ -1393,17 +2276,29 @@ impl<'a> SelectWidget<'a> {
             return self.render_multi_toggle_only(stderr);
         }
 
+        // Check for fuzzy multi mode toggle+move optimization
+        if self.can_do_fuzzy_multi_toggle_update() {
+            return self.render_fuzzy_multi_toggle_update(stderr);
+        }
+
         // Check for fuzzy mode cursor-only update (navigation without typing)
         if self.can_do_fuzzy_cursor_only_update() {
             return self.render_fuzzy_cursor_update(stderr);
         }
 
+        // Check for single/multi mode cursor-only update (navigation without scrolling)
+        if self.can_do_cursor_only_update() {
+            return self.render_cursor_only_update(stderr);
+        }
+
         // If nothing changed (e.g., PageDown at bottom of list), skip render entirely
         if !self.first_render
+            && !self.width_changed
             && self.cursor == self.prev_cursor
             && self.scroll_offset == self.prev_scroll_offset
             && !self.results_changed
             && !self.filter_text_changed
+            && !self.horizontal_scroll_changed
         {
             return Ok(());
         }
@@ -1413,8 +2308,9 @@ impl<'a> SelectWidget<'a> {
         // Calculate how many lines we'll render
         let total_count = self.current_list_len();
         let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
-        let has_scroll_indicator =
-            self.config.show_footer && total_count > self.visible_height as usize;
+        // Show footer in multi modes always (for selection count), or when scrolling is needed
+        let has_scroll_indicator = self.config.show_footer
+            && (self.is_multi_mode() || total_count > self.visible_height as usize);
         let items_to_render = end - self.scroll_offset;
 
         // Calculate total lines needed for this render
@@ -1422,11 +2318,14 @@ impl<'a> SelectWidget<'a> {
         if self.prompt.is_some() {
             lines_needed += 1;
         }
-        if self.mode == SelectMode::Fuzzy {
+        if self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti {
             lines_needed += 1; // filter line
             if self.config.show_separator {
                 lines_needed += 1;
             }
+        }
+        if self.is_table_mode() {
+            lines_needed += 2; // table header + header separator
         }
         lines_needed += items_to_render;
         if has_scroll_indicator {
@@ -1469,8 +2368,8 @@ impl<'a> SelectWidget<'a> {
             }
         }
 
-        // Render filter line for fuzzy mode
-        if self.mode == SelectMode::Fuzzy {
+        // Render filter line for fuzzy modes
+        if self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti {
             execute!(
                 stderr,
                 Print(self.prompt_marker()),
@@ -1496,25 +2395,88 @@ impl<'a> SelectWidget<'a> {
             }
         }
 
+        // Render table header and separator if in table mode
+        // Only redraw if first render or horizontal scroll changed
+        if self.is_table_mode() {
+            let need_header_redraw = self.first_render || self.horizontal_scroll_changed;
+            if need_header_redraw {
+                self.render_table_header(stderr)?;
+            }
+            lines_rendered += 1;
+            if lines_rendered < lines_needed {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
+            if need_header_redraw {
+                self.render_table_header_separator(stderr)?;
+            }
+            lines_rendered += 1;
+            if lines_rendered < lines_needed {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
+        }
+
         // Render items
         for idx in self.scroll_offset..end {
             let is_active = idx == self.cursor;
             let is_last_line = lines_rendered + 1 == lines_needed;
 
-            match self.mode {
-                SelectMode::Single => {
-                    let item = &self.items[idx];
-                    self.render_single_item_inline(stderr, &item.name, is_active)?;
+            if self.is_table_mode() {
+                // Table mode rendering
+                match self.mode {
+                    SelectMode::Single => {
+                        let item = &self.items[idx];
+                        self.render_table_row_single(stderr, item, is_active)?;
+                    }
+                    SelectMode::Multi => {
+                        let real_idx = if self.refined {
+                            self.filtered_indices[idx]
+                        } else {
+                            idx
+                        };
+                        let item = &self.items[real_idx];
+                        let is_checked = self.selected.contains(&real_idx);
+                        self.render_table_row_multi(stderr, item, is_checked, is_active)?;
+                    }
+                    SelectMode::Fuzzy => {
+                        let real_idx = self.filtered_indices[idx];
+                        let item = &self.items[real_idx];
+                        self.render_table_row_fuzzy(stderr, item, is_active)?;
+                    }
+                    SelectMode::FuzzyMulti => {
+                        let real_idx = self.filtered_indices[idx];
+                        let item = &self.items[real_idx];
+                        let is_checked = self.selected.contains(&real_idx);
+                        self.render_table_row_fuzzy_multi(stderr, item, is_checked, is_active)?;
+                    }
                 }
-                SelectMode::Multi => {
-                    let item = &self.items[idx];
-                    let is_checked = self.selected.contains(&idx);
-                    self.render_multi_item_inline(stderr, &item.name, is_checked, is_active)?;
-                }
-                SelectMode::Fuzzy => {
-                    let real_idx = self.filtered_indices[idx];
-                    let item = &self.items[real_idx];
-                    self.render_fuzzy_item_inline(stderr, &item.name, is_active)?;
+            } else {
+                // Single-line mode rendering
+                match self.mode {
+                    SelectMode::Single => {
+                        let item = &self.items[idx];
+                        self.render_single_item_inline(stderr, &item.name, is_active)?;
+                    }
+                    SelectMode::Multi => {
+                        let real_idx = if self.refined {
+                            self.filtered_indices[idx]
+                        } else {
+                            idx
+                        };
+                        let item = &self.items[real_idx];
+                        let is_checked = self.selected.contains(&real_idx);
+                        self.render_multi_item_inline(stderr, &item.name, is_checked, is_active)?;
+                    }
+                    SelectMode::Fuzzy => {
+                        let real_idx = self.filtered_indices[idx];
+                        let item = &self.items[real_idx];
+                        self.render_fuzzy_item_inline(stderr, &item.name, is_active)?;
+                    }
+                    SelectMode::FuzzyMulti => {
+                        let real_idx = self.filtered_indices[idx];
+                        let item = &self.items[real_idx];
+                        let is_checked = self.selected.contains(&real_idx);
+                        self.render_fuzzy_multi_item_inline(stderr, &item.name, is_checked, is_active)?;
+                    }
                 }
             }
             lines_rendered += 1;
@@ -1525,12 +2487,22 @@ impl<'a> SelectWidget<'a> {
 
         // Show scroll indicator if needed
         if has_scroll_indicator {
-            let indicator = format!(
-                "[{}-{} of {}]",
-                self.scroll_offset + 1,
-                end.min(total_count),
-                total_count
-            );
+            let indicator = if self.is_multi_mode() {
+                format!(
+                    "[{}-{} of {}, {} selected]",
+                    self.scroll_offset + 1,
+                    end.min(total_count),
+                    total_count,
+                    self.selected.len()
+                )
+            } else {
+                format!(
+                    "[{}-{} of {}]",
+                    self.scroll_offset + 1,
+                    end.min(total_count),
+                    total_count
+                )
+            };
             execute!(
                 stderr,
                 Print(self.config.footer.paint(&indicator)),
@@ -1557,11 +2529,13 @@ impl<'a> SelectWidget<'a> {
         self.first_render = false;
         self.filter_text_changed = false;
         self.results_changed = false;
+        self.horizontal_scroll_changed = false;
+        self.width_changed = false;
         self.toggled_item = None;
         self.toggled_all = false;
 
-        // In fuzzy mode, position cursor within filter text
-        if self.mode == SelectMode::Fuzzy {
+        // In fuzzy modes, position cursor within filter text
+        if self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti {
             // Cursor is on last content line, move up to filter line
             let prompt_lines = if self.prompt.is_some() { 1usize } else { 0 };
             self.fuzzy_cursor_offset = lines_rendered.saturating_sub(prompt_lines + 1);
@@ -1631,6 +2605,34 @@ impl<'a> SelectWidget<'a> {
         };
         let prefix_width = 2;
         execute!(stderr, Print(prefix))?;
+
+        if self.filter_text.is_empty() {
+            self.render_truncated_text(stderr, text, prefix_width)?;
+        } else if let Some((_score, indices)) = self.matcher.fuzzy_indices(text, &self.filter_text)
+        {
+            self.render_truncated_fuzzy_text(stderr, text, &indices, prefix_width)?;
+        } else {
+            self.render_truncated_text(stderr, text, prefix_width)?;
+        }
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    fn render_fuzzy_multi_item_inline(
+        &self,
+        stderr: &mut Stderr,
+        text: &str,
+        checked: bool,
+        active: bool,
+    ) -> io::Result<()> {
+        let cursor = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
+        let checkbox = if checked { "[x] " } else { "[ ] " };
+        let prefix_width = 6; // "> [x] " or "  [ ] "
+        execute!(stderr, Print(cursor), Print(checkbox))?;
 
         if self.filter_text.is_empty() {
             self.render_truncated_text(stderr, text, prefix_width)?;
@@ -1762,6 +2764,434 @@ impl<'a> SelectWidget<'a> {
                 execute!(stderr, Print("…"))?;
             }
         }
+        Ok(())
+    }
+
+    /// Render the table header row
+    fn render_table_header(&self, stderr: &mut Stderr) -> io::Result<()> {
+        let Some(layout) = &self.table_layout else {
+            return Ok(());
+        };
+
+        let prefix_width = self.row_prefix_width();
+        let (cols_visible, has_more_right) = self.calculate_visible_columns();
+        let has_more_left = self.horizontal_offset > 0;
+
+        // Render prefix space (no marker for header)
+        execute!(stderr, Print(" ".repeat(prefix_width)))?;
+
+        // Left scroll indicator (ellipsis)
+        if has_more_left {
+            execute!(
+                stderr,
+                Print(self.config.table_separator.paint("… "))
+            )?;
+        }
+
+        // Render visible column headers
+        let visible_range = self.horizontal_offset..(self.horizontal_offset + cols_visible);
+        for (i, col_idx) in visible_range.enumerate() {
+            if col_idx >= layout.columns.len() {
+                break;
+            }
+
+            // Separator between columns
+            if i > 0 {
+                let sep = self.table_column_separator();
+                execute!(
+                    stderr,
+                    Print(self.config.table_separator.paint(&sep))
+                )?;
+            }
+
+            // Render column header, center-aligned to column width
+            let header = &layout.columns[col_idx];
+            let col_width = layout.col_widths[col_idx];
+            let header_width = header.width();
+            let padding = col_width.saturating_sub(header_width);
+            let left_pad = padding / 2;
+            let right_pad = padding - left_pad;
+            let header_padded = format!(
+                "{}{}{}",
+                " ".repeat(left_pad),
+                header,
+                " ".repeat(right_pad)
+            );
+            execute!(stderr, Print(self.config.table_header.paint(&header_padded)))?;
+        }
+
+        // Right scroll indicator (ellipsis)
+        if has_more_right {
+            execute!(
+                stderr,
+                Print(self.config.table_separator.paint(" …"))
+            )?;
+        }
+
+        execute!(stderr, Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render the separator line between table header and data rows
+    fn render_table_header_separator(&self, stderr: &mut Stderr) -> io::Result<()> {
+        let Some(layout) = &self.table_layout else {
+            return Ok(());
+        };
+
+        let prefix_width = self.row_prefix_width();
+        let (cols_visible, has_more_right) = self.calculate_visible_columns();
+        let has_more_left = self.horizontal_offset > 0;
+
+        let h_char = self.config.table_header_separator;
+        let int_char = self.config.table_header_intersection;
+
+        // Render prefix as horizontal line
+        let prefix_line: String = std::iter::repeat(h_char).take(prefix_width).collect();
+        execute!(stderr, Print(self.config.table_separator.paint(&prefix_line)))?;
+
+        // Left scroll indicator (as horizontal continuation)
+        if has_more_left {
+            let left_indicator: String = std::iter::repeat(h_char).take(2).collect();
+            execute!(
+                stderr,
+                Print(self.config.table_separator.paint(&left_indicator))
+            )?;
+        }
+
+        // Render horizontal lines for visible columns with intersections
+        let visible_range = self.horizontal_offset..(self.horizontal_offset + cols_visible);
+        for (i, col_idx) in visible_range.enumerate() {
+            if col_idx >= layout.col_widths.len() {
+                break;
+            }
+
+            // Intersection between columns (must match width of column separator " │ ")
+            if i > 0 {
+                let intersection = format!("{}{}{}", h_char, int_char, h_char);
+                execute!(
+                    stderr,
+                    Print(self.config.table_separator.paint(&intersection))
+                )?;
+            }
+
+            // Horizontal line for this column's width
+            let col_width = layout.col_widths[col_idx];
+            let line: String = std::iter::repeat(h_char).take(col_width).collect();
+            execute!(stderr, Print(self.config.table_separator.paint(&line)))?;
+        }
+
+        // Right scroll indicator (as horizontal continuation)
+        if has_more_right {
+            let right_indicator: String = std::iter::repeat(h_char).take(2).collect();
+            execute!(
+                stderr,
+                Print(self.config.table_separator.paint(&right_indicator))
+            )?;
+        }
+
+        execute!(stderr, Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render a table row in single-select mode
+    fn render_table_row_single(
+        &self,
+        stderr: &mut Stderr,
+        item: &SelectItem,
+        active: bool,
+    ) -> io::Result<()> {
+        let prefix = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
+        execute!(stderr, Print(prefix))?;
+        self.render_table_cells(stderr, item, None)?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render a table row in multi-select mode
+    fn render_table_row_multi(
+        &self,
+        stderr: &mut Stderr,
+        item: &SelectItem,
+        checked: bool,
+        active: bool,
+    ) -> io::Result<()> {
+        let cursor = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
+        let checkbox = if checked { "[x] " } else { "[ ] " };
+        execute!(stderr, Print(cursor), Print(checkbox))?;
+        self.render_table_cells(stderr, item, None)?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render a table row in fuzzy mode with match highlighting
+    fn render_table_row_fuzzy(
+        &self,
+        stderr: &mut Stderr,
+        item: &SelectItem,
+        active: bool,
+    ) -> io::Result<()> {
+        let prefix = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
+        execute!(stderr, Print(prefix))?;
+
+        // Get match indices for highlighting
+        let match_indices = if !self.filter_text.is_empty() {
+            self.matcher
+                .fuzzy_indices(&item.name, &self.filter_text)
+                .map(|(_, indices)| indices)
+        } else {
+            None
+        };
+
+        self.render_table_cells(stderr, item, match_indices.as_deref())?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render a table row in fuzzy-multi mode with match highlighting and checkbox
+    fn render_table_row_fuzzy_multi(
+        &self,
+        stderr: &mut Stderr,
+        item: &SelectItem,
+        checked: bool,
+        active: bool,
+    ) -> io::Result<()> {
+        let cursor = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
+        let checkbox = if checked { "[x] " } else { "[ ] " };
+        execute!(stderr, Print(cursor), Print(checkbox))?;
+
+        // Get match indices for highlighting
+        let match_indices = if !self.filter_text.is_empty() {
+            self.matcher
+                .fuzzy_indices(&item.name, &self.filter_text)
+                .map(|(_, indices)| indices)
+        } else {
+            None
+        };
+
+        self.render_table_cells(stderr, item, match_indices.as_deref())?;
+        execute!(stderr, Print(RESET), Clear(ClearType::UntilNewLine))?;
+        Ok(())
+    }
+
+    /// Render table cells with proper alignment and optional fuzzy highlighting
+    fn render_table_cells(
+        &self,
+        stderr: &mut Stderr,
+        item: &SelectItem,
+        match_indices: Option<&[usize]>,
+    ) -> io::Result<()> {
+        let Some(layout) = &self.table_layout else {
+            return Ok(());
+        };
+        let Some(cells) = &item.cells else {
+            return Ok(());
+        };
+
+        let (cols_visible, has_more_right) = self.calculate_visible_columns();
+        let has_more_left = self.horizontal_offset > 0;
+
+        // Track if there are matches in hidden columns (for scroll indicator highlighting)
+        let mut matches_in_hidden_left = false;
+        let mut matches_in_hidden_right = false;
+
+        // Calculate character offset for each cell to map match indices
+        // The search text (item.name) is space-separated cells, so we need to track offsets
+        let cell_offsets: Vec<usize> = if match_indices.is_some() {
+            let mut offsets = Vec::with_capacity(cells.len());
+            let mut offset = 0;
+            for (i, (cell_text, _)) in cells.iter().enumerate() {
+                offsets.push(offset);
+                offset += cell_text.chars().count();
+                if i + 1 < cells.len() {
+                    offset += 1; // For the space separator
+                }
+            }
+            offsets
+        } else {
+            vec![]
+        };
+
+        // Check for matches in hidden left columns
+        if let Some(indices) = match_indices {
+            for col_idx in 0..self.horizontal_offset {
+                if col_idx < cell_offsets.len() && col_idx + 1 < cell_offsets.len() {
+                    let cell_start = cell_offsets[col_idx];
+                    let cell_end = cell_offsets[col_idx + 1].saturating_sub(1); // -1 for space
+                    if indices.iter().any(|&i| i >= cell_start && i < cell_end) {
+                        matches_in_hidden_left = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Left scroll indicator (ellipsis)
+        if has_more_left {
+            if matches_in_hidden_left {
+                execute!(stderr, Print(self.config.match_text.paint("… ")))?;
+            } else {
+                execute!(stderr, Print(self.config.table_separator.paint("… ")))?;
+            }
+        }
+
+        // Render visible cells
+        let visible_range = self.horizontal_offset..(self.horizontal_offset + cols_visible);
+        for (i, col_idx) in visible_range.enumerate() {
+            if col_idx >= cells.len() {
+                break;
+            }
+
+            // Separator between columns
+            if i > 0 {
+                let sep = self.table_column_separator();
+                execute!(stderr, Print(self.config.table_separator.paint(&sep)))?;
+            }
+
+            let (cell_text, cell_style) = &cells[col_idx];
+            let col_width = layout.col_widths[col_idx];
+
+            // Get match indices for this cell
+            let cell_matches: Option<Vec<usize>> = if let Some(indices) = match_indices {
+                if col_idx < cell_offsets.len() {
+                    let cell_start = cell_offsets[col_idx];
+                    // Filter indices that fall within this cell and adjust to cell-relative
+                    let cell_char_count = cell_text.chars().count();
+                    let relative_indices: Vec<usize> = indices
+                        .iter()
+                        .filter_map(|&idx| {
+                            if idx >= cell_start && idx < cell_start + cell_char_count {
+                                Some(idx - cell_start)
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    if relative_indices.is_empty() {
+                        None
+                    } else {
+                        Some(relative_indices)
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            // Render cell with padding and type-based styling
+            self.render_table_cell(stderr, cell_text, cell_style, col_width, cell_matches.as_deref())?;
+        }
+
+        // Check for matches in hidden right columns
+        if let Some(indices) = match_indices {
+            for col_idx in (self.horizontal_offset + cols_visible)..cells.len() {
+                if col_idx < cell_offsets.len() {
+                    let cell_start = cell_offsets[col_idx];
+                    let cell_end = if col_idx + 1 < cell_offsets.len() {
+                        cell_offsets[col_idx + 1].saturating_sub(1)
+                    } else {
+                        item.name.chars().count()
+                    };
+                    if indices.iter().any(|&i| i >= cell_start && i < cell_end) {
+                        matches_in_hidden_right = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Right scroll indicator (ellipsis)
+        if has_more_right {
+            if matches_in_hidden_right {
+                execute!(stderr, Print(self.config.match_text.paint(" …")))?;
+            } else {
+                execute!(stderr, Print(self.config.table_separator.paint(" …")))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Render a single table cell with padding, type-based styling, alignment, and optional match highlighting
+    fn render_table_cell(
+        &self,
+        stderr: &mut Stderr,
+        cell: &str,
+        cell_style: &TextStyle,
+        col_width: usize,
+        match_indices: Option<&[usize]>,
+    ) -> io::Result<()> {
+        let cell_width = cell.width();
+        let padding_needed = col_width.saturating_sub(cell_width);
+
+        // Calculate left and right padding based on alignment from TextStyle
+        let (left_pad, right_pad) = match cell_style.alignment {
+            Alignment::Left => (0, padding_needed),
+            Alignment::Right => (padding_needed, 0),
+            Alignment::Center => {
+                let left = padding_needed / 2;
+                (left, padding_needed - left)
+            }
+        };
+
+        // Add left padding
+        if left_pad > 0 {
+            execute!(stderr, Print(" ".repeat(left_pad)))?;
+        }
+
+        if let Some(indices) = match_indices {
+            // Render with fuzzy highlighting (match highlighting takes priority over type styling)
+            let mut char_buf = [0u8; 4];
+            let mut match_iter = indices.iter().peekable();
+
+            for (idx, c) in cell.chars().enumerate() {
+                while match_iter.peek().is_some_and(|&&i| i < idx) {
+                    match_iter.next();
+                }
+                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
+                if is_match {
+                    let s = c.encode_utf8(&mut char_buf);
+                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
+                } else {
+                    // Apply type-based style for non-match characters
+                    let s = c.encode_utf8(&mut char_buf);
+                    if let Some(color) = cell_style.color_style {
+                        execute!(stderr, Print(color.paint(&*s)))?;
+                    } else {
+                        execute!(stderr, Print(&*s))?;
+                    }
+                }
+            }
+        } else {
+            // Render with type-based styling
+            if let Some(color) = cell_style.color_style {
+                execute!(stderr, Print(color.paint(cell)))?;
+            } else {
+                execute!(stderr, Print(cell))?;
+            }
+        }
+
+        // Add right padding
+        if right_pad > 0 {
+            execute!(stderr, Print(" ".repeat(right_pad)))?;
+        }
+
         Ok(())
     }
 
