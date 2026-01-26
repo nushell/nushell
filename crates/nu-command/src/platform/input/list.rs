@@ -804,6 +804,40 @@ impl<'a> SelectWidget<'a> {
         self.mode == SelectMode::Multi || self.mode == SelectMode::FuzzyMulti
     }
 
+    /// Check if footer should be shown
+    fn has_footer(&self) -> bool {
+        self.config.show_footer
+            && (self.is_multi_mode() || self.current_list_len() > self.visible_height as usize)
+    }
+
+    /// Render just the footer text at current cursor position (for optimized updates)
+    fn render_footer_inline(&self, stderr: &mut Stderr) -> io::Result<()> {
+        let total_count = self.current_list_len();
+        let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
+        let indicator = if self.is_multi_mode() {
+            format!(
+                "[{}-{} of {}, {} selected]",
+                self.scroll_offset + 1,
+                end.min(total_count),
+                total_count,
+                self.selected.len()
+            )
+        } else {
+            format!(
+                "[{}-{} of {}]",
+                self.scroll_offset + 1,
+                end.min(total_count),
+                total_count
+            )
+        };
+        execute!(
+            stderr,
+            MoveToColumn(0),
+            Print(self.config.footer.paint(&indicator)),
+            Clear(ClearType::UntilNewLine),
+        )
+    }
+
     /// Get the row prefix width (selection marker + optional checkbox)
     fn row_prefix_width(&self) -> usize {
         match self.mode {
@@ -2159,9 +2193,29 @@ impl<'a> SelectWidget<'a> {
             self.render_fuzzy_multi_item_inline(stderr, &cursor_item.name, cursor_checked, true)?;
         }
 
-        // Move back to filter line
-        let up_to_filter = cursor_item_row.saturating_sub(filter_row);
-        execute!(stderr, MoveUp(up_to_filter))?;
+        // Update footer to reflect new selection count
+        if self.has_footer() {
+            // Calculate footer row position
+            let total_count = self.current_list_len();
+            let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
+            let visible_count = (end - self.scroll_offset) as u16;
+            let footer_row = header_lines + visible_count;
+
+            // Move from cursor row to footer
+            let down_to_footer = footer_row.saturating_sub(cursor_item_row);
+            execute!(stderr, MoveDown(down_to_footer))?;
+
+            // Update footer
+            self.render_footer_inline(stderr)?;
+
+            // Move back to filter line
+            let up_to_filter = footer_row.saturating_sub(filter_row);
+            execute!(stderr, MoveUp(up_to_filter))?;
+        } else {
+            // Move back to filter line
+            let up_to_filter = cursor_item_row.saturating_sub(filter_row);
+            execute!(stderr, MoveUp(up_to_filter))?;
+        }
 
         // Position cursor within filter text
         let text_before_cursor = &self.filter_text[..self.filter_cursor];
@@ -2210,8 +2264,13 @@ impl<'a> SelectWidget<'a> {
         };
         execute!(stderr, Print(checkbox))?;
 
-        // Move back to end position
-        execute!(stderr, MoveDown(lines_up), MoveToColumn(0))?;
+        // Move back to end position (footer line if shown, else last item line)
+        execute!(stderr, MoveDown(lines_up))?;
+
+        // Update footer to reflect new selection count
+        if self.has_footer() {
+            self.render_footer_inline(stderr)?;
+        }
 
         // Reset toggle tracking
         self.toggled_item = None;
@@ -2255,12 +2314,16 @@ impl<'a> SelectWidget<'a> {
             }
         }
 
-        // Move back to end position (last content line)
+        // Move back to end position (footer line if shown, else last item line)
         let remaining = items_rendered as u16 - visible_count as u16;
         if remaining > 0 {
             execute!(stderr, MoveDown(remaining))?;
         }
-        // Note: cursor is now at end of last content line (no extra line after)
+
+        // Update footer to reflect new selection count
+        if self.has_footer() {
+            self.render_footer_inline(stderr)?;
+        }
 
         // Reset toggle tracking
         self.toggled_all = false;
