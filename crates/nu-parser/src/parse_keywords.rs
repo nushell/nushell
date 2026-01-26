@@ -2,8 +2,8 @@ use crate::{
     exportable::Exportable,
     parse_block,
     parser::{
-        ArgumentParsingLevel, CallKind, compile_block, compile_block_with_id, parse_attribute,
-        parse_redirection, redirecting_builtin_error,
+        ArgumentParsingLevel, CallKind, compile_block, compile_block_with_id,
+        discover_captures_in_expr, parse_attribute, parse_redirection, redirecting_builtin_error,
     },
     type_check::{check_block_input_output, type_compatible},
 };
@@ -1332,12 +1332,27 @@ pub fn parse_alias(
                 },
             };
 
+            let mut captures = vec![];
+            let mut seen = vec![];
+            let mut seen_blocks = HashMap::new();
+
+            if let Err(err) = discover_captures_in_expr(
+                working_set,
+                &wrapped_call,
+                &mut seen,
+                &mut seen_blocks,
+                &mut captures,
+            ) {
+                working_set.error(err);
+            }
+
             let decl = Alias {
                 name: alias_name,
                 command,
                 wrapped_call,
                 description,
                 extra_description,
+                captures,
             };
 
             working_set.add_decl(Box::new(decl));

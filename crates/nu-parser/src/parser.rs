@@ -12,6 +12,7 @@ use crate::{
 use itertools::Itertools;
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
+use nu_protocol::ast::Expr;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
     PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
@@ -1066,6 +1067,32 @@ pub fn parse_internal_call(
             // Replace this command's call with the aliased call, but keep the alias name
             call = *wrapped_call.clone();
             call.head = command_span;
+
+            // Apply captured variables from the alias
+            let alias_captures = alias.captures.clone();
+            if !alias_captures.is_empty() {
+                // Create a list expression containing the VarIds that need to be captured
+                let captures_list: Vec<_> = alias_captures
+                    .iter()
+                    .map(|(var_id, span)| {
+                        nu_protocol::ast::ListItem::Item(Expression::new(
+                            working_set,
+                            Expr::Var(*var_id),
+                            *span,
+                            Type::Any,
+                        ))
+                    })
+                    .collect();
+
+                let captures_expr = Expression::new(
+                    working_set,
+                    Expr::List(captures_list),
+                    command_span,
+                    Type::Any,
+                );
+                call.set_parser_info("alias_captures".to_string(), captures_expr);
+            }
+
             // Skip positionals passed to aliased call
             positional_idx = call.positional_len();
         } else {
