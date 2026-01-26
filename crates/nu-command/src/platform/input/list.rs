@@ -143,8 +143,8 @@ enum InteractMode {
 }
 
 struct SelectItem {
-    name: String,
-    value: Value,
+    name: String,  // Display text (also used for search)
+    value: Value,  // Original value to return
 }
 
 #[derive(Clone)]
@@ -190,7 +190,7 @@ impl Command for InputList {
             .named(
                 "display",
                 SyntaxShape::CellPath,
-                "Field to use as display value",
+                "Field to display and search on (returns full record when selected)",
                 Some('d'),
             )
             .allow_variants_without_examples(true)
@@ -208,6 +208,9 @@ Three modes are available:
 - Single (default): Select one item with arrow keys, confirm with Enter
 - Multi (--multi): Select multiple items with Space, toggle all with 'a'
 - Fuzzy (--fuzzy): Type to filter, matches are highlighted
+
+For tables, use --display to specify which column to show and search on.
+The full record is returned when an item is selected.
 
 Keyboard shortcuts:
 - Up/Down, j/k: Navigate items
