@@ -974,10 +974,14 @@ $env.config.input_list.footer = "dark_gray"
 # Default: "─"
 $env.config.input_list.separator = "─"
 
-# input_list.case_sensitive (string): Case sensitivity for fuzzy matching.
-# "smart": Case-insensitive unless query contains uppercase (default).
-# "true": Always case-sensitive matching.
-# "false": Always case-insensitive matching.
+# input_list.case_sensitive (string or bool): Case sensitivity for fuzzy matching.
+# String values:
+#   "smart": Case-insensitive unless query contains uppercase (default).
+#   "true": Always case-sensitive matching.
+#   "false": Always case-insensitive matching.
+# Boolean values:
+#   true: Always case-sensitive matching.
+#   false: Always case-insensitive matching.
 # Note: Can be overridden per-invocation with --case-sensitive flag.
 # Default: "smart"
 $env.config.input_list.case_sensitive = "smart"
@@ -987,7 +991,7 @@ $env.config.input_list.case_sensitive = "smart"
 #     match_text: { fg: "green", attr: "b" }
 #     footer: { fg: "blue" }
 #     separator: "="
-#     case_sensitive: "false"
+#     case_sensitive: false  # or "false" or "smart"
 # }
 
 # ---------------------------------------------------------------------------------------

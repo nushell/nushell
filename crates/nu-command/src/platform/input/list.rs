@@ -66,7 +66,14 @@ impl InputListConfig {
             }
         }
         if let Some(val) = config.input_list.get("case_sensitive") {
-            if let Ok(s) = val.as_str() {
+            // Accept both boolean and string values
+            if let Ok(b) = val.as_bool() {
+                ret.case_sensitivity = if b {
+                    CaseSensitivity::CaseSensitive
+                } else {
+                    CaseSensitivity::CaseInsensitive
+                };
+            } else if let Ok(s) = val.as_str() {
                 ret.case_sensitivity = match s {
                     "smart" => CaseSensitivity::Smart,
                     "true" => CaseSensitivity::CaseSensitive,
@@ -125,8 +132,8 @@ impl Command for InputList {
             )
             .named(
                 "case-sensitive",
-                SyntaxShape::String,
-                "Case sensitivity for fuzzy matching: 'smart' (case-insensitive unless query has uppercase), 'true', or 'false'",
+                SyntaxShape::OneOf(vec![SyntaxShape::Boolean, SyntaxShape::String]),
+                "Case sensitivity for fuzzy matching: true, false, or 'smart' (case-insensitive unless query has uppercase)",
                 Some('s'),
             )
             .named(
@@ -172,7 +179,7 @@ Configuration ($env.config.input_list):
 - match_text: Style for fuzzy match highlighting (default: bold italic underline)
 - footer: Style for the footer text (default: dark_gray)
 - separator: Character(s) for separator line (default: "─")
-- case_sensitive: "smart", "true", or "false" (default: "smart")
+- case_sensitive: true, false, or "smart" (default: "smart")
 
 Use --no-footer and --no-separator to hide the footer and separator line."#
     }
@@ -196,7 +203,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
         let no_footer = call.has_flag(engine_state, stack, "no-footer")?;
         let no_separator = call.has_flag(engine_state, stack, "no-separator")?;
-        let case_sensitive: Option<String> = call.get_flag(engine_state, stack, "case-sensitive")?;
+        let case_sensitive: Option<Value> = call.get_flag(engine_state, stack, "case-sensitive")?;
         let config = stack.get_config(engine_state);
         let mut input_list_config = InputListConfig::from_nu_config(&config);
         if no_footer {
@@ -206,15 +213,17 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             input_list_config.show_separator = false;
         }
         if let Some(cs) = case_sensitive {
-            input_list_config.case_sensitivity = match cs.as_str() {
-                "smart" => CaseSensitivity::Smart,
-                "true" => CaseSensitivity::CaseSensitive,
-                "false" => CaseSensitivity::CaseInsensitive,
+            input_list_config.case_sensitivity = match &cs {
+                Value::Bool { val: true, .. } => CaseSensitivity::CaseSensitive,
+                Value::Bool { val: false, .. } => CaseSensitivity::CaseInsensitive,
+                Value::String { val, .. } if val == "smart" => CaseSensitivity::Smart,
+                Value::String { val, .. } if val == "true" => CaseSensitivity::CaseSensitive,
+                Value::String { val, .. } if val == "false" => CaseSensitivity::CaseInsensitive,
                 _ => {
                     return Err(ShellError::InvalidValue {
-                        valid: "'true', 'false', or 'smart'".to_string(),
-                        actual: format!("'{cs}'"),
-                        span: call.head,
+                        valid: "true, false, or 'smart'".to_string(),
+                        actual: cs.to_abbreviated_string(&config),
+                        span: cs.span(),
                     });
                 }
             };
@@ -358,6 +367,11 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             Example {
                 description: "Fuzzy search without the separator line",
                 example: r#"ls | input list --fuzzy --no-separator"#,
+                result: None,
+            },
+            Example {
+                description: "Fuzzy search with custom match highlighting color",
+                example: r#"$env.config.input_list.match_text = "red"; ls | input list --fuzzy"#,
                 result: None,
             },
         ]
@@ -1102,14 +1116,6 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
-    /// Check if we can do a cursor-only update (no content change) for Single/Multi mode
-    fn can_do_cursor_only_update(&self) -> bool {
-        !self.first_render
-            && self.mode != SelectMode::Fuzzy
-            && self.scroll_offset == self.prev_scroll_offset
-            && self.cursor != self.prev_cursor
-    }
-
     /// Check if we can do a cursor-only update in fuzzy mode
     /// (just navigating, no text changes)
     fn can_do_fuzzy_cursor_only_update(&self) -> bool {
@@ -1141,50 +1147,6 @@ impl<'a> SelectWidget<'a> {
     /// (toggled all items with 'a' key)
     fn can_do_multi_toggle_all_update(&self) -> bool {
         !self.first_render && self.mode == SelectMode::Multi && self.toggled_all
-    }
-
-    /// Efficient cursor-only update: just change the two prefix characters
-    fn render_cursor_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
-        execute!(stderr, BeginSynchronizedUpdate)?;
-
-        let header_lines = if self.prompt.is_some() { 1u16 } else { 0u16 };
-
-        // Calculate display positions relative to scroll
-        let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
-        let curr_display_row = (self.cursor - self.scroll_offset) as u16;
-
-        // Lines to move up from current position (end of last content line)
-        // Cursor is at end of last line, not beginning of next line
-        let items_rendered = (self.rendered_lines - header_lines as usize) as u16;
-
-        // Move to previous cursor row and clear the '>'
-        // Subtract 1 because cursor is on last line, not after it
-        let lines_up_to_prev = items_rendered.saturating_sub(1).saturating_sub(prev_display_row);
-        execute!(
-            stderr,
-            MoveUp(lines_up_to_prev),
-            MoveToColumn(0),
-            Print("  ")
-        )?;
-
-        // Move to new cursor row and set the '>'
-        if curr_display_row > prev_display_row {
-            let lines_down = curr_display_row - prev_display_row;
-            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print("> "))?;
-        } else {
-            let lines_up = prev_display_row - curr_display_row;
-            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print("> "))?;
-        }
-
-        // Move back to end position (last content line)
-        let lines_down_to_end = items_rendered.saturating_sub(1).saturating_sub(curr_display_row);
-        execute!(stderr, MoveDown(lines_down_to_end))?;
-
-        // Update state
-        self.prev_cursor = self.cursor;
-
-        execute!(stderr, EndSynchronizedUpdate)?;
-        stderr.flush()
     }
 
     /// Fuzzy mode: cursor-only update (just navigating the list)
@@ -1338,11 +1300,6 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
-        // Check if we can do an efficient cursor-only update
-        if self.can_do_cursor_only_update() {
-            return self.render_cursor_update(stderr);
-        }
-
         // Check for multi mode toggle-all optimization
         if self.can_do_multi_toggle_all_update() {
             return self.render_multi_toggle_all(stderr);
@@ -1356,6 +1313,16 @@ impl<'a> SelectWidget<'a> {
         // Check for fuzzy mode cursor-only update (navigation without typing)
         if self.can_do_fuzzy_cursor_only_update() {
             return self.render_fuzzy_cursor_update(stderr);
+        }
+
+        // If nothing changed (e.g., PageDown at bottom of list), skip render entirely
+        if !self.first_render
+            && self.cursor == self.prev_cursor
+            && self.scroll_offset == self.prev_scroll_offset
+            && !self.results_changed
+            && !self.filter_text_changed
+        {
+            return Ok(());
         }
 
         execute!(stderr, BeginSynchronizedUpdate)?;
@@ -1630,11 +1597,22 @@ impl<'a> SelectWidget<'a> {
         let available_width = (self.term_width as usize).saturating_sub(prefix_width);
         let text_width = UnicodeWidthStr::width(text);
 
+        // Reusable single-char buffer for styled output (avoids allocation per char)
+        let mut char_buf = [0u8; 4];
+
         if text_width <= available_width {
-            // Text fits, render with highlighting
+            // Text fits, render with highlighting.
+            // match_indices is sorted, so use two-pointer approach for O(n) instead of O(n*m)
+            let mut match_iter = match_indices.iter().peekable();
             for (idx, c) in text.chars().enumerate() {
-                if match_indices.contains(&idx) {
-                    execute!(stderr, Print(self.config.match_text.paint(c.to_string())))?;
+                // Advance match_iter past any indices we've passed
+                while match_iter.peek().is_some_and(|&&i| i < idx) {
+                    match_iter.next();
+                }
+                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
+                if is_match {
+                    let s = c.encode_utf8(&mut char_buf);
+                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
                 } else {
                     execute!(stderr, Print(c))?;
                 }
@@ -1662,20 +1640,26 @@ impl<'a> SelectWidget<'a> {
                 chars_to_render += 1;
             }
 
-            // Render the characters that fit
+            // Render the characters that fit, using two-pointer approach for efficiency
+            let mut match_iter = match_indices.iter().peekable();
             for (idx, c) in text.chars().enumerate() {
                 if idx >= chars_to_render {
                     break;
                 }
-                if match_indices.contains(&idx) {
-                    execute!(stderr, Print(self.config.match_text.paint(c.to_string())))?;
+                while match_iter.peek().is_some_and(|&&i| i < idx) {
+                    match_iter.next();
+                }
+                let is_match = match_iter.peek().is_some_and(|&&i| i == idx);
+                if is_match {
+                    let s = c.encode_utf8(&mut char_buf);
+                    execute!(stderr, Print(self.config.match_text.paint(&*s)))?;
                 } else {
                     execute!(stderr, Print(c))?;
                 }
             }
 
-            // Check if any matches are in the truncated portion
-            let has_hidden_matches = match_indices.iter().any(|&idx| idx >= chars_to_render);
+            // Check if any matches are in the truncated portion (remaining in match_iter)
+            let has_hidden_matches = match_iter.any(|&idx| idx >= chars_to_render);
 
             if has_hidden_matches {
                 execute!(stderr, Print(self.config.match_text.paint("…")))?;
@@ -1694,16 +1678,20 @@ impl<'a> SelectWidget<'a> {
         }
 
         if self.rendered_lines > 0 {
-            // Cursor is on the last content line, move up to first line
-            if self.rendered_lines > 1 {
-                execute!(stderr, MoveUp((self.rendered_lines - 1) as u16))?;
+            // Clear each line by moving up from current position and clearing.
+            // This doesn't assume we know exactly where the cursor is.
+            // First, move to column 0 and clear current line.
+            execute!(stderr, MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+            // Then move up and clear each remaining line
+            for _ in 1..self.rendered_lines {
+                execute!(
+                    stderr,
+                    MoveUp(1),
+                    MoveToColumn(0),
+                    Clear(ClearType::CurrentLine)
+                )?;
             }
-            execute!(stderr, MoveToColumn(0))?;
-            for _ in 0..self.rendered_lines {
-                execute!(stderr, Clear(ClearType::CurrentLine), MoveDown(1))?;
-            }
-            // After clearing, we're one line past the end, move back to start
-            execute!(stderr, MoveUp(self.rendered_lines as u16))?;
+            // Now we're at the first rendered line, which is where output should go
         }
         self.rendered_lines = 0;
         stderr.flush()
