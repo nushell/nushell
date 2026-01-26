@@ -1,6 +1,6 @@
 //! Color scheme and style helpers for the regex explorer UI.
 
-use ratatui::style::{Color, Modifier, Style, Stylize};
+use ratatui::style::{Color, Modifier, Style};
 
 // UI colors - using standard ANSI colors that adapt to terminal theme
 pub const ACCENT: Color = Color::Cyan;
@@ -102,16 +102,6 @@ pub mod styles {
     /// Style for selected item text (bold variant)
     pub fn selected_bold() -> Style {
         selected().bold()
-    }
-
-    /// Style for active cursor in text areas
-    pub fn cursor_active() -> Style {
-        Style::new().bg(ACCENT).fg(BG_DARK)
-    }
-
-    /// Style for hidden cursor
-    pub fn cursor_hidden() -> Style {
-        Style::new().hidden()
     }
 
     /// Border style for focused panels

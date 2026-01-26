@@ -3,21 +3,24 @@
 use crate::explore_regex::app::{App, InputFocus};
 use crate::explore_regex::colors::{BG_DARK, FG_PRIMARY, styles};
 use crate::explore_regex::quick_ref::QuickRefEntry;
+use edtui::{
+    EditorEventHandler, EditorMode, EditorTheme, EditorView,
+    actions::{DeleteChar, DeleteCharForward, Paste},
+    events::{KeyEventRegister, KeyInput},
+};
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
     widgets::{
         Block, BorderType, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
+        ScrollbarState, Widget,
     },
 };
 use std::io::{self, Stdout};
-use tui_textarea::{CursorMove, Input};
-use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
 // ─── Key Action Handling ─────────────────────────────────────────────────────
@@ -40,11 +43,18 @@ enum KeyAction {
     QuickRefInsert,
     SamplePageUp,
     SamplePageDown,
-    TextInput(Input),
+    PassToEditor(event::KeyEvent),
     None,
 }
 
-/// Determine the action for a key event based on current app state.
+/// Determine the appropriate action for a key event based on current application state.
+///
+/// This function implements the key event routing logic:
+/// - Help modal captures all keys to close
+/// - Global shortcuts (Ctrl+Q, F1, F2) work everywhere
+/// - Quick reference panel has its own navigation keys when focused
+/// - Regex input blocks newline insertion (single-line field)
+/// - All other keys are passed to the editor for text input
 fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     // If help modal is shown, any key closes it
     if app.show_help {
@@ -60,7 +70,7 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
         return KeyAction::ToggleQuickRef;
     }
 
-    if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('h') {
+    if key.code == KeyCode::F(2) {
         return KeyAction::ShowHelp;
     }
 
@@ -98,14 +108,32 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
         }
     }
 
-    // Default: pass to text input
-    // Normalize AltGr keys so international keyboard characters work properly
-    let normalized_key = normalize_altgr_key(key);
-    KeyAction::TextInput(Input::from(Event::Key(normalized_key)))
+    // Prevent newlines in regex input (single-line field)
+    // Block Enter, Ctrl+J, and Ctrl+M which all insert newlines in edtui
+    if app.input_focus == InputFocus::Regex {
+        match key.code {
+            KeyCode::Enter => return KeyAction::None,
+            KeyCode::Char('j') | KeyCode::Char('m')
+                if key.modifiers.contains(KeyModifiers::CONTROL) =>
+            {
+                return KeyAction::None;
+            }
+            _ => {}
+        }
+    }
+
+    // Default: pass to editor
+    KeyAction::PassToEditor(*key)
 }
 
-/// Execute a key action, modifying app state.
-fn execute_action(app: &mut App, action: KeyAction) -> bool {
+/// Execute a key action, modifying application state as needed.
+///
+/// Returns `true` if the application should quit, `false` otherwise.
+fn execute_action(
+    app: &mut App,
+    action: KeyAction,
+    event_handler: &mut EditorEventHandler,
+) -> bool {
     match action {
         KeyAction::Quit => return true,
         KeyAction::ToggleQuickRef => app.toggle_quick_ref(),
@@ -135,36 +163,51 @@ fn execute_action(app: &mut App, action: KeyAction) -> bool {
         KeyAction::SamplePageUp | KeyAction::SamplePageDown => {
             handle_sample_page_navigation(app, matches!(action, KeyAction::SamplePageDown));
         }
-        KeyAction::TextInput(input) => handle_text_input(app, input),
+        KeyAction::PassToEditor(key) => handle_editor_input(app, key, event_handler),
         KeyAction::None => {}
     }
     false
 }
 
+/// Handle page up/down navigation in the sample text pane.
+///
+/// Moves the cursor up or down by one page (visible height), keeping the column position.
 fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
     let page = app.sample_view_height.max(1);
-    let (row, col) = app.sample_textarea.cursor();
-    let max_row = app.sample_textarea.lines().len().saturating_sub(1) as u16;
+    let row = app.sample_text.cursor.row;
+    let col = app.sample_text.cursor.col;
+    let max_row = app.sample_text.lines.len().saturating_sub(1);
 
     let target_row = if page_down {
-        (row as u16).saturating_add(page).min(max_row)
+        row.saturating_add(page as usize).min(max_row)
     } else {
-        (row as u16).saturating_sub(page)
+        row.saturating_sub(page as usize)
     };
 
-    app.sample_textarea
-        .move_cursor(CursorMove::Jump(target_row, col as u16));
+    app.sample_text.cursor.row = target_row;
+    app.sample_text.cursor.col = col;
 }
 
-fn handle_text_input(app: &mut App, input: Input) {
+/// Pass a key event to the editor and handle side effects.
+///
+/// For regex input: recompiles the regex if the text changed.
+/// For sample text: updates match count if the text changed.
+fn handle_editor_input(
+    app: &mut App,
+    key: event::KeyEvent,
+    event_handler: &mut EditorEventHandler,
+) {
     match app.input_focus {
         InputFocus::Regex => {
-            app.regex_textarea.input(input);
-            app.compile_regex();
+            let old_value = app.regex_input.lines.to_string();
+            event_handler.on_key_event(key, &mut app.regex_input);
+            if app.regex_input.lines.to_string() != old_value {
+                app.compile_regex();
+            }
         }
         InputFocus::Sample => {
             let old_text = app.get_sample_text();
-            app.sample_textarea.input(input);
+            event_handler.on_key_event(key, &mut app.sample_text);
             if app.get_sample_text() != old_text {
                 app.update_match_count();
             }
@@ -173,63 +216,54 @@ fn handle_text_input(app: &mut App, input: Input) {
     }
 }
 
-/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
-///
-/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
-/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
-/// `Ctrl+Alt+Char` by crossterm/Windows. However, `tui_textarea` interprets `Ctrl+Alt`
-/// combinations as control sequences rather than character input.
-///
-/// To distinguish between AltGr character input and intentional keybindings:
-/// - ASCII letters (a-z, A-Z) with Ctrl+Alt or Alt are treated as keybindings
-///   (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head)
-/// - Non-alphabetic characters with Ctrl+Alt or Alt are treated as AltGr input
-///   (e.g., AltGr+[ to type `[`, AltGr+{ to type `{`)
-///
-/// This heuristic works because:
-/// 1. All tui_textarea Alt/Ctrl+Alt keybindings use letters (f, b, h, d, n, p, v, etc.)
-/// 2. AltGr typically produces symbols/punctuation, not letters
-fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
-    if let KeyCode::Char(c) = key.code {
-        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
-        // Some terminals may report it as just Alt
-        let has_altgr_modifiers = key
-            .modifiers
-            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
-            || key.modifiers == KeyModifiers::ALT;
-
-        if has_altgr_modifiers {
-            // Only treat as AltGr character input if it's NOT an ASCII letter.
-            // ASCII letters with Alt/Ctrl+Alt are likely intentional keybindings
-            // (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head).
-            // Symbols/punctuation with Ctrl+Alt are likely AltGr character input
-            // (e.g., AltGr+ü for [ on Swiss German keyboard).
-            if !c.is_ascii_alphabetic() {
-                // Strip Ctrl+Alt, keep only Shift if present
-                let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
-                return event::KeyEvent::new_with_kind_and_state(
-                    key.code,
-                    new_modifiers,
-                    key.kind,
-                    key.state,
-                );
-            }
-        }
-    }
-
-    // Return the key unchanged for:
-    // - Non-Char keys (Backspace, Delete, arrows, etc.)
-    // - ASCII letters with Alt/Ctrl+Alt (keybindings)
-    // - Characters without Alt modifiers (regular typing)
-    *key
-}
-
 // ─── Main Loop ───────────────────────────────────────────────────────────────
 
+/// Main event loop for the regex explorer.
+///
+/// Sets up custom keybindings to fix edtui bugs and improve UX, then enters the main
+/// draw/event loop. Returns when the user quits (Ctrl+Q) or an error occurs.
 pub fn run_app_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &mut App,
 ) -> io::Result<()> {
+    use ratatui::crossterm::event::KeyCode as CTKeyCode;
+
+    // Create event handler for edtui in Emacs mode (modeless editing)
+    let mut event_handler = EditorEventHandler::emacs_mode();
+
+    // Fix and customize edtui's Emacs mode keybindings for better UX:
+    //
+    // edtui has several bugs and unconventional defaults in Emacs mode:
+    // 1. Backspace is mapped TWICE - the second mapping (forward delete) overwrites the first,
+    //    causing backspace to delete forward instead of backward
+    // 2. Delete key (forward delete) has no mapping at all
+    // 3. Ctrl+V is mapped to page-down (traditional Emacs), but modern users expect paste
+    //
+    // We override these to provide intuitive behavior:
+
+    use edtui::actions::Action;
+
+    let keybindings: [(CTKeyCode, Action); 2] = [
+        // Fix: Backspace should delete backward (edtui bug causes it to delete forward)
+        (CTKeyCode::Backspace, DeleteChar(1).into()),
+        // Add: Delete key should delete forward (missing in edtui's Emacs mode)
+        (CTKeyCode::Delete, DeleteCharForward(1).into()),
+    ];
+
+    for (key_code, action) in keybindings {
+        event_handler.key_handler.insert(
+            KeyEventRegister::new(vec![KeyInput::new(key_code)], EditorMode::Insert),
+            action,
+        );
+    }
+
+    // Override Ctrl+V to paste (edtui maps it to page-down by default)
+    // Modern users expect Ctrl+V for paste; Emacs users can still use Ctrl+Y
+    event_handler.key_handler.insert(
+        KeyEventRegister::new(vec![KeyInput::ctrl('v')], EditorMode::Insert),
+        Paste,
+    );
+
     loop {
         terminal.draw(|f| draw_ui(f, app))?;
 
@@ -242,7 +276,7 @@ pub fn run_app_loop(
         }
 
         let action = determine_action(app, &key);
-        if execute_action(app, action) {
+        if execute_action(app, action, &mut event_handler) {
             return Ok(());
         }
     }
@@ -321,7 +355,7 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
     );
     f.render_widget(Paragraph::new(label), label_area);
 
-    // Input block
+    // Border style
     let border_style = if focused {
         if app.regex_error.is_some() {
             styles::border_error()
@@ -338,14 +372,24 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .border_style(border_style)
         .padding(Padding::horizontal(1));
 
-    app.regex_textarea.set_block(block);
-    app.regex_textarea.set_cursor_style(if focused {
-        styles::cursor_active()
-    } else {
-        styles::cursor_hidden()
-    });
+    let content = block.inner(input_area);
 
-    f.render_widget(&app.regex_textarea, input_area);
+    // Render using EditorView with theme (hide cursor, we'll use terminal cursor)
+    let theme = EditorTheme::default()
+        .block(block)
+        .base(Style::default().fg(FG_PRIMARY).bg(BG_DARK))
+        .hide_cursor() // Hide EditorView's block cursor
+        .hide_status_line(); // Hide the "Insert" mode indicator
+    EditorView::new(&mut app.regex_input)
+        .theme(theme)
+        .render(input_area, f.buffer_mut());
+
+    // Set terminal cursor position if focused
+    if focused {
+        let cursor_col = app.regex_input.cursor.col;
+        let cursor_row = app.regex_input.cursor.row;
+        f.set_cursor_position((content.x + cursor_col as u16, content.y + cursor_row as u16));
+    }
 }
 
 fn draw_sample_section(
@@ -387,79 +431,21 @@ fn draw_sample_section(
     let content = block.inner(content_area);
     app.sample_view_height = content.height;
 
-    // Handle scrolling
+    // Render the block border
+    f.render_widget(block, content_area);
+
+    // Render the highlighted text with regex matches
+    let highlighted_text = app.get_highlighted_text();
+    f.render_widget(Paragraph::new(highlighted_text), content);
+
+    // Set terminal cursor position if this section is focused
     if focused {
-        update_sample_scroll(app, content);
-    }
+        let cursor_row = app.sample_text.cursor.row;
+        let cursor_col = app.sample_text.cursor.col;
 
-    let text = app.get_highlighted_text();
-    let paragraph = Paragraph::new(text)
-        .scroll((app.sample_scroll_v, app.sample_scroll_h))
-        .block(block);
-
-    f.render_widget(paragraph, content_area);
-
-    // Draw cursor
-    if focused {
-        draw_sample_cursor(f, app, content);
-    }
-}
-
-fn update_sample_scroll(app: &mut App, content: Rect) {
-    let (cursor_row, cursor_col) = app.sample_textarea.cursor();
-    let line = &app.sample_textarea.lines()[cursor_row];
-    let cursor_display_col = line
-        .graphemes(true)
-        .take(cursor_col)
-        .map(|g| g.width())
-        .sum::<usize>() as u16;
-    let cursor_row_u16 = cursor_row as u16;
-
-    // Vertical scrolling
-    if cursor_row_u16 < app.sample_scroll_v {
-        app.sample_scroll_v = cursor_row_u16;
-    } else if cursor_row_u16 >= app.sample_scroll_v + content.height {
-        app.sample_scroll_v = cursor_row_u16 - content.height + 1;
-    }
-
-    // Horizontal scrolling
-    if cursor_display_col < app.sample_scroll_h {
-        app.sample_scroll_h = cursor_display_col;
-    } else if cursor_display_col >= app.sample_scroll_h + content.width {
-        app.sample_scroll_h = cursor_display_col - content.width + 1;
-    }
-}
-
-fn draw_sample_cursor(f: &mut ratatui::Frame, app: &App, content: Rect) {
-    let buf = f.buffer_mut();
-    let (cursor_row, cursor_col) = app.sample_textarea.cursor();
-    let line = &app.sample_textarea.lines()[cursor_row];
-    let prefix_width = line
-        .graphemes(true)
-        .take(cursor_col)
-        .map(|g| g.width())
-        .sum::<usize>() as u16;
-
-    let cursor_x = content.x + prefix_width - app.sample_scroll_h;
-    let cursor_y = content.y + (cursor_row as u16) - app.sample_scroll_v;
-    let grapheme_count = line.graphemes(true).count();
-    let is_eol = cursor_col == grapheme_count;
-
-    let grapheme_width = if is_eol {
-        1
-    } else {
-        line.graphemes(true)
-            .nth(cursor_col)
-            .map(|g| g.width())
-            .unwrap_or(1)
-    };
-
-    for i in 0..grapheme_width {
-        if let Some(cell) = buf.cell_mut((cursor_x + i as u16, cursor_y)) {
-            if is_eol {
-                cell.set_symbol(" ");
-            }
-            cell.set_style(cell.style().add_modifier(Modifier::REVERSED));
+        // Only set if cursor is within visible area
+        if cursor_row < content.height as usize {
+            f.set_cursor_position((content.x + cursor_col as u16, content.y + cursor_row as u16));
         }
     }
 }
@@ -512,7 +498,7 @@ fn draw_help(f: &mut ratatui::Frame, app: &App, area: Rect) {
             " Quick Ref"
         }),
         sep.clone(),
-        help_key("Ctrl+h"),
+        help_key("F2"),
         help_desc(" Help"),
         sep.clone(),
         help_key("Ctrl+Q"),
@@ -656,7 +642,7 @@ fn draw_help_modal_overlay(f: &mut ratatui::Frame, _app: &App, area: Rect) {
     let help_lines = vec![
         "Global Shortcuts",
         "  Ctrl+Q       Exit",
-        "  Ctrl+h       Toggle Help",
+        "  F2           Toggle Help",
         "  F1           Toggle Quick Ref",
         "  Tab          Switch Focus",
         "  Esc          Focus Regex",
@@ -668,22 +654,24 @@ fn draw_help_modal_overlay(f: &mut ratatui::Frame, _app: &App, area: Rect) {
         "  PgUp/PgDn    Page Scroll",
         "  Home         Scroll to Start",
         "",
-        "Regex Pattern Pane",
-        "  ←→↑↓                  Move cursor",
-        "  Shift+←→              Select text",
+        "Regex Pattern Pane (single line)",
+        "  ←→                    Move cursor",
         "  Ctrl+F/B              Forward/Back char",
         "  Ctrl+A/E              Line head/end",
         "  Alt+F/B               Forward/Back word",
-        "  Backspace             Delete char before",
-        "  Ctrl+D, Del           Delete char after",
-        "  Ctrl+K/J              Delete to line end/head",
-        "  Alt+H/Alt+Bksp/Ctrl+W Delete word before",
-        "  Alt+D/Alt+Del         Delete word after",
+        "  Backspace/Ctrl+H      Delete char before",
+        "  Delete/Ctrl+D         Delete char after",
+        "  Ctrl+K                Delete to line end",
+        "  Alt+U                 Delete to line head",
+        "  Alt+Backspace         Delete word before",
+        "  Alt+D                 Delete word after",
         "  Ctrl+U                Undo",
         "  Ctrl+R                Redo",
-        "  Ctrl+M/Enter/Return   Insert newline",
-        "  Ctrl+V                Paste from clipboard",
-        "  Ctrl+Y/X/C            Paste/Cut/Copy from selection",
+        "  Ctrl+V / Ctrl+Y       Paste from clipboard",
+        "",
+        "Sample Text Pane (multi-line) (same as above plus:)",
+        "  Ctrl+N/P              Next/Previous line",
+        "  Enter/Ctrl+J          Insert newline",
         "",
         "Press any key to close",
     ];
