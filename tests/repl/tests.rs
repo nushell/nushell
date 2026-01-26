@@ -1,4 +1,4 @@
-use assert_cmd::prelude::*;
+use assert_cmd::cargo_bin;
 use pretty_assertions::assert_eq;
 use std::collections::HashMap;
 use std::io::Write;
@@ -11,7 +11,7 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-config-file");
     cmd.arg(name).envs(env);
 
@@ -25,7 +25,7 @@ pub fn run_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-std-lib");
     cmd.arg("--no-config-file");
     cmd.arg(name);
@@ -44,7 +44,7 @@ pub fn run_test_std(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-config-file");
     cmd.arg(name);
     cmd.env(
@@ -79,7 +79,7 @@ pub fn run_test_contains(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-std-lib");
     cmd.arg("--no-config-file");
     cmd.arg(name);
@@ -107,7 +107,7 @@ pub fn test_ide_contains(input: &str, ide_commands: &[&str], expected: &str) -> 
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-std-lib");
     cmd.arg("--no-config-file");
     for ide_command in ide_commands {
@@ -138,7 +138,7 @@ pub fn fail_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
 
-    let mut cmd = Command::cargo_bin("nu")?;
+    let mut cmd = Command::new(cargo_bin!());
     cmd.arg("--no-std-lib");
     cmd.arg("--no-config-file");
     cmd.arg(name);
