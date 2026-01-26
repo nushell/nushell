@@ -965,8 +965,8 @@ $env.config.input_list.style = {}
 
 # input_list.style.match_text (style): Style for highlighted fuzzy match characters.
 # Applies to matched characters when using `input list --fuzzy`.
-# Default: yellow
-$env.config.input_list.style.match_text = "yellow"
+# Default: Inherits from $env.config.color_config.search_result (same as `find` command)
+# $env.config.input_list.style.match_text = { bg: "red", fg: "default" }
 
 # input_list.style.footer (style): Style for the footer showing item count.
 # The footer displays "[X-Y of Z]" when the list is scrollable.
@@ -996,7 +996,7 @@ $env.config.input_list.style.selected_marker = "green"
 # $env.config.input_list.style.table_header = { attr: "b" }
 
 # input_list.style.table_separator (style): Style for table column separators.
-# Applied to the separator character between columns and scroll indicators (< >).
+# Applied to the separator character between columns and scroll indicators (…).
 # Default: Inherits from $env.config.color_config.separator
 # $env.config.input_list.style.table_separator = "dark_gray"
 

@@ -124,16 +124,19 @@ impl InputListConfig {
     fn from_nu_config(config: &nu_protocol::Config, style_computer: &StyleComputer) -> Self {
         let mut ret = Self::default();
 
-        // Get default table styles from color_config (same as regular table command)
+        // Get default styles from color_config (same as regular table command and find)
         let color_config_header =
             style_computer.compute("header", &Value::string("", Span::unknown()));
         let color_config_separator =
             style_computer.compute("separator", &Value::nothing(Span::unknown()));
+        let color_config_search_result =
+            style_computer.compute("search_result", &Value::string("", Span::unknown()));
 
-        // Use color_config styles as defaults for table rendering and separator line
+        // Use color_config styles as defaults
         ret.table_header = color_config_header;
         ret.table_separator = color_config_separator;
         ret.separator = color_config_separator; // Separator line also inherits from color_config
+        ret.match_text = color_config_search_result; // Match highlighting inherits from search_result
 
         // Derive table separators from user's table mode
         ret.table_column_separator = table_mode_to_separator(config.table.mode);
@@ -276,7 +279,7 @@ impl Command for InputList {
             .switch("index", "Returns list indexes.", Some('i'))
             .switch(
                 "no-footer",
-                "Hide the footer showing the number of items",
+                "Hide the footer showing item count and selection count",
                 Some('n'),
             )
             .switch(
@@ -357,9 +360,9 @@ Fuzzy mode supports readline-style editing:
 - Ctrl+D, Delete: Delete character at cursor
 
 Configuration ($env.config.input_list):
-- style.match_text: Style for fuzzy match highlighting (default: yellow)
+- style.match_text: Style for fuzzy match highlighting (inherits from color_config.search_result)
 - style.footer: Style for the footer text (default: dark_gray)
-- style.separator: Style for the separator line (default: dark_gray)
+- style.separator: Style for the separator line (inherits from color_config.separator)
 - style.prompt_marker: Style for the prompt marker (default: green)
 - style.selected_marker: Style for the selection marker (default: green)
 - style.table_header: Style for table column headers (inherits from color_config.header)
@@ -367,6 +370,7 @@ Configuration ($env.config.input_list):
 - separator_char: Character(s) for separator line (default: "─")
 - prompt_marker_text: Text for prompt marker (default: "> ")
 - selected_marker_char: Single character for selection marker (default: ">")
+- table_column_separator: Single character for table columns (inherits from table.mode)
 - case_sensitive: true, false, or "smart" (default: "smart")
 
 Use --no-footer and --no-separator to hide the footer and separator line."#
