@@ -31,20 +31,33 @@ enum CaseSensitivity {
 struct InputListConfig {
     match_text: Style,              // For fuzzy match highlighting
     footer: Style,                  // For footer "[1-5 of 10]"
+    separator: Style,               // For separator line
+    prompt_marker: Style,        // For prompt marker (">") in fuzzy mode
+    selected_marker: Style,      // For selection marker (">") in item list
     show_footer: bool,              // Whether to show the footer
-    separator: String,              // Character(s) for separator line between search and results
+    separator_char: String,         // Character(s) for separator line between search and results
     show_separator: bool,           // Whether to show the separator line
+    prompt_marker_text: String,  // Text for prompt marker (default: "> ")
+    selected_marker_char: char,  // Single character for selection marker (default: '>')
     case_sensitivity: CaseSensitivity, // Fuzzy match case sensitivity
 }
+
+const DEFAULT_PROMPT_MARKER: &str = "> ";
+const DEFAULT_SELECTED_MARKER: char = '>';
 
 impl Default for InputListConfig {
     fn default() -> Self {
         Self {
-            match_text: Style::new().bold().italic().underline(),
+            match_text: Style::new().fg(nu_ansi_term::Color::Yellow),
             footer: Style::new().fg(nu_ansi_term::Color::DarkGray),
+            separator: Style::new().fg(nu_ansi_term::Color::DarkGray),
+            prompt_marker: Style::new().fg(nu_ansi_term::Color::Green),
+            selected_marker: Style::new().fg(nu_ansi_term::Color::Green),
             show_footer: true,
-            separator: "─".to_string(),
+            separator_char: "─".to_string(),
             show_separator: true,
+            prompt_marker_text: DEFAULT_PROMPT_MARKER.to_string(),
+            selected_marker_char: DEFAULT_SELECTED_MARKER,
             case_sensitivity: CaseSensitivity::default(),
         }
     }
@@ -53,16 +66,54 @@ impl Default for InputListConfig {
 impl InputListConfig {
     fn from_nu_config(config: &nu_protocol::Config) -> Self {
         let mut ret = Self::default();
-        let colors = get_color_map(&config.input_list);
-        if let Some(s) = colors.get("match_text") {
-            ret.match_text = *s;
+        // Style options are nested under "style" key
+        if let Some(style_val) = config.input_list.get("style") {
+            if let Ok(style_record) = style_val.as_record() {
+                let style_map: std::collections::HashMap<String, Value> =
+                    style_record.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                let colors = get_color_map(&style_map);
+                if let Some(s) = colors.get("match_text") {
+                    ret.match_text = *s;
+                }
+                if let Some(s) = colors.get("footer") {
+                    ret.footer = *s;
+                }
+                if let Some(s) = colors.get("separator") {
+                    ret.separator = *s;
+                }
+                if let Some(s) = colors.get("prompt_marker") {
+                    ret.prompt_marker = *s;
+                }
+                if let Some(s) = colors.get("selected_marker") {
+                    ret.selected_marker = *s;
+                }
+            }
         }
-        if let Some(s) = colors.get("footer") {
-            ret.footer = *s;
-        }
-        if let Some(val) = config.input_list.get("separator") {
+        if let Some(val) = config.input_list.get("separator_char") {
             if let Ok(s) = val.as_str() {
-                ret.separator = s.to_string();
+                if !s.is_empty() {
+                    ret.separator_char = s.to_string();
+                } else {
+                    eprintln!("Warning: input_list.separator_char is empty, using default");
+                }
+            }
+        }
+        if let Some(val) = config.input_list.get("prompt_marker_text") {
+            if let Ok(s) = val.as_str() {
+                ret.prompt_marker_text = s.to_string();
+            }
+        }
+        if let Some(val) = config.input_list.get("selected_marker_char") {
+            if let Ok(s) = val.as_str() {
+                let chars: Vec<char> = s.chars().collect();
+                if chars.len() == 1 {
+                    ret.selected_marker_char = chars[0];
+                } else {
+                    eprintln!(
+                        "Warning: input_list.selected_marker_char must be a single character, using default '{}' (got '{}')",
+                        DEFAULT_SELECTED_MARKER, s
+                    );
+                }
             }
         }
         if let Some(val) = config.input_list.get("case_sensitive") {
@@ -176,9 +227,14 @@ Fuzzy mode supports readline-style editing:
 - Ctrl+D, Delete: Delete character at cursor
 
 Configuration ($env.config.input_list):
-- match_text: Style for fuzzy match highlighting (default: bold italic underline)
-- footer: Style for the footer text (default: dark_gray)
-- separator: Character(s) for separator line (default: "─")
+- style.match_text: Style for fuzzy match highlighting (default: yellow)
+- style.footer: Style for the footer text (default: dark_gray)
+- style.separator: Style for the separator line (default: dark_gray)
+- style.prompt_marker: Style for the prompt marker (default: green)
+- style.selected_marker: Style for the selection marker (default: green)
+- separator_char: Character(s) for separator line (default: "─")
+- prompt_marker_text: Text for prompt marker (default: "> ")
+- selected_marker_char: Single character for selection marker (default: ">")
 - case_sensitive: true, false, or "smart" (default: "smart")
 
 Use --no-footer and --no-separator to hide the footer and separator line."#
@@ -371,7 +427,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             },
             Example {
                 description: "Fuzzy search with custom match highlighting color",
-                example: r#"$env.config.input_list.match_text = "red"; ls | input list --fuzzy"#,
+                example: r#"$env.config.input_list.style.match_text = "red"; ls | input list --fuzzy"#,
                 result: None,
             },
         ]
@@ -465,13 +521,36 @@ impl<'a> SelectWidget<'a> {
 
     /// Generate the separator line based on current terminal width
     fn generate_separator_line(&mut self) {
-        let sep_width = self.config.separator.width();
+        let sep_width = self.config.separator_char.width();
         let repeat_count = if sep_width > 0 {
             self.term_width as usize / sep_width
         } else {
             self.term_width as usize
         };
-        self.separator_line = self.config.separator.repeat(repeat_count);
+        self.separator_line = self.config.separator_char.repeat(repeat_count);
+    }
+
+    /// Get the styled prompt marker string (for fuzzy mode filter line)
+    fn prompt_marker(&self) -> String {
+        self.config
+            .prompt_marker
+            .paint(&self.config.prompt_marker_text)
+            .to_string()
+    }
+
+    /// Get the width of the prompt marker in characters
+    fn prompt_marker_width(&self) -> usize {
+        self.config.prompt_marker_text.width()
+    }
+
+    /// Get the styled selection marker string (for active items)
+    fn selected_marker(&self) -> String {
+        format!(
+            "{} ",
+            self.config
+                .selected_marker
+                .paint(self.config.selected_marker_char.to_string())
+        )
     }
 
     /// Update terminal dimensions and recalculate visible height
@@ -1185,15 +1264,16 @@ impl<'a> SelectWidget<'a> {
         )?;
 
         // Draw new cursor: move from prev item row to curr item row
+        let marker = self.selected_marker();
         if curr_item_row > prev_item_row {
             let lines_down = curr_item_row - prev_item_row;
-            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print("> "))?;
+            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print(&marker))?;
         } else if curr_item_row < prev_item_row {
             let lines_up = prev_item_row - curr_item_row;
-            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print("> "))?;
+            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
         } else {
             // Same row, just redraw
-            execute!(stderr, MoveToColumn(0), Print("> "))?;
+            execute!(stderr, MoveToColumn(0), Print(&marker))?;
         }
 
         // Move back to filter line
@@ -1202,8 +1282,8 @@ impl<'a> SelectWidget<'a> {
 
         // Position cursor within filter text
         let text_before_cursor = &self.filter_text[..self.filter_cursor];
-        let cursor_col = 2 + text_before_cursor.width() as u16;
-        execute!(stderr, MoveToColumn(cursor_col))?;
+        let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
+        execute!(stderr, MoveToColumn(cursor_col as u16))?;
 
         // Update state
         self.prev_cursor = self.cursor;
@@ -1390,7 +1470,7 @@ impl<'a> SelectWidget<'a> {
         if self.mode == SelectMode::Fuzzy {
             execute!(
                 stderr,
-                Print("> "),
+                Print(self.prompt_marker()),
                 Print(&self.filter_text),
                 Clear(ClearType::UntilNewLine),
             )?;
@@ -1403,7 +1483,7 @@ impl<'a> SelectWidget<'a> {
             if self.config.show_separator {
                 execute!(
                     stderr,
-                    Print(&self.separator_line),
+                    Print(self.config.separator.paint(&self.separator_line)),
                     Clear(ClearType::UntilNewLine),
                 )?;
                 lines_rendered += 1;
@@ -1485,10 +1565,10 @@ impl<'a> SelectWidget<'a> {
             if self.fuzzy_cursor_offset > 0 {
                 execute!(stderr, MoveUp(self.fuzzy_cursor_offset as u16))?;
             }
-            // Position cursor after "> " + text up to filter_cursor
+            // Position cursor after prompt marker + text up to filter_cursor
             let text_before_cursor = &self.filter_text[..self.filter_cursor];
-            let cursor_col = 2 + text_before_cursor.width() as u16;
-            execute!(stderr, MoveToColumn(cursor_col))?;
+            let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
+            execute!(stderr, MoveToColumn(cursor_col as u16))?;
         }
 
         execute!(stderr, EndSynchronizedUpdate)?;
@@ -1501,7 +1581,11 @@ impl<'a> SelectWidget<'a> {
         text: &str,
         active: bool,
     ) -> io::Result<()> {
-        let prefix = if active { "> " } else { "  " };
+        let prefix = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
         let prefix_width = 2;
 
         execute!(stderr, Print(prefix))?;
@@ -1517,7 +1601,11 @@ impl<'a> SelectWidget<'a> {
         checked: bool,
         active: bool,
     ) -> io::Result<()> {
-        let cursor = if active { "> " } else { "  " };
+        let cursor = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
         let checkbox = if checked { "[x] " } else { "[ ] " };
         let prefix_width = 6; // "> [x] " or "  [ ] "
 
@@ -1533,7 +1621,11 @@ impl<'a> SelectWidget<'a> {
         text: &str,
         active: bool,
     ) -> io::Result<()> {
-        let prefix = if active { "> " } else { "  " };
+        let prefix = if active {
+            self.selected_marker()
+        } else {
+            "  ".to_string()
+        };
         let prefix_width = 2;
         execute!(stderr, Print(prefix))?;
 

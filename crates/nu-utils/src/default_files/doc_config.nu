@@ -959,20 +959,49 @@ $env.config.explore = {}
 # Default: {}
 $env.config.input_list = {}
 
-# input_list.match_text (style): Style for highlighted fuzzy match characters.
-# Applies to matched characters when using `input list --fuzzy`.
-# Default: bold italic underline
-$env.config.input_list.match_text = { attr: "biu" }
+# input_list.style (record): Style configuration for UI elements.
+# Default: {}
+$env.config.input_list.style = {}
 
-# input_list.footer (style): Style for the footer showing item count.
+# input_list.style.match_text (style): Style for highlighted fuzzy match characters.
+# Applies to matched characters when using `input list --fuzzy`.
+# Default: yellow
+$env.config.input_list.style.match_text = "yellow"
+
+# input_list.style.footer (style): Style for the footer showing item count.
 # The footer displays "[X-Y of Z]" when the list is scrollable.
 # Default: dark_gray
-$env.config.input_list.footer = "dark_gray"
+$env.config.input_list.style.footer = "dark_gray"
 
-# input_list.separator (string): Character(s) for the separator line.
+# input_list.style.separator (style): Style for the separator line.
+# The horizontal line between the search box and results in fuzzy mode.
+# Default: dark_gray
+$env.config.input_list.style.separator = "dark_gray"
+
+# input_list.style.prompt_marker (style): Style for the prompt marker (">").
+# The marker shown before the filter input in fuzzy mode.
+# Default: green
+$env.config.input_list.style.prompt_marker = "green"
+
+# input_list.style.selected_marker (style): Style for the selection marker (">").
+# The marker shown next to the currently highlighted item.
+# Default: green
+$env.config.input_list.style.selected_marker = "green"
+
+# input_list.separator_char (string): Character(s) for the separator line.
 # Displayed between the search box and results in fuzzy mode.
 # Default: "─"
-$env.config.input_list.separator = "─"
+$env.config.input_list.separator_char = "─"
+
+# input_list.prompt_marker_text (string): Text for the prompt marker.
+# Shown before the filter input in fuzzy mode. Can be any string.
+# Default: "> "
+$env.config.input_list.prompt_marker_text = "> "
+
+# input_list.selected_marker_char (string): Character for the selection marker.
+# Shown next to the currently highlighted item. Should be a single character.
+# Default: ">"
+$env.config.input_list.selected_marker_char = ">"
 
 # input_list.case_sensitive (string or bool): Case sensitivity for fuzzy matching.
 # String values:
@@ -988,9 +1017,16 @@ $env.config.input_list.case_sensitive = "smart"
 
 # Example input_list configuration:
 # $env.config.input_list = {
-#     match_text: { fg: "green", attr: "b" }
-#     footer: { fg: "blue" }
-#     separator: "="
+#     style: {
+#         match_text: { fg: "green", attr: "b" }
+#         footer: { fg: "blue" }
+#         separator: "dark_gray"
+#         prompt_marker: { fg: "cyan" }
+#         selected_marker: { fg: "cyan", attr: "b" }
+#     }
+#     separator_char: "="
+#     prompt_marker_text: "❯ "
+#     selected_marker_char: "▸"
 #     case_sensitive: false  # or "false" or "smart"
 # }
 
