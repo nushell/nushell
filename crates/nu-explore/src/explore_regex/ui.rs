@@ -188,6 +188,61 @@ fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
     app.sample_text.cursor.col = col;
 }
 
+/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
+///
+/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
+/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
+/// `Ctrl+Alt+Char` by crossterm/Windows. However, edtui interprets `Ctrl+Alt`
+/// combinations as control sequences rather than character input.
+///
+/// To distinguish between AltGr character input and intentional keybindings:
+/// - ASCII letters (a-z, A-Z) with Ctrl+Alt or Alt are treated as keybindings
+///   (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head)
+/// - Non-alphabetic characters with Ctrl+Alt or Alt are treated as AltGr input
+///   (e.g., AltGr+[ to type `[`, AltGr+{ to type `{`)
+///
+/// This heuristic works because:
+/// 1. All edtui Alt/Ctrl+Alt keybindings use letters (f, b, h, d, n, p, v, etc.)
+/// 2. AltGr typically produces symbols/punctuation, not letters
+/// 3. edtui only inserts characters in Insert mode if modifiers are NONE or SHIFT
+///
+/// Without this normalization, Swiss-German keyboard users cannot type regex-critical
+/// characters like `[`, `]`, `{`, `}`, `\`, `|`, `@` in the regex input field.
+fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
+    if let KeyCode::Char(c) = key.code {
+        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
+        // Some terminals may report it as just Alt
+        let has_altgr_modifiers = key
+            .modifiers
+            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            || key.modifiers == KeyModifiers::ALT;
+
+        if has_altgr_modifiers {
+            // Only treat as AltGr character input if it's NOT an ASCII letter.
+            // ASCII letters with Alt/Ctrl+Alt are likely intentional keybindings
+            // (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head).
+            // Symbols/punctuation with Ctrl+Alt are likely AltGr character input
+            // (e.g., AltGr+ü for [ on Swiss German keyboard).
+            if !c.is_ascii_alphabetic() {
+                // Strip Ctrl+Alt, keep only Shift if present
+                let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
+                return event::KeyEvent::new_with_kind_and_state(
+                    key.code,
+                    new_modifiers,
+                    key.kind,
+                    key.state,
+                );
+            }
+        }
+    }
+
+    // Return the key unchanged for:
+    // - Non-Char keys (Backspace, Delete, arrows, etc.)
+    // - ASCII letters with Alt/Ctrl+Alt (keybindings)
+    // - Characters without Alt modifiers (regular typing)
+    *key
+}
+
 /// Pass a key event to the editor and handle side effects.
 ///
 /// For regex input: recompiles the regex if the text changed.
@@ -197,17 +252,20 @@ fn handle_editor_input(
     key: event::KeyEvent,
     event_handler: &mut EditorEventHandler,
 ) {
+    // Normalize AltGr keys so international keyboards (Swiss-German, etc.) work correctly
+    let normalized_key = normalize_altgr_key(&key);
+
     match app.input_focus {
         InputFocus::Regex => {
             let old_value = app.regex_input.lines.to_string();
-            event_handler.on_key_event(key, &mut app.regex_input);
+            event_handler.on_key_event(normalized_key, &mut app.regex_input);
             if app.regex_input.lines.to_string() != old_value {
                 app.compile_regex();
             }
         }
         InputFocus::Sample => {
             let old_text = app.get_sample_text();
-            event_handler.on_key_event(key, &mut app.sample_text);
+            event_handler.on_key_event(normalized_key, &mut app.sample_text);
             if app.get_sample_text() != old_text {
                 app.update_match_count();
             }
@@ -669,7 +727,7 @@ fn draw_help_modal_overlay(f: &mut ratatui::Frame, _app: &App, area: Rect) {
         "  Ctrl+R                Redo",
         "  Ctrl+V / Ctrl+Y       Paste from clipboard",
         "",
-        "Sample Text Pane (multi-line) (same as above plus:)",
+        "Test String Pane (multi-line) (same as above plus:)",
         "  Ctrl+N/P              Next/Previous line",
         "  Enter/Ctrl+J          Insert newline",
         "",
