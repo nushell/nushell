@@ -111,6 +111,7 @@ interprocess = "2.2.0"
 is_executable = "1.0"
 itertools = "0.14"
 lean_string = { version = "0.5", features = ["serde"] }
+lexopt = "0.3.1"
 libc = "0.2"
 libproc = "0.14"
 log = "0.4"
@@ -244,6 +245,7 @@ crossterm = { workspace = true }
 ctrlc = { workspace = true }
 dirs = { workspace = true }
 log = { workspace = true }
+lexopt = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 multipart-rs = { workspace = true }
 serde_json = { workspace = true }
