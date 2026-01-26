@@ -12,7 +12,8 @@ use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
 use nu_table::common::nu_value_to_string;
-use nu_engine::{command_prelude::*, get_columns};
+use nu_engine::{ClosureEval, command_prelude::*, get_columns};
+use nu_protocol::engine::Closure;
 use nu_protocol::{TableMode, shell_error::io::IoError};
 use std::{
     collections::HashSet,
@@ -295,8 +296,11 @@ impl Command for InputList {
             )
             .named(
                 "display",
-                SyntaxShape::CellPath,
-                "Field to display and search on (returns full record when selected)",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::CellPath,
+                    SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                ]),
+                "Field or closure to generate display value for search (returns original value when selected)",
                 Some('d'),
             )
             .switch(
@@ -333,7 +337,10 @@ In fuzzy mode, use Shift+Left/Right for horizontal scrolling.
 Ellipsis (…) shows when more columns are available in each direction.
 In fuzzy mode, the ellipsis is highlighted when matches exist in hidden columns.
 Use --no-table to disable table rendering and show records as single lines.
-Use --display to specify a single column to show (disables table mode).
+Use --display to specify a column or closure for display/search text (disables table mode).
+The --display flag accepts either a cell path (e.g., -d name) or a closure (e.g., -d {|it| $it.name}).
+The closure receives each item and should return the string to display and search on.
+The original value is always returned when selected, regardless of what --display shows.
 
 Keyboard shortcuts:
 - Up/Down, j/k: Navigate items
@@ -392,7 +399,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         let multi = call.has_flag(engine_state, stack, "multi")?;
         let fuzzy = call.has_flag(engine_state, stack, "fuzzy")?;
         let index = call.has_flag(engine_state, stack, "index")?;
-        let display_path: Option<CellPath> = call.get_flag(engine_state, stack, "display")?;
+        let display_flag: Option<Value> = call.get_flag(engine_state, stack, "display")?;
         let no_footer = call.has_flag(engine_state, stack, "no-footer")?;
         let no_separator = call.has_flag(engine_state, stack, "no-separator")?;
         let case_sensitive: Option<Value> = call.get_flag(engine_state, stack, "case-sensitive")?;
@@ -437,7 +444,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         };
 
         // Detect table mode: enable if we have columns AND --display is not provided AND --no-table is not set
-        let columns = if display_path.is_none() && !no_table {
+        let columns = if display_flag.is_none() && !no_table {
             get_columns(&values)
         } else {
             vec![]
@@ -473,23 +480,61 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                 })
                 .collect()
         } else {
-            values
-                .into_iter()
-                .map(|val| {
-                    let display_value = if let Some(ref cellpath) = display_path {
-                        val.follow_cell_path(&cellpath.members)
+            // Handle --display flag: can be CellPath or Closure
+            match &display_flag {
+                Some(Value::CellPath { val: cellpath, .. }) => {
+                    values
+                        .into_iter()
+                        .map(|val| {
+                            let display_value = val
+                                .follow_cell_path(&cellpath.members)
+                                .map(|v| v.to_expanded_string(", ", &config))
+                                .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
+                            SelectItem {
+                                name: display_value,
+                                cells: None,
+                                value: val,
+                            }
+                        })
+                        .collect()
+                }
+                Some(Value::Closure { val: closure, .. }) => {
+                    let mut closure_eval = ClosureEval::new(engine_state, stack, Closure::clone(closure));
+                    let mut options = Vec::with_capacity(values.len());
+                    for val in values {
+                        let display_value = closure_eval
+                            .run_with_value(val.clone())
+                            .and_then(|data| data.into_value(head))
                             .map(|v| v.to_expanded_string(", ", &config))
-                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config))
-                    } else {
-                        val.to_expanded_string(", ", &config)
-                    };
-                    SelectItem {
-                        name: display_value,
-                        cells: None,
-                        value: val,
+                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
+                        options.push(SelectItem {
+                            name: display_value,
+                            cells: None,
+                            value: val,
+                        });
                     }
-                })
-                .collect()
+                    options
+                }
+                None => {
+                    values
+                        .into_iter()
+                        .map(|val| {
+                            let display_value = val.to_expanded_string(", ", &config);
+                            SelectItem {
+                                name: display_value,
+                                cells: None,
+                                value: val,
+                            }
+                        })
+                        .collect()
+                }
+                _ => {
+                    return Err(ShellError::TypeMismatch {
+                        err_message: "expected a cell path or closure for --display".to_string(),
+                        span: display_flag.as_ref().map(|v| v.span()).unwrap_or(head),
+                    });
+                }
+            }
         };
 
         // Calculate table layout if in table mode
@@ -590,6 +635,11 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             Example {
                 description: "Choose an item from a table using a column as display value",
                 example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
+                result: None,
+            },
+            Example {
+                description: "Choose an item using a closure to generate display text",
+                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d {|it| $"($it.name): $($it.price)"}"#,
                 result: None,
             },
             Example {
