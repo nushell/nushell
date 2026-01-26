@@ -57,7 +57,7 @@ fn test_shadowed() -> TestResult {
             let x = 10
             alias xx = echo $x
             let x = 20
-        xx
+            xx
         "#,
         expected,
     )
