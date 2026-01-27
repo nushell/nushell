@@ -46,50 +46,50 @@ fn get_interactive_confirmation(prompt: String) -> Result<bool, Box<dyn Error>> 
     let mut input = String::new();
 
     loop {
-        if event::poll(std::time::Duration::from_millis(100))? {
-            if let Event::Key(key_event) = event::read()? {
-                // Handle Ctrl+C
-                if key_event.modifiers.contains(KeyModifiers::CONTROL)
-                    && key_event.code == KeyCode::Char('c')
-                {
-                    eprint!("\r\n");
+        if event::poll(std::time::Duration::from_millis(100))?
+            && let Event::Key(key_event) = event::read()?
+        {
+            // Handle Ctrl+C
+            if key_event.modifiers.contains(KeyModifiers::CONTROL)
+                && key_event.code == KeyCode::Char('c')
+            {
+                eprint!("\r\n");
+                return Ok(false);
+            }
+
+            match key_event.code {
+                KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    eprint!("y\r\n");
+                    return Ok(true);
+                }
+                KeyCode::Char('n') | KeyCode::Char('N') => {
+                    eprint!("n\r\n");
                     return Ok(false);
                 }
-
-                match key_event.code {
-                    KeyCode::Char('y') | KeyCode::Char('Y') => {
-                        eprint!("y\r\n");
+                KeyCode::Enter => {
+                    // Validate current input
+                    if input.eq_ignore_ascii_case("y") {
+                        eprint!("\r\n");
                         return Ok(true);
-                    }
-                    KeyCode::Char('n') | KeyCode::Char('N') => {
-                        eprint!("n\r\n");
-                        return Ok(false);
-                    }
-                    KeyCode::Enter => {
-                        // Validate current input
-                        if input.eq_ignore_ascii_case("y") {
-                            eprint!("\r\n");
-                            return Ok(true);
-                        } else if input.eq_ignore_ascii_case("n") {
-                            eprint!("\r\n");
-                            return Ok(false);
-                        }
-                        // Invalid input, continue waiting
-                    }
-                    KeyCode::Backspace => {
-                        if !input.is_empty() {
-                            input.pop();
-                            // Clear and reprint
-                            eprint!("\r{} [Y/N]: {}", prompt, input);
-                            stderr.flush()?;
-                        }
-                    }
-                    KeyCode::Esc => {
+                    } else if input.eq_ignore_ascii_case("n") {
                         eprint!("\r\n");
                         return Ok(false);
                     }
-                    _ => {}
+                    // Invalid input, continue waiting
                 }
+                KeyCode::Backspace => {
+                    if !input.is_empty() {
+                        input.pop();
+                        // Clear and reprint
+                        eprint!("\r{} [Y/N]: {}", prompt, input);
+                        stderr.flush()?;
+                    }
+                }
+                KeyCode::Esc => {
+                    eprint!("\r\n");
+                    return Ok(false);
+                }
+                _ => {}
             }
         }
     }
