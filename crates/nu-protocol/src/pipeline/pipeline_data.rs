@@ -359,6 +359,24 @@ impl PipelineData {
                         )
                         .into_iter(),
                     ),
+                    // Handle iterable custom values by converting to base value first
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(val_span) {
+                            Ok(Value::List { vals, .. }) => PipelineIteratorInner::ListStream(
+                                ListStream::new(vals.into_iter(), val_span, Signals::empty())
+                                    .into_iter(),
+                            ),
+                            Ok(other) => {
+                                return Err(ShellError::OnlySupportsThisInputType {
+                                    exp_input_type: "list, binary, range, or byte stream".into(),
+                                    wrong_type: other.get_type().to_string(),
+                                    dst_span: span,
+                                    src_span: val_span,
+                                });
+                            }
+                            Err(err) => return Err(err),
+                        }
+                    }
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => return Err(*error),
                     other => {
@@ -864,6 +882,23 @@ impl IntoIterator for PipelineData {
                         )
                         .into_iter(),
                     ),
+                    // Handle iterable custom values by converting to base value first
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span) {
+                            Ok(Value::List { vals, signals, .. }) => {
+                                PipelineIteratorInner::ListStream(
+                                    ListStream::new(
+                                        vals.into_iter(),
+                                        span,
+                                        signals.unwrap_or_else(Signals::empty),
+                                    )
+                                    .into_iter(),
+                                )
+                            }
+                            Ok(other) => PipelineIteratorInner::Value(other),
+                            Err(err) => PipelineIteratorInner::Value(Value::error(err, span)),
+                        }
+                    }
                     x => PipelineIteratorInner::Value(x),
                 }
             }

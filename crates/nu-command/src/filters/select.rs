@@ -1,3 +1,5 @@
+#[cfg(feature = "sqlite")]
+use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
@@ -20,6 +22,11 @@ impl Command for Select {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::Any),
+                #[cfg(feature = "sqlite")]
+                (
+                    Type::Custom("SQLiteQueryBuilder".into()),
+                    Type::Custom("SQLiteQueryBuilder".into()),
+                ),
             ])
             .switch(
                 "optional",
@@ -267,6 +274,38 @@ fn select(
     } else {
         input
     };
+
+    #[cfg(feature = "sqlite")]
+    // Pushdown optimization: handle 'select' on SQLiteQueryBuilder for lazy column selection
+    if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
+        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+    {
+        // Check if all columns are simple string paths
+        let mut select_columns = Vec::new();
+        let mut all_simple = true;
+        for col in &columns {
+            if col.members.len() == 1 {
+                if let PathMember::String { val, .. } = &col.members[0] {
+                    select_columns.push(val.clone());
+                } else {
+                    all_simple = false;
+                    break;
+                }
+            } else {
+                all_simple = false;
+                break;
+            }
+        }
+        if all_simple {
+            let select_str = if select_columns.is_empty() {
+                "*".to_string()
+            } else {
+                select_columns.join(", ")
+            };
+            let new_table = table.clone().with_select(select_str);
+            return Ok(Value::custom(Box::new(new_table), call_span).into_pipeline_data());
+        }
+    }
 
     match input {
         PipelineData::Value(v, metadata, ..) => {

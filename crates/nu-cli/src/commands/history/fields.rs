@@ -9,6 +9,8 @@ mod sqlite_only_fields {
     pub const CWD: &str = "cwd";
     pub const EXIT_STATUS: &str = "exit_status";
     pub const DURATION: &str = "duration";
+    #[allow(dead_code)]
+    // used in history import but currently reedline doesn't allow setting it
     pub const SESSION_ID: &str = "session_id";
 }
 
