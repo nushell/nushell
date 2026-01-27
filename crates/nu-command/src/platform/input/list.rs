@@ -11,10 +11,10 @@ use crossterm::{
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
-use nu_table::common::nu_value_to_string;
 use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
 use nu_protocol::{TableMode, shell_error::io::IoError};
+use nu_table::common::nu_value_to_string;
 use std::{
     collections::HashSet,
     io::{self, Stderr, Write},
@@ -31,20 +31,20 @@ enum CaseSensitivity {
 
 #[derive(Debug, Clone)]
 struct InputListConfig {
-    match_text: Style,              // For fuzzy match highlighting
-    footer: Style,                  // For footer "[1-5 of 10]"
-    separator: Style,               // For separator line
-    prompt_marker: Style,        // For prompt marker (">") in fuzzy mode
-    selected_marker: Style,      // For selection marker (">") in item list
-    table_header: Style,            // For table column headers
-    table_separator: Style,         // For table column separators
-    show_footer: bool,              // Whether to show the footer
-    separator_char: String,         // Character(s) for separator line between search and results
-    show_separator: bool,           // Whether to show the separator line
-    prompt_marker_text: String,  // Text for prompt marker (default: "> ")
-    selected_marker_char: char,  // Single character for selection marker (default: '>')
-    table_column_separator: char,   // Character for table column separator (default: '│')
-    table_header_separator: char,   // Horizontal line character for header separator (default: '─')
+    match_text: Style,                 // For fuzzy match highlighting
+    footer: Style,                     // For footer "[1-5 of 10]"
+    separator: Style,                  // For separator line
+    prompt_marker: Style,              // For prompt marker (">") in fuzzy mode
+    selected_marker: Style,            // For selection marker (">") in item list
+    table_header: Style,               // For table column headers
+    table_separator: Style,            // For table column separators
+    show_footer: bool,                 // Whether to show the footer
+    separator_char: String,            // Character(s) for separator line between search and results
+    show_separator: bool,              // Whether to show the separator line
+    prompt_marker_text: String,        // Text for prompt marker (default: "> ")
+    selected_marker_char: char,        // Single character for selection marker (default: '>')
+    table_column_separator: char,      // Character for table column separator (default: '│')
+    table_header_separator: char, // Horizontal line character for header separator (default: '─')
     table_header_intersection: char, // Intersection character for header separator (default: '┼')
     case_sensitivity: CaseSensitivity, // Fuzzy match case sensitivity
 }
@@ -148,8 +148,10 @@ impl InputListConfig {
         // Style options are nested under "style" key - these override color_config defaults
         if let Some(style_val) = config.input_list.get("style") {
             if let Ok(style_record) = style_val.as_record() {
-                let style_map: std::collections::HashMap<String, Value> =
-                    style_record.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                let style_map: std::collections::HashMap<String, Value> = style_record
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
                 let colors = get_color_map(&style_map);
                 if let Some(s) = colors.get("match_text") {
                     ret.match_text = *s;
@@ -242,16 +244,16 @@ enum InteractMode {
 }
 
 struct SelectItem {
-    name: String,                               // Search text (concatenated cells in table mode)
-    cells: Option<Vec<(String, TextStyle)>>,    // Cell values with TextStyle for type-based styling (None = single-line mode)
-    value: Value,                               // Original value to return
+    name: String, // Search text (concatenated cells in table mode)
+    cells: Option<Vec<(String, TextStyle)>>, // Cell values with TextStyle for type-based styling (None = single-line mode)
+    value: Value,                            // Original value to return
 }
 
 /// Layout information for table rendering
 struct TableLayout {
-    columns: Vec<String>,           // Column names
-    col_widths: Vec<usize>,         // Computed width per column (content only, not separators)
-    truncated_cols: usize,          // Number of columns that fit in terminal starting from horizontal_offset
+    columns: Vec<String>,   // Column names
+    col_widths: Vec<usize>, // Computed width per column (content only, not separators)
+    truncated_cols: usize, // Number of columns that fit in terminal starting from horizontal_offset
 }
 
 #[derive(Clone)]
@@ -384,7 +386,9 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["prompt", "ask", "menu", "select", "pick", "choose", "fzf", "fuzzy"]
+        vec![
+            "prompt", "ask", "menu", "select", "pick", "choose", "fzf", "fuzzy",
+        ]
     }
 
     fn run(
@@ -471,7 +475,11 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                         })
                         .collect();
                     // Search text is space-separated concatenation of all cell strings
-                    let name = cells.iter().map(|(s, _)| s.as_str()).collect::<Vec<_>>().join(" ");
+                    let name = cells
+                        .iter()
+                        .map(|(s, _)| s.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     SelectItem {
                         name,
                         cells: Some(cells),
@@ -482,24 +490,23 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         } else {
             // Handle --display flag: can be CellPath or Closure
             match &display_flag {
-                Some(Value::CellPath { val: cellpath, .. }) => {
-                    values
-                        .into_iter()
-                        .map(|val| {
-                            let display_value = val
-                                .follow_cell_path(&cellpath.members)
-                                .map(|v| v.to_expanded_string(", ", &config))
-                                .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
-                            SelectItem {
-                                name: display_value,
-                                cells: None,
-                                value: val,
-                            }
-                        })
-                        .collect()
-                }
+                Some(Value::CellPath { val: cellpath, .. }) => values
+                    .into_iter()
+                    .map(|val| {
+                        let display_value = val
+                            .follow_cell_path(&cellpath.members)
+                            .map(|v| v.to_expanded_string(", ", &config))
+                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
+                        SelectItem {
+                            name: display_value,
+                            cells: None,
+                            value: val,
+                        }
+                    })
+                    .collect(),
                 Some(Value::Closure { val: closure, .. }) => {
-                    let mut closure_eval = ClosureEval::new(engine_state, stack, Closure::clone(closure));
+                    let mut closure_eval =
+                        ClosureEval::new(engine_state, stack, Closure::clone(closure));
                     let mut options = Vec::with_capacity(values.len());
                     for val in values {
                         let display_value = closure_eval
@@ -515,19 +522,17 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                     }
                     options
                 }
-                None => {
-                    values
-                        .into_iter()
-                        .map(|val| {
-                            let display_value = val.to_expanded_string(", ", &config);
-                            SelectItem {
-                                name: display_value,
-                                cells: None,
-                                value: val,
-                            }
-                        })
-                        .collect()
-                }
+                None => values
+                    .into_iter()
+                    .map(|val| {
+                        let display_value = val.to_expanded_string(", ", &config);
+                        SelectItem {
+                            name: display_value,
+                            cells: None,
+                            value: val,
+                        }
+                    })
+                    .collect(),
                 _ => {
                     return Err(ShellError::TypeMismatch {
                         err_message: "expected a cell path or closure for --display".to_string(),
@@ -561,7 +566,13 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             SelectMode::Single
         };
 
-        let mut widget = SelectWidget::new(mode, prompt.as_deref(), &options, input_list_config, table_layout);
+        let mut widget = SelectWidget::new(
+            mode,
+            prompt.as_deref(),
+            &options,
+            input_list_config,
+            table_layout,
+        );
         let answer = widget.run().map_err(|err| {
             IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
         })?;
@@ -892,7 +903,7 @@ impl<'a> SelectWidget<'a> {
     fn row_prefix_width(&self) -> usize {
         match self.mode {
             SelectMode::Multi | SelectMode::FuzzyMulti => 6, // "> [x] " or "  [ ] "
-            _ => 2,                 // "> " or "  "
+            _ => 2,                                          // "> " or "  "
         }
     }
 
@@ -941,11 +952,19 @@ impl<'a> SelectWidget<'a> {
 
         for (i, &col_width) in layout.col_widths.iter().enumerate().skip(horizontal_offset) {
             // Add separator width for all but first visible column
-            let sep_width = if i > horizontal_offset { separator_width } else { 0 };
+            let sep_width = if i > horizontal_offset {
+                separator_width
+            } else {
+                0
+            };
             let needed = col_width + sep_width;
 
             // Reserve space for right scroll indicator if not the last column
-            let reserve_right = if i + 1 < layout.col_widths.len() { 2 } else { 0 };
+            let reserve_right = if i + 1 < layout.col_widths.len() {
+                2
+            } else {
+                0
+            };
 
             if used_width + needed + reserve_right <= available {
                 used_width += needed;
@@ -1652,8 +1671,8 @@ impl<'a> SelectWidget<'a> {
             (self.scroll_offset + self.visible_height as usize - 1).min(list_len.saturating_sub(1));
         if self.cursor == page_bottom {
             // Already at bottom of page, go to next page
-            self.cursor = (self.cursor + self.visible_height as usize)
-                .min(list_len.saturating_sub(1));
+            self.cursor =
+                (self.cursor + self.visible_height as usize).min(list_len.saturating_sub(1));
             self.adjust_scroll_down();
         } else {
             // Go to bottom of current page
@@ -2041,7 +2060,10 @@ impl<'a> SelectWidget<'a> {
     /// Check if we can do a toggle-all update in multi mode
     /// (toggled all items with 'a' key)
     fn can_do_multi_toggle_all_update(&self) -> bool {
-        !self.first_render && !self.width_changed && self.mode == SelectMode::Multi && self.toggled_all
+        !self.first_render
+            && !self.width_changed
+            && self.mode == SelectMode::Multi
+            && self.toggled_all
     }
 
     /// Check if we can do a cursor-only update in single/multi mode
@@ -2101,7 +2123,12 @@ impl<'a> SelectWidget<'a> {
         let marker = self.selected_marker();
         if curr_display_row > prev_display_row {
             let lines_down = curr_display_row - prev_display_row;
-            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print(&marker))?;
+            execute!(
+                stderr,
+                MoveDown(lines_down),
+                MoveToColumn(0),
+                Print(&marker)
+            )?;
         } else if curr_display_row < prev_display_row {
             let lines_up = prev_display_row - curr_display_row;
             execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
@@ -2152,18 +2179,18 @@ impl<'a> SelectWidget<'a> {
 
         // Clear old cursor: move from filter line to prev item row
         let down_to_prev = prev_item_row.saturating_sub(filter_row);
-        execute!(
-            stderr,
-            MoveDown(down_to_prev),
-            MoveToColumn(0),
-            Print("  ")
-        )?;
+        execute!(stderr, MoveDown(down_to_prev), MoveToColumn(0), Print("  "))?;
 
         // Draw new cursor: move from prev item row to curr item row
         let marker = self.selected_marker();
         if curr_item_row > prev_item_row {
             let lines_down = curr_item_row - prev_item_row;
-            execute!(stderr, MoveDown(lines_down), MoveToColumn(0), Print(&marker))?;
+            execute!(
+                stderr,
+                MoveDown(lines_down),
+                MoveToColumn(0),
+                Print(&marker)
+            )?;
         } else if curr_item_row < prev_item_row {
             let lines_up = prev_item_row - curr_item_row;
             execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
@@ -2222,7 +2249,12 @@ impl<'a> SelectWidget<'a> {
         if self.is_table_mode() {
             self.render_table_row_fuzzy_multi(stderr, toggled_item, toggled_checked, false)?;
         } else {
-            self.render_fuzzy_multi_item_inline(stderr, &toggled_item.name, toggled_checked, false)?;
+            self.render_fuzzy_multi_item_inline(
+                stderr,
+                &toggled_item.name,
+                toggled_checked,
+                false,
+            )?;
         }
 
         // Move to cursor row and redraw it (marker added)
@@ -2592,7 +2624,9 @@ impl<'a> SelectWidget<'a> {
                         let real_idx = self.filtered_indices[idx];
                         let item = &self.items[real_idx];
                         let is_checked = self.selected.contains(&real_idx);
-                        self.render_fuzzy_multi_item_inline(stderr, &item.name, is_checked, is_active)?;
+                        self.render_fuzzy_multi_item_inline(
+                            stderr, &item.name, is_checked, is_active,
+                        )?;
                     }
                 }
             }
@@ -2633,7 +2667,12 @@ impl<'a> SelectWidget<'a> {
         if lines_rendered < self.rendered_lines {
             let extra_lines = self.rendered_lines - lines_rendered;
             for _ in 0..extra_lines {
-                execute!(stderr, MoveDown(1), MoveToColumn(0), Clear(ClearType::CurrentLine))?;
+                execute!(
+                    stderr,
+                    MoveDown(1),
+                    MoveToColumn(0),
+                    Clear(ClearType::CurrentLine)
+                )?;
             }
             // Move back to last content line
             execute!(stderr, MoveUp(extra_lines as u16))?;
@@ -2899,10 +2938,7 @@ impl<'a> SelectWidget<'a> {
 
         // Left scroll indicator (ellipsis)
         if has_more_left {
-            execute!(
-                stderr,
-                Print(self.config.table_separator.paint("… "))
-            )?;
+            execute!(stderr, Print(self.config.table_separator.paint("… ")))?;
         }
 
         // Render visible column headers
@@ -2915,10 +2951,7 @@ impl<'a> SelectWidget<'a> {
             // Separator between columns
             if i > 0 {
                 let sep = self.table_column_separator();
-                execute!(
-                    stderr,
-                    Print(self.config.table_separator.paint(&sep))
-                )?;
+                execute!(stderr, Print(self.config.table_separator.paint(&sep)))?;
             }
 
             // Render column header, center-aligned to column width
@@ -2934,15 +2967,15 @@ impl<'a> SelectWidget<'a> {
                 header,
                 " ".repeat(right_pad)
             );
-            execute!(stderr, Print(self.config.table_header.paint(&header_padded)))?;
+            execute!(
+                stderr,
+                Print(self.config.table_header.paint(&header_padded))
+            )?;
         }
 
         // Right scroll indicator (ellipsis)
         if has_more_right {
-            execute!(
-                stderr,
-                Print(self.config.table_separator.paint(" …"))
-            )?;
+            execute!(stderr, Print(self.config.table_separator.paint(" …")))?;
         }
 
         execute!(stderr, Clear(ClearType::UntilNewLine))?;
@@ -2964,7 +2997,10 @@ impl<'a> SelectWidget<'a> {
 
         // Render prefix as horizontal line
         let prefix_line: String = std::iter::repeat(h_char).take(prefix_width).collect();
-        execute!(stderr, Print(self.config.table_separator.paint(&prefix_line)))?;
+        execute!(
+            stderr,
+            Print(self.config.table_separator.paint(&prefix_line))
+        )?;
 
         // Left scroll indicator (as horizontal continuation)
         if has_more_left {
@@ -3212,7 +3248,13 @@ impl<'a> SelectWidget<'a> {
             };
 
             // Render cell with padding and type-based styling
-            self.render_table_cell(stderr, cell_text, cell_style, col_width, cell_matches.as_deref())?;
+            self.render_table_cell(
+                stderr,
+                cell_text,
+                cell_style,
+                col_width,
+                cell_matches.as_deref(),
+            )?;
         }
 
         // Check for matches in hidden right columns
