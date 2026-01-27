@@ -261,6 +261,10 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
         return false;
     };
 
+    if !config_dir.exists() || !old_plugin_file_path.exists() {
+        return false;
+    }
+
     let old_contents = match std::fs::read(&old_plugin_file_path) {
         Ok(old_contents) => old_contents,
         Err(err) => {
