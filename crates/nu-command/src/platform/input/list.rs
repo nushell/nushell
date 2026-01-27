@@ -310,6 +310,11 @@ impl Command for InputList {
                 "Disable table rendering for table input (show as single lines)",
                 Some('t'),
             )
+            .switch(
+                "per-column",
+                "Match filter text against each column independently (table mode only)",
+                Some('c'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Platform)
     }
@@ -339,6 +344,8 @@ In fuzzy mode, use Shift+Left/Right for horizontal scrolling.
 Ellipsis (…) shows when more columns are available in each direction.
 In fuzzy mode, the ellipsis is highlighted when matches exist in hidden columns.
 Use --no-table to disable table rendering and show records as single lines.
+Use --per-column to match filter text against each column independently (best match wins).
+This prevents false positives from matches spanning column boundaries.
 Use --display to specify a column or closure for display/search text (disables table mode).
 The --display flag accepts either a cell path (e.g., -d name) or a closure (e.g., -d {|it| $it.name}).
 The closure receives each item and should return the string to display and search on.
@@ -408,6 +415,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         let no_separator = call.has_flag(engine_state, stack, "no-separator")?;
         let case_sensitive: Option<Value> = call.get_flag(engine_state, stack, "case-sensitive")?;
         let no_table = call.has_flag(engine_state, stack, "no-table")?;
+        let per_column = call.has_flag(engine_state, stack, "per-column")?;
         let config = stack.get_config(engine_state);
         let style_computer = StyleComputer::from_config(engine_state, stack);
         let mut input_list_config = InputListConfig::from_nu_config(&config, &style_computer);
@@ -572,6 +580,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             &options,
             input_list_config,
             table_layout,
+            per_column,
         );
         let answer = widget.run().map_err(|err| {
             IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
@@ -772,6 +781,8 @@ struct SelectWidget<'a> {
     refined: bool,
     /// Base indices for refined mode (the subset to filter from in FuzzyMulti)
     refined_base_indices: Vec<usize>,
+    /// Whether to match filter text against each column independently (table mode only)
+    per_column: bool,
 }
 
 impl<'a> SelectWidget<'a> {
@@ -781,6 +792,7 @@ impl<'a> SelectWidget<'a> {
         items: &'a [SelectItem],
         config: InputListConfig,
         table_layout: Option<TableLayout>,
+        per_column: bool,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
         let matcher = match config.case_sensitivity {
@@ -818,6 +830,7 @@ impl<'a> SelectWidget<'a> {
             width_changed: false,
             refined: false,
             refined_base_indices: Vec::new(),
+            per_column,
         }
     }
 
@@ -1930,6 +1943,25 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
+    /// Score an item using per-column matching (best column wins)
+    fn score_per_column(&self, item: &SelectItem) -> Option<i64> {
+        item.cells.as_ref().and_then(|cells| {
+            cells
+                .iter()
+                .filter_map(|(cell_text, _)| self.matcher.fuzzy_match(cell_text, &self.filter_text))
+                .max()
+        })
+    }
+
+    /// Score an item - uses per-column matching if enabled and in table mode
+    fn score_item(&self, item: &SelectItem) -> Option<i64> {
+        if self.per_column && item.cells.is_some() {
+            self.score_per_column(item)
+        } else {
+            self.matcher.fuzzy_match(&item.name, &self.filter_text)
+        }
+    }
+
     fn update_filter(&mut self) {
         let old_indices = std::mem::take(&mut self.filtered_indices);
 
@@ -1948,19 +1980,11 @@ impl<'a> SelectWidget<'a> {
             let mut scored: Vec<(usize, i64)> = if use_refined {
                 self.refined_base_indices
                     .iter()
-                    .filter_map(|&i| {
-                        self.matcher
-                            .fuzzy_match(&self.items[i].name, &self.filter_text)
-                            .map(|score| (i, score))
-                    })
+                    .filter_map(|&i| self.score_item(&self.items[i]).map(|score| (i, score)))
                     .collect()
             } else {
                 (0..self.items.len())
-                    .filter_map(|i| {
-                        self.matcher
-                            .fuzzy_match(&self.items[i].name, &self.filter_text)
-                            .map(|score| (i, score))
-                    })
+                    .filter_map(|i| self.score_item(&self.items[i]).map(|score| (i, score)))
                     .collect()
             };
             // Sort by score descending
@@ -3098,8 +3122,8 @@ impl<'a> SelectWidget<'a> {
         };
         execute!(stderr, Print(prefix))?;
 
-        // Get match indices for highlighting
-        let match_indices = if !self.filter_text.is_empty() {
+        // Get match indices for highlighting (skip if per_column - handled in render_table_cells)
+        let match_indices = if !self.filter_text.is_empty() && !self.per_column {
             self.matcher
                 .fuzzy_indices(&item.name, &self.filter_text)
                 .map(|(_, indices)| indices)
@@ -3128,8 +3152,8 @@ impl<'a> SelectWidget<'a> {
         let checkbox = if checked { "[x] " } else { "[ ] " };
         execute!(stderr, Print(cursor), Print(checkbox))?;
 
-        // Get match indices for highlighting
-        let match_indices = if !self.filter_text.is_empty() {
+        // Get match indices for highlighting (skip if per_column - handled in render_table_cells)
+        let match_indices = if !self.filter_text.is_empty() && !self.per_column {
             self.matcher
                 .fuzzy_indices(&item.name, &self.filter_text)
                 .map(|(_, indices)| indices)
@@ -3163,7 +3187,22 @@ impl<'a> SelectWidget<'a> {
         let mut matches_in_hidden_left = false;
         let mut matches_in_hidden_right = false;
 
-        // Calculate character offset for each cell to map match indices
+        // For per-column mode, pre-compute match indices for each cell
+        let per_column_matches: Vec<Option<Vec<usize>>> =
+            if self.per_column && !self.filter_text.is_empty() {
+                cells
+                    .iter()
+                    .map(|(cell_text, _)| {
+                        self.matcher
+                            .fuzzy_indices(cell_text, &self.filter_text)
+                            .map(|(_, indices)| indices)
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
+
+        // Calculate character offset for each cell to map match indices (for non-per-column mode)
         // The search text (item.name) is space-separated cells, so we need to track offsets
         let cell_offsets: Vec<usize> = if match_indices.is_some() {
             let mut offsets = Vec::with_capacity(cells.len());
@@ -3181,7 +3220,14 @@ impl<'a> SelectWidget<'a> {
         };
 
         // Check for matches in hidden left columns
-        if let Some(indices) = match_indices {
+        if self.per_column && !self.filter_text.is_empty() {
+            for col_idx in 0..self.horizontal_offset {
+                if col_idx < per_column_matches.len() && per_column_matches[col_idx].is_some() {
+                    matches_in_hidden_left = true;
+                    break;
+                }
+            }
+        } else if let Some(indices) = match_indices {
             for col_idx in 0..self.horizontal_offset {
                 if col_idx < cell_offsets.len() && col_idx + 1 < cell_offsets.len() {
                     let cell_start = cell_offsets[col_idx];
@@ -3220,32 +3266,37 @@ impl<'a> SelectWidget<'a> {
             let col_width = layout.col_widths[col_idx];
 
             // Get match indices for this cell
-            let cell_matches: Option<Vec<usize>> = if let Some(indices) = match_indices {
-                if col_idx < cell_offsets.len() {
-                    let cell_start = cell_offsets[col_idx];
-                    // Filter indices that fall within this cell and adjust to cell-relative
-                    let cell_char_count = cell_text.chars().count();
-                    let relative_indices: Vec<usize> = indices
-                        .iter()
-                        .filter_map(|&idx| {
-                            if idx >= cell_start && idx < cell_start + cell_char_count {
-                                Some(idx - cell_start)
-                            } else {
-                                None
-                            }
-                        })
-                        .collect();
-                    if relative_indices.is_empty() {
-                        None
+            let cell_matches: Option<Vec<usize>> =
+                if self.per_column && !self.filter_text.is_empty() {
+                    // Per-column mode: use pre-computed per-cell indices
+                    per_column_matches.get(col_idx).cloned().flatten()
+                } else if let Some(indices) = match_indices {
+                    // Standard mode: map global indices to cell-relative
+                    if col_idx < cell_offsets.len() {
+                        let cell_start = cell_offsets[col_idx];
+                        // Filter indices that fall within this cell and adjust to cell-relative
+                        let cell_char_count = cell_text.chars().count();
+                        let relative_indices: Vec<usize> = indices
+                            .iter()
+                            .filter_map(|&idx| {
+                                if idx >= cell_start && idx < cell_start + cell_char_count {
+                                    Some(idx - cell_start)
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect();
+                        if relative_indices.is_empty() {
+                            None
+                        } else {
+                            Some(relative_indices)
+                        }
                     } else {
-                        Some(relative_indices)
+                        None
                     }
                 } else {
                     None
-                }
-            } else {
-                None
-            };
+                };
 
             // Render cell with padding and type-based styling
             self.render_table_cell(
@@ -3258,7 +3309,14 @@ impl<'a> SelectWidget<'a> {
         }
 
         // Check for matches in hidden right columns
-        if let Some(indices) = match_indices {
+        if self.per_column && !self.filter_text.is_empty() {
+            for col_idx in (self.horizontal_offset + cols_visible)..cells.len() {
+                if col_idx < per_column_matches.len() && per_column_matches[col_idx].is_some() {
+                    matches_in_hidden_right = true;
+                    break;
+                }
+            }
+        } else if let Some(indices) = match_indices {
             for col_idx in (self.horizontal_offset + cols_visible)..cells.len() {
                 if col_idx < cell_offsets.len() {
                     let cell_start = cell_offsets[col_idx];
