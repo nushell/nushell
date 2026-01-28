@@ -195,7 +195,8 @@ impl BlockBuilder {
                         | Literal::RawString(_)
                         | Literal::CellPath(_)
                         | Literal::Date(_)
-                        | Literal::Nothing => Ok(()),
+                        | Literal::Nothing
+                        | Literal::Empty => Ok(()),
                     },
                 )
             }
@@ -359,7 +360,7 @@ impl BlockBuilder {
         self.push(
             Instruction::LoadLiteral {
                 dst: reg_id,
-                lit: Literal::Nothing,
+                lit: Literal::Empty,
             }
             .into_spanned(self.block_span.unwrap_or(Span::unknown())),
         )?;
