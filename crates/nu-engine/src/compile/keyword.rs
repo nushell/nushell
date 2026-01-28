@@ -365,6 +365,7 @@ pub(crate) fn compile_try(
     // Pseudocode (literal block):
     //
     //       on-error-into ERR, %io_reg           // or without
+    //       finally-into  FINALLY, $io_reg       // or without
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler
@@ -372,12 +373,14 @@ pub(crate) fn compile_try(
     // ERR:  clone %err_reg, %io_reg
     //       store-variable $err_var, %err_reg         // or without
     //       %io_reg <- <...catch block...> <- %io_reg // set to empty if no catch block
+    //       pop-finally
     // END:
     //
     // with expression that can't be inlined:
     //
     //       %closure_reg <- <catch_expr>
     //       on-error-into ERR, %io_reg
+    //       finally-into  FINALLY, $io_reg
     //       %io_reg <- <...block...> <- %io_reg
     //       write-to-out-dests %io_reg
     //       pop-error-handler
@@ -386,6 +389,7 @@ pub(crate) fn compile_try(
     //       push-positional %closure_reg
     //       push-positional %err_reg
     //       call "do", %io_reg
+    //       pop-finally
     // END:
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "try".into(),
@@ -396,10 +400,31 @@ pub(crate) fn compile_try(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
-    let catch_expr = match call.positional_nth(1) {
-        Some(kw_expr) => Some(kw_expr.as_keyword().ok_or_else(invalid)?),
-        None => None,
+    // manually parsing for `catch` or `finally`.
+    let mut catch_expr = None;
+    let mut finally_expr = None;
+    if let Some(kw_expr) = call.positional_nth(1) {
+        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
+        if keyword == b"catch" {
+            catch_expr = Some(expr);
+        } else if keyword == b"finally" {
+            finally_expr = Some(expr);
+        }
     };
+    if let Some(kw_expr) = call.positional_nth(2) {
+        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
+        if keyword == b"catch" {
+            // just deny it, because it should only be valid in 1st positional arguments.
+            return Err(invalid());
+        } else if keyword == b"finally" {
+            // deny duplicate finally.
+            if finally_expr.is_some() {
+                return Err(invalid());
+            }
+            finally_expr = Some(expr);
+        }
+    };
+
     let catch_span = catch_expr.map(|e| e.span).unwrap_or(call.head);
 
     let err_label = builder.label(None);
@@ -440,8 +465,24 @@ pub(crate) fn compile_try(
         })
         .transpose()?;
 
+    struct FinallyInfo<'a> {
+        block: &'a Block,
+        var_id: Option<VarId>,
+    }
+    let finally_type = finally_expr
+        .map(|finally_expr| match finally_expr.as_block() {
+            Some(block_id) => {
+                let block = working_set.get_block(block_id);
+                let var_id = block.signature.get_positional(0).and_then(|v| v.var_id);
+                Ok(FinallyInfo { block, var_id })
+            }
+            None => Err(invalid()),
+        })
+        .transpose()?;
+
     // Put the error handler instruction. If we have a catch expression then we should capture the
     // error.
+    let mut has_try_comment = false;
     if catch_type.is_some() {
         builder.push(
             Instruction::OnErrorInto {
@@ -449,15 +490,35 @@ pub(crate) fn compile_try(
                 dst: io_reg,
             }
             .into_spanned(call.head),
-        )?
-    } else {
-        // Otherwise, we don't need the error value.
-        builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?
+        )?;
+        builder.add_comment("try");
+        has_try_comment = true;
+    } else if finally_expr.is_none() {
+        // Simply try, without `catch` and `finally` block, need to set up OnErrorHandler.
+        // so `try { 1 / 0 }` works
+        builder.push(Instruction::OnError { index: err_label.0 }.into_spanned(call.head))?;
+        builder.add_comment("try");
+        has_try_comment = true;
     };
 
     builder.begin_try();
 
-    builder.add_comment("try");
+    if let Some(finally_info) = &finally_type {
+        if finally_info.var_id.is_some() {
+            builder.push(
+                Instruction::FinallyInto {
+                    index: end_label.0,
+                    dst: io_reg,
+                }
+                .into_spanned(call.head),
+            )?;
+        } else {
+            builder.push(Instruction::Finally { index: end_label.0 }.into_spanned(call.head))?;
+        }
+        if !has_try_comment {
+            builder.add_comment("try");
+        }
+    }
 
     // Compile the block
     compile_block(
@@ -479,8 +540,13 @@ pub(crate) fn compile_try(
     if let Some(mode) = redirect_modes.err {
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
-    builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
-    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+
+    if finally_type.is_none() {
+        builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
+    }
+    if catch_expr.is_some() {
+        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
+    }
 
     builder.end_try()?;
 
@@ -521,7 +587,7 @@ pub(crate) fn compile_try(
                 working_set,
                 builder,
                 block,
-                redirect_modes,
+                redirect_modes.clone(),
                 Some(io_reg),
                 io_reg,
             )?;
@@ -565,9 +631,40 @@ pub(crate) fn compile_try(
             builder.load_empty(io_reg)?;
         }
     }
+    if finally_type.is_some() {
+        builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
+    }
 
-    // This is the end - if we succeeded, should jump here
+    // This is the end - whatever we succeeded or not, should jump here for finally clause.
     builder.set_label(end_label, builder.here())?;
+    // This is the finally part.
+    if let Some(finally_part) = finally_type {
+        if let Some(var_id) = finally_part.var_id {
+            let value_reg = builder.next_register()?;
+            builder.push(
+                Instruction::Clone {
+                    dst: value_reg,
+                    src: io_reg,
+                }
+                .into_spanned(call.head),
+            )?;
+            builder.push(
+                Instruction::StoreVariable {
+                    var_id,
+                    src: value_reg,
+                }
+                .into_spanned(call.head),
+            )?;
+        }
+        compile_block(
+            working_set,
+            builder,
+            finally_part.block,
+            redirect_modes,
+            Some(io_reg),
+            io_reg,
+        )?;
+    }
 
     Ok(())
 }

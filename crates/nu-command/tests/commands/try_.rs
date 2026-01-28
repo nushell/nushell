@@ -234,3 +234,83 @@ fn pipefail_works() {
     );
     assert_eq!(actual.out, "1")
 }
+
+#[test]
+fn try_catch_finally() {
+    // catch should run because try failed, then finally should run.
+    let actual =
+        nu!("try { 1 / 0 } catch { print 'inside catch' } finally { print 'this finally' }");
+    assert!(actual.out.contains("inside catch"));
+    assert!(actual.out.contains("this finally"));
+    assert!(!actual.err.contains("division by zero"));
+
+    // catch should not run because try success, then finally should run.
+    let actual = nu!(
+        "try { print 'inside try' } catch { print 'inside catch' } finally { print 'this finally' }"
+    );
+    assert!(actual.out.contains("inside try"));
+    assert!(actual.out.contains("this finally"));
+    assert!(!actual.out.contains("inside catch"));
+
+    // catch should run even if error inside catch.
+    let actual =
+        nu!("try { 1 / 0 } catch { 1 / 0; print 'inside catch' } finally { print 'this finally' }");
+    assert!(actual.out.contains("this finally"));
+    assert!(!actual.out.contains("inside catch"));
+    assert!(!actual.err.contains("division by zero"));
+}
+
+#[test]
+fn try_finally() {
+    let actual = nu!("try { 1 / 0 } finally { print 'this finally' }");
+    assert!(actual.out.contains("this finally"));
+    assert!(!actual.err.contains("division by zero"));
+
+    let actual = nu!("try { print 'inside try' } finally { print 'this finally' }");
+    assert!(actual.out.contains("inside try"));
+    assert!(actual.out.contains("this finally"));
+}
+
+#[test]
+fn finally_should_run_before_return() {
+    // finally should run after return.
+    let actual =
+        nu!("def aa [] { try { return 3 } finally { print 'this finally' } }; let x = aa; $x == 3");
+    assert!(actual.out.contains("this finally"));
+    assert!(actual.out.contains("true"));
+
+    let actual = nu!(
+        "def aa [] { try { 1 / 0 } catch { return 44 } finally { print 'this finally' } }; let x = aa; $x == 44"
+    );
+    assert!(actual.out.contains("this finally"));
+    assert!(actual.out.contains("true"));
+}
+
+#[test]
+fn return_statement_in_finally_should_be_used() {
+    // finally should run before return.
+    let actual = nu!("def aa [] { try { return 3 } finally { return 4 } }; let x = aa; $x == 4");
+    assert!(actual.out.contains("true"));
+}
+
+#[test]
+fn try_finally_with_variable() {
+    // try failed with finally
+    let actual = nu!("try { 1 / 0 } finally {|x| $x.msg }");
+    assert_eq!(actual.out, "Division by zero.");
+
+    let actual = nu!("try { 3 } finally {|x| $x == 3 }");
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn catch_finally_with_variable() {
+    // try catch with finally
+    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| $x == 33}");
+    assert_eq!(actual.out, "true");
+
+    let actual = nu!(
+        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}"
+    );
+    assert_eq!(actual.out, "true");
+}

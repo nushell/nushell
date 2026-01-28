@@ -18,15 +18,44 @@ impl Command for Try {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .required("try_block", SyntaxShape::Block, "Block to run.")
             .optional(
-                "catch_closure",
-                SyntaxShape::Keyword(
-                    b"catch".to_vec(),
-                    Box::new(SyntaxShape::OneOf(vec![
-                        SyntaxShape::Closure(None),
-                        SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                    ])),
-                ),
+                "catch",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Keyword(
+                        b"catch".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                    SyntaxShape::Keyword(
+                        b"finally".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                ]),
                 "Closure to run if try block fails.",
+            )
+            .optional(
+                "finally",
+                SyntaxShape::OneOf(vec![
+                    SyntaxShape::Keyword(
+                        b"catch".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                    SyntaxShape::Keyword(
+                        b"finally".to_vec(),
+                        Box::new(SyntaxShape::OneOf(vec![
+                            SyntaxShape::Closure(None),
+                            SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
+                        ])),
+                    ),
+                ]),
+                "Closure to run anyway.",
             )
             .category(Category::Core)
     }
@@ -70,6 +99,11 @@ impl Command for Try {
             Example {
                 description: "Try to run a division by zero and report the message",
                 example: "try { 1 / 0 } catch { |err| $err.msg }",
+                result: None,
+            },
+            Example {
+                description: "Try to run a division by zero, report the message, and run finally",
+                example: "try { 1 / 0 } catch { |err| print $err.msg } finally { 'clean' }",
                 result: None,
             },
         ]

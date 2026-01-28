@@ -1333,12 +1333,16 @@ pub fn parse_internal_call(
             // loop { try { } catch {|e| break } }
             // ```
             // Thus, we discard the compilation error here
-            if let SyntaxShape::Keyword(ref keyword, ..) = positional.shape
-                && keyword == b"catch"
-                && let [nu_protocol::CompileError::NotInALoop { .. }] =
-                    &working_set.compile_errors[compile_error_count..]
-            {
-                working_set.compile_errors.truncate(compile_error_count);
+            if let SyntaxShape::OneOf(ref shapes) = positional.shape {
+                for one_shape in shapes {
+                    if let SyntaxShape::Keyword(keyword, ..) = one_shape
+                        && keyword == b"catch"
+                        && let [nu_protocol::CompileError::NotInALoop { .. }] =
+                            &working_set.compile_errors[compile_error_count..]
+                    {
+                        working_set.compile_errors.truncate(compile_error_count);
+                    }
+                }
             }
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
