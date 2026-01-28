@@ -87,12 +87,10 @@ impl Command for Let {
         };
 
         // Store the value in the variable
-        stack.add_var(var_id, rhs);
+        stack.add_var(var_id, rhs.clone());
 
-        // When this run() method is called directly (not through IR),
-        // let is always at the end of a pipeline, so return empty.
-        // The IR compiler handles the middle-of-pipeline case separately.
-        Ok(PipelineData::empty())
+        // Return the assigned value
+        Ok(PipelineData::Value(rhs, None))
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

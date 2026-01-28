@@ -289,28 +289,26 @@ pub(crate) fn compile_match(
     Ok(())
 }
 
-/// Compile a call to `let` or `mut` (store-variable with pipeline support)
+/// Compile a call to `let` or `mut`.
 ///
 /// This supports two syntax forms:
-/// 1. `let var = expr` - Traditional assignment, evaluates expr and stores result
-/// 2. `input | let var | next` - Pipeline form, captures input and passes it through
+/// 1. `let var = expr` - Evaluates expr and stores result in variable
+/// 2. `input | let var` - Uses pipeline input as the value
+///
+/// The assigned value is always passed through as output.
 ///
 /// # Arguments
 /// * `working_set` - The current state working set
 /// * `builder` - The IR block builder
 /// * `call` - The parsed call to `let` or `mut`
-/// * `redirect_modes` - Output redirection modes (used to detect pipeline position)
+/// * `_redirect_modes` - Output redirection modes (unused since we always pass through)
 /// * `input_reg` - Optional register containing pipeline input (for `input | let var` form)
 /// * `io_reg` - The I/O register for the operation result
-///
-/// # Pipeline Behavior
-/// - At beginning/end of pipeline (no output redirection): loads empty
-/// - In middle of pipeline (output redirected): passes through the assigned value
 pub(crate) fn compile_let(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
-    redirect_modes: RedirectModes,
+    _redirect_modes: RedirectModes,
     input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
@@ -319,13 +317,13 @@ pub(crate) fn compile_let(
     // Case 1: `let var = expr`
     //   %io_reg <- ...<block>...
     //   store-variable $var, %io_reg
-    //   load-empty %io_reg (or load-variable if in middle of pipeline)
+    //   load-variable %io_reg, $var (pass through)
     //
-    // Case 2: `input | let var | next`
+    // Case 2: `input | let var`
     //   collect %input_reg
     //   move %io_reg, %input_reg (if different)
     //   store-variable $var, %io_reg
-    //   load-variable %io_reg, $var (pass through to next pipeline element)
+    //   load-variable %io_reg, $var (pass through)
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "let".into(),
         span: call.head,
@@ -335,8 +333,8 @@ pub(crate) fn compile_let(
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
 
     // Handle the two syntax forms:
-    // 1. `let var = expr`: compile the expr block and store its result
-    // 2. `let var` (no =): use the input_reg as the value to assign
+    // 1. `let var = expr`: compile expr and store result
+    // 2. `let var` (no =): use input_reg as the value
     let has_initial_value = call.positional_nth(1).is_some();
     if has_initial_value {
         // Safe to use expect here since we just checked is_some()
@@ -367,7 +365,7 @@ pub(crate) fn compile_let(
             )?;
         }
     }
-    // If no initial_value provided and no input_reg, io_reg is already empty (but this case shouldn't occur)
+    // If no initial_value and no input_reg, io_reg should already be empty (this shouldn't normally occur)
 
     let variable = working_set.get_variable(var_id);
 
@@ -391,27 +389,14 @@ pub(crate) fn compile_let(
     )?;
     builder.add_comment("let");
 
-    // Pipeline behavior:
-    // - let returns empty unless it's in the MIDDLE of a pipeline (i.e., piped to next element)
-    // - Only when redirect_modes.out is Pipe does let pass through the value
-    let is_in_middle_of_pipeline = redirect_modes
-        .out
-        .as_ref()
-        .is_some_and(|mode| matches!(mode.item, nu_protocol::ir::RedirectMode::Pipe));
-
-    if is_in_middle_of_pipeline {
-        // `input | let var | next` - reload value into io_reg to pass through
-        builder.push(
-            Instruction::LoadVariable {
-                dst: io_reg,
-                var_id,
-            }
-            .into_spanned(call.head),
-        )?;
-    } else {
-        // At beginning or end of pipeline - return empty
-        builder.load_empty(io_reg)?;
-    }
+    // Always pass through the assigned value
+    builder.push(
+        Instruction::LoadVariable {
+            dst: io_reg,
+            var_id,
+        }
+        .into_spanned(call.head),
+    )?;
 
     Ok(())
 }
