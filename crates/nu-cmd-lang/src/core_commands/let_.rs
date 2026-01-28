@@ -1,4 +1,7 @@
 use nu_engine::command_prelude::*;
+use nu_engine::eval_expression;
+use nu_protocol::ast::Expr;
+use nu_protocol::debugger::WithoutDebug;
 use nu_protocol::engine::CommandType;
 
 #[derive(Clone)]
@@ -15,7 +18,7 @@ impl Command for Let {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("let")
-            .input_output_types(vec![(Type::Any, Type::Nothing)])
+            .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
             .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
             .optional(
@@ -41,40 +44,88 @@ impl Command for Let {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        _call: &Call,
-        _input: PipelineData,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        // This is compiled specially by the IR compiler. The code here is never used when
-        // running in IR mode.
-        eprintln!(
-            "Tried to execute 'run' for the 'let' command: this code path should never be reached in IR mode"
-        );
-        unreachable!()
+        let expr = call
+            .positional_nth(stack, 0)
+            .ok_or(ShellError::NushellFailed {
+                msg: "Missing variable name".to_string(),
+            })?;
+        let var_id = expr.as_var().ok_or(ShellError::NushellFailed {
+            msg: "Expected variable".to_string(),
+        })?;
+
+        let initial_value = call.get_parser_info(stack, "initial_value").cloned();
+
+        // Evaluate the right-hand side value:
+        // - If there's an initial_value (let x = expr), evaluate the expression
+        // - Otherwise (let x), use the pipeline input
+        let rhs = if let Some(ref initial_value_expr) = initial_value {
+            // Validate that blocks/subexpressions don't have multiple pipeline elements
+            if let Expr::Block(block_id) | Expr::Subexpression(block_id) = &initial_value_expr.expr
+            {
+                let block = engine_state.get_block(*block_id);
+                if block
+                    .pipelines
+                    .iter()
+                    .any(|pipeline| pipeline.elements.len() > 1)
+                {
+                    return Err(ShellError::NushellFailed {
+                        msg: "invalid `let` keyword call".to_string(),
+                    });
+                }
+            }
+            // Discard input when using = syntax
+            let _ = input.into_value(call.head)?;
+            eval_expression::<WithoutDebug>(engine_state, stack, initial_value_expr)?
+        } else {
+            // Use pipeline input directly when no = is provided
+            input.into_value(call.head)?
+        };
+
+        // Store the value in the variable
+        stack.add_var(var_id, rhs);
+
+        // When this run() method is called directly (not through IR),
+        // let is always at the end of a pipeline, so return empty.
+        // The IR compiler handles the middle-of-pipeline case separately.
+        Ok(PipelineData::empty())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 description: "Set a variable to a value",
-                example: "let x = 10",
-                result: None,
+                example: "let x = 10; $x",
+                result: Some(Value::test_int(10)),
             },
             Example {
                 description: "Set a variable to the result of an expression",
-                example: "let x = 10 + 100",
-                result: None,
+                example: "let x = 10 + 100; $x",
+                result: Some(Value::test_int(110)),
             },
             Example {
                 description: "Set a variable based on the condition",
-                example: "let x = if false { -1 } else { 1 }",
-                result: None,
+                example: "let x = if false { -1 } else { 1 }; $x",
+                result: Some(Value::test_int(1)),
             },
             Example {
                 description: "Set a variable to the output of a pipeline",
                 example: "ls | let files",
                 result: None,
+            },
+            Example {
+                description: "Use let in the middle of a pipeline to assign and pass the value",
+                example: "10 | let x | $x + 5",
+                result: Some(Value::test_int(15)),
+            },
+            Example {
+                description: "Use let in the middle of a pipeline, then consume value with $in",
+                example: "10 | let x | $in + 5",
+                result: Some(Value::test_int(15)),
             },
         ]
     }
@@ -82,8 +133,6 @@ impl Command for Let {
 
 #[cfg(test)]
 mod test {
-    use nu_protocol::engine::CommandType;
-
     use super::*;
 
     #[test]
