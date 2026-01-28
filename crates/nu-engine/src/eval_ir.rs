@@ -912,11 +912,19 @@ fn load_literal(
     lit: &Literal,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(
-        dst,
-        PipelineExecutionData::from(PipelineData::value(value, None)),
-    );
+    // When loading `Nothing`, produce `PipelineData::Empty` rather than
+    // `PipelineData::Value(Value::Nothing, ...)`. This is important because
+    // some commands (like `metadata`) distinguish between "no input" and
+    // "input that is nothing" when deciding whether positional args are allowed.
+    if matches!(lit, Literal::Nothing) {
+        ctx.put_reg(dst, PipelineExecutionData::empty());
+    } else {
+        let value = literal_value(ctx, lit, span)?;
+        ctx.put_reg(
+            dst,
+            PipelineExecutionData::from(PipelineData::value(value, None)),
+        );
+    }
     Ok(InstructionResult::Continue)
 }
 

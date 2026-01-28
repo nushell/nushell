@@ -344,12 +344,14 @@ pub(crate) fn compile_let(
         let block_id = block_arg.as_block().ok_or_else(invalid)?;
         let block = working_set.get_block(block_id);
 
+        // Pass the input_reg to the block so expressions like `let x = (str length)`
+        // can access the pipeline input from the enclosing context
         compile_block(
             working_set,
             builder,
             block,
             RedirectModes::value(call.head),
-            None,
+            input_reg,
             io_reg,
         )?;
     } else if let Some(input_reg) = input_reg {
