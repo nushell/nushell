@@ -153,7 +153,13 @@ quote = "1.0"
 rand = "0.9"
 getrandom = "0.2" # pick same version that rand requires
 rand_chacha = "0.9"
-ratatui = "0.29"
+ratatui = { version = "0.30", default-features = false, features = [
+    "all-widgets",
+    "crossterm",
+    "layout-cache",
+    "macros",
+    #"underline-color" # leave out so we don't bring in termwiz
+] }
 rayon = "1.11"
 reedline = "0.45.0"
 rmp = "0.8.15"
