@@ -20,24 +20,40 @@ pub enum InputFocus {
 
 /// Main application state for the regex explorer.
 pub struct App {
+    /// Which input pane currently has focus (Regex, Sample, or QuickRef)
     pub input_focus: InputFocus,
+    /// Editor state for the regex pattern input (single-line)
     pub regex_input: EditorState,
+    /// Editor state for the test string input (multi-line)
     pub sample_text: EditorState,
+    /// Compiled regex pattern, if valid
     pub compiled_regex: Option<Regex>,
+    /// Error message from regex compilation, if invalid
     pub regex_error: Option<String>,
+    /// Vertical scroll offset for the sample text viewport (in lines)
     pub sample_scroll_v: u16,
-    #[allow(dead_code)] // TODO: Implement horizontal scrolling
+    /// Horizontal scroll offset for the sample text viewport (in characters)
     pub sample_scroll_h: u16,
+    /// Height of the visible sample text viewport (updated each frame)
     pub sample_view_height: u16,
+    /// Number of regex matches found in the sample text
     pub match_count: usize,
     // Quick reference panel state
+    /// Whether the quick reference panel is currently visible
     pub show_quick_ref: bool,
+    /// Whether the help modal is currently visible
     pub show_help: bool,
+    /// Index of the currently selected quick reference entry
     pub quick_ref_selected: usize,
+    /// Vertical scroll position in the quick reference panel
     pub quick_ref_scroll: usize,
+    /// Horizontal scroll position in the quick reference panel
     pub quick_ref_scroll_h: u16,
+    /// Height of the quick reference viewport (updated each frame)
     pub quick_ref_view_height: usize,
+    /// Width of the quick reference viewport (updated each frame)
     pub quick_ref_view_width: u16,
+    /// Flattened list of all quick reference entries
     pub quick_ref_entries: Vec<QuickRefEntry>,
 }
 

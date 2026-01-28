@@ -502,30 +502,46 @@ fn draw_sample_section(
     // Render the block border
     f.render_widget(block, content_area);
 
-    // Update viewport scroll position to keep cursor visible
+    // Update viewport scroll position to keep cursor visible (both vertical and horizontal)
     let cursor_row = app.sample_text.cursor.row;
+    let cursor_col = app.sample_text.cursor.col;
     let visible_height = content.height as usize;
+    let visible_width = content.width as usize;
     let total_lines = app.sample_text.lines.len();
 
+    // Update vertical scroll
     app.sample_scroll_v =
         calculate_viewport_scroll(cursor_row, app.sample_scroll_v, visible_height, total_lines);
+
+    // Update horizontal scroll to keep cursor visible
+    // For horizontal scrolling, we use an adaptive "max width" based on cursor position.
+    // This allows the viewport to expand as the user types or moves right, providing
+    // a natural scrolling experience without needing to calculate actual line widths.
+    app.sample_scroll_h = calculate_viewport_scroll(
+        cursor_col,
+        app.sample_scroll_h,
+        visible_width,
+        cursor_col + visible_width, // Dynamic max: cursor position + viewport width
+    );
 
     // Render only the visible portion of highlighted text for better performance
     let highlighted_text = app.get_highlighted_text();
     let viewport_text =
         extract_viewport_text(highlighted_text, app.sample_scroll_v, visible_height);
 
-    f.render_widget(Paragraph::new(viewport_text), content);
+    // Apply horizontal scrolling via Paragraph's scroll method
+    let paragraph = Paragraph::new(viewport_text).scroll((0, app.sample_scroll_h));
+    f.render_widget(paragraph, content);
 
     // Set terminal cursor position if this section is focused
     if focused {
-        let cursor_col = app.sample_text.cursor.col;
         let relative_row = cursor_row.saturating_sub(app.sample_scroll_v as usize);
+        let relative_col = cursor_col.saturating_sub(app.sample_scroll_h as usize);
 
-        // Only set if cursor is within visible area
-        if relative_row < content.height as usize {
+        // Only set cursor if it's within the visible viewport area
+        if relative_row < content.height as usize && relative_col < content.width as usize {
             f.set_cursor_position((
-                content.x + cursor_col as u16,
+                content.x + relative_col as u16,
                 content.y + relative_row as u16,
             ));
         }
@@ -536,41 +552,52 @@ fn draw_sample_section(
 
 /// Calculate the optimal viewport scroll position to keep the cursor visible.
 ///
-/// This function implements viewport scrolling logic that ensures the cursor remains
-/// visible within the viewing area. It adjusts the scroll offset based on the cursor
-/// position, following these rules:
-/// - If cursor is above viewport: scroll up to show cursor at top
-/// - If cursor is below viewport: scroll down to show cursor at bottom
+/// This function implements one-dimensional viewport scrolling logic that ensures
+/// the cursor remains visible within the viewing area. It's generic enough to work
+/// for both vertical (row-based) and horizontal (column-based) scrolling.
+///
+/// The scrolling behavior follows these rules:
+/// - If cursor is before viewport: scroll backward to show cursor at start
+/// - If cursor is after viewport: scroll forward to show cursor at end
 /// - If cursor is within viewport: maintain current scroll position
-/// - Never scroll past the end of content
+/// - Never scroll past the maximum valid scroll position
 ///
 /// # Arguments
-/// * `cursor_row` - The absolute row position of the cursor (0-indexed)
-/// * `current_scroll` - The current vertical scroll offset
-/// * `visible_height` - The height of the visible viewport in lines
-/// * `total_lines` - The total number of lines in the content
+/// * `cursor_position` - The absolute position of the cursor (0-indexed)
+/// * `current_scroll` - The current scroll offset
+/// * `visible_size` - The size of the visible viewport (lines or columns)
+/// * `total_size` - The total size of the content (lines or columns)
 ///
 /// # Returns
 /// The optimal scroll offset to keep the cursor visible
+///
+/// # Examples
+/// ```ignore
+/// // Vertical scrolling: keep cursor row visible
+/// let scroll_v = calculate_viewport_scroll(cursor_row, scroll_v, viewport_height, total_lines);
+///
+/// // Horizontal scrolling: keep cursor column visible
+/// let scroll_h = calculate_viewport_scroll(cursor_col, scroll_h, viewport_width, max_width);
+/// ```
 fn calculate_viewport_scroll(
-    cursor_row: usize,
+    cursor_position: usize,
     current_scroll: u16,
-    visible_height: usize,
-    total_lines: usize,
+    visible_size: usize,
+    total_size: usize,
 ) -> u16 {
     let mut scroll = current_scroll as usize;
 
-    // Scroll up if cursor is above viewport
-    if cursor_row < scroll {
-        scroll = cursor_row;
+    // Scroll backward if cursor is before the viewport
+    if cursor_position < scroll {
+        scroll = cursor_position;
     }
-    // Scroll down if cursor is below viewport
-    else if cursor_row >= scroll + visible_height {
-        scroll = cursor_row.saturating_sub(visible_height - 1);
+    // Scroll forward if cursor is after the viewport
+    else if cursor_position >= scroll + visible_size {
+        scroll = cursor_position.saturating_sub(visible_size - 1);
     }
 
-    // Clamp scroll to valid range [0, total_lines - visible_height]
-    let max_scroll = total_lines.saturating_sub(visible_height);
+    // Clamp scroll to valid range [0, total_size - visible_size]
+    let max_scroll = total_size.saturating_sub(visible_size);
     scroll.min(max_scroll) as u16
 }
 
