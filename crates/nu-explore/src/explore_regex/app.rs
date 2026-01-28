@@ -25,9 +25,8 @@ pub struct App {
     pub sample_text: EditorState,
     pub compiled_regex: Option<Regex>,
     pub regex_error: Option<String>,
-    #[allow(dead_code)] // TODO: Remove when adding back manual scrolling
     pub sample_scroll_v: u16,
-    #[allow(dead_code)] // TODO: Remove when adding back manual scrolling
+    #[allow(dead_code)] // TODO: Implement horizontal scrolling
     pub sample_scroll_h: u16,
     pub sample_view_height: u16,
     pub match_count: usize,

@@ -14,7 +14,7 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::Style,
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{
         Block, BorderType, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState, Widget,
@@ -171,21 +171,31 @@ fn execute_action(
 
 /// Handle page up/down navigation in the sample text pane.
 ///
-/// Moves the cursor up or down by one page (visible height), keeping the column position.
+/// Moves the cursor vertically by one page (visible viewport height) while preserving
+/// the horizontal column position. The viewport will automatically scroll to keep the
+/// cursor visible via `calculate_viewport_scroll()` during the next render.
+///
+/// # Arguments
+/// * `app` - Mutable reference to the application state
+/// * `page_down` - `true` for Page Down (move forward), `false` for Page Up (move backward)
+///
+/// # Note
+/// Match count remains unchanged as it depends only on the regex pattern and full text,
+/// not on cursor position. We don't need to update it here.
 fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
-    let page = app.sample_view_height.max(1);
-    let row = app.sample_text.cursor.row;
-    let col = app.sample_text.cursor.col;
+    let page_height = app.sample_view_height.max(1) as usize;
+    let current_row = app.sample_text.cursor.row;
     let max_row = app.sample_text.lines.len().saturating_sub(1);
 
+    // Calculate new cursor position, clamped to valid range
     let target_row = if page_down {
-        row.saturating_add(page as usize).min(max_row)
+        current_row.saturating_add(page_height).min(max_row)
     } else {
-        row.saturating_sub(page as usize)
+        current_row.saturating_sub(page_height)
     };
 
     app.sample_text.cursor.row = target_row;
-    app.sample_text.cursor.col = col;
+    // Column position is intentionally preserved for better navigation UX
 }
 
 /// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
@@ -492,20 +502,106 @@ fn draw_sample_section(
     // Render the block border
     f.render_widget(block, content_area);
 
-    // Render the highlighted text with regex matches
+    // Update viewport scroll position to keep cursor visible
+    let cursor_row = app.sample_text.cursor.row;
+    let visible_height = content.height as usize;
+    let total_lines = app.sample_text.lines.len();
+
+    app.sample_scroll_v =
+        calculate_viewport_scroll(cursor_row, app.sample_scroll_v, visible_height, total_lines);
+
+    // Render only the visible portion of highlighted text for better performance
     let highlighted_text = app.get_highlighted_text();
-    f.render_widget(Paragraph::new(highlighted_text), content);
+    let viewport_text =
+        extract_viewport_text(highlighted_text, app.sample_scroll_v, visible_height);
+
+    f.render_widget(Paragraph::new(viewport_text), content);
 
     // Set terminal cursor position if this section is focused
     if focused {
-        let cursor_row = app.sample_text.cursor.row;
         let cursor_col = app.sample_text.cursor.col;
+        let relative_row = cursor_row.saturating_sub(app.sample_scroll_v as usize);
 
         // Only set if cursor is within visible area
-        if cursor_row < content.height as usize {
-            f.set_cursor_position((content.x + cursor_col as u16, content.y + cursor_row as u16));
+        if relative_row < content.height as usize {
+            f.set_cursor_position((
+                content.x + cursor_col as u16,
+                content.y + relative_row as u16,
+            ));
         }
     }
+}
+
+// ─── Viewport Management ─────────────────────────────────────────────────────
+
+/// Calculate the optimal viewport scroll position to keep the cursor visible.
+///
+/// This function implements viewport scrolling logic that ensures the cursor remains
+/// visible within the viewing area. It adjusts the scroll offset based on the cursor
+/// position, following these rules:
+/// - If cursor is above viewport: scroll up to show cursor at top
+/// - If cursor is below viewport: scroll down to show cursor at bottom
+/// - If cursor is within viewport: maintain current scroll position
+/// - Never scroll past the end of content
+///
+/// # Arguments
+/// * `cursor_row` - The absolute row position of the cursor (0-indexed)
+/// * `current_scroll` - The current vertical scroll offset
+/// * `visible_height` - The height of the visible viewport in lines
+/// * `total_lines` - The total number of lines in the content
+///
+/// # Returns
+/// The optimal scroll offset to keep the cursor visible
+fn calculate_viewport_scroll(
+    cursor_row: usize,
+    current_scroll: u16,
+    visible_height: usize,
+    total_lines: usize,
+) -> u16 {
+    let mut scroll = current_scroll as usize;
+
+    // Scroll up if cursor is above viewport
+    if cursor_row < scroll {
+        scroll = cursor_row;
+    }
+    // Scroll down if cursor is below viewport
+    else if cursor_row >= scroll + visible_height {
+        scroll = cursor_row.saturating_sub(visible_height - 1);
+    }
+
+    // Clamp scroll to valid range [0, total_lines - visible_height]
+    let max_scroll = total_lines.saturating_sub(visible_height);
+    scroll.min(max_scroll) as u16
+}
+
+/// Extract a viewport slice from the highlighted text.
+///
+/// Returns only the visible portion of the text based on scroll offset and viewport height.
+/// This optimization avoids rendering off-screen content and improves performance.
+///
+/// # Arguments
+/// * `highlighted_text` - The full highlighted text with all lines
+/// * `scroll_offset` - The vertical scroll position (number of lines from top)
+/// * `visible_height` - The number of lines that fit in the viewport
+///
+/// # Returns
+/// A `Text` containing only the visible lines, or the full text if no scrolling is needed
+fn extract_viewport_text(
+    highlighted_text: Text<'static>,
+    scroll_offset: u16,
+    visible_height: usize,
+) -> Text<'static> {
+    // Short circuit if no scrolling is needed
+    if scroll_offset == 0 && highlighted_text.lines.len() <= visible_height {
+        return highlighted_text;
+    }
+
+    let start = scroll_offset as usize;
+    let end = start
+        .saturating_add(visible_height)
+        .min(highlighted_text.lines.len());
+
+    Text::from(highlighted_text.lines[start..end].to_vec())
 }
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────
