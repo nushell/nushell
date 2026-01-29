@@ -11,26 +11,30 @@ use nu_protocol::{
 use nu_utils::IgnoreCaseExt;
 use nu_utils::get_ls_colors;
 use std::path::{Component, MAIN_SEPARATOR as SEP, Path, PathBuf, is_separator};
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone, Default)]
 pub struct PathBuiltFromString {
     cwd: PathBuf,
-    parts: Vec<String>,
+    parts: Vec<MatchedPart>,
     isdir: bool,
 }
 
+#[derive(Clone, Default)]
+pub struct MatchedPart {
+    text: String,
+    match_indices: Vec<usize>,
+}
+
 /// Recursively goes through paths that match a given `partial`.
-/// built: State struct for a valid matching path built so far.
-///
-/// `want_directory`: Whether we want only directories as completion matches.
-/// Some commands like `cd` can only be run on directories whereas others
-/// like `ls` can be run on regular files as well.
-///
-/// `isdir`: whether the current partial path has a trailing slash.
-/// Parsing a path string into a pathbuf loses that bit of information.
-///
-/// `enable_exact_match`: Whether match algorithm is Prefix and all previous components
-/// of the path matched a directory exactly.
+/// * `built_paths`: State struct for a valid matching path built so far.
+/// * `want_directory`: Whether we want only directories as completion matches.
+///   Some commands like `cd` can only be run on directories whereas others
+///   like `ls` can be run on regular files as well.
+/// * `isdir`: whether the current partial path has a trailing slash.
+///   Parsing a path string into a pathbuf loses that bit of information.
+/// * `enable_exact_match`: Whether match algorithm is Prefix and all previous components
+///   of the path matched a directory exactly.
 fn complete_rec(
     partial: &[&str],
     built_paths: &[PathBuiltFromString],
@@ -49,7 +53,10 @@ fn complete_rec(
             .iter()
             .map(|built| {
                 let mut built = built.clone();
-                built.parts.push(base.to_string());
+                built.parts.push(MatchedPart {
+                    text: base.to_string(),
+                    match_indices: Vec::new(),
+                });
                 built.isdir = true;
                 built
             })
@@ -73,7 +80,7 @@ fn complete_rec(
     for built in built_paths {
         let mut path = built.cwd.clone();
         for part in &built.parts {
-            path.push(part);
+            path.push(part.text.as_str());
         }
 
         let Ok(result) = path.read_dir() else {
@@ -84,7 +91,7 @@ fn complete_rec(
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             let entry_isdir = entry.path().is_dir();
             let mut built = built.clone();
-            built.parts.push(entry_name.clone());
+            // built.parts.push(entry_name.clone());
             // Symlinks to directories shouldn't have a trailing slash (#13275)
             built.isdir = entry_isdir && !entry.path().is_symlink();
 
@@ -97,14 +104,20 @@ fn complete_rec(
                     };
                     if matches {
                         if exact_match.is_none() {
-                            exact_match = Some(built.clone());
+                            let mut built_exact = built.clone();
+                            let match_indices = (0..entry_name.graphemes(true).count()).collect();
+                            built_exact.parts.push(MatchedPart {
+                                text: entry_name.clone(),
+                                match_indices,
+                            });
+                            exact_match = Some(built_exact);
                         } else {
                             multiple_exact_matches = true;
                         }
                     }
                 }
 
-                matcher.add(entry_name, built);
+                matcher.add(entry_name.clone(), (built, entry_name));
             }
         }
     }
@@ -121,25 +134,33 @@ fn complete_rec(
         );
     }
 
-    if has_more {
-        let mut completions = vec![];
-        for (built, _) in matcher.results() {
-            completions.extend(complete_rec(
-                &partial[1..],
-                &[built],
-                options,
-                want_directory,
-                isdir,
-                false,
-            ));
-        }
-        completions
-    } else {
+    let completion_iter =
         matcher
             .results()
             .into_iter()
-            .map(|(built, _)| built)
+            .map(|((mut built, last_entry_name), last_match_indices)| {
+                built.parts.push(MatchedPart {
+                    text: last_entry_name,
+                    match_indices: last_match_indices,
+                });
+                built
+            });
+
+    if has_more {
+        completion_iter
+            .flat_map(|completion| {
+                complete_rec(
+                    &partial[1..],
+                    &[completion],
+                    options,
+                    want_directory,
+                    isdir,
+                    false,
+                )
+            })
             .collect()
+    } else {
+        completion_iter.collect()
     }
 }
 
@@ -148,22 +169,6 @@ enum OriginalCwd {
     None,
     Home,
     Prefix(String),
-}
-
-impl OriginalCwd {
-    fn apply(&self, mut p: PathBuiltFromString, path_separator: char) -> String {
-        match self {
-            Self::None => {}
-            Self::Home => p.parts.insert(0, "~".to_string()),
-            Self::Prefix(s) => p.parts.insert(0, s.clone()),
-        };
-
-        let mut ret = p.parts.join(&path_separator.to_string());
-        if p.isdir {
-            ret.push(path_separator);
-        }
-        ret
-    }
 }
 
 pub fn surround_remove(partial: &str) -> String {
@@ -185,6 +190,8 @@ pub struct FileSuggestion {
     pub path: String,
     pub style: Option<Style>,
     pub is_dir: bool,
+    pub display_override: Option<String>,
+    pub match_indices: Vec<usize>,
 }
 
 /// # Parameters
@@ -289,7 +296,29 @@ pub fn complete_item(
             p = collapse_ndots(p);
         }
         let is_dir = p.isdir;
-        let path = original_cwd.apply(p, path_separator);
+
+        let mut path = match &original_cwd {
+            OriginalCwd::None => String::new(),
+            OriginalCwd::Home => format!("~{path_separator}"),
+            OriginalCwd::Prefix(s) => format!("{s}{path_separator}"),
+        };
+        let mut match_index_offset = path.graphemes(true).count();
+        let mut match_indices = Vec::new();
+        for (i, part) in p.parts.iter().enumerate() {
+            path.push_str(&part.text);
+            for ind in &part.match_indices {
+                match_indices.push(ind + match_index_offset);
+            }
+            match_index_offset += part.text.graphemes(true).count();
+            if i != p.parts.len() - 1 {
+                path.push(path_separator);
+                match_index_offset += path_separator.len_utf8();
+            }
+        }
+        if p.isdir {
+            path.push(path_separator);
+        }
+
         let real_path = expand_to_real_path(&path);
         let metadata = std::fs::symlink_metadata(&real_path).ok();
         let style = ls_colors.as_ref().map(|lsc| {
@@ -297,29 +326,36 @@ pub fn complete_item(
                 .map(lscolors::Style::to_nu_ansi_term_style)
                 .unwrap_or_default()
         });
+        let (value, display_override) = if let Some(escaped) = escape_path(&path) {
+            (escaped, Some(path))
+        } else {
+            (path, None)
+        };
         FileSuggestion {
             span,
-            path: escape_path(path),
+            path: value,
             style,
             is_dir,
+            display_override,
+            match_indices,
         }
     })
     .collect()
 }
 
 // Fix files or folders with quotes or hashes
-pub fn escape_path(path: String) -> String {
+pub fn escape_path(path: &str) -> Option<String> {
     // make glob pattern have the highest priority.
-    if nu_glob::is_glob(path.as_str()) || path.contains('`') {
+    if nu_glob::is_glob(path) || path.contains('`') {
         // expand home `~` for https://github.com/nushell/nushell/issues/13905
         let pathbuf = nu_path::expand_tilde(path);
         let path = pathbuf.to_string_lossy();
         if path.contains('\'') {
             // decide to use double quotes
             // Path as Debug will do the escaping for `"`, `\`
-            format!("{path:?}")
+            Some(format!("{path:?}"))
         } else {
-            format!("'{path}'")
+            Some(format!("'{path}'"))
         }
     } else {
         let contaminated =
@@ -328,9 +364,9 @@ pub fn escape_path(path: String) -> String {
         let maybe_variable = path.starts_with('$');
         let maybe_number = path.parse::<f64>().is_ok();
         if contaminated || maybe_flag || maybe_variable || maybe_number {
-            format!("`{path}`")
+            Some(format!("`{path}`"))
         } else {
-            path
+            None
         }
     }
 }
@@ -384,11 +420,14 @@ fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
     let mut dot_count = 0;
 
     for part in path.parts {
-        if part == ".." {
+        if &part.text == ".." {
             dot_count += 1;
         } else {
             if dot_count > 0 {
-                result.parts.push(".".repeat(dot_count + 1));
+                result.parts.push(MatchedPart {
+                    text: ".".repeat(dot_count + 1),
+                    match_indices: Vec::new(),
+                });
                 dot_count = 0;
             }
             result.parts.push(part);
@@ -397,7 +436,10 @@ fn collapse_ndots(path: PathBuiltFromString) -> PathBuiltFromString {
 
     // Add any remaining dots
     if dot_count > 0 {
-        result.parts.push(".".repeat(dot_count + 1));
+        result.parts.push(MatchedPart {
+            text: ".".repeat(dot_count + 1),
+            match_indices: Vec::new(),
+        });
     }
 
     result
