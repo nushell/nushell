@@ -144,6 +144,29 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
                 return KeyAction::PassToEditor(emacs_key);
             }
             KeyCode::Right => {
+                // Special handling for Ctrl+Right on the last word to ensure
+                // cursor lands after the last character, not before it
+                if app.input_focus == InputFocus::Regex {
+                    let text = app.regex_input.lines.to_string();
+                    let cursor_pos = app.regex_input.cursor.col;
+                    if is_at_last_word_boundary(&text, cursor_pos) {
+                        // Move cursor to end of text
+                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                        return KeyAction::PassToEditor(end_key);
+                    }
+                } else if app.input_focus == InputFocus::Sample {
+                    let text = app.sample_text.lines.to_string();
+                    let cursor_row = app.sample_text.cursor.row;
+                    let cursor_col = app.sample_text.cursor.col;
+                    let lines: Vec<&str> = text.lines().collect();
+                    if cursor_row < lines.len()
+                        && is_at_last_word_boundary(lines[cursor_row], cursor_col)
+                    {
+                        // Move cursor to end of current line
+                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                        return KeyAction::PassToEditor(end_key);
+                    }
+                }
                 let emacs_key = event::KeyEvent::new(KeyCode::Char('f'), KeyModifiers::ALT);
                 return KeyAction::PassToEditor(emacs_key);
             }
@@ -155,7 +178,28 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     KeyAction::PassToEditor(*key)
 }
 
-/// Execute a key action, modifying application state as needed.
+// ─── Helper Functions ─────────────────────────────────────────────────────
+
+/// Check if the cursor is at the boundary of the last word in the text.
+/// Used to fix Ctrl+Right navigation to move past the last character instead of stopping before it.
+fn is_at_last_word_boundary(text: &str, cursor_pos: usize) -> bool {
+    if cursor_pos >= text.len() {
+        return false; // Already at end
+    }
+
+    // Find the next word boundary after cursor
+    let remaining = &text[cursor_pos..];
+    let next_word_start = remaining
+        .char_indices()
+        .find(|(_, c)| c.is_alphanumeric())
+        .map(|(i, _)| i)
+        .unwrap_or(remaining.len());
+
+    // If there's no more alphanumeric characters after cursor, we're at the last word
+    next_word_start == remaining.len()
+}
+
+// ─── Main Loop ───────────────────────────────────────────────────────────────
 ///
 /// Returns `true` if the application should quit, `false` otherwise.
 fn execute_action(
