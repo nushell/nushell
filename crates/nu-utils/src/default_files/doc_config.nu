@@ -64,6 +64,13 @@ $env.config.history.sync_on_enter = true
 # Default: false
 $env.config.history.isolation = false
 
+# history.path (string): Custom path for the history file.
+# If not set, the default location will be used
+# You can set this to "/dev/null" to disable history entirely.
+# Default: null (uses default location)
+# $env.config.history.path = "/dev/null"  # Disable history
+# $env.config.history.path = "~/custom/my-history.txt"  # Custom location
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------
