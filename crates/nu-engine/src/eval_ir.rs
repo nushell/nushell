@@ -241,7 +241,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ ShellError::Return { .. }) => {
+            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {

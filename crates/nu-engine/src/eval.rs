@@ -295,6 +295,9 @@ pub fn eval_block<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
+    if let Err(ShellError::Exit { code }) = &result {
+        std::process::exit(*code)
+    }
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
@@ -311,6 +314,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
         Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
             PipelineData::value(*value, None),
         )),
+        Err(ShellError::Exit { code }) => std::process::exit(code),
         x => x,
     }
 }

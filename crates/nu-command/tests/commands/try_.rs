@@ -304,6 +304,34 @@ fn try_finally_with_variable() {
 }
 
 #[test]
+fn try_exit_runs_finally() {
+    let actual = nu!("try { exit 3 } finally { print 'this finally' }");
+    assert_eq!(actual.out, "this finally");
+    assert_eq!(actual.status.code(), Some(3));
+
+    // nested try with exit should run all finally block
+    let actual = nu!(r#"
+    try {
+        try {
+            exit 3
+        } finally { 
+            print 'inner finally'
+        }
+    } finally {
+        print 'outer finally'
+    }"#);
+    assert!(actual.out.contains("inner finally"));
+    assert!(actual.out.contains("outer finally"));
+    assert_eq!(actual.status.code(), Some(3));
+}
+
+#[test]
+fn try_abort_not_run_finally() {
+    let actual = nu!("try { exit 3 --abort} finally { print 'this finally' }");
+    assert!(!actual.out.contains("this finally"));
+    assert_eq!(actual.status.code(), Some(3));
+}
+#[test]
 fn catch_finally_with_variable() {
     // try catch with finally
     let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| $x == 33}");
