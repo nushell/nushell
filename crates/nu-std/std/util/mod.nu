@@ -94,7 +94,7 @@ export def repeat [
         return []
     }
 
-    1..$n | each { $item }
+    1..$n | each --keep-empty { $item }
 }
 
 # null device file
