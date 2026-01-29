@@ -46,12 +46,10 @@ impl Command for Exit {
         if abort {
             cleanup_exit((), engine_state, exit_code);
             Ok(Value::nothing(call.head).into_pipeline_data())
+        } else if cleanup((), engine_state).is_some() {
+            Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            if cleanup((), engine_state).is_some() {
-                Ok(Value::nothing(call.head).into_pipeline_data())
-            } else {
-                Err(ShellError::Exit { code: exit_code })
-            }
+            Err(ShellError::Exit { code: exit_code })
         }
     }
 

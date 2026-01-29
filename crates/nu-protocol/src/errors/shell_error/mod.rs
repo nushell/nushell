@@ -1150,7 +1150,7 @@ pub enum ShellError {
         value: Box<Value>,
     },
 
-    /// Exit event, it can still be catched by `try {..} finally {..}` block.
+    /// Exit event, it can still be caught by `try {..} finally {..}` block.
     #[error("Exit doesn't catch internally")]
     #[diagnostic(
         code(nu::shell::exit),
