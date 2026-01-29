@@ -3,6 +3,11 @@ use nu_parser::{flatten_block, parse};
 use nu_protocol::{engine::StateWorkingSet, record};
 use serde_json::{Value as JsonValue, json};
 
+// Constants for JSON field names to avoid magic strings
+const FIELD_START: &str = "start";
+const FIELD_END: &str = "end";
+const FIELD_SPAN_SOURCE: &str = "span_source";
+
 #[derive(Clone)]
 pub struct Ast;
 
@@ -137,15 +142,18 @@ impl Command for Ast {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        // Extract command arguments
         let pipeline: Spanned<String> = call.req(engine_state, stack, 0)?;
         let to_json = call.has_flag(engine_state, stack, "json")?;
         let minify = call.has_flag(engine_state, stack, "minify")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
+        // Parse the pipeline into an AST
         let mut working_set = StateWorkingSet::new(engine_state);
         let offset = working_set.next_span_start();
         let parsed_block = parse(&mut working_set, None, pipeline.item.as_bytes(), false);
 
+        // Handle flattened output (shows tokens with their shapes and spans)
         if flatten {
             let flat = flatten_block(&working_set, &parsed_block);
             if to_json {
@@ -211,21 +219,35 @@ impl Command for Ast {
             };
             if to_json {
                 // Get the block as json
-                let serde_block_str = if minify {
-                    serde_json::to_string(&*parsed_block)
-                } else {
-                    serde_json::to_string_pretty(&*parsed_block)
-                };
-                let block_json = match serde_block_str {
-                    Ok(json) => json,
-                    Err(e) => Err(ShellError::CantConvert {
+                let serde_block_str =
+                    serde_json::to_string(&*parsed_block).map_err(|e| ShellError::CantConvert {
                         to_type: "string".to_string(),
                         from_type: "block".to_string(),
                         span: *block_span,
                         help: Some(format!(
                             "Error: {e}\nCan't convert {parsed_block:?} to string"
                         )),
-                    })?,
+                    })?;
+                let json_val: serde_json::Value =
+                    serde_json::from_str(&serde_block_str).map_err(|e| {
+                        ShellError::CantConvert {
+                            to_type: "string".to_string(),
+                            from_type: "block".to_string(),
+                            span: *block_span,
+                            help: Some(format!(
+                                "Error: {e}\nCan't convert block JSON to serde_json: {e}"
+                            )),
+                        }
+                    })?;
+                let mut json_val = json_val;
+
+                // Embed source code for all spans in the JSON AST
+                embed_span_sources(&mut json_val, &working_set);
+
+                let block_json = if minify {
+                    json_val.to_string()
+                } else {
+                    serde_json::to_string_pretty(&json_val).unwrap_or_else(|_| json_val.to_string())
                 };
                 // Get the error as json
                 let serde_error_str = if minify {
@@ -275,7 +297,7 @@ impl Command for Ast {
                 let output_record = Value::record(
                     record! {
                         "block" => block_value,
-                        "error" => error_value
+                        "error" => error_value,
                     },
                     pipeline.span,
                 );
@@ -302,6 +324,74 @@ fn json_merge(a: &mut JsonValue, b: &JsonValue) {
             *a = b.clone();
         }
     }
+}
+
+/// Embeds source code for all spans found in the JSON AST representation.
+///
+/// This function recursively traverses the JSON value and adds a "span_source" field
+/// to any object that contains both "start" and "end" fields representing a span.
+/// The span source is extracted directly from the working set's source code.
+///
+/// # Arguments
+/// * `value` - The JSON value to process (modified in place)
+/// * `working_set` - The working set containing the source code for span extraction
+fn embed_span_sources(value: &mut serde_json::Value, working_set: &StateWorkingSet) {
+    match value {
+        serde_json::Value::Object(obj) => {
+            // Check if this object represents a span (has start and end fields)
+            if let Some(span) = extract_span_from_json(obj) {
+                // Extract the source code for this span
+                let contents = working_set.get_span_contents(span);
+                let source = String::from_utf8_lossy(contents).to_string();
+
+                // Add the source to the JSON object
+                obj.insert(
+                    FIELD_SPAN_SOURCE.to_string(),
+                    serde_json::Value::String(source),
+                );
+            } else {
+                // Recursively process all child values
+                for (_, v) in obj.iter_mut() {
+                    embed_span_sources(v, working_set);
+                }
+            }
+        }
+        serde_json::Value::Array(arr) => {
+            // Process each element in the array
+            for v in arr {
+                embed_span_sources(v, working_set);
+            }
+        }
+        _ => {
+            // Other JSON types (null, bool, number, string) don't contain spans
+        }
+    }
+}
+
+/// Extracts a Span from a JSON object if it contains valid start and end fields.
+///
+/// Returns Some(Span) if the object has valid start/end numbers, None otherwise.
+/// The span is only valid if start >= 0, end >= 0, and start < end.
+fn extract_span_from_json(obj: &serde_json::Map<String, serde_json::Value>) -> Option<Span> {
+    let start_value = obj.get(FIELD_START)?;
+    let end_value = obj.get(FIELD_END)?;
+
+    // Extract numbers from JSON values
+    let start_num = match start_value {
+        serde_json::Value::Number(n) => n.as_i64()?,
+        _ => return None,
+    };
+    let end_num = match end_value {
+        serde_json::Value::Number(n) => n.as_i64()?,
+        _ => return None,
+    };
+
+    // Validate span bounds
+    if start_num < 0 || end_num < 0 || start_num >= end_num {
+        return None;
+    }
+
+    Some(Span::new(start_num as usize, end_num as usize))
 }
 
 #[cfg(test)]
