@@ -1,3 +1,4 @@
+use super::fields;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     HistoryFileFormat,
@@ -6,12 +7,6 @@ use nu_protocol::{
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{FileBackedHistory, History as ReedlineHistory, SearchDirection, SearchQuery};
-
-#[cfg(feature = "sqlite")]
-#[allow(unused_imports)]
-use nu_command::SQLiteQueryBuilder;
-
-use super::fields;
 
 #[derive(Clone)]
 pub struct History;
@@ -158,9 +153,11 @@ impl Command for History {
             #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => {
                 // Return a lazy SQLiteQueryBuilder for the history table
-                use nu_command::SQLiteQueryBuilder;
-                let mut table =
-                    SQLiteQueryBuilder::new(history_path, "history".to_string(), signals);
+                let mut table = nu_command::SQLiteQueryBuilder::new(
+                    history_path,
+                    "history".to_string(),
+                    signals,
+                );
                 if long {
                     table = table.with_select("id as item_id, start_timestamp, command_line as command, session_id, hostname, cwd, duration_ms as duration, exit_status, rowid as idx".to_string());
                 } else {
