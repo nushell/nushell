@@ -53,7 +53,9 @@ enum KeyAction {
 /// - Help modal captures all keys to close
 /// - Global shortcuts (Ctrl+Q, F1, F2) work everywhere
 /// - Quick reference panel has its own navigation keys when focused
-/// - Regex input blocks newline insertion (single-line field)
+/// - Sample text pane has page scrolling (Page Up/Down)
+/// - Regex input blocks newlines and maps Page Up/Down to line navigation
+/// - Word navigation (Ctrl+Left/Right) works in both inputs via Emacs emulation
 /// - All other keys are passed to the editor for text input
 fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     // If help modal is shown, any key closes it
@@ -117,6 +119,33 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
                 if key.modifiers.contains(KeyModifiers::CONTROL) =>
             {
                 return KeyAction::None;
+            }
+            KeyCode::PageUp => {
+                // Map Page Up to Home for single-line navigation (beginning of line)
+                let home_key = event::KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
+                return KeyAction::PassToEditor(home_key);
+            }
+            KeyCode::PageDown => {
+                // Map Page Down to End for single-line navigation (end of line)
+                let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                return KeyAction::PassToEditor(end_key);
+            }
+            _ => {}
+        }
+    }
+
+    // Handle word navigation: map Ctrl+Left/Right to Emacs Alt+b/f
+    // This leverages edtui's built-in Emacs mode word navigation (Alt+b/f)
+    // since direct word navigation actions aren't available
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Left => {
+                let emacs_key = event::KeyEvent::new(KeyCode::Char('b'), KeyModifiers::ALT);
+                return KeyAction::PassToEditor(emacs_key);
+            }
+            KeyCode::Right => {
+                let emacs_key = event::KeyEvent::new(KeyCode::Char('f'), KeyModifiers::ALT);
+                return KeyAction::PassToEditor(emacs_key);
             }
             _ => {}
         }
@@ -182,20 +211,49 @@ fn execute_action(
 /// # Note
 /// Match count remains unchanged as it depends only on the regex pattern and full text,
 /// not on cursor position. We don't need to update it here.
+/// Handle page up/down navigation in the sample text pane.
+///
+/// Implements proper page-at-a-time scrolling by updating the scroll position
+/// directly and repositioning the cursor to maintain intuitive navigation behavior.
+/// This provides the expected user experience where Page Up/Down scroll through
+/// content rather than just moving the cursor minimally.
+///
+/// # Arguments
+/// * `app` - Mutable reference to the application state
+/// * `page_down` - `true` for Page Down (scroll forward), `false` for Page Up (scroll backward)
 fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
-    let page_height = app.sample_view_height.max(1) as usize;
-    let current_row = app.sample_text.cursor.row;
-    let max_row = app.sample_text.lines.len().saturating_sub(1);
+    let viewport_height = app.sample_view_height.max(1) as usize;
+    let total_lines = app.sample_text.lines.len();
+    let max_scroll = total_lines.saturating_sub(viewport_height);
 
-    // Calculate new cursor position, clamped to valid range
-    let target_row = if page_down {
-        current_row.saturating_add(page_height).min(max_row)
+    // Update vertical scroll position by one viewport height
+    let current_scroll = app.sample_scroll_v as usize;
+    let new_scroll = if page_down {
+        (current_scroll + viewport_height).min(max_scroll)
     } else {
-        current_row.saturating_sub(page_height)
+        current_scroll.saturating_sub(viewport_height)
     };
+    app.sample_scroll_v = new_scroll as u16;
 
-    app.sample_text.cursor.row = target_row;
-    // Column position is intentionally preserved for better navigation UX
+    // Reposition cursor to maintain good UX:
+    // - If cursor was within viewport, keep it at same relative position
+    // - If cursor was outside viewport, move it to viewport boundary
+    let cursor_row = app.sample_text.cursor.row;
+
+    if cursor_row < new_scroll {
+        // Cursor above viewport: move to top of viewport
+        app.sample_text.cursor.row = new_scroll;
+    } else if cursor_row >= new_scroll + viewport_height {
+        // Cursor below viewport: move to bottom of viewport
+        app.sample_text.cursor.row = new_scroll + viewport_height.saturating_sub(1);
+    }
+    // Cursor within viewport: keep current position
+
+    // Ensure cursor stays within text bounds
+    let max_cursor_row = total_lines.saturating_sub(1);
+    app.sample_text.cursor.row = app.sample_text.cursor.row.min(max_cursor_row);
+
+    // Preserve column position for consistent navigation experience
 }
 
 /// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
@@ -445,7 +503,7 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
     // Render using EditorView with theme (hide cursor, we'll use terminal cursor)
     let theme = EditorTheme::default()
         .block(block)
-        .base(Style::default().fg(FG_PRIMARY).bg(BG_DARK))
+        .base(Style::default()) // Use terminal default colors instead of hardcoded ones
         .hide_cursor() // Hide EditorView's block cursor
         .hide_status_line(); // Hide the "Insert" mode indicator
     EditorView::new(&mut app.regex_input)
