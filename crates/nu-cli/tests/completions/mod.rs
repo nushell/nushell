@@ -1,7 +1,7 @@
 pub mod support;
 
 use std::{
-    fs::{FileType, ReadDir, read_dir},
+    fs::{ReadDir, read_dir, metadata},
     path::{MAIN_SEPARATOR, PathBuf},
     sync::Arc,
 };
@@ -30,18 +30,25 @@ use support::{
 // *.nu files and subdirectories.
 pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
     let actual_dir_entries: Vec<_> = dir.filter_map(|c| c.ok()).collect();
-    let type_name_pairs: Vec<(FileType, String)> = actual_dir_entries
-        .into_iter()
-        .filter_map(|t| t.file_type().ok().zip(t.file_name().into_string().ok()))
-        .collect();
-    let mut simple_dir_entries: Vec<&str> = type_name_pairs
+    let mut simple_dir_entries: Vec<String> = actual_dir_entries
         .iter()
-        .filter_map(|(t, n)| {
-            if t.is_dir() || n.ends_with(".nu") {
-                Some(n.as_str())
-            } else {
-                None
+        .filter_map(|entry| {
+            let name = entry.file_name().into_string().ok()?;
+            if name.ends_with(".nu") {
+                return Some(name);
             }
+            let file_type = entry.file_type().ok()?;
+            if file_type.is_dir() {
+                return Some(name);
+            }
+            if file_type.is_symlink() {
+                if metadata(entry.path())
+                    .map(|m| m.is_dir())
+                    .unwrap_or(false) {
+                    return Some(name);
+                }
+            }
+            None
         })
         .collect();
     simple_dir_entries.sort();
@@ -351,7 +358,7 @@ fn custom_completions_override_display_value() {
     def comp [] { null }
     def my-command [arg: string@comp] {}"#,
     "my-command test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b")],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")],
     4
 )]
 /// Custom function arguments mixed with subcommands
@@ -359,7 +366,7 @@ fn custom_completions_override_display_value() {
     def foo [i: directory] {}
     def "foo test bar" [] {}"#,
     "foo test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo test bar".into()],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b"), "foo test bar".into()],
     8
 )]
 /// If argument type is something like int/string, complete only subcommands
@@ -383,7 +390,7 @@ fn custom_completions_override_display_value() {
     def foo [--test: directory] {}
     def "foo --test test" [] {}"#,
     "foo --test test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo --test test".into()],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b"), "foo --test test".into()],
     "foo --test test".len()
 )]
 // Directory only
@@ -952,7 +959,7 @@ fn external_completer_fallback() {
     let block = "{|spans| null}";
     let input = "foo test";
 
-    let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
+    let expected = [folder("test_a"), folder("test_a_symlink"), folder("test_b")];
     let suggestions = run_external_completion(block, input);
     match_suggestions_by_string(&expected, &suggestions);
 
@@ -1202,7 +1209,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1236,7 +1243,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1320,7 +1327,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1340,7 +1347,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1662,7 +1669,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1674,7 +1681,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1706,7 +1713,7 @@ fn command_open_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1718,7 +1725,7 @@ fn command_open_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1750,7 +1757,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1762,7 +1769,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1787,7 +1794,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1799,7 +1806,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1824,7 +1831,7 @@ fn command_save_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1836,7 +1843,7 @@ fn command_save_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1861,7 +1868,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1873,7 +1880,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1898,7 +1905,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1910,7 +1917,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -2090,7 +2097,7 @@ fn folder_with_directorycompletions() {
         folder(dir.join("another")),
         folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
     ];
@@ -2193,7 +2200,7 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
                 .join("...")
                 .join("test_a"),
         ),
-        file(
+        folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
                 .join("...")
@@ -2271,7 +2278,7 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
                 .join("..")
                 .join("test_a"),
         ),
-        file(
+        folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
                 .join("..")
@@ -2646,9 +2653,9 @@ fn alias_of_command_and_flags() {
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2665,9 +2672,9 @@ fn alias_of_basic_command() {
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2687,9 +2694,9 @@ fn alias_of_another_alias() {
 
     let suggestions = completer.complete("lf t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2747,7 +2754,7 @@ fn unknown_command_completion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -2759,7 +2766,7 @@ fn unknown_command_completion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -2783,7 +2790,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -2795,7 +2802,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
