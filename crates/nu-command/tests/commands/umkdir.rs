@@ -75,6 +75,20 @@ fn print_created_paths() {
 }
 
 #[test]
+fn mkdir_verbose_outputs_created_directory_paths() {
+    Playground::setup("mkdir_verbose_test", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), "mkdir -v test_dir | to text");
+
+        assert!(files_exist_at(&["test_dir"], dirs.test()));
+
+        // Verify the verbose output only contains created directory paths
+        assert!(!actual.out.contains("created directory"));
+        assert!(actual.out.contains("test_dir"));
+        assert!(actual.err.is_empty());
+    })
+}
+
+#[test]
 fn creates_directory_three_dots() {
     Playground::setup("mkdir_test_1", |dirs, _| {
         nu!(
