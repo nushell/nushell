@@ -14,6 +14,7 @@ pub(crate) fn compile_call(
     builder: &mut BlockBuilder,
     call: &Call,
     redirect_modes: RedirectModes,
+    input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     let decl = working_set.get_decl(call.decl_id);
@@ -31,10 +32,24 @@ pub(crate) fn compile_call(
     if decl.is_keyword() {
         match decl.name() {
             "if" => {
-                return compile_if(working_set, builder, call, redirect_modes, io_reg);
+                return compile_if(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "match" => {
-                return compile_match(working_set, builder, call, redirect_modes, io_reg);
+                return compile_match(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "const" | "export const" => {
                 // This differs from the behavior of the const command, which adds the const value
@@ -47,28 +62,84 @@ pub(crate) fn compile_call(
                 return builder.load_empty(io_reg);
             }
             "let" | "mut" => {
-                return compile_let(working_set, builder, call, redirect_modes, io_reg);
+                return compile_let(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "try" => {
-                return compile_try(working_set, builder, call, redirect_modes, io_reg);
+                return compile_try(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "loop" => {
-                return compile_loop(working_set, builder, call, redirect_modes, io_reg);
+                return compile_loop(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "while" => {
-                return compile_while(working_set, builder, call, redirect_modes, io_reg);
+                return compile_while(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "for" => {
-                return compile_for(working_set, builder, call, redirect_modes, io_reg);
+                return compile_for(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "break" => {
-                return compile_break(working_set, builder, call, redirect_modes, io_reg);
+                return compile_break(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "continue" => {
-                return compile_continue(working_set, builder, call, redirect_modes, io_reg);
+                return compile_continue(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "return" => {
-                return compile_return(working_set, builder, call, redirect_modes, io_reg);
+                return compile_return(
+                    working_set,
+                    builder,
+                    call,
+                    redirect_modes,
+                    input_reg,
+                    io_reg,
+                );
             }
             "def" | "export def" => {
                 return builder.load_empty(io_reg);
@@ -203,6 +274,17 @@ pub(crate) fn compile_call(
     }
 
     // The state is set up, so we can do the call into io_reg
+    if let Some(input_reg) = input_reg
+        && input_reg != io_reg
+    {
+        builder.push(
+            Instruction::Move {
+                dst: io_reg,
+                src: input_reg,
+            }
+            .into_spanned(call.head),
+        )?;
+    }
     builder.push(
         Instruction::Call {
             decl_id: call.decl_id,
@@ -250,6 +332,7 @@ pub(crate) fn compile_external_call(
     head: &Expression,
     args: &[ExternalArgument],
     redirect_modes: RedirectModes,
+    input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pass everything to run-external
@@ -273,7 +356,14 @@ pub(crate) fn compile_external_call(
         }
     }
 
-    compile_call(working_set, builder, &call, redirect_modes, io_reg)
+    compile_call(
+        working_set,
+        builder,
+        &call,
+        redirect_modes,
+        input_reg,
+        io_reg,
+    )
 }
 
 pub(crate) fn compile_unlet(

@@ -276,12 +276,24 @@ pub fn eval_expression_with_input<D: DebugContext>(
                 }
             }
             _ => {
+                let input_value = input.into_value(expr.span)?;
+                stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
                 input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
             }
         },
 
+        Expr::StringInterpolation(_) | Expr::GlobInterpolation(_, _) => {
+            let input_value = input.into_value(expr.span)?;
+            stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
+            let value = eval_expression::<D>(engine_state, stack, expr)?;
+            input = PipelineData::Value(value, None);
+        }
+
         _ => {
-            input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
+            let input_value = input.into_value(expr.span)?;
+            stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
+            let value = eval_expression::<D>(engine_state, stack, expr)?;
+            input = PipelineData::Value(value, None);
         }
     };
 

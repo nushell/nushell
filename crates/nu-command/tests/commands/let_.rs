@@ -135,3 +135,57 @@ fn let_malformed_type() {
     let actual = nu!("mut : , a");
     assert!(actual.err.contains("unknown type"));
 }
+
+#[test]
+fn let_returns_value_in_pipeline() {
+    let actual = nu!("10 | let x | $x + 5");
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn let_allows_in_variable() {
+    let actual = nu!("10 | let x | $in + 5");
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn let_returns_value_with_list() {
+    let actual = nu!("[2 3 4] | let nums | first");
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn let_returns_value_with_string() {
+    let actual = nu!(r#""hello" | let msg | str length"#);
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn let_at_end_no_output() {
+    let actual = nu!("let x = 10; $x");
+    assert_eq!(actual.out, "10");
+}
+
+#[test]
+fn let_at_beginning_no_output() {
+    let actual = nu!("let x = 5 | echo done");
+    assert!(
+        actual.err.contains("doesn't support") || actual.err.contains("invalid `let` keyword call")
+    );
+}
+
+#[test]
+#[ignore = "TODO: Need to detect at parse time that 'let x | echo done' is invalid"]
+fn let_var_at_beginning_error() {
+    let actual = nu!("let x | echo done");
+    assert!(
+        actual.err.contains("doesn't support") || actual.err.contains("invalid `let` keyword call")
+    );
+}
+
+#[test]
+fn let_pipeline_equivalence() {
+    let actual1 = nu!("[2 3 4] | let nums | first");
+    let actual2 = nu!("[2 3 4] | let nums; $nums | first");
+    assert_eq!(actual1.out, actual2.out);
+}
