@@ -60,9 +60,11 @@ impl CommandCompletion {
                         if external_commands.contains(&value) {
                             continue;
                         }
-
+                        // TODO: check name matching before a relative heavy IO involved
+                        // `is_executable` for performance consideration, should avoid
+                        // duplicated `match_aux` call for matched items in the future
                         if matcher.check_match(&name).is_some()
-                            && is_executable_command(item.path())
+                            && is_executable::is_executable(item.path())
                         {
                             external_commands.insert(value.clone());
                             matcher.add(
@@ -145,8 +147,4 @@ impl Completer for CommandCompletion {
 
         res
     }
-}
-
-fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
-    is_executable::is_executable(path.as_ref())
 }
