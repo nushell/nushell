@@ -63,7 +63,7 @@ produce a table, a list will produce a list, and a record will produce a record.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pick", "choose", "get"]
+        vec!["pick", "choose", "get", "retain"]
     }
 
     fn run(
