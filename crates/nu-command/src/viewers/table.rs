@@ -103,7 +103,12 @@ impl Command for Table {
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to ls tables", Some('o'),
+            .switch("icons", "adds icons to ls tables", Some('o'))
+            .named(
+                "column-widths",
+                SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                "set importance of columns, so more content will be preserved for them",
+                None
             )
             .category(Category::Viewers)
     }
@@ -208,6 +213,16 @@ impl Command for Table {
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
+            Example {
+                description: "Set second column priority higher then others",
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --column-widths [1]"#,
+                result: None,
+            },
+            Example {
+                description: "Set second column priority higher then others and control its maximum size",
+                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --column-widths [{column: 1, limit: 100}, {column: 3, limit: 30}]"#,
+                result: None,
+            },
         ]
     }
 }
@@ -221,9 +236,11 @@ struct TableConfig {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
+    column_widths: Vec<(usize, usize)>,
 }
 
 impl TableConfig {
+    #[allow(clippy::too_many_arguments)]
     fn new(
         view: TableView,
         width: usize,
@@ -232,6 +249,7 @@ impl TableConfig {
         index: Option<usize>,
         use_ansi_coloring: bool,
         icons: bool,
+        column_widths: Vec<(usize, usize)>,
     ) -> Self {
         Self {
             view,
@@ -241,6 +259,7 @@ impl TableConfig {
             index,
             use_ansi_coloring,
             icons,
+            column_widths,
         }
     }
 }
@@ -268,6 +287,7 @@ struct CLIArgs {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
+    column_widths: Option<Vec<Value>>,
 }
 
 fn parse_table_config(
@@ -278,6 +298,7 @@ fn parse_table_config(
     let args = get_cli_args(call, state, stack)?;
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
+    let column_widths = parse_column_widths(args.column_widths.unwrap_or_default(), call)?;
 
     let cfg = TableConfig::new(
         table_view,
@@ -287,6 +308,7 @@ fn parse_table_config(
         args.index,
         args.use_ansi_coloring,
         args.icons,
+        column_widths,
     );
 
     Ok(cfg)
@@ -319,6 +341,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         get_theme_flag(call, state, stack)?.unwrap_or_else(|| stack.get_config(state).table.mode);
     let index = get_index_flag(call, state, stack)?;
     let icons = call.has_flag(state, stack, "icons")?;
+    let column_widths = call.get_flag(state, stack, "column-widths")?;
 
     let use_ansi_coloring = stack.get_config(state).use_ansi_coloring.get(state);
 
@@ -334,7 +357,58 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
         index,
         use_ansi_coloring,
         icons,
+        column_widths,
     })
+}
+
+fn parse_column_widths(values: Vec<Value>, call: &Call<'_>) -> ShellResult<Vec<(usize, usize)>> {
+    let mut out = Vec::with_capacity(values.len());
+    for value in values {
+        let (column, limit) = match value {
+            Value::Int { val, .. } => (val as usize, 0),
+            Value::Record {
+                val, internal_span, ..
+            } => {
+                let column = match val.get("column") {
+                    Some(value) => value.as_int()? as usize,
+                    None => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: String::from("expected to get \"column\" value"),
+                            input: String::from("value originates from here"),
+                            msg_span: call.span(),
+                            input_span: internal_span,
+                        });
+                    }
+                };
+
+                let limit = match val.get("limit") {
+                    Some(value) => value.as_int()? as usize,
+                    None => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: String::from("expected to get \"limit\" value"),
+                            input: String::from("value originates from here"),
+                            msg_span: call.span(),
+                            input_span: internal_span,
+                        });
+                    }
+                };
+
+                (column, limit)
+            }
+            _ => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: String::from("got unexpected input"),
+                    input: String::from(""),
+                    msg_span: call.span(),
+                    input_span: value.span(),
+                });
+            }
+        };
+
+        out.push((column, limit));
+    }
+
+    Ok(out)
 }
 
 fn get_index_flag(
@@ -1240,8 +1314,11 @@ fn create_table_opts<'a>(
     let index = table_cfg.index.is_none();
     let width = table_cfg.width;
     let theme = table_cfg.theme;
+    let interest = table_cfg.column_widths.clone();
 
-    TableOpts::new(cfg, comp, signals, span, width, theme, offset, index)
+    TableOpts::new(
+        cfg, comp, signals, span, width, theme, offset, index, interest,
+    )
 }
 
 fn get_cwd(engine_state: &EngineState, stack: &mut Stack) -> ShellResult<Option<NuPathBuf>> {
