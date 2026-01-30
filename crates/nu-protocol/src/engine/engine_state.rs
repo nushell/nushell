@@ -135,6 +135,11 @@ pub struct EngineState {
     //
     // This ensures that running exit twice will terminate the program correctly
     pub exit_warning_given: Arc<AtomicBool>,
+
+    // When set, indicates that an exit has been requested from within a command pipeline.
+    // This allows the REPL to handle the exit properly (saving history, etc.) instead of
+    // exiting immediately via std::process::exit().
+    pub requested_exit_code: Arc<Mutex<Option<i32>>>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -217,7 +222,27 @@ impl EngineState {
             },
             root_job_sender: send,
             exit_warning_given: Arc::new(AtomicBool::new(false)),
+            requested_exit_code: Arc::new(Mutex::new(None)),
         }
+    }
+
+    /// Request an exit with the given exit code.
+    /// This is used when exit is called from within a command pipeline,
+    /// allowing the REPL to handle the exit properly (saving history, etc.).
+    pub fn request_exit(&self, code: i32) {
+        *self
+            .requested_exit_code
+            .lock()
+            .expect("exit code mutex poisoned") = Some(code);
+    }
+
+    /// Take the requested exit code, if any.
+    /// Returns Some(code) if exit was requested, None otherwise.
+    pub fn take_requested_exit(&self) -> Option<i32> {
+        self.requested_exit_code
+            .lock()
+            .expect("exit code mutex poisoned")
+            .take()
     }
 
     pub fn signals(&self) -> &Signals {

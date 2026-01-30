@@ -989,6 +989,13 @@ fn do_run_cmd(
         false,
     );
 
+    // Check if exit was requested from within the command pipeline.
+    // This happens when `exit` is part of a compound command like `"toto" ; exit`.
+    // By handling it here, we ensure the line_editor is properly dropped (saving history).
+    if let Some(exit_code) = engine_state.take_requested_exit() {
+        return cleanup_exit(line_editor, engine_state, exit_code);
+    }
+
     // if there was a warning before, and we got to this point, it means
     // the possible call to cleanup_exit did not occur.
     if had_warning_before && engine_state.is_interactive {
