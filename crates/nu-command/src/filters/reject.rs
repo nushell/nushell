@@ -41,8 +41,7 @@ impl Command for Reject {
     }
 
     fn extra_description(&self) -> &str {
-        "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`.\n\
-To keep/retain only specific columns, use `select`."
+        "To remove a quantity of rows or columns, use `skip`, `drop`, or `drop column`. To keep/retain only specific columns, use `select`."
     }
 
     fn search_terms(&self) -> Vec<&str> {
