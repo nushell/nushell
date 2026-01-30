@@ -64,7 +64,7 @@ impl CommandCompletion {
                         // `is_executable` for performance consideration, should avoid
                         // duplicated `match_aux` call for matched items in the future
                         if matcher.check_match(&name).is_some()
-                            && is_executable::is_executable(item.path())
+                            && Self::is_executable_command(item.path())
                         {
                             external_commands.insert(value.clone());
                             matcher.add(
@@ -89,6 +89,21 @@ impl CommandCompletion {
         }
 
         matcher.suggestion_results()
+    }
+
+    fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
+        let path = path.as_ref();
+        if is_executable::is_executable(path) {
+            return true;
+        }
+
+        if cfg!(windows)
+            && let Some(ext) = path.extension()
+        {
+            return ext.eq_ignore_ascii_case("ps1") && path.is_file();
+        }
+
+        false
     }
 }
 
