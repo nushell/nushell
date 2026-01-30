@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_protocol::{DeprecationEntry, engine::Closure};
 
 #[derive(Clone)]
 pub struct Each;
@@ -67,6 +67,22 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             .category(Category::Filters)
     }
 
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: nu_protocol::DeprecationType::Flag("keep-empty".into()),
+            report_mode: nu_protocol::ReportMode::FirstUse,
+            since: Some("0.108.0".into()),
+            expected_removal: Some("0.109.0".into()),
+            help: Some(
+                "\
+                    This flag is a no-op, `null` values are now always kept.\n\
+                    To filter out `null` values, you can use the `compact` command.\
+                "
+                .into(),
+            ),
+        }]
+    }
+
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
@@ -88,25 +104,13 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 ])),
             },
             Example {
-                example: r#"[1 2 3 2] | each {|e| if $e == 2 { "two" } }"#,
-                description: "'null' items will be dropped from the result list. It has the same effect as 'filter_map' in other languages.",
-                result: Some(Value::test_list(vec![
-                    Value::test_string("two"),
-                    Value::test_string("two"),
-                ])),
-            },
-            Example {
-                example: r#"[1 2 3] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
+                example: r#"[1 2 3 2] | enumerate | each {|e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
                 description: "Iterate over each element, producing a list showing indexes of any 2s",
-                result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
-            },
-            Example {
-                example: r#"[1 2 3] | each --keep-empty {|e| if $e == 2 { "found 2!"} }"#,
-                description: "Iterate over each element, keeping null results",
                 result: Some(Value::test_list(vec![
-                    Value::nothing(Span::test_data()),
-                    Value::test_string("found 2!"),
-                    Value::nothing(Span::test_data()),
+                    Value::test_nothing(),
+                    Value::test_string("found 2 at 1!"),
+                    Value::test_nothing(),
+                    Value::test_string("found 2 at 3!"),
                 ])),
             },
             Example {
@@ -136,7 +140,6 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
-        let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
         let metadata = input.metadata();
@@ -227,12 +230,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             }
         };
 
-        if keep_empty {
-            result
-        } else {
-            result.and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
-        }
-        .map(|data| data.set_metadata(metadata))
+        result.map(|data| data.set_metadata(metadata))
     }
 }
 
