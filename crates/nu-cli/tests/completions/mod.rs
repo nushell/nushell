@@ -597,6 +597,14 @@ fn external_commands() {
     #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
+
+    #[cfg(windows)]
+    {
+        let completion_str = "scri";
+        let suggestions = completer.complete(completion_str, completion_str.len());
+        let expected: Vec<_> = vec!["script.ps1"];
+        match_suggestions(&expected, &suggestions);
+    }
 }
 
 /// Disable external commands except for those start with `^`
