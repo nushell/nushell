@@ -877,6 +877,13 @@ impl<'a> SelectWidget<'a> {
         self.config.prompt_marker_text.width()
     }
 
+    /// Position terminal cursor within the fuzzy filter text
+    fn position_fuzzy_cursor(&self, stderr: &mut Stderr) -> io::Result<()> {
+        let text_before_cursor = &self.filter_text[..self.filter_cursor];
+        let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
+        execute!(stderr, MoveToColumn(cursor_col as u16))
+    }
+
     /// Get the styled selection marker string (for active items)
     fn selected_marker(&self) -> &str {
         &self.selected_marker_cached
@@ -1171,6 +1178,23 @@ impl<'a> SelectWidget<'a> {
         } else {
             self.visible_columns_cache = Some((0, false));
         }
+    }
+
+    /// Header lines for fuzzy modes (prompt + filter + separator + table header)
+    fn fuzzy_header_lines(&self) -> u16 {
+        let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
+        if self.config.show_separator {
+            header_lines += 1;
+        }
+        if self.is_table_mode() {
+            header_lines += 2;
+        }
+        header_lines
+    }
+
+    /// Filter line row index for fuzzy modes
+    fn fuzzy_filter_row(&self) -> u16 {
+        if self.prompt.is_some() { 1 } else { 0 }
     }
 
     /// Update terminal dimensions and recalculate visible height
@@ -2350,6 +2374,7 @@ impl<'a> SelectWidget<'a> {
             && self.scroll_offset == self.prev_scroll_offset
             && self.cursor != self.prev_cursor
             && self.toggled_item.is_none() // FuzzyMulti: no item was toggled
+            && !self.toggled_all // FuzzyMulti: Alt+A toggled all items
     }
 
     /// Check if we can do a toggle-only update in multi mode
@@ -2390,6 +2415,19 @@ impl<'a> SelectWidget<'a> {
         } else {
             false
         }
+    }
+
+    /// Check if we can do a toggle-all update in fuzzy multi mode
+    /// (toggled all filtered items with Alt+A)
+    fn can_do_fuzzy_multi_toggle_all_update(&self) -> bool {
+        !self.first_render
+            && !self.width_changed
+            && self.mode == SelectMode::FuzzyMulti
+            && self.toggled_all
+            && !self.filter_text_changed
+            && !self.results_changed
+            && self.scroll_offset == self.prev_scroll_offset
+            && !self.horizontal_scroll_changed
     }
 
     /// Check if we can do a toggle-all update in multi mode
@@ -2488,13 +2526,7 @@ impl<'a> SelectWidget<'a> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
         // Calculate header lines (prompt + filter + separator + table header + table header separator)
-        let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
-        if self.config.show_separator {
-            header_lines += 1;
-        }
-        if self.is_table_mode() {
-            header_lines += 2; // table header + header separator line
-        }
+        let header_lines = self.fuzzy_header_lines();
 
         // Display rows are 0-indexed within the visible items area
         let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
@@ -2510,7 +2542,7 @@ impl<'a> SelectWidget<'a> {
         let curr_item_row = header_lines + curr_display_row;
 
         // We're at the filter line, which is row 1 if prompt exists, row 0 otherwise
-        let filter_row: u16 = if self.prompt.is_some() { 1 } else { 0 };
+        let filter_row = self.fuzzy_filter_row();
 
         // Clear old cursor: move from filter line to prev item row
         let down_to_prev = prev_item_row.saturating_sub(filter_row);
@@ -2539,9 +2571,7 @@ impl<'a> SelectWidget<'a> {
         execute!(stderr, MoveUp(up_to_filter))?;
 
         // Position cursor within filter text
-        let text_before_cursor = &self.filter_text[..self.filter_cursor];
-        let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
-        execute!(stderr, MoveToColumn(cursor_col as u16))?;
+        self.position_fuzzy_cursor(stderr)?;
 
         // Update state
         self.prev_cursor = self.cursor;
@@ -2556,13 +2586,7 @@ impl<'a> SelectWidget<'a> {
         execute!(stderr, BeginSynchronizedUpdate)?;
 
         // Calculate header lines (prompt + filter + separator + table header)
-        let mut header_lines: u16 = if self.prompt.is_some() { 2 } else { 1 };
-        if self.config.show_separator {
-            header_lines += 1;
-        }
-        if self.is_table_mode() {
-            header_lines += 2;
-        }
+        let header_lines = self.fuzzy_header_lines();
 
         let toggled_display_row = (toggled - self.scroll_offset) as u16;
         let cursor_display_row = (self.cursor - self.scroll_offset) as u16;
@@ -2571,7 +2595,7 @@ impl<'a> SelectWidget<'a> {
         let cursor_item_row = header_lines + cursor_display_row;
 
         // We're at the filter line
-        let filter_row: u16 = if self.prompt.is_some() { 1 } else { 0 };
+        let filter_row = self.fuzzy_filter_row();
 
         // Move to toggled row and redraw it (checkbox changed, marker removed)
         let down_to_toggled = toggled_item_row.saturating_sub(filter_row);
@@ -2635,9 +2659,7 @@ impl<'a> SelectWidget<'a> {
         }
 
         // Position cursor within filter text
-        let text_before_cursor = &self.filter_text[..self.filter_cursor];
-        let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
-        execute!(stderr, MoveToColumn(cursor_col as u16))?;
+        self.position_fuzzy_cursor(stderr)?;
 
         // Update state
         self.prev_cursor = self.cursor;
@@ -2749,7 +2771,72 @@ impl<'a> SelectWidget<'a> {
         stderr.flush()
     }
 
+    /// FuzzyMulti mode: update all visible rows (toggle all with Alt+A)
+    fn render_fuzzy_multi_toggle_all_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+        execute!(stderr, BeginSynchronizedUpdate)?;
+
+        // Calculate header lines (prompt + filter + separator + table header)
+        let header_lines = self.fuzzy_header_lines();
+
+        let total_count = self.current_list_len();
+        let end = (self.scroll_offset + self.visible_height as usize).min(total_count);
+        let visible_count = end.saturating_sub(self.scroll_offset);
+
+        // We're at the filter line
+        let filter_row = self.fuzzy_filter_row();
+
+        // Move to first item row
+        let down_to_first = header_lines.saturating_sub(filter_row);
+        execute!(stderr, MoveDown(down_to_first), MoveToColumn(0))?;
+
+        for (i, idx) in (self.scroll_offset..end).enumerate() {
+            let real_idx = self.filtered_indices[idx];
+            let item = &self.items[real_idx];
+            let checked = self.selected.contains(&real_idx);
+            let active = idx == self.cursor;
+
+            if self.is_table_mode() {
+                self.render_table_row_fuzzy_multi(stderr, item, checked, active)?;
+            } else {
+                self.render_fuzzy_multi_item_inline(stderr, &item.name, checked, active)?;
+            }
+
+            if i + 1 < visible_count {
+                execute!(stderr, MoveDown(1), MoveToColumn(0))?;
+            }
+        }
+
+        // Move to footer (if present) and update it
+        if self.has_footer() {
+            let footer_row = header_lines + visible_count as u16;
+            let last_item_row = header_lines + visible_count.saturating_sub(1) as u16;
+            let down_to_footer = footer_row.saturating_sub(last_item_row);
+            execute!(stderr, MoveDown(down_to_footer))?;
+            self.render_footer_inline(stderr)?;
+            let up_to_filter = footer_row.saturating_sub(filter_row);
+            execute!(stderr, MoveUp(up_to_filter))?;
+        } else {
+            let up_to_filter = (header_lines + visible_count.saturating_sub(1) as u16)
+                .saturating_sub(filter_row);
+            execute!(stderr, MoveUp(up_to_filter))?;
+        }
+
+        // Position cursor within filter text
+        self.position_fuzzy_cursor(stderr)?;
+
+        // Reset toggle tracking
+        self.toggled_all = false;
+
+        execute!(stderr, EndSynchronizedUpdate)?;
+        stderr.flush()
+    }
+
     fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+        // Check for fuzzy multi mode toggle-all optimization
+        if self.can_do_fuzzy_multi_toggle_all_update() {
+            return self.render_fuzzy_multi_toggle_all_update(stderr);
+        }
+
         // Check for multi mode toggle-all optimization
         if self.can_do_multi_toggle_all_update() {
             return self.render_multi_toggle_all(stderr);
@@ -2784,6 +2871,7 @@ impl<'a> SelectWidget<'a> {
             && !self.filter_text_changed
             && !self.horizontal_scroll_changed
             && !self.settings_changed
+            && !self.toggled_all
         {
             return Ok(());
         }
@@ -3014,15 +3102,13 @@ impl<'a> SelectWidget<'a> {
         // In fuzzy modes, position cursor within filter text
         if self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti {
             // Cursor is on last content line, move up to filter line
-            let prompt_lines = if self.prompt.is_some() { 1usize } else { 0 };
-            self.fuzzy_cursor_offset = lines_rendered.saturating_sub(prompt_lines + 1);
+            let filter_row = self.fuzzy_filter_row() as usize;
+            self.fuzzy_cursor_offset = lines_rendered.saturating_sub(filter_row + 1);
             if self.fuzzy_cursor_offset > 0 {
                 execute!(stderr, MoveUp(self.fuzzy_cursor_offset as u16))?;
             }
             // Position cursor after prompt marker + text up to filter_cursor
-            let text_before_cursor = &self.filter_text[..self.filter_cursor];
-            let cursor_col = self.prompt_marker_width() + text_before_cursor.width();
-            execute!(stderr, MoveToColumn(cursor_col as u16))?;
+            self.position_fuzzy_cursor(stderr)?;
         }
 
         execute!(stderr, EndSynchronizedUpdate)?;
