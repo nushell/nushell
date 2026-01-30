@@ -53,7 +53,7 @@ impl Command for Select {
     }
 
     fn description(&self) -> &str {
-        "Select (retain) only these columns or rows from the input. Opposite of `reject`."
+        "Select only these columns or rows from the input. Opposite of `reject`."
     }
 
     fn extra_description(&self) -> &str {
