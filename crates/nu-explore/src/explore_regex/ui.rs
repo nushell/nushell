@@ -183,20 +183,22 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
 /// Check if the cursor is at the boundary of the last word in the text.
 /// Used to fix Ctrl+Right navigation to move past the last character instead of stopping before it.
 fn is_at_last_word_boundary(text: &str, cursor_pos: usize) -> bool {
-    if cursor_pos >= text.len() {
-        return false; // Already at end
+    let remaining = &text[cursor_pos..];
+
+    let cursor_char = remaining.chars().next();
+    let start_alphanumeric = cursor_char.is_some_and(|c| c.is_alphanumeric());
+    let start_punctuation = cursor_char.is_some_and(|c| c.is_ascii_punctuation());
+
+    // Find the next char that is not of the same type (alphanumeric or punctuation)
+    for (index, next_char) in remaining.char_indices() {
+        if start_alphanumeric && !next_char.is_alphanumeric() || start_punctuation && !next_char.is_ascii_punctuation() {
+            // If there is still some non-whitespace remaining, we didn't reach the end of the line
+            return remaining[index..].chars().all(|c| c.is_whitespace());
+        }
     }
 
-    // Find the next word boundary after cursor
-    let remaining = &text[cursor_pos..];
-    let next_word_start = remaining
-        .char_indices()
-        .find(|(_, c)| c.is_alphanumeric())
-        .map(|(i, _)| i)
-        .unwrap_or(remaining.len());
-
-    // If there's no more alphanumeric characters after cursor, we're at the last word
-    next_word_start == remaining.len()
+    // All remaining characters are of the same type
+    true
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
