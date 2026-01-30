@@ -53,7 +53,7 @@ impl Command for Select {
     }
 
     fn description(&self) -> &str {
-        "Select only these columns or rows from the input. Opposite of `reject`."
+        "Select (retain) only these columns or rows from the input. Opposite of `reject`."
     }
 
     fn extra_description(&self) -> &str {
@@ -63,7 +63,7 @@ produce a table, a list will produce a list, and a record will produce a record.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pick", "choose", "get"]
+        vec!["pick", "choose", "get", "retain"]
     }
 
     fn run(
