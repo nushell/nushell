@@ -718,3 +718,45 @@ fn mv_with_tilde() {
         assert!(files_exist_at(&["f1.txt"], dirs.test()));
     })
 }
+
+#[test]
+fn mv_verbose_shows_renamed_message() {
+    Playground::setup("umv_verbose_test", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("test.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let out = (mv -v test.txt renamed.txt); $\"($out | get 0 | get source) -> ($out | get 0 | get destination)\""
+        );
+
+        // Verify the verbose output contains the expected fields
+        assert!(actual.out.contains("test.txt"));
+        assert!(actual.out.contains("renamed.txt"));
+        assert!(actual.err.is_empty());
+
+        // Verify the file was actually moved
+        assert!(!dirs.test().join("test.txt").exists());
+        assert!(dirs.test().join("renamed.txt").exists());
+    })
+}
+
+#[test]
+fn mv_verbose_to_directory_shows_correct_destination() {
+    Playground::setup("umv_verbose_dir_test", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("file.txt")]).mkdir("target");
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "let out = (mv -v file.txt target/); $\"($out | get 0 | get source) -> ($out | get 0 | get destination)\""
+        );
+
+        // Verify the verbose output shows the correct destination path
+        assert!(actual.out.contains("file.txt"));
+        assert!(actual.out.contains("target"));
+        assert!(actual.err.is_empty());
+
+        // Verify the file was actually moved
+        assert!(!dirs.test().join("file.txt").exists());
+        assert!(dirs.test().join("target/file.txt").exists());
+    })
+}

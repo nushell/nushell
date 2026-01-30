@@ -1,9 +1,9 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
+use uucore::localized_help_template;
 #[cfg(not(windows))]
 use uucore::mode;
-use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
 pub struct UMkdir;
@@ -79,39 +79,31 @@ impl Command for UMkdir {
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
             mode: get_mode(),
-            verbose: is_verbose,
+            // We handle verbose output ourselves to avoid duplicate output
+            verbose: false,
             set_selinux_context: false,
             context: None,
         };
 
-        let mut verbose_out = String::new();
+        let mut verbose_out = Vec::new();
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
                 return Err(ShellError::GenericError {
                     error: format!("{error}"),
-                    msg: translate!(&error.to_string()),
+                    msg: error.to_string(),
                     span: None,
                     help: None,
                     inner: vec![],
                 });
             }
             if is_verbose {
-                verbose_out.push_str(
-                    format!(
-                        "{} ",
-                        &dir.as_path()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                    )
-                    .as_str(),
-                );
+                verbose_out.push(Value::string(dir.display().to_string(), call.head));
             }
         }
 
         if is_verbose {
-            Ok(PipelineData::value(
-                Value::string(verbose_out.trim(), call.head),
+            Ok(PipelineData::Value(
+                Value::list(verbose_out, call.head),
                 None,
             ))
         } else {
