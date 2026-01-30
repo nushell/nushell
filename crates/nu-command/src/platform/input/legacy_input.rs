@@ -49,6 +49,7 @@ pub trait LegacyInput {
         }
 
         let mut buf = String::new();
+        let mut cursor_pos: usize = 0;
 
         crossterm::terminal::enable_raw_mode().map_err(&from_io_error)?;
         // clear terminal events
@@ -58,19 +59,16 @@ pub trait LegacyInput {
         }
 
         loop {
-            if i64::try_from(buf.len()).unwrap_or(0) >= numchar.item {
+            if i64::try_from(buf.chars().count()).unwrap_or(0) >= numchar.item {
                 break;
             }
             match crossterm::event::read() {
                 Ok(Event::Key(k)) => match k.kind {
                     KeyEventKind::Press | KeyEventKind::Repeat => {
                         match k.code {
-                            // TODO: maintain keycode parity with existing command
-                            KeyCode::Char(c) => {
-                                if k.modifiers == KeyModifiers::ALT
-                                    || k.modifiers == KeyModifiers::CONTROL
-                                {
-                                    if k.modifiers == KeyModifiers::CONTROL && c == 'c' {
+                            KeyCode::Char(c) if k.modifiers == KeyModifiers::CONTROL => {
+                                match c {
+                                    'c' => {
                                         crossterm::terminal::disable_raw_mode()
                                             .map_err(&from_io_error)?;
                                         return Err(IoError::new(
@@ -82,6 +80,69 @@ pub trait LegacyInput {
                                         )
                                         .into());
                                     }
+                                    // Emacs keybindings
+                                    'a' => cursor_pos = 0,
+                                    'e' => cursor_pos = buf.chars().count(),
+                                    'b' => {
+                                        cursor_pos = cursor_pos.saturating_sub(1);
+                                    }
+                                    'f' => {
+                                        if cursor_pos < buf.chars().count() {
+                                            cursor_pos += 1;
+                                        }
+                                    }
+                                    'j' => break, // Same as Enter
+                                    'u' => {
+                                        // Kill line before cursor
+                                        let byte_pos = buf
+                                            .char_indices()
+                                            .nth(cursor_pos)
+                                            .map(|(i, _)| i)
+                                            .unwrap_or(buf.len());
+                                        buf = buf[byte_pos..].to_string();
+                                        cursor_pos = 0;
+                                    }
+                                    'k' => {
+                                        // Kill line after cursor
+                                        let byte_pos = buf
+                                            .char_indices()
+                                            .nth(cursor_pos)
+                                            .map(|(i, _)| i)
+                                            .unwrap_or(buf.len());
+                                        buf.truncate(byte_pos);
+                                    }
+                                    'd' => {
+                                        // Delete character at cursor
+                                        if cursor_pos < buf.chars().count() {
+                                            let byte_pos = buf
+                                                .char_indices()
+                                                .nth(cursor_pos)
+                                                .map(|(i, _)| i)
+                                                .unwrap_or(buf.len());
+                                            if byte_pos < buf.len() {
+                                                buf.remove(byte_pos);
+                                            }
+                                        }
+                                    }
+                                    'h' => {
+                                        // Backward delete (same as Backspace)
+                                        if cursor_pos > 0 {
+                                            cursor_pos -= 1;
+                                            let byte_pos = buf
+                                                .char_indices()
+                                                .nth(cursor_pos)
+                                                .map(|(i, _)| i)
+                                                .unwrap_or(buf.len());
+                                            if byte_pos < buf.len() {
+                                                buf.remove(byte_pos);
+                                            }
+                                        }
+                                    }
+                                    _ => continue,
+                                }
+                            }
+                            KeyCode::Char(c) => {
+                                if k.modifiers == KeyModifiers::ALT {
                                     continue;
                                 }
 
@@ -90,11 +151,49 @@ pub trait LegacyInput {
                                 {
                                     break;
                                 }
-                                buf.push(c);
+                                let byte_pos = buf
+                                    .char_indices()
+                                    .nth(cursor_pos)
+                                    .map(|(i, _)| i)
+                                    .unwrap_or(buf.len());
+                                buf.insert(byte_pos, c);
+                                cursor_pos += 1;
                             }
                             KeyCode::Backspace => {
-                                let _ = buf.pop();
+                                if cursor_pos > 0 {
+                                    cursor_pos -= 1;
+                                    let byte_pos = buf
+                                        .char_indices()
+                                        .nth(cursor_pos)
+                                        .map(|(i, _)| i)
+                                        .unwrap_or(buf.len());
+                                    if byte_pos < buf.len() {
+                                        buf.remove(byte_pos);
+                                    }
+                                }
                             }
+                            KeyCode::Delete => {
+                                if cursor_pos < buf.chars().count() {
+                                    let byte_pos = buf
+                                        .char_indices()
+                                        .nth(cursor_pos)
+                                        .map(|(i, _)| i)
+                                        .unwrap_or(buf.len());
+                                    if byte_pos < buf.len() {
+                                        buf.remove(byte_pos);
+                                    }
+                                }
+                            }
+                            KeyCode::Left => {
+                                cursor_pos = cursor_pos.saturating_sub(1);
+                            }
+                            KeyCode::Right => {
+                                if cursor_pos < buf.chars().count() {
+                                    cursor_pos += 1;
+                                }
+                            }
+                            KeyCode::Home => cursor_pos = 0,
+                            KeyCode::End => cursor_pos = buf.chars().count(),
                             KeyCode::Enter => {
                                 break;
                             }
@@ -122,6 +221,14 @@ pub trait LegacyInput {
                         .map_err(&from_io_error)?;
                 }
                 execute!(std::io::stdout(), Print(buf.to_string())).map_err(&from_io_error)?;
+                // Position cursor correctly
+                let prompt_len = prompt.as_ref().map(|p| p.chars().count()).unwrap_or(0);
+                let cursor_col = prompt_len + cursor_pos;
+                execute!(
+                    std::io::stdout(),
+                    cursor::MoveToColumn(cursor_col as u16),
+                )
+                .map_err(&from_io_error)?;
             }
         }
         crossterm::terminal::disable_raw_mode().map_err(&from_io_error)?;
