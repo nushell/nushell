@@ -4,16 +4,16 @@ use crossterm::{
     execute,
     style::Print,
     terminal::{
-        self, disable_raw_mode, enable_raw_mode, BeginSynchronizedUpdate, Clear, ClearType,
-        EndSynchronizedUpdate,
+        self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, disable_raw_mode,
+        enable_raw_mode,
     },
 };
-use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
-use nu_ansi_term::{ansi::RESET, Style};
-use nu_color_config::{get_color_map, Alignment, StyleComputer, TextStyle};
-use nu_engine::{command_prelude::*, get_columns, ClosureEval};
+use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
+use nu_ansi_term::{Style, ansi::RESET};
+use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
+use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
-use nu_protocol::{shell_error::io::IoError, TableMode};
+use nu_protocol::{TableMode, shell_error::io::IoError};
 use nu_table::common::nu_value_to_string;
 use std::{
     collections::HashSet,
@@ -1195,11 +1195,7 @@ impl<'a> SelectWidget<'a> {
 
     /// Filter line row index for fuzzy modes
     fn fuzzy_filter_row(&self) -> u16 {
-        if self.prompt.is_some() {
-            1
-        } else {
-            0
-        }
+        if self.prompt.is_some() { 1 } else { 0 }
     }
 
     /// Update terminal dimensions and recalculate visible height
