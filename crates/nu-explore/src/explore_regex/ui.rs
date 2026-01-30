@@ -53,7 +53,9 @@ enum KeyAction {
 /// - Help modal captures all keys to close
 /// - Global shortcuts (Ctrl+Q, F1, F2) work everywhere
 /// - Quick reference panel has its own navigation keys when focused
-/// - Regex input blocks newline insertion (single-line field)
+/// - Sample text pane has page scrolling (Page Up/Down)
+/// - Regex input blocks newlines and maps Page Up/Down to line navigation
+/// - Word navigation (Ctrl+Left/Right) works in both inputs via Emacs emulation
 /// - All other keys are passed to the editor for text input
 fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     // If help modal is shown, any key closes it
@@ -118,6 +120,56 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
             {
                 return KeyAction::None;
             }
+            KeyCode::PageUp => {
+                // Map Page Up to Home for single-line navigation (beginning of line)
+                let home_key = event::KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
+                return KeyAction::PassToEditor(home_key);
+            }
+            KeyCode::PageDown => {
+                // Map Page Down to End for single-line navigation (end of line)
+                let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                return KeyAction::PassToEditor(end_key);
+            }
+            _ => {}
+        }
+    }
+
+    // Handle word navigation: map Ctrl+Left/Right to Emacs Alt+b/f
+    // This leverages edtui's built-in Emacs mode word navigation (Alt+b/f)
+    // since direct word navigation actions aren't available
+    if key.modifiers.contains(KeyModifiers::CONTROL) {
+        match key.code {
+            KeyCode::Left => {
+                let emacs_key = event::KeyEvent::new(KeyCode::Char('b'), KeyModifiers::ALT);
+                return KeyAction::PassToEditor(emacs_key);
+            }
+            KeyCode::Right => {
+                // Special handling for Ctrl+Right on the last word to ensure
+                // cursor lands after the last character, not before it
+                if app.input_focus == InputFocus::Regex {
+                    let text = app.regex_input.lines.to_string();
+                    let cursor_pos = app.regex_input.cursor.col;
+                    if is_at_or_past_last_word_boundary(&text, cursor_pos) {
+                        // Move cursor to end of text
+                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                        return KeyAction::PassToEditor(end_key);
+                    }
+                } else if app.input_focus == InputFocus::Sample {
+                    let text = app.sample_text.lines.to_string();
+                    let cursor_row = app.sample_text.cursor.row;
+                    let cursor_col = app.sample_text.cursor.col;
+                    let lines: Vec<&str> = text.lines().collect();
+                    if cursor_row < lines.len()
+                        && is_at_or_past_last_word_boundary(lines[cursor_row], cursor_col)
+                    {
+                        // Move cursor to end of current line
+                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
+                        return KeyAction::PassToEditor(end_key);
+                    }
+                }
+                let emacs_key = event::KeyEvent::new(KeyCode::Char('f'), KeyModifiers::ALT);
+                return KeyAction::PassToEditor(emacs_key);
+            }
             _ => {}
         }
     }
@@ -126,7 +178,37 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
     KeyAction::PassToEditor(*key)
 }
 
-/// Execute a key action, modifying application state as needed.
+// ─── Helper Functions ─────────────────────────────────────────────────────
+
+/// Check if the cursor is at the boundary of the last word in the text.
+/// Used to fix Ctrl+Right navigation to move past the last character instead of stopping before it.
+fn is_at_or_past_last_word_boundary(text: &str, cursor_pos: usize) -> bool {
+    let mut chars = text.chars();
+    // advance the iterator so that the next char would be at position `cursor_pos`
+    if cursor_pos > 0 {
+        chars.nth(cursor_pos - 1);
+    }
+    let remaining = chars.as_str();
+    let cursor_char = remaining.chars().next();
+    let start_alphanumeric = cursor_char.is_some_and(|c| c.is_ascii_alphanumeric());
+    let start_punctuation = cursor_char.is_some_and(|c| c.is_ascii_punctuation());
+    // Find the next char that is not of the same type
+    for (index, next_char) in remaining.char_indices().skip(1) {
+        let next_alphanumeric = next_char.is_ascii_alphanumeric();
+        let next_punctuation = next_char.is_ascii_punctuation();
+        if next_alphanumeric && !start_alphanumeric
+            || next_punctuation && !start_punctuation
+            || !next_alphanumeric && !next_punctuation
+        {
+            // If there is still some non-whitespace remaining, we didn't reach the end of the line
+            return remaining.chars().skip(index).all(|c| c.is_whitespace());
+        }
+    }
+    // All remaining characters are of the same type
+    true
+}
+
+// ─── Main Loop ───────────────────────────────────────────────────────────────
 ///
 /// Returns `true` if the application should quit, `false` otherwise.
 fn execute_action(
@@ -182,20 +264,49 @@ fn execute_action(
 /// # Note
 /// Match count remains unchanged as it depends only on the regex pattern and full text,
 /// not on cursor position. We don't need to update it here.
+/// Handle page up/down navigation in the sample text pane.
+///
+/// Implements proper page-at-a-time scrolling by updating the scroll position
+/// directly and repositioning the cursor to maintain intuitive navigation behavior.
+/// This provides the expected user experience where Page Up/Down scroll through
+/// content rather than just moving the cursor minimally.
+///
+/// # Arguments
+/// * `app` - Mutable reference to the application state
+/// * `page_down` - `true` for Page Down (scroll forward), `false` for Page Up (scroll backward)
 fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
-    let page_height = app.sample_view_height.max(1) as usize;
-    let current_row = app.sample_text.cursor.row;
-    let max_row = app.sample_text.lines.len().saturating_sub(1);
+    let viewport_height = app.sample_view_height.max(1) as usize;
+    let total_lines = app.sample_text.lines.len();
+    let max_scroll = total_lines.saturating_sub(viewport_height);
 
-    // Calculate new cursor position, clamped to valid range
-    let target_row = if page_down {
-        current_row.saturating_add(page_height).min(max_row)
+    // Update vertical scroll position by one viewport height
+    let current_scroll = app.sample_scroll_v as usize;
+    let new_scroll = if page_down {
+        (current_scroll + viewport_height).min(max_scroll)
     } else {
-        current_row.saturating_sub(page_height)
+        current_scroll.saturating_sub(viewport_height)
     };
+    app.sample_scroll_v = new_scroll as u16;
 
-    app.sample_text.cursor.row = target_row;
-    // Column position is intentionally preserved for better navigation UX
+    // Reposition cursor to maintain good UX:
+    // - If cursor was within viewport, keep it at same relative position
+    // - If cursor was outside viewport, move it to viewport boundary
+    let cursor_row = app.sample_text.cursor.row;
+
+    if cursor_row < new_scroll {
+        // Cursor above viewport: move to top of viewport
+        app.sample_text.cursor.row = new_scroll;
+    } else if cursor_row >= new_scroll + viewport_height {
+        // Cursor below viewport: move to bottom of viewport
+        app.sample_text.cursor.row = new_scroll + viewport_height.saturating_sub(1);
+    }
+    // Cursor within viewport: keep current position
+
+    // Ensure cursor stays within text bounds
+    let max_cursor_row = total_lines.saturating_sub(1);
+    app.sample_text.cursor.row = app.sample_text.cursor.row.min(max_cursor_row);
+
+    // Preserve column position for consistent navigation experience
 }
 
 /// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
@@ -445,7 +556,7 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
     // Render using EditorView with theme (hide cursor, we'll use terminal cursor)
     let theme = EditorTheme::default()
         .block(block)
-        .base(Style::default().fg(FG_PRIMARY).bg(BG_DARK))
+        .base(Style::default()) // Use terminal default colors instead of hardcoded ones
         .hide_cursor() // Hide EditorView's block cursor
         .hide_status_line(); // Hide the "Insert" mode indicator
     EditorView::new(&mut app.regex_input)
