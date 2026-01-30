@@ -112,7 +112,7 @@ In this case, generation also stops when the input stream stops."#
 
                     let closure_result = closure
                         .add_arg(state_arg)
-                        .run_with_input(PipelineData::empty());
+                        .and_then(|closure| closure.run_with_input(PipelineData::empty()));
                     let (output, next_input) = parse_closure_result(closure_result, head);
 
                     // We use `state` to control when to stop, not `output`. By wrapping
@@ -134,8 +134,8 @@ In this case, generation also stops when the input stream stops."#
                     let state_arg = state.take()?;
                     let closure_result = closure
                         .add_arg(item)
-                        .add_arg(state_arg)
-                        .run_with_input(PipelineData::empty());
+                        .and_then(|closure| closure.add_arg(state_arg))
+                        .and_then(|closure| closure.run_with_input(PipelineData::empty()));
                     let (output, next_input) = parse_closure_result(closure_result, head);
                     state = next_input;
                     Some(output)
