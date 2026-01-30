@@ -448,6 +448,9 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
         .collect();
 
     #[cfg(windows)]
+    let mut envs = envs;
+
+    #[cfg(windows)]
     if let Some(pathext) = envs.get_mut("PATHEXT")
         && !pathext.to_uppercase().contains(".PS1")
     {
