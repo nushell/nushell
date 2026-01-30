@@ -4,16 +4,16 @@ use crossterm::{
     execute,
     style::Print,
     terminal::{
-        self, BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, disable_raw_mode,
-        enable_raw_mode,
+        self, disable_raw_mode, enable_raw_mode, BeginSynchronizedUpdate, Clear, ClearType,
+        EndSynchronizedUpdate,
     },
 };
-use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
-use nu_ansi_term::{Style, ansi::RESET};
-use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
-use nu_engine::{ClosureEval, command_prelude::*, get_columns};
+use fuzzy_matcher::{skim::SkimMatcherV2, FuzzyMatcher};
+use nu_ansi_term::{ansi::RESET, Style};
+use nu_color_config::{get_color_map, Alignment, StyleComputer, TextStyle};
+use nu_engine::{command_prelude::*, get_columns, ClosureEval};
 use nu_protocol::engine::Closure;
-use nu_protocol::{TableMode, shell_error::io::IoError};
+use nu_protocol::{shell_error::io::IoError, TableMode};
 use nu_table::common::nu_value_to_string;
 use std::{
     collections::HashSet,
@@ -122,6 +122,7 @@ impl Default for InputListConfig {
 }
 
 impl InputListConfig {
+    #[allow(clippy::collapsible_if)]
     fn from_nu_config(config: &nu_protocol::Config, style_computer: &StyleComputer) -> Self {
         let mut ret = Self::default();
 
@@ -146,75 +147,75 @@ impl InputListConfig {
         ret.table_header_intersection = header_int;
 
         // Style options are nested under "style" key - these override color_config defaults
-        if let Some(style_val) = config.input_list.get("style")
-            && let Ok(style_record) = style_val.as_record()
-        {
-            let style_map: std::collections::HashMap<String, Value> = style_record
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            let colors = get_color_map(&style_map);
-            if let Some(s) = colors.get("match_text") {
-                ret.match_text = *s;
-            }
-            if let Some(s) = colors.get("footer") {
-                ret.footer = *s;
-            }
-            if let Some(s) = colors.get("separator") {
-                ret.separator = *s;
-            }
-            if let Some(s) = colors.get("prompt_marker") {
-                ret.prompt_marker = *s;
-            }
-            if let Some(s) = colors.get("selected_marker") {
-                ret.selected_marker = *s;
-            }
-            // These override the color_config defaults if explicitly set
-            if let Some(s) = colors.get("table_header") {
-                ret.table_header = *s;
-            }
-            if let Some(s) = colors.get("table_separator") {
-                ret.table_separator = *s;
-            }
-        }
-        if let Some(val) = config.input_list.get("separator_char")
-            && let Ok(s) = val.as_str()
-        {
-            if !s.is_empty() {
-                ret.separator_char = s.to_string();
-            } else {
-                eprintln!("Warning: input_list.separator_char is empty, using default");
+        if let Some(style_val) = config.input_list.get("style") {
+            if let Ok(style_record) = style_val.as_record() {
+                let style_map: std::collections::HashMap<String, Value> = style_record
+                    .iter()
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+                let colors = get_color_map(&style_map);
+                if let Some(s) = colors.get("match_text") {
+                    ret.match_text = *s;
+                }
+                if let Some(s) = colors.get("footer") {
+                    ret.footer = *s;
+                }
+                if let Some(s) = colors.get("separator") {
+                    ret.separator = *s;
+                }
+                if let Some(s) = colors.get("prompt_marker") {
+                    ret.prompt_marker = *s;
+                }
+                if let Some(s) = colors.get("selected_marker") {
+                    ret.selected_marker = *s;
+                }
+                // These override the color_config defaults if explicitly set
+                if let Some(s) = colors.get("table_header") {
+                    ret.table_header = *s;
+                }
+                if let Some(s) = colors.get("table_separator") {
+                    ret.table_separator = *s;
+                }
             }
         }
-        if let Some(val) = config.input_list.get("prompt_marker_text")
-            && let Ok(s) = val.as_str()
-        {
-            ret.prompt_marker_text = s.to_string();
-        }
-        if let Some(val) = config.input_list.get("selected_marker_char")
-            && let Ok(s) = val.as_str()
-        {
-            let chars: Vec<char> = s.chars().collect();
-            if chars.len() == 1 {
-                ret.selected_marker_char = chars[0];
-            } else {
-                eprintln!(
-                    "Warning: input_list.selected_marker_char must be a single character, using default '{}' (got '{}')",
-                    DEFAULT_SELECTED_MARKER, s
-                );
+        if let Some(val) = config.input_list.get("separator_char") {
+            if let Ok(s) = val.as_str() {
+                if !s.is_empty() {
+                    ret.separator_char = s.to_string();
+                } else {
+                    eprintln!("Warning: input_list.separator_char is empty, using default");
+                }
             }
         }
-        if let Some(val) = config.input_list.get("table_column_separator")
-            && let Ok(s) = val.as_str()
-        {
-            let chars: Vec<char> = s.chars().collect();
-            if chars.len() == 1 {
-                ret.table_column_separator = chars[0];
-            } else {
-                eprintln!(
-                    "Warning: input_list.table_column_separator must be a single character, using default '{}' (got '{}')",
-                    DEFAULT_TABLE_COLUMN_SEPARATOR, s
-                );
+        if let Some(val) = config.input_list.get("prompt_marker_text") {
+            if let Ok(s) = val.as_str() {
+                ret.prompt_marker_text = s.to_string();
+            }
+        }
+        if let Some(val) = config.input_list.get("selected_marker_char") {
+            if let Ok(s) = val.as_str() {
+                let chars: Vec<char> = s.chars().collect();
+                if chars.len() == 1 {
+                    ret.selected_marker_char = chars[0];
+                } else {
+                    eprintln!(
+                        "Warning: input_list.selected_marker_char must be a single character, using default '{}' (got '{}')",
+                        DEFAULT_SELECTED_MARKER, s
+                    );
+                }
+            }
+        }
+        if let Some(val) = config.input_list.get("table_column_separator") {
+            if let Ok(s) = val.as_str() {
+                let chars: Vec<char> = s.chars().collect();
+                if chars.len() == 1 {
+                    ret.table_column_separator = chars[0];
+                } else {
+                    eprintln!(
+                        "Warning: input_list.table_column_separator must be a single character, using default '{}' (got '{}')",
+                        DEFAULT_TABLE_COLUMN_SEPARATOR, s
+                    );
+                }
             }
         }
         if let Some(val) = config.input_list.get("case_sensitive") {
@@ -1194,7 +1195,11 @@ impl<'a> SelectWidget<'a> {
 
     /// Filter line row index for fuzzy modes
     fn fuzzy_filter_row(&self) -> u16 {
-        if self.prompt.is_some() { 1 } else { 0 }
+        if self.prompt.is_some() {
+            1
+        } else {
+            0
+        }
     }
 
     /// Update terminal dimensions and recalculate visible height
@@ -2816,8 +2821,8 @@ impl<'a> SelectWidget<'a> {
             let up_to_filter = footer_row.saturating_sub(filter_row);
             execute!(stderr, MoveUp(up_to_filter))?;
         } else {
-            let up_to_filter = (header_lines + visible_count.saturating_sub(1) as u16)
-                .saturating_sub(filter_row);
+            let up_to_filter =
+                (header_lines + visible_count.saturating_sub(1) as u16).saturating_sub(filter_row);
             execute!(stderr, MoveUp(up_to_filter))?;
         }
 
@@ -2831,6 +2836,7 @@ impl<'a> SelectWidget<'a> {
         stderr.flush()
     }
 
+    #[allow(clippy::collapsible_if)]
     fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
         // Check for fuzzy multi mode toggle-all optimization
         if self.can_do_fuzzy_multi_toggle_all_update() {
@@ -2928,10 +2934,10 @@ impl<'a> SelectWidget<'a> {
         let mut lines_rendered: usize = 0;
 
         // Render prompt (only on first render, it doesn't change)
-        if self.first_render
-            && let Some(prompt) = self.prompt
-        {
-            execute!(stderr, Print(prompt), Clear(ClearType::UntilNewLine))?;
+        if self.first_render {
+            if let Some(prompt) = self.prompt {
+                execute!(stderr, Print(prompt), Clear(ClearType::UntilNewLine))?;
+            }
         }
         if self.prompt.is_some() {
             lines_rendered += 1;
