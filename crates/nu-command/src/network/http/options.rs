@@ -168,7 +168,7 @@ fn helper(
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
     let mut request = if args.pool {
-        http_client_pool(engine_state, stack).options(&requested_url)
+        http_client_pool(engine_state, stack)?.options(&requested_url)
     } else {
         let client = http_client(
             args.insecure,
