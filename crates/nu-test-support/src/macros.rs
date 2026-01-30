@@ -433,7 +433,7 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
         .env("PWD", target_cwd); // setting PWD is enough to set cwd;
 
     // Need these extra environments from before the environment is cleared.
-    let mut envs: std::collections::HashMap<String, String> = std::env::vars()
+    let envs: std::collections::HashMap<String, String> = std::env::vars()
         .filter(|(n, _)| {
             n.starts_with("System") // System variables for disks, paths, etc.
                 || n == "NUSHELL_CARGO_PROFILE" // Variable for crate::fs::binaries()
