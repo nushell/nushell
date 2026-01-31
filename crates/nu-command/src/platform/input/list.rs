@@ -1294,9 +1294,10 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> KeyAction {
-        // Only handle key press events, not release or repeat
-        // This is important on Windows where crossterm sends both press and release events
-        if key.kind != KeyEventKind::Press {
+        // Only handle key press and repeat events, not release
+        // This is important on Windows where crossterm sends press, repeat, and release events
+        // We need Repeat events for key repeat to work when holding down a key on Windows
+        if key.kind == KeyEventKind::Release {
             return KeyAction::Continue;
         }
 
