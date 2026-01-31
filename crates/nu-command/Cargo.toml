@@ -51,9 +51,6 @@ chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
 devicons = { workspace = true }
-dialoguer = { workspace = true, default-features = false, features = [
-	"fuzzy-select",
-] }
 digest = { workspace = true, default-features = false }
 dns-lookup = { workspace = true, optional = true }
 dtparse = { workspace = true }
