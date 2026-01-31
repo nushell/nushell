@@ -1,5 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
 use crate::{self as nu_protocol, ConfigWarning};
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
@@ -50,16 +51,21 @@ impl UpdateFromValue for HistoryFileFormat {
     }
 }
 
-#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryConfig {
     pub max_size: i64,
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+    pub path: Option<PathBuf>,
 }
 
 impl HistoryConfig {
-    pub fn file_path(&self) -> Option<std::path::PathBuf> {
+    pub fn file_path(&self, custom_path: Option<&PathBuf>) -> Option<PathBuf> {
+        if let Some(path) = custom_path {
+            return Some(path.clone());
+        }
+
         nu_path::nu_config_dir().map(|mut history_path| {
             history_path.push(self.file_format.default_file_name());
             history_path.into()
@@ -74,6 +80,7 @@ impl Default for HistoryConfig {
             sync_on_enter: true,
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
+            path: None,
         }
     }
 }
@@ -104,6 +111,17 @@ impl UpdateFromValue for HistoryConfig {
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
+                "path" => match val {
+                    Value::String { val: s, .. } => {
+                        self.path = Some(PathBuf::from(s));
+                    }
+                    Value::Nothing { .. } => {
+                        self.path = None;
+                    }
+                    _ => {
+                        errors.type_mismatch(path, Type::custom("string or nothing"), val);
+                    }
+                },
                 _ => errors.unknown_option(path, val),
             }
         }
