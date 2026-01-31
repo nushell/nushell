@@ -1,6 +1,6 @@
 use crossterm::{
     cursor::{Hide, MoveDown, MoveToColumn, MoveUp, Show},
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     execute,
     style::Print,
     terminal::{
@@ -1294,6 +1294,12 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn handle_key(&mut self, key: KeyEvent) -> KeyAction {
+        // Only handle key press events, not release or repeat
+        // This is important on Windows where crossterm sends both press and release events
+        if key.kind != KeyEventKind::Press {
+            return KeyAction::Continue;
+        }
+
         // Ctrl+C always cancels
         if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
             return KeyAction::Cancel;
