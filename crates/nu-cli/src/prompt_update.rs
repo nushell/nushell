@@ -33,6 +33,11 @@ pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
+// OSC 133;P - Semantic prompt property markers (k=kind)
+// k=i: initial/primary prompt, k=s: secondary/continuation, k=r: right prompt
+pub(crate) const PROMPT_KIND_INITIAL: &str = "\x1b]133;P;k=i\x1b\\";
+pub(crate) const PROMPT_KIND_SECONDARY: &str = "\x1b]133;P;k=s\x1b\\";
+pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\";
 
 // OSC633 is the same as OSC133 but specifically for VSCode
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
@@ -47,6 +52,10 @@ pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
 // "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
+// OSC 633;P - VSCode semantic prompt property markers
+pub(crate) const VSCODE_PROMPT_KIND_INITIAL: &str = "\x1b]633;P;k=i\x1b\\";
+pub(crate) const VSCODE_PROMPT_KIND_SECONDARY: &str = "\x1b]633;P;k=s\x1b\\";
+pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
@@ -110,7 +119,7 @@ pub(crate) fn update_prompt(
         };
 
     // Now that we have the prompt string lets ansify it.
-    // <133 A><prompt><133 B><command><133 C><command output>
+    // <133 A><133 P;k=i><prompt><133 B><command><133 C><command output>
     let left_prompt_string = if config.shell_integration.osc633 {
         if stack
             .get_env_var(engine_state, "TERM_PROGRAM")
@@ -119,30 +128,67 @@ pub(crate) fn update_prompt(
         {
             // We're in vscode and we have osc633 enabled
             Some(format!(
-                "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+                "{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
             ))
         } else if config.shell_integration.osc133 {
             // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
             Some(format!(
-                "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
+                "{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
             ))
         } else {
             configured_left_prompt_string.into()
         }
     } else if config.shell_integration.osc133 {
         Some(format!(
-            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
+            "{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
         ))
     } else {
         configured_left_prompt_string.into()
     };
 
-    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
+    let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack)
+        .map(|rps| {
+            if config.shell_integration.osc633 {
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
+                {
+                    format!("{VSCODE_PROMPT_KIND_RIGHT}{rps}")
+                } else if config.shell_integration.osc133 {
+                    format!("{PROMPT_KIND_RIGHT}{rps}")
+                } else {
+                    rps
+                }
+            } else if config.shell_integration.osc133 {
+                format!("{PROMPT_KIND_RIGHT}{rps}")
+            } else {
+                rps
+            }
+        });
 
     let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
-        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack);
+        get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack).map(|pms| {
+            if config.shell_integration.osc633 {
+                if stack
+                    .get_env_var(engine_state, "TERM_PROGRAM")
+                    .and_then(|v| v.as_str().ok())
+                    == Some("vscode")
+                {
+                    format!("{VSCODE_PROMPT_KIND_SECONDARY}{pms}")
+                } else if config.shell_integration.osc133 {
+                    format!("{PROMPT_KIND_SECONDARY}{pms}")
+                } else {
+                    pms
+                }
+            } else if config.shell_integration.osc133 {
+                format!("{PROMPT_KIND_SECONDARY}{pms}")
+            } else {
+                pms
+            }
+        });
 
     let prompt_vi_insert_string =
         get_prompt_string(PROMPT_INDICATOR_VI_INSERT, config, engine_state, stack);
