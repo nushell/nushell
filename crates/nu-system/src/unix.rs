@@ -11,7 +11,7 @@ pub fn get_umask() -> u32 {
     let _guard = match LOCK.lock() {
         Ok(g) => g,
         Err(e) => {
-            warn!("umask lock poisioned. Recovering.");
+            warn!("umask lock poisoned. Recovering.");
             e.into_inner()
         }
     };
