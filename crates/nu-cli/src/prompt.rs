@@ -1,7 +1,8 @@
 use crate::prompt_update::{
     POST_PROMPT_MARKER, PRE_PROMPT_MARKER, PROMPT_KIND_INITIAL, PROMPT_KIND_RIGHT,
-    PROMPT_KIND_SECONDARY, VSCODE_POST_PROMPT_MARKER, VSCODE_PRE_PROMPT_MARKER,
-    VSCODE_PROMPT_KIND_INITIAL, VSCODE_PROMPT_KIND_RIGHT, VSCODE_PROMPT_KIND_SECONDARY,
+    PROMPT_KIND_SECONDARY, ShellIntegrationMode, VSCODE_POST_PROMPT_MARKER,
+    VSCODE_PRE_PROMPT_MARKER, VSCODE_PROMPT_KIND_INITIAL, VSCODE_PROMPT_KIND_RIGHT,
+    VSCODE_PROMPT_KIND_SECONDARY,
 };
 use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
@@ -106,31 +107,13 @@ impl NushellPrompt {
     }
 
     fn shell_integration_mode(&self) -> ShellIntegrationMode {
-        if self.shell_integration_osc633 {
-            if self
-                .stack
-                .get_env_var(&self.engine_state, "TERM_PROGRAM")
-                .and_then(|v| v.as_str().ok())
-                == Some("vscode")
-            {
-                ShellIntegrationMode::Osc633
-            } else if self.shell_integration_osc133 {
-                ShellIntegrationMode::Osc133
-            } else {
-                ShellIntegrationMode::None
-            }
-        } else if self.shell_integration_osc133 {
-            ShellIntegrationMode::Osc133
-        } else {
-            ShellIntegrationMode::None
-        }
+        ShellIntegrationMode::from_config(
+            self.shell_integration_osc633,
+            self.shell_integration_osc133,
+            &self.stack,
+            &self.engine_state,
+        )
     }
-}
-
-enum ShellIntegrationMode {
-    Osc633,
-    Osc133,
-    None,
 }
 
 impl Prompt for NushellPrompt {

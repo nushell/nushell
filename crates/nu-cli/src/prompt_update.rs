@@ -59,33 +59,36 @@ pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
-enum ShellIntegrationMode {
+pub(crate) enum ShellIntegrationMode {
     Osc633,
     Osc133,
     None,
 }
 
-fn get_shell_integration_mode(
-    config: &Config,
-    stack: &Stack,
-    engine_state: &EngineState,
-) -> ShellIntegrationMode {
-    if config.shell_integration.osc633 {
-        if stack
-            .get_env_var(engine_state, "TERM_PROGRAM")
-            .and_then(|v| v.as_str().ok())
-            == Some("vscode")
-        {
-            ShellIntegrationMode::Osc633
-        } else if config.shell_integration.osc133 {
+impl ShellIntegrationMode {
+    pub(crate) fn from_config(
+        osc633: bool,
+        osc133: bool,
+        stack: &Stack,
+        engine_state: &EngineState,
+    ) -> Self {
+        if osc633 {
+            if stack
+                .get_env_var(engine_state, "TERM_PROGRAM")
+                .and_then(|v| v.as_str().ok())
+                == Some("vscode")
+            {
+                ShellIntegrationMode::Osc633
+            } else if osc133 {
+                ShellIntegrationMode::Osc133
+            } else {
+                ShellIntegrationMode::None
+            }
+        } else if osc133 {
             ShellIntegrationMode::Osc133
         } else {
             ShellIntegrationMode::None
         }
-    } else if config.shell_integration.osc133 {
-        ShellIntegrationMode::Osc133
-    } else {
-        ShellIntegrationMode::None
     }
 }
 
@@ -148,7 +151,12 @@ pub(crate) fn update_prompt(
             None => "".to_string(),
         };
 
-    let mode = get_shell_integration_mode(config, stack, engine_state);
+    let mode = ShellIntegrationMode::from_config(
+        config.shell_integration.osc633,
+        config.shell_integration.osc133,
+        stack,
+        engine_state,
+    );
 
     // Now that we have the prompt string lets ansify it.
     // <133 A><133 P;k=i><prompt><133 B><command><133 C><command output>
