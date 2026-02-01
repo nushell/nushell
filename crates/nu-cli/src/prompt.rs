@@ -108,8 +108,8 @@ impl NushellPrompt {
 
     fn shell_integration_mode(&self) -> ShellIntegrationMode {
         ShellIntegrationMode::from_config(
-            self.shell_integration_osc633,
             self.shell_integration_osc133,
+            self.shell_integration_osc633,
             &self.stack,
             &self.engine_state,
         )

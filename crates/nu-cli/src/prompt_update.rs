@@ -59,6 +59,7 @@ pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
+#[derive(Clone, Copy)]
 pub(crate) enum ShellIntegrationMode {
     Osc633,
     Osc133,
@@ -67,8 +68,8 @@ pub(crate) enum ShellIntegrationMode {
 
 impl ShellIntegrationMode {
     pub(crate) fn from_config(
-        osc633: bool,
         osc133: bool,
+        osc633: bool,
         stack: &Stack,
         engine_state: &EngineState,
     ) -> Self {
@@ -152,8 +153,8 @@ pub(crate) fn update_prompt(
         };
 
     let mode = ShellIntegrationMode::from_config(
-        config.shell_integration.osc633,
         config.shell_integration.osc133,
+        config.shell_integration.osc633,
         stack,
         engine_state,
     );
