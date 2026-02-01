@@ -145,7 +145,7 @@ fn mkdir_umask_permission() {
             .permissions()
             .mode();
 
-        let umask = mode::get_umask();
+        let umask = nu_system::get_umask();
         let default_mode = 0o40777;
         let expected: u32 = default_mode & !umask;
 

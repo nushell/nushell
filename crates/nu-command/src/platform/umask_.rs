@@ -2,7 +2,7 @@ use std::ops::Deref;
 
 use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
-use uucore::mode::get_umask;
+use nu_system::get_umask;
 
 /// Wraps umask::Mode, providing conversions to and from mode_t regardless of its
 /// size.

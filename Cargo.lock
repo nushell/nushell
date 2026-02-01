@@ -4688,6 +4688,7 @@ dependencies = [
  "ntapi",
  "procfs",
  "sysinfo",
+ "uucore",
  "web-time",
  "windows 0.62.1",
 ]
