@@ -104,6 +104,33 @@ impl NushellPrompt {
     fn default_wrapped_custom_string(&self, str: String) -> String {
         format!("({str})")
     }
+
+    fn shell_integration_mode(&self) -> ShellIntegrationMode {
+        if self.shell_integration_osc633 {
+            if self
+                .stack
+                .get_env_var(&self.engine_state, "TERM_PROGRAM")
+                .and_then(|v| v.as_str().ok())
+                == Some("vscode")
+            {
+                ShellIntegrationMode::Osc633
+            } else if self.shell_integration_osc133 {
+                ShellIntegrationMode::Osc133
+            } else {
+                ShellIntegrationMode::None
+            }
+        } else if self.shell_integration_osc133 {
+            ShellIntegrationMode::Osc133
+        } else {
+            ShellIntegrationMode::None
+        }
+    }
+}
+
+enum ShellIntegrationMode {
+    Osc633,
+    Osc133,
+    None,
 }
 
 impl Prompt for NushellPrompt {
@@ -122,27 +149,15 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            if self.shell_integration_osc633 {
-                if self
-                    .stack
-                    .get_env_var(&self.engine_state, "TERM_PROGRAM")
-                    .and_then(|v| v.as_str().ok())
-                    == Some("vscode")
-                {
-                    // We're in vscode and we have osc633 enabled
+            match self.shell_integration_mode() {
+                ShellIntegrationMode::Osc633 => {
                     format!("{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()
-                } else if self.shell_integration_osc133 {
-                    // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
+                }
+                ShellIntegrationMode::Osc133 => {
                     format!("{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{prompt}{POST_PROMPT_MARKER}")
                         .into()
-                } else {
-                    prompt.into()
                 }
-            } else if self.shell_integration_osc133 {
-                format!("{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{prompt}{POST_PROMPT_MARKER}")
-                    .into()
-            } else {
-                prompt.into()
+                ShellIntegrationMode::None => prompt.into(),
             }
         }
     }
@@ -157,23 +172,12 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            if self.shell_integration_osc633 {
-                if self
-                    .stack
-                    .get_env_var(&self.engine_state, "TERM_PROGRAM")
-                    .and_then(|v| v.as_str().ok())
-                    == Some("vscode")
-                {
+            match self.shell_integration_mode() {
+                ShellIntegrationMode::Osc633 => {
                     format!("{VSCODE_PROMPT_KIND_RIGHT}{prompt}").into()
-                } else if self.shell_integration_osc133 {
-                    format!("{PROMPT_KIND_RIGHT}{prompt}").into()
-                } else {
-                    prompt.into()
                 }
-            } else if self.shell_integration_osc133 {
-                format!("{PROMPT_KIND_RIGHT}{prompt}").into()
-            } else {
-                prompt.into()
+                ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_RIGHT}{prompt}").into(),
+                ShellIntegrationMode::None => prompt.into(),
             }
         }
     }
@@ -211,23 +215,12 @@ impl Prompt for NushellPrompt {
             None => "::: ",
         };
 
-        if self.shell_integration_osc633 {
-            if self
-                .stack
-                .get_env_var(&self.engine_state, "TERM_PROGRAM")
-                .and_then(|v| v.as_str().ok())
-                == Some("vscode")
-            {
+        match self.shell_integration_mode() {
+            ShellIntegrationMode::Osc633 => {
                 format!("{VSCODE_PROMPT_KIND_SECONDARY}{indicator}").into()
-            } else if self.shell_integration_osc133 {
-                format!("{PROMPT_KIND_SECONDARY}{indicator}").into()
-            } else {
-                indicator.into()
             }
-        } else if self.shell_integration_osc133 {
-            format!("{PROMPT_KIND_SECONDARY}{indicator}").into()
-        } else {
-            indicator.into()
+            ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_SECONDARY}{indicator}").into(),
+            ShellIntegrationMode::None => indicator.into(),
         }
     }
 

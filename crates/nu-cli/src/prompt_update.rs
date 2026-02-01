@@ -59,6 +59,36 @@ pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
+enum ShellIntegrationMode {
+    Osc633,
+    Osc133,
+    None,
+}
+
+fn get_shell_integration_mode(
+    config: &Config,
+    stack: &Stack,
+    engine_state: &EngineState,
+) -> ShellIntegrationMode {
+    if config.shell_integration.osc633 {
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
+            ShellIntegrationMode::Osc633
+        } else if config.shell_integration.osc133 {
+            ShellIntegrationMode::Osc133
+        } else {
+            ShellIntegrationMode::None
+        }
+    } else if config.shell_integration.osc133 {
+        ShellIntegrationMode::Osc133
+    } else {
+        ShellIntegrationMode::None
+    }
+}
+
 fn get_prompt_string(
     prompt: &str,
     config: &Config,
@@ -118,75 +148,35 @@ pub(crate) fn update_prompt(
             None => "".to_string(),
         };
 
+    let mode = get_shell_integration_mode(config, stack, engine_state);
+
     // Now that we have the prompt string lets ansify it.
     // <133 A><133 P;k=i><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration.osc633 {
-        if stack
-            .get_env_var(engine_state, "TERM_PROGRAM")
-            .and_then(|v| v.as_str().ok())
-            == Some("vscode")
-        {
-            // We're in vscode and we have osc633 enabled
-            Some(format!(
-                "{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
-            ))
-        } else if config.shell_integration.osc133 {
-            // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
-            Some(format!(
-                "{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
-            ))
-        } else {
-            configured_left_prompt_string.into()
-        }
-    } else if config.shell_integration.osc133 {
-        Some(format!(
+    let left_prompt_string = match mode {
+        ShellIntegrationMode::Osc633 => Some(format!(
+            "{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+        )),
+        ShellIntegrationMode::Osc133 => Some(format!(
             "{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
-        ))
-    } else {
-        configured_left_prompt_string.into()
+        )),
+        ShellIntegrationMode::None => configured_left_prompt_string.into(),
     };
 
     let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack)
-        .map(|rps| {
-            if config.shell_integration.osc633 {
-                if stack
-                    .get_env_var(engine_state, "TERM_PROGRAM")
-                    .and_then(|v| v.as_str().ok())
-                    == Some("vscode")
-                {
-                    format!("{VSCODE_PROMPT_KIND_RIGHT}{rps}")
-                } else if config.shell_integration.osc133 {
-                    format!("{PROMPT_KIND_RIGHT}{rps}")
-                } else {
-                    rps
-                }
-            } else if config.shell_integration.osc133 {
-                format!("{PROMPT_KIND_RIGHT}{rps}")
-            } else {
-                rps
-            }
+        .map(|rps| match mode {
+            ShellIntegrationMode::Osc633 => format!("{VSCODE_PROMPT_KIND_RIGHT}{rps}"),
+            ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_RIGHT}{rps}"),
+            ShellIntegrationMode::None => rps,
         });
 
     let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
         get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack).map(|pms| {
-            if config.shell_integration.osc633 {
-                if stack
-                    .get_env_var(engine_state, "TERM_PROGRAM")
-                    .and_then(|v| v.as_str().ok())
-                    == Some("vscode")
-                {
-                    format!("{VSCODE_PROMPT_KIND_SECONDARY}{pms}")
-                } else if config.shell_integration.osc133 {
-                    format!("{PROMPT_KIND_SECONDARY}{pms}")
-                } else {
-                    pms
-                }
-            } else if config.shell_integration.osc133 {
-                format!("{PROMPT_KIND_SECONDARY}{pms}")
-            } else {
-                pms
+            match mode {
+                ShellIntegrationMode::Osc633 => format!("{VSCODE_PROMPT_KIND_SECONDARY}{pms}"),
+                ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_SECONDARY}{pms}"),
+                ShellIntegrationMode::None => pms,
             }
         });
 
