@@ -54,7 +54,7 @@ impl Command for FormatFilesize {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "display", "pattern", "human readable"]
+        vec!["convert", "display"]
     }
 
     fn run(
@@ -68,10 +68,7 @@ impl Command for FormatFilesize {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
         // Read runtime config so `$env.config.float_precision` changes are honored.
-        let float_precision = stack
-            .get_config(engine_state)
-            .float_precision
-            .max(0) as usize;
+        let float_precision = stack.get_config(engine_state).float_precision.max(0) as usize;
         let arg = Arguments {
             unit,
             float_precision,
@@ -146,9 +143,8 @@ fn format_value_impl(val: &Value, arg: &Arguments, span: Span) -> Value {
             // If so, apply float_precision; otherwise use None to avoid trailing zeros.
             let bytes: i64 = (*val).into();
             let unit_bytes = arg.unit.as_bytes() as i64;
-            let has_remainder = arg.unit != FilesizeUnit::B 
-                && unit_bytes > 0 
-                && (bytes % unit_bytes) != 0;
+            let has_remainder =
+                arg.unit != FilesizeUnit::B && unit_bytes > 0 && (bytes % unit_bytes) != 0;
 
             let precision = if has_remainder {
                 Some(arg.float_precision)
