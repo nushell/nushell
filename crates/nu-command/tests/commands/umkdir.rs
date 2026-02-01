@@ -2,9 +2,6 @@ use nu_test_support::fs::files_exist_at;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
-#[cfg(not(windows))]
-use uucore::mode;
-
 #[test]
 fn creates_directory() {
     Playground::setup("mkdir_test_1", |dirs, _| {
