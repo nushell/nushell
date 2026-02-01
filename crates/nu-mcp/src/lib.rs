@@ -7,8 +7,7 @@ use rmcp::{
     transport::{
         stdio,
         streamable_http_server::{
-            StreamableHttpServerConfig, StreamableHttpService,
-            session::local::LocalSessionManager,
+            StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
         },
     },
 };
@@ -45,7 +44,7 @@ pub fn initialize_mcp_server(
         .with_ansi(false)
         .init();
 
-    tracing::info!("Starting MCP server with transport: {:?}", transport);
+    tracing::info!(?transport, "Starting MCP server");
     let runtime = Runtime::new().map_err(|e| ShellError::GenericError {
         error: format!("Could not instantiate tokio: {e}"),
         msg: "".into(),
