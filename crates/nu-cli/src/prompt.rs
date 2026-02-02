@@ -1,8 +1,4 @@
-use crate::prompt_update::{
-    PRE_INPUT_MARKER, PRE_PROMPT_MARKER, PRE_PROMPT_MARKER_SECONDARY, PROMPT_KIND_RIGHT,
-    ShellIntegrationMode, VSCODE_PRE_INPUT_MARKER, VSCODE_PRE_PROMPT_MARKER,
-    VSCODE_PRE_PROMPT_MARKER_SECONDARY, VSCODE_PROMPT_KIND_RIGHT,
-};
+use crate::prompt_update::SemanticPromptMode;
 use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -105,13 +101,53 @@ impl NushellPrompt {
         format!("({str})")
     }
 
-    fn shell_integration_mode(&self) -> ShellIntegrationMode {
-        ShellIntegrationMode::from_config(
+    fn shell_integration_mode(&self) -> SemanticPromptMode {
+        SemanticPromptMode::from_config(
             self.shell_integration_osc133,
             self.shell_integration_osc633,
             &self.stack,
             &self.engine_state,
         )
+    }
+
+    /// Render a prompt string with semantic markers for the given mode
+    fn wrap_prompt_string(&self, prompt: String, mode: SemanticPromptMode) -> String {
+        if let SemanticPromptMode::None = mode {
+            prompt
+        } else {
+            let (start, end) = mode.primary_markers();
+            format!("{start}{prompt}{end}")
+        }
+    }
+
+    /// Render a multiline indicator with semantic markers
+    fn wrap_multiline_indicator(&self, indicator: &str, mode: SemanticPromptMode) -> String {
+        if let SemanticPromptMode::None = mode {
+            indicator.to_string()
+        } else {
+            let (start, end) = mode.secondary_markers();
+            format!("{start}{indicator}{end}")
+        }
+    }
+
+    /// Render a prompt indicator with semantic markers
+    fn wrap_prompt_indicator(&self, indicator: &str, mode: SemanticPromptMode) -> String {
+        if let SemanticPromptMode::None = mode {
+            indicator.to_string()
+        } else {
+            let (_start, end) = mode.primary_markers();
+            format!("\x1b]133;P\x1b\\{indicator}{end}")
+        }
+    }
+
+    /// Render a right prompt string with semantic markers
+    fn wrap_right_prompt(&self, prompt: String, mode: SemanticPromptMode) -> String {
+        let marker = mode.right_marker();
+        if marker.is_empty() {
+            prompt
+        } else {
+            format!("{marker}{prompt}")
+        }
     }
 }
 
@@ -131,15 +167,8 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            match self.shell_integration_mode() {
-                ShellIntegrationMode::Osc633 => {
-                    format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_PRE_INPUT_MARKER}").into()
-                }
-                ShellIntegrationMode::Osc133 => {
-                    format!("{PRE_PROMPT_MARKER}{prompt}{PRE_INPUT_MARKER}").into()
-                }
-                ShellIntegrationMode::None => prompt.into(),
-            }
+            let mode = self.shell_integration_mode();
+            self.wrap_prompt_string(prompt, mode).into()
         }
     }
 
@@ -153,41 +182,30 @@ impl Prompt for NushellPrompt {
                 .to_string()
                 .replace('\n', "\r\n");
 
-            match self.shell_integration_mode() {
-                ShellIntegrationMode::Osc633 => {
-                    format!("{VSCODE_PROMPT_KIND_RIGHT}{prompt}").into()
-                }
-                ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_RIGHT}{prompt}").into(),
-                ShellIntegrationMode::None => prompt.into(),
-            }
+            let mode = self.shell_integration_mode();
+            self.wrap_right_prompt(prompt, mode).into()
         }
     }
 
     fn render_prompt_indicator(&self, edit_mode: PromptEditMode) -> Cow<'_, str> {
-        match edit_mode {
-            PromptEditMode::Default => match &self.default_prompt_indicator {
-                Some(indicator) => indicator,
-                None => "> ",
-            }
-            .into(),
-            PromptEditMode::Emacs => match &self.default_prompt_indicator {
-                Some(indicator) => indicator,
-                None => "> ",
-            }
-            .into(),
+        let indicator: &str = match edit_mode {
+            PromptEditMode::Default => self.default_prompt_indicator.as_deref().unwrap_or("> "),
+            PromptEditMode::Emacs => self.default_prompt_indicator.as_deref().unwrap_or("> "),
             PromptEditMode::Vi(vi_mode) => match vi_mode {
-                PromptViMode::Normal => match &self.default_vi_normal_prompt_indicator {
-                    Some(indicator) => indicator,
-                    None => "> ",
-                },
-                PromptViMode::Insert => match &self.default_vi_insert_prompt_indicator {
-                    Some(indicator) => indicator,
-                    None => ": ",
-                },
-            }
-            .into(),
-            PromptEditMode::Custom(str) => self.default_wrapped_custom_string(str).into(),
-        }
+                PromptViMode::Normal => self
+                    .default_vi_normal_prompt_indicator
+                    .as_deref()
+                    .unwrap_or("> "),
+                PromptViMode::Insert => self
+                    .default_vi_insert_prompt_indicator
+                    .as_deref()
+                    .unwrap_or(": "),
+            },
+            PromptEditMode::Custom(str) => &self.default_wrapped_custom_string(str),
+        };
+
+        let mode = self.shell_integration_mode();
+        self.wrap_prompt_indicator(indicator, mode).into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
@@ -196,16 +214,8 @@ impl Prompt for NushellPrompt {
             None => "::: ",
         };
 
-        match self.shell_integration_mode() {
-            ShellIntegrationMode::Osc633 => {
-                format!("{VSCODE_PRE_PROMPT_MARKER_SECONDARY}{indicator}{VSCODE_PRE_INPUT_MARKER}")
-                    .into()
-            }
-            ShellIntegrationMode::Osc133 => {
-                format!("{PRE_PROMPT_MARKER_SECONDARY}{indicator}{PRE_INPUT_MARKER}").into()
-            }
-            ShellIntegrationMode::None => indicator.into(),
-        }
+        let mode = self.shell_integration_mode();
+        self.wrap_multiline_indicator(indicator, mode).into()
     }
 
     fn render_prompt_history_search_indicator(

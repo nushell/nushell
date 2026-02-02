@@ -25,46 +25,49 @@ pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
 pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 
-// Store all these Ansi Escape Markers here so they can be reused easily
-// According to Daniel Imms @Tyriar, we need to do these this way:
-// <133 A;k=i><prompt><133 B><command><133 C><command output>
-pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A;k=i\x1b\\";
-pub(crate) const PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]133;A;k=s\x1b\\";
-pub(crate) const PRE_INPUT_MARKER: &str = "\x1b]133;B\x1b\\";
-pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
-pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
-pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-// OSC 133;P - Semantic prompt property markers (k=kind)
-// k=i: initial/primary prompt, k=s: secondary/continuation, k=r: right prompt
-pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\";
+// ────────────────────────────────────────────────────────────────────────────────
+// OSC 133 / OSC 633 SEMANTIC PROMPT MARKERS
+// ────────────────────────────────────────────────────────────────────────────────
+// These escape sequences help terminals understand prompt vs. input vs. command output.
+// We combine OSC 133 A (start prompt) with the k= property to reduce bytes sent.
+// OSC 133 B (end prompt / start command input) is placed AFTER all prompt text.
+
+pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A;k=i\x1b\\"; // Start of primary prompt (k=i = interactive)
+pub(crate) const PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]133;A;k=s\x1b\\"; // Start of continuation/multiline prompt (k=s = secondary)
+pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\"; // Right prompt segment marker (k=r = right)
+pub(crate) const PRE_INPUT_MARKER: &str = "\x1b]133;B\x1b\\"; // End prompt, begin user input/command
+pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\"; // Start command execution
+pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;"; // End command execution prefix
+pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\"; // End command execution suffix
 
 // OSC633 is the same as OSC133 but specifically for VSCode
-pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A;k=i\x1b\\";
-pub(crate) const VSCODE_PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]633;A;k=s\x1b\\";
-pub(crate) const VSCODE_PRE_INPUT_MARKER: &str = "\x1b]633;B\x1b\\";
-pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
-//"\x1b]633;D;{}\x1b\\"
-pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
-pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-//"\x1b]633;E;{}\x1b\\"
-pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
-pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
-// "\x1b]633;P;Cwd={}\x1b\\"
-pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
-pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
-// OSC 633;P - VSCode semantic prompt property markers
-pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
+pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A;k=i\x1b\\"; // Start of primary prompt for VSCode (k=i = interactive)
+pub(crate) const VSCODE_PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]633;A;k=s\x1b\\"; // Start of continuation/multiline prompt for VSCode (k=s = secondary)
+pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\"; // Right prompt segment marker for VSCode (k=r = right)
+pub(crate) const VSCODE_PRE_INPUT_MARKER: &str = "\x1b]633;B\x1b\\"; // End prompt, begin user input/command for VSCode
+pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\"; // Start command execution for VSCode
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;"; // End command execution prefix for VSCode
+pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\"; // End command execution suffix for VSCode
+pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;"; // Command line property prefix for VSCode
+pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\"; // Command line property suffix for VSCode
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd="; // Current working directory property prefix for VSCode
+pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\"; // Current working directory property suffix for VSCode
 
+// We've found that sometimes terminals can get stuck in application mode after
+// receiving escape sequences, so we provide a reset sequence to return to normal mode.
+// This sequence switches cursor keys back to normal / standard behavior.
+// "\x1b[?1h" turns it back on.
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 #[derive(Clone, Copy)]
-pub(crate) enum ShellIntegrationMode {
-    Osc633,
-    Osc133,
-    None,
+pub(crate) enum SemanticPromptMode {
+    Osc633, // VS Code terminal
+    Osc133, // General terminals supporting OSC 133 (preferred when not in VS Code)
+    None,   // No semantic prompt support / disabled
 }
 
-impl ShellIntegrationMode {
+impl SemanticPromptMode {
+    /// Determine which semantic prompt protocol to use based on config and environment
     pub(crate) fn from_config(
         osc133: bool,
         osc633: bool,
@@ -77,16 +80,45 @@ impl ShellIntegrationMode {
                 .and_then(|v| v.as_str().ok())
                 == Some("vscode")
             {
-                ShellIntegrationMode::Osc633
+                SemanticPromptMode::Osc633
             } else if osc133 {
-                ShellIntegrationMode::Osc133
+                SemanticPromptMode::Osc133
             } else {
-                ShellIntegrationMode::None
+                SemanticPromptMode::None
             }
         } else if osc133 {
-            ShellIntegrationMode::Osc133
+            SemanticPromptMode::Osc133
         } else {
-            ShellIntegrationMode::None
+            SemanticPromptMode::None
+        }
+    }
+
+    /// Get the markers for primary prompt (left prompt)
+    pub(crate) fn primary_markers(&self) -> (&str, &str) {
+        match self {
+            SemanticPromptMode::Osc633 => (VSCODE_PRE_PROMPT_MARKER, VSCODE_PRE_INPUT_MARKER),
+            SemanticPromptMode::Osc133 => (PRE_PROMPT_MARKER, PRE_INPUT_MARKER),
+            SemanticPromptMode::None => ("", ""),
+        }
+    }
+
+    /// Get the markers for secondary prompt (multiline continuation)
+    pub(crate) fn secondary_markers(&self) -> (&str, &str) {
+        match self {
+            SemanticPromptMode::Osc633 => {
+                (VSCODE_PRE_PROMPT_MARKER_SECONDARY, VSCODE_PRE_INPUT_MARKER)
+            }
+            SemanticPromptMode::Osc133 => (PRE_PROMPT_MARKER_SECONDARY, PRE_INPUT_MARKER),
+            SemanticPromptMode::None => ("", ""),
+        }
+    }
+
+    /// Get the right prompt marker
+    pub(crate) fn right_marker(&self) -> &str {
+        match self {
+            SemanticPromptMode::Osc633 => VSCODE_PROMPT_KIND_RIGHT,
+            SemanticPromptMode::Osc133 => PROMPT_KIND_RIGHT,
+            SemanticPromptMode::None => "",
         }
     }
 }
@@ -150,7 +182,7 @@ pub(crate) fn update_prompt(
             None => "".to_string(),
         };
 
-    let mode = ShellIntegrationMode::from_config(
+    let mode = SemanticPromptMode::from_config(
         config.shell_integration.osc133,
         config.shell_integration.osc633,
         stack,
@@ -158,36 +190,32 @@ pub(crate) fn update_prompt(
     );
 
     // Now that we have the prompt string lets ansify it.
-    // <133 A;k=i><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = match mode {
-        ShellIntegrationMode::Osc633 => Some(format!(
-            "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_PRE_INPUT_MARKER}"
-        )),
-        ShellIntegrationMode::Osc133 => Some(format!(
-            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{PRE_INPUT_MARKER}"
-        )),
-        ShellIntegrationMode::None => configured_left_prompt_string.into(),
+    let left_prompt_string = if let SemanticPromptMode::None = mode {
+        configured_left_prompt_string.into()
+    } else {
+        let (start, end) = mode.primary_markers();
+        Some(format!("{start}{configured_left_prompt_string}{end}"))
     };
 
     let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack)
-        .map(|rps| match mode {
-            ShellIntegrationMode::Osc633 => format!("{VSCODE_PROMPT_KIND_RIGHT}{rps}"),
-            ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_RIGHT}{rps}"),
-            ShellIntegrationMode::None => rps,
+        .map(|rps| {
+            let marker = mode.right_marker();
+            if marker.is_empty() {
+                rps
+            } else {
+                format!("{marker}{rps}")
+            }
         });
 
     let prompt_indicator_string = get_prompt_string(PROMPT_INDICATOR, config, engine_state, stack);
 
     let prompt_multiline_string =
         get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack).map(|pms| {
-            match mode {
-                ShellIntegrationMode::Osc633 => {
-                    format!("{VSCODE_PRE_PROMPT_MARKER_SECONDARY}{pms}{VSCODE_PRE_INPUT_MARKER}")
-                }
-                ShellIntegrationMode::Osc133 => {
-                    format!("{PRE_PROMPT_MARKER_SECONDARY}{pms}{PRE_INPUT_MARKER}")
-                }
-                ShellIntegrationMode::None => pms,
+            if let SemanticPromptMode::None = mode {
+                pms
+            } else {
+                let (start, end) = mode.secondary_markers();
+                format!("{start}{pms}{end}")
             }
         });
 
