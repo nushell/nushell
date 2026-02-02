@@ -1,5 +1,5 @@
 #[cfg(feature = "os")]
-use crate::process::ExitStatusFuture;
+use crate::process::ExitStatusGuard;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
     Range, ShellError, Signals, Span, Type, Value,
@@ -8,12 +8,7 @@ use crate::{
     location,
     shell_error::{io::IoError, location::Location},
 };
-use std::{
-    borrow::Cow,
-    io::Write,
-    ops::Deref,
-    sync::{Arc, Mutex},
-};
+use std::{borrow::Cow, io::Write, ops::Deref};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -802,9 +797,7 @@ impl PipelineData {
     // PipelineData might connect to a running process which has an exit status future
     // Use this method to retrieve that future, it's useful for implementing `pipefail` feature.
     #[cfg(feature = "os")]
-    pub fn clone_exit_status_future(
-        &self,
-    ) -> Option<(Arc<Mutex<ExitStatusFuture>>, Arc<Mutex<bool>>)> {
+    pub fn clone_exit_status_future(&self) -> Option<ExitStatusGuard> {
         match self {
             PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
             PipelineData::ByteStream(stream, ..) => match stream.source() {
@@ -812,7 +805,7 @@ impl PipelineData {
                 ByteStreamSource::Child(c) => {
                     let exit_future = c.clone_exit_status_future();
                     let ignore_error = c.clone_ignore_error();
-                    Some((exit_future, ignore_error))
+                    Some(ExitStatusGuard::new(exit_future, ignore_error))
                 }
             },
         }
@@ -1024,7 +1017,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 pub struct PipelineExecutionData {
     pub body: PipelineData,
     #[cfg(feature = "os")]
-    pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Arc<Mutex<bool>>, Span)>>,
+    pub exit: Vec<Option<ExitStatusGuard>>,
 }
 
 impl Deref for PipelineExecutionData {
@@ -1051,7 +1044,7 @@ impl From<PipelineData> for PipelineExecutionData {
         let value_span = value.span().unwrap_or_else(Span::unknown);
         let exit_status_future = value
             .clone_exit_status_future()
-            .map(|f| (f.0, f.1, value_span));
+            .map(|f| f.with_span(value_span));
         Self {
             body: value,
             exit: vec![exit_status_future],

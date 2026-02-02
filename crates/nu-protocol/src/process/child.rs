@@ -20,29 +20,28 @@ use std::{
 /// This is used to implement pipefail.
 #[cfg(feature = "os")]
 pub fn check_exit_status_future(
-    exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Arc<Mutex<bool>>, Span)>>,
+    exit_status: Vec<Option<ExitStatusGuard>>,
 ) -> Result<(), ShellError> {
-    for (future, ignore_error, span) in exit_status.into_iter().rev().flatten() {
-        check_exit_status_future_ok(future, ignore_error, span)?
+    for one_status in exit_status.into_iter().rev().flatten() {
+        check_exit_status_future_ok(one_status)?
     }
     Ok(())
 }
 
-fn check_exit_status_future_ok(
-    exit_status_future: Arc<Mutex<ExitStatusFuture>>,
-    ignore_error: Arc<Mutex<bool>>,
-    span: Span,
-) -> Result<(), ShellError> {
-    let mut future = exit_status_future
-        .lock()
-        .expect("lock exit_status_future should success");
-    let exit_status = future.wait(span)?;
+fn check_exit_status_future_ok(exit_status_guard: ExitStatusGuard) -> Result<(), ShellError> {
     let ignore_error = {
-        let guard = ignore_error
+        let guard = exit_status_guard
+            .ignore_error
             .lock()
             .expect("lock ignore_error should success");
         *guard
     };
+    let mut future = exit_status_guard
+        .exit_status_future
+        .lock()
+        .expect("lock exit_status_future should success");
+    let span = exit_status_guard.span.unwrap_or_default();
+    let exit_status = future.wait(span)?;
     check_ok(exit_status, ignore_error, span)
 }
 
@@ -85,6 +84,39 @@ pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<()
                     }
                 })
             }
+        }
+    }
+}
+
+/// A wrapper for both `exit_status_future: Arc<Mutex<ExitStatusFuture>>`
+/// and `ignore_error: Arc<Mutex<bool>>`
+///
+/// It's useful for `pipefail` feature, which tracks exit status code with potentially
+/// ignore the error.
+#[derive(Debug)]
+pub struct ExitStatusGuard {
+    pub exit_status_future: Arc<Mutex<ExitStatusFuture>>,
+    pub ignore_error: Arc<Mutex<bool>>,
+    pub span: Option<Span>,
+}
+
+impl ExitStatusGuard {
+    pub fn new(
+        exit_status_future: Arc<Mutex<ExitStatusFuture>>,
+        ignore_error: Arc<Mutex<bool>>,
+    ) -> Self {
+        Self {
+            exit_status_future,
+            ignore_error,
+            span: None,
+        }
+    }
+
+    pub fn with_span(self, span: Span) -> Self {
+        Self {
+            exit_status_future: self.exit_status_future,
+            ignore_error: self.ignore_error,
+            span: Some(span),
         }
     }
 }
