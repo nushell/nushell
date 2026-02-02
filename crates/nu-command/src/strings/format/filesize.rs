@@ -1,8 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS, engine::StateWorkingSet,
-};
+use nu_protocol::{FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS};
 
 struct Arguments {
     unit: FilesizeUnit,
@@ -80,30 +78,6 @@ impl Command for FormatFilesize {
             input,
             call.head,
             engine_state.signals(),
-        )
-    }
-
-    fn run_const(
-        &self,
-        working_set: &StateWorkingSet,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
-        let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
-        let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let float_precision = working_set.permanent().config.float_precision.max(0) as usize;
-        let arg = Arguments {
-            unit,
-            float_precision,
-            cell_paths,
-        };
-        operate(
-            format_value_impl,
-            arg,
-            input,
-            call.head,
-            working_set.permanent().signals(),
         )
     }
 
