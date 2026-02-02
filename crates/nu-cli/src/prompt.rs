@@ -135,8 +135,8 @@ impl NushellPrompt {
         if let SemanticPromptMode::None = mode {
             indicator.to_string()
         } else {
-            let (_start, end) = mode.primary_markers();
-            format!("\x1b]133;P\x1b\\{indicator}{end}")
+            let (start, end) = mode.start_prompt_markers();
+            format!("{start}{indicator}{end}")
         }
     }
 

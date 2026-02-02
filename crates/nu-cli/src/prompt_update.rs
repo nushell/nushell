@@ -32,6 +32,7 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 // We combine OSC 133 A (start prompt) with the k= property to reduce bytes sent.
 // OSC 133 B (end prompt / start command input) is placed AFTER all prompt text.
 
+pub(crate) const PROMPT_START_MARKER: &str = "\x1b]133;P\x1b\\"; // Start of primary prompt (k=i = interactive)
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A;k=i\x1b\\"; // Start of primary prompt (k=i = interactive)
 pub(crate) const PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]133;A;k=s\x1b\\"; // Start of continuation/multiline prompt (k=s = secondary)
 pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\"; // Right prompt segment marker (k=r = right)
@@ -41,6 +42,7 @@ pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;"; // End comm
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\"; // End command execution suffix
 
 // OSC633 is the same as OSC133 but specifically for VSCode
+pub(crate) const VSCODE_PROMPT_START_MARKER: &str = "\x1b]633;P\x1b\\"; // Start of primary prompt for VSCode (k=i = interactive)
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A;k=i\x1b\\"; // Start of primary prompt for VSCode (k=i = interactive)
 pub(crate) const VSCODE_PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]633;A;k=s\x1b\\"; // Start of continuation/multiline prompt for VSCode (k=s = secondary)
 pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\"; // Right prompt segment marker for VSCode (k=r = right)
@@ -98,6 +100,15 @@ impl SemanticPromptMode {
         match self {
             SemanticPromptMode::Osc633 => (VSCODE_PRE_PROMPT_MARKER, VSCODE_PRE_INPUT_MARKER),
             SemanticPromptMode::Osc133 => (PRE_PROMPT_MARKER, PRE_INPUT_MARKER),
+            SemanticPromptMode::None => ("", ""),
+        }
+    }
+
+    /// Get the markers for start of prompt (left prompt indicator)
+    pub(crate) fn start_prompt_markers(&self) -> (&str, &str) {
+        match self {
+            SemanticPromptMode::Osc633 => (VSCODE_PROMPT_START_MARKER, VSCODE_PRE_INPUT_MARKER),
+            SemanticPromptMode::Osc133 => (PROMPT_START_MARKER, PRE_INPUT_MARKER),
             SemanticPromptMode::None => ("", ""),
         }
     }
