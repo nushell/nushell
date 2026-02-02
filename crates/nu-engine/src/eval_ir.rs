@@ -626,7 +626,7 @@ fn eval_instruction<D: DebugContext>(
             {
                 let mut original_exit = input.exit;
                 let result_exit_status_future =
-                    result.clone_exit_status_future().map(|f| (f, *span));
+                    result.clone_exit_status_future().map(|f| (f.0, f.1, *span));
                 original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,

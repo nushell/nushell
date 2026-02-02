@@ -319,7 +319,7 @@ If you create a custom command with this name, that will be used instead."#
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::byte_stream`.
-        let mut child = ChildProcess::new(
+        let child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
@@ -334,12 +334,6 @@ If you create a custom command with this name, that will be used instead."#
                     .map(|it| it.to_string()),
             )),
         )?;
-
-        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
-            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
-        {
-            child.ignore_error(true);
-        }
 
         Ok(PipelineData::byte_stream(
             ByteStream::child(child, call.head),
