@@ -20,6 +20,8 @@ mod macos;
 #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 mod netbsd;
 pub mod os_info;
+#[cfg(target_family = "unix")]
+mod unix;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -40,5 +42,7 @@ pub use self::linux::*;
 pub use self::macos::*;
 #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 pub use self::netbsd::*;
+#[cfg(target_family = "unix")]
+pub use self::unix::*;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;

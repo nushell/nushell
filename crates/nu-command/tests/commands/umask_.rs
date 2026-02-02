@@ -70,3 +70,20 @@ fn mask_set_invalid3() {
         assert!(actual.err.contains("Invalid mode"));
     });
 }
+
+#[cfg(target_family = "unix")]
+#[test]
+fn race_overwrite_mask() {
+    // See Issue #17469
+    //
+    // `uucore::mode::get_umask` is racy. This test verifies that our mitigation
+    //  is sufficient to prevent the race.
+    Playground::setup("race_overwrite_umask", |dirs, _| {
+        let count = nu!(
+            cwd: dirs.test(),
+            "seq 0 1000 | par-each { umask } | uniq | length"
+        )
+        .out;
+        assert_eq!(count, "1");
+    });
+}

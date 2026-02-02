@@ -1,8 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
-#[cfg(not(windows))]
-use uucore::mode;
 use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
@@ -11,12 +9,12 @@ pub struct UMkdir;
 const IS_RECURSIVE: bool = true;
 const DEFAULT_MODE: u32 = 0o777;
 
-#[cfg(not(windows))]
+#[cfg(target_family = "unix")]
 fn get_mode() -> u32 {
-    !mode::get_umask() & DEFAULT_MODE
+    !nu_system::get_umask() & DEFAULT_MODE
 }
 
-#[cfg(windows)]
+#[cfg(not(target_family = "unix"))]
 fn get_mode() -> u32 {
     DEFAULT_MODE
 }
