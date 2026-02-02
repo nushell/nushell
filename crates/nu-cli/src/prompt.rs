@@ -1,8 +1,7 @@
 use crate::prompt_update::{
-    POST_PROMPT_MARKER, PRE_PROMPT_MARKER, PROMPT_KIND_INITIAL, PROMPT_KIND_RIGHT,
-    PROMPT_KIND_SECONDARY, ShellIntegrationMode, VSCODE_POST_PROMPT_MARKER,
-    VSCODE_PRE_PROMPT_MARKER, VSCODE_PROMPT_KIND_INITIAL, VSCODE_PROMPT_KIND_RIGHT,
-    VSCODE_PROMPT_KIND_SECONDARY,
+    PRE_INPUT_MARKER, PRE_PROMPT_MARKER, PRE_PROMPT_MARKER_SECONDARY, PROMPT_KIND_RIGHT,
+    ShellIntegrationMode, VSCODE_PRE_INPUT_MARKER, VSCODE_PRE_PROMPT_MARKER,
+    VSCODE_PRE_PROMPT_MARKER_SECONDARY, VSCODE_PROMPT_KIND_RIGHT,
 };
 use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
@@ -134,11 +133,10 @@ impl Prompt for NushellPrompt {
 
             match self.shell_integration_mode() {
                 ShellIntegrationMode::Osc633 => {
-                    format!("{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{prompt}{VSCODE_POST_PROMPT_MARKER}").into()
+                    format!("{VSCODE_PRE_PROMPT_MARKER}{prompt}{VSCODE_PRE_INPUT_MARKER}").into()
                 }
                 ShellIntegrationMode::Osc133 => {
-                    format!("{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{prompt}{POST_PROMPT_MARKER}")
-                        .into()
+                    format!("{PRE_PROMPT_MARKER}{prompt}{PRE_INPUT_MARKER}").into()
                 }
                 ShellIntegrationMode::None => prompt.into(),
             }
@@ -200,9 +198,12 @@ impl Prompt for NushellPrompt {
 
         match self.shell_integration_mode() {
             ShellIntegrationMode::Osc633 => {
-                format!("{VSCODE_PROMPT_KIND_SECONDARY}{indicator}").into()
+                format!("{VSCODE_PRE_PROMPT_MARKER_SECONDARY}{indicator}{VSCODE_PRE_INPUT_MARKER}")
+                    .into()
             }
-            ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_SECONDARY}{indicator}").into(),
+            ShellIntegrationMode::Osc133 => {
+                format!("{PRE_PROMPT_MARKER_SECONDARY}{indicator}{PRE_INPUT_MARKER}").into()
+            }
             ShellIntegrationMode::None => indicator.into(),
         }
     }

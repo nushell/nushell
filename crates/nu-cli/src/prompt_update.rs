@@ -27,21 +27,21 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 
 // Store all these Ansi Escape Markers here so they can be reused easily
 // According to Daniel Imms @Tyriar, we need to do these this way:
-// <133 A><prompt><133 B><command><133 C><command output>
-pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+// <133 A;k=i><prompt><133 B><command><133 C><command output>
+pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A;k=i\x1b\\";
+pub(crate) const PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]133;A;k=s\x1b\\";
+pub(crate) const PRE_INPUT_MARKER: &str = "\x1b]133;B\x1b\\";
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 // OSC 133;P - Semantic prompt property markers (k=kind)
 // k=i: initial/primary prompt, k=s: secondary/continuation, k=r: right prompt
-pub(crate) const PROMPT_KIND_INITIAL: &str = "\x1b]133;P;k=i\x1b\\";
-pub(crate) const PROMPT_KIND_SECONDARY: &str = "\x1b]133;P;k=s\x1b\\";
 pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\";
 
 // OSC633 is the same as OSC133 but specifically for VSCode
-pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
-pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
+pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A;k=i\x1b\\";
+pub(crate) const VSCODE_PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]633;A;k=s\x1b\\";
+pub(crate) const VSCODE_PRE_INPUT_MARKER: &str = "\x1b]633;B\x1b\\";
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
 //"\x1b]633;D;{}\x1b\\"
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
@@ -53,8 +53,6 @@ pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 // OSC 633;P - VSCode semantic prompt property markers
-pub(crate) const VSCODE_PROMPT_KIND_INITIAL: &str = "\x1b]633;P;k=i\x1b\\";
-pub(crate) const VSCODE_PROMPT_KIND_SECONDARY: &str = "\x1b]633;P;k=s\x1b\\";
 pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\";
 
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
@@ -160,13 +158,13 @@ pub(crate) fn update_prompt(
     );
 
     // Now that we have the prompt string lets ansify it.
-    // <133 A><133 P;k=i><prompt><133 B><command><133 C><command output>
+    // <133 A;k=i><prompt><133 B><command><133 C><command output>
     let left_prompt_string = match mode {
         ShellIntegrationMode::Osc633 => Some(format!(
-            "{VSCODE_PRE_PROMPT_MARKER}{VSCODE_PROMPT_KIND_INITIAL}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
+            "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_PRE_INPUT_MARKER}"
         )),
         ShellIntegrationMode::Osc133 => Some(format!(
-            "{PRE_PROMPT_MARKER}{PROMPT_KIND_INITIAL}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
+            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{PRE_INPUT_MARKER}"
         )),
         ShellIntegrationMode::None => configured_left_prompt_string.into(),
     };
@@ -183,8 +181,12 @@ pub(crate) fn update_prompt(
     let prompt_multiline_string =
         get_prompt_string(PROMPT_MULTILINE_INDICATOR, config, engine_state, stack).map(|pms| {
             match mode {
-                ShellIntegrationMode::Osc633 => format!("{VSCODE_PROMPT_KIND_SECONDARY}{pms}"),
-                ShellIntegrationMode::Osc133 => format!("{PROMPT_KIND_SECONDARY}{pms}"),
+                ShellIntegrationMode::Osc633 => {
+                    format!("{VSCODE_PRE_PROMPT_MARKER_SECONDARY}{pms}{VSCODE_PRE_INPUT_MARKER}")
+                }
+                ShellIntegrationMode::Osc133 => {
+                    format!("{PRE_PROMPT_MARKER_SECONDARY}{pms}{PRE_INPUT_MARKER}")
+                }
                 ShellIntegrationMode::None => pms,
             }
         });
