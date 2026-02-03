@@ -255,7 +255,13 @@ If you create a custom command with this name, that will be used instead."#
                 }
             },
             PipelineData::Empty => {
-                command.stdin(Stdio::inherit());
+                // If no_stdin is set (e.g., MCP servers), use null stdin to prevent
+                // commands from hanging when they prompt for passwords or other input.
+                if engine_state.no_stdin {
+                    command.stdin(Stdio::null());
+                } else {
+                    command.stdin(Stdio::inherit());
+                }
                 None
             }
             value => {

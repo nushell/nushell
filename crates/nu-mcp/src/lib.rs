@@ -42,7 +42,7 @@ pub enum McpTransport {
 }
 
 pub fn initialize_mcp_server(
-    engine_state: EngineState,
+    mut engine_state: EngineState,
     transport: McpTransport,
 ) -> Result<(), ShellError> {
     tracing_subscriber::fmt()
@@ -50,6 +50,10 @@ pub fn initialize_mcp_server(
         .with_writer(std::io::stderr)
         .with_ansi(false)
         .init();
+
+    // MCP servers run non-interactively - external commands should not inherit stdin
+    // as this would cause them to hang when prompting for passwords or other input.
+    engine_state.no_stdin = true;
 
     tracing::info!(?transport, "Starting MCP server");
     let runtime = Runtime::new().map_err(|e| ShellError::GenericError {
