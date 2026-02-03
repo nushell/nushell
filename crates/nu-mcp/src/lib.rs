@@ -2,7 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum::Router;
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::auto::Builder,
+    service::TowerToHyperService,
+};
 use nu_protocol::{ShellError, engine::EngineState, engine::StateWorkingSet, format_cli_error};
 use rmcp::{
     ServiceExt,
@@ -111,7 +115,7 @@ async fn run_http_server(
         },
     });
 
-    let service = StreamableHttpService::new(
+    let service = TowerToHyperService::new(StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
@@ -123,22 +127,31 @@ async fn run_http_server(
             stateful_mode: true,
             cancellation_token: cancellation_token.clone(),
         },
-    );
+    ));
 
-    let router = Router::new().fallback_service(service);
     let addr = format!("0.0.0.0:{port}");
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("MCP HTTP server listening on http://{addr}");
     eprintln!("MCP HTTP server listening on http://{addr}");
 
-    axum::serve(listener, router)
-        .with_graceful_shutdown(async move {
-            let _ = tokio::signal::ctrl_c().await;
-            tracing::info!("Received Ctrl-C, shutting down...");
-            // Cancel all active sessions and SSE streams
-            cancellation_token.cancel();
-        })
-        .await?;
+    loop {
+        let io = tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                tracing::info!("Received Ctrl-C, shutting down...");
+                cancellation_token.cancel();
+                break;
+            }
+            accept = listener.accept() => {
+                TokioIo::new(accept?.0)
+            }
+        };
+        let service = service.clone();
+        tokio::spawn(async move {
+            let _ = Builder::new(TokioExecutor::new())
+                .serve_connection(io, service)
+                .await;
+        });
+    }
     Ok(())
 }
 

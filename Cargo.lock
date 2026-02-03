@@ -4549,10 +4549,10 @@ dependencies = [
 name = "nu-mcp"
 version = "0.110.1"
 dependencies = [
- "axum",
  "bytes",
  "chrono",
  "futures",
+ "hyper-util",
  "indoc",
  "nu-cmd-lang",
  "nu-engine",
