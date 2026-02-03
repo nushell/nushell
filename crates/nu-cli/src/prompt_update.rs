@@ -1,5 +1,5 @@
 use crate::NushellPrompt;
-use log::{trace, warn};
+use log::{error, trace, warn};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
     Config, PipelineData, Value,
@@ -34,7 +34,7 @@ pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
 
 pub(crate) const PROMPT_START_MARKER: &str = "\x1b]133;P\x1b\\"; // Start of primary prompt (k=i = interactive)
 pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A;k=i\x1b\\"; // Start of primary prompt (k=i = interactive)
-pub(crate) const PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]133;A;k=s\x1b\\"; // Start of continuation/multiline prompt (k=s = secondary)
+pub(crate) const PRE_PROMPT_LINE_CONTINUATION_MARKER: &str = "\x1b]133;A;k=s\x1b\\"; // Start of continuation/multiline prompt (k=s = secondary)
 pub(crate) const PROMPT_KIND_RIGHT: &str = "\x1b]133;P;k=r\x1b\\"; // Right prompt segment marker (k=r = right)
 pub(crate) const PRE_INPUT_MARKER: &str = "\x1b]133;B\x1b\\"; // End prompt, begin user input/command
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\"; // Start command execution
@@ -44,7 +44,7 @@ pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\"; // End command e
 // OSC633 is the same as OSC133 but specifically for VSCode
 pub(crate) const VSCODE_PROMPT_START_MARKER: &str = "\x1b]633;P\x1b\\"; // Start of primary prompt for VSCode (k=i = interactive)
 pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A;k=i\x1b\\"; // Start of primary prompt for VSCode (k=i = interactive)
-pub(crate) const VSCODE_PRE_PROMPT_MARKER_SECONDARY: &str = "\x1b]633;A;k=s\x1b\\"; // Start of continuation/multiline prompt for VSCode (k=s = secondary)
+pub(crate) const VSCODE_PRE_PROMPT_LINE_CONTINUATION_MARKER: &str = "\x1b]633;A;k=s\x1b\\"; // Start of continuation/multiline prompt for VSCode (k=s = secondary)
 pub(crate) const VSCODE_PROMPT_KIND_RIGHT: &str = "\x1b]633;P;k=r\x1b\\"; // Right prompt segment marker for VSCode (k=r = right)
 pub(crate) const VSCODE_PRE_INPUT_MARKER: &str = "\x1b]633;B\x1b\\"; // End prompt, begin user input/command for VSCode
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\"; // Start command execution for VSCode
@@ -105,7 +105,7 @@ impl SemanticPromptMode {
     }
 
     /// Get the markers for start of prompt (left prompt indicator)
-    pub(crate) fn start_prompt_markers(&self) -> (&str, &str) {
+    pub(crate) fn start_left_indicator_markers(&self) -> (&str, &str) {
         match self {
             SemanticPromptMode::Osc633 => (VSCODE_PROMPT_START_MARKER, VSCODE_PRE_INPUT_MARKER),
             SemanticPromptMode::Osc133 => (PROMPT_START_MARKER, PRE_INPUT_MARKER),
@@ -116,10 +116,11 @@ impl SemanticPromptMode {
     /// Get the markers for secondary prompt (multiline continuation)
     pub(crate) fn secondary_markers(&self) -> (&str, &str) {
         match self {
-            SemanticPromptMode::Osc633 => {
-                (VSCODE_PRE_PROMPT_MARKER_SECONDARY, VSCODE_PRE_INPUT_MARKER)
-            }
-            SemanticPromptMode::Osc133 => (PRE_PROMPT_MARKER_SECONDARY, PRE_INPUT_MARKER),
+            SemanticPromptMode::Osc633 => (
+                VSCODE_PRE_PROMPT_LINE_CONTINUATION_MARKER,
+                VSCODE_PRE_INPUT_MARKER,
+            ),
+            SemanticPromptMode::Osc133 => (PRE_PROMPT_LINE_CONTINUATION_MARKER, PRE_INPUT_MARKER),
             SemanticPromptMode::None => ("", ""),
         }
     }
@@ -246,6 +247,47 @@ pub(crate) fn update_prompt(
         config.render_right_prompt_on_last_line,
     );
     trace!("update_prompt {}:{}:{}", file!(), line!(), column!());
+
+    fn rust_escape_to_shell_escape(s: &Option<String>) -> String {
+        s.clone().unwrap_or_default().replace('\x1b', r"\e")
+    }
+
+    error!(
+        "shell_integration_osc133: {}",
+        nu_prompt.shell_integration_osc133
+    );
+    error!(
+        "shell_integration_osc633: {}",
+        nu_prompt.shell_integration_osc633
+    );
+    error!(
+        "left_prompt_string: {}",
+        rust_escape_to_shell_escape(&nu_prompt.left_prompt)
+    );
+    error!(
+        "right_prompt_string: {}",
+        rust_escape_to_shell_escape(&nu_prompt.right_prompt)
+    );
+    error!(
+        "default_prompt_indicator: {}",
+        rust_escape_to_shell_escape(&nu_prompt.prompt_indicator)
+    );
+    error!(
+        "default_vi_insert_prompt_indicator: {}",
+        rust_escape_to_shell_escape(&nu_prompt.vi_insert_prompt_indicator)
+    );
+    error!(
+        "default_vi_normal_prompt_indicator: {}",
+        rust_escape_to_shell_escape(&nu_prompt.vi_normal_prompt_indicator)
+    );
+    error!(
+        "default_multiline_indicator: {}",
+        rust_escape_to_shell_escape(&nu_prompt.multiline_indicator)
+    );
+    error!(
+        "render_right_prompt_on_last_line: {}",
+        nu_prompt.render_right_prompt_on_last_line
+    );
 }
 
 /// Construct the transient prompt based on the normal nu_prompt
@@ -256,14 +298,17 @@ pub(crate) fn make_transient_prompt(
     nu_prompt: &NushellPrompt,
 ) -> Box<dyn Prompt> {
     let mut nu_prompt = nu_prompt.clone();
+    let mode = nu_prompt.shell_integration_mode();
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND, config, engine_state, stack) {
-        nu_prompt.update_prompt_left(Some(s))
+        let wrapped = nu_prompt.wrap_prompt_string(s, mode);
+        nu_prompt.update_prompt_left(Some(wrapped))
     }
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_COMMAND_RIGHT, config, engine_state, stack)
     {
-        nu_prompt.update_prompt_right(Some(s), config.render_right_prompt_on_last_line)
+        let wrapped = nu_prompt.wrap_right_prompt(s, mode);
+        nu_prompt.update_prompt_right(Some(wrapped), config.render_right_prompt_on_last_line)
     }
 
     if let Some(s) = get_prompt_string(TRANSIENT_PROMPT_INDICATOR, config, engine_state, stack) {
@@ -292,7 +337,8 @@ pub(crate) fn make_transient_prompt(
         engine_state,
         stack,
     ) {
-        nu_prompt.update_prompt_multiline(Some(s))
+        let wrapped = nu_prompt.wrap_multiline_indicator(&s, mode);
+        nu_prompt.update_prompt_multiline(Some(wrapped))
     }
 
     Box::new(nu_prompt)
