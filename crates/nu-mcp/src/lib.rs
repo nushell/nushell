@@ -100,6 +100,9 @@ async fn run_http_server(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let engine_state = Arc::new(engine_state);
 
+    // Create cancellation token to propagate shutdown to all sessions/streams
+    let cancellation_token = CancellationToken::new();
+
     let session_manager = Arc::new(LocalSessionManager {
         sessions: RwLock::new(HashMap::new()),
         session_config: SessionConfig {
@@ -118,7 +121,7 @@ async fn run_http_server(
             sse_keep_alive: Some(SSE_KEEP_ALIVE),
             sse_retry: Some(SSE_RETRY),
             stateful_mode: true,
-            cancellation_token: CancellationToken::new(),
+            cancellation_token: cancellation_token.clone(),
         },
     );
 
@@ -129,8 +132,11 @@ async fn run_http_server(
     eprintln!("MCP HTTP server listening on http://{addr}");
 
     axum::serve(listener, router)
-        .with_graceful_shutdown(async {
+        .with_graceful_shutdown(async move {
             let _ = tokio::signal::ctrl_c().await;
+            tracing::info!("Received Ctrl-C, shutting down...");
+            // Cancel all active sessions and SSE streams
+            cancellation_token.cancel();
         })
         .await?;
     Ok(())
