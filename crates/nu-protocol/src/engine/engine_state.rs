@@ -116,10 +116,7 @@ pub struct EngineState {
     pub is_interactive: bool,
     pub is_login: bool,
     pub is_lsp: bool,
-    /// When true, external commands will NOT inherit stdin from the parent process.
-    /// This prevents commands from hanging when they prompt for passwords or other input.
-    /// Used by MCP servers and similar contexts where stdin should not be accessible.
-    pub no_stdin: bool,
+    pub is_mcp: bool,
     startup_time: i64,
     is_debugging: IsDebugging,
     pub debugger: Arc<Mutex<Box<dyn Debugger>>>,
@@ -209,7 +206,7 @@ impl EngineState {
             is_interactive: false,
             is_login: false,
             is_lsp: false,
-            no_stdin: false,
+            is_mcp: false,
             startup_time: -1,
             is_debugging: IsDebugging::new(false),
             debugger: Arc::new(Mutex::new(Box::new(NoopDebugger))),

@@ -255,9 +255,12 @@ If you create a custom command with this name, that will be used instead."#
                 }
             },
             PipelineData::Empty => {
-                // If no_stdin is set (e.g., MCP servers), use null stdin to prevent
-                // commands from hanging when they prompt for passwords or other input.
-                if engine_state.no_stdin {
+                // MCP servers run non-interactively - use null stdin to prevent commands
+                // from hanging when they prompt for passwords or other input.
+                // In the future, this may become a more general option (e.g., no_stdin)
+                // but needs more testing first. See:
+                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
+                if engine_state.is_mcp {
                     command.stdin(Stdio::null());
                 } else {
                     command.stdin(Stdio::inherit());

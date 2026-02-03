@@ -67,7 +67,7 @@ pub fn initialize_mcp_server(
 
     // MCP servers run non-interactively - external commands should not inherit stdin
     // as this would cause them to hang when prompting for passwords or other input.
-    engine_state.no_stdin = true;
+    engine_state.is_mcp = true;
 
     tracing::info!(?transport, "Starting MCP server");
     let runtime = Runtime::new().map_err(|e| ShellError::GenericError {
