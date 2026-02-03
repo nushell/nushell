@@ -211,12 +211,26 @@ impl Evaluator {
 
         let history = History::new(&mut engine_state);
 
+        // Set up stack with output capturing and disable interactive prompts
+        let mut stack = Stack::new().capture_all();
+
+        // Disable SSH askpass - SSH opens /dev/tty directly to prompt for passwords,
+        // bypassing stdin. Setting SSH_ASKPASS="" prevents it from using a GUI prompt.
+        // This makes SSH fail fast with a clear error instead of hanging.
+        stack.add_env_var(
+            "SSH_ASKPASS".into(),
+            Value::string("", Span::unknown()),
+        );
+        // Some SSH implementations also check DISPLAY for askpass
+        stack.add_env_var(
+            "SSH_ASKPASS_REQUIRE".into(),
+            Value::string("never", Span::unknown()),
+        );
+
         Self {
             state: Mutex::new(EvalState {
                 engine_state,
-                // Use capture_all() to capture external command stdout AND stderr
-                // instead of letting them go to the process's terminal (OutDest::Inherit)
-                stack: Stack::new().capture_all(),
+                stack,
                 history,
             }),
         }
