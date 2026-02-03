@@ -109,6 +109,21 @@ $"2 + 2 = (2 + 2)"                              # Expressions work too
 
 **Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
+**ANSI escape codes:** Use `ansi strip` to remove ANSI color/formatting codes from output. Do NOT use `\u001b` or similar unicode escapes - nushell doesn't support that syntax.
+```nu
+# BAD - nushell doesn't support \uXXXX unicode escapes
+$output | str replace -a "\u001b" ""        # ERROR: invalid unicode escape
+
+# GOOD - use ansi strip to remove ANSI codes
+$output | ansi strip                         # Removes all ANSI escape sequences
+^rg pattern | ansi strip                     # Strip colors from external command output
+
+# To produce special characters, use the char command
+char escape                                  # ESC character (0x1b)
+char newline                                 # Newline
+char tab                                     # Tab
+```
+
 **Stderr redirection:** Use `o+e>` or `out+err>` instead of bash-style `2>&1`.
 ```nu
 # BAD - bash syntax doesn't work in nushell
