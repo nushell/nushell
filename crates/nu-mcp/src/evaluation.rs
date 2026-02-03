@@ -62,9 +62,9 @@ impl Evaluator {
         Self {
             state: Mutex::new(EvalState {
                 engine_state,
-                // Use collect_value() to capture external command output instead of
-                // letting it go to the process's stdout (OutDest::Inherit)
-                stack: Stack::new().collect_value(),
+                // Use capture_all() to capture external command stdout AND stderr
+                // instead of letting them go to the process's terminal (OutDest::Inherit)
+                stack: Stack::new().capture_all(),
                 history,
             }),
         }

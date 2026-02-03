@@ -706,6 +706,20 @@ impl Stack {
         self
     }
 
+    /// Mark both stdout and stderr for the last command as [`OutDest::Value`].
+    ///
+    /// This captures all output (stdout and stderr) instead of letting it inherit
+    /// to the process's terminal. Useful for programmatic contexts like MCP servers
+    /// where all output must be captured and returned.
+    ///
+    /// This will irreversibly alter the output redirections, and so it only makes sense to use this on an owned `Stack`
+    /// (which is why this function does not take `&mut self`).
+    pub fn capture_all(mut self) -> Self {
+        self.out_dest.pipe_stdout = Some(OutDest::Value);
+        self.out_dest.pipe_stderr = Some(OutDest::Value);
+        self
+    }
+
     /// Clears any pipe and file redirections and resets stdout and stderr to [`OutDest::Inherit`].
     ///
     /// This will irreversibly reset the output redirections, and so it only makes sense to use this on an owned `Stack`
