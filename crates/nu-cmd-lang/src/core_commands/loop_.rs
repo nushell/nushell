@@ -47,7 +47,7 @@ impl Command for Loop {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Loop while a condition is true",
+            description: "Loop while a condition is true.",
             example: "mut x = 0; loop { if $x > 10 { break }; $x = $x + 1 }; $x",
             result: Some(Value::test_int(11)),
         }]

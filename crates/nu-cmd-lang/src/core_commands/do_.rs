@@ -199,47 +199,47 @@ impl Command for Do {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Run the closure",
+                description: "Run the closure.",
                 example: r#"do { echo hello }"#,
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Run a stored first-class closure",
+                description: "Run a stored first-class closure.",
                 example: r#"let text = "I am enclosed"; let hello = {|| echo $text}; do $hello"#,
                 result: Some(Value::test_string("I am enclosed")),
             },
             Example {
-                description: "Run the closure and ignore both shell and external program errors",
+                description: "Run the closure and ignore both shell and external program errors.",
                 example: r#"do --ignore-errors { thisisnotarealcommand }"#,
                 result: None,
             },
             Example {
-                description: "Abort the pipeline if a program returns a non-zero exit code",
+                description: "Abort the pipeline if a program returns a non-zero exit code.",
                 example: r#"do --capture-errors { nu --commands 'exit 1' } | myscarycommand"#,
                 result: None,
             },
             Example {
-                description: "Run the closure with a positional, type-checked parameter",
+                description: "Run the closure with a positional, type-checked parameter.",
                 example: r#"do {|x:int| 100 + $x } 77"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure with pipeline input",
+                description: "Run the closure with pipeline input.",
                 example: r#"77 | do { 100 + $in }"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure with a default parameter value",
+                description: "Run the closure with a default parameter value.",
                 example: r#"77 | do {|x=100| $x + $in }"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure with two positional parameters",
+                description: "Run the closure with two positional parameters.",
                 example: r#"do {|x,y| $x + $y } 77 100"#,
                 result: Some(Value::test_int(177)),
             },
             Example {
-                description: "Run the closure and keep changes to the environment",
+                description: "Run the closure and keep changes to the environment.",
                 example: r#"do --env { $env.foo = 'bar' }; $env.foo"#,
                 result: Some(Value::test_string("bar")),
             },

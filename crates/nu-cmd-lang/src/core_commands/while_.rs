@@ -56,7 +56,7 @@ impl Command for While {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Loop while a condition is true",
+            description: "Loop while a condition is true.",
             example: "mut x = 0; while $x < 10 { $x = $x + 1 }",
             result: None,
         }]

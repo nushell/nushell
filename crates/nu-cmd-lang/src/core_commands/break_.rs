@@ -47,7 +47,7 @@ impl Command for Break {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Break out of a loop",
+            description: "Break out of a loop.",
             example: r#"loop { break }"#,
             result: None,
         }]
