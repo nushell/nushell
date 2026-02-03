@@ -1,14 +1,19 @@
 use crate::history::History;
 use miette::{Diagnostic, SourceCode, SourceSpan};
 use nu_protocol::{
-    PipelineData, PipelineExecutionData, Span, Value,
+    PipelineData, PipelineExecutionData, Signals, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use std::{
-    sync::Mutex,
+    sync::{
+        Arc,
+        atomic::AtomicBool,
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
+use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
 const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
@@ -163,6 +168,11 @@ pub(crate) fn shell_error_to_mcp_error(
     )
 }
 
+/// MCP error for cancelled operations.
+fn cancelled_error() -> rmcp::ErrorData {
+    rmcp::ErrorData::internal_error("Operation cancelled by client".to_string(), None)
+}
+
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
 /// # Architecture
@@ -174,6 +184,13 @@ pub(crate) fn shell_error_to_mcp_error(
 /// 3. Evaluates the block with the persistent state and stack
 ///
 /// Step 2 ensures parsed blocks (including closures) are registered and available.
+///
+/// # Cancellation Support
+///
+/// The evaluator supports cancellation via `CancellationToken`. When cancelled:
+/// 1. The evaluation is interrupted via nushell's `Signals` mechanism
+/// 2. Any forked state changes are discarded
+/// 3. The original state remains unchanged
 ///
 /// # State Persistence
 ///
@@ -195,10 +212,44 @@ pub struct Evaluator {
     state: Mutex<EvalState>,
 }
 
+/// The mutable evaluation state that persists across evaluations.
 struct EvalState {
     engine_state: EngineState,
     stack: Stack,
     history: History,
+}
+
+impl EvalState {
+    /// Creates a forked copy of the state for isolated evaluation.
+    ///
+    /// The forked state has its own `Signals` instance that can be triggered
+    /// to interrupt the evaluation without affecting the original state.
+    ///
+    /// Returns `(forked_state, interrupt_trigger)` where `interrupt_trigger`
+    /// is an `Arc<AtomicBool>` that can be set to `true` to interrupt the evaluation.
+    fn fork(&self) -> (Self, Arc<AtomicBool>) {
+        let interrupt = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(interrupt.clone());
+
+        let mut engine_state = self.engine_state.clone();
+        engine_state.set_signals(signals);
+
+        // Create a child stack that inherits from current state
+        // We clone instead of using parent linking since we may discard entirely
+        let stack = self.stack.clone();
+
+        // Clone history so changes can be discarded
+        let history = self.history.clone();
+
+        (
+            Self {
+                engine_state,
+                stack,
+                history,
+            },
+            interrupt,
+        )
+    }
 }
 
 impl Evaluator {
@@ -221,94 +272,182 @@ impl Evaluator {
         }
     }
 
+    /// Evaluates nushell source code with cancellation support.
+    ///
+    /// This method:
+    /// 1. Forks the current state (cheap due to Arc-based copy-on-write)
+    /// 2. Runs the evaluation on the forked state in a blocking task
+    /// 3. Races the evaluation against the cancellation token
+    /// 4. On success: merges changes back to the main state
+    /// 5. On cancellation: discards the forked state, original unchanged
+    pub async fn eval_async(
+        &self,
+        nu_source: &str,
+        ct: CancellationToken,
+    ) -> Result<String, rmcp::ErrorData> {
+        // Fork the state for isolated evaluation
+        let (forked_state, interrupt) = {
+            let state = self.state.lock().await;
+            state.fork()
+        };
+
+        let source = nu_source.to_string();
+
+        // Run evaluation in a blocking task since eval_block is synchronous
+        let eval_handle = tokio::task::spawn_blocking(move || {
+            eval_inner(forked_state, &source)
+        });
+
+        // Set up cancellation monitoring
+        let abort_handle = eval_handle.abort_handle();
+
+        // Spawn a task to trigger interrupt on cancellation
+        let interrupt_clone = interrupt.clone();
+        let ct_clone = ct.clone();
+        tokio::spawn(async move {
+            ct_clone.cancelled().await;
+            // Trigger nushell's interrupt signal to stop any running commands
+            interrupt_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+            // Abort the blocking task
+            abort_handle.abort();
+        });
+
+        // Wait for evaluation to complete
+        match eval_handle.await {
+            Ok((new_state, eval_result)) => {
+                // Check if we were cancelled
+                if ct.is_cancelled() {
+                    return Err(cancelled_error());
+                }
+                // Commit the forked state back to main state
+                let mut state = self.state.lock().await;
+                *state = new_state;
+                eval_result
+            }
+            Err(join_error) => {
+                if join_error.is_cancelled() {
+                    Err(cancelled_error())
+                } else {
+                    Err(rmcp::ErrorData::internal_error(
+                        format!("Evaluation task panicked: {join_error}"),
+                        None,
+                    ))
+                }
+            }
+        }
+    }
+
+    /// Synchronous evaluation without cancellation support.
+    ///
+    /// Provided for backwards compatibility and testing.
+    #[cfg(test)]
     pub fn eval(&self, nu_source: &str) -> Result<String, rmcp::ErrorData> {
-        let mut state = self.state.lock().expect("evaluator lock poisoned");
+        // Create a runtime for sync evaluation in tests
+        let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+        rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
+    }
+}
 
-        let EvalState {
-            engine_state,
-            stack,
-            history,
-        } = &mut *state;
+/// Inner evaluation logic that operates on an owned `EvalState`.
+///
+/// Returns the (possibly modified) state along with the result.
+/// This allows the caller to decide whether to commit or discard the state.
+fn eval_inner(mut state: EvalState, nu_source: &str) -> (EvalState, Result<String, rmcp::ErrorData>) {
+    let EvalState {
+        engine_state,
+        stack,
+        history,
+    } = &mut state;
 
-        let (block, delta) = {
-            let mut working_set = StateWorkingSet::new(engine_state);
-            let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
+    let result = eval_on_state(engine_state, stack, history, nu_source);
+    (state, result)
+}
 
-            if let Some(err) = working_set.parse_errors.first() {
-                return Err(user_input_error(&working_set, err, None));
-            }
+/// Core evaluation logic shared by both sync and async paths.
+fn eval_on_state(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    history: &mut History,
+    nu_source: &str,
+) -> Result<String, rmcp::ErrorData> {
+    let (block, delta) = {
+        let mut working_set = StateWorkingSet::new(engine_state);
+        let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
-            if let Some(err) = working_set.compile_errors.first() {
-                return Err(user_input_error(&working_set, err, None));
-            }
-
-            (block, working_set.render())
-        };
-
-        engine_state
-            .merge_delta(delta)
-            .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
-
-        // Set up $history variable on the stack before evaluation
-        stack.add_var(history.var_id(), history.as_value());
-
-        let output = nu_engine::eval_block::<WithoutDebug>(
-            engine_state,
-            stack,
-            &block,
-            PipelineData::empty(),
-        )
-        .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
-
-        let cwd = engine_state
-            .cwd(Some(stack))
-            .map(|p| p.to_string_lossy().into_owned())
-            .unwrap_or_else(|_| String::from("unknown"));
-
-        let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
-
-        // Create timestamp for response
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_nanos() as i64)
-            .unwrap_or(0);
-        let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
-
-        // Store in history
-        let history_index = history.push(output_value, engine_state, stack);
-
-        let truncated =
-            output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
-
-        let mut record = nu_protocol::record! {
-            "cwd" => Value::string(cwd, Span::unknown()),
-            "history_index" => Value::int(history_index as i64, Span::unknown()),
-            "timestamp" => Value::date(timestamp_value, Span::unknown()),
-        };
-
-        if truncated {
-            record.push(
-                "note",
-                Value::string(
-                    format!("output truncated, full result in $history.{history_index}"),
-                    Span::unknown(),
-                ),
-            );
-        } else {
-            record.push("output", Value::string(output_nuon, Span::unknown()));
+        if let Some(err) = working_set.parse_errors.first() {
+            return Err(user_input_error(&working_set, err, None));
         }
 
-        let response = Value::record(record, Span::unknown());
+        if let Some(err) = working_set.compile_errors.first() {
+            return Err(user_input_error(&working_set, err, None));
+        }
 
-        nuon::to_nuon(
-            engine_state,
-            &response,
-            nuon::ToNuonConfig::default()
-                .style(nuon::ToStyle::Raw)
-                .span(Some(Span::unknown())),
-        )
-        .map_err(|e| shell_error_to_mcp_error(e, engine_state))
+        (block, working_set.render())
+    };
+
+    engine_state
+        .merge_delta(delta)
+        .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+
+    // Set up $history variable on the stack before evaluation
+    stack.add_var(history.var_id(), history.as_value());
+
+    let output = nu_engine::eval_block::<WithoutDebug>(
+        engine_state,
+        stack,
+        &block,
+        PipelineData::empty(),
+    )
+    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+
+    let cwd = engine_state
+        .cwd(Some(stack))
+        .map(|p| p.to_string_lossy().into_owned())
+        .unwrap_or_else(|_| String::from("unknown"));
+
+    let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
+
+    // Create timestamp for response
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as i64)
+        .unwrap_or(0);
+    let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
+
+    // Store in history
+    let history_index = history.push(output_value, engine_state, stack);
+
+    let truncated =
+        output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
+
+    let mut record = nu_protocol::record! {
+        "cwd" => Value::string(cwd, Span::unknown()),
+        "history_index" => Value::int(history_index as i64, Span::unknown()),
+        "timestamp" => Value::date(timestamp_value, Span::unknown()),
+    };
+
+    if truncated {
+        record.push(
+            "note",
+            Value::string(
+                format!("output truncated, full result in $history.{history_index}"),
+                Span::unknown(),
+            ),
+        );
+    } else {
+        record.push("output", Value::string(output_nuon, Span::unknown()));
     }
+
+    let response = Value::record(record, Span::unknown());
+
+    nuon::to_nuon(
+        engine_state,
+        &response,
+        nuon::ToNuonConfig::default()
+            .style(nuon::ToStyle::Raw)
+            .span(Some(Span::unknown())),
+    )
+    .map_err(|e| shell_error_to_mcp_error(e, engine_state))
 }
 
 /// Returns the output limit in bytes.
@@ -721,5 +860,38 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_cancellation_discards_state() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // Set a variable first
+        evaluator
+            .eval_async("let x = 1", CancellationToken::new())
+            .await
+            .unwrap();
+
+        // Start an evaluation that we'll cancel
+        let ct = CancellationToken::new();
+        let ct_clone = ct.clone();
+
+        // Cancel immediately
+        ct_clone.cancel();
+
+        // This should be cancelled and state should not change
+        let result = evaluator.eval_async("let x = 999", ct).await;
+        assert!(result.is_err(), "Cancelled evaluation should error");
+
+        // Original variable should still be 1
+        let result = evaluator
+            .eval_async("$x", CancellationToken::new())
+            .await
+            .unwrap();
+        assert!(
+            result.contains('1') && !result.contains("999"),
+            "Variable should still be 1 after cancelled eval, got: {result}"
+        );
     }
 }
