@@ -81,7 +81,7 @@ fn format_mcp_error(
                 }
 
                 // Extract source context with line/column info
-                let span: SourceSpan = label.inner().clone();
+                let span: SourceSpan = *label.inner();
                 if let Some((span_text, line, column)) = extract_source_context(working_set, &span)
                 {
                     // The exact source text at the error span
