@@ -226,11 +226,19 @@ impl Command for Open {
                                 eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
                             };
                             output.push(command_output.map_err(|inner| {
+                                    // Check if this is a DTD-related error and provide specific guidance
+                                    let error_message = format!("{:?}", inner);
+                                    let help_msg = if ext == "xml" && error_message.contains("DTD detected") {
+                                        format!("Use `open --raw '{}' | from xml --allow-dtd` to parse XML files with DTDs, or `help from xml` for more options", path.display())
+                                    } else {
+                                        format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())
+                                    };
+                                    
                                     ShellError::GenericError{
                                         error: format!("Error while parsing as {ext}"),
                                         msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
                                         span: Some(arg_span),
-                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
+                                        help: Some(help_msg),
                                         inner: vec![inner],
                                 }
                                 })?);
