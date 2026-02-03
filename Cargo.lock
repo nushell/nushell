@@ -4554,6 +4554,7 @@ dependencies = [
  "futures",
  "hyper-util",
  "indoc",
+ "miette",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",

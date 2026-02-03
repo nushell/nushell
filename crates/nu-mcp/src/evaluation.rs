@@ -1,4 +1,5 @@
-use crate::{history::History, shell_error_to_mcp_error};
+use crate::history::History;
+use miette::{Diagnostic, SourceCode, SourceSpan};
 use nu_protocol::{
     PipelineData, PipelineExecutionData, Span, Value,
     debugger::WithoutDebug,
@@ -12,15 +13,155 @@ use std::{
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
 const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
 
+/// Formats a miette Diagnostic error as a NUON record for MCP.
+///
+/// Extracts structured error information (code, message, help, labels with spans)
+/// and formats it as NUON - a machine-readable format that's more useful for LLMs
+/// than the human-readable display format.
+///
+/// The output includes:
+/// - `code`: Error code (e.g., "nu::parser::parse_mismatch")
+/// - `msg`: Short error message
+/// - `severity`: "error", "warning", or "advice" (if available)
+/// - `help`: Hint/suggestion for fixing the error (if available)
+/// - `url`: Documentation URL (if available)
+/// - `labels`: List of source locations with context:
+///   - `text`: What the label is pointing at (e.g., "expected duration")
+///   - `span`: The exact text that caused the error
+///   - `line`: 1-indexed line number
+///   - `column`: 1-indexed column number
+fn format_mcp_error(
+    working_set: &StateWorkingSet,
+    error: &dyn Diagnostic,
+    default_code: Option<&'static str>,
+) -> String {
+    let mut record = nu_protocol::record! {};
+
+    // Error code (e.g., "nu::parser::parse_mismatch")
+    let code = error
+        .code()
+        .map(|c| c.to_string())
+        .or_else(|| default_code.map(String::from));
+    if let Some(code) = code {
+        record.push("code", Value::string(code, Span::unknown()));
+    }
+
+    // Error message from Display trait
+    record.push("msg", Value::string(error.to_string(), Span::unknown()));
+
+    // Severity level (error, warning, advice)
+    if let Some(severity) = error.severity() {
+        let severity_str = match severity {
+            miette::Severity::Error => "error",
+            miette::Severity::Warning => "warning",
+            miette::Severity::Advice => "advice",
+        };
+        record.push("severity", Value::string(severity_str, Span::unknown()));
+    }
+
+    // Help/hint text if available
+    if let Some(help) = error.help() {
+        record.push("help", Value::string(help.to_string(), Span::unknown()));
+    }
+
+    // Documentation URL if available
+    if let Some(url) = error.url() {
+        record.push("url", Value::string(url.to_string(), Span::unknown()));
+    }
+
+    // Labels with span information, line/column, and source context
+    if let Some(labels) = error.labels() {
+        let labels_list: Vec<Value> = labels
+            .map(|label| {
+                let mut label_record = nu_protocol::record! {};
+
+                // Label text/message (what it's pointing at, e.g., "expected duration")
+                if let Some(text) = label.label() {
+                    label_record.push("text", Value::string(text, Span::unknown()));
+                }
+
+                // Extract source context with line/column info
+                let span: SourceSpan = label.inner().clone();
+                if let Some((span_text, line, column)) =
+                    extract_source_context(working_set, &span)
+                {
+                    // The exact source text at the error span
+                    label_record.push("span", Value::string(span_text, Span::unknown()));
+                    // 1-indexed line and column for human readability
+                    label_record.push("line", Value::int(line as i64, Span::unknown()));
+                    label_record.push("column", Value::int(column as i64, Span::unknown()));
+                }
+
+                Value::record(label_record, Span::unknown())
+            })
+            .collect();
+
+        if !labels_list.is_empty() {
+            record.push("labels", Value::list(labels_list, Span::unknown()));
+        }
+    }
+
+    // Convert to NUON format
+    let value = Value::record(record, Span::unknown());
+    nuon::to_nuon(
+        working_set.permanent(),
+        &value,
+        nuon::ToNuonConfig::default()
+            .style(nuon::ToStyle::Raw)
+            .span(Some(Span::unknown())),
+    )
+    .unwrap_or_else(|_| error.to_string())
+}
+
+/// Extract the source code context around a span for error display.
+/// Returns (span_text, line_number, column_number) where line/column are 1-indexed.
+fn extract_source_context(
+    working_set: &StateWorkingSet,
+    span: &SourceSpan,
+) -> Option<(String, usize, usize)> {
+    // Use the working_set as the source code provider (it implements miette::SourceCode)
+    let contents = working_set.read_span(span, 0, 0).ok()?;
+
+    // Get the source text from the span data (it's &[u8])
+    let source = contents.data();
+    let span_text = if source.is_empty() {
+        String::new()
+    } else {
+        String::from_utf8_lossy(source).into_owned()
+    };
+
+    // SpanContents provides 0-indexed line/column, convert to 1-indexed for humans
+    let line = contents.line() + 1;
+    let column = contents.column() + 1;
+
+    Some((span_text, line, column))
+}
+
 /// Creates an invalid_params MCP error for user input errors (parse/compile errors).
 ///
 /// Uses error code -32602 (Invalid params) since these are user input errors, not server errors.
-/// The data parameter is None - the formatted message already includes error code, location,
-/// and help text. Adding structured data would be redundant since ErrorData::Display includes
-/// both message and data in output shown to agents.
-/// See: <https://github.com/modelcontextprotocol/rust-sdk/blob/main/crates/rmcp/src/error.rs>
-fn user_input_error(message: String) -> rmcp::ErrorData {
-    rmcp::ErrorData::invalid_params(message, None)
+/// Error is formatted as NUON for machine-readable structured output.
+fn user_input_error(
+    working_set: &StateWorkingSet,
+    error: &dyn Diagnostic,
+    default_code: Option<&'static str>,
+) -> rmcp::ErrorData {
+    rmcp::ErrorData::invalid_params(format_mcp_error(working_set, error, default_code), None)
+}
+
+/// Creates an internal MCP error for runtime errors.
+///
+/// Uses error code -32603 (Internal error) since these are server-side execution errors.
+/// Error is formatted as NUON for machine-readable structured output.
+pub(crate) fn shell_error_to_mcp_error(
+    error: nu_protocol::ShellError,
+    engine_state: &EngineState,
+) -> rmcp::ErrorData {
+    let working_set = StateWorkingSet::new(engine_state);
+    rmcp::ErrorData::internal_error(
+        format_mcp_error(&working_set, &error, Some("nu::shell::error")),
+        None,
+    )
 }
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
@@ -95,21 +236,11 @@ impl Evaluator {
             let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
             if let Some(err) = working_set.parse_errors.first() {
-                return Err(user_input_error(nu_protocol::format_cli_error(
-                    None,
-                    &working_set,
-                    err,
-                    None,
-                )));
+                return Err(user_input_error(&working_set, err, None));
             }
 
             if let Some(err) = working_set.compile_errors.first() {
-                return Err(user_input_error(nu_protocol::format_cli_error(
-                    None,
-                    &working_set,
-                    err,
-                    None,
-                )));
+                return Err(user_input_error(&working_set, err, None));
             }
 
             (block, working_set.render())
@@ -202,13 +333,41 @@ fn process_pipeline(
     let span = pipeline_execution_data.span();
 
     if let PipelineData::ByteStream(stream, ..) = pipeline_execution_data.body {
-        let mut buffer = Vec::new();
-        stream
-            .write_to(&mut buffer)
-            .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
-        let string_output = String::from_utf8_lossy(&buffer).into_owned();
-        let value = Value::string(&string_output, Span::unknown());
-        return Ok((value, string_output));
+        // Try to handle as a child process first (external commands)
+        // This properly handles both stdout and stderr when capture_all() is used
+        match stream.into_child() {
+            Ok(child) => {
+                let output = child
+                    .wait_with_output()
+                    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+
+                // Combine stdout and stderr into a single output
+                let mut combined = Vec::new();
+                if let Some(stdout) = output.stdout {
+                    combined.extend(stdout);
+                }
+                if let Some(stderr) = output.stderr {
+                    if !combined.is_empty() && !stderr.is_empty() {
+                        combined.push(b'\n');
+                    }
+                    combined.extend(stderr);
+                }
+
+                let string_output = String::from_utf8_lossy(&combined).into_owned();
+                let value = Value::string(&string_output, Span::unknown());
+                return Ok((value, string_output));
+            }
+            Err(stream) => {
+                // Not a child process (e.g., Read or File source), use write_to
+                let mut buffer = Vec::new();
+                stream
+                    .write_to(&mut buffer)
+                    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+                let string_output = String::from_utf8_lossy(&buffer).into_owned();
+                let value = Value::string(&string_output, Span::unknown());
+                return Ok((value, string_output));
+            }
+        }
     }
 
     let mut values = Vec::new();
@@ -362,7 +521,7 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluator_parse_error_message() {
+    fn test_evaluator_parse_error_nuon_format() {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
@@ -372,14 +531,32 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
+        // Error should be in NUON format with structured fields
         assert!(
-            err_msg.contains("Error: nu::parser::") && err_msg.contains("unexpected_eof"),
-            "Error message should contain error code 'nu::parser::unexpected_eof', but got: {err_msg}"
+            err_msg.contains("code:") && err_msg.contains("nu::parser::unexpected_eof"),
+            "Error message should contain code field with 'nu::parser::unexpected_eof', but got: {err_msg}"
         );
 
         assert!(
-            err_msg.contains("let x = [1, 2, 3"),
-            "Error message should contain source code context, but got: {err_msg}"
+            err_msg.contains("msg:"),
+            "Error message should contain msg field, but got: {err_msg}"
+        );
+
+        assert!(
+            err_msg.contains("labels:"),
+            "Error message should contain labels field, but got: {err_msg}"
+        );
+
+        // Labels should include line and column numbers (in NUON table format)
+        // Format is: labels:[[text,span,line,column];[...values...]]
+        assert!(
+            err_msg.contains(",line,") || err_msg.contains("line:"),
+            "Error labels should contain line number, but got: {err_msg}"
+        );
+
+        assert!(
+            err_msg.contains(",column]") || err_msg.contains("column:"),
+            "Error labels should contain column number, but got: {err_msg}"
         );
 
         assert!(
@@ -394,7 +571,7 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluator_compile_error_message() {
+    fn test_evaluator_compile_error_nuon_format() {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
@@ -404,9 +581,15 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
+        // Error should be in NUON format with structured fields
         assert!(
-            err_msg.contains("Error: nu::compile::"),
-            "Error message should contain error code 'nu::compile::', but got: {err_msg}"
+            err_msg.contains("code:") && err_msg.contains("nu::compile::"),
+            "Error message should contain code field with 'nu::compile::', but got: {err_msg}"
+        );
+
+        assert!(
+            err_msg.contains("msg:"),
+            "Error message should contain msg field, but got: {err_msg}"
         );
 
         assert!(
@@ -416,7 +599,7 @@ mod tests {
     }
 
     #[test]
-    fn test_evaluator_runtime_error_message() {
+    fn test_evaluator_runtime_error_nuon_format() {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
@@ -428,9 +611,15 @@ mod tests {
         let err = result.unwrap_err();
         let err_msg = err.message.to_string();
 
+        // Error should be in NUON format with structured fields
         assert!(
-            err_msg.contains("Error:") && err_msg.contains("custom runtime error"),
-            "Error message should contain rich formatting and custom error message, but got: {err_msg}"
+            err_msg.contains("msg:") && err_msg.contains("custom runtime error"),
+            "Error message should contain msg field with custom error message, but got: {err_msg}"
+        );
+
+        assert!(
+            err_msg.contains("code:"),
+            "Error message should contain code field, but got: {err_msg}"
         );
     }
 

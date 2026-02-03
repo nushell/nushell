@@ -7,7 +7,7 @@ use hyper_util::{
     server::conn::auto::Builder,
     service::TowerToHyperService,
 };
-use nu_protocol::{ShellError, engine::EngineState, engine::StateWorkingSet, format_cli_error};
+use nu_protocol::{ShellError, engine::EngineState};
 use rmcp::{
     ServiceExt,
     transport::{
@@ -23,8 +23,6 @@ use tokio::runtime::Runtime;
 use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
-
-use rmcp::ErrorData as McpError;
 
 mod evaluation;
 mod history;
@@ -153,14 +151,4 @@ async fn run_http_server(
         });
     }
     Ok(())
-}
-
-pub(crate) fn shell_error_to_mcp_error(
-    error: nu_protocol::ShellError,
-    engine_state: &EngineState,
-) -> McpError {
-    // Use Nushell's rich error formatting to provide detailed, helpful error messages for LLMs
-    let working_set = StateWorkingSet::new(engine_state);
-    let formatted_error = format_cli_error(None, &working_set, &error, Some("nu::shell::error"));
-    McpError::internal_error(formatted_error, None)
 }
