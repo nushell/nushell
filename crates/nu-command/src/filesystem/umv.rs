@@ -203,7 +203,7 @@ impl Command for UMv {
         let options = uu_mv::Options {
             overwrite,
             progress_bar: progress,
-            verbose,
+            verbose: false, // Handle verbose output in nushell, not in uutils
             suffix: String::from("~"),
             backup: BackupMode::None,
             update,
@@ -213,6 +213,17 @@ impl Command for UMv {
             debug: false,
             context: None,
         };
+        // Capture the source files for verbose output before they're moved
+        let verbose_info = if verbose && files.len() >= 2 {
+            let sources: Vec<String> = files[..files.len()-1].iter()
+                .map(|f| f.to_string_lossy().to_string())
+                .collect();
+            let target = files.last().unwrap().to_string_lossy().to_string();
+            Some((sources, target))
+        } else {
+            None
+        };
+
         if let Err(error) = uu_mv::mv(&files, &options) {
             return Err(ShellError::GenericError {
                 error: format!("{error}"),
@@ -222,6 +233,20 @@ impl Command for UMv {
                 inner: Vec::new(),
             });
         }
-        Ok(PipelineData::empty())
+
+        // Provide verbose output if requested
+        if let Some((sources, target)) = verbose_info {
+            let output = if sources.len() == 1 {
+                format!("moved '{}' -> '{}'", sources[0], target)
+            } else {
+                format!("moved {} files to '{}'", sources.len(), target)
+            };
+            Ok(PipelineData::value(
+                Value::string(output, call.head),
+                None,
+            ))
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 }

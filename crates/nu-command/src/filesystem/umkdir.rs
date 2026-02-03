@@ -77,12 +77,12 @@ impl Command for UMkdir {
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
             mode: get_mode(),
-            verbose: is_verbose,
+            verbose: false, // Handle verbose output in nushell, not in uutils
             set_selinux_context: false,
             context: None,
         };
 
-        let mut verbose_out = String::new();
+        let mut verbose_dirs = Vec::new();
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
                 return Err(ShellError::GenericError {
@@ -94,22 +94,18 @@ impl Command for UMkdir {
                 });
             }
             if is_verbose {
-                verbose_out.push_str(
-                    format!(
-                        "{} ",
-                        &dir.as_path()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                    )
-                    .as_str(),
-                );
+                verbose_dirs.push(dir.display().to_string());
             }
         }
 
-        if is_verbose {
+        if is_verbose && !verbose_dirs.is_empty() {
+            let output = if verbose_dirs.len() == 1 {
+                format!("created directory '{}'", verbose_dirs[0])
+            } else {
+                format!("created directories: {}", verbose_dirs.join(", "))
+            };
             Ok(PipelineData::value(
-                Value::string(verbose_out.trim(), call.head),
+                Value::string(output, call.head),
                 None,
             ))
         } else {
