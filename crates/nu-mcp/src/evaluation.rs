@@ -6,10 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use std::{
-    sync::{
-        Arc,
-        atomic::AtomicBool,
-    },
+    sync::{Arc, atomic::AtomicBool},
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Mutex;
@@ -294,9 +291,7 @@ impl Evaluator {
         let source = nu_source.to_string();
 
         // Run evaluation in a blocking task since eval_block is synchronous
-        let eval_handle = tokio::task::spawn_blocking(move || {
-            eval_inner(forked_state, &source)
-        });
+        let eval_handle = tokio::task::spawn_blocking(move || eval_inner(forked_state, &source));
 
         // Set up cancellation monitoring
         let abort_handle = eval_handle.abort_handle();
@@ -352,7 +347,10 @@ impl Evaluator {
 ///
 /// Returns the (possibly modified) state along with the result.
 /// This allows the caller to decide whether to commit or discard the state.
-fn eval_inner(mut state: EvalState, nu_source: &str) -> (EvalState, Result<String, rmcp::ErrorData>) {
+fn eval_inner(
+    mut state: EvalState,
+    nu_source: &str,
+) -> (EvalState, Result<String, rmcp::ErrorData>) {
     let EvalState {
         engine_state,
         stack,
@@ -392,13 +390,9 @@ fn eval_on_state(
     // Set up $history variable on the stack before evaluation
     stack.add_var(history.var_id(), history.as_value());
 
-    let output = nu_engine::eval_block::<WithoutDebug>(
-        engine_state,
-        stack,
-        &block,
-        PipelineData::empty(),
-    )
-    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+    let output =
+        nu_engine::eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
+            .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
 
     let cwd = engine_state
         .cwd(Some(stack))
