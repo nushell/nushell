@@ -12,6 +12,17 @@ use std::{
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
 const DEFAULT_OUTPUT_LIMIT: usize = 10 * 1024; // 10kb
 
+/// Creates an invalid_params MCP error for user input errors (parse/compile errors).
+///
+/// Uses error code -32602 (Invalid params) since these are user input errors, not server errors.
+/// The data parameter is None - the formatted message already includes error code, location,
+/// and help text. Adding structured data would be redundant since ErrorData::Display includes
+/// both message and data in output shown to agents.
+/// See: <https://github.com/modelcontextprotocol/rust-sdk/blob/main/crates/rmcp/src/error.rs>
+fn user_input_error(message: String) -> rmcp::ErrorData {
+    rmcp::ErrorData::invalid_params(message, None)
+}
+
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
 /// # Architecture
@@ -84,17 +95,21 @@ impl Evaluator {
             let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
             if let Some(err) = working_set.parse_errors.first() {
-                return Err(rmcp::ErrorData::internal_error(
-                    nu_protocol::format_cli_error(None, &working_set, err, None),
+                return Err(user_input_error(nu_protocol::format_cli_error(
                     None,
-                ));
+                    &working_set,
+                    err,
+                    None,
+                )));
             }
 
             if let Some(err) = working_set.compile_errors.first() {
-                return Err(rmcp::ErrorData::internal_error(
-                    nu_protocol::format_cli_error(None, &working_set, err, None),
+                return Err(user_input_error(nu_protocol::format_cli_error(
                     None,
-                ));
+                    &working_set,
+                    err,
+                    None,
+                )));
             }
 
             (block, working_set.render())
