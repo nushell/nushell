@@ -4555,6 +4555,7 @@ dependencies = [
  "hyper-util",
  "indoc",
  "miette",
+ "nix 0.30.1",
  "nu-cmd-lang",
  "nu-engine",
  "nu-parser",

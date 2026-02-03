@@ -51,6 +51,20 @@ pub fn initialize_mcp_server(
         .with_ansi(false)
         .init();
 
+    // Detach from controlling terminal to prevent child processes from prompting for input.
+    //
+    // Many programs (ssh, sudo, psql, etc.) bypass stdin and open /dev/tty directly for
+    // password prompts. By calling setsid(), we create a new session without a controlling
+    // terminal, causing /dev/tty to be unavailable. This makes these programs fail fast
+    // with clear errors instead of hanging indefinitely waiting for input.
+    //
+    // See: https://man7.org/linux/man-pages/man2/setsid.2.html
+    #[cfg(unix)]
+    {
+        // Ignore error - setsid fails if we're already a session leader, which is fine
+        let _ = nix::unistd::setsid();
+    }
+
     // MCP servers run non-interactively - external commands should not inherit stdin
     // as this would cause them to hang when prompting for passwords or other input.
     engine_state.no_stdin = true;
