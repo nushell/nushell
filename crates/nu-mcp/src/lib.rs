@@ -1,4 +1,6 @@
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::Router;
 use nu_protocol::{ShellError, engine::EngineState, engine::StateWorkingSet, format_cli_error};
@@ -7,12 +9,15 @@ use rmcp::{
     transport::{
         stdio,
         streamable_http_server::{
-            StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+            StreamableHttpServerConfig, StreamableHttpService,
+            session::local::{LocalSessionManager, SessionConfig},
         },
     },
 };
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
+use tokio::sync::RwLock;
+use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
 use rmcp::ErrorData as McpError;
@@ -77,20 +82,44 @@ async fn run_stdio_server(engine_state: EngineState) -> Result<(), Box<dyn std::
     Ok(())
 }
 
+/// Session idle timeout before cleanup (30 minutes)
+const SESSION_KEEP_ALIVE: Duration = Duration::from_secs(30 * 60);
+
+/// Channel capacity for session message buffering
+const SESSION_CHANNEL_CAPACITY: usize = 16;
+
+/// SSE keep-alive ping interval
+const SSE_KEEP_ALIVE: Duration = Duration::from_secs(15);
+
+/// SSE retry interval for client reconnection
+const SSE_RETRY: Duration = Duration::from_secs(3);
+
 async fn run_http_server(
     engine_state: EngineState,
     port: u16,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let engine_state = Arc::new(engine_state);
 
-    let session_manager: Arc<LocalSessionManager> = Default::default();
+    let session_manager = Arc::new(LocalSessionManager {
+        sessions: RwLock::new(HashMap::new()),
+        session_config: SessionConfig {
+            channel_capacity: SESSION_CHANNEL_CAPACITY,
+            keep_alive: Some(SESSION_KEEP_ALIVE),
+        },
+    });
+
     let service = StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        StreamableHttpServerConfig::default(),
+        StreamableHttpServerConfig {
+            sse_keep_alive: Some(SSE_KEEP_ALIVE),
+            sse_retry: Some(SSE_RETRY),
+            stateful_mode: true,
+            cancellation_token: CancellationToken::new(),
+        },
     );
 
     let router = Router::new().fallback_service(service);
