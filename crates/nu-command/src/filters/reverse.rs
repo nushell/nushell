@@ -29,7 +29,7 @@ impl Command for Reverse {
         vec![
             Example {
                 example: "[0,1,2,3] | reverse",
-                description: "Reverse a list",
+                description: "Reverse a list.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(3),
                     Value::test_int(2),
@@ -39,7 +39,7 @@ impl Command for Reverse {
             },
             Example {
                 example: "[{a: 1} {a: 2}] | reverse",
-                description: "Reverse a table",
+                description: "Reverse a table.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(2),

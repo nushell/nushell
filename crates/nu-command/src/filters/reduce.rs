@@ -43,7 +43,7 @@ impl Command for Reduce {
         vec![
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $it + $acc }",
-                description: "Sum values of a list (same as 'math sum')",
+                description: "Sum values of a list (same as 'math sum').",
                 result: Some(Value::test_int(10)),
             },
             Example {
@@ -53,22 +53,22 @@ impl Command for Reduce {
             },
             Example {
                 example: "[ 8 7 6 ] | enumerate | reduce --fold 0 {|it, acc| $acc + $it.item + $it.index }",
-                description: "Sum values of a list, plus their indexes",
+                description: "Sum values of a list, plus their indexes.",
                 result: Some(Value::test_int(24)),
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce --fold 10 {|it, acc| $acc + $it }",
-                description: "Sum values with a starting value (fold)",
+                description: "Sum values with a starting value (fold).",
                 result: Some(Value::test_int(20)),
             },
             Example {
                 example: r#"[[foo baz] [baz quux]] | reduce --fold "foobar" {|it, acc| $acc | str replace $it.0 $it.1}"#,
-                description: "Iteratively perform string replace (from left to right): 'foobar' -> 'bazbar' -> 'quuxbar'",
+                description: "Iteratively perform string replace (from left to right): 'foobar' -> 'bazbar' -> 'quuxbar'.",
                 result: Some(Value::test_string("quuxbar")),
             },
             Example {
                 example: r#"[ i o t ] | reduce --fold "Arthur, King of the Britons" {|it, acc| $acc | str replace --all $it "X" }"#,
-                description: "Replace selected characters in a string with 'X'",
+                description: "Replace selected characters in a string with 'X'.",
                 result: Some(Value::test_string("ArXhur, KXng Xf Xhe BrXXXns")),
             },
             Example {

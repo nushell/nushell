@@ -55,17 +55,17 @@ impl Command for GroupBy {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Group items by the \"type\" column's values",
+                description: "Group items by the \"type\" column's values.",
                 example: r#"ls | group-by type"#,
                 result: None,
             },
             Example {
-                description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column",
+                description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column.",
                 example: r#"open cool.json | group-by foo?"#,
                 result: None,
             },
             Example {
-                description: "Group using a block which is evaluated against each input value",
+                description: "Group using a block which is evaluated against each input value.",
                 example: "[foo.txt bar.csv baz.txt] | group-by { path parse | get extension }",
                 result: Some(Value::test_record(record! {
                     "txt" => Value::test_list(vec![
@@ -76,7 +76,7 @@ impl Command for GroupBy {
                 })),
             },
             Example {
-                description: "You can also group by raw values by leaving out the argument",
+                description: "You can also group by raw values by leaving out the argument.",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by",
                 result: Some(Value::test_record(record! {
                     "1" => Value::test_list(vec![
@@ -93,7 +93,7 @@ impl Command for GroupBy {
                 })),
             },
             Example {
-                description: "You can also output a table instead of a record",
+                description: "You can also output a table instead of a record.",
                 example: "['1' '3' '1' '3' '2' '1' '1'] | group-by --to-table",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -119,7 +119,7 @@ impl Command for GroupBy {
                 ])),
             },
             Example {
-                description: "Group bools, whether they are strings or actual bools",
+                description: "Group bools, whether they are strings or actual bools.",
                 example: r#"[true "true" false "false"] | group-by"#,
                 result: Some(Value::test_record(record! {
                     "true" => Value::test_list(vec![
@@ -133,7 +133,7 @@ impl Command for GroupBy {
                 })),
             },
             Example {
-                description: "Group items by multiple columns' values",
+                description: "Group items by multiple columns' values.",
                 example: r#"[
         [name, lang, year];
         [andres, rb, "2019"],
@@ -170,7 +170,7 @@ impl Command for GroupBy {
                 })),
             },
             Example {
-                description: "Group items by multiple columns' values",
+                description: "Group items by multiple columns' values.",
                 example: r#"[
         [name, lang, year];
         [andres, rb, "2019"],
@@ -215,7 +215,7 @@ impl Command for GroupBy {
                 ])),
             },
             Example {
-                description: "Group items by column and delete the original",
+                description: "Group items by column and delete the original.",
                 example: r#"[
         [name, lang, year];
         [andres, rb, "2019"],

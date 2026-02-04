@@ -55,7 +55,7 @@ impl Command for Find {
                 "no-highlight mode: find without marking with ansi code",
                 Some('n'),
             )
-            .switch("invert", "invert the match", Some('v'))
+            .switch("invert", "Invert the match.", Some('v'))
             .switch(
                 "rfind",
                 "search from the end of the string and only return the first match",
@@ -66,13 +66,13 @@ impl Command for Find {
     }
 
     fn description(&self) -> &str {
-        "Searches terms in the input."
+        "Search for terms in the input data."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Search for multiple terms in a command output",
+                description: "Search for multiple terms in a command output.",
                 example: r#"ls | find toml md sh"#,
                 result: None,
             },
@@ -85,7 +85,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Search a number or a file size in a list of numbers",
+                description: "Search a number or a file size in a list of numbers.",
                 example: r#"[1 5 3kb 4 35 3Mb] | find 5 3kb"#,
                 result: Some(Value::list(
                     vec![Value::test_int(5), Value::test_filesize(3000)],
@@ -93,7 +93,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Search a char in a list of string",
+                description: "Search a char in a list of string.",
                 example: r#"[moe larry curly] | find l"#,
                 result: Some(Value::list(
                     vec![
@@ -108,7 +108,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Search using regex",
+                description: "Search using regex.",
                 example: r#"[abc odb arc abf] | find --regex "b.""#,
                 result: Some(Value::list(
                     vec![
@@ -125,7 +125,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Case insensitive search",
+                description: "Case insensitive search.",
                 example: r#"[aBc bde Arc abf] | find "ab" -i"#,
                 result: Some(Value::list(
                     vec![
@@ -142,7 +142,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find value in records using regex",
+                description: "Find value in records using regex.",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "version" => Value::test_string("0.1.0"),
@@ -150,7 +150,7 @@ impl Command for Find {
                 })])),
             },
             Example {
-                description: "Find inverted values in records using regex",
+                description: "Find inverted values in records using regex.",
                 example: r#"[[version name]; ['0.1.0' nushell] ['0.1.1' fish] ['0.2.0' zsh]] | find --regex "nu" --invert"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -164,7 +164,7 @@ impl Command for Find {
                 ])),
             },
             Example {
-                description: "Find value in list using regex",
+                description: "Find value in list using regex.",
                 example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr""#,
                 result: Some(Value::list(
                     vec![Value::list(
@@ -180,7 +180,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find inverted values in records using regex",
+                description: "Find inverted values in records using regex.",
                 example: r#"[["Larry", "Moe"], ["Victor", "Marina"]] | find --regex "rr" --invert"#,
                 result: Some(Value::list(
                     vec![Value::list(
@@ -191,7 +191,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Remove ANSI sequences from result",
+                description: "Remove ANSI sequences from result.",
                 example: "[[foo bar]; [abc 123] [def 456]] | find --no-highlight 123",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
@@ -202,7 +202,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find and highlight text in specific columns",
+                description: "Find and highlight text in specific columns.",
                 example: "[[col1 col2 col3]; [moe larry curly] [larry curly moe]] | find moe --columns [col1]",
                 result: Some(Value::list(
                     vec![Value::test_record(record! {
@@ -217,7 +217,7 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find in a multi-line string",
+                description: "Find in a multi-line string.",
                 example: "'Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue' | find ue",
                 result: Some(Value::list(
                     vec![
@@ -232,14 +232,14 @@ impl Command for Find {
                 )),
             },
             Example {
-                description: "Find in a multi-line string without splitting the input into a list of lines",
+                description: "Find in a multi-line string without splitting the input into a list of lines.",
                 example: "'Violets are red\nAnd roses are blue\nWhen metamaterials\nAlter their hue' | find --multiline ue",
                 result: Some(Value::test_string(
                     "\u{1b}[39mViolets are red\nAnd roses are bl\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\nWhen metamaterials\nAlter their h\u{1b}[0m\u{1b}[41;39mue\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
             },
             Example {
-                description: "Find and highlight the last occurrence in a string",
+                description: "Find and highlight the last occurrence in a string.",
                 example: r#"'hello world hello' | find --rfind hello"#,
                 result: Some(Value::test_string(
                     "\u{1b}[39mhello world \u{1b}[0m\u{1b}[41;39mhello\u{1b}[0m\u{1b}[39m\u{1b}[0m",
