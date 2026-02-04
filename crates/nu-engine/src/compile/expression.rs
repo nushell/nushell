@@ -7,7 +7,7 @@ use nu_protocol::{
     ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
-    ir::{DataSlice, Instruction, Literal, RedirectMode},
+    ir::{DataSlice, Instruction, Literal},
 };
 
 pub(crate) fn compile_expression(
@@ -202,20 +202,7 @@ pub(crate) fn compile_expression(
         }
         Expr::Subexpression(block_id) => {
             let block = working_set.get_block(*block_id);
-
-            let out_mode_is_value = redirect_modes
-                .out
-                .as_ref()
-                .is_some_and(|mode| matches!(mode.item, RedirectMode::Value));
-
-            compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)?;
-
-            // If the subexpression can be collected into a value, we should collect it to ensure
-            // sequential execution of multiple subexpressions within the same command (e.g. as arguments to a call)
-            if out_mode_is_value {
-                builder.push(Instruction::Collect { src_dst: out_reg }.into_spanned(expr.span))?;
-            }
-            Ok(())
+            compile_block(working_set, builder, block, redirect_modes, in_reg, out_reg)
         }
         Expr::Block(block_id) => lit(builder, Literal::Block(*block_id)),
         Expr::Closure(block_id) => lit(builder, Literal::Closure(*block_id)),
