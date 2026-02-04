@@ -1659,3 +1659,93 @@ fn stdin_flag_with_commands_receives_input() -> TestResult {
     assert!(stdout.contains("test input"));
     Ok(())
 }
+
+// Tests for short-flag group validation (PR #17492)
+// These tests verify that short-flag validation works correctly and that
+// the bare dash "-" is rejected early, making certain code paths unreachable.
+
+#[test]
+fn bare_dash_is_rejected() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-"])
+        .output()?;
+
+    assert!(!output.status.success());
+    Ok(())
+}
+
+#[test]
+fn long_flag_without_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--no-history", "-c", "print ok"])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn long_flag_with_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "--table-mode", "basic", "-c", "print ok"])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn short_flag_without_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-l", "-c", "print ok"])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn short_flag_with_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-m", "basic", "-c", "print ok"])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn mixed_long_and_short_flags_work() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-il",
+            "--table-mode",
+            "basic",
+            "--error-style",
+            "plain",
+            "-c",
+            "print ok",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
