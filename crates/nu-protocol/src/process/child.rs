@@ -252,11 +252,11 @@ impl PostWaitCallback {
     /// If `child_pid` is provided, the returned callback will also remove
     /// it from the pid list of the current running job.
     ///
-    /// The given `tag` argument will be used as the tag for the newly created job table entry.
+    /// The given `description` argument will be used as the description for the newly created job table entry.
     pub fn for_job_control(
         engine_state: &EngineState,
         child_pid: Option<u32>,
-        tag: Option<String>,
+        description: Option<String>,
     ) -> Self {
         let this_job = engine_state.current_thread_job().cloned();
         let jobs = engine_state.jobs.clone();
@@ -270,7 +270,7 @@ impl PostWaitCallback {
             if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                 let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, tag }));
+                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, description }));
 
                 if is_interactive {
                     println!("\nJob {} is frozen", job_id.get());
