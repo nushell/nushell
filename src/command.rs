@@ -37,6 +37,7 @@ const TABLE_MODE_VALUES: &[&str] = &[
 const ERROR_STYLE_VALUES: &[&str] = &["fancy", "plain", "short"];
 const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace"];
 const LOG_TARGET_VALUES: &[&str] = &["stdout", "stderr", "mixed", "file"];
+const MCP_TRANSPORT_VALUES: &[&str] = &["stdio", "http"];
 const TEST_BIN_VALUES: &[&str] = &[
     "echo_env",
     "echo_env_stderr",
@@ -378,6 +379,24 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Startup,
         "nu --mcp",
     ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-transport",
+        None,
+        ValueHint::String,
+        "transport to use for MCP server (stdio or http)",
+        CliCategory::Startup,
+        "nu --mcp --mcp-transport http",
+    ),
+    #[cfg(feature = "mcp")]
+    CliFlag::value(
+        "mcp-port",
+        None,
+        ValueHint::Int,
+        "port for MCP HTTP transport (default 8080)",
+        CliCategory::Startup,
+        "nu --mcp --mcp-transport http --mcp-port 3000",
+    ),
 ];
 
 // Container for parsed CLI values before conversion to NushellCliArgs.
@@ -415,6 +434,10 @@ struct CliValues {
     experimental_options: Option<Vec<Spanned<String>>>,
     #[cfg(feature = "mcp")]
     mcp: bool,
+    #[cfg(feature = "mcp")]
+    mcp_transport: Option<Spanned<String>>,
+    #[cfg(feature = "mcp")]
+    mcp_port: Option<u16>,
 }
 
 // Error type for CLI parsing with optional help text.
@@ -665,6 +688,21 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             }
             #[cfg(feature = "mcp")]
             Long("mcp") => cli.mcp = true,
+            #[cfg(feature = "mcp")]
+            Long("mcp-transport") => {
+                let value = parse_validated_option(
+                    &mut parser,
+                    "mcp-transport",
+                    MCP_TRANSPORT_VALUES,
+                    "mcp transport",
+                )?;
+                cli.mcp_transport = Some(spanned_value(value));
+            }
+            #[cfg(feature = "mcp")]
+            Long("mcp-port") => {
+                let value = parse_port_value(&mut parser, "mcp-port")?;
+                cli.mcp_port = Some(value);
+            }
             Value(value) => {
                 let value = value.string().map_err(|_| {
                     CliError::new("Invalid argument", "argument is not valid unicode")
@@ -723,6 +761,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             experimental_options: cli.experimental_options,
             #[cfg(feature = "mcp")]
             mcp: cli.mcp,
+            #[cfg(feature = "mcp")]
+            mcp_transport: cli.mcp_transport,
+            #[cfg(feature = "mcp")]
+            mcp_port: cli.mcp_port,
         },
         script_name,
         args_to_script,
@@ -800,6 +842,18 @@ fn parse_int_value(parser: &mut lexopt::Parser, name: &str) -> Result<i64, CliEr
         )
         .with_help("Provide a whole number for this option.")
     })
+}
+
+// Parse and validate a TCP port number.
+fn parse_port_value(parser: &mut lexopt::Parser, name: &str) -> Result<u16, CliError> {
+    let value = parse_int_value(parser, name)?;
+    if !(1..=u16::MAX as i64).contains(&value) {
+        return Err(
+            CliError::new(format!("Invalid value for `--{name}`"), "invalid port")
+                .with_help("Provide a TCP port between 1 and 65535."),
+        );
+    }
+    Ok(value as u16)
 }
 
 // Helper to parse IDE integer options and wrap in Value::int.
@@ -1295,4 +1349,8 @@ pub(crate) struct NushellCliArgs {
     pub(crate) experimental_options: Option<Vec<Spanned<String>>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp: bool,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_transport: Option<Spanned<String>>,
+    #[cfg(feature = "mcp")]
+    pub(crate) mcp_port: Option<u16>,
 }

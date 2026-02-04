@@ -2334,7 +2334,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(20, suggestions.len());
+    assert_eq!(21, suggestions.len());
 
     let expected: Vec<_> = vec![
         "cache-dir",
@@ -2349,6 +2349,7 @@ fn variables_completions() {
         "is-interactive",
         "is-login",
         "is-lsp",
+        "is-mcp",
         "loginshell-path",
         "os-info",
         "pid",
