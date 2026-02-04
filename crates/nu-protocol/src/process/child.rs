@@ -270,7 +270,10 @@ impl PostWaitCallback {
             if let ForegroundWaitStatus::Frozen(unfreeze) = status {
                 let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
-                let job_id = jobs.add_job(Job::Frozen(FrozenJob { unfreeze, description }));
+                let job_id = jobs.add_job(Job::Frozen(FrozenJob {
+                    unfreeze,
+                    description,
+                }));
 
                 if is_interactive {
                     println!("\nJob {} is frozen", job_id.get());
