@@ -250,16 +250,18 @@ When a client times out waiting for a response, the operation is **automatically
 ```nu
 # See all active jobs (including auto-promoted ones)
 job list
-# Promoted jobs have tags like "mcp: <first 50 chars of command>"
+# Promoted jobs show a description label like "mcp: <first 50 chars of command>"
 
-# Retrieve results when ready
+# Retrieve results when ready (no --tag needed, messages are untagged)
 job recv
 
 # Or with a timeout
 job recv --timeout 60sec
 ```
 
-**Note:** Promoted jobs cannot commit state changes (variables, environment) back to the main session - only the output is captured. This matches the semantics of regular `job spawn` jobs.
+**Notes:**
+- Promoted jobs cannot commit state changes (variables, environment) back to the main session - only the output is captured. This matches the semantics of regular `job spawn` jobs.
+- The "mcp: ..." shown in `job list` is a description label (set via `job tag`), not to be confused with the numeric filter tags used with `job send --tag N` / `job recv --tag N` for message routing.
 
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
