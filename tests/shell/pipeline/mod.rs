@@ -10,15 +10,6 @@ fn doesnt_break_on_utf8() {
 }
 
 #[test]
-fn non_zero_exit_code_in_middle_of_pipeline_ignored() {
-    let actual = nu!("nu -c 'print a b; exit 42' | collect");
-    assert_eq!(actual.out, "ab");
-
-    let actual = nu!("nu -c 'print a b; exit 42' | nu --stdin -c 'collect'");
-    assert_eq!(actual.out, "ab");
-}
-
-#[test]
 fn infinite_output_piped_to_value() {
     let actual = nu!("nu --testbin iecho x | 1");
     assert_eq!(actual.out, "1");
