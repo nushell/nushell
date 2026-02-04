@@ -1679,7 +1679,13 @@ fn bare_dash_is_rejected() -> TestResult {
 fn long_flag_without_value_works() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--no-history", "-c", "print ok"])
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--no-history",
+            "-c",
+            "print ok",
+        ])
         .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -1692,7 +1698,14 @@ fn long_flag_without_value_works() -> TestResult {
 fn long_flag_with_value_works() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "--table-mode", "basic", "-c", "print ok"])
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--table-mode",
+            "basic",
+            "-c",
+            "print ok",
+        ])
         .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
@@ -1718,7 +1731,14 @@ fn short_flag_without_value_works() -> TestResult {
 fn short_flag_with_value_works() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
-        .args(["--no-config-file", "--no-std-lib", "-m", "basic", "-c", "print ok"])
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-m",
+            "basic",
+            "-c",
+            "print ok",
+        ])
         .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
