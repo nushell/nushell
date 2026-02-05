@@ -3,6 +3,9 @@ mod delete;
 mod get;
 mod head;
 mod http_;
+mod interruptible_stream;
+mod interruptible_tcp;
+mod interruptible_unix;
 mod options;
 mod patch;
 mod pool;
@@ -10,7 +13,6 @@ mod post;
 mod put;
 mod resolver;
 mod timeout_extractor_reader;
-mod unix_socket;
 
 pub use delete::HttpDelete;
 pub use get::HttpGet;

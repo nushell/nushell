@@ -17,19 +17,25 @@ use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
 
+use super::interruptible_stream::ActiveConnections;
+
 /// Connector for Unix domain sockets.
 ///
 /// This connector ignores the resolved addresses from DNS and instead connects
-/// to the specified Unix socket path.
+/// to the specified Unix socket path. It also supports interruption via ActiveConnections.
 #[derive(Debug)]
 pub struct UnixSocketConnector {
     socket_path: PathBuf,
+    active_connections: ActiveConnections,
 }
 
 impl UnixSocketConnector {
     /// Create a new Unix socket connector with the given socket path.
-    pub fn new(socket_path: PathBuf) -> Self {
-        Self { socket_path }
+    pub fn new(socket_path: PathBuf, active_connections: ActiveConnections) -> Self {
+        Self {
+            socket_path,
+            active_connections,
+        }
     }
 }
 
@@ -51,6 +57,11 @@ impl<In: Transport> Connector<In> for UnixSocketConnector {
                 ),
             ))
         })?;
+
+        // Clone the stream and store for interruption
+        if let Ok(clone) = stream.try_clone() {
+            self.active_connections.add(clone);
+        }
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
@@ -117,7 +128,8 @@ mod tests {
     #[test]
     fn test_connector_creation() {
         let path = PathBuf::from("/tmp/test.sock");
-        let connector = UnixSocketConnector::new(path.clone());
+        let active_connections = ActiveConnections::new();
+        let connector = UnixSocketConnector::new(path.clone(), active_connections);
         // Verify via Debug implementation since socket_path is private
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("UnixSocketConnector"));
@@ -126,7 +138,8 @@ mod tests {
 
     #[test]
     fn test_connector_stores_path() {
-        let connector = UnixSocketConnector::new("/var/run/docker.sock".into());
+        let active_connections = ActiveConnections::new();
+        let connector = UnixSocketConnector::new("/var/run/docker.sock".into(), active_connections);
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("/var/run/docker.sock"));
     }

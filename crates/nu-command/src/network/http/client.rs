@@ -42,7 +42,12 @@ use ureq::{
 };
 use url::Url;
 
-use crate::network::http::unix_socket::UnixSocketConnector;
+use crate::network::http::interruptible_stream::ActiveConnections;
+use crate::network::http::interruptible_tcp::InterruptibleTcpConnector;
+use crate::network::http::interruptible_unix::UnixSocketConnector;
+
+// Re-export for use by HTTP commands
+pub use crate::network::http::interruptible_stream::ActiveConnections as HttpActiveConnections;
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
@@ -158,12 +163,16 @@ pub fn reset_http_client_pool(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
+    // Pool connections don't support interruption currently
+    // TODO: Consider adding interrupt support for pooled connections
+    let active_connections = ActiveConnections::new();
     let client = http_client(
         allow_insecure,
         redirect_mode,
         unix_socket_path,
         engine_state,
         stack,
+        active_connections,
     )?;
     let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::new(client));
@@ -176,6 +185,7 @@ pub fn http_client(
     unix_socket_path: Option<PathBuf>,
     engine_state: &EngineState,
     stack: &mut Stack,
+    active_connections: ActiveConnections,
 ) -> Result<ureq::Agent, ShellError> {
     let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
@@ -197,16 +207,17 @@ pub fn http_client(
     let config = config_builder.build();
 
     if let Some(socket_path) = unix_socket_path {
-        // Use custom Unix socket connector
+        // Use custom Unix socket connector with interruption support
         use ureq::unversioned::resolver::DefaultResolver;
 
-        let connector = UnixSocketConnector::new(socket_path);
+        let connector = UnixSocketConnector::new(socket_path, active_connections);
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
-    let connector = DefaultConnector::default();
+    // Use interruptible TCP connector
+    let connector = InterruptibleTcpConnector::new(active_connections);
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
