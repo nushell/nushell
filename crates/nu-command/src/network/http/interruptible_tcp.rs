@@ -14,7 +14,7 @@
 //! 3. On Ctrl+C, the handler calls `shutdown(Shutdown::Both)` on the cloned handle.
 //! 4. Any blocked `read()`/`write()` on the original handle returns an error immediately.
 //!
-//! No polling, no extra threads. The OS unblocks the call directly.
+//! No polling, no extra threads. The read unblocks because the socket has been closed.
 
 use std::fmt;
 use std::io::{Read, Write};

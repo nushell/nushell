@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use std::net::Shutdown;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -96,6 +97,8 @@ impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
 pub struct InterruptibleUnixSocketTransport {
     stream: UnixStream,
     buffers: LazyBuffers,
+    timeout_write: Option<Duration>,
+    timeout_read: Option<Duration>,
     _guard: Option<HandlerGuard>,
 }
 
@@ -105,6 +108,8 @@ impl InterruptibleUnixSocketTransport {
         Self {
             stream,
             buffers,
+            timeout_read: None,
+            timeout_write: None,
             _guard: guard,
         }
     }
@@ -115,15 +120,46 @@ impl Transport for InterruptibleUnixSocketTransport {
         &mut self.buffers
     }
 
-    fn transmit_output(&mut self, amount: usize, _timeout: NextTimeout) -> Result<(), Error> {
+    fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), Error> {
+        maybe_update_timeout(
+            timeout,
+            &mut self.timeout_write,
+            &self.stream,
+            UnixStream::set_write_timeout,
+        )?;
+
         let output = &self.buffers.output()[..amount];
-        self.stream.write_all(output).map_err(Error::Io)?;
-        Ok(())
+        match self.stream.write_all(output) {
+            Ok(()) => Ok(()),
+            Err(e)
+                if e.kind() == std::io::ErrorKind::TimedOut
+                    || e.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                Err(Error::Timeout(timeout.reason))
+            }
+            Err(e) => Err(Error::Io(e)),
+        }
     }
 
-    fn await_input(&mut self, _timeout: NextTimeout) -> Result<bool, Error> {
+    fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, Error> {
+        maybe_update_timeout(
+            timeout,
+            &mut self.timeout_read,
+            &self.stream,
+            UnixStream::set_read_timeout,
+        )?;
+
         let input = self.buffers.input_append_buf();
-        let amount = self.stream.read(input).map_err(Error::Io)?;
+        let amount = match self.stream.read(input) {
+            Ok(n) => n,
+            Err(e)
+                if e.kind() == std::io::ErrorKind::TimedOut
+                    || e.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                return Err(Error::Timeout(timeout.reason))
+            }
+            Err(e) => return Err(Error::Io(e)),
+        };
         self.buffers.input_appended(amount);
         Ok(amount > 0)
     }
@@ -134,6 +170,22 @@ impl Transport for InterruptibleUnixSocketTransport {
         // The connection will be detected as closed when we try to read/write.
         true
     }
+}
+
+fn maybe_update_timeout(
+    timeout: NextTimeout,
+    previous: &mut Option<Duration>,
+    stream: &UnixStream,
+    f: impl Fn(&UnixStream, Option<Duration>) -> std::io::Result<()>,
+) -> Result<(), Error> {
+    let maybe_timeout = timeout.not_zero().map(|t| *t);
+
+    if maybe_timeout != *previous {
+        f(stream, maybe_timeout).map_err(Error::Io)?;
+        *previous = maybe_timeout;
+    }
+
+    Ok(())
 }
 
 impl fmt::Debug for InterruptibleUnixSocketTransport {
