@@ -66,12 +66,12 @@ impl Command for Describe {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Describe the type of a string",
+                description: "Describe the type of a string.",
                 example: "'hello' | describe",
                 result: Some(Value::test_string("string")),
             },
             Example {
-                description: "Describe the type of a record in a detailed way",
+                description: "Describe the type of a record in a detailed way.",
                 example: "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
@@ -188,7 +188,7 @@ impl Command for Describe {
                 ))),
             },
             Example {
-                description: "Describe the type of a stream with detailed information",
+                description: "Describe the type of a stream with detailed information.",
                 example: "[1 2 3] | each {|i| echo $i} | describe -d",
                 result: None, // Give "Running external commands not supported" error
                               // result: Some(Value::test_record(record!(
@@ -206,13 +206,13 @@ impl Command for Describe {
                               // ))),
             },
             Example {
-                description: "Describe a stream of data, collecting it first",
+                description: "Describe a stream of data, collecting it first.",
                 example: "[1 2 3] | each {|i| echo $i} | describe",
                 result: None, // Give "Running external commands not supported" error
                               // result: Some(Value::test_string("list<int> (stream)")),
             },
             Example {
-                description: "Describe the input but do not collect streams",
+                description: "Describe the input but do not collect streams.",
                 example: "[1 2 3] | each {|i| echo $i} | describe --no-collect",
                 result: None, // Give "Running external commands not supported" error
                               // result: Some(Value::test_string("stream")),

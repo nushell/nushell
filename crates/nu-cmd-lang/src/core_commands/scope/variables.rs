@@ -34,7 +34,7 @@ impl Command for ScopeVariables {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the variables in the current scope",
+            description: "Show the variables in the current scope.",
             example: "scope variables",
             result: None,
         }]

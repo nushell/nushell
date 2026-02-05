@@ -87,7 +87,7 @@ impl Command for Version {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Display Nu version",
+            description: "Display Nu version.",
             example: "version",
             result: None,
         }]
