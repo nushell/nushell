@@ -74,7 +74,9 @@ impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
             ))
         })?;
 
-        // Register interrupt handler if callback provided
+        // Register interrupt handler if callback provided.
+        // If try_clone() fails, we proceed without interrupt handling - the request
+        // will still work, just won't respond to Ctrl+C until data arrives.
         let guard = self
             .on_connect
             .as_ref()
