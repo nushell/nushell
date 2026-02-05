@@ -53,7 +53,7 @@ impl Command for Rename {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Rename a column",
+                description: "Rename a column.",
                 example: "[[a, b]; [1, 2]] | rename my_column",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "my_column" => Value::test_int(1),
@@ -61,7 +61,7 @@ impl Command for Rename {
                 })])),
             },
             Example {
-                description: "Rename many columns",
+                description: "Rename many columns.",
                 example: "[[a, b, c]; [1, 2, 3]] | rename eggs ham bacon",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "eggs" =>  Value::test_int(1),
@@ -70,7 +70,7 @@ impl Command for Rename {
                 })])),
             },
             Example {
-                description: "Rename a specific column",
+                description: "Rename a specific column.",
                 example: "[[a, b, c]; [1, 2, 3]] | rename --column { a: ham }",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ham" => Value::test_int(1),
@@ -79,7 +79,7 @@ impl Command for Rename {
                 })])),
             },
             Example {
-                description: "Rename the fields of a record",
+                description: "Rename the fields of a record.",
                 example: "{a: 1 b: 2} | rename x y",
                 result: Some(Value::test_record(record! {
                     "x" => Value::test_int(1),
@@ -87,7 +87,7 @@ impl Command for Rename {
                 })),
             },
             Example {
-                description: "Rename fields based on a given closure",
+                description: "Rename fields based on a given closure.",
                 example: "{abc: 1, bbc: 2} | rename --block {str replace --all 'b' 'z'}",
                 result: Some(Value::test_record(record! {
                     "azc" => Value::test_int(1),

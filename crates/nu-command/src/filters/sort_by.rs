@@ -29,7 +29,7 @@ impl Command for SortBy {
                 ]),
                 "The cell path(s) or closure(s) to compare elements by.",
             )
-            .switch("reverse", "Sort in reverse order", Some('r'))
+            .switch("reverse", "Sort in reverse order.", Some('r'))
             .switch(
                 "ignore-case",
                 "Sort string-based data case-insensitively",
@@ -56,17 +56,17 @@ impl Command for SortBy {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Sort files by modified date",
+                description: "Sort files by modified date.",
                 example: "ls | sort-by modified",
                 result: None,
             },
             Example {
-                description: "Sort files by name (case-insensitive)",
+                description: "Sort files by name (case-insensitive).",
                 example: "ls | sort-by name --ignore-case",
                 result: None,
             },
             Example {
-                description: "Sort a table by a column (reversed order)",
+                description: "Sort a table by a column (reversed order).",
                 example: "[[fruit count]; [apple 9] [pear 3] [orange 7]] | sort-by fruit --reverse",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -84,7 +84,7 @@ impl Command for SortBy {
                 ])),
             },
             Example {
-                description: "Sort by a nested value",
+                description: "Sort by a nested value.",
                 example: "[[name info]; [Cairo {founded: 969}] [Kyoto {founded: 794}]] | sort-by info.founded",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -100,7 +100,7 @@ impl Command for SortBy {
                 ])),
             },
             Example {
-                description: "Sort by the last value in a list",
+                description: "Sort by the last value in a list.",
                 example: "[[2 50] [10 1]] | sort-by { last }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(10), Value::test_int(1)]),
@@ -108,7 +108,7 @@ impl Command for SortBy {
                 ])),
             },
             Example {
-                description: "Sort in a custom order",
+                description: "Sort in a custom order.",
                 example: "[7 3 2 8 4] | sort-by -c {|a, b| $a < $b}",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),

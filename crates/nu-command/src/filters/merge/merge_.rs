@@ -42,7 +42,7 @@ repeating this process with row 1, and so on."#
         vec![
             Example {
                 example: "[a b c] | wrap name | merge ( [47 512 618] | wrap id )",
-                description: "Add an 'id' column to the input table",
+                description: "Add an 'id' column to the input table.",
                 result: Some(Value::list(
                     vec![
                         Value::test_record(record! {
@@ -63,7 +63,7 @@ repeating this process with row 1, and so on."#
             },
             Example {
                 example: "{a: 1, b: 2} | merge {c: 3}",
-                description: "Merge two records",
+                description: "Merge two records.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_int(2),
@@ -72,7 +72,7 @@ repeating this process with row 1, and so on."#
             },
             Example {
                 example: "[{columnA: A0 columnB: B0}] | merge [{columnA: 'A0*'}]",
-                description: "Merge two tables, overwriting overlapping columns",
+                description: "Merge two tables, overwriting overlapping columns.",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "columnA" => Value::test_string("A0*"),
                     "columnB" => Value::test_string("B0"),
