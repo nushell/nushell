@@ -1,7 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::StateWorkingSet, FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS,
+    FilesizeFormatter, FilesizeUnit, SUPPORTED_FILESIZE_UNITS, engine::StateWorkingSet,
 };
 
 struct Arguments {
@@ -96,8 +96,7 @@ impl Command for FormatFilesize {
         let unit = parse_filesize_unit(call.req_const::<Spanned<String>>(working_set, 0)?)?;
         let cell_paths: Vec<CellPath> = call.rest_const(working_set, 1)?;
         let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-        let float_precision =
-            working_set.permanent().get_config().float_precision.max(0) as usize;
+        let float_precision = working_set.permanent().get_config().float_precision.max(0) as usize;
         let arg = Arguments {
             unit,
             float_precision,
