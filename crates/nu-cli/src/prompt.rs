@@ -1,6 +1,3 @@
-use crate::prompt_update::SemanticPromptMode;
-use log::error;
-use nu_protocol::engine::{EngineState, Stack};
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use reedline::{
@@ -12,29 +9,18 @@ use std::borrow::Cow;
 /// Nushell prompt definition
 #[derive(Clone)]
 pub struct NushellPrompt {
-    pub shell_integration_osc133: bool,
-    pub shell_integration_osc633: bool,
-    pub left_prompt: Option<String>,
-    pub right_prompt: Option<String>,
-    pub prompt_indicator: Option<String>,
-    pub vi_insert_prompt_indicator: Option<String>,
-    pub vi_normal_prompt_indicator: Option<String>,
-    pub multiline_indicator: Option<String>,
-    pub render_right_prompt_on_last_line: bool,
-    engine_state: EngineState,
-    stack: Stack,
+    left_prompt: Option<String>,
+    right_prompt: Option<String>,
+    prompt_indicator: Option<String>,
+    vi_insert_prompt_indicator: Option<String>,
+    vi_normal_prompt_indicator: Option<String>,
+    multiline_indicator: Option<String>,
+    render_right_prompt_on_last_line: bool,
 }
 
 impl NushellPrompt {
-    pub fn new(
-        shell_integration_osc133: bool,
-        shell_integration_osc633: bool,
-        engine_state: EngineState,
-        stack: Stack,
-    ) -> NushellPrompt {
+    pub fn new() -> NushellPrompt {
         NushellPrompt {
-            shell_integration_osc133,
-            shell_integration_osc633,
             left_prompt: None,
             right_prompt: None,
             prompt_indicator: None,
@@ -42,8 +28,6 @@ impl NushellPrompt {
             vi_normal_prompt_indicator: None,
             multiline_indicator: None,
             render_right_prompt_on_last_line: false,
-            engine_state,
-            stack,
         }
     }
 
@@ -99,65 +83,6 @@ impl NushellPrompt {
     fn default_wrapped_custom_string(&self, str: String) -> String {
         format!("({str})")
     }
-
-    pub(crate) fn shell_integration_mode(&self) -> SemanticPromptMode {
-        SemanticPromptMode::from_config(
-            self.shell_integration_osc133,
-            self.shell_integration_osc633,
-            &self.stack,
-            &self.engine_state,
-        )
-    }
-
-    /// Render a prompt string with semantic markers for the given mode
-    pub(crate) fn wrap_prompt_string(&self, prompt: String, mode: SemanticPromptMode) -> String {
-        if let SemanticPromptMode::None = mode {
-            prompt
-        } else {
-            let (start, end) = mode.primary_markers();
-            format!("{start}{prompt}{end}")
-        }
-    }
-
-    /// Render a multiline indicator with semantic markers
-    pub(crate) fn wrap_multiline_indicator(
-        &self,
-        indicator: &str,
-        _mode: SemanticPromptMode,
-    ) -> String {
-        //TODO: doesn't seem to need wrapping
-        //if let SemanticPromptMode::None = mode {
-        indicator.to_string()
-        // } else {
-        //     let (start, end) = mode.secondary_markers();
-        //     format!("{start}{indicator}{end}")
-        // }
-    }
-
-    /// Render a prompt indicator with semantic markers
-    pub(crate) fn wrap_prompt_indicator(
-        &self,
-        indicator: &str,
-        mode: SemanticPromptMode,
-    ) -> String {
-        if let SemanticPromptMode::None = mode {
-            indicator.to_string()
-        } else {
-            // The prompt indicator is always at the start of the prompt
-            let (start, end) = mode.start_left_indicator_markers();
-            format!("{start}{indicator}{end}")
-        }
-    }
-
-    /// Render a right prompt string with semantic markers
-    pub(crate) fn wrap_right_prompt(&self, prompt: String, mode: SemanticPromptMode) -> String {
-        let marker = mode.right_marker();
-        if marker.is_empty() {
-            prompt
-        } else {
-            format!("{marker}{prompt}")
-        }
-    }
 }
 
 impl Prompt for NushellPrompt {
@@ -168,55 +93,27 @@ impl Prompt for NushellPrompt {
         }
 
         if let Some(prompt_string) = &self.left_prompt {
-            let left_prompt: Cow<'_, str> = prompt_string.replace('\n', "\r\n").into();
-            error!(
-                "Rendered left prompt (provided): {}{}",
-                left_prompt.clone().to_string().replace('\x1b', r"\e"),
-                "\x1b[1G", // We are in raw mode, so move cursor to start of line
-            );
-            left_prompt
+            prompt_string.replace('\n', "\r\n").into()
         } else {
             let default = DefaultPrompt::default();
-            let prompt = default
+            default
                 .render_prompt_left()
                 .to_string()
-                .replace('\n', "\r\n");
-
-            let mode = self.shell_integration_mode();
-            let left_prompt: Cow<'_, str> = self.wrap_prompt_string(prompt, mode).into();
-            error!(
-                "Rendered left prompt (default): {}{}",
-                left_prompt.clone().to_string().replace('\x1b', r"\e"),
-                "\x1b[1G", // We are in raw mode, so move cursor to start of line
-            );
-            left_prompt
+                .replace('\n', "\r\n")
+                .into()
         }
     }
 
     fn render_prompt_right(&self) -> Cow<'_, str> {
         if let Some(prompt_string) = &self.right_prompt {
-            let right_prompt: Cow<'_, str> = prompt_string.replace('\n', "\r\n").into();
-            error!(
-                "Rendered right prompt (provided): {}{}",
-                right_prompt.clone().to_string().replace('\x1b', r"\e"),
-                "\x1b[1G", // We are in raw mode, so move cursor to start of line
-            );
-            right_prompt
+            prompt_string.replace('\n', "\r\n").into()
         } else {
             let default = DefaultPrompt::default();
-            let prompt = default
+            default
                 .render_prompt_right()
                 .to_string()
-                .replace('\n', "\r\n");
-
-            let mode = self.shell_integration_mode();
-            let right_prompt: Cow<'_, str> = self.wrap_right_prompt(prompt, mode).into();
-            error!(
-                "Rendered right prompt (default): {}{}",
-                right_prompt.clone().to_string().replace('\x1b', r"\e"),
-                "\x1b[1G", // We are in raw mode, so move cursor to start of line
-            );
-            right_prompt
+                .replace('\n', "\r\n")
+                .into()
         }
     }
 
@@ -231,14 +128,7 @@ impl Prompt for NushellPrompt {
             PromptEditMode::Custom(str) => &self.default_wrapped_custom_string(str),
         };
 
-        let mode = self.shell_integration_mode();
-        let prompt_indicator: Cow<'_, str> = self.wrap_prompt_indicator(indicator, mode).into();
-        error!(
-            "Rendered prompt indicator      : {}{}",
-            prompt_indicator.clone().to_string().replace('\x1b', r"\e"),
-            "\x1b[1G", // We are in raw mode, so move cursor to start of line
-        );
-        prompt_indicator
+        indicator.to_string().into()
     }
 
     fn render_prompt_multiline_indicator(&self) -> Cow<'_, str> {
@@ -247,18 +137,7 @@ impl Prompt for NushellPrompt {
             None => "::: ",
         };
 
-        let mode = self.shell_integration_mode();
-        let multiline_indicator: Cow<'_, str> =
-            self.wrap_multiline_indicator(indicator, mode).into();
-        error!(
-            "Rendered multiline indicator   : {}{}",
-            multiline_indicator
-                .clone()
-                .to_string()
-                .replace('\x1b', r"\e"),
-            "\x1b[1G",
-        );
-        multiline_indicator
+        indicator.to_string().into()
     }
 
     fn render_prompt_history_search_indicator(
