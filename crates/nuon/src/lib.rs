@@ -182,8 +182,8 @@ mod tests {
 
     #[test]
     fn closure_serialization_roundtrip() {
-        use nu_protocol::engine::StateWorkingSet;
         use crate::from_nuon_into;
+        use nu_protocol::engine::StateWorkingSet;
 
         // Create an engine state and parse a closure
         let mut engine_state = EngineState::new();
@@ -229,7 +229,11 @@ mod tests {
         let deserialized = from_nuon_into(&mut working_set2, &nuon_str, None).unwrap();
 
         // Check that it's a closure
-        let Value::Closure { val: deserialized_closure, .. } = &deserialized else {
+        let Value::Closure {
+            val: deserialized_closure,
+            ..
+        } = &deserialized
+        else {
             panic!("Expected closure value");
         };
 
@@ -242,16 +246,30 @@ mod tests {
             deserialized_block.signature.required_positional.len(),
             "Required positional args count mismatch"
         );
-        for (i, (orig, deser)) in original_block.signature.required_positional.iter()
-            .zip(deserialized_block.signature.required_positional.iter()).enumerate()
+        for (i, (orig, deser)) in original_block
+            .signature
+            .required_positional
+            .iter()
+            .zip(deserialized_block.signature.required_positional.iter())
+            .enumerate()
         {
             assert_eq!(orig.name, deser.name, "Positional arg {} name mismatch", i);
-            assert_eq!(orig.shape, deser.shape, "Positional arg {} shape mismatch", i);
+            assert_eq!(
+                orig.shape, deser.shape,
+                "Positional arg {} shape mismatch",
+                i
+            );
         }
 
         // Compare IR blocks
-        assert!(original_block.ir_block.is_some(), "Original IR block should exist");
-        assert!(deserialized_block.ir_block.is_some(), "Deserialized IR block should exist");
+        assert!(
+            original_block.ir_block.is_some(),
+            "Original IR block should exist"
+        );
+        assert!(
+            deserialized_block.ir_block.is_some(),
+            "Deserialized IR block should exist"
+        );
 
         let orig_ir = original_block.ir_block.as_ref().unwrap();
         let deser_ir = deserialized_block.ir_block.as_ref().unwrap();
@@ -263,14 +281,18 @@ mod tests {
         );
 
         // Compare each instruction
-        for (i, (orig_instr, deser_instr)) in orig_ir.instructions.iter()
-            .zip(deser_ir.instructions.iter()).enumerate()
+        for (i, (orig_instr, deser_instr)) in orig_ir
+            .instructions
+            .iter()
+            .zip(deser_ir.instructions.iter())
+            .enumerate()
         {
             dbg!(i, orig_instr, deser_instr);
             assert_eq!(
                 format!("{:?}", orig_instr),
                 format!("{:?}", deser_instr),
-                "IR instruction {} mismatch", i
+                "IR instruction {} mismatch",
+                i
             );
         }
 
@@ -282,8 +304,14 @@ mod tests {
         );
 
         // Compare IR metadata
-        assert_eq!(orig_ir.register_count, deser_ir.register_count, "Register count mismatch");
-        assert_eq!(orig_ir.file_count, deser_ir.file_count, "File count mismatch");
+        assert_eq!(
+            orig_ir.register_count, deser_ir.register_count,
+            "Register count mismatch"
+        );
+        assert_eq!(
+            orig_ir.file_count, deser_ir.file_count,
+            "File count mismatch"
+        );
         assert_eq!(orig_ir.spans, deser_ir.spans, "IR spans mismatch");
     }
 

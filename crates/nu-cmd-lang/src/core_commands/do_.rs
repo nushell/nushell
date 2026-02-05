@@ -64,7 +64,8 @@ impl Command for Do {
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+        let mut callee_stack =
+            caller_stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
         let block = closure.get_block(engine_state);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;

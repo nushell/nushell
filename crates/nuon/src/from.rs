@@ -325,7 +325,10 @@ fn convert_to_value(
                             });
                         } else {
                             key_spans.push(key.span);
-                            record.push(key_str, convert_to_value(working_set, val, span, original_text)?);
+                            record.push(
+                                key_str,
+                                convert_to_value(working_set, val, span, original_text)?,
+                            );
                         }
                     }
                     RecordItem::Spread(_, inner) => {
@@ -358,8 +361,10 @@ fn convert_to_value(
             if s.starts_with("{\"block\"") || s.starts_with("{\"captures\"") {
                 if let Ok(serializable) = serde_json::from_str::<SerializableClosure>(&s) {
                     // Create closure with inline block so it doesn't depend on engine state
-                    let closure =
-                        Closure::with_inline_block(Arc::new(serializable.block), serializable.captures);
+                    let closure = Closure::with_inline_block(
+                        Arc::new(serializable.block),
+                        serializable.captures,
+                    );
                     return Ok(Value::closure(closure, span));
                 }
             }
@@ -432,7 +437,8 @@ fn convert_to_value(
                     .iter()
                     .zip(row.into_vec())
                     .map(|(col, cell)| {
-                        convert_to_value(working_set, cell, span, original_text).map(|val| (col.clone(), val))
+                        convert_to_value(working_set, cell, span, original_text)
+                            .map(|val| (col.clone(), val))
                     })
                     .collect::<Result<_, _>>()?;
 

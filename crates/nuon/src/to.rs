@@ -179,13 +179,14 @@ fn value_to_string(
                 block: block.as_ref().clone(),
                 captures: val.captures.clone(),
             };
-            let json = serde_json::to_string(&serializable).map_err(|e| ShellError::GenericError {
-                error: "Failed to serialize closure".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })?;
+            let json =
+                serde_json::to_string(&serializable).map_err(|e| ShellError::GenericError {
+                    error: "Failed to serialize closure".into(),
+                    msg: e.to_string(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                })?;
             Ok(quote_string(&json, raw_strings))
         }
         Value::Bool { val, .. } => {
