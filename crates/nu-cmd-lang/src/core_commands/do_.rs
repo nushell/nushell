@@ -57,15 +57,15 @@ impl Command for Do {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let block: Closure = call.req(engine_state, caller_stack, 0)?;
+        let closure: Closure = call.req(engine_state, caller_stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
 
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
-        let block = engine_state.get_block(block.block_id);
+        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+        let block = closure.get_block(engine_state);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);

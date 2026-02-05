@@ -72,8 +72,8 @@ impl ClosureEval {
     /// Create a new [`ClosureEval`].
     pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
         let engine_state = engine_state.clone();
+        let block = closure.get_block(&engine_state).clone();
         let stack = stack.captures_to_stack(closure.captures);
-        let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
         let eval = get_eval_block_with_early_return(&engine_state);
@@ -95,8 +95,8 @@ impl ClosureEval {
         closure: Closure,
     ) -> Self {
         let engine_state = engine_state.clone();
+        let block = closure.get_block(&engine_state).clone();
         let stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
-        let block = engine_state.get_block(closure.block_id).clone();
         let env_vars = stack.env_vars.clone();
         let env_hidden = stack.env_hidden.clone();
         let eval = get_eval_block_with_early_return(&engine_state);
@@ -194,7 +194,7 @@ impl ClosureEval {
 pub struct ClosureEvalOnce<'a> {
     engine_state: &'a EngineState,
     stack: Stack,
-    block: &'a Block,
+    block: Arc<Block>,
     arg_index: usize,
     eval: EvalBlockWithEarlyReturnFn,
 }
@@ -202,7 +202,7 @@ pub struct ClosureEvalOnce<'a> {
 impl<'a> ClosureEvalOnce<'a> {
     /// Create a new [`ClosureEvalOnce`].
     pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
-        let block = engine_state.get_block(closure.block_id);
+        let block = closure.get_block(engine_state).clone();
         let eval = get_eval_block_with_early_return(engine_state);
         Self {
             engine_state,
@@ -218,7 +218,7 @@ impl<'a> ClosureEvalOnce<'a> {
         stack: &Stack,
         closure: Closure,
     ) -> Self {
-        let block = engine_state.get_block(closure.block_id);
+        let block = closure.get_block(engine_state).clone();
         let eval = get_eval_block_with_early_return(engine_state);
         Self {
             engine_state,
@@ -262,7 +262,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        (self.eval)(self.engine_state, &mut self.stack, self.block, input).map(|p| p.body)
+        (self.eval)(self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
