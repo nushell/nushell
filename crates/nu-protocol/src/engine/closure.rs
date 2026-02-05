@@ -1,21 +1,17 @@
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
-use crate::{BlockId, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
+use crate::{BlockId, Record, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
 
-use serde::{Deserialize, Serialize};
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug)]
 pub struct Closure {
     pub block_id: BlockId,
     pub captures: Vec<(VarId, Value)>,
     /// Optional inline block for closures that were deserialized and don't have
     /// their block in the engine state. When present, this takes precedence over block_id.
-    #[serde(skip)]
     pub inline_block: Option<Arc<Block>>,
     /// Nested blocks referenced by the inline_block's IR instructions.
     /// These are blocks that would normally be looked up via engine_state.get_block()
     /// but for deserialized closures they are stored here instead.
-    #[serde(skip)]
     pub nested_blocks: HashMap<BlockId, Arc<Block>>,
 }
 
@@ -113,5 +109,152 @@ impl Closure {
                 .iter()
                 .map(|(_, v)| v.memory_size())
                 .sum::<usize>()
+    }
+
+    /// Convert this closure to a Record Value for serialization.
+    /// The record includes a type marker so it can be identified during deserialization.
+    pub fn to_record(&self, engine_state: &EngineState, span: Span) -> Result<Value, ShellError> {
+        let block = self.get_block(engine_state);
+
+        // Convert the block to a nushell Value
+        let block_value = block.to_nu_value(span)?;
+
+        // Serialize captures as a list of records with var_id and value
+        let captures_list: Vec<Value> = self
+            .captures
+            .iter()
+            .map(|(var_id, value)| {
+                Value::record(
+                    Record::from_iter([
+                        ("var_id".to_string(), Value::int(var_id.get() as i64, span)),
+                        ("value".to_string(), value.clone()),
+                    ]),
+                    span,
+                )
+            })
+            .collect();
+
+        // Collect and serialize nested blocks
+        let mut nested_blocks_record = Record::new();
+        let mut nested_blocks_map: HashMap<usize, &Block> = HashMap::new();
+
+        // Collect nested blocks from the main block
+        collect_nested_blocks_recursive(engine_state, block.as_ref(), &mut nested_blocks_map);
+
+        for (block_id, nested_block) in nested_blocks_map {
+            let nested_value = nested_block.to_nu_value(span)?;
+            nested_blocks_record.push(block_id.to_string(), nested_value);
+        }
+
+        let record = Record::from_iter([
+            ("block".to_string(), block_value),
+            ("captures".to_string(), Value::list(captures_list, span)),
+            (
+                "nested_blocks".to_string(),
+                Value::record(nested_blocks_record, span),
+            ),
+        ]);
+
+        Ok(Value::record(record, span))
+    }
+
+    /// Try to create a Closure from a Record Value.
+    /// Returns None if the record is not a serialized closure.
+    pub fn from_record(record: &Record, span: Span) -> Result<Option<Self>, ShellError> {
+        // Get the block value
+        let block_value = match record.get("block") {
+            Some(v) => v,
+            _ => {
+                return Err(ShellError::GenericError {
+                    error: "Invalid closure record".into(),
+                    msg: "missing or invalid 'block' field".into(),
+                    span: Some(span),
+                    help: None,
+                    inner: vec![],
+                });
+            }
+        };
+
+        // Deserialize the block from the nushell Value
+        let block = Block::from_nu_value(block_value)?;
+
+        // Get captures
+        let captures = match record.get("captures") {
+            Some(Value::List { vals, .. }) => {
+                let mut captures = Vec::with_capacity(vals.len());
+                for val in vals {
+                    if let Value::Record { val: rec, .. } = val {
+                        let var_id = match rec.get("var_id") {
+                            Some(Value::Int { val, .. }) => VarId::new(*val as usize),
+                            _ => continue,
+                        };
+                        let value = match rec.get("value") {
+                            Some(v) => v.clone(),
+                            _ => continue,
+                        };
+                        captures.push((var_id, value));
+                    }
+                }
+                captures
+            }
+            _ => vec![],
+        };
+
+        // Get nested blocks
+        let mut nested_blocks: HashMap<BlockId, Arc<Block>> = HashMap::new();
+        if let Some(Value::Record {
+            val: nested_rec, ..
+        }) = record.get("nested_blocks")
+        {
+            for (key, val) in nested_rec.iter() {
+                if let Ok(block_id) = key.parse::<usize>() {
+                    let nested_block = Block::from_nu_value(val)?;
+                    nested_blocks.insert(BlockId::new(block_id), Arc::new(nested_block));
+                }
+            }
+        }
+
+        Ok(Some(Closure::with_inline_block_and_nested(
+            Arc::new(block),
+            captures,
+            nested_blocks,
+        )))
+    }
+}
+
+/// Collect all BlockIds referenced in a Block's IR instructions
+fn collect_block_ids(block: &Block) -> Vec<BlockId> {
+    use crate::ir::Literal;
+
+    let mut block_ids = Vec::new();
+    if let Some(ref ir_block) = block.ir_block {
+        for instruction in &ir_block.instructions {
+            if let crate::ir::Instruction::LoadLiteral { lit, .. } = instruction {
+                match lit {
+                    Literal::Block(id) | Literal::Closure(id) | Literal::RowCondition(id) => {
+                        block_ids.push(*id);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    block_ids
+}
+
+/// Recursively collect all nested blocks from a block
+fn collect_nested_blocks_recursive<'a>(
+    engine_state: &'a EngineState,
+    block: &Block,
+    nested_blocks: &mut HashMap<usize, &'a Block>,
+) {
+    for block_id in collect_block_ids(block) {
+        let id_val = block_id.get();
+        if !nested_blocks.contains_key(&id_val) {
+            let nested_block = engine_state.get_block(block_id);
+            nested_blocks.insert(id_val, nested_block.as_ref());
+            // Recursively collect nested blocks from this block
+            collect_nested_blocks_recursive(engine_state, nested_block.as_ref(), nested_blocks);
+        }
     }
 }
