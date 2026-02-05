@@ -155,13 +155,13 @@ fn serialize_in_list() -> Result<(), ShellError> {
 #[test]
 fn serialize_in_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(TestCustomValue(24)));
-    let mut val = Value::test_closure(Closure {
-        block_id: BlockId::new(0),
-        captures: vec![
+    let mut val = Value::test_closure(Closure::new(
+        BlockId::new(0),
+        vec![
             (VarId::new(0), orig_custom_val.clone()),
             (VarId::new(1), orig_custom_val.clone()),
         ],
-    });
+    ));
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {
@@ -241,13 +241,13 @@ fn deserialize_in_list() -> Result<(), ShellError> {
 #[test]
 fn deserialize_in_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_closure(Closure {
-        block_id: BlockId::new(0),
-        captures: vec![
+    let mut val = Value::test_closure(Closure::new(
+        BlockId::new(0),
+        vec![
             (VarId::new(0), orig_custom_val.clone()),
             (VarId::new(1), orig_custom_val.clone()),
         ],
-    });
+    ));
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {

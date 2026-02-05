@@ -1,8 +1,11 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
-use nu_protocol::{Range, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
+use nu_protocol::{
+    BlockId, Range, ShellError, Span, Value, VarId, ast::Block, engine::EngineState, ir::Literal,
+};
 use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Serializable representation of a closure with its compiled block.
 #[derive(Serialize, Deserialize)]
@@ -11,6 +14,44 @@ pub struct SerializableClosure {
     pub block: Block,
     /// Captured variables and their values
     pub captures: Vec<(VarId, Value)>,
+    /// Nested blocks referenced by the main block (BlockId -> Block)
+    #[serde(default)]
+    pub nested_blocks: HashMap<usize, Block>,
+}
+
+/// Collect all BlockIds referenced in a Block's IR instructions
+fn collect_block_ids(block: &Block) -> Vec<BlockId> {
+    let mut block_ids = Vec::new();
+    if let Some(ref ir_block) = block.ir_block {
+        for instruction in &ir_block.instructions {
+            if let nu_protocol::ir::Instruction::LoadLiteral { lit, .. } = instruction {
+                match lit {
+                    Literal::Block(id) | Literal::Closure(id) | Literal::RowCondition(id) => {
+                        block_ids.push(*id);
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    block_ids
+}
+
+/// Recursively collect all nested blocks from a block
+fn collect_nested_blocks(
+    engine_state: &EngineState,
+    block: &Block,
+    nested_blocks: &mut HashMap<usize, Block>,
+) {
+    for block_id in collect_block_ids(block) {
+        let id_val = block_id.get();
+        if !nested_blocks.contains_key(&id_val) {
+            let nested_block = engine_state.get_block(block_id);
+            nested_blocks.insert(id_val, nested_block.as_ref().clone());
+            // Recursively collect nested blocks from this block
+            collect_nested_blocks(engine_state, nested_block.as_ref(), nested_blocks);
+        }
+    }
 }
 
 /// Configuration for converting Nushell [`Value`] to NUON data.
@@ -175,9 +216,12 @@ fn value_to_string(
         }
         Value::Closure { val, .. } => {
             let block = val.get_block(engine_state);
+            let mut nested_blocks = HashMap::new();
+            collect_nested_blocks(engine_state, block.as_ref(), &mut nested_blocks);
             let serializable = SerializableClosure {
                 block: block.as_ref().clone(),
                 captures: val.captures.clone(),
+                nested_blocks,
             };
             let json =
                 serde_json::to_string(&serializable).map_err(|e| ShellError::GenericError {

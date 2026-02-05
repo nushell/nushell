@@ -64,15 +64,29 @@ impl Command for Do {
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
+        // If the closure has nested blocks (from deserialization), we need to add them
+        // to a cloned engine state so they can be resolved during IR evaluation
+        let engine_state_for_eval: std::borrow::Cow<'_, EngineState> =
+            if closure.has_nested_blocks() {
+                let mut cloned = engine_state.clone();
+                for (block_id, block) in &closure.nested_blocks {
+                    cloned.add_block_with_id(block.clone(), *block_id);
+                }
+                std::borrow::Cow::Owned(cloned)
+            } else {
+                std::borrow::Cow::Borrowed(engine_state)
+            };
+
         let mut callee_stack =
             caller_stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
-        let block = closure.get_block(engine_state);
+        let block = closure.get_block(&engine_state_for_eval);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state_for_eval);
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
-            .map(|p| p.body);
+        let result =
+            eval_block_with_early_return(&engine_state_for_eval, &mut callee_stack, block, input)
+                .map(|p| p.body);
 
         if has_env {
             // Merge the block's environment to the current stack

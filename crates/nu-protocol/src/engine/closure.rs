@@ -1,4 +1,4 @@
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 use crate::{BlockId, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
 
@@ -12,6 +12,11 @@ pub struct Closure {
     /// their block in the engine state. When present, this takes precedence over block_id.
     #[serde(skip)]
     pub inline_block: Option<Arc<Block>>,
+    /// Nested blocks referenced by the inline_block's IR instructions.
+    /// These are blocks that would normally be looked up via engine_state.get_block()
+    /// but for deserialized closures they are stored here instead.
+    #[serde(skip)]
+    pub nested_blocks: HashMap<BlockId, Arc<Block>>,
 }
 
 impl Closure {
@@ -21,6 +26,7 @@ impl Closure {
             block_id,
             captures,
             inline_block: None,
+            nested_blocks: HashMap::new(),
         }
     }
 
@@ -30,6 +36,21 @@ impl Closure {
             block_id: BlockId::new(0), // Placeholder, inline_block takes precedence
             captures,
             inline_block: Some(block),
+            nested_blocks: HashMap::new(),
+        }
+    }
+
+    /// Create a new closure with an inline block and nested blocks (for deserialized closures)
+    pub fn with_inline_block_and_nested(
+        block: Arc<Block>,
+        captures: Vec<(VarId, Value)>,
+        nested_blocks: HashMap<BlockId, Arc<Block>>,
+    ) -> Self {
+        Self {
+            block_id: BlockId::new(0), // Placeholder, inline_block takes precedence
+            captures,
+            inline_block: Some(block),
+            nested_blocks,
         }
     }
 
@@ -42,6 +63,24 @@ impl Closure {
         } else {
             engine_state.get_block(self.block_id)
         }
+    }
+
+    /// Get a nested block by ID, checking inline nested_blocks first, then engine_state
+    pub fn get_nested_block<'a>(
+        &'a self,
+        block_id: BlockId,
+        engine_state: &'a EngineState,
+    ) -> &'a Arc<Block> {
+        if let Some(block) = self.nested_blocks.get(&block_id) {
+            block
+        } else {
+            engine_state.get_block(block_id)
+        }
+    }
+
+    /// Check if this closure has any nested blocks
+    pub fn has_nested_blocks(&self) -> bool {
+        !self.nested_blocks.is_empty()
     }
 
     pub fn coerce_into_string<'a>(

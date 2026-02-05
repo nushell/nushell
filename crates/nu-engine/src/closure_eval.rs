@@ -71,7 +71,15 @@ pub struct ClosureEval {
 impl ClosureEval {
     /// Create a new [`ClosureEval`].
     pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
-        let engine_state = engine_state.clone();
+        let mut engine_state = engine_state.clone();
+
+        // Add nested blocks to the engine state so they can be resolved during IR evaluation
+        if closure.has_nested_blocks() {
+            for (block_id, block) in &closure.nested_blocks {
+                engine_state.add_block_with_id(block.clone(), *block_id);
+            }
+        }
+
         let block = closure.get_block(&engine_state).clone();
         let stack = stack.captures_to_stack(closure.captures);
         let env_vars = stack.env_vars.clone();
@@ -94,7 +102,15 @@ impl ClosureEval {
         stack: &Stack,
         closure: Closure,
     ) -> Self {
-        let engine_state = engine_state.clone();
+        let mut engine_state = engine_state.clone();
+
+        // Add nested blocks to the engine state so they can be resolved during IR evaluation
+        if closure.has_nested_blocks() {
+            for (block_id, block) in &closure.nested_blocks {
+                engine_state.add_block_with_id(block.clone(), *block_id);
+            }
+        }
+
         let block = closure.get_block(&engine_state).clone();
         let stack = stack.captures_to_stack_preserve_out_dest(closure.captures);
         let env_vars = stack.env_vars.clone();
@@ -191,19 +207,28 @@ impl ClosureEval {
 /// # let value = unimplemented!();
 /// let result = ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value);
 /// ```
-pub struct ClosureEvalOnce<'a> {
-    engine_state: &'a EngineState,
+pub struct ClosureEvalOnce {
+    engine_state: EngineState,
     stack: Stack,
     block: Arc<Block>,
     arg_index: usize,
     eval: EvalBlockWithEarlyReturnFn,
 }
 
-impl<'a> ClosureEvalOnce<'a> {
+impl ClosureEvalOnce {
     /// Create a new [`ClosureEvalOnce`].
-    pub fn new(engine_state: &'a EngineState, stack: &Stack, closure: Closure) -> Self {
-        let block = closure.get_block(engine_state).clone();
-        let eval = get_eval_block_with_early_return(engine_state);
+    pub fn new(engine_state: &EngineState, stack: &Stack, closure: Closure) -> Self {
+        let mut engine_state = engine_state.clone();
+
+        // Add nested blocks to the engine state so they can be resolved during IR evaluation
+        if closure.has_nested_blocks() {
+            for (block_id, block) in &closure.nested_blocks {
+                engine_state.add_block_with_id(block.clone(), *block_id);
+            }
+        }
+
+        let block = closure.get_block(&engine_state).clone();
+        let eval = get_eval_block_with_early_return(&engine_state);
         Self {
             engine_state,
             stack: stack.captures_to_stack(closure.captures),
@@ -214,12 +239,21 @@ impl<'a> ClosureEvalOnce<'a> {
     }
 
     pub fn new_preserve_out_dest(
-        engine_state: &'a EngineState,
+        engine_state: &EngineState,
         stack: &Stack,
         closure: Closure,
     ) -> Self {
-        let block = closure.get_block(engine_state).clone();
-        let eval = get_eval_block_with_early_return(engine_state);
+        let mut engine_state = engine_state.clone();
+
+        // Add nested blocks to the engine state so they can be resolved during IR evaluation
+        if closure.has_nested_blocks() {
+            for (block_id, block) in &closure.nested_blocks {
+                engine_state.add_block_with_id(block.clone(), *block_id);
+            }
+        }
+
+        let block = closure.get_block(&engine_state).clone();
+        let eval = get_eval_block_with_early_return(&engine_state);
         Self {
             engine_state,
             stack: stack.captures_to_stack_preserve_out_dest(closure.captures),
@@ -262,7 +296,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Any arguments should be added beforehand via [`add_arg`](Self::add_arg).
     pub fn run_with_input(mut self, input: PipelineData) -> Result<PipelineData, ShellError> {
-        (self.eval)(self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
+        (self.eval)(&self.engine_state, &mut self.stack, &self.block, input).map(|p| p.body)
     }
 
     /// Run the closure using the given [`Value`] as both the pipeline input and the first argument.
