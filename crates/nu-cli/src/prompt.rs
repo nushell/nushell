@@ -7,7 +7,7 @@ use reedline::{
 use std::borrow::Cow;
 
 /// Nushell prompt definition
-#[derive(Clone)]
+#[derive(Default, Clone)]
 pub struct NushellPrompt {
     left_prompt: Option<String>,
     right_prompt: Option<String>,
