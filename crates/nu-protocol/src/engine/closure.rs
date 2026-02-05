@@ -1,6 +1,6 @@
-use std::borrow::Cow;
+use std::{borrow::Cow, sync::Arc};
 
-use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
+use crate::{BlockId, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
 
 use serde::{Deserialize, Serialize};
 
@@ -8,17 +8,50 @@ use serde::{Deserialize, Serialize};
 pub struct Closure {
     pub block_id: BlockId,
     pub captures: Vec<(VarId, Value)>,
+    /// Optional inline block for closures that were deserialized and don't have
+    /// their block in the engine state. When present, this takes precedence over block_id.
+    #[serde(skip)]
+    pub inline_block: Option<Arc<Block>>,
 }
 
 impl Closure {
+    /// Create a new closure with just a block_id and captures
+    pub fn new(block_id: BlockId, captures: Vec<(VarId, Value)>) -> Self {
+        Self {
+            block_id,
+            captures,
+            inline_block: None,
+        }
+    }
+
+    /// Create a new closure with an inline block (for deserialized closures)
+    pub fn with_inline_block(block: Arc<Block>, captures: Vec<(VarId, Value)>) -> Self {
+        Self {
+            block_id: BlockId::new(0), // Placeholder, inline_block takes precedence
+            captures,
+            inline_block: Some(block),
+        }
+    }
+
+    /// Get the block, either from inline_block or from engine_state
+    pub fn get_block<'a>(&'a self, engine_state: &'a EngineState) -> &'a Arc<Block> {
+        if let Some(ref block) = self.inline_block {
+            // For inline blocks, we need to return a reference with the right lifetime
+            // This is safe because self lives as long as 'a
+            block
+        } else {
+            engine_state.get_block(self.block_id)
+        }
+    }
+
     pub fn coerce_into_string<'a>(
         &self,
         engine_state: &'a EngineState,
         span: Span,
     ) -> Result<Cow<'a, str>, ShellError> {
-        let block = engine_state.get_block(self.block_id);
-        if let Some(span) = block.span {
-            let contents_bytes = engine_state.get_span_contents(span);
+        let block = self.get_block(engine_state);
+        if let Some(block_span) = block.span {
+            let contents_bytes = engine_state.get_span_contents(block_span);
             Ok(String::from_utf8_lossy(contents_bytes))
         } else {
             Err(ShellError::CantConvert {

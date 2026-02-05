@@ -162,10 +162,7 @@ impl Command for Describe {
                             "type" => Value::test_string("closure"),
                             "detailed_type" => Value::test_string("closure"),
                             "rust_type" => Value::test_string("&alloc::boxed::Box<nu_protocol::engine::closure::Closure>"),
-                            "value" => Value::test_closure(Closure {
-                                block_id: BlockId::new(1),
-                                captures: vec![],
-                            }),
+                            "value" => Value::test_closure(Closure::new(BlockId::new(1), vec![])),
                             "signature" => Value::test_record(record!(
                                 "name" => Value::test_string(""),
                                 "category" => Value::test_string("default"),

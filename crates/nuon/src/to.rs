@@ -4,10 +4,12 @@ use nu_protocol::{Range, ShellError, Span, Value, VarId, ast::Block, engine::Eng
 use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
 
-/// Serializable representation of a closure with its block included.
+/// Serializable representation of a closure with its compiled block.
 #[derive(Serialize, Deserialize)]
 pub struct SerializableClosure {
+    /// The compiled block
     pub block: Block,
+    /// Captured variables and their values
     pub captures: Vec<(VarId, Value)>,
 }
 
@@ -172,7 +174,7 @@ fn value_to_string(
             Ok(format!("0x[{s}]"))
         }
         Value::Closure { val, .. } => {
-            let block = engine_state.get_block(val.block_id);
+            let block = val.get_block(engine_state);
             let serializable = SerializableClosure {
                 block: block.as_ref().clone(),
                 captures: val.captures.clone(),
