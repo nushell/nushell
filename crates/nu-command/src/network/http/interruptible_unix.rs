@@ -1,7 +1,7 @@
-//! Unix domain socket connector for ureq HTTP client.
+//! Interruptible Unix domain socket connector for ureq HTTP client.
 //!
-//! This module provides a custom transport implementation for connecting to HTTP servers
-//! over Unix domain sockets, commonly used for Docker API, systemd, and other local services.
+//! This module provides a Unix socket transport implementation that can be interrupted
+//! when the user presses Ctrl+C by storing a cloned socket handle.
 
 use std::fmt;
 use std::io::{Read, Write};
@@ -19,18 +19,18 @@ use ureq::unversioned::transport::{
 
 use super::interruptible_stream::ActiveConnections;
 
-/// Connector for Unix domain sockets.
+/// Connector for interruptible Unix domain sockets.
 ///
-/// This connector ignores the resolved addresses from DNS and instead connects
-/// to the specified Unix socket path. It also supports interruption via ActiveConnections.
+/// This connector stores cloned socket handles in ActiveConnections,
+/// allowing them to be shutdown when Ctrl+C is pressed.
 #[derive(Debug)]
-pub struct UnixSocketConnector {
+pub struct InterruptibleUnixSocketConnector {
     socket_path: PathBuf,
     active_connections: ActiveConnections,
 }
 
-impl UnixSocketConnector {
-    /// Create a new Unix socket connector with the given socket path.
+impl InterruptibleUnixSocketConnector {
+    /// Create a new interruptible Unix socket connector.
     pub fn new(socket_path: PathBuf, active_connections: ActiveConnections) -> Self {
         Self {
             socket_path,
@@ -39,8 +39,8 @@ impl UnixSocketConnector {
     }
 }
 
-impl<In: Transport> Connector<In> for UnixSocketConnector {
-    type Out = UnixSocketTransport;
+impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
+    type Out = InterruptibleUnixSocketTransport;
 
     fn connect(
         &self,
@@ -68,26 +68,24 @@ impl<In: Transport> Connector<In> for UnixSocketConnector {
             details.config.output_buffer_size(),
         );
 
-        Ok(Some(UnixSocketTransport::new(stream, buffers)))
+        Ok(Some(InterruptibleUnixSocketTransport::new(stream, buffers)))
     }
 }
 
-/// Transport implementation for Unix domain sockets.
-///
-/// Wraps a `UnixStream` and implements the `Transport` trait required by ureq.
-pub struct UnixSocketTransport {
+/// Transport implementation for interruptible Unix domain sockets.
+pub struct InterruptibleUnixSocketTransport {
     stream: UnixStream,
     buffers: LazyBuffers,
 }
 
-impl UnixSocketTransport {
+impl InterruptibleUnixSocketTransport {
     /// Create a new Unix socket transport.
     pub fn new(stream: UnixStream, buffers: LazyBuffers) -> Self {
         Self { stream, buffers }
     }
 }
 
-impl Transport for UnixSocketTransport {
+impl Transport for InterruptibleUnixSocketTransport {
     fn buffers(&mut self) -> &mut dyn Buffers {
         &mut self.buffers
     }
@@ -113,9 +111,9 @@ impl Transport for UnixSocketTransport {
     }
 }
 
-impl fmt::Debug for UnixSocketTransport {
+impl fmt::Debug for InterruptibleUnixSocketTransport {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("UnixSocketTransport")
+        f.debug_struct("InterruptibleUnixSocketTransport")
             .field("peer_addr", &self.stream.peer_addr().ok())
             .finish()
     }
@@ -129,17 +127,17 @@ mod tests {
     fn test_connector_creation() {
         let path = PathBuf::from("/tmp/test.sock");
         let active_connections = ActiveConnections::new();
-        let connector = UnixSocketConnector::new(path.clone(), active_connections);
+        let connector = InterruptibleUnixSocketConnector::new(path.clone(), active_connections);
         // Verify via Debug implementation since socket_path is private
         let debug_str = format!("{connector:?}");
-        assert!(debug_str.contains("UnixSocketConnector"));
+        assert!(debug_str.contains("InterruptibleUnixSocketConnector"));
         assert!(debug_str.contains("/tmp/test.sock"));
     }
 
     #[test]
     fn test_connector_stores_path() {
         let active_connections = ActiveConnections::new();
-        let connector = UnixSocketConnector::new("/var/run/docker.sock".into(), active_connections);
+        let connector = InterruptibleUnixSocketConnector::new("/var/run/docker.sock".into(), active_connections);
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("/var/run/docker.sock"));
     }

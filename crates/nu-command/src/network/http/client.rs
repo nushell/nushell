@@ -42,12 +42,33 @@ use ureq::{
 };
 use url::Url;
 
-use crate::network::http::interruptible_stream::ActiveConnections;
+use crate::network::http::interruptible_stream::{ActiveConnections, GuardedReader};
 use crate::network::http::interruptible_tcp::InterruptibleTcpConnector;
-use crate::network::http::interruptible_unix::UnixSocketConnector;
+use crate::network::http::interruptible_unix::InterruptibleUnixSocketConnector;
+use nu_protocol::{HandlerGuard, SignalAction};
 
 // Re-export for use by HTTP commands
 pub use crate::network::http::interruptible_stream::ActiveConnections as HttpActiveConnections;
+
+/// Register a signal handler that shuts down active connections on Ctrl+C.
+///
+/// Returns a guard that keeps the handler registered. When the guard is dropped,
+/// the handler is automatically unregistered.
+pub(crate) fn register_interrupt_handler(
+    engine_state: &EngineState,
+    active_connections: &HttpActiveConnections,
+) -> Result<Option<HandlerGuard>, ShellError> {
+    if let Some(handlers) = &engine_state.signal_handlers {
+        let conns = active_connections.clone();
+        Ok(Some(handlers.register(Box::new(move |action| {
+            if matches!(action, SignalAction::Interrupt) {
+                conns.shutdown_all();
+            }
+        }))?))
+    } else {
+        Ok(None)
+    }
+}
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
@@ -210,7 +231,7 @@ pub fn http_client(
         // Use custom Unix socket connector with interruption support
         use ureq::unversioned::resolver::DefaultResolver;
 
-        let connector = UnixSocketConnector::new(socket_path, active_connections);
+        let connector = InterruptibleUnixSocketConnector::new(socket_path, active_connections);
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
@@ -266,6 +287,7 @@ pub fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
     span: Span,
+    interrupt_guard: Option<HandlerGuard>,
 ) -> PipelineData {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
@@ -298,11 +320,16 @@ pub fn response_to_buffer(
         r: response.into_body().into_reader(),
     };
 
-    PipelineData::byte_stream(
+    // If we have an interrupt guard, wrap the reader to keep the guard alive
+    // for as long as the stream is being read
+    let byte_stream = if let Some(guard) = interrupt_guard {
+        let guarded_reader = GuardedReader::new(reader, guard);
+        ByteStream::read(guarded_reader, span, engine_state.signals().clone(), response_type)
+    } else {
         ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
-            .with_known_size(buffer_size),
-        Some(metadata),
-    )
+    };
+
+    PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
 }
 
 fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadata {
@@ -956,6 +983,7 @@ fn transform_response_using_content_type(
     flags: &RequestFlags,
     resp: Response,
     content_type: &str,
+    interrupt_guard: Option<HandlerGuard>,
 ) -> Result<PipelineData, ShellError> {
     let content_type = mime::Mime::from_str(content_type)
         // there are invalid content types in the wild, so we try to recover
@@ -985,7 +1013,7 @@ fn transform_response_using_content_type(
         _ => Some(content_type.subtype().to_string()),
     };
 
-    let output = response_to_buffer(resp, engine_state, span);
+    let output = response_to_buffer(resp, engine_state, span, interrupt_guard);
     if flags.raw {
         Ok(output)
     } else if let Some(ext) = ext {
@@ -1058,12 +1086,12 @@ pub(crate) fn request_handle_response(
         redirect_mode,
         flags,
     }: RequestMetadata,
-
     resp: Response,
+    interrupt_guard: Option<HandlerGuard>,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.
     // Wrapping it into a closure to call when needed
-    let mut consume_response_body = |response: Response| {
+    let mut consume_response_body = |response: Response, guard: Option<HandlerGuard>| {
         let content_type = response.header("content-type").map(|s| s.to_owned());
 
         match content_type {
@@ -1075,8 +1103,9 @@ pub(crate) fn request_handle_response(
                 &flags,
                 response,
                 &content_type,
+                guard,
             ),
-            None => Ok(response_to_buffer(response, engine_state, span)),
+            None => Ok(response_to_buffer(response, engine_state, span, guard)),
         }
     };
     handle_response_status(
@@ -1110,7 +1139,7 @@ pub(crate) fn request_handle_response(
                 .collect(),
             span,
         );
-        let body = consume_response_body(resp)?.into_value(span)?;
+        let body = consume_response_body(resp, interrupt_guard)?.into_value(span)?;
 
         let full_response = Value::record(
             record! {
@@ -1125,7 +1154,7 @@ pub(crate) fn request_handle_response(
 
         Ok(full_response.into_pipeline_data())
     } else {
-        Ok(consume_response_body(resp)?)
+        Ok(consume_response_body(resp, interrupt_guard)?)
     }
 }
 

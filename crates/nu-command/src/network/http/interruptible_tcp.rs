@@ -75,16 +75,22 @@ fn try_connect(details: &ConnectionDetails) -> Result<TcpStream, Error> {
 }
 
 fn try_connect_single(addr: SocketAddr, timeout: NextTimeout) -> Result<TcpStream, Error> {
-    let stream = if let Some(t) = timeout.not_zero() {
-        TcpStream::connect_timeout(&addr, *t).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::TimedOut {
-                Error::Timeout(timeout.reason)
-            } else {
-                Error::Io(e)
-            }
-        })?
+    let maybe_stream = if let Some(t) = timeout.not_zero() {
+        TcpStream::connect_timeout(&addr, *t)
     } else {
-        TcpStream::connect(addr).map_err(Error::Io)?
+        TcpStream::connect(addr)
+    };
+
+    // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
+    let stream = match maybe_stream {
+        Ok(s) => s,
+        Err(e)
+            if e.kind() == std::io::ErrorKind::TimedOut
+                || e.kind() == std::io::ErrorKind::WouldBlock =>
+        {
+            return Err(Error::Timeout(timeout.reason))
+        }
+        Err(e) => return Err(Error::Io(e)),
     };
 
     // Set TCP_NODELAY for better latency
@@ -129,7 +135,13 @@ impl Transport for InterruptibleTcpTransport {
         let output = &self.buffers.output()[..amount];
         match self.stream.write_all(output) {
             Ok(()) => Ok(()),
-            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => Err(Error::Timeout(timeout.reason)),
+            // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
+            Err(e)
+                if e.kind() == std::io::ErrorKind::TimedOut
+                    || e.kind() == std::io::ErrorKind::WouldBlock =>
+            {
+                Err(Error::Timeout(timeout.reason))
+            }
             Err(e) => Err(Error::Io(e)),
         }
     }
@@ -145,10 +157,13 @@ impl Transport for InterruptibleTcpTransport {
         let input = self.buffers.input_append_buf();
         let amount = match self.stream.read(input) {
             Ok(n) => n,
-            Err(e) if e.kind() == std::io::ErrorKind::TimedOut => {
+            // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
+            Err(e)
+                if e.kind() == std::io::ErrorKind::TimedOut
+                    || e.kind() == std::io::ErrorKind::WouldBlock =>
+            {
                 return Err(Error::Timeout(timeout.reason))
             }
-            Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => 0,
             Err(e) => return Err(Error::Io(e)),
         };
         self.buffers.input_appended(amount);

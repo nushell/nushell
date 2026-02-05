@@ -4,9 +4,11 @@
 //! when the user presses Ctrl+C. It works by storing cloned stream handles that can be
 //! shutdown from another thread, causing blocked reads to return immediately.
 
-use std::io;
+use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::{Arc, Mutex};
+
+use nu_protocol::HandlerGuard;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
@@ -79,5 +81,32 @@ impl std::fmt::Debug for ActiveConnections {
         f.debug_struct("ActiveConnections")
             .field("count", &count)
             .finish()
+    }
+}
+
+/// A reader wrapper that holds a HandlerGuard.
+///
+/// The guard is kept alive as long as this reader exists, ensuring the
+/// interrupt handler stays registered while the response body is being read.
+/// When the reader is dropped (stream consumed or interrupted), the guard
+/// is dropped and the handler is unregistered.
+pub struct GuardedReader<R> {
+    inner: R,
+    _guard: HandlerGuard,
+}
+
+impl<R> GuardedReader<R> {
+    /// Wrap a reader with a handler guard.
+    pub fn new(inner: R, guard: HandlerGuard) -> Self {
+        Self {
+            inner,
+            _guard: guard,
+        }
+    }
+}
+
+impl<R: Read> Read for GuardedReader<R> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.inner.read(buf)
     }
 }

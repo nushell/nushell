@@ -1,12 +1,11 @@
 use crate::network::http::client::{
-    HttpActiveConnections, RequestFlags, RequestMetadata, check_response_redirection,
-    expand_unix_socket_path, http_client, http_parse_redirect_mode, http_parse_url,
+    HttpActiveConnections, RequestFlags, RequestMetadata, add_unix_socket_flag,
+    check_response_redirection, expand_unix_socket_path, http_client, http_client_pool,
+    http_parse_redirect_mode, http_parse_url, register_interrupt_handler,
     request_add_authorization_header, request_add_custom_headers, request_handle_response,
     request_set_timeout, send_request_no_body,
 };
-use crate::network::http::client::{add_unix_socket_flag, http_client_pool};
 use nu_engine::command_prelude::*;
-use nu_protocol::SignalAction;
 
 use super::client::RedirectMode;
 
@@ -212,17 +211,7 @@ fn helper(
     // Create active connections tracker for interrupt support
     let active_connections = HttpActiveConnections::new();
 
-    // Register signal handler to shutdown connections on Ctrl+C
-    // Use register_unguarded because the handler needs to persist after this function returns
-    // (the actual body reading happens later when the ByteStream is consumed)
-    if let Some(handlers) = &engine_state.signal_handlers {
-        let conns = active_connections.clone();
-        let _ = handlers.register_unguarded(Box::new(move |action| {
-            if matches!(action, SignalAction::Interrupt) {
-                conns.shutdown_all();
-            }
-        }));
-    }
+    let interrupt_guard = register_interrupt_handler(engine_state, &active_connections)?;
 
     let mut request = if args.pool {
         http_client_pool(engine_state, stack)?.get(&requested_url)
@@ -264,6 +253,7 @@ fn helper(
             flags: request_flags,
         },
         response,
+        interrupt_guard,
     )
 }
 

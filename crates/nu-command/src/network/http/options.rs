@@ -1,12 +1,10 @@
-use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    HttpActiveConnections, RedirectMode, RequestFlags, RequestMetadata, expand_unix_socket_path,
-    http_client, http_client_pool, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout,
-    send_request_no_body,
+    HttpActiveConnections, RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag,
+    expand_unix_socket_path, http_client, http_client_pool, http_parse_url,
+    register_interrupt_handler, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::SignalAction;
 
 #[derive(Clone)]
 pub struct HttpOptions;
@@ -172,16 +170,7 @@ fn helper(
     // Create active connections tracker for interrupt support
     let active_connections = HttpActiveConnections::new();
 
-    // Register signal handler to shutdown connections on Ctrl+C
-    // Use register_unguarded because the handler needs to persist after this function returns
-    if let Some(handlers) = &engine_state.signal_handlers {
-        let conns = active_connections.clone();
-        let _ = handlers.register_unguarded(Box::new(move |action| {
-            if matches!(action, SignalAction::Interrupt) {
-                conns.shutdown_all();
-            }
-        }));
-    }
+    let interrupt_guard = register_interrupt_handler(engine_state, &active_connections)?;
 
     let mut request = if args.pool {
         http_client_pool(engine_state, stack)?.options(&requested_url)
@@ -225,6 +214,7 @@ fn helper(
             flags: request_flags,
         },
         response,
+        interrupt_guard,
     )
 }
 
