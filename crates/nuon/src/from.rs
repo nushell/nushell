@@ -1,7 +1,8 @@
+use crate::to::SerializableClosure;
 use nu_protocol::{
     Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
     ast::{Expr, Expression, ListItem, RecordItem},
-    engine::{EngineState, StateWorkingSet},
+    engine::{Closure, EngineState, StateWorkingSet},
 };
 use std::sync::Arc;
 
@@ -107,12 +108,13 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         });
     }
 
-    let value = convert_to_value(expr, span.unwrap_or(Span::unknown()), input)?;
+    let value = convert_to_value(&mut working_set, expr, span.unwrap_or(Span::unknown()), input)?;
 
     Ok(value)
 }
 
 fn convert_to_value(
+    working_set: &mut StateWorkingSet,
     expr: Expression,
     span: Span,
     original_text: &str,
@@ -176,7 +178,7 @@ fn convert_to_value(
                     span: expr.span,
                 })
             } else {
-                convert_to_value(full_cell_path.head, span, original_text)
+                convert_to_value(working_set, full_cell_path.head, span, original_text)
             }
         }
 
@@ -215,7 +217,7 @@ fn convert_to_value(
             for item in vals {
                 match item {
                     ListItem::Item(expr) => {
-                        output.push(convert_to_value(expr, span, original_text)?);
+                        output.push(convert_to_value(working_set, expr, span, original_text)?);
                     }
                     ListItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -245,19 +247,19 @@ fn convert_to_value(
         }),
         Expr::Range(range) => {
             let from = if let Some(f) = range.from {
-                convert_to_value(f, span, original_text)?
+                convert_to_value(working_set, f, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             let next = if let Some(s) = range.next {
-                convert_to_value(s, span, original_text)?
+                convert_to_value(working_set, s, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             let to = if let Some(t) = range.to {
-                convert_to_value(t, span, original_text)?
+                convert_to_value(working_set, t, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
@@ -294,7 +296,7 @@ fn convert_to_value(
                             });
                         } else {
                             key_spans.push(key.span);
-                            record.push(key_str, convert_to_value(val, span, original_text)?);
+                            record.push(key_str, convert_to_value(working_set, val, span, original_text)?);
                         }
                     }
                     RecordItem::Spread(_, inner) => {
@@ -322,7 +324,20 @@ fn convert_to_value(
             msg: "signatures not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s, span)),
+        Expr::String(s) | Expr::RawString(s) => {
+            // Try to deserialize as a closure if it looks like JSON with block field
+            if s.starts_with("{\"block\"") || s.starts_with("{\"captures\"") {
+                if let Ok(serializable) = serde_json::from_str::<SerializableClosure>(&s) {
+                    let block_id = working_set.add_block(Arc::new(serializable.block));
+                    let closure = Closure {
+                        block_id,
+                        captures: serializable.captures,
+                    };
+                    return Ok(Value::closure(closure, span));
+                }
+            }
+            Ok(Value::string(s, span))
+        }
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),
@@ -390,7 +405,7 @@ fn convert_to_value(
                     .iter()
                     .zip(row.into_vec())
                     .map(|(col, cell)| {
-                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
+                        convert_to_value(working_set, cell, span, original_text).map(|val| (col.clone(), val))
                     })
                     .collect::<Result<_, _>>()?;
 

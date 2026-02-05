@@ -5047,6 +5047,8 @@ dependencies = [
  "nu-parser",
  "nu-protocol",
  "nu-utils",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

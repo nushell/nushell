@@ -1,7 +1,15 @@
 use core::fmt::Write;
 use nu_engine::get_columns;
-use nu_protocol::{Range, ShellError, Span, Value, engine::EngineState};
+use nu_protocol::{Range, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
 use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
+use serde::{Deserialize, Serialize};
+
+/// Serializable representation of a closure with its block included.
+#[derive(Serialize, Deserialize)]
+pub struct SerializableClosure {
+    pub block: Block,
+    pub captures: Vec<(VarId, Value)>,
+}
 
 /// Configuration for converting Nushell [`Value`] to NUON data.
 ///
@@ -164,19 +172,19 @@ fn value_to_string(
             Ok(format!("0x[{s}]"))
         }
         Value::Closure { val, .. } => {
-            if serialize_types {
-                Ok(quote_string(
-                    &val.coerce_into_string(engine_state, span)?,
-                    raw_strings,
-                ))
-            } else {
-                Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
-                    input: "value originates from here".into(),
-                    msg_span: span,
-                    input_span: v.span(),
-                })
-            }
+            let block = engine_state.get_block(val.block_id);
+            let serializable = SerializableClosure {
+                block: block.as_ref().clone(),
+                captures: val.captures.clone(),
+            };
+            let json = serde_json::to_string(&serializable).map_err(|e| ShellError::GenericError {
+                error: "Failed to serialize closure".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
+            Ok(quote_string(&json, raw_strings))
         }
         Value::Bool { val, .. } => {
             if *val {
