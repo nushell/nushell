@@ -26,7 +26,7 @@ impl Command for JobDescribe {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["describe", "desc", "tag", "name"]
+        vec!["describe", "tag", "name"]
     }
 
     fn run(
