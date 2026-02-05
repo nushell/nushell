@@ -38,7 +38,7 @@ use nu_utils::{
 use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, Reedline, Vi,
+    HistorySessionId, Osc133Markers, Osc633Markers, Reedline, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -75,15 +75,10 @@ pub fn evaluate_repl(
     let shell_integration_osc2 = config.shell_integration.osc2;
     let shell_integration_osc7 = config.shell_integration.osc7;
     let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    let shell_integration_osc133 = config.shell_integration.osc133;
+    // let shell_integration_osc133 = config.shell_integration.osc133;
     let shell_integration_osc633 = config.shell_integration.osc633;
 
-    let nu_prompt = NushellPrompt::new(
-        shell_integration_osc133,
-        shell_integration_osc633,
-        engine_state.clone(),
-        stack.clone(),
-    );
+    let nu_prompt = NushellPrompt::new();
 
     // seed env vars
     unique_stack.add_env_var(
@@ -277,6 +272,35 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
     })
 }
 
+/// Determine which semantic prompt markers to use based on config and environment
+fn get_semantic_markers(
+    config: &nu_protocol::Config,
+    stack: &Stack,
+    engine_state: &EngineState,
+) -> Option<Box<dyn reedline::SemanticPromptMarkers>> {
+    let osc133 = config.shell_integration.osc133;
+    let osc633 = config.shell_integration.osc633;
+
+    if osc633 {
+        // Check if we're in VS Code terminal
+        if stack
+            .get_env_var(engine_state, "TERM_PROGRAM")
+            .and_then(|v| v.as_str().ok())
+            == Some("vscode")
+        {
+            Some(Osc633Markers::boxed())
+        } else if osc133 {
+            Some(Osc133Markers::boxed())
+        } else {
+            None
+        }
+    } else if osc133 {
+        Some(Osc133Markers::boxed())
+    } else {
+        None
+    }
+}
+
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
@@ -413,7 +437,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
-        });
+        })
+        .with_semantic_markers(get_semantic_markers(&config, &stack_arc, engine_state));
 
     perf!("reedline builder", start_time, use_color);
 
