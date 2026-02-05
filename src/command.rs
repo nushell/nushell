@@ -1143,12 +1143,6 @@ fn prevalidate_short_groups_before_lexopt(args: &[OsString]) -> Result<(), CliEr
         }
 
         let mut group = arg.trim_start_matches('-');
-        if group.is_empty() {
-            return Err(CliError::new(
-                "Invalid short flag",
-                "expected a flag after '-'",
-            ));
-        }
 
         let mut inline_value = None;
         if let Some((before, after)) = group.split_once('=') {
