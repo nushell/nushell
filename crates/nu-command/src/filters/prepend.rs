@@ -38,7 +38,7 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         vec![
             Example {
                 example: "0 | prepend [1 2 3]",
-                description: "prepend a list to an item.",
+                description: "Prepend a list to an item.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
