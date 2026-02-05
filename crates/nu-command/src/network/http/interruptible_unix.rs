@@ -1,41 +1,54 @@
 //! Interruptible Unix domain socket connector for ureq HTTP client.
 //!
 //! This module provides a Unix socket transport implementation that can be interrupted
-//! when the user presses Ctrl+C by storing a cloned socket handle.
+//! when the user presses Ctrl+C via a registered signal handler.
 
 use std::fmt;
 use std::io::{Read, Write};
+use std::net::Shutdown;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[cfg(unix)]
 use std::os::unix::net::UnixStream;
 #[cfg(windows)]
 use win_uds::net::UnixStream;
 
+use nu_protocol::HandlerGuard;
 use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
 
-use super::interruptible_stream::ActiveConnections;
+/// Callback invoked when a connection is established.
+/// Takes a cloned socket and returns a guard that keeps the interrupt handler registered.
+pub type OnConnectUnix = Arc<dyn Fn(UnixStream) -> Option<HandlerGuard> + Send + Sync>;
 
 /// Connector for interruptible Unix domain sockets.
 ///
-/// This connector stores cloned socket handles in ActiveConnections,
-/// allowing them to be shutdown when Ctrl+C is pressed.
-#[derive(Debug)]
+/// When a connection is established, calls the `on_connect` callback with a cloned
+/// socket handle. The callback registers a signal handler and returns a guard.
 pub struct InterruptibleUnixSocketConnector {
     socket_path: PathBuf,
-    active_connections: ActiveConnections,
+    on_connect: Option<OnConnectUnix>,
 }
 
 impl InterruptibleUnixSocketConnector {
     /// Create a new interruptible Unix socket connector.
-    pub fn new(socket_path: PathBuf, active_connections: ActiveConnections) -> Self {
+    pub fn new(socket_path: PathBuf, on_connect: Option<OnConnectUnix>) -> Self {
         Self {
             socket_path,
-            active_connections,
+            on_connect,
         }
+    }
+}
+
+impl fmt::Debug for InterruptibleUnixSocketConnector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InterruptibleUnixSocketConnector")
+            .field("socket_path", &self.socket_path)
+            .field("on_connect", &self.on_connect.as_ref().map(|_| "..."))
+            .finish()
     }
 }
 
@@ -58,30 +71,40 @@ impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
             ))
         })?;
 
-        // Clone the stream and store for interruption
-        if let Ok(clone) = stream.try_clone() {
-            self.active_connections.add(clone);
-        }
+        // Register interrupt handler if callback provided
+        let guard = self
+            .on_connect
+            .as_ref()
+            .and_then(|f| stream.try_clone().ok().and_then(|s| f(s)));
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
             details.config.output_buffer_size(),
         );
 
-        Ok(Some(InterruptibleUnixSocketTransport::new(stream, buffers)))
+        Ok(Some(InterruptibleUnixSocketTransport::new(
+            stream, buffers, guard,
+        )))
     }
 }
 
 /// Transport implementation for interruptible Unix domain sockets.
+///
+/// Holds a guard that keeps the interrupt handler registered while the transport is alive.
 pub struct InterruptibleUnixSocketTransport {
     stream: UnixStream,
     buffers: LazyBuffers,
+    _guard: Option<HandlerGuard>,
 }
 
 impl InterruptibleUnixSocketTransport {
     /// Create a new Unix socket transport.
-    pub fn new(stream: UnixStream, buffers: LazyBuffers) -> Self {
-        Self { stream, buffers }
+    pub fn new(stream: UnixStream, buffers: LazyBuffers, guard: Option<HandlerGuard>) -> Self {
+        Self {
+            stream,
+            buffers,
+            _guard: guard,
+        }
     }
 }
 
@@ -119,6 +142,20 @@ impl fmt::Debug for InterruptibleUnixSocketTransport {
     }
 }
 
+/// Create an `OnConnectUnix` callback that registers a signal handler to shutdown the socket.
+pub fn make_on_connect_unix(handlers: &nu_protocol::Handlers) -> OnConnectUnix {
+    let handlers = handlers.clone();
+    Arc::new(move |socket: UnixStream| {
+        handlers
+            .register(Box::new(move |action| {
+                if matches!(action, nu_protocol::SignalAction::Interrupt) {
+                    let _ = socket.shutdown(Shutdown::Both);
+                }
+            }))
+            .ok()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -126,9 +163,7 @@ mod tests {
     #[test]
     fn test_connector_creation() {
         let path = PathBuf::from("/tmp/test.sock");
-        let active_connections = ActiveConnections::new();
-        let connector = InterruptibleUnixSocketConnector::new(path.clone(), active_connections);
-        // Verify via Debug implementation since socket_path is private
+        let connector = InterruptibleUnixSocketConnector::new(path.clone(), None);
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("InterruptibleUnixSocketConnector"));
         assert!(debug_str.contains("/tmp/test.sock"));
@@ -136,8 +171,7 @@ mod tests {
 
     #[test]
     fn test_connector_stores_path() {
-        let active_connections = ActiveConnections::new();
-        let connector = InterruptibleUnixSocketConnector::new("/var/run/docker.sock".into(), active_connections);
+        let connector = InterruptibleUnixSocketConnector::new("/var/run/docker.sock".into(), None);
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("/var/run/docker.sock"));
     }

@@ -1,9 +1,8 @@
 use crate::network::http::client::{
-    HttpActiveConnections, RequestFlags, RequestMetadata, add_unix_socket_flag,
-    check_response_redirection, expand_unix_socket_path, http_client, http_client_pool,
-    http_parse_redirect_mode, http_parse_url, register_interrupt_handler,
-    request_add_authorization_header, request_add_custom_headers, request_handle_response,
-    request_set_timeout, send_request_no_body,
+    RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
+    expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -208,11 +207,6 @@ fn helper(
     let cwd = engine_state.cwd(None)?;
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
-    // Create active connections tracker for interrupt support
-    let active_connections = HttpActiveConnections::new();
-
-    let interrupt_guard = register_interrupt_handler(engine_state, &active_connections)?;
-
     let mut request = if args.pool {
         http_client_pool(engine_state, stack)?.get(&requested_url)
     } else {
@@ -222,7 +216,6 @@ fn helper(
             unix_socket_path,
             engine_state,
             stack,
-            active_connections,
         )?;
         client.get(&requested_url)
     };
@@ -253,7 +246,6 @@ fn helper(
             flags: request_flags,
         },
         response,
-        interrupt_guard,
     )
 }
 

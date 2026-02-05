@@ -3,7 +3,6 @@ mod delete;
 mod get;
 mod head;
 mod http_;
-mod interruptible_stream;
 mod interruptible_tcp;
 mod interruptible_unix;
 mod options;

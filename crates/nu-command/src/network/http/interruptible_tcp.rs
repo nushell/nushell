@@ -1,33 +1,44 @@
 //! Interruptible TCP connector for ureq HTTP client.
 //!
 //! This module provides a TCP transport implementation that can be interrupted
-//! when the user presses Ctrl+C by storing a cloned socket handle.
+//! when the user presses Ctrl+C via a registered signal handler.
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::net::{SocketAddr, TcpStream};
+use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::sync::Arc;
 use std::time::Duration;
 
+use nu_protocol::HandlerGuard;
 use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
 
-use super::interruptible_stream::ActiveConnections;
+/// Callback invoked when a connection is established.
+/// Takes a cloned socket and returns a guard that keeps the interrupt handler registered.
+pub type OnConnect = Arc<dyn Fn(TcpStream) -> Option<HandlerGuard> + Send + Sync>;
 
 /// Connector for interruptible TCP sockets.
 ///
-/// This connector stores cloned socket handles in ActiveConnections,
-/// allowing them to be shutdown when Ctrl+C is pressed.
-#[derive(Debug)]
+/// When a connection is established, calls the `on_connect` callback with a cloned
+/// socket handle. The callback registers a signal handler and returns a guard.
 pub struct InterruptibleTcpConnector {
-    active_connections: ActiveConnections,
+    on_connect: Option<OnConnect>,
 }
 
 impl InterruptibleTcpConnector {
     /// Create a new interruptible TCP connector.
-    pub fn new(active_connections: ActiveConnections) -> Self {
-        Self { active_connections }
+    pub fn new(on_connect: Option<OnConnect>) -> Self {
+        Self { on_connect }
+    }
+}
+
+impl fmt::Debug for InterruptibleTcpConnector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InterruptibleTcpConnector")
+            .field("on_connect", &self.on_connect.as_ref().map(|_| "..."))
+            .finish()
     }
 }
 
@@ -41,17 +52,18 @@ impl<In: Transport> Connector<In> for InterruptibleTcpConnector {
     ) -> Result<Option<Self::Out>, Error> {
         let stream = try_connect(details)?;
 
-        // Clone the stream and store for interruption
-        if let Ok(clone) = stream.try_clone() {
-            self.active_connections.add(clone);
-        }
+        // Register interrupt handler if callback provided
+        let guard = self
+            .on_connect
+            .as_ref()
+            .and_then(|f| stream.try_clone().ok().and_then(|s| f(s)));
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
             details.config.output_buffer_size(),
         );
 
-        Ok(Some(InterruptibleTcpTransport::new(stream, buffers)))
+        Ok(Some(InterruptibleTcpTransport::new(stream, buffers, guard)))
     }
 }
 
@@ -100,21 +112,25 @@ fn try_connect_single(addr: SocketAddr, timeout: NextTimeout) -> Result<TcpStrea
 }
 
 /// Transport implementation for interruptible TCP sockets.
+///
+/// Holds a guard that keeps the interrupt handler registered while the transport is alive.
 pub struct InterruptibleTcpTransport {
     stream: TcpStream,
     buffers: LazyBuffers,
     timeout_write: Option<Duration>,
     timeout_read: Option<Duration>,
+    _guard: Option<HandlerGuard>,
 }
 
 impl InterruptibleTcpTransport {
     /// Create a new TCP transport.
-    pub fn new(stream: TcpStream, buffers: LazyBuffers) -> Self {
+    pub fn new(stream: TcpStream, buffers: LazyBuffers, guard: Option<HandlerGuard>) -> Self {
         Self {
             stream,
             buffers,
             timeout_read: None,
             timeout_write: None,
+            _guard: guard,
         }
     }
 }
@@ -207,4 +223,18 @@ fn maybe_update_timeout(
     }
 
     Ok(())
+}
+
+/// Create an `OnConnect` callback that registers a signal handler to shutdown the socket.
+pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
+    let handlers = handlers.clone();
+    Arc::new(move |socket: TcpStream| {
+        handlers
+            .register(Box::new(move |action| {
+                if matches!(action, nu_protocol::SignalAction::Interrupt) {
+                    let _ = socket.shutdown(Shutdown::Both);
+                }
+            }))
+            .ok()
+    })
 }

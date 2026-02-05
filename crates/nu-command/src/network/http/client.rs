@@ -42,33 +42,8 @@ use ureq::{
 };
 use url::Url;
 
-use crate::network::http::interruptible_stream::{ActiveConnections, GuardedReader};
-use crate::network::http::interruptible_tcp::InterruptibleTcpConnector;
-use crate::network::http::interruptible_unix::InterruptibleUnixSocketConnector;
-use nu_protocol::{HandlerGuard, SignalAction};
-
-// Re-export for use by HTTP commands
-pub use crate::network::http::interruptible_stream::ActiveConnections as HttpActiveConnections;
-
-/// Register a signal handler that shuts down active connections on Ctrl+C.
-///
-/// Returns a guard that keeps the handler registered. When the guard is dropped,
-/// the handler is automatically unregistered.
-pub(crate) fn register_interrupt_handler(
-    engine_state: &EngineState,
-    active_connections: &HttpActiveConnections,
-) -> Result<Option<HandlerGuard>, ShellError> {
-    if let Some(handlers) = &engine_state.signal_handlers {
-        let conns = active_connections.clone();
-        Ok(Some(handlers.register(Box::new(move |action| {
-            if matches!(action, SignalAction::Interrupt) {
-                conns.shutdown_all();
-            }
-        }))?))
-    } else {
-        Ok(None)
-    }
-}
+use crate::network::http::interruptible_tcp::{InterruptibleTcpConnector, make_on_connect};
+use crate::network::http::interruptible_unix::{InterruptibleUnixSocketConnector, make_on_connect_unix};
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
@@ -184,16 +159,12 @@ pub fn reset_http_client_pool(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<(), ShellError> {
-    // Pool connections don't support interruption currently
-    // TODO: Consider adding interrupt support for pooled connections
-    let active_connections = ActiveConnections::new();
     let client = http_client(
         allow_insecure,
         redirect_mode,
         unix_socket_path,
         engine_state,
         stack,
-        active_connections,
     )?;
     let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::new(client));
@@ -206,7 +177,6 @@ pub fn http_client(
     unix_socket_path: Option<PathBuf>,
     engine_state: &EngineState,
     stack: &mut Stack,
-    active_connections: ActiveConnections,
 ) -> Result<ureq::Agent, ShellError> {
     let mut config_builder = ureq::config::Config::builder()
         .user_agent("nushell")
@@ -228,17 +198,20 @@ pub fn http_client(
     let config = config_builder.build();
 
     if let Some(socket_path) = unix_socket_path {
-        // Use custom Unix socket connector with interruption support
         use ureq::unversioned::resolver::DefaultResolver;
 
-        let connector = InterruptibleUnixSocketConnector::new(socket_path, active_connections);
+        let on_connect = engine_state
+            .signal_handlers
+            .as_ref()
+            .map(make_on_connect_unix);
+        let connector = InterruptibleUnixSocketConnector::new(socket_path, on_connect);
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
-    // Use interruptible TCP connector
-    let connector = InterruptibleTcpConnector::new(active_connections);
+    let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
+    let connector = InterruptibleTcpConnector::new(on_connect);
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
@@ -287,7 +260,6 @@ pub fn response_to_buffer(
     response: Response,
     engine_state: &EngineState,
     span: Span,
-    interrupt_guard: Option<HandlerGuard>,
 ) -> PipelineData {
     // Try to get the size of the file to be downloaded.
     // This is helpful to show the progress of the stream.
@@ -320,14 +292,8 @@ pub fn response_to_buffer(
         r: response.into_body().into_reader(),
     };
 
-    // If we have an interrupt guard, wrap the reader to keep the guard alive
-    // for as long as the stream is being read
-    let byte_stream = if let Some(guard) = interrupt_guard {
-        let guarded_reader = GuardedReader::new(reader, guard);
-        ByteStream::read(guarded_reader, span, engine_state.signals().clone(), response_type)
-    } else {
-        ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
-    };
+    let byte_stream =
+        ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
 
     PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
 }
@@ -983,7 +949,6 @@ fn transform_response_using_content_type(
     flags: &RequestFlags,
     resp: Response,
     content_type: &str,
-    interrupt_guard: Option<HandlerGuard>,
 ) -> Result<PipelineData, ShellError> {
     let content_type = mime::Mime::from_str(content_type)
         // there are invalid content types in the wild, so we try to recover
@@ -1013,7 +978,7 @@ fn transform_response_using_content_type(
         _ => Some(content_type.subtype().to_string()),
     };
 
-    let output = response_to_buffer(resp, engine_state, span, interrupt_guard);
+    let output = response_to_buffer(resp, engine_state, span);
     if flags.raw {
         Ok(output)
     } else if let Some(ext) = ext {
@@ -1087,11 +1052,10 @@ pub(crate) fn request_handle_response(
         flags,
     }: RequestMetadata,
     resp: Response,
-    interrupt_guard: Option<HandlerGuard>,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.
     // Wrapping it into a closure to call when needed
-    let mut consume_response_body = |response: Response, guard: Option<HandlerGuard>| {
+    let mut consume_response_body = |response: Response| {
         let content_type = response.header("content-type").map(|s| s.to_owned());
 
         match content_type {
@@ -1103,9 +1067,8 @@ pub(crate) fn request_handle_response(
                 &flags,
                 response,
                 &content_type,
-                guard,
             ),
-            None => Ok(response_to_buffer(response, engine_state, span, guard)),
+            None => Ok(response_to_buffer(response, engine_state, span)),
         }
     };
     handle_response_status(
@@ -1139,7 +1102,7 @@ pub(crate) fn request_handle_response(
                 .collect(),
             span,
         );
-        let body = consume_response_body(resp, interrupt_guard)?.into_value(span)?;
+        let body = consume_response_body(resp)?.into_value(span)?;
 
         let full_response = Value::record(
             record! {
@@ -1154,7 +1117,7 @@ pub(crate) fn request_handle_response(
 
         Ok(full_response.into_pipeline_data())
     } else {
-        Ok(consume_response_body(resp, interrupt_guard)?)
+        Ok(consume_response_body(resp)?)
     }
 }
 
