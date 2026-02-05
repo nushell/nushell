@@ -20,7 +20,7 @@ nu-parser = { path = "../nu-parser", version = "0.110.1" }
 
 rmcp = { version = "0.14", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
-schemars = "1.2.0"
+schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { version = "1.49.0", features = ["full"] }
