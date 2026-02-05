@@ -1,7 +1,20 @@
 //! Interruptible TCP connector for ureq HTTP client.
 //!
-//! This module provides a TCP transport implementation that can be interrupted
-//! when the user presses Ctrl+C via a registered signal handler.
+//! # Interrupt Strategy
+//!
+//! Nushell uses sync I/O for simplicity. Downstream response handling consumes data
+//! through the [`Read`] trait, which only offers blocking `read()` with no timeout,
+//! so we cannot poll for interrupts.
+//!
+//! Solution: socket shutdown from the signal handler.
+//!
+//! 1. On connect, clone the socket via [`TcpStream::try_clone`] (second handle, same OS socket).
+//! 2. Pass the clone to an [`OnConnect`] callback that registers it with Nushell's
+//!    signal handlers, returning a [`HandlerGuard`] stored in the transport.
+//! 3. On Ctrl+C, the handler calls `shutdown(Shutdown::Both)` on the cloned handle.
+//! 4. Any blocked `read()`/`write()` on the original handle returns an error immediately.
+//!
+//! No polling, no extra threads. The OS unblocks the call directly.
 
 use std::fmt;
 use std::io::{Read, Write};

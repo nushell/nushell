@@ -2,6 +2,8 @@
 //!
 //! This module provides a Unix socket transport implementation that can be interrupted
 //! when the user presses Ctrl+C via a registered signal handler.
+//!
+//! See [`super::interruptible_tcp`] for a detailed explanation of the interrupt strategy.
 
 use std::fmt;
 use std::io::{Read, Write};
