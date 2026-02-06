@@ -20,7 +20,7 @@ impl Command for IntoClosure {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "closure"]
+        vec!["convert"]
     }
 
     fn run(
