@@ -163,12 +163,21 @@ fn value_to_string(
             }
             Ok(format!("0x[{s}]"))
         }
-        Value::Closure { .. } => Err(ShellError::UnsupportedInput {
-            msg: "closures are currently not nuon-compatible".to_string(),
-            input: "value originates from here".into(),
-            msg_span: span,
-            input_span: v.span(),
-        }),
+        Value::Closure { val, .. } => {
+            if serialize_types {
+                Ok(quote_string(
+                    &val.coerce_into_string(engine_state, span)?,
+                    raw_strings,
+                ))
+            } else {
+                Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: v.span(),
+                })
+            }
+        }
         Value::Bool { val, .. } => {
             if *val {
                 Ok("true".to_string())

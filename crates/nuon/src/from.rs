@@ -15,11 +15,6 @@ use std::sync::Arc;
 /// > [`from nuon`](https://www.nushell.sh/commands/docs/from_nuon.html).
 ///
 /// also see [`super::to_nuon`] for the inverse operation
-///
-/// > **Note**
-/// > Closures deserialized with this function will not be usable since they are added to a
-/// > temporary engine state. Use [`from_nuon_into`] to deserialize closures into a caller-provided
-/// > [`StateWorkingSet`].
 pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     let mut engine_state = EngineState::default();
     // NOTE: the parser needs `$env.PWD` to be set, that's a know _API issue_ with the
@@ -27,31 +22,7 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     engine_state.add_env_var("PWD".to_string(), Value::string("", Span::unknown()));
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    from_nuon_into(&mut working_set, input, span)
-}
-
-/// Convert a raw string representation of NUON data to an actual Nushell [`Value`],
-/// adding any deserialized blocks (from closures) to the provided [`StateWorkingSet`].
-///
-/// This function allows closures to be properly deserialized and used, as the blocks
-/// are added directly to the caller's working set. After calling this function,
-/// merge the working set's delta into the engine state to make the blocks permanent.
-///
-/// # Example
-/// ```ignore
-/// let mut working_set = StateWorkingSet::new(&engine_state);
-/// let value = from_nuon_into(&mut working_set, nuon_string, None)?;
-/// engine_state.merge_delta(working_set.render())?;
-/// // Now closures in `value` can be executed
-/// ```
-///
-/// also see [`super::to_nuon`] for the inverse operation
-pub fn from_nuon_into(
-    working_set: &mut StateWorkingSet,
-    input: &str,
-    span: Option<Span>,
-) -> Result<Value, ShellError> {
-    let mut block = nu_parser::parse(working_set, None, input.as_bytes(), false);
+    let mut block = nu_parser::parse(&mut working_set, None, input.as_bytes(), false);
 
     if let Some(pipeline) = block.pipelines.get(1) {
         if let Some(element) = pipeline.elements.first() {
@@ -86,7 +57,7 @@ pub fn from_nuon_into(
 
     let expr = if block.pipelines.is_empty() {
         Expression::new(
-            working_set,
+            &mut working_set,
             Expr::Nothing,
             span.unwrap_or(Span::unknown()),
             Type::Nothing,
@@ -111,7 +82,7 @@ pub fn from_nuon_into(
 
         if pipeline.elements.is_empty() {
             Expression::new(
-                working_set,
+                &mut working_set,
                 Expr::Nothing,
                 span.unwrap_or(Span::unknown()),
                 Type::Nothing,
@@ -136,13 +107,12 @@ pub fn from_nuon_into(
         });
     }
 
-    let value = convert_to_value(working_set, expr, span.unwrap_or(Span::unknown()), input)?;
+    let value = convert_to_value(expr, span.unwrap_or(Span::unknown()), input)?;
 
     Ok(value)
 }
 
 fn convert_to_value(
-    working_set: &mut StateWorkingSet,
     expr: Expression,
     span: Span,
     original_text: &str,
@@ -206,7 +176,7 @@ fn convert_to_value(
                     span: expr.span,
                 })
             } else {
-                convert_to_value(working_set, full_cell_path.head, span, original_text)
+                convert_to_value(full_cell_path.head, span, original_text)
             }
         }
 
@@ -245,7 +215,7 @@ fn convert_to_value(
             for item in vals {
                 match item {
                     ListItem::Item(expr) => {
-                        output.push(convert_to_value(working_set, expr, span, original_text)?);
+                        output.push(convert_to_value(expr, span, original_text)?);
                     }
                     ListItem::Spread(_, inner) => {
                         return Err(ShellError::OutsideSpannedLabeledError {
@@ -275,19 +245,19 @@ fn convert_to_value(
         }),
         Expr::Range(range) => {
             let from = if let Some(f) = range.from {
-                convert_to_value(working_set, f, span, original_text)?
+                convert_to_value(f, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             let next = if let Some(s) = range.next {
-                convert_to_value(working_set, s, span, original_text)?
+                convert_to_value(s, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
 
             let to = if let Some(t) = range.to {
-                convert_to_value(working_set, t, span, original_text)?
+                convert_to_value(t, span, original_text)?
             } else {
                 Value::nothing(expr.span)
             };
@@ -324,10 +294,7 @@ fn convert_to_value(
                             });
                         } else {
                             key_spans.push(key.span);
-                            record.push(
-                                key_str,
-                                convert_to_value(working_set, val, span, original_text)?,
-                            );
+                            record.push(key_str, convert_to_value(val, span, original_text)?);
                         }
                     }
                     RecordItem::Spread(_, inner) => {
@@ -423,8 +390,7 @@ fn convert_to_value(
                     .iter()
                     .zip(row.into_vec())
                     .map(|(col, cell)| {
-                        convert_to_value(working_set, cell, span, original_text)
-                            .map(|val| (col.clone(), val))
+                        convert_to_value(cell, span, original_text).map(|val| (col.clone(), val))
                     })
                     .collect::<Result<_, _>>()?;
 
