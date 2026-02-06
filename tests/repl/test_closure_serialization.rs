@@ -51,3 +51,13 @@ fn closure_round_trip_captured_closure() -> TestResult {
 fn closure_round_trip_captured_value() -> TestResult {
     run_closure_test("let x = 10; {|| $x + 5 }", "do $in", "15")
 }
+
+#[test]
+fn closure_round_trip_captured_list_value() -> TestResult {
+    run_closure_test("let x = [1, 2, 3]; {|| $x | get 1 }", "do $in", "2")
+}
+
+#[test]
+fn closure_round_trip_captured_record_value() -> TestResult {
+    run_closure_test("let x = { foo: 5 }; {|| $x | get foo }", "do $in", "5")
+}
