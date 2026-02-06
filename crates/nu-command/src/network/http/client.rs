@@ -38,7 +38,6 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::transport::DefaultConnector,
 };
 use url::Url;
 
@@ -144,7 +143,8 @@ pub fn http_client_pool(
     // are secure. Users must explicitly use `http pool --insecure` to disable.
     config_builder = config_builder.tls_config(tls_config(false)?);
 
-    let connector = DefaultConnector::default();
+    let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
+    let connector = InterruptibleTcpConnector::new(on_connect);
     let resolver = DnsLookupResolver;
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
