@@ -119,20 +119,23 @@ impl Closure {
         // Convert the block to a nushell Value
         let block_value = block.to_nu_value(span)?;
 
-        // Serialize captures as a list of records with var_id and value
-        let captures_list: Vec<Value> = self
-            .captures
-            .iter()
-            .map(|(var_id, value)| {
-                Value::record(
-                    Record::from_iter([
-                        ("var_id".to_string(), Value::int(var_id.get() as i64, span)),
-                        ("value".to_string(), value.clone()),
-                    ]),
-                    span,
-                )
-            })
-            .collect();
+        // Serialize captures as a list of records with var_id and value.
+        // Captured closures are recursively converted to records.
+        let mut captures_list: Vec<Value> = Vec::with_capacity(self.captures.len());
+        for (var_id, value) in &self.captures {
+            let serialized_value = if let Value::Closure { val, .. } = value {
+                val.to_record(engine_state, span)?
+            } else {
+                value.clone()
+            };
+            captures_list.push(Value::record(
+                Record::from_iter([
+                    ("var_id".to_string(), Value::int(var_id.get() as i64, span)),
+                    ("value".to_string(), serialized_value),
+                ]),
+                span,
+            ));
+        }
 
         // Collect and serialize nested blocks
         let mut nested_blocks_record = Record::new();
@@ -178,7 +181,7 @@ impl Closure {
         // Deserialize the block from the nushell Value
         let block = Block::from_nu_value(block_value)?;
 
-        // Get captures
+        // Get captures, recursively converting any closure records back to closures
         let captures = match record.get("captures") {
             Some(Value::List { vals, .. }) => {
                 let mut captures = Vec::with_capacity(vals.len());
@@ -189,6 +192,16 @@ impl Closure {
                             _ => continue,
                         };
                         let value = match rec.get("value") {
+                            Some(Value::Record {
+                                val: inner_rec,
+                                internal_span,
+                            }) if inner_rec.get("block").is_some() => {
+                                // This looks like a serialized closure record — convert it back
+                                match Closure::from_record(inner_rec, *internal_span)? {
+                                    Some(closure) => Value::closure(closure, *internal_span),
+                                    None => Value::record(inner_rec.as_ref().clone(), *internal_span),
+                                }
+                            }
                             Some(v) => v.clone(),
                             _ => continue,
                         };

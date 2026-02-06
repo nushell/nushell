@@ -88,6 +88,34 @@ impl Command for Do {
             eval_block_with_early_return(&engine_state_for_eval, &mut callee_stack, block, input)
                 .map(|p| p.body);
 
+        // If the parent closure had nested blocks (from deserialization), propagate
+        // them to any closure in the result so it remains self-contained when the
+        // temporarily-cloned engine state goes out of scope.
+        let result = if closure.has_nested_blocks() {
+            result.map(|data| match data {
+                PipelineData::Value(Value::Closure { val, internal_span, .. }, meta) => {
+                    let mut inner = val;
+                    if inner.inline_block.is_none() {
+                        // Give the inner closure its own inline block from the
+                        // temporarily-added blocks and carry all nested blocks forward
+                        if let Some(block) = closure.nested_blocks.get(&inner.block_id) {
+                            inner.inline_block = Some(block.clone());
+                        }
+                    }
+                    inner.nested_blocks.extend(
+                        closure
+                            .nested_blocks
+                            .iter()
+                            .map(|(id, b)| (*id, b.clone())),
+                    );
+                    PipelineData::Value(Value::closure(*inner, internal_span), meta)
+                }
+                other => other,
+            })
+        } else {
+            result
+        };
+
         if has_env {
             // Merge the block's environment to the current stack
             redirect_env(engine_state, caller_stack, &callee_stack);
