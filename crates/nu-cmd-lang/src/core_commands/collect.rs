@@ -96,12 +96,12 @@ is particularly large, this can cause high memory usage."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Use the second value in the stream",
+                description: "Use the second value in the stream.",
                 example: "[1 2 3] | collect { |x| $x.1 }",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Read and write to the same file",
+                description: "Read and write to the same file.",
                 example: "open file.txt | collect | save -f file.txt",
                 result: None,
             },

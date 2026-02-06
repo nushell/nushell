@@ -187,28 +187,28 @@ impl Command for OverlayUse {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Create an overlay from a module",
+                description: "Create an overlay from a module.",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     foo"#,
                 result: None,
             },
             Example {
-                description: "Create an overlay from a module and rename it",
+                description: "Create an overlay from a module and rename it.",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam as spam_new
     foo"#,
                 result: None,
             },
             Example {
-                description: "Create an overlay with a prefix",
+                description: "Create an overlay with a prefix.",
                 example: r#"'export def foo { "foo" }'
     overlay use --prefix spam
     spam foo"#,
                 result: None,
             },
             Example {
-                description: "Create an overlay from a file",
+                description: "Create an overlay from a file.",
                 example: r#"'export-env { $env.FOO = "foo" }' | save spam.nu
     overlay use spam.nu
     $env.FOO"#,

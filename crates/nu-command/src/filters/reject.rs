@@ -17,7 +17,11 @@ impl Command for Reject {
                 (Type::table(), Type::table()),
                 (Type::list(Type::Any), Type::list(Type::Any)),
             ])
-            .switch("optional", "make all cell path members optional", Some('o'))
+            .switch(
+                "optional",
+                "Make all cell path members optional.",
+                Some('o'),
+            )
             .switch(
                 "ignore-case",
                 "make all cell path members case insensitive",
@@ -131,19 +135,19 @@ impl Command for Reject {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Reject a column in the `ls` table",
+                description: "Reject a column in the `ls` table.",
                 example: "ls | reject modified",
                 result: None,
             },
             Example {
-                description: "Reject a column in a table",
+                description: "Reject a column in a table.",
                 example: "[[a, b]; [1, 2]] | reject a",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "b" => Value::test_int(2),
                 })])),
             },
             Example {
-                description: "Reject a row in a table",
+                description: "Reject a row in a table.",
                 example: "[[a, b]; [1, 2] [3, 4]] | reject 1",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" =>  Value::test_int(1),
@@ -151,14 +155,14 @@ impl Command for Reject {
                 })])),
             },
             Example {
-                description: "Reject the specified field in a record",
+                description: "Reject the specified field in a record.",
                 example: "{a: 1, b: 2} | reject a",
                 result: Some(Value::test_record(record! {
                     "b" => Value::test_int(2),
                 })),
             },
             Example {
-                description: "Reject a nested field in a record",
+                description: "Reject a nested field in a record.",
                 example: "{a: {b: 3, c: 5}} | reject a.b",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_record(record! {
@@ -167,12 +171,12 @@ impl Command for Reject {
                 })),
             },
             Example {
-                description: "Reject multiple rows",
+                description: "Reject multiple rows.",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb] [file.json json 3kb]] | reject 0 2",
                 result: None,
             },
             Example {
-                description: "Reject multiple columns",
+                description: "Reject multiple columns.",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject type size",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
@@ -180,7 +184,7 @@ impl Command for Reject {
                 ])),
             },
             Example {
-                description: "Reject multiple columns by spreading a list",
+                description: "Reject multiple columns by spreading a list.",
                 example: "let cols = [type size]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | reject ...$cols",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! { "name" => Value::test_string("Cargo.toml") }),
@@ -188,7 +192,7 @@ impl Command for Reject {
                 ])),
             },
             Example {
-                description: "Reject item in list",
+                description: "Reject item in list.",
                 example: "[1 2 3] | reject 1",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),

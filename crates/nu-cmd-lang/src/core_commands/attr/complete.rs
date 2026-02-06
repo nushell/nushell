@@ -51,7 +51,7 @@ impl Command for AttrComplete {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Use another command as completion source",
+            description: "Use another command as completion source.",
             example: "\
                 def complete-foo [spans: list<string>] {\n    \
                     [bar baz qux spam eggs] | where $it not-in $spans\n\
@@ -112,7 +112,7 @@ impl Command for AttrCompleteExternal {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Use the external completer for a wrapper command",
+            description: "Use the external completer for a wrapper command.",
             example: "\
                 @complete external\n\
                 def --wrapped jc [...args] {\n    \

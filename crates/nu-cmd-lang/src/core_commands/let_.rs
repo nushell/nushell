@@ -17,7 +17,11 @@ impl Command for Let {
         Signature::build("let")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
+            .required(
+                "var_name",
+                SyntaxShape::VarWithOptType,
+                "The variable name to create.",
+            )
             .optional(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
@@ -57,22 +61,22 @@ impl Command for Let {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set a variable to a value",
+                description: "Set a variable to a value.",
                 example: "let x = 10",
                 result: None,
             },
             Example {
-                description: "Set a variable to the result of an expression",
+                description: "Set a variable to the result of an expression.",
                 example: "let x = 10 + 100",
                 result: None,
             },
             Example {
-                description: "Set a variable based on the condition",
+                description: "Set a variable based on the condition.",
                 example: "let x = if false { -1 } else { 1 }",
                 result: None,
             },
             Example {
-                description: "Set a variable to the output of a pipeline",
+                description: "Set a variable to the output of a pipeline.",
                 example: "ls | let files",
                 result: None,
             },

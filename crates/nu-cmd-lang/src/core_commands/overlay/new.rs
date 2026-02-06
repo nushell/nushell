@@ -66,7 +66,7 @@ This command is a parser keyword. For details, check:
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Create an empty overlay",
+            description: "Create an empty overlay.",
             example: r#"overlay new spam"#,
             result: None,
         }]

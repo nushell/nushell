@@ -30,7 +30,7 @@ impl Command for TakeUntil {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Take until the element is positive",
+                description: "Take until the element is positive.",
                 example: "[-1 -2 9 1] | take until {|x| $x > 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_int(-1),
@@ -38,7 +38,7 @@ impl Command for TakeUntil {
                 ])),
             },
             Example {
-                description: "Take until the element is positive using stored condition",
+                description: "Take until the element is positive using stored condition.",
                 example: "let cond = {|x| $x > 0 }; [-1 -2 9 1] | take until $cond",
                 result: Some(Value::test_list(vec![
                     Value::test_int(-1),
@@ -46,7 +46,7 @@ impl Command for TakeUntil {
                 ])),
             },
             Example {
-                description: "Take until the field value is positive",
+                description: "Take until the field value is positive.",
                 example: "[{a: -1} {a: -2} {a: 9} {a: 1}] | take until {|x| $x.a > 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

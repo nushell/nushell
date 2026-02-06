@@ -20,7 +20,7 @@ impl Command for Sort {
                 ),
                 (Type::record(), Type::record())
             ])
-    .switch("reverse", "Sort in reverse order", Some('r'))
+    .switch("reverse", "Sort in reverse order.", Some('r'))
             .switch(
                 "ignore-case",
                 "Sort string-based data case-insensitively",
@@ -40,14 +40,14 @@ impl Command for Sort {
     }
 
     fn description(&self) -> &str {
-        "Sort in increasing order."
+        "Sort the input in increasing order."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
                 example: "[2 0 1] | sort",
-                description: "Sort the list by increasing value",
+                description: "Sort the list by increasing value.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(0),
                     Value::test_int(1),
@@ -56,7 +56,7 @@ impl Command for Sort {
             },
             Example {
                 example: "[2 0 1] | sort --reverse",
-                description: "Sort the list by decreasing value",
+                description: "Sort the list by decreasing value.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
                     Value::test_int(1),
@@ -65,7 +65,7 @@ impl Command for Sort {
             },
             Example {
                 example: "[betty amy sarah] | sort",
-                description: "Sort a list of strings",
+                description: "Sort a list of strings.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("amy"),
                     Value::test_string("betty"),
@@ -74,7 +74,7 @@ impl Command for Sort {
             },
             Example {
                 example: "[betty amy sarah] | sort --reverse",
-                description: "Sort a list of strings in reverse",
+                description: "Sort a list of strings in reverse.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("sarah"),
                     Value::test_string("betty"),
@@ -82,7 +82,7 @@ impl Command for Sort {
                 ])),
             },
             Example {
-                description: "Sort strings (case-insensitive)",
+                description: "Sort strings (case-insensitive).",
                 example: "[airplane Truck Car] | sort -i",
                 result: Some(Value::test_list(vec![
                     Value::test_string("airplane"),
@@ -91,7 +91,7 @@ impl Command for Sort {
                 ])),
             },
             Example {
-                description: "Sort strings (reversed case-insensitive)",
+                description: "Sort strings (reversed case-insensitive).",
                 example: "[airplane Truck Car] | sort -i -r",
                 result: Some(Value::test_list(vec![
                     Value::test_string("Truck"),
@@ -100,7 +100,7 @@ impl Command for Sort {
                 ])),
             },
             Example {
-                description: "Sort alphanumeric strings in natural order",
+                description: "Sort alphanumeric strings in natural order.",
                 example: "[foo1 foo10 foo9] | sort -n",
                 result: Some(Value::test_list(vec![
                     Value::test_string("foo1"),
@@ -109,7 +109,7 @@ impl Command for Sort {
                 ])),
             },
             Example {
-                description: "Sort record by key (case-insensitive)",
+                description: "Sort record by key (case-insensitive).",
                 example: "{b: 3, a: 4} | sort",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(4),
@@ -117,7 +117,7 @@ impl Command for Sort {
                 })),
             },
             Example {
-                description: "Sort record by value",
+                description: "Sort record by value.",
                 example: "{b: 4, a: 3, c:1} | sort -v",
                 result: Some(Value::test_record(record! {
                     "c" => Value::test_int(1),

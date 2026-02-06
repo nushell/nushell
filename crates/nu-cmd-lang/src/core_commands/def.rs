@@ -16,11 +16,11 @@ impl Command for Def {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("def")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("def_name", SyntaxShape::String, "Command name.")
-            .required("params", SyntaxShape::Signature, "Parameters.")
-            .required("block", SyntaxShape::Closure(None), "Body of the definition.")
-            .switch("env", "keep the environment defined inside the command", None)
-            .switch("wrapped", "treat unknown flags and arguments as strings (requires ...rest-like parameter in signature)", None)
+            .required("def_name", SyntaxShape::String, "The command name to define.")
+            .required("params", SyntaxShape::Signature, "The command parameters, a comma-separated list inside [].")
+            .required("block", SyntaxShape::Closure(None), "The body of the command, a list of instructions inside {}.")
+            .switch("env", "Keep the environment defined inside the command.", None)
+            .switch("wrapped", "Treat unknown flags and arguments as strings (requires ...rest-like parameter in signature).", None)
             .category(Category::Core)
     }
 
@@ -46,32 +46,32 @@ impl Command for Def {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Define a command and run it",
+                description: "Define a command and run it.",
                 example: r#"def say-hi [] { echo 'hi' }; say-hi"#,
                 result: Some(Value::test_string("hi")),
             },
             Example {
-                description: "Define a command and run it with parameter(s)",
+                description: "Define a command and run it with parameter(s).",
                 example: r#"def say-sth [sth: string] { echo $sth }; say-sth hi"#,
                 result: Some(Value::test_string("hi")),
             },
             Example {
-                description: "Set environment variable by call a custom command",
+                description: "Set environment variable by call a custom command.",
                 example: r#"def --env foo [] { $env.BAR = "BAZ" }; foo; $env.BAR"#,
                 result: Some(Value::test_string("BAZ")),
             },
             Example {
-                description: "cd affects the environment, so '--env' is required to change directory from within a command",
+                description: "cd affects the environment, so '--env' is required to change directory from within a command.",
                 example: r#"def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)"#,
                 result: Some(Value::test_string("true")),
             },
             Example {
-                description: "Define a custom wrapper for an external command",
+                description: "Define a custom wrapper for an external command.",
                 example: r#"def --wrapped my-echo [...rest] { ^echo ...$rest }; my-echo -e 'spam\tspam'"#,
                 result: Some(Value::test_string("spam\tspam")),
             },
             Example {
-                description: "Define a custom command with a type signature. Passing a non-int value will result in an error",
+                description: "Define a custom command with a type signature. Passing a non-int value will result in an error.",
                 example: r#"def only_int []: int -> int { $in }; 42 | only_int"#,
                 result: Some(Value::test_int(42)),
             },

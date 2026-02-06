@@ -43,7 +43,7 @@ impl Command for Window {
         vec![
             Example {
                 example: "[1 2 3 4] | window 2",
-                description: "A sliding window of two elements",
+                description: "A sliding window of two elements.",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                     Value::test_list(vec![Value::test_int(2), Value::test_int(3)]),
@@ -52,7 +52,7 @@ impl Command for Window {
             },
             Example {
                 example: "[1, 2, 3, 4, 5, 6, 7, 8] | window 2 --stride 3",
-                description: "A sliding window of two elements, with a stride of 3",
+                description: "A sliding window of two elements, with a stride of 3.",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                     Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
@@ -61,7 +61,7 @@ impl Command for Window {
             },
             Example {
                 example: "[1, 2, 3, 4, 5] | window 3 --stride 3 --remainder",
-                description: "A sliding window of equal stride that includes remainder. Equivalent to chunking",
+                description: "A sliding window of equal stride that includes remainder. Equivalent to chunking.",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),
