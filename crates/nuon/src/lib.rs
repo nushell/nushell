@@ -4,7 +4,6 @@ mod to;
 
 pub use from::from_nuon;
 pub use from::from_nuon_into;
-pub use to::SerializableClosure;
 pub use to::ToNuonConfig;
 pub use to::ToStyle;
 pub use to::to_nuon;
@@ -16,7 +15,7 @@ mod tests {
         IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
         casing::Casing,
-        engine::{Closure, EngineState},
+        engine::EngineState,
         record,
     };
 
@@ -178,141 +177,6 @@ mod tests {
             "1970-01-01T00:00:00+00:00",
             Some(Value::test_date(DateTime::UNIX_EPOCH.into())),
         );
-    }
-
-    #[test]
-    fn closure_serialization_roundtrip() {
-        use crate::from_nuon_into;
-        use nu_protocol::engine::StateWorkingSet;
-
-        // Create an engine state and parse a closure
-        let mut engine_state = EngineState::new();
-        engine_state.add_env_var("PWD".to_string(), Value::string("", Span::unknown()));
-
-        let mut working_set = StateWorkingSet::new(&engine_state);
-
-        // Parse a simple closure with a parameter
-        let closure_source = b"{|x| $x + 1}";
-        let block = nu_parser::parse(&mut working_set, None, closure_source, false);
-
-        // Get the closure's block_id from the parsed expression
-        let block_id = if let Some(pipeline) = block.pipelines.first() {
-            if let Some(element) = pipeline.elements.first() {
-                if let nu_protocol::ast::Expr::Closure(id) = element.expr.expr {
-                    id
-                } else {
-                    panic!("Expected closure expression");
-                }
-            } else {
-                panic!("No element in pipeline");
-            }
-        } else {
-            panic!("No pipeline in block");
-        };
-
-        // Get the original block before merging
-        let original_block = working_set.get_block(block_id).clone();
-
-        // Merge the working set to make the block permanent
-        let delta = working_set.render();
-        engine_state.merge_delta(delta).unwrap();
-
-        // Create a closure value
-        let closure = Closure::new(block_id, vec![]);
-        let closure_value = Value::closure(closure, Span::test_data());
-
-        // Serialize the closure
-        let nuon_str = to_nuon(&engine_state, &closure_value, ToNuonConfig::default()).unwrap();
-
-        // Deserialize the closure
-        let mut working_set2 = StateWorkingSet::new(&engine_state);
-        let deserialized = from_nuon_into(&mut working_set2, &nuon_str, None).unwrap();
-
-        // Check that it's a closure
-        let Value::Closure {
-            val: deserialized_closure,
-            ..
-        } = &deserialized
-        else {
-            panic!("Expected closure value");
-        };
-
-        // Get the deserialized block
-        let deserialized_block = working_set2.get_block(deserialized_closure.block_id);
-
-        // Compare signatures
-        assert_eq!(
-            original_block.signature.required_positional.len(),
-            deserialized_block.signature.required_positional.len(),
-            "Required positional args count mismatch"
-        );
-        for (i, (orig, deser)) in original_block
-            .signature
-            .required_positional
-            .iter()
-            .zip(deserialized_block.signature.required_positional.iter())
-            .enumerate()
-        {
-            assert_eq!(orig.name, deser.name, "Positional arg {} name mismatch", i);
-            assert_eq!(
-                orig.shape, deser.shape,
-                "Positional arg {} shape mismatch",
-                i
-            );
-        }
-
-        // Compare IR blocks
-        assert!(
-            original_block.ir_block.is_some(),
-            "Original IR block should exist"
-        );
-        assert!(
-            deserialized_block.ir_block.is_some(),
-            "Deserialized IR block should exist"
-        );
-
-        let orig_ir = original_block.ir_block.as_ref().unwrap();
-        let deser_ir = deserialized_block.ir_block.as_ref().unwrap();
-
-        assert_eq!(
-            orig_ir.instructions.len(),
-            deser_ir.instructions.len(),
-            "IR instruction count mismatch"
-        );
-
-        // Compare each instruction
-        for (i, (orig_instr, deser_instr)) in orig_ir
-            .instructions
-            .iter()
-            .zip(deser_ir.instructions.iter())
-            .enumerate()
-        {
-            dbg!(i, orig_instr, deser_instr);
-            assert_eq!(
-                format!("{:?}", orig_instr),
-                format!("{:?}", deser_instr),
-                "IR instruction {} mismatch",
-                i
-            );
-        }
-
-        // Compare IR data
-        assert_eq!(
-            orig_ir.data.as_ref(),
-            deser_ir.data.as_ref(),
-            "IR data mismatch"
-        );
-
-        // Compare IR metadata
-        assert_eq!(
-            orig_ir.register_count, deser_ir.register_count,
-            "Register count mismatch"
-        );
-        assert_eq!(
-            orig_ir.file_count, deser_ir.file_count,
-            "File count mismatch"
-        );
-        assert_eq!(orig_ir.spans, deser_ir.spans, "IR spans mismatch");
     }
 
     #[test]

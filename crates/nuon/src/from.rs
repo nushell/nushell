@@ -1,10 +1,8 @@
-use crate::to::SerializableClosure;
 use nu_protocol::{
-    BlockId, Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
-    ast::{Block, Expr, Expression, ListItem, RecordItem},
-    engine::{Closure, EngineState, StateWorkingSet},
+    Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
+    ast::{Expr, Expression, ListItem, RecordItem},
+    engine::{EngineState, StateWorkingSet},
 };
-use std::collections::HashMap;
 use std::sync::Arc;
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
@@ -357,27 +355,7 @@ fn convert_to_value(
             msg: "signatures not supported in nuon".into(),
             span: expr.span,
         }),
-        Expr::String(s) | Expr::RawString(s) => {
-            // Try to deserialize as a closure if it looks like JSON with block field
-            if s.starts_with("{\"block\"") || s.starts_with("{\"captures\"") {
-                if let Ok(mut serializable) = serde_json::from_str::<SerializableClosure>(&s) {
-                    // Convert nested blocks to use Arc and BlockId keys
-                    let mut nested_blocks: HashMap<BlockId, Arc<Block>> = HashMap::new();
-                    for (old_id, block) in serializable.nested_blocks.drain() {
-                        nested_blocks.insert(BlockId::new(old_id), Arc::new(block));
-                    }
-
-                    // Create closure with inline block and nested blocks
-                    let closure = Closure::with_inline_block_and_nested(
-                        Arc::new(serializable.block),
-                        serializable.captures,
-                        nested_blocks,
-                    );
-                    return Ok(Value::closure(closure, span));
-                }
-            }
-            Ok(Value::string(s, span))
-        }
+        Expr::String(s) | Expr::RawString(s) => Ok(Value::string(s, span)),
         Expr::StringInterpolation(..) => Err(ShellError::OutsideSpannedLabeledError {
             src: original_text.to_string(),
             error: "Error when loading".into(),

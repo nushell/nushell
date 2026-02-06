@@ -13,6 +13,7 @@ impl Command for IntoRecord {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
+                (Type::Closure, Type::record()),
                 (Type::Date, Type::record()),
                 (Type::Duration, Type::record()),
                 (Type::List(Box::new(Type::Any)), Type::record()),
@@ -31,12 +32,12 @@ impl Command for IntoRecord {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_record(call, input)
+        into_record(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -108,9 +109,16 @@ impl Command for IntoRecord {
     }
 }
 
-fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+fn into_record(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
     match input {
+        PipelineData::Value(Value::Closure { val, .. }, _) => {
+            Ok(val.to_record(engine_state, span)?.into_pipeline_data())
+        }
         PipelineData::Value(Value::Date { val, .. }, _) => {
             Ok(parse_date_into_record(val, span).into_pipeline_data())
         }

@@ -14,8 +14,6 @@ nu-parser = { path = "../nu-parser", version = "0.110.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.110.1", default-features = false }
 nu-engine = { path = "../nu-engine", version = "0.110.1", default-features = false }
 nu-utils = { path = "../nu-utils", version = "0.110.1", default-features = false }
-serde = { workspace = true }
-serde_json = { workspace = true }
 
 [dev-dependencies]
 chrono = { workspace = true }

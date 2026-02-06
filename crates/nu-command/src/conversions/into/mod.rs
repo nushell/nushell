@@ -1,6 +1,7 @@
 mod binary;
 mod bool;
 mod cell_path;
+mod closure;
 mod command;
 mod datetime;
 mod duration;
@@ -15,6 +16,7 @@ mod value;
 pub use binary::IntoBinary;
 pub use bool::IntoBool;
 pub use cell_path::IntoCellPath;
+pub use closure::IntoClosure;
 pub use command::Into;
 pub use datetime::IntoDatetime;
 pub use duration::IntoDuration;
