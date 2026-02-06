@@ -1,4 +1,8 @@
-use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, hash_map},
+    sync::Arc,
+};
 
 use crate::{BlockId, Record, ShellError, Span, Value, VarId, ast::Block, engine::EngineState};
 
@@ -244,13 +248,12 @@ fn collect_block_ids(block: &Block) -> Vec<BlockId> {
     let mut block_ids = Vec::new();
     if let Some(ref ir_block) = block.ir_block {
         for instruction in &ir_block.instructions {
-            if let crate::ir::Instruction::LoadLiteral { lit, .. } = instruction {
-                match lit {
-                    Literal::Block(id) | Literal::Closure(id) | Literal::RowCondition(id) => {
-                        block_ids.push(*id);
-                    }
-                    _ => {}
-                }
+            if let crate::ir::Instruction::LoadLiteral {
+                lit: Literal::Block(id) | Literal::Closure(id) | Literal::RowCondition(id),
+                ..
+            } = instruction
+            {
+                block_ids.push(*id);
             }
         }
     }
@@ -265,9 +268,9 @@ fn collect_nested_blocks_recursive<'a>(
 ) {
     for block_id in collect_block_ids(block) {
         let id_val = block_id.get();
-        if !nested_blocks.contains_key(&id_val) {
+        if let hash_map::Entry::Vacant(e) = nested_blocks.entry(id_val) {
             let nested_block = engine_state.get_block(block_id);
-            nested_blocks.insert(id_val, nested_block.as_ref());
+            e.insert(nested_block.as_ref());
             // Recursively collect nested blocks from this block
             collect_nested_blocks_recursive(engine_state, nested_block.as_ref(), nested_blocks);
         }

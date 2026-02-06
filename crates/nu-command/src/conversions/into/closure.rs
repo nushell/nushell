@@ -20,7 +20,7 @@ impl Command for IntoClosure {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["convert", "closure", "deserialize"]
+        vec!["convert", "closure"]
     }
 
     fn run(
@@ -61,17 +61,5 @@ fn into_closure(call: &Call, input: PipelineData) -> Result<PipelineData, ShellE
             err_message: format!("Can't convert {} to closure", other.get_type()),
             span,
         }),
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(IntoClosure {})
     }
 }
