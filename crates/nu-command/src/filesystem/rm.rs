@@ -54,6 +54,7 @@ impl Command for Rm {
                 "ask user to confirm action only once",
                 Some('I'),
             )
+            .switch("all", "Remove hidden files if '*' is provided", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -114,6 +115,7 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
+    let all = call.has_flag(engine_state, stack, "all")?;
 
     let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
@@ -225,6 +227,17 @@ fn rm(
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
 
+    let glob_options = if all {
+        None
+    } else {
+        let glob_options = MatchOptions {
+            require_literal_leading_dot: true,
+            ..Default::default()
+        };
+
+        Some(glob_options)
+    };
+
     for target in paths {
         let path = expand_path_with(
             target.item.as_ref(),
@@ -247,10 +260,7 @@ fn rm(
             &target,
             &currentdir_path,
             call.head,
-            Some(MatchOptions {
-                require_literal_leading_dot: true,
-                ..Default::default()
-            }),
+            glob_options,
             engine_state.signals().clone(),
         ) {
             Ok(files) => {

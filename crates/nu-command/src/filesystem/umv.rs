@@ -68,7 +68,7 @@ impl Command for UMv {
                 Some('u')
             )
             .switch("no-clobber", "do not overwrite an existing file", Some('n'))
-            .switch("all", "move hidden files if '*' is provided", Some('a'))
+            .switch("all", "Move hidden files if '*' is provided", Some('a'))
             .rest(
                 "paths",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
