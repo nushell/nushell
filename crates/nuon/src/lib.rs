@@ -11,10 +11,10 @@ pub use to::to_nuon;
 mod tests {
     use chrono::DateTime;
     use nu_protocol::{
-        IntRange, Range, Span, Value,
+        BlockId, IntRange, Range, Span, Value,
         ast::{CellPath, PathMember, RangeInclusion},
         casing::Casing,
-        engine::EngineState,
+        engine::{Closure, EngineState},
         record,
     };
 
@@ -175,6 +175,23 @@ mod tests {
         nuon_end_to_end(
             "1970-01-01T00:00:00+00:00",
             Some(Value::test_date(DateTime::UNIX_EPOCH.into())),
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn to_nuon_errs_on_closure() {
+        let engine_state = EngineState::new();
+
+        assert!(
+            to_nuon(
+                &engine_state,
+                &Value::test_closure(Closure::new(BlockId::new(0), vec![])),
+                ToNuonConfig::default(),
+            )
+            .unwrap_err()
+            .to_string()
+            .contains("Unsupported input")
         );
     }
 
