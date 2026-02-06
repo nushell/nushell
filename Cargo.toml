@@ -256,7 +256,7 @@ miette = { workspace = true, features = ["fancy-no-backtrace", "fancy"] }
 multipart-rs = { workspace = true }
 serde_json = { workspace = true }
 simplelog = "0.12"
-time = "0.3"
+time = "0.3.47"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 # Our dependencies don't use OpenSSL on Windows
