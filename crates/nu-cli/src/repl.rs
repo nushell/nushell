@@ -53,7 +53,7 @@ use std::{
 };
 use sysinfo::System;
 
-fn semantic_markers_for_config(
+fn semantic_markers_from_config(
     config: &Config,
     term_program_is_vscode: bool,
 ) -> Option<Box<dyn SemanticPromptMarkers>> {
@@ -387,7 +387,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     // until we drop those, we cannot use the stack in the REPL loop itself
     // See STACK-REFERENCE to see where we have taken a reference
     let stack_arc = Arc::new(stack);
-
+    let term_program_is_vscode = engine_state
+        .get_env_var("TERM_PROGRAM")
+        .and_then(|v| v.as_str().ok())
+        == Some("vscode");
     let mut line_editor = line_editor
         .use_kitty_keyboard_enhancement(config.use_kitty_protocol)
         // try to enable bracketed paste
@@ -421,6 +424,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
+        })
+        .with_semantic_markers(semantic_markers_from_config(
+            &config,
+            term_program_is_vscode,
+        ))
+        .with_mouse_click(if config.shell_integration.osc133 {
+            MouseClickMode::Enabled
+        } else {
+            MouseClickMode::Disabled
         });
 
     perf!("reedline builder", start_time, use_color);
@@ -486,17 +498,6 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     let config = &engine_state.get_config().clone();
-    let term_program_is_vscode = engine_state
-        .get_env_var("TERM_PROGRAM")
-        .and_then(|v| v.as_str().ok())
-        == Some("vscode");
-    line_editor = line_editor
-        .with_semantic_markers(semantic_markers_for_config(config, term_program_is_vscode));
-    line_editor = line_editor.with_mouse_click(if config.shell_integration.osc133 {
-        MouseClickMode::Enabled
-    } else {
-        MouseClickMode::Disabled
-    });
     prompt_update::update_prompt(
         config,
         engine_state,
@@ -1463,7 +1464,7 @@ fn looks_like_path(orig: &str) -> bool {
 
 #[cfg(test)]
 mod semantic_marker_tests {
-    use super::semantic_markers_for_config;
+    use super::semantic_markers_from_config;
     use nu_protocol::Config;
     use reedline::PromptKind;
 
@@ -1474,7 +1475,7 @@ mod semantic_marker_tests {
         config.shell_integration.osc133 = true;
 
         let markers =
-            semantic_markers_for_config(&config, true).expect("expected semantic markers");
+            semantic_markers_from_config(&config, true).expect("expected semantic markers");
 
         assert_eq!(
             markers.prompt_start(PromptKind::Primary).as_ref(),
@@ -1488,7 +1489,7 @@ mod semantic_marker_tests {
         config.shell_integration.osc133 = true;
 
         let markers =
-            semantic_markers_for_config(&config, false).expect("expected semantic markers");
+            semantic_markers_from_config(&config, false).expect("expected semantic markers");
 
         assert_eq!(
             markers.prompt_start(PromptKind::Primary).as_ref(),
@@ -1501,7 +1502,7 @@ mod semantic_marker_tests {
         let mut config = Config::default();
         config.shell_integration.osc133 = false;
         config.shell_integration.osc633 = false;
-        assert!(semantic_markers_for_config(&config, false).is_none());
+        assert!(semantic_markers_from_config(&config, false).is_none());
     }
 }
 
