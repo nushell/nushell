@@ -107,12 +107,12 @@ http = "1.4.0"
 human-date-parser = "0.3.1"
 indexmap = "2.13"
 indicatif = "0.18"
-interprocess = "2.3.0"
+interprocess = "=2.2.2" # Pinned: 2.3.0 has armv7 build failure (i32: From<u32> not satisfied)
 is_executable = "1.0"
 itertools = "0.14"
 lean_string = { version = "0.5", features = ["serde"] }
 lexopt = "0.3.1"
-libc = "0.2"
+libc = "=0.2.178" # Pinned to avoid loongarch64 build failure with libc >= 0.2.179 (rust-lang/libc#4939)
 libproc = "0.14"
 log = "0.4"
 lru = "0.16"
