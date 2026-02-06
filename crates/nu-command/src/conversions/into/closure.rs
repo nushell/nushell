@@ -36,8 +36,8 @@ impl Command for IntoClosure {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Convert a record back into a closure",
-            example: "{|| 1 + 1 } | into record | into closure",
-            result: None,
+            example: "{|| 1 + 1 } | into record | into closure | describe",
+            result: Some(Value::test_string("closure")),
         }]
     }
 }
