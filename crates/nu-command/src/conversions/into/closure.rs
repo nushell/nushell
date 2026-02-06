@@ -52,9 +52,7 @@ fn into_closure(call: &Call, input: PipelineData) -> Result<PipelineData, ShellE
                     to_type: "closure".into(),
                     from_type: "record".into(),
                     span,
-                    help: Some(
-                        "the record is missing required fields (block, captures)".into(),
-                    ),
+                    help: Some("the record is missing required fields (block, captures)".into()),
                 }),
             }
         }

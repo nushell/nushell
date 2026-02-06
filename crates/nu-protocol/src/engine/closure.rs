@@ -199,7 +199,9 @@ impl Closure {
                                 // This looks like a serialized closure record — convert it back
                                 match Closure::from_record(inner_rec, *internal_span)? {
                                     Some(closure) => Value::closure(closure, *internal_span),
-                                    None => Value::record(inner_rec.as_ref().clone(), *internal_span),
+                                    None => {
+                                        Value::record(inner_rec.as_ref().clone(), *internal_span)
+                                    }
                                 }
                             }
                             Some(v) => v.clone(),

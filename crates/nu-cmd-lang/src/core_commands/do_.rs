@@ -93,7 +93,12 @@ impl Command for Do {
         // temporarily-cloned engine state goes out of scope.
         let result = if closure.has_nested_blocks() {
             result.map(|data| match data {
-                PipelineData::Value(Value::Closure { val, internal_span, .. }, meta) => {
+                PipelineData::Value(
+                    Value::Closure {
+                        val, internal_span, ..
+                    },
+                    meta,
+                ) => {
                     let mut inner = val;
                     if inner.inline_block.is_none() {
                         // Give the inner closure its own inline block from the
@@ -102,12 +107,9 @@ impl Command for Do {
                             inner.inline_block = Some(block.clone());
                         }
                     }
-                    inner.nested_blocks.extend(
-                        closure
-                            .nested_blocks
-                            .iter()
-                            .map(|(id, b)| (*id, b.clone())),
-                    );
+                    inner
+                        .nested_blocks
+                        .extend(closure.nested_blocks.iter().map(|(id, b)| (*id, b.clone())));
                     PipelineData::Value(Value::closure(*inner, internal_span), meta)
                 }
                 other => other,
