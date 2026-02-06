@@ -158,7 +158,7 @@ impl Transport for InterruptibleUnixSocketTransport {
                 if e.kind() == std::io::ErrorKind::TimedOut
                     || e.kind() == std::io::ErrorKind::WouldBlock =>
             {
-                return Err(Error::Timeout(timeout.reason))
+                return Err(Error::Timeout(timeout.reason));
             }
             Err(e) => return Err(Error::Io(e)),
         };

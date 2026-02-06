@@ -43,7 +43,9 @@ use ureq::{
 use url::Url;
 
 use crate::network::http::interruptible_tcp::{InterruptibleTcpConnector, make_on_connect};
-use crate::network::http::interruptible_unix::{InterruptibleUnixSocketConnector, make_on_connect_unix};
+use crate::network::http::interruptible_unix::{
+    InterruptibleUnixSocketConnector, make_on_connect_unix,
+};
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
@@ -292,8 +294,7 @@ pub fn response_to_buffer(
         r: response.into_body().into_reader(),
     };
 
-    let byte_stream =
-        ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
+    let byte_stream = ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
 
     PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
 }
