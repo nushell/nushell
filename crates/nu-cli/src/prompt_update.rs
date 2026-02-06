@@ -180,3 +180,28 @@ pub(crate) fn make_transient_prompt(
 
     Box::new(nu_prompt)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::Span;
+
+    #[test]
+    fn update_prompt_does_not_embed_osc_markers() {
+        let mut config = Config::default();
+        config.shell_integration.osc133 = true;
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            PROMPT_COMMAND.into(),
+            Value::string("test", Span::unknown()),
+        );
+
+        let mut nu_prompt = NushellPrompt::new();
+
+        update_prompt(&config, &engine_state, &mut stack, &mut nu_prompt);
+
+        assert_eq!(nu_prompt.render_prompt_left(), "test");
+    }
+}
