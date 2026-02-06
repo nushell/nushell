@@ -25,7 +25,7 @@ use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
 use nu_protocol::{BannerKind, shell_error};
 use nu_protocol::{
-    HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
+    Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
@@ -38,7 +38,8 @@ use nu_utils::{
 use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, Osc133Markers, Osc633Markers, Reedline, Vi,
+    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
+    SemanticPromptMarkers, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -51,6 +52,19 @@ use std::{
     time::{Duration, Instant},
 };
 use sysinfo::System;
+
+fn semantic_markers_for_config(
+    config: &Config,
+    term_program_is_vscode: bool,
+) -> Option<Box<dyn SemanticPromptMarkers>> {
+    if config.shell_integration.osc633 && term_program_is_vscode {
+        Some(Osc633Markers::boxed())
+    } else if config.shell_integration.osc133 {
+        Some(Osc133ClickEventsMarkers::boxed())
+    } else {
+        None
+    }
+}
 
 /// The main REPL loop, including spinning up the prompt itself.
 pub fn evaluate_repl(
@@ -75,7 +89,6 @@ pub fn evaluate_repl(
     let shell_integration_osc2 = config.shell_integration.osc2;
     let shell_integration_osc7 = config.shell_integration.osc7;
     let shell_integration_osc9_9 = config.shell_integration.osc9_9;
-    // let shell_integration_osc133 = config.shell_integration.osc133;
     let shell_integration_osc633 = config.shell_integration.osc633;
 
     let nu_prompt = NushellPrompt::new();
@@ -272,35 +285,6 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
     })
 }
 
-/// Determine which semantic prompt markers to use based on config and environment
-fn get_semantic_markers(
-    config: &nu_protocol::Config,
-    stack: &Stack,
-    engine_state: &EngineState,
-) -> Option<Box<dyn reedline::SemanticPromptMarkers>> {
-    let osc133 = config.shell_integration.osc133;
-    let osc633 = config.shell_integration.osc633;
-
-    if osc633 {
-        // Check if we're in VS Code terminal
-        if stack
-            .get_env_var(engine_state, "TERM_PROGRAM")
-            .and_then(|v| v.as_str().ok())
-            == Some("vscode")
-        {
-            Some(Osc633Markers::boxed())
-        } else if osc133 {
-            Some(Osc133Markers::boxed())
-        } else {
-            None
-        }
-    } else if osc133 {
-        Some(Osc133Markers::boxed())
-    } else {
-        None
-    }
-}
-
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
     let mut start_time = std::time::Instant::now();
     let mut line_editor = Reedline::create();
@@ -437,8 +421,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
-        })
-        .with_semantic_markers(get_semantic_markers(&config, &stack_arc, engine_state));
+        });
 
     perf!("reedline builder", start_time, use_color);
 
@@ -503,6 +486,17 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     let config = &engine_state.get_config().clone();
+    let term_program_is_vscode = engine_state
+        .get_env_var("TERM_PROGRAM")
+        .and_then(|v| v.as_str().ok())
+        == Some("vscode");
+    line_editor = line_editor
+        .with_semantic_markers(semantic_markers_for_config(config, term_program_is_vscode));
+    line_editor = line_editor.with_mouse_click(if config.shell_integration.osc133 {
+        MouseClickMode::Enabled
+    } else {
+        MouseClickMode::Disabled
+    });
     prompt_update::update_prompt(
         config,
         engine_state,
@@ -1465,6 +1459,50 @@ fn looks_like_path(orig: &str) -> bool {
         || orig.starts_with('/')
         || orig.starts_with('\\')
         || orig.ends_with(std::path::MAIN_SEPARATOR)
+}
+
+#[cfg(test)]
+mod semantic_marker_tests {
+    use super::semantic_markers_for_config;
+    use nu_protocol::Config;
+    use reedline::PromptKind;
+
+    #[test]
+    fn semantic_markers_use_osc633_in_vscode() {
+        let mut config = Config::default();
+        config.shell_integration.osc633 = true;
+        config.shell_integration.osc133 = true;
+
+        let markers =
+            semantic_markers_for_config(&config, true).expect("expected semantic markers");
+
+        assert_eq!(
+            markers.prompt_start(PromptKind::Primary).as_ref(),
+            "\x1b]633;A;k=i\x1b\\"
+        );
+    }
+
+    #[test]
+    fn semantic_markers_use_osc133_click_events() {
+        let mut config = Config::default();
+        config.shell_integration.osc133 = true;
+
+        let markers =
+            semantic_markers_for_config(&config, false).expect("expected semantic markers");
+
+        assert_eq!(
+            markers.prompt_start(PromptKind::Primary).as_ref(),
+            "\x1b]133;P;k=i;click_events=1\x1b\\"
+        );
+    }
+
+    #[test]
+    fn semantic_markers_none_when_disabled() {
+        let mut config = Config::default();
+        config.shell_integration.osc133 = false;
+        config.shell_integration.osc633 = false;
+        assert!(semantic_markers_for_config(&config, false).is_none());
+    }
 }
 
 #[cfg(windows)]

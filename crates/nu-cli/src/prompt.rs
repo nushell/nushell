@@ -159,3 +159,17 @@ impl Prompt for NushellPrompt {
         self.render_right_prompt_on_last_line
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_prompt_does_not_embed_osc_markers() {
+        let prompt = NushellPrompt::new();
+        let rendered = prompt.render_prompt_left().to_string();
+
+        assert!(!rendered.contains("\x1b]133;"));
+        assert!(!rendered.contains("\x1b]633;"));
+    }
+}
