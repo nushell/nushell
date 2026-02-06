@@ -5,7 +5,10 @@ use serde::{
     de::{self, MapAccess, Visitor},
     ser::SerializeStruct,
 };
-use std::fmt;
+use std::{
+    borrow::{Borrow, Cow},
+    fmt,
+};
 
 impl Serialize for Closure {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
@@ -32,8 +35,8 @@ impl<'de> Deserialize<'de> for Closure {
                 let mut block_id: Option<BlockId> = None;
                 let mut captures: Option<Vec<(VarId, Value)>> = None;
 
-                while let Some(key) = map.next_key::<&str>()? {
-                    match key {
+                while let Some(key) = map.next_key::<Cow<str>>()? {
+                    match key.borrow() {
                         "block_id" => block_id = Some(map.next_value()?),
                         "captures" => captures = Some(map.next_value()?),
                         _ => {
