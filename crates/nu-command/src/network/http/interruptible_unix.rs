@@ -123,12 +123,13 @@ impl Transport for InterruptibleUnixSocketTransport {
     }
 
     fn transmit_output(&mut self, amount: usize, timeout: NextTimeout) -> Result<(), Error> {
-        maybe_update_timeout(
-            timeout,
-            &mut self.timeout_write,
-            &self.stream,
-            UnixStream::set_write_timeout,
-        )?;
+        let maybe_timeout = timeout.not_zero().map(|t| *t);
+        if maybe_timeout != self.timeout_write {
+            self.stream
+                .set_write_timeout(maybe_timeout)
+                .map_err(Error::Io)?;
+            self.timeout_write = maybe_timeout;
+        }
 
         let output = &self.buffers.output()[..amount];
         match self.stream.write_all(output) {
@@ -144,12 +145,13 @@ impl Transport for InterruptibleUnixSocketTransport {
     }
 
     fn await_input(&mut self, timeout: NextTimeout) -> Result<bool, Error> {
-        maybe_update_timeout(
-            timeout,
-            &mut self.timeout_read,
-            &self.stream,
-            UnixStream::set_read_timeout,
-        )?;
+        let maybe_timeout = timeout.not_zero().map(|t| *t);
+        if maybe_timeout != self.timeout_read {
+            self.stream
+                .set_read_timeout(maybe_timeout)
+                .map_err(Error::Io)?;
+            self.timeout_read = maybe_timeout;
+        }
 
         let input = self.buffers.input_append_buf();
         let amount = match self.stream.read(input) {
@@ -172,22 +174,6 @@ impl Transport for InterruptibleUnixSocketTransport {
         // The connection will be detected as closed when we try to read/write.
         true
     }
-}
-
-fn maybe_update_timeout(
-    timeout: NextTimeout,
-    previous: &mut Option<Duration>,
-    stream: &UnixStream,
-    f: impl Fn(&UnixStream, Option<Duration>) -> std::io::Result<()>,
-) -> Result<(), Error> {
-    let maybe_timeout = timeout.not_zero().map(|t| *t);
-
-    if maybe_timeout != *previous {
-        f(stream, maybe_timeout).map_err(Error::Io)?;
-        *previous = maybe_timeout;
-    }
-
-    Ok(())
 }
 
 impl fmt::Debug for InterruptibleUnixSocketTransport {
