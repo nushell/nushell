@@ -822,17 +822,16 @@ fn heavy_lifting(
     if escape && osc {
         return Err(ShellError::IncompatibleParameters {
             left_message: "escape".into(),
-            left_span: call
-                .get_flag_span(stack, "escape")
-                .expect("Unexpected missing argument"),
+            left_span: call.get_flag_span(stack, "escape").unwrap_or(call.head),
             right_message: "osc".into(),
-            right_span: call
-                .get_flag_span(stack, "osc")
-                .expect("Unexpected missing argument"),
+            right_span: call.get_flag_span(stack, "osc").unwrap_or(call.head),
         });
     }
     let code_string = if param_is_string {
-        code.coerce_str().expect("error getting code as string")
+        code.coerce_str().map_err(|_| ShellError::TypeMismatch {
+            err_message: "Expected string value".into(),
+            span: code.span(),
+        })?
     } else {
         "".into()
     };

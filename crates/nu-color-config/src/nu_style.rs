@@ -608,7 +608,7 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
 
     // If it's a single character and not a valid code, treat as invalid code
     if attrs.chars().count() == 1 && !is_codes {
-        let ch = attrs.chars().next().unwrap();
+        let ch = attrs.chars().next().unwrap_or('?');
         return Err(ShellError::GenericError {
             error: "Invalid ANSI attribute code".into(),
             msg: format!("Unknown attribute code: '{}'", ch),
