@@ -23,10 +23,10 @@ fn style_get_attr(s: Style) -> Vec<String> {
     let mut attrs = Vec::new();
 
     if s.is_blink {
-        attrs.push("bl");
+        attrs.push("l");
     };
     if s.is_bold {
-        attrs.push("bo");
+        attrs.push("b");
     };
     if s.is_dimmed {
         attrs.push("d");
