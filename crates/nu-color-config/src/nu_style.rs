@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,
-    pub attr: Option<String>,
+    pub attr: Option<Vec<String>>,
 }
 
 impl From<Style> for NuStyle {
@@ -19,35 +19,40 @@ impl From<Style> for NuStyle {
     }
 }
 
-fn style_get_attr(s: Style) -> Option<String> {
-    let mut attrs = String::new();
+fn style_get_attr(s: Style) -> Option<Vec<String>> {
+    let mut attrs = Vec::new();
 
     if s.is_blink {
-        attrs.push('l');
+        attrs.push("bl");
     };
     if s.is_bold {
-        attrs.push('b');
+        attrs.push("bo");
     };
     if s.is_dimmed {
-        attrs.push('d');
+        attrs.push("d");
     };
     if s.is_hidden {
-        attrs.push('h');
+        attrs.push("h");
     };
     if s.is_italic {
-        attrs.push('i');
+        attrs.push("i");
     };
     if s.is_reverse {
-        attrs.push('r');
+        attrs.push("r");
     };
     if s.is_strikethrough {
-        attrs.push('s');
+        attrs.push("s");
     };
     if s.is_underline {
-        attrs.push('u');
+        attrs.push("u");
     };
 
-    if attrs.is_empty() { None } else { Some(attrs) }
+    if attrs.is_empty() {
+        None
+    } else {
+        let attrs = attrs.into_iter().map(String::from).collect();
+        Some(attrs)
+    }
 }
 
 fn color_to_string(color: Color) -> Option<String> {
@@ -84,7 +89,7 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
     };
 
     if let Some(attrs) = nu_style.attr {
-        fill_modifiers(&attrs, &mut style)
+        fill_modifiers(attrs.as_slice(), &mut style)
     }
 
     style
@@ -106,7 +111,7 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
 
                     "bg" => bg = Some(v),
 
-                    "attr" => attr = Some(v),
+                    "attr" => attr = Some(parse_string_to_attrlist(v.as_str())),
                     _ => (),
                 }
             }
@@ -569,25 +574,32 @@ pub fn lookup_color(s: &str) -> Option<Color> {
     lookup_style(s).foreground
 }
 
-fn fill_modifiers(attrs: &str, style: &mut Style) {
+fn fill_modifiers(attrs: &[String], style: &mut Style) {
     // setup the attributes available in nu_ansi_term::Style
     //
     // since we can combine styles like bold-italic, iterate through the chars
     // and set the bools for later use in the nu_ansi_term::Style application
-    for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
-        match ch {
-            'l' => style.is_blink = true,
-            'b' => style.is_bold = true,
-            'd' => style.is_dimmed = true,
-            'h' => style.is_hidden = true,
-            'i' => style.is_italic = true,
-            'r' => style.is_reverse = true,
-            's' => style.is_strikethrough = true,
-            'u' => style.is_underline = true,
-            'n' => (),
+    for attr in attrs.iter().map(|c| c.to_ascii_lowercase()) {
+        match attr.as_str() {
+            "bl" | "l" => style.is_blink = true,
+            "bo" | "b" => style.is_bold = true,
+            "d" => style.is_dimmed = true,
+            "h" => style.is_hidden = true,
+            "i" => style.is_italic = true,
+            "r" => style.is_reverse = true,
+            "s" => style.is_strikethrough = true,
+            "u" => style.is_underline = true,
+            "n" => (),
             _ => (),
         }
     }
+}
+
+pub fn parse_string_to_attrlist(s: &str) -> Vec<String> {
+    s.chars()
+        .map(|c| c.to_ascii_lowercase())
+        .map(String::from)
+        .collect()
 }
 
 fn lookup_color_str(s: &str) -> Option<Color> {

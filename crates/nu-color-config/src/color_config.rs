@@ -1,6 +1,6 @@
 use crate::{
     NuStyle,
-    nu_style::{color_from_hex, lookup_style},
+    nu_style::{color_from_hex, lookup_style, parse_string_to_attrlist},
     parse_nustyle,
 };
 use nu_ansi_term::Style;
@@ -60,7 +60,7 @@ fn get_style_from_value(record: &Record) -> Option<NuStyle> {
             }
             "attr" => {
                 if let Value::String { val, .. } = val {
-                    style.attr = Some(val.clone());
+                    style.attr = Some(parse_string_to_attrlist(&val));
                     was_set = true;
                 }
             }
