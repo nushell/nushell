@@ -686,6 +686,65 @@ Operating system commands:
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
                 )),
             },
+            Example {
+                description: "Use structured escape codes with attribute name",
+                example: r#"let strike_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: strike
+    }
+    $"(ansi --escape $strike_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with multiple attribute names",
+                example: r#"let bold_italic_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: 'bold italic'
+    }
+    $"(ansi --escape $bold_italic_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;3;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with concatenated attribute codes",
+                example: r#"let bold_italic_strike_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: bis
+    }
+    $"(ansi --escape $bold_italic_strike_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;3;9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with attribute list (comma-separated)",
+                example: r#"let bold_underline_blue = {
+        fg: '#0000ff'
+        attr: [b,underline]
+    }
+    $"(ansi --escape $bold_underline_blue)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;4;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with multiple attributes in list",
+                example: r#"let styled_text = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: [bold, italic, strike]
+    }
+    $"(ansi --escape $styled_text)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;3;9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
         ]
     }
 
@@ -775,6 +834,26 @@ Operating system commands:
     }
 }
 
+fn process_attr_value(value: Value) -> Result<String, ShellError> {
+    match value {
+        Value::String { val, .. } => Ok(val),
+        Value::List { vals, .. } => {
+            let mut result = String::new();
+            for (i, v) in vals.iter().enumerate() {
+                if i > 0 {
+                    result.push(' ');
+                }
+                result.push_str(&v.coerce_str()?);
+            }
+            Ok(result)
+        }
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "attr field must be a string or list of strings".into(),
+            span: value.span(),
+        }),
+    }
+}
+
 fn heavy_lifting(
     code: Value,
     escape: bool,
@@ -786,17 +865,16 @@ fn heavy_lifting(
     if escape && osc {
         return Err(ShellError::IncompatibleParameters {
             left_message: "escape".into(),
-            left_span: call
-                .get_flag_span(stack, "escape")
-                .expect("Unexpected missing argument"),
+            left_span: call.get_flag_span(stack, "escape").unwrap_or(call.head),
             right_message: "osc".into(),
-            right_span: call
-                .get_flag_span(stack, "osc")
-                .expect("Unexpected missing argument"),
+            right_span: call.get_flag_span(stack, "osc").unwrap_or(call.head),
         });
     }
     let code_string = if param_is_string {
-        code.coerce_str().expect("error getting code as string")
+        code.coerce_str().map_err(|_| ShellError::TypeMismatch {
+            err_message: "Expected string value".into(),
+            span: code.span(),
+        })?
     } else {
         "".into()
     };
@@ -865,7 +943,7 @@ fn heavy_lifting(
             match k.as_str() {
                 "fg" => nu_style.fg = Some(v.coerce_into_string()?),
                 "bg" => nu_style.bg = Some(v.coerce_into_string()?),
-                "attr" => nu_style.attr = Some(v.coerce_into_string()?),
+                "attr" => nu_style.attr = Some(process_attr_value(v)?),
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: format!(
@@ -877,7 +955,7 @@ fn heavy_lifting(
             }
         }
         // Now create a nu_ansi_term::Style from the NuStyle
-        let style = nu_color_config::parse_nustyle(nu_style);
+        let style = nu_color_config::parse_nustyle(nu_style)?;
         // Return the prefix string. The prefix is the Ansi String. The suffix would be 0m, reset/stop coloring.
         style.prefix().to_string()
     };
@@ -995,5 +1073,45 @@ mod tests {
             duplicates.is_empty(),
             "Duplicate long_names found: {duplicates:?}"
         );
+    }
+
+    #[test]
+    fn test_attr_field_parsing() {
+        use nu_test_support::nu;
+
+        // Test single attribute code
+        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: b }");
+        assert!(result.status.success());
+        assert!(result.out.contains("\x1b[1;38;2;0;0;255m")); // Bold + blue foreground (true color)
+
+        // Test single attribute name
+        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: underline }");
+        assert!(result.status.success());
+        assert!(result.out.contains("\x1b[4;38;2;0;0;255m")); // Underline + blue foreground (true color)
+
+        // Test different field orders
+        let result = nu!("ansi --escape { attr: b fg: \"#0000ff\" }");
+        assert!(result.status.success());
+        assert!(result.out.contains("\x1b[1;38;2;0;0;255m")); // Bold + blue foreground (true color)
+
+        let result = nu!("ansi --escape { bg: \"#ff0000\" attr: b fg: \"#0000ff\" }");
+        assert!(result.status.success());
+        assert!(result.out.contains("\x1b[1;48;2;255;0;0;38;2;0;0;255m")); // Bold + red bg + blue fg (true color)
+    }
+
+    #[test]
+    fn test_attr_field_rejection() {
+        use nu_test_support::nu;
+
+        // Test comma-separated string rejection
+        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: \"b,underline\" }");
+        assert!(result.err.contains("Invalid ANSI attribute format"));
+        assert!(result.err.contains(
+            "Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings"
+        ));
+
+        // Test invalid attribute
+        let result = nu!("ansi --escape { fg: \"#0000ff\" attr: invalid }");
+        assert!(result.err.contains("Invalid ANSI attribute name"));
     }
 }
