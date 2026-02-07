@@ -686,6 +686,42 @@ Operating system commands:
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
                 )),
             },
+            Example {
+                description: "Use structured escape codes with attribute name",
+                example: r#"let strike_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: strike
+    }
+    $"(ansi --escape $strike_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with multiple attribute names",
+                example: r#"let bold_italic_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: 'bold italic'
+    }
+    $"(ansi --escape $bold_italic_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;3;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
+            Example {
+                description: "Use structured escape codes with concatenated attribute codes",
+                example: r#"let bold_italic_strike_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: bis
+    }
+    $"(ansi --escape $bold_italic_strike_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;3;9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
         ]
     }
 
@@ -877,7 +913,7 @@ fn heavy_lifting(
             }
         }
         // Now create a nu_ansi_term::Style from the NuStyle
-        let style = nu_color_config::parse_nustyle(nu_style);
+        let style = nu_color_config::parse_nustyle(nu_style)?;
         // Return the prefix string. The prefix is the Ansi String. The suffix would be 0m, reset/stop coloring.
         style.prefix().to_string()
     };

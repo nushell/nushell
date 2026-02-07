@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::Value;
+use nu_protocol::{ShellError, Value};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
@@ -76,7 +76,7 @@ fn color_to_string(color: Color) -> Option<String> {
     }
 }
 
-pub fn parse_nustyle(nu_style: NuStyle) -> Style {
+pub fn parse_nustyle(nu_style: NuStyle) -> Result<Style, ShellError> {
     let mut style = Style {
         foreground: nu_style.fg.and_then(|fg| lookup_color_str(&fg)),
         background: nu_style.bg.and_then(|bg| lookup_color_str(&bg)),
@@ -84,10 +84,10 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
     };
 
     if let Some(attrs) = nu_style.attr {
-        fill_modifiers(&attrs, &mut style)
+        fill_modifiers(&attrs, &mut style)?;
     }
 
-    style
+    Ok(style)
 }
 
 // Converts the color_config records, { fg, bg, attr }, into a Style.
@@ -113,7 +113,7 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
         }
     }
 
-    parse_nustyle(NuStyle { fg, bg, attr })
+    parse_nustyle(NuStyle { fg, bg, attr }).unwrap_or_else(|_| Style::default())
 }
 
 pub fn color_from_hex(
@@ -569,25 +569,98 @@ pub fn lookup_color(s: &str) -> Option<Color> {
     lookup_style(s).foreground
 }
 
-fn fill_modifiers(attrs: &str, style: &mut Style) {
+fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
     // setup the attributes available in nu_ansi_term::Style
     //
     // since we can combine styles like bold-italic, iterate through the chars
     // and set the bools for later use in the nu_ansi_term::Style application
-    for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
-        match ch {
-            'l' => style.is_blink = true,
-            'b' => style.is_bold = true,
-            'd' => style.is_dimmed = true,
-            'h' => style.is_hidden = true,
-            'i' => style.is_italic = true,
-            'r' => style.is_reverse = true,
-            's' => style.is_strikethrough = true,
-            'u' => style.is_underline = true,
-            'n' => (),
-            _ => (),
+
+    // Check if the string consists only of known attribute codes
+    let is_codes = attrs.chars().all(|c| {
+        matches!(
+            c.to_ascii_lowercase(),
+            'l' | 'b' | 'd' | 'h' | 'i' | 'r' | 's' | 'u' | 'n'
+        )
+    });
+
+    // If it's a single character and not a valid code, treat as invalid code
+    if attrs.chars().count() == 1 && !is_codes {
+        let ch = attrs.chars().next().unwrap();
+        return Err(ShellError::GenericError {
+            error: "Invalid ANSI attribute code".into(),
+            msg: format!("Unknown attribute code: '{}'", ch),
+            span: None,
+            help: Some("Valid codes are: b (bold), i (italic), u (underline), s (strike), d (dimmed), r (reverse), h (hidden), l (blink), n (normal)".into()),
+            inner: vec![],
+        });
+    }
+
+    if is_codes {
+        // Treat as concatenated codes
+        for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
+            match ch {
+                'l' => style.is_blink = true,
+                'b' => style.is_bold = true,
+                'd' => style.is_dimmed = true,
+                'h' => style.is_hidden = true,
+                'i' => style.is_italic = true,
+                'r' => style.is_reverse = true,
+                's' => style.is_strikethrough = true,
+                'u' => style.is_underline = true,
+                'n' => (),
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "Invalid ANSI attribute code".into(),
+                        msg: format!("Unknown attribute code: '{}'", ch),
+                        span: None,
+                        help: Some("Valid codes are: b (bold), i (italic), u (underline), s (strike), d (dimmed), r (reverse), h (hidden), l (blink), n (normal)".into()),
+                        inner: vec![],
+                    });
+                }
+            }
+        }
+    } else {
+        // Treat as names separated by space or comma
+        for name in attrs.split([' ', ',']) {
+            let trimmed = name.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            let code = match trimmed.to_ascii_lowercase().as_str() {
+                "blink" => 'l',
+                "bold" => 'b',
+                "dimmed" => 'd',
+                "hidden" => 'h',
+                "italic" => 'i',
+                "reverse" => 'r',
+                "strike" | "strikethrough" => 's',
+                "underline" => 'u',
+                "normal" => 'n',
+                _ => {
+                    return Err(ShellError::GenericError {
+                        error: "Invalid ANSI attribute name".into(),
+                        msg: format!("Unknown attribute name: '{}'", trimmed),
+                        span: None,
+                        help: Some("Valid names are: bold, italic, underline, strike, dimmed, reverse, hidden, blink, normal".into()),
+                        inner: vec![],
+                    });
+                }
+            };
+            match code {
+                'l' => style.is_blink = true,
+                'b' => style.is_bold = true,
+                'd' => style.is_dimmed = true,
+                'h' => style.is_hidden = true,
+                'i' => style.is_italic = true,
+                'r' => style.is_reverse = true,
+                's' => style.is_strikethrough = true,
+                'u' => style.is_underline = true,
+                'n' => (),
+                _ => unreachable!(),
+            }
         }
     }
+    Ok(())
 }
 
 fn lookup_color_str(s: &str) -> Option<Color> {
