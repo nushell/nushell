@@ -687,6 +687,19 @@ Operating system commands:
                     "\u{1b}[1;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
                 )),
             },
+            Example {
+                description: "Use structured escape codes with an attribute list",
+                example: r#"# attr with a list
+    let bold_blue_on_red = {
+        fg: '#0000ff'
+        bg: '#ff0000'
+        attr: [bo bl s]
+    }
+    $"(ansi --escape $bold_blue_on_red)Hello, Nu World!(ansi reset)""#,
+                result: Some(Value::test_string(
+                    "\u{1b}[1;5;9;48;2;255;0;0;38;2;0;0;255mHello, Nu World!\u{1b}[0m",
+                )),
+            },
         ]
     }
 
