@@ -63,10 +63,8 @@ fn get_style_from_value(record: &Record) -> Option<NuStyle> {
                     style.attr = parse_string_to_attrlist(val);
                     was_set = true;
                 } else if let Value::List { vals, .. } = val {
-                    for attr in vals.iter().map(Value::as_str) {
-                        if let Ok(attr) = attr {
-                            style.attr.push(attr.to_string());
-                        }
+                    for attr in vals.iter().map(Value::as_str).flatten() {
+                        style.attr.push(attr.to_string());
                     }
                     was_set = true;
                 }
@@ -162,10 +160,7 @@ mod tests {
         let expected_style = NuStyle {
             bg: Some("red".to_string()),
             fg: Some("blue".to_string()),
-            attr: vec![
-                "bold".to_string(),
-                "underline".to_string(),
-            ],
+            attr: vec!["bold".to_string(), "underline".to_string()],
         };
         assert_eq!(get_style_from_value(&record), Some(expected_style));
 
