@@ -601,45 +601,65 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
     // since we can combine styles like bold-italic, iterate through the chars
     // and set the bools for later use in the nu_ansi_term::Style application
 
-    // Check if the string consists only of known attribute codes
-    let is_codes = attrs
-        .chars()
-        .all(|c| VALID_CODES.contains(c.to_ascii_lowercase()));
-
-    // If it's a single character and not a valid code, treat as invalid code
-    if attrs.chars().count() == 1 && !is_codes {
-        let ch = attrs.chars().next().unwrap_or('?');
+    // Reject comma-delimited strings
+    if attrs.contains(',') {
         return Err(ShellError::GenericError {
-            error: "Invalid ANSI attribute code".into(),
-            msg: format!("Unknown attribute code: '{}'", ch),
+            error: "Invalid ANSI attribute format".into(),
+            msg: "Comma-separated attributes are not supported. Use lists instead.".into(),
             span: None,
-            help: Some(VALID_CODES_HELP.into()),
+            help: Some("Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings.".into()),
             inner: vec![],
         });
     }
 
-    if is_codes {
-        // Treat as concatenated codes
-        for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
-            apply_code_to_style(ch, style)?;
+    // Treat as space-separated codes/names (from lists) or single code/name (from strings)
+    for item in attrs.split_whitespace() {
+        let trimmed = item.trim();
+        if trimmed.is_empty() {
+            continue;
         }
-    } else {
-        // Treat as names separated by space or comma
-        for name in attrs.split([' ', ',']) {
-            let trimmed = name.trim();
-            if trimmed.is_empty() {
-                continue;
-            }
-            let code = name_to_code(&trimmed.to_ascii_lowercase()).ok_or_else(|| {
-                ShellError::GenericError {
-                    error: "Invalid ANSI attribute name".into(),
-                    msg: format!("Unknown attribute name: '{}'", trimmed),
-                    span: None,
-                    help: Some(VALID_NAMES_HELP.into()),
-                    inner: vec![],
-                }
-            })?;
+
+        // First try to match as a known attribute name
+        if let Some(code) = name_to_code(&trimmed.to_ascii_lowercase()) {
             apply_code_to_style(code, style)?;
+            continue;
+        }
+
+        // If not a known name, check if it's a single valid code
+        if trimmed.len() == 1 {
+            let ch = trimmed.chars().next().unwrap_or('?').to_ascii_lowercase();
+            if VALID_CODES.contains(ch) {
+                apply_code_to_style(ch, style)?;
+                continue;
+            } else {
+                return Err(ShellError::GenericError {
+                    error: "Invalid ANSI attribute code".into(),
+                    msg: format!("Unknown attribute code: '{}'", ch),
+                    span: None,
+                    help: Some(VALID_CODES_HELP.into()),
+                    inner: vec![],
+                });
+            }
+        }
+
+        // Check if all characters are valid codes (concatenated codes like "bi" for bold+italic)
+        let is_codes = trimmed
+            .chars()
+            .all(|c| VALID_CODES.contains(c.to_ascii_lowercase()));
+
+        if is_codes {
+            // Treat as concatenated codes
+            for ch in trimmed.chars().map(|c| c.to_ascii_lowercase()) {
+                apply_code_to_style(ch, style)?;
+            }
+        } else {
+            return Err(ShellError::GenericError {
+                error: "Invalid ANSI attribute name".into(),
+                msg: format!("Unknown attribute name: '{}'", trimmed),
+                span: None,
+                help: Some(VALID_NAMES_HELP.into()),
+                inner: vec![],
+            });
         }
     }
     Ok(())
