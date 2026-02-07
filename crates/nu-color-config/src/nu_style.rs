@@ -581,15 +581,15 @@ fn fill_modifiers(attrs: &[String], style: &mut Style) {
     // and set the bools for later use in the nu_ansi_term::Style application
     for attr in attrs.iter().map(|c| c.to_ascii_lowercase()) {
         match attr.as_str() {
-            "bl" | "l" => style.is_blink = true,
-            "bo" | "b" => style.is_bold = true,
-            "d" => style.is_dimmed = true,
-            "h" => style.is_hidden = true,
-            "i" => style.is_italic = true,
-            "r" => style.is_reverse = true,
-            "s" => style.is_strikethrough = true,
-            "u" => style.is_underline = true,
-            "n" => (),
+            "blink" | "bl" | "l" => style.is_blink = true,
+            "bold" | "bo" | "b" => style.is_bold = true,
+            "dimmed" | "d" => style.is_dimmed = true,
+            "hidden" | "h" => style.is_hidden = true,
+            "italic" | "i" => style.is_italic = true,
+            "reverse" | "r" => style.is_reverse = true,
+            "strike" | "s" => style.is_strikethrough = true,
+            "underline" | "u" => style.is_underline = true,
+            "normal" | "n" => (),
             _ => (),
         }
     }
