@@ -891,7 +891,7 @@ fn heavy_lifting(
                     } else {
                         return Err(ShellError::IncorrectValue {
                             msg: format!(
-                                "unknown ANSI attribute: '{k}'"
+                                "unknown ANSI attribute: valid options are normal, bold, dimmed, italic, underline, blink, blink_fast, reverse, hidden, strike, double_underline"
                             ),
                             val_span: v.span(),
                             call_span: span,
