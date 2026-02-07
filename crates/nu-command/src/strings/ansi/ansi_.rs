@@ -676,7 +676,9 @@ Operating system commands:
             },
             Example {
                 description: "Use structured escape codes",
-                example: r#"let bold_blue_on_red = {  # `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
+                example: r#"# `fg`, `bg`, `attr` are the acceptable keys, all other keys are considered invalid and will throw errors.
+# `fg` and `bg` take hexcode strings for color, and attr takes a list of attributes or a single string comprising of the attributes' shortcodes
+    let bold_blue_on_red = {
         fg: '#0000ff'
         bg: '#ff0000'
         attr: b
