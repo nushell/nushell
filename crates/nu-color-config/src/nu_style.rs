@@ -9,6 +9,32 @@ pub struct NuStyle {
     pub attr: Option<String>,
 }
 
+// Valid attribute codes and their corresponding names
+const VALID_CODES: &str = "lbhdirstun"; // blink, bold, dimmed, hidden, italic, reverse, strike, underline, normal
+const VALID_CODE_NAMES: &[(&str, char)] = &[
+    ("blink", 'l'),
+    ("bold", 'b'),
+    ("dimmed", 'd'),
+    ("hidden", 'h'),
+    ("italic", 'i'),
+    ("reverse", 'r'),
+    ("strike", 's'),
+    ("strikethrough", 's'),
+    ("underline", 'u'),
+    ("normal", 'n'),
+];
+
+const VALID_CODES_HELP: &str = "Valid codes are: b (bold), i (italic), u (underline), s (strike), d (dimmed), r (reverse), h (hidden), l (blink), n (normal)";
+const VALID_NAMES_HELP: &str =
+    "Valid names are: bold, italic, underline, strike, dimmed, reverse, hidden, blink, normal";
+
+fn name_to_code(name: &str) -> Option<char> {
+    VALID_CODE_NAMES
+        .iter()
+        .find(|(n, _)| *n == name)
+        .map(|(_, c)| *c)
+}
+
 impl From<Style> for NuStyle {
     fn from(s: Style) -> Self {
         Self {
@@ -24,28 +50,28 @@ fn style_get_attr(s: Style) -> Option<String> {
 
     if s.is_blink {
         attrs.push('l');
-    };
+    }
     if s.is_bold {
         attrs.push('b');
-    };
+    }
     if s.is_dimmed {
         attrs.push('d');
-    };
+    }
     if s.is_hidden {
         attrs.push('h');
-    };
+    }
     if s.is_italic {
         attrs.push('i');
-    };
+    }
     if s.is_reverse {
         attrs.push('r');
-    };
+    }
     if s.is_strikethrough {
         attrs.push('s');
-    };
+    }
     if s.is_underline {
         attrs.push('u');
-    };
+    }
 
     if attrs.is_empty() { None } else { Some(attrs) }
 }
@@ -576,12 +602,9 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
     // and set the bools for later use in the nu_ansi_term::Style application
 
     // Check if the string consists only of known attribute codes
-    let is_codes = attrs.chars().all(|c| {
-        matches!(
-            c.to_ascii_lowercase(),
-            'l' | 'b' | 'd' | 'h' | 'i' | 'r' | 's' | 'u' | 'n'
-        )
-    });
+    let is_codes = attrs
+        .chars()
+        .all(|c| VALID_CODES.contains(c.to_ascii_lowercase()));
 
     // If it's a single character and not a valid code, treat as invalid code
     if attrs.chars().count() == 1 && !is_codes {
@@ -590,7 +613,7 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
             error: "Invalid ANSI attribute code".into(),
             msg: format!("Unknown attribute code: '{}'", ch),
             span: None,
-            help: Some("Valid codes are: b (bold), i (italic), u (underline), s (strike), d (dimmed), r (reverse), h (hidden), l (blink), n (normal)".into()),
+            help: Some(VALID_CODES_HELP.into()),
             inner: vec![],
         });
     }
@@ -598,26 +621,7 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
     if is_codes {
         // Treat as concatenated codes
         for ch in attrs.chars().map(|c| c.to_ascii_lowercase()) {
-            match ch {
-                'l' => style.is_blink = true,
-                'b' => style.is_bold = true,
-                'd' => style.is_dimmed = true,
-                'h' => style.is_hidden = true,
-                'i' => style.is_italic = true,
-                'r' => style.is_reverse = true,
-                's' => style.is_strikethrough = true,
-                'u' => style.is_underline = true,
-                'n' => (),
-                _ => {
-                    return Err(ShellError::GenericError {
-                        error: "Invalid ANSI attribute code".into(),
-                        msg: format!("Unknown attribute code: '{}'", ch),
-                        span: None,
-                        help: Some("Valid codes are: b (bold), i (italic), u (underline), s (strike), d (dimmed), r (reverse), h (hidden), l (blink), n (normal)".into()),
-                        inner: vec![],
-                    });
-                }
-            }
+            apply_code_to_style(ch, style)?;
         }
     } else {
         // Treat as names separated by space or comma
@@ -626,38 +630,40 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
             if trimmed.is_empty() {
                 continue;
             }
-            let code = match trimmed.to_ascii_lowercase().as_str() {
-                "blink" => 'l',
-                "bold" => 'b',
-                "dimmed" => 'd',
-                "hidden" => 'h',
-                "italic" => 'i',
-                "reverse" => 'r',
-                "strike" | "strikethrough" => 's',
-                "underline" => 'u',
-                "normal" => 'n',
-                _ => {
-                    return Err(ShellError::GenericError {
-                        error: "Invalid ANSI attribute name".into(),
-                        msg: format!("Unknown attribute name: '{}'", trimmed),
-                        span: None,
-                        help: Some("Valid names are: bold, italic, underline, strike, dimmed, reverse, hidden, blink, normal".into()),
-                        inner: vec![],
-                    });
+            let code = name_to_code(&trimmed.to_ascii_lowercase()).ok_or_else(|| {
+                ShellError::GenericError {
+                    error: "Invalid ANSI attribute name".into(),
+                    msg: format!("Unknown attribute name: '{}'", trimmed),
+                    span: None,
+                    help: Some(VALID_NAMES_HELP.into()),
+                    inner: vec![],
                 }
-            };
-            match code {
-                'l' => style.is_blink = true,
-                'b' => style.is_bold = true,
-                'd' => style.is_dimmed = true,
-                'h' => style.is_hidden = true,
-                'i' => style.is_italic = true,
-                'r' => style.is_reverse = true,
-                's' => style.is_strikethrough = true,
-                'u' => style.is_underline = true,
-                'n' => (),
-                _ => unreachable!(),
-            }
+            })?;
+            apply_code_to_style(code, style)?;
+        }
+    }
+    Ok(())
+}
+
+fn apply_code_to_style(code: char, style: &mut Style) -> Result<(), ShellError> {
+    match code {
+        'l' => style.is_blink = true,
+        'b' => style.is_bold = true,
+        'd' => style.is_dimmed = true,
+        'h' => style.is_hidden = true,
+        'i' => style.is_italic = true,
+        'r' => style.is_reverse = true,
+        's' => style.is_strikethrough = true,
+        'u' => style.is_underline = true,
+        'n' => (),
+        _ => {
+            return Err(ShellError::GenericError {
+                error: "Invalid ANSI attribute code".into(),
+                msg: format!("Unknown attribute code: '{}'", code),
+                span: None,
+                help: Some(VALID_CODES_HELP.into()),
+                inner: vec![],
+            });
         }
     }
     Ok(())
