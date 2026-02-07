@@ -890,14 +890,13 @@ fn heavy_lifting(
                         }
                     } else {
                         return Err(ShellError::IncorrectValue {
-                            msg: format!(
-                                "unknown ANSI attribute: valid options are normal, bold, dimmed, italic, underline, blink, blink_fast, reverse, hidden, strike, double_underline"
-                            ),
+                            msg: "unknown ANSI attribute: valid options are normal, bold, dimmed, italic, underline, blink, blink_fast, reverse, hidden, strike, double_underline"
+                                .to_string(),
                             val_span: v.span(),
                             call_span: span,
                         });
                     }
-                },
+                }
                 _ => {
                     return Err(ShellError::IncompatibleParametersSingle {
                         msg: format!(

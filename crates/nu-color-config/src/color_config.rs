@@ -62,6 +62,13 @@ fn get_style_from_value(record: &Record) -> Option<NuStyle> {
                 if let Value::String { val, .. } = val {
                     style.attr = parse_string_to_attrlist(val);
                     was_set = true;
+                } else if let Value::List { vals, .. } = val {
+                    for attr in vals.iter().map(Value::as_str) {
+                        if let Ok(attr) = attr {
+                            style.attr.push(attr.to_string());
+                        }
+                    }
+                    was_set = true;
                 }
             }
             _ => (),
@@ -116,16 +123,49 @@ mod tests {
 
     #[test]
     fn test_get_style_from_value() {
-        // Test case 1: all values are valid
+        // Test case 1.1: all values are valid, attr is a single string
         let record = record! {
             "bg" =>   Value::test_string("red"),
             "fg" =>   Value::test_string("blue"),
-            "attr" => Value::test_string("bold"),
+            "attr" => Value::test_string("bil"),
         };
         let expected_style = NuStyle {
             bg: Some("red".to_string()),
             fg: Some("blue".to_string()),
-            attr: vec!["bold".to_string()],
+            attr: vec!["b".to_string(), "i".to_string(), "l".to_string()],
+        };
+        assert_eq!(get_style_from_value(&record), Some(expected_style));
+
+        // Test case 1.2: all values are valid, attr is a list of valid attributes
+        let record = record! {
+            "bg" =>   Value::test_string("red"),
+            "fg" =>   Value::test_string("blue"),
+            "attr" => Value::test_list(vec![Value::test_string("bold"), Value::test_string("italic"), Value::test_string("underline")]),
+        };
+        let expected_style = NuStyle {
+            bg: Some("red".to_string()),
+            fg: Some("blue".to_string()),
+            attr: vec![
+                "bold".to_string(),
+                "italic".to_string(),
+                "underline".to_string(),
+            ],
+        };
+        assert_eq!(get_style_from_value(&record), Some(expected_style));
+
+        // Test case 1.3: all values are valid, attr is a list with some invalid attributes
+        let record = record! {
+            "bg" =>   Value::test_string("red"),
+            "fg" =>   Value::test_string("blue"),
+            "attr" => Value::test_list(vec![Value::test_string("bold"), Value::test_nothing(), Value::test_string("underline")]),
+        };
+        let expected_style = NuStyle {
+            bg: Some("red".to_string()),
+            fg: Some("blue".to_string()),
+            attr: vec![
+                "bold".to_string(),
+                "underline".to_string(),
+            ],
         };
         assert_eq!(get_style_from_value(&record), Some(expected_style));
 
@@ -143,7 +183,7 @@ mod tests {
         let expected_style = NuStyle {
             bg: Some("green".to_string()),
             fg: None,
-            attr: None,
+            attr: vec![],
         };
         assert_eq!(get_style_from_value(&record), Some(expected_style));
     }
