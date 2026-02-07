@@ -577,7 +577,7 @@ pub fn lookup_color(s: &str) -> Option<Color> {
 fn fill_modifiers(attrs: &[String], style: &mut Style) {
     // setup the attributes available in nu_ansi_term::Style
     //
-    // since we can combine styles like bold-italic, iterate through the chars
+    // since we can combine styles like bold-italic, iterate through the attributes
     // and set the bools for later use in the nu_ansi_term::Style application
     for attr in attrs.iter().map(|c| c.to_ascii_lowercase()) {
         match attr.as_str() {
