@@ -872,23 +872,22 @@ fn heavy_lifting(
         let mut nu_style = nu_color_config::NuStyle {
             fg: None,
             bg: None,
-            attr: None,
+            attr: vec![],
         };
         // Iterate and populate NuStyle with real values
         for (k, v) in record {
             match k.as_str() {
                 "fg" => nu_style.fg = Some(v.coerce_into_string()?),
                 "bg" => nu_style.bg = Some(v.coerce_into_string()?),
-                "attr" => nu_style.attr = {
+                "attr" => {
                     if let Ok(attrs) = v.as_str() {
-                        let attrs = attrs.chars().map(String::from).collect();
-                        Some(attrs)
-                    } else if let Ok(raw_attrs) = v.as_list() {
-                        let mut attrs = Vec::new();
-                        for attr in raw_attrs.iter().map(Value::as_str) {
-                            attrs.push(attr?.to_string());
+                        for attr in attrs.chars().map(String::from) {
+                            nu_style.attr.push(attr);
                         }
-                        Some(attrs)
+                    } else if let Ok(raw_attrs) = v.as_list() {
+                        for attr in raw_attrs.iter().map(Value::as_str) {
+                            nu_style.attr.push(attr?.to_string());
+                        }
                     } else {
                         return Err(ShellError::IncorrectValue {
                             msg: format!(

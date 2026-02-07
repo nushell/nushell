@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,
-    pub attr: Option<Vec<String>>,
+    pub attr: Vec<String>,
 }
 
 impl From<Style> for NuStyle {
@@ -19,7 +19,7 @@ impl From<Style> for NuStyle {
     }
 }
 
-fn style_get_attr(s: Style) -> Option<Vec<String>> {
+fn style_get_attr(s: Style) -> Vec<String> {
     let mut attrs = Vec::new();
 
     if s.is_blink {
@@ -47,12 +47,7 @@ fn style_get_attr(s: Style) -> Option<Vec<String>> {
         attrs.push("u");
     };
 
-    if attrs.is_empty() {
-        None
-    } else {
-        let attrs = attrs.into_iter().map(String::from).collect();
-        Some(attrs)
-    }
+    attrs.into_iter().map(String::from).collect()
 }
 
 fn color_to_string(color: Color) -> Option<String> {
@@ -88,9 +83,7 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
         ..Default::default()
     };
 
-    if let Some(attrs) = nu_style.attr {
-        fill_modifiers(attrs.as_slice(), &mut style)
-    }
+    fill_modifiers(nu_style.attr.as_slice(), &mut style);
 
     style
 }
@@ -99,7 +92,7 @@ pub fn parse_nustyle(nu_style: NuStyle) -> Style {
 pub fn color_record_to_nustyle(value: &Value) -> Style {
     let mut fg = None;
     let mut bg = None;
-    let mut attr = None;
+    let mut attr = vec![];
     let v = value.as_record();
     if let Ok(record) = v {
         for (k, v) in record {
@@ -111,7 +104,7 @@ pub fn color_record_to_nustyle(value: &Value) -> Style {
 
                     "bg" => bg = Some(v),
 
-                    "attr" => attr = Some(parse_string_to_attrlist(v.as_str())),
+                    "attr" => attr = parse_string_to_attrlist(v.as_str()),
                     _ => (),
                 }
             }
