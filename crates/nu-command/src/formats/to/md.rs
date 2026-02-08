@@ -81,7 +81,7 @@ impl Command for ToMd {
                 "Escapes Markdown special characters",
                 Some('m'),
             )
-            .switch("escape-html", "Escapes HTML special characters", Some('t'))
+            .switch("escape-html", "Escapes HTML special characters.", Some('t'))
             .switch(
                 "escape-all",
                 "Escapes both Markdown and HTML special characters",
@@ -103,66 +103,66 @@ impl Command for ToMd {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs an MD string representing the contents of this table",
+                description: "Outputs an MD string representing the contents of this table.",
                 example: "[[foo bar]; [1 2]] | to md",
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- | --- |\n| 1 | 2 |",
                 )),
             },
             Example {
-                description: "Optionally, output a formatted markdown string",
+                description: "Optionally, output a formatted markdown string.",
                 example: "[[foo bar]; [1 2]] | to md --pretty",
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
             },
             Example {
-                description: "Treat each row as a markdown element",
+                description: "Treat each row as a markdown element.",
                 example: r#"[{"H1": "Welcome to Nushell" } [[foo bar]; [1 2]]] | to md --per-element --pretty"#,
                 result: Some(Value::test_string(
                     "# Welcome to Nushell\n| foo | bar |\n| --- | --- |\n| 1   | 2   |",
                 )),
             },
             Example {
-                description: "Render a list (unordered by default)",
+                description: "Render a list (unordered by default).",
                 example: "[0 1 2] | to md",
                 result: Some(Value::test_string("* 0\n* 1\n* 2")),
             },
             Example {
-                description: "Separate list into markdown tables",
+                description: "Separate list into markdown tables.",
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4} {foo: 5}] | to md --per-element",
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n\n| foo |\n| --- |\n| 5 |",
                 )),
             },
             Example {
-                description: "Center a column of a markdown table",
+                description: "Center a column of a markdown table.",
                 example: "[ {foo: 1, bar: 2} {foo: 3, bar: 4}] | to md --pretty --center [bar]",
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- |:---:|\n| 1   |  2  |\n| 3   |  4  |",
                 )),
             },
             Example {
-                description: "Escape markdown special characters",
+                description: "Escape markdown special characters.",
                 example: r#"[ {foo: "_1_", bar: "\# 2"} {foo: "[3]", bar: "4|5"}] | to md --escape-md"#,
                 result: Some(Value::test_string(
                     "| foo | bar |\n| --- | --- |\n| \\_1\\_ | \\# 2 |\n| \\[3\\] | 4\\|5 |",
                 )),
             },
             Example {
-                description: "Escape html special characters",
+                description: "Escape html special characters.",
                 example: r#"[ {a: p, b: "<p>Welcome to nushell</p>"}] | to md --escape-html"#,
                 result: Some(Value::test_string(
                     "| a | b |\n| --- | --- |\n| p | &lt;p&gt;Welcome to nushell&lt;&#x2f;p&gt; |",
                 )),
             },
             Example {
-                description: "Render a list as an ordered markdown list",
+                description: "Render a list as an ordered markdown list.",
                 example: "[one two three] | to md --list ordered",
                 result: Some(Value::test_string("1. one\n2. two\n3. three")),
             },
             Example {
-                description: "Render a list without markers",
+                description: "Render a list without markers.",
                 example: "[one two three] | to md --list none",
                 result: Some(Value::test_string("one\ntwo\nthree")),
             },
