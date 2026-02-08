@@ -1493,7 +1493,7 @@ mod semantic_marker_tests {
 
         assert_eq!(
             markers.prompt_start(PromptKind::Primary).as_ref(),
-            "\x1b]133;P;k=i;click_events=1\x1b\\"
+            "\x1b]133;A;k=i;click_events=1\x1b\\"
         );
     }
 
