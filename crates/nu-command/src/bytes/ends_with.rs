@@ -43,7 +43,7 @@ impl Command for BytesEndsWith {
     }
 
     fn description(&self) -> &str {
-        "Check if bytes ends with a pattern."
+        "Check if binary data ends with a pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -110,17 +110,17 @@ impl Command for BytesEndsWith {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Checks if binary ends with `0x[AA]`",
+                description: "Checks if binary ends with `0x[AA]`.",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[AA]",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if binary ends with `0x[FF AA AA]`",
+                description: "Checks if binary ends with `0x[FF AA AA]`.",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[FF AA AA]",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if binary ends with `0x[11]`",
+                description: "Checks if binary ends with `0x[11]`.",
                 example: "0x[1F FF AA AA] | bytes ends-with 0x[11]",
                 result: Some(Value::test_bool(false)),
             },
