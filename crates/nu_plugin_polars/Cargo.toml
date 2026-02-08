@@ -53,7 +53,7 @@ hashbrown = { version = "0.16", features = ["rayon", "serde"] }
 aws-config = { version = "1.8", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { version = "1.49", features = ["full"] }
-object_store = { version = "0.12", features = ["aws", "azure", "gcp"], default-features = false }
+object_store = { version = "0.13", features = ["aws", "azure", "gcp"], default-features = false }
 url.workspace = true
 
 [dependencies.polars]
