@@ -95,7 +95,7 @@ fn unfreeze_job(
         Job::Thread(ThreadJob { .. }) => Err(JobError::CannotUnfreeze { span, id: old_id }.into()),
         Job::Frozen(FrozenJob {
             unfreeze: handle,
-            tag,
+            description,
         }) => {
             let pid = handle.pid();
 
@@ -129,7 +129,7 @@ fn unfreeze_job(
                         old_id,
                         Job::Frozen(FrozenJob {
                             unfreeze: handle,
-                            tag,
+                            description,
                         }),
                     )
                     .expect("job was supposed to be removed");
