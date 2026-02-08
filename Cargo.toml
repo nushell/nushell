@@ -107,7 +107,7 @@ http = "1.4.0"
 human-date-parser = "0.3.1"
 indexmap = "2.13"
 indicatif = "0.18"
-interprocess = "=2.2.2" # Pinned: 2.3.0 has armv7 build failure (i32: From<u32> not satisfied)
+interprocess = "2.3.1"
 is_executable = "1.0"
 itertools = "0.14"
 lean_string = { version = "0.5", features = ["serde"] }
