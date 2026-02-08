@@ -58,8 +58,8 @@ impl Command for JobList {
                     },
                 };
 
-                if let Some(tag) = job.tag() {
-                    record.push("tag", Value::string(tag, head));
+                if let Some(description) = job.description() {
+                    record.push("description", Value::string(description, head));
                 }
 
                 Value::record(record, head)
