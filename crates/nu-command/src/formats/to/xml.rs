@@ -52,33 +52,33 @@ Additionally any field which is: empty record, empty list or null, can be omitte
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs an XML string representing the contents of this table",
+                description: "Outputs an XML string representing the contents of this table.",
                 example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
-                description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record",
+                description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record.",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
-                description: "Optionally, formats the text with a custom indentation setting",
+                description: "Optionally, formats the text with a custom indentation setting.",
                 example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
             },
             Example {
-                description: "Produce less escaping sequences in resulting xml",
+                description: "Produce less escaping sequences in resulting xml.",
                 example: r#"{tag: note attributes: {a: "'qwe'\\"} content: ["\"'"]} | to xml --partial-escape"#,
                 result: Some(Value::test_string(r#"<note a="'qwe'\">"'</note>"#)),
             },
             Example {
-                description: "Save space using self-closed tags",
+                description: "Save space using self-closed tags.",
                 example: r#"{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed"#,
                 result: Some(Value::test_string(r#"<root><a/><b/><c/></root>"#)),
             },

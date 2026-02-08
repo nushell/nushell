@@ -43,22 +43,22 @@ impl Command for ToCsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a CSV string representing the contents of this table",
+                description: "Outputs a CSV string representing the contents of this table.",
                 example: "[[foo bar]; [1 2]] | to csv",
                 result: Some(Value::test_string("foo,bar\n1,2\n")),
             },
             Example {
-                description: "Outputs a CSV string representing the contents of this table",
+                description: "Outputs a CSV string representing the contents of this table.",
                 example: "[[foo bar]; [1 2]] | to csv --separator ';' ",
                 result: Some(Value::test_string("foo;bar\n1;2\n")),
             },
             Example {
-                description: "Outputs a CSV string representing the contents of this record",
+                description: "Outputs a CSV string representing the contents of this record.",
                 example: "{a: 1 b: 2} | to csv",
                 result: Some(Value::test_string("a,b\n1,2\n")),
             },
             Example {
-                description: "Outputs a CSV stream with column names pre-determined",
+                description: "Outputs a CSV stream with column names pre-determined.",
                 example: "[[foo bar baz]; [1 2 3]] | to csv --columns [baz foo]",
                 result: Some(Value::test_string("baz,foo\n3,1\n")),
             },
