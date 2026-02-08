@@ -137,27 +137,27 @@ impl Command for MetadataSet {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set the metadata of a table literal",
+                description: "Set the metadata of a table literal.",
                 example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --datasource-ls",
                 result: None,
             },
             Example {
-                description: "Set the metadata of a file path",
+                description: "Set the metadata of a file path.",
                 example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
                 result: None,
             },
             Example {
-                description: "Set the content type metadata",
+                description: "Set the content type metadata.",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
             },
             Example {
-                description: "Set custom metadata",
+                description: "Set custom metadata.",
                 example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
                 result: Some(Value::test_string("value")),
             },
             Example {
-                description: "Set metadata using a closure",
+                description: "Set metadata using a closure.",
                 example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
                 result: Some(Value::test_string("text/csv-processed")),
             },
