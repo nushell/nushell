@@ -1,6 +1,7 @@
 mod test_alias;
 mod test_bits;
 mod test_cell_path;
+mod test_closure_serialization;
 mod test_commandline;
 mod test_conditionals;
 mod test_config;

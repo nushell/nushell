@@ -203,7 +203,7 @@ fn local_into_string(
             .join(separator),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = engine_state.get_block(val.block_id);
+                let block = val.get_block(engine_state);
                 if let Some(span) = block.span {
                     let contents_bytes = engine_state.get_span_contents(span);
                     let contents_string = String::from_utf8_lossy(contents_bytes);

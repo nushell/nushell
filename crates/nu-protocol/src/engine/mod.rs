@@ -4,6 +4,7 @@ mod cached_file;
 mod call;
 mod call_info;
 mod closure;
+mod closure_serde;
 mod command;
 mod description;
 mod engine_state;
