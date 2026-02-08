@@ -93,6 +93,7 @@ use it in your pipeline."#
 
         let mut eval_block = {
             let closure_engine_state = engine_state_arc.clone();
+            let block = closure.get_block(engine_state).clone();
             let mut closure_stack = stack
                 .captures_to_stack_preserve_out_dest(closure.captures)
                 .reset_pipes();
@@ -102,7 +103,7 @@ use it in your pipeline."#
                 let result = eval_block_with_early_return(
                     &closure_engine_state,
                     &mut closure_stack,
-                    closure_engine_state.get_block(closure.block_id),
+                    &block,
                     input,
                 )
                 .map(|p| p.body);
