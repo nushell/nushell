@@ -48,7 +48,7 @@ impl Command for FromCsv {
                 "allow the number of fields in records to be variable",
                 None,
             )
-            .switch("no-infer", "no field type inferencing", None)
+            .switch("no-infer", "No field type inferencing.", None)
             .param(
                 Flag::new("trim")
                     .short('t')
@@ -79,7 +79,7 @@ impl Command for FromCsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert comma-separated data to a table",
+                description: "Convert comma-separated data to a table.",
                 example: "\"ColA,ColB\n1,2\" | from csv",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_int(1),
@@ -87,7 +87,7 @@ impl Command for FromCsv {
                 })])),
             },
             Example {
-                description: "Convert comma-separated data to a table, allowing variable number of columns per row",
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row.",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -105,32 +105,32 @@ impl Command for FromCsv {
                 ])),
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring headers",
+                description: "Convert comma-separated data to a table, ignoring headers.",
                 example: "open data.txt | from csv --noheaders",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table",
+                description: "Convert semicolon-separated data to a table.",
                 example: "open data.txt | from csv --separator ';'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                description: "Convert comma-separated data to a table, ignoring lines starting with '#'.",
                 example: "open data.txt | from csv --comment '#'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values.",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names.",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values.",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },
