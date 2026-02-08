@@ -3,7 +3,7 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryFileFormat, PipelineData, Record, ShellError, Span, Value, VarId,
+    BlockId, Config, PipelineData, Record, ShellError, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
@@ -85,21 +85,13 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
 
     record.push(
         "history-path",
-        config_path.clone().map_or_else(
-            |e| e,
-            |mut path| {
-                match engine_state.config.history.file_format {
-                    HistoryFileFormat::Sqlite => {
-                        path.push("history.sqlite3");
-                    }
-                    HistoryFileFormat::Plaintext => {
-                        path.push("history.txt");
-                    }
-                }
-                let canon_hist_path = canonicalize_path(engine_state, &path);
-                Value::string(canon_hist_path.to_string_lossy(), span)
-            },
-        ),
+        match engine_state.config.history.file_path() {
+            Some(path) => Value::string(
+                canonicalize_path(engine_state, &path).to_string_lossy(),
+                span,
+            ),
+            None => Value::nothing(span),
+        },
     );
 
     record.push(

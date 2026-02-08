@@ -14,7 +14,7 @@ pub use datetime_format::DatetimeFormatConfig;
 pub use display_errors::DisplayErrors;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
-pub use history::{HistoryConfig, HistoryFileFormat};
+pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};

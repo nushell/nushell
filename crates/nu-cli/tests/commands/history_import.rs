@@ -19,8 +19,13 @@ impl Test {
             .unwrap();
         // Assigning to $env.config.history.file_format seems to work only in startup
         // configuration.
+        let nushell_dir = cfg_dir.path().join("nushell");
+        std::fs::create_dir_all(&nushell_dir).unwrap();
+
+        std::fs::write(nushell_dir.join("config.nu"), "").unwrap();
+
         std::fs::write(
-            cfg_dir.path().join("env.nu"),
+            nushell_dir.join("env.nu"),
             format!("$env.config.history.file_format = {history_format:?}"),
         )
         .unwrap();
@@ -28,11 +33,16 @@ impl Test {
     }
 
     fn nu(&self, cmd: impl AsRef<str>) -> Outcome {
-        let env = [(
-            "XDG_CONFIG_HOME".to_string(),
-            self.cfg_dir.path().to_str().unwrap().to_string(),
-        )];
-        let env_config = self.cfg_dir.path().join("env.nu");
+        let home = self.cfg_dir.path().to_str().unwrap().to_string();
+
+        let env = [
+            ("XDG_CONFIG_HOME".to_string(), home.clone()),
+            ("HOME".to_string(), home),
+            ("USERPROFILE".to_string(), home.clone()),
+            ("APPDATA".to_string(), home),
+        ];
+
+        let env_config = nushell_dir.join("env.nu");
         nu!(envs: env, env_config: env_config, cmd.as_ref())
     }
 
