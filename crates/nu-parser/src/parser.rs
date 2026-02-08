@@ -4,7 +4,7 @@ use crate::{
     Token, TokenContents,
     lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
-    parse_keywords::*,
+    parse_keywords::{ensure_not_reserved_variable_name, *},
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
@@ -1036,6 +1036,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
+    let decl_name = decl.name().to_string();
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
@@ -1377,6 +1378,12 @@ pub fn parse_internal_call(
     // move missing positional checking into the while loop above with two pointers.
     // Maybe more `CallKind::Invalid` if errors found during argument parsing.
     let call_kind = check_call(working_set, command_span, &signature, &call);
+
+    if decl_name == "let"
+        && let Some(lvalue) = call.positional_nth(0)
+    {
+        ensure_not_reserved_variable_name(working_set, lvalue);
+    }
 
     deprecation
         .into_iter()
