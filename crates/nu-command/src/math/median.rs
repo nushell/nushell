@@ -100,7 +100,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
 
     match take {
         Pick::Median => {
-            let idx = (sorted.len() / 2) as usize;
+            let idx = sorted.len() / 2;
             Ok(sorted
                 .get(idx)
                 .ok_or_else(|| ShellError::UnsupportedInput {
