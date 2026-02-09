@@ -52,7 +52,7 @@ impl Command for IntoFilesize {
     }
 
     fn description(&self) -> &str {
-        "Convert value to filesize."
+        "Convert value to a filesize."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -74,7 +74,7 @@ impl Command for IntoFilesize {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert string to filesize in table",
+                description: "Convert string to filesize in table.",
                 example: r#"[[device size]; ["/dev/sda1" "200"] ["/dev/loop0" "50"]] | into filesize size"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -88,27 +88,27 @@ impl Command for IntoFilesize {
                 ])),
             },
             Example {
-                description: "Convert string to filesize",
+                description: "Convert string to filesize.",
                 example: "'2' | into filesize",
                 result: Some(Value::test_filesize(2)),
             },
             Example {
-                description: "Convert float to filesize",
+                description: "Convert float to filesize.",
                 example: "8.3 | into filesize",
                 result: Some(Value::test_filesize(8)),
             },
             Example {
-                description: "Convert int to filesize",
+                description: "Convert int to filesize.",
                 example: "5 | into filesize",
                 result: Some(Value::test_filesize(5)),
             },
             Example {
-                description: "Convert file size to filesize",
+                description: "Convert file size to filesize.",
                 example: "4KB | into filesize",
                 result: Some(Value::test_filesize(4000)),
             },
             Example {
-                description: "Convert string with unit to filesize",
+                description: "Convert string with unit to filesize.",
                 example: "'-1KB' | into filesize",
                 result: Some(Value::test_filesize(-1000)),
             },

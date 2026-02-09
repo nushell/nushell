@@ -51,7 +51,7 @@ impl Command for Inspect {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Inspect pipeline results",
+            description: "Inspect pipeline results.",
             example: "ls | inspect | get name | inspect",
             result: None,
         }]

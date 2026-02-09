@@ -60,22 +60,22 @@ impl Command for IntoSqliteDb {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert ls entries into a SQLite database with 'main' as the table name",
+                description: "Convert ls entries into a SQLite database with 'main' as the table name.",
                 example: "ls | into sqlite my_ls.db",
                 result: None,
             },
             Example {
-                description: "Convert ls entries into a SQLite database with 'my_table' as the table name",
+                description: "Convert ls entries into a SQLite database with 'my_table' as the table name.",
                 example: "ls | into sqlite my_ls.db -t my_table",
                 result: None,
             },
             Example {
-                description: "Convert table literal into a SQLite database with 'main' as the table name",
+                description: "Convert table literal into a SQLite database with 'main' as the table name.",
                 example: "[[name]; [-----] [someone] [=====] [somename] ['(((((']] | into sqlite filename.db",
                 result: None,
             },
             Example {
-                description: "Insert a single record into a SQLite database",
+                description: "Insert a single record into a SQLite database.",
                 example: "{ foo: bar, baz: quux } | into sqlite filename.db",
                 result: None,
             },

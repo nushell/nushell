@@ -58,7 +58,7 @@ impl Command for DateNow {
                 result: None,
             },
             Example {
-                description: "Get current time and format it in the debug format (RFC 2822 with timezone)",
+                description: "Get current time and format it in the debug format (RFC 2822 with timezone).",
                 example: r#"date now | debug"#,
                 result: None,
             },
