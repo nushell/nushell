@@ -61,7 +61,7 @@ impl Command for UCp {
                 None
             )
             .switch("debug", "explain how a file is copied. Implies -v", None)
-            .switch("all", "move hidden files if '*' is provided", Some('a'))
+            .switch("all", "Copy hidden files if '*' is provided", Some('a'))
             .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)

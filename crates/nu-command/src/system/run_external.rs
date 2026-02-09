@@ -255,7 +255,16 @@ If you create a custom command with this name, that will be used instead."#
                 }
             },
             PipelineData::Empty => {
-                command.stdin(Stdio::inherit());
+                // MCP servers run non-interactively - use null stdin to prevent commands
+                // from hanging when they prompt for passwords or other input.
+                // In the future, this may become a more general option (e.g., no_stdin)
+                // but needs more testing first. See:
+                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
+                if engine_state.is_mcp {
+                    command.stdin(Stdio::null());
+                } else {
+                    command.stdin(Stdio::inherit());
+                }
                 None
             }
             value => {
@@ -319,7 +328,7 @@ If you create a custom command with this name, that will be used instead."#
         let child_pid = child.pid();
 
         // Wrap the output into a `PipelineData::byte_stream`.
-        let mut child = ChildProcess::new(
+        let child = ChildProcess::new(
             child,
             merged_stream,
             matches!(stderr, OutDest::Pipe),
@@ -334,12 +343,6 @@ If you create a custom command with this name, that will be used instead."#
                     .map(|it| it.to_string()),
             )),
         )?;
-
-        if matches!(stdout, OutDest::Pipe | OutDest::PipeSeparate)
-            || matches!(stderr, OutDest::Pipe | OutDest::PipeSeparate)
-        {
-            child.ignore_error(true);
-        }
 
         Ok(PipelineData::byte_stream(
             ByteStream::child(child, call.head),

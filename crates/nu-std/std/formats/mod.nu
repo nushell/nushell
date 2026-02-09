@@ -3,8 +3,8 @@
 # This file contains helpers for formatting data in various ways.
 #
 # Usage:
-#   use std/format *
-#   use std/format <command name>
+#   use std/formats *
+#   use std/formats <command name>
 #
 # These custom commands help `open` the files with unsupported extensions such as ndjson.
 #

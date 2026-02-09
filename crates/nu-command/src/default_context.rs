@@ -274,6 +274,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         #[cfg(all(unix, feature = "os"))]
         bind_command! { ULimit };
 
+        #[cfg(all(unix, feature = "os"))]
+        bind_command! { UMask };
+
         // Date
         bind_command! {
             Date,

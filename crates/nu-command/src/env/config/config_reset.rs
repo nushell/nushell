@@ -13,9 +13,9 @@ impl Command for ConfigReset {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("nu", "reset only nu config, config.nu", Some('n'))
-            .switch("env", "reset only env config, env.nu", Some('e'))
-            .switch("without-backup", "do not make a backup", Some('w'))
+            .switch("nu", "Reset only nu config, config.nu.", Some('n'))
+            .switch("env", "Reset only env config, env.nu.", Some('e'))
+            .switch("without-backup", "Do not make a backup.", Some('w'))
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
             .category(Category::Env)
@@ -27,7 +27,7 @@ impl Command for ConfigReset {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "reset nushell configuration files",
+            description: "Reset nushell configuration files.",
             example: "config reset",
             result: None,
         }]

@@ -115,11 +115,14 @@ pub fn expand_unix_socket_path(
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
 }
 
-pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Agent> {
+pub fn http_client_pool(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Arc<Agent>, ShellError> {
     {
         let guard = GLOBAL_CLIENT.read().expect("the lock should be valid");
         if let Some(client) = guard.as_ref() {
-            return Arc::clone(client);
+            return Ok(Arc::clone(client));
         }
     }
     let mut config_builder = ureq::config::Config::builder()
@@ -133,6 +136,11 @@ pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Ag
         config_builder = config_builder.proxy(Some(proxy));
     };
 
+    // Apply TLS configuration with certificate verification enabled by default.
+    // This matches the behavior of http_client() to ensure pooled connections
+    // are secure. Users must explicitly use `http pool --insecure` to disable.
+    config_builder = config_builder.tls_config(tls_config(false)?);
+
     let connector = DefaultConnector::default();
     let resolver = DnsLookupResolver;
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
@@ -140,7 +148,7 @@ pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Ag
     let arc_agent = Arc::new(agent);
     let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::clone(&arc_agent));
-    arc_agent
+    Ok(arc_agent)
 }
 
 pub fn reset_http_client_pool(

@@ -36,7 +36,7 @@ impl Command for IntoBool {
     }
 
     fn description(&self) -> &str {
-        "Convert value to boolean."
+        "Convert value to a boolean."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -59,7 +59,7 @@ impl Command for IntoBool {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert value to boolean in table",
+                description: "Convert value to boolean in table.",
                 example: "[[value]; ['false'] ['1'] [0] [1.0] [true]] | into bool value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -80,37 +80,37 @@ impl Command for IntoBool {
                 ])),
             },
             Example {
-                description: "Convert bool to boolean",
+                description: "Convert bool to boolean.",
                 example: "true | into bool",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert int to boolean",
+                description: "convert int to boolean.",
                 example: "1 | into bool",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert float to boolean",
+                description: "convert float to boolean.",
                 example: "0.3 | into bool",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "convert float string to boolean",
+                description: "convert float string to boolean.",
                 example: "'0.0' | into bool",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "convert string to boolean",
+                description: "convert string to boolean.",
                 example: "'true' | into bool",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "interpret a null as false",
+                description: "interpret a null as false.",
                 example: "null | into bool --relaxed",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "interpret any non-false, non-zero string as true",
+                description: "interpret any non-false, non-zero string as true.",
                 example: "'something' | into bool --relaxed",
                 result: Some(Value::test_bool(true)),
             },

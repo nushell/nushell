@@ -64,7 +64,7 @@ If the command is inserting at the end of a list or table, then both of these va
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Update a record's value",
+                description: "Update a record's value.",
                 example: "{'name': 'nu', 'stars': 5} | upsert name 'Nushell'",
                 result: Some(Value::test_record(record! {
                     "name" => Value::test_string("Nushell"),
@@ -72,7 +72,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 })),
             },
             Example {
-                description: "Insert a new entry into a record",
+                description: "Insert a new entry into a record.",
                 example: "{'name': 'nu', 'stars': 5} | upsert language 'Rust'",
                 result: Some(Value::test_record(record! {
                     "name" =>     Value::test_string("nu"),
@@ -81,7 +81,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 })),
             },
             Example {
-                description: "Update each row of a table",
+                description: "Update each row of a table.",
                 example: "[[name lang]; [Nushell ''] [Reedline '']] | upsert lang 'Rust'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -95,7 +95,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 ])),
             },
             Example {
-                description: "Insert a new column with values computed based off the other columns",
+                description: "Insert a new column with values computed based off the other columns.",
                 example: "[[foo]; [7] [8] [9]] | upsert bar {|row| $row.foo * 2 }",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -113,7 +113,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 ])),
             },
             Example {
-                description: "Update null values in a column to a default value",
+                description: "Update null values in a column to a default value.",
                 example: "[[foo]; [2] [null] [4]] | upsert foo { default 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -128,7 +128,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 ])),
             },
             Example {
-                description: "Upsert into a list, updating an existing value at an index",
+                description: "Upsert into a list, updating an existing value at an index.",
                 example: "[1 2 3] | upsert 0 2",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
@@ -137,7 +137,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 ])),
             },
             Example {
-                description: "Upsert into a list, inserting a new value at the end",
+                description: "Upsert into a list, inserting a new value at the end.",
                 example: "[1 2 3] | upsert 3 4",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
@@ -147,7 +147,7 @@ If the command is inserting at the end of a list or table, then both of these va
                 ])),
             },
             Example {
-                description: "Upsert into a nested path, creating new values as needed",
+                description: "Upsert into a nested path, creating new values as needed.",
                 example: "[{} {a: [{}]}] | upsert a.0.b \"value\"",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record!(

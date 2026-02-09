@@ -47,7 +47,7 @@ impl Command for ExportModule {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Define a custom command in a submodule of a module and call it",
+            description: "Define a custom command in a submodule of a module and call it.",
             example: r#"module spam {
         export module eggs {
             export def foo [] { "foo" }

@@ -33,17 +33,17 @@ impl Command for ConfigEnv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "open user's env.nu in the default editor",
+                description: "Open user's env.nu in the default editor.",
                 example: "config env",
                 result: None,
             },
             Example {
-                description: "pretty-print a commented `env.nu` that explains common settings",
+                description: "Pretty-print a commented `env.nu` that explains common settings.",
                 example: "config env --doc | nu-highlight,",
                 result: None,
             },
             Example {
-                description: "pretty-print the internal `env.nu` file which is loaded before the user's environment",
+                description: "Pretty-print the internal `env.nu` file which is loaded before the user's environment.",
                 example: "config env --default | nu-highlight,",
                 result: None,
             },

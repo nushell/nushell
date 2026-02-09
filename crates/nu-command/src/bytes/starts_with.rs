@@ -41,7 +41,7 @@ impl Command for BytesStartsWith {
     }
 
     fn description(&self) -> &str {
-        "Check if bytes starts with a pattern."
+        "Check if binary data starts with a pattern."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -87,17 +87,17 @@ impl Command for BytesStartsWith {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Checks if binary starts with `0x[1F FF AA]`",
+                description: "Checks if binary starts with `0x[1F FF AA]`.",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F FF AA]",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if binary starts with `0x[1F]`",
+                description: "Checks if binary starts with `0x[1F]`.",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[1F]",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if binary starts with `0x[1F]`",
+                description: "Checks if binary starts with `0x[1F]`.",
                 example: "0x[1F FF AA AA] | bytes starts-with 0x[11]",
                 result: Some(Value::test_bool(false)),
             },

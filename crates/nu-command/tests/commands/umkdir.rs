@@ -2,9 +2,6 @@ use nu_test_support::fs::files_exist_at;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
-#[cfg(not(windows))]
-use uucore::mode;
-
 #[test]
 fn creates_directory() {
     Playground::setup("mkdir_test_1", |dirs, _| {
@@ -145,7 +142,7 @@ fn mkdir_umask_permission() {
             .permissions()
             .mode();
 
-        let umask = mode::get_umask();
+        let umask = nu_system::get_umask();
         let default_mode = 0o40777;
         let expected: u32 = default_mode & !umask;
 

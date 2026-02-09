@@ -84,34 +84,34 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Filter rows of a table according to a condition",
+                description: "Filter rows of a table according to a condition.",
                 example: "[{a: 1} {a: 2}] | where a > 1",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
-                description: "List only the files in the current directory",
+                description: "List only the files in the current directory.",
                 example: "ls | where type == file",
                 result: None,
             },
             Example {
-                description: "List all files in the current directory with sizes greater than 2kb",
+                description: "List all files in the current directory with sizes greater than 2kb.",
                 example: "ls | where size > 2kb",
                 result: None,
             },
             Example {
-                description: r#"List all files with names that contain "Car""#,
+                description: r#"List all files with names that contain "Car"."#,
                 example: r#"ls | where name =~ "Car""#,
                 result: None,
             },
             Example {
-                description: "List all files that were modified in the last two weeks",
+                description: "List all files that were modified in the last two weeks.",
                 example: "ls | where modified >= (date now) - 2wk",
                 result: None,
             },
             Example {
-                description: "Filter items of a list with a row condition",
+                description: "Filter items of a list with a row condition.",
                 example: "[1 2 3 4 5] | where $it > 2",
                 result: Some(Value::test_list(vec![
                     Value::test_int(3),
@@ -120,7 +120,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
                 ])),
             },
             Example {
-                description: "Filter items of a list with a closure",
+                description: "Filter items of a list with a closure.",
                 example: "[1 2 3 4 5] | where {|x| $x > 2 }",
                 result: Some(Value::test_list(vec![
                     Value::test_int(3),
@@ -129,29 +129,29 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
                 ])),
             },
             Example {
-                description: "Find files whose filenames don't begin with the correct sequential number",
+                description: "Find files whose filenames don't begin with the correct sequential number.",
                 example: "ls | where type == file | sort-by name --natural | enumerate | where {|e| $e.item.name !~ $'^($e.index + 1)' } | get item",
                 result: None,
             },
             Example {
-                description: r#"Find case-insensitively files called "readme", with a subexpression inside the row condition"#,
+                description: r#"Find case-insensitively files called "readme", with a subexpression inside the row condition."#,
                 example: "ls | where ($it.name | str downcase) =~ readme",
                 result: None,
             },
             Example {
-                description: r#"Find case-insensitively files called "readme", with regex only"#,
+                description: r#"Find case-insensitively files called "readme", with regex only."#,
                 example: "ls | where name =~ '(?i)readme'",
                 result: None,
             },
             Example {
-                description: "Filter rows of a table according to a stored condition",
+                description: "Filter rows of a table according to a stored condition.",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | where $cond",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
-                description: "List all numbers above 3, using an existing closure condition",
+                description: "List all numbers above 3, using an existing closure condition.",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | where $a",
                 result: Some(Value::test_list(vec![
                     Value::test_int(5),

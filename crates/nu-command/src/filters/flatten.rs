@@ -24,12 +24,12 @@ impl Command for Flatten {
                 SyntaxShape::String,
                 "Optionally flatten data by column.",
             )
-            .switch("all", "flatten inner table one level out", Some('a'))
+            .switch("all", "Flatten inner table one level out.", Some('a'))
             .category(Category::Filters)
     }
 
     fn description(&self) -> &str {
-        "Flatten the table."
+        "Flatten a table by extracting nested values."
     }
 
     fn run(
@@ -45,7 +45,7 @@ impl Command for Flatten {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "flatten a table",
+                description: "flatten a table.",
                 example: "[[N, u, s, h, e, l, l]] | flatten ",
                 result: Some(Value::test_list(vec![
                     Value::test_string("N"),
@@ -58,22 +58,22 @@ impl Command for Flatten {
                 ])),
             },
             Example {
-                description: "flatten a table, get the first item",
+                description: "flatten a table, get the first item.",
                 example: "[[N, u, s, h, e, l, l]] | flatten | first",
                 result: None, //Some(Value::test_string("N")),
             },
             Example {
-                description: "flatten a column having a nested table",
+                description: "flatten a column having a nested table.",
                 example: "[[origin, people]; [Ecuador, ([[name, meal]; ['Andres', 'arepa']])]] | flatten --all | get meal",
                 result: None, //Some(Value::test_string("arepa")),
             },
             Example {
-                description: "restrict the flattening by passing column names",
+                description: "restrict the flattening by passing column names.",
                 example: "[[origin, crate, versions]; [World, ([[name]; ['nu-cli']]), ['0.21', '0.22']]] | flatten versions --all | last | get versions",
                 result: None, //Some(Value::test_string("0.22")),
             },
             Example {
-                description: "Flatten inner table",
+                description: "Flatten inner table.",
                 example: "{ a: b, d: [ 1 2 3 4 ], e: [ 4 3 ] } | flatten d --all",
                 result: Some(Value::list(
                     vec![

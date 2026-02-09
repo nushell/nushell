@@ -2,12 +2,12 @@
 
 use crate::explore_regex::colors;
 use crate::explore_regex::quick_ref::{QuickRefEntry, get_flattened_entries};
+use edtui::{EditorMode, EditorState, Lines, actions::InsertChar};
 use fancy_regex::Regex;
 use ratatui::{
     style::Style,
     text::{Line, Span, Text},
 };
-use tui_textarea::{CursorMove, TextArea};
 
 /// Which pane currently has input focus.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -19,44 +19,59 @@ pub enum InputFocus {
 }
 
 /// Main application state for the regex explorer.
-pub struct App<'a> {
+pub struct App {
+    /// Which input pane currently has focus (Regex, Sample, or QuickRef)
     pub input_focus: InputFocus,
-    pub regex_textarea: TextArea<'a>,
-    pub sample_textarea: TextArea<'a>,
+    /// Editor state for the regex pattern input (single-line)
+    pub regex_input: EditorState,
+    /// Editor state for the test string input (multi-line)
+    pub sample_text: EditorState,
+    /// Compiled regex pattern, if valid
     pub compiled_regex: Option<Regex>,
+    /// Error message from regex compilation, if invalid
     pub regex_error: Option<String>,
+    /// Vertical scroll offset for the sample text viewport (in lines)
     pub sample_scroll_v: u16,
+    /// Horizontal scroll offset for the sample text viewport (in characters)
     pub sample_scroll_h: u16,
+    /// Height of the visible sample text viewport (updated each frame)
     pub sample_view_height: u16,
+    /// Number of regex matches found in the sample text
     pub match_count: usize,
     // Quick reference panel state
+    /// Whether the quick reference panel is currently visible
     pub show_quick_ref: bool,
+    /// Whether the help modal is currently visible
     pub show_help: bool,
+    /// Index of the currently selected quick reference entry
     pub quick_ref_selected: usize,
+    /// Vertical scroll position in the quick reference panel
     pub quick_ref_scroll: usize,
+    /// Horizontal scroll position in the quick reference panel
     pub quick_ref_scroll_h: u16,
+    /// Height of the quick reference viewport (updated each frame)
     pub quick_ref_view_height: usize,
+    /// Width of the quick reference viewport (updated each frame)
     pub quick_ref_view_width: u16,
+    /// Flattened list of all quick reference entries
     pub quick_ref_entries: Vec<QuickRefEntry>,
 }
 
-impl<'a> App<'a> {
+impl App {
     pub fn new(input_string: String) -> Self {
-        let mut regex_textarea = TextArea::default();
-        regex_textarea.set_cursor_line_style(Style::new());
+        let mut regex_input = EditorState::default();
+        regex_input.mode = EditorMode::Insert; // Enable modeless editing
 
-        let mut sample_textarea = TextArea::default();
-        sample_textarea.insert_str(&input_string);
-        sample_textarea.set_cursor_line_style(Style::new());
-        sample_textarea.move_cursor(CursorMove::Top);
+        let mut sample_text = EditorState::new(Lines::from(input_string.as_str()));
+        sample_text.mode = EditorMode::Insert; // Enable modeless editing
 
         let entries = get_flattened_entries();
         let initial_selected = Self::find_next_item(&entries, 0).unwrap_or(0);
 
         Self {
             input_focus: InputFocus::default(),
-            regex_textarea,
-            sample_textarea,
+            regex_input,
+            sample_text,
             compiled_regex: None,
             regex_error: None,
             sample_scroll_v: 0,
@@ -75,15 +90,11 @@ impl<'a> App<'a> {
     }
 
     pub fn get_sample_text(&self) -> String {
-        self.sample_textarea.lines().join("\n")
+        self.sample_text.lines.to_string()
     }
 
     pub fn get_regex_input(&self) -> String {
-        self.regex_textarea
-            .lines()
-            .first()
-            .cloned()
-            .unwrap_or_default()
+        self.regex_input.lines.to_string()
     }
 
     pub fn compile_regex(&mut self) {
@@ -91,15 +102,13 @@ impl<'a> App<'a> {
         self.regex_error = None;
         self.match_count = 0;
 
-        let Some(regex_input) = self.regex_textarea.lines().first() else {
-            return;
-        };
+        let regex_input = self.regex_input.lines.to_string();
 
         if regex_input.is_empty() {
             return;
         }
 
-        match Regex::new(regex_input) {
+        match Regex::new(&regex_input) {
             Ok(regex) => {
                 self.compiled_regex = Some(regex);
                 self.update_match_count();
@@ -241,7 +250,10 @@ impl<'a> App<'a> {
     pub fn insert_selected_quick_ref(&mut self) {
         if let Some(QuickRefEntry::Item(item)) = self.quick_ref_entries.get(self.quick_ref_selected)
         {
-            self.regex_textarea.insert_str(item.insert);
+            // Insert each character of the item at the cursor position
+            for ch in item.insert.chars() {
+                self.regex_input.execute(InsertChar(ch));
+            }
             self.compile_regex();
         }
     }
@@ -703,7 +715,7 @@ mod tests {
     #[test]
     fn test_compile_regex_with_unicode_pattern() {
         let mut app = App::new(String::new());
-        app.regex_textarea = TextArea::new(vec!["\\p{L}+".to_string()]);
+        app.regex_input = EditorState::new(Lines::from("\\p{L}+"));
         app.compile_regex();
         assert!(app.compiled_regex.is_some());
         assert!(app.regex_error.is_none());
@@ -712,7 +724,7 @@ mod tests {
     #[test]
     fn test_get_highlighted_text_with_unicode_sample() {
         let mut app = App::new("12345abcde項目".to_string());
-        app.regex_textarea = TextArea::new(vec!["\\w+".to_string()]);
+        app.regex_input = EditorState::new(Lines::from("\\w+"));
         app.compile_regex();
         let highlighted = app.get_highlighted_text();
         // Should not panic and should produce some text
@@ -721,7 +733,7 @@ mod tests {
 
     // ─── Helper ──────────────────────────────────────────────────────────────
 
-    fn create_test_app() -> App<'static> {
+    fn create_test_app() -> App {
         let mut app = App::new(String::new());
         app.quick_ref_entries = test_entries();
         app.quick_ref_selected = 1; // Default to first item

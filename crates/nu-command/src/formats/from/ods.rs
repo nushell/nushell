@@ -53,12 +53,12 @@ impl Command for FromOds {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert binary .ods data to a table",
+                description: "Convert binary .ods data to a table.",
                 example: "open --raw test.ods | from ods",
                 result: None,
             },
             Example {
-                description: "Convert binary .ods data to a table, specifying the tables",
+                description: "Convert binary .ods data to a table, specifying the tables.",
                 example: "open --raw test.ods | from ods --sheets [Spreadsheet1]",
                 result: None,
             },

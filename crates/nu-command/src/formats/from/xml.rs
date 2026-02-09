@@ -15,7 +15,7 @@ impl Command for FromXml {
     fn signature(&self) -> Signature {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::record())])
-            .switch("keep-comments", "add comment nodes to result", None)
+            .switch("keep-comments", "Add comment nodes to result.", None)
             .switch(
                 "allow-dtd",
                 "allow parsing documents with DTDs (may result in exponential entity expansion)",
@@ -71,7 +71,7 @@ string. This way content of every tag is always a table and is easier to parse"#
 <note>
   <remember>Event</remember>
 </note>' | from xml"#,
-            description: "Converts xml formatted string to record",
+            description: "Converts xml formatted string to record.",
             result: Some(Value::test_record(record! {
                 COLUMN_TAG_NAME =>     Value::test_string("note"),
                 COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
