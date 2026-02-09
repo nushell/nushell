@@ -105,38 +105,22 @@ impl Command for Let {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-<<<<<<< allow_let_returns_mid_pipeline
                 description: "Set a variable to a value (no output).",
-=======
-                description: "Set a variable to a value.",
->>>>>>> main
                 example: "let x = 10",
                 result: None,
             },
             Example {
-<<<<<<< allow_let_returns_mid_pipeline
                 description: "Set a variable to the result of an expression (no output).",
-=======
-                description: "Set a variable to the result of an expression.",
->>>>>>> main
                 example: "let x = 10 + 100",
                 result: None,
             },
             Example {
-<<<<<<< allow_let_returns_mid_pipeline
                 description: "Set a variable based on the condition (no output).",
-=======
-                description: "Set a variable based on the condition.",
->>>>>>> main
                 example: "let x = if false { -1 } else { 1 }",
                 result: None,
             },
             Example {
-<<<<<<< allow_let_returns_mid_pipeline
-                description: "Assign from pipeline and output the value.",
-=======
                 description: "Set a variable to the output of a pipeline.",
->>>>>>> main
                 example: "ls | let files",
                 result: None,
             },
