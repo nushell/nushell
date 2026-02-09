@@ -32,17 +32,17 @@ impl Command for ConfigNu {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "open user's config.nu in the default editor",
+                description: "Open user's config.nu in the default editor.",
                 example: "config nu",
                 result: None,
             },
             Example {
-                description: "pretty-print a commented `config.nu` that explains common settings",
+                description: "Pretty-print a commented `config.nu` that explains common settings.",
                 example: "config nu --doc | nu-highlight",
                 result: None,
             },
             Example {
-                description: "pretty-print the internal `config.nu` file which is loaded before user's config",
+                description: "Pretty-print the internal `config.nu` file which is loaded before user's config.",
                 example: "config nu --default | nu-highlight",
                 result: None,
             },

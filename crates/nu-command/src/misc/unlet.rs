@@ -105,22 +105,22 @@ impl Command for DeleteVar {
         vec![
             Example {
                 example: "let x = 42; unlet $x",
-                description: "Delete a variable from memory",
+                description: "Delete a variable from memory.",
                 result: None,
             },
             Example {
                 example: "let x = 1; let y = 2; unlet $x $y",
-                description: "Delete multiple variables from memory",
+                description: "Delete multiple variables from memory.",
                 result: None,
             },
             Example {
                 example: "unlet $nu",
-                description: "Attempting to delete a built-in variable fails",
+                description: "Attempting to delete a built-in variable fails.",
                 result: None,
             },
             Example {
                 example: "unlet 42",
-                description: "Attempting to delete a non-variable fails",
+                description: "Attempting to delete a non-variable fails.",
                 result: None,
             },
         ]

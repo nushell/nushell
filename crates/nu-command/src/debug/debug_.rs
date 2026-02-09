@@ -22,7 +22,7 @@ impl Command for Debug {
                 (Type::Any, Type::String),
             ])
             .category(Category::Debug)
-            .switch("raw", "Prints the raw value representation", Some('r'))
+            .switch("raw", "Prints the raw value representation.", Some('r'))
             .switch(
                 "raw-value",
                 "Prints the raw value representation but not the nushell value part",
@@ -64,12 +64,12 @@ impl Command for Debug {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Debug print a string",
+                description: "Debug print a string.",
                 example: "'hello' | debug",
                 result: Some(Value::test_string("hello")),
             },
             Example {
-                description: "Debug print a list",
+                description: "Debug print a list.",
                 example: "['hello'] | debug",
                 result: Some(Value::list(
                     vec![Value::test_string("hello")],
@@ -77,7 +77,7 @@ impl Command for Debug {
                 )),
             },
             Example {
-                description: "Debug print a table",
+                description: "Debug print a table.",
                 example: "[[version patch]; ['0.1.0' false] ['0.1.1' true] ['0.2.0' false]] | debug",
                 result: Some(Value::list(
                     vec![
@@ -89,7 +89,7 @@ impl Command for Debug {
                 )),
             },
             Example {
-                description: "Debug print an ansi escape encoded string and get the raw value",
+                description: "Debug print an ansi escape encoded string and get the raw value.",
                 example: "$'(ansi red)nushell(ansi reset)' | debug -v",
                 result: Some(Value::test_string("\"\\u{1b}[31mnushell\\u{1b}[0m\"")),
             },

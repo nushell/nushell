@@ -37,7 +37,7 @@ impl Command for FromToml {
         vec![
             Example {
                 example: "'a = 1' | from toml",
-                description: "Converts toml formatted string to record",
+                description: "Converts toml formatted string to record.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                 })),
@@ -45,7 +45,7 @@ impl Command for FromToml {
             Example {
                 example: "'a = 1
 b = [1, 2]' | from toml",
-                description: "Converts toml formatted string to record",
+                description: "Converts toml formatted string to record.",
                 result: Some(Value::test_record(record! {
                     "a" =>  Value::test_int(1),
                     "b" =>  Value::test_list(vec![

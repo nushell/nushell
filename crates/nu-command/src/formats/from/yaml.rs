@@ -209,14 +209,14 @@ pub fn get_examples() -> Vec<Example<'static>> {
     vec![
         Example {
             example: "'a: 1' | from yaml",
-            description: "Converts yaml formatted string to table",
+            description: "Converts yaml formatted string to table.",
             result: Some(Value::test_record(record! {
                 "a" => Value::test_int(1),
             })),
         },
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
-            description: "Converts yaml formatted string to table",
+            description: "Converts yaml formatted string to table.",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -259,14 +259,14 @@ mod test {
         }
         let tt: Vec<TestCase> = vec![
             TestCase {
-                description: "Double Curly Braces With Quotes",
+                description: "Double Curly Braces With Quotes.",
                 input: r#"value: "{{ something }}""#,
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),
                 })),
             },
             TestCase {
-                description: "Double Curly Braces Without Quotes",
+                description: "Double Curly Braces Without Quotes.",
                 input: r#"value: {{ something }}"#,
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),

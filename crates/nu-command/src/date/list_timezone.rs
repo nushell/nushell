@@ -46,7 +46,7 @@ impl Command for DateListTimezones {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "date list-timezone | where timezone =~ Shanghai",
-            description: "Show time zone(s) that contains 'Shanghai'",
+            description: "Show time zone(s) that contains 'Shanghai'.",
             result: Some(Value::test_list(vec![Value::test_record(record! {
                 "timezone" => Value::test_string("Asia/Shanghai"),
             })])),

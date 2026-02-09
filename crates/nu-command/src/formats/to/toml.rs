@@ -27,7 +27,7 @@ impl Command for ToToml {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Outputs an TOML string representing the contents of this record",
+            description: "Outputs an TOML string representing the contents of this record.",
             example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
             result: Some(Value::test_string("foo = 1\nbar = \"qwe\"\n")),
         }]

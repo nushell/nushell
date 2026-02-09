@@ -71,7 +71,7 @@ impl Command for SplitCellPath {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a cell-path into its components",
+                description: "Split a cell-path into its components.",
                 example: "$.5?.c | split cell-path",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -87,7 +87,7 @@ impl Command for SplitCellPath {
                 ])),
             },
             Example {
-                description: "Split a complex cell-path",
+                description: "Split a complex cell-path.",
                 example: r#"$.a!.b?.1."2"."c.d" | split cell-path"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

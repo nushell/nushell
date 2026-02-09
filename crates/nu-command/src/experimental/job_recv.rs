@@ -21,7 +21,7 @@ impl Command for JobRecv {
     }
 
     fn description(&self) -> &str {
-        "Read a message from the mailbox."
+        "Read a message from a job's mailbox."
     }
 
     fn extra_description(&self) -> &str {
@@ -44,7 +44,7 @@ in no particular order, regardless of the specified timeout parameter.
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("job recv")
             .category(Category::Experimental)
-            .named("tag", SyntaxShape::Int, "A tag for the message", None)
+            .named("tag", SyntaxShape::Int, "A tag for the message.", None)
             .named(
                 "timeout",
                 SyntaxShape::Duration,
@@ -101,7 +101,7 @@ in no particular order, regardless of the specified timeout parameter.
         vec![
             Example {
                 example: "job recv",
-                description: "Block the current thread while no message arrives",
+                description: "Block the current thread while no message arrives.",
                 result: None,
             },
             Example {
@@ -111,12 +111,12 @@ in no particular order, regardless of the specified timeout parameter.
             },
             Example {
                 example: "job recv --timeout 0sec",
-                description: "Get a message or fail if no message is available immediately",
+                description: "Get a message or fail if no message is available immediately.",
                 result: None,
             },
             Example {
                 example: "job spawn { sleep 1sec; 'hi' | job send 0 }; job recv",
-                description: "Receive a message from a newly-spawned job",
+                description: "Receive a message from a newly-spawned job.",
                 result: None,
             },
         ]

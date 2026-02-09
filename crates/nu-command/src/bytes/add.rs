@@ -42,7 +42,7 @@ impl Command for BytesAdd {
                 "index to insert binary data",
                 Some('i'),
             )
-            .switch("end", "add to the end of binary", Some('e'))
+            .switch("end", "Add to the end of binary.", Some('e'))
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
@@ -52,7 +52,7 @@ impl Command for BytesAdd {
     }
 
     fn description(&self) -> &str {
-        "Add specified bytes to the input."
+        "Add specified bytes to the binary input."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -84,7 +84,7 @@ impl Command for BytesAdd {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`",
+                description: "Add bytes `0x[AA]` to `0x[1F FF AA AA]`.",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA]",
                 result: Some(Value::binary(
                     vec![0xAA, 0x1F, 0xFF, 0xAA, 0xAA],
@@ -92,7 +92,7 @@ impl Command for BytesAdd {
                 )),
             },
             Example {
-                description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1",
+                description: "Add bytes `0x[AA BB]` to `0x[1F FF AA AA]` at index 1.",
                 example: "0x[1F FF AA AA] | bytes add 0x[AA BB] --index 1",
                 result: Some(Value::binary(
                     vec![0x1F, 0xAA, 0xBB, 0xFF, 0xAA, 0xAA],
@@ -100,7 +100,7 @@ impl Command for BytesAdd {
                 )),
             },
             Example {
-                description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end",
+                description: "Add bytes `0x[11]` to `0x[FF AA AA]` at the end.",
                 example: "0x[FF AA AA] | bytes add 0x[11] --end",
                 result: Some(Value::binary(
                     vec![0xFF, 0xAA, 0xAA, 0x11],
@@ -108,7 +108,7 @@ impl Command for BytesAdd {
                 )),
             },
             Example {
-                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end)",
+                description: "Add bytes `0x[11 22 33]` to `0x[FF AA AA]` at the end, at index 1(the index is start from end).",
                 example: "0x[FF AA BB] | bytes add 0x[11 22 33] --end --index 1",
                 result: Some(Value::binary(
                     vec![0xFF, 0xAA, 0x11, 0x22, 0x33, 0xBB],

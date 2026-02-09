@@ -45,7 +45,7 @@ impl Command for HttpPool {
     }
 
     fn extra_description(&self) -> &str {
-        "All connections inside http connection poll will be closed."
+        "All connections inside http connection pool will be closed."
     }
 
     fn search_terms(&self) -> Vec<&str> {

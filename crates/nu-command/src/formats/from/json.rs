@@ -12,14 +12,18 @@ impl Command for FromJson {
     }
 
     fn description(&self) -> &str {
-        "Convert from json to structured data."
+        "Convert JSON text into structured data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("from json")
             .input_output_types(vec![(Type::String, Type::Any)])
-            .switch("objects", "treat each line as a separate value", Some('o'))
-            .switch("strict", "follow the json specification exactly", Some('s'))
+            .switch("objects", "Treat each line as a separate value.", Some('o'))
+            .switch(
+                "strict",
+                "Follow the json specification exactly.",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -27,14 +31,14 @@ impl Command for FromJson {
         vec![
             Example {
                 example: r#"'{ "a": 1 }' | from json"#,
-                description: "Converts json formatted string to table",
+                description: "Converts json formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: r#"'{ "a": 1, "b": [1, 2] }' | from json"#,
-                description: "Converts json formatted string to table",
+                description: "Converts json formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
@@ -42,7 +46,7 @@ impl Command for FromJson {
             },
             Example {
                 example: r#"'{ "a": 1, "b": 2 }' | from json -s"#,
-                description: "Parse json strictly which will error on comments and trailing commas",
+                description: "Parse json strictly which will error on comments and trailing commas.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_int(2),
@@ -51,7 +55,7 @@ impl Command for FromJson {
             Example {
                 example: r#"'{ "a": 1 }
 { "b": 2 }' | from json --objects"#,
-                description: "Parse a stream of line-delimited JSON values",
+                description: "Parse a stream of line-delimited JSON values.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {"a" => Value::test_int(1)}),
                     Value::test_record(record! {"b" => Value::test_int(2)}),
