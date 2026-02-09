@@ -79,6 +79,11 @@ pub(crate) fn run_commands(
         }
 
         perf!("read login.nu", start_time, use_color);
+
+        // load vendor and user autoload files
+        let start_time = std::time::Instant::now();
+        config_files::read_vendor_autoload_files(engine_state, &mut stack);
+        perf!("read vendor autoload files", start_time, use_color);
     }
 
     // Before running commands, set up the startup time
@@ -158,6 +163,11 @@ pub(crate) fn run_file(
             );
         }
         perf!("read config.nu", start_time, use_color);
+
+        // load vendor and user autoload files
+        let start_time = std::time::Instant::now();
+        config_files::read_vendor_autoload_files(engine_state, &mut stack);
+        perf!("read vendor autoload files", start_time, use_color);
     }
 
     // Regenerate the $nu constant to contain the startup time and any other potential updates

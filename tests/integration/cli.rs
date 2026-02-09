@@ -1,5 +1,7 @@
 use assert_cmd::cargo_bin;
+use std::io::Write;
 use std::process::Command;
+use tempfile::NamedTempFile;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
@@ -1767,5 +1769,74 @@ fn mixed_long_and_short_flags_work() -> TestResult {
 
     assert!(output.status.success());
     assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+// Tests for vendor autoload in non-interactive modes
+#[test]
+fn vendor_autoload_is_executed_in_command_mode() -> TestResult {
+    let autoload_dir = tempfile::tempdir()?;
+    std::fs::write(
+        autoload_dir.path().join("test-autoload.nu"),
+        "$env.VENDOR_AUTOLOAD_TEST = 'executed'",
+    )?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-std-lib", "-c", "$env.VENDOR_AUTOLOAD_TEST"])
+        .env("NU_VENDOR_AUTOLOAD_DIR", autoload_dir.path())
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "executed");
+    Ok(())
+}
+
+#[test]
+fn vendor_autoload_is_executed_in_script_mode() -> TestResult {
+    let autoload_dir = tempfile::tempdir()?;
+    std::fs::write(
+        autoload_dir.path().join("test-autoload.nu"),
+        "$env.VENDOR_AUTOLOAD_TEST = 'executed'",
+    )?;
+
+    let mut script_file = NamedTempFile::new()?;
+    writeln!(script_file, "$env.VENDOR_AUTOLOAD_TEST")?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-std-lib", script_file.path().to_str().unwrap()])
+        .env("NU_VENDOR_AUTOLOAD_DIR", autoload_dir.path())
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "executed");
+    Ok(())
+}
+
+#[test]
+fn vendor_autoload_is_not_executed_with_no_config_file() -> TestResult {
+    let autoload_dir = tempfile::tempdir()?;
+    std::fs::write(
+        autoload_dir.path().join("test-autoload.nu"),
+        "$env.VENDOR_AUTOLOAD_TEST = 'executed'",
+    )?;
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "$env | get -i VENDOR_AUTOLOAD_TEST | default 'not_executed'",
+        ])
+        .env("NU_VENDOR_AUTOLOAD_DIR", autoload_dir.path())
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "not_executed");
     Ok(())
 }
