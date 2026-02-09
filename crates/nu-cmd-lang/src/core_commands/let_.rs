@@ -20,7 +20,11 @@ impl Command for Let {
         Signature::build("let")
             .input_output_types(vec![(Type::Any, Type::Any)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
+            .required(
+                "var_name",
+                SyntaxShape::VarWithOptType,
+                "The variable name to create.",
+            )
             .optional(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
@@ -101,32 +105,32 @@ impl Command for Let {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set a variable to a value (no output)",
+                description: "Set a variable to a value (no output).",
                 example: "let x = 10",
                 result: None,
             },
             Example {
-                description: "Set a variable to the result of an expression (no output)",
+                description: "Set a variable to the result of an expression (no output).",
                 example: "let x = 10 + 100",
                 result: None,
             },
             Example {
-                description: "Set a variable based on the condition (no output)",
+                description: "Set a variable based on the condition (no output).",
                 example: "let x = if false { -1 } else { 1 }",
                 result: None,
             },
             Example {
-                description: "Assign from pipeline and output the value",
+                description: "Assign from pipeline and output the value.",
                 example: "ls | let files",
                 result: None,
             },
             Example {
-                description: "Use let in the middle of a pipeline to assign and pass the value",
+                description: "Use let in the middle of a pipeline to assign and pass the value.",
                 example: "10 | let x | $x + 5",
                 result: Some(Value::test_int(15)),
             },
             Example {
-                description: "Use let in the middle of a pipeline, then consume value with $in",
+                description: "Use let in the middle of a pipeline, then consume value with $in.",
                 example: "10 | let x | $in + 5",
                 result: Some(Value::test_int(15)),
             },
