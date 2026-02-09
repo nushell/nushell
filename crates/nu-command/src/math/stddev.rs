@@ -94,17 +94,17 @@ impl Command for MathStddev {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute the standard deviation of a list of numbers",
+                description: "Compute the standard deviation of a list of numbers.",
                 example: "[1 2 3 4 5] | math stddev",
                 result: Some(Value::test_float(std::f64::consts::SQRT_2)),
             },
             Example {
-                description: "Compute the sample standard deviation of a list of numbers",
+                description: "Compute the sample standard deviation of a list of numbers.",
                 example: "[1 2 3 4 5] | math stddev --sample",
                 result: Some(Value::test_float(1.5811388300841898)),
             },
             Example {
-                description: "Compute the standard deviation of each column in a table",
+                description: "Compute the standard deviation of each column in a table.",
                 example: "[[a b]; [1 2] [3 4]] | math stddev",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
