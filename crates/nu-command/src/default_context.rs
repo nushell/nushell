@@ -78,6 +78,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Skip,
             SkipUntil,
             SkipWhile,
+            SkipColumn,
             Slice,
             Sort,
             SortBy,

@@ -58,18 +58,18 @@ impl Command for SkipColumn {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Remove the last column of a table",
+                description: "Remove the first column of a table",
                 example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | skip column",
                 result: Some(Value::test_list(vec![
-                    Value::test_record(record! { "lib" => Value::test_string("nu-lib") }),
-                    Value::test_record(record! { "lib" => Value::test_string("nu-core") }),
+                    Value::test_record(record! { "extension" => Value::test_string("rs") }),
+                    Value::test_record(record! { "extension" => Value::test_string("rb") }),
                 ])),
             },
             Example {
-                description: "Remove the last column of a record",
+                description: "Remove the first column of a record",
                 example: "{lib: nu-lib, extension: rs} | skip column",
                 result: Some(Value::test_record(
-                    record! { "lib" => Value::test_string("nu-lib") },
+                    record! { "extension" => Value::test_string("rs") },
                 )),
             },
         ]
