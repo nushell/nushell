@@ -75,17 +75,8 @@ fn helper(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = val.get_block(engine_state);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    toml::Value::String(contents_string.to_string())
-                } else {
-                    toml::Value::String(format!(
-                        "unable to retrieve block contents for toml block_id {}",
-                        val.block_id.get()
-                    ))
-                }
+                let closure_record = val.to_record(engine_state, v.span())?;
+                helper(engine_state, &closure_record, serialize_types)?
             } else {
                 toml::Value::String(format!("closure_{}", val.block_id.get()))
             }

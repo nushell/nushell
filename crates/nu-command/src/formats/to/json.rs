@@ -144,11 +144,11 @@ pub fn value_to_json_value(
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let closure_string = val.coerce_into_string(engine_state, span)?;
-                nu_json::Value::String(closure_string.to_string())
+                let closure_record = val.to_record(engine_state, span)?;
+                value_to_json_value(engine_state, &closure_record, call_span, serialize_types)?
             } else {
                 return Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a record)".into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,
                     input_span: span,

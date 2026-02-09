@@ -132,17 +132,8 @@ pub fn value_to_yaml_value(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = val.get_block(engine_state);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    serde_yaml::Value::String(contents_string.to_string())
-                } else {
-                    serde_yaml::Value::String(format!(
-                        "unable to retrieve block contents for yaml block_id {}",
-                        val.block_id.get()
-                    ))
-                }
+                let closure_record = val.to_record(engine_state, v.span())?;
+                value_to_yaml_value(engine_state, &closure_record, serialize_types)?
             } else {
                 serde_yaml::Value::Null
             }

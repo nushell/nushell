@@ -165,13 +165,19 @@ fn value_to_string(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                Ok(quote_string(
-                    &val.coerce_into_string(engine_state, span)?,
+                let closure_record = val.to_record(engine_state, v.span())?;
+                value_to_string(
+                    engine_state,
+                    &closure_record,
+                    span,
+                    depth,
+                    indent,
+                    serialize_types,
                     raw_strings,
-                ))
+                )
             } else {
                 Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a record)".into(),
                     input: "value originates from here".into(),
                     msg_span: span,
                     input_span: v.span(),

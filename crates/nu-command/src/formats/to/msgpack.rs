@@ -251,13 +251,20 @@ pub(crate) fn write_value(
         }
         Value::Closure { val, .. } => {
             if serialize_types {
-                let closure_string = val
-                    .coerce_into_string(engine_state, span)
+                let closure_record = val
+                    .to_record(engine_state, span)
                     .map_err(|err| WriteError::Shell(Box::new(err)))?;
-                mp::write_str(out, &closure_string).err_span(span)?;
+                write_value(
+                    out,
+                    &closure_record,
+                    depth + 1,
+                    engine_state,
+                    call_span,
+                    serialize_types,
+                )?;
             } else {
                 return Err(WriteError::Shell(Box::new(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a record)".into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,
                     input_span: span,

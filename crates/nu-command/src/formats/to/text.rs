@@ -203,16 +203,12 @@ fn local_into_string(
             .join(separator),
         Value::Closure { val, .. } => {
             if serialize_types {
-                let block = val.get_block(engine_state);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    contents_string.to_string()
-                } else {
-                    format!(
-                        "unable to retrieve block contents for text block_id {}",
-                        val.block_id.get()
-                    )
+                let closure_record = val.to_record(engine_state, span);
+                match closure_record {
+                    Ok(record) => {
+                        local_into_string(engine_state, record, separator, serialize_types)
+                    }
+                    Err(_) => format!("closure_{}", val.block_id.get()),
                 }
             } else {
                 format!("closure_{}", val.block_id.get())
