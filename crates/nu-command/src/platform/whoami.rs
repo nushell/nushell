@@ -52,7 +52,7 @@ impl Command for Whoami {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Get the current username",
+            description: "Get the current username.",
             example: "whoami",
             result: None,
         }]

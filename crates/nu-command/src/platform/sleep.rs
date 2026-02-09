@@ -23,7 +23,11 @@ impl Command for Sleep {
         Signature::build("sleep")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .required("duration", SyntaxShape::Duration, "Time to sleep.")
-            .rest("rest", SyntaxShape::Duration, "Additional time.")
+            .rest(
+                "rest",
+                SyntaxShape::Duration,
+                "Additional time duration to sleep.",
+            )
             .category(Category::Platform)
     }
 
@@ -65,17 +69,17 @@ impl Command for Sleep {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Sleep for 1sec",
+                description: "Sleep for 1sec.",
                 example: "sleep 1sec",
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {
-                description: "Use multiple arguments to write a duration with multiple units, which is unsupported by duration literals",
+                description: "Use multiple arguments to write a duration with multiple units, which is unsupported by duration literals.",
                 example: "sleep 1min 30sec",
                 result: None,
             },
             Example {
-                description: "Send output after 1sec",
+                description: "Send output after 1sec.",
                 example: "sleep 1sec; echo done",
                 result: None,
             },
