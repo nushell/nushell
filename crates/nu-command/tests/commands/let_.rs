@@ -136,42 +136,103 @@ fn let_malformed_type() {
     assert!(actual.err.contains("unknown type"));
 }
 
+// ============================================================
+// Tests for the three pipeline positions of `let`
+// ============================================================
+
+// --- LHS (beginning): `let x = expr` produces NO output ---
+
 #[test]
-fn let_returns_value_in_pipeline() {
-    let actual = nu!("10 | let x | $x + 5");
-    assert_eq!(actual.out, "15");
+fn let_lhs_produces_no_output() {
+    // `let x = 5` should produce no visible output
+    let actual = nu!("let x = 5");
+    assert_eq!(actual.out, "");
 }
 
 #[test]
-fn let_allows_in_variable() {
-    let actual = nu!("10 | let x | $in + 5");
-    assert_eq!(actual.out, "15");
+fn let_lhs_expression_produces_no_output() {
+    // `let x = 10 + 100` should produce no visible output
+    let actual = nu!("let x = 10 + 100");
+    assert_eq!(actual.out, "");
 }
 
 #[test]
-fn let_returns_value_with_list() {
-    let actual = nu!("[2 3 4] | let nums | first");
-    assert_eq!(actual.out, "2");
-}
-
-#[test]
-fn let_returns_value_with_string() {
-    let actual = nu!(r#""hello" | let msg | str length"#);
-    assert_eq!(actual.out, "5");
-}
-
-#[test]
-fn let_at_end_no_output() {
+fn let_lhs_stores_value_correctly() {
+    // Even though `let x = 10` produces no output, the variable is still set
     let actual = nu!("let x = 10; $x");
     assert_eq!(actual.out, "10");
 }
 
 #[test]
-fn let_at_beginning_no_output() {
+fn let_lhs_pipeline_expr_produces_no_output() {
+    // `let x = "hello" | str length` should produce no output
+    let actual = nu!(r#"let x = "hello world" | str length"#);
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn let_lhs_invalid_pipeline() {
     let actual = nu!("let x = 5 | echo done");
     assert!(
         actual.err.contains("doesn't support") || actual.err.contains("invalid `let` keyword call")
     );
+}
+
+// --- Middle: `input | let var | next` passes value through ---
+
+#[test]
+fn let_mid_passes_value_through() {
+    let actual = nu!("10 | let x | $x + 5");
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn let_mid_allows_in_variable() {
+    let actual = nu!("10 | let x | $in + 5");
+    assert_eq!(actual.out, "15");
+}
+
+#[test]
+fn let_mid_passes_list_through() {
+    let actual = nu!("[2 3 4] | let nums | first");
+    assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn let_mid_passes_string_through() {
+    let actual = nu!(r#""hello" | let msg | str length"#);
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn let_mid_pipeline_equivalence() {
+    // `[2 3 4] | let nums | first` should be equivalent to assigning then piping
+    let actual1 = nu!("[2 3 4] | let nums | first");
+    let actual2 = nu!("[2 3 4] | let nums; $nums | first");
+    assert_eq!(actual1.out, actual2.out);
+}
+
+// --- End: `input | let var` outputs the assigned value ---
+
+#[test]
+fn let_end_outputs_value() {
+    // `5 | let x` should output the value 5
+    let actual = nu!("5 | let x");
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn let_end_outputs_computed_value() {
+    // Pipeline ending with let should output the computed result
+    let actual = nu!(r#""hello" | str length | let n"#);
+    assert_eq!(actual.out, "5");
+}
+
+#[test]
+fn let_end_stores_value_correctly() {
+    // The variable should also be usable afterward
+    let actual = nu!("5 | let x; $x + 10");
+    assert_eq!(actual.out, "15");
 }
 
 #[test]
@@ -181,11 +242,4 @@ fn let_var_at_beginning_error() {
     assert!(
         actual.err.contains("doesn't support") || actual.err.contains("invalid `let` keyword call")
     );
-}
-
-#[test]
-fn let_pipeline_equivalence() {
-    let actual1 = nu!("[2 3 4] | let nums | first");
-    let actual2 = nu!("[2 3 4] | let nums; $nums | first");
-    assert_eq!(actual1.out, actual2.out);
 }

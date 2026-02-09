@@ -89,29 +89,34 @@ impl Command for Let {
         // Store the value in the variable
         stack.add_var(var_id, rhs.clone());
 
-        // Return the assigned value
-        Ok(PipelineData::Value(rhs, None))
+        if initial_value.is_some() {
+            // `let var = expr`: suppress output (traditional assignment, no display)
+            Ok(PipelineData::Empty)
+        } else {
+            // `input | let var`: pass through the assigned value
+            Ok(PipelineData::Value(rhs, None))
+        }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set a variable to a value",
-                example: "let x = 10; $x",
-                result: Some(Value::test_int(10)),
+                description: "Set a variable to a value (no output)",
+                example: "let x = 10",
+                result: None,
             },
             Example {
-                description: "Set a variable to the result of an expression",
-                example: "let x = 10 + 100; $x",
-                result: Some(Value::test_int(110)),
+                description: "Set a variable to the result of an expression (no output)",
+                example: "let x = 10 + 100",
+                result: None,
             },
             Example {
-                description: "Set a variable based on the condition",
-                example: "let x = if false { -1 } else { 1 }; $x",
-                result: Some(Value::test_int(1)),
+                description: "Set a variable based on the condition (no output)",
+                example: "let x = if false { -1 } else { 1 }",
+                result: None,
             },
             Example {
-                description: "Set a variable to the output of a pipeline",
+                description: "Assign from pipeline and output the value",
                 example: "ls | let files",
                 result: None,
             },
