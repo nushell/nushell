@@ -16,6 +16,7 @@ impl Command for DropColumn {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
+            .switch("left", "drop columns from the left", Some('l'))
             .optional(
                 "columns",
                 SyntaxShape::Int,
@@ -41,6 +42,7 @@ impl Command for DropColumn {
     ) -> Result<PipelineData, ShellError> {
         // the number of columns to drop
         let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let from_left = call.has_flag(engine_state, stack, "left")?;
 
         let columns = if let Some(columns) = columns {
             if columns.item < 0 {
@@ -52,7 +54,7 @@ impl Command for DropColumn {
             1
         };
 
-        drop_cols(engine_state, input, call.head, columns)
+        drop_cols(engine_state, input, call.head, columns, from_left)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -72,6 +74,21 @@ impl Command for DropColumn {
                     record! { "lib" => Value::test_string("nu-lib") },
                 )),
             },
+            Example {
+                description: "Remove the first column of a table",
+                example: "[[lib, extension]; [nu-lib, rs] [nu-core, rb]] | drop column --left",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! { "extension" => Value::test_string("rs") }),
+                    Value::test_record(record! { "extension" => Value::test_string("rb") }),
+                ])),
+            },
+            Example {
+                description: "Remove the first column of a record",
+                example: "{lib: nu-lib, extension: rs} | drop column --left",
+                result: Some(Value::test_record(
+                    record! { "extension" => Value::test_string("rs") },
+                )),
+            },
         ]
     }
 }
@@ -81,6 +98,7 @@ fn drop_cols(
     input: PipelineData,
     head: Span,
     columns: usize,
+    from_left: bool,
 ) -> Result<PipelineData, ShellError> {
     // For simplicity and performance, we use the first row's columns
     // as the columns for the whole table, and assume that later rows/records
@@ -93,7 +111,7 @@ fn drop_cols(
         PipelineData::ListStream(stream, ..) => {
             let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {
-                let drop_cols = drop_cols_set(&mut first, head, columns)?;
+                let drop_cols = drop_cols_set(&mut first, head, columns, from_left)?;
 
                 Ok(std::iter::once(first)
                     .chain(stream.map(move |mut v| {
@@ -116,7 +134,7 @@ fn drop_cols(
             match v {
                 Value::List { mut vals, .. } => {
                     if let Some((first, rest)) = vals.split_first_mut() {
-                        let drop_cols = drop_cols_set(first, head, columns)?;
+                        let drop_cols = drop_cols_set(first, head, columns, from_left)?;
                         for val in rest {
                             drop_record_cols(val, head, &drop_cols)?
                         }
@@ -128,7 +146,11 @@ fn drop_cols(
                     ..
                 } => {
                     let len = record.len().saturating_sub(columns);
-                    record.to_mut().truncate(len);
+                    if from_left {
+                        record.to_mut().truncate_front(len);
+                    } else {
+                        record.to_mut().truncate(len);
+                    }
                     Ok(v.into_pipeline_data_with_metadata(metadata))
                 }
                 // Propagate errors
@@ -146,10 +168,20 @@ fn drop_cols(
     }
 }
 
-fn drop_cols_set(val: &mut Value, head: Span, drop: usize) -> Result<HashSet<String>, ShellError> {
+fn drop_cols_set(
+    val: &mut Value,
+    head: Span,
+    drop: usize,
+    from_left: bool,
+) -> Result<HashSet<String>, ShellError> {
     if let Value::Record { val: record, .. } = val {
         let len = record.len().saturating_sub(drop);
-        Ok(record.to_mut().drain(len..).map(|(col, _)| col).collect())
+        let columns = if from_left {
+            record.to_mut().drain(..drop).map(|(col, _)| col).collect()
+        } else {
+            record.to_mut().drain(len..).map(|(col, _)| col).collect()
+        };
+        Ok(columns)
     } else {
         Err(unsupported_value_error(val, head))
     }
