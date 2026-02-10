@@ -115,7 +115,7 @@ fn rm(
     let verbose = call.has_flag(engine_state, stack, "verbose")?;
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
-
+    let all = call.has_flag(engine_state, stack, "all")?;
     let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
     if paths.is_empty() {
@@ -225,6 +225,17 @@ fn rm(
 
     let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
+
+    let glob_options = if all {
+        None
+    } else {
+        let glob_options = MatchOptions {
+            require_literal_leading_dot: true,
+            ..Default::default()
+        };
+
+        Some(glob_options)
+    };
 
     for target in paths {
         let path = expand_path_with(
