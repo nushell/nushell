@@ -34,10 +34,10 @@ impl Command for MetadataSet {
                 Some('f'),
             )
             .named(
-                "file-columns",
+                "path-columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Assign file columns metadata to the input",
-                Some('F'),
+                "Assign path columns metadata to the input",
+                Some('p'),
             )
             .named(
                 "content-type",
@@ -78,8 +78,8 @@ impl Command for MetadataSet {
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
-        let file_columns: Option<Vec<String>> =
-            call.get_flag(engine_state, stack, "file-columns")?;
+        let path_columns: Option<Vec<String>> =
+            call.get_flag(engine_state, stack, "path-columns")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
         let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
@@ -94,7 +94,7 @@ impl Command for MetadataSet {
         if let Some(closure) = closure {
             if ds_fp.is_some()
                 || ds_ls
-                || file_columns.is_some()
+                || path_columns.is_some()
                 || content_type.is_some()
                 || merge.is_some()
             {
@@ -126,8 +126,8 @@ impl Command for MetadataSet {
             return Ok(input.set_metadata(Some(metadata)));
         }
 
-        if let Some(file_columns) = file_columns {
-            metadata.file_columns = file_columns;
+        if let Some(path_columns) = path_columns {
+            metadata.path_columns = path_columns;
         }
 
         // Flag-based metadata modification

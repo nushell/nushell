@@ -725,16 +725,16 @@ fn handle_row_stream(
 
         let PipelineMetadata {
             data_source,
-            mut file_columns,
+            mut path_columns,
             ..
         } = metadata;
 
         if data_source == DataSource::Ls {
-            file_columns.push(String::from("name"));
+            path_columns.push(String::from("name"));
         }
         // Remove duplicates
-        file_columns.sort_unstable();
-        file_columns.dedup();
+        path_columns.sort_unstable();
+        path_columns.dedup();
 
         let config = cfg.clone();
         let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
@@ -750,7 +750,7 @@ fn handle_row_stream(
 
         stream.map(move |mut value| {
             if let Value::Record { val: record, .. } = &mut value {
-                for column in &file_columns {
+                for column in &path_columns {
                     if let Some(value) = record.to_mut().get_mut(column) {
                         let span = value.span();
                         if let Value::String { val, .. } = value
