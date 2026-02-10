@@ -67,7 +67,7 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
-            .switch("all", "Move hidden files if '*' is provided.", Some('a'))
+            .switch("all", "Include hidden files if '*' is provided.", Some('a'))
             .category(Category::FileSystem)
     }
 

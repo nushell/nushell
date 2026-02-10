@@ -54,6 +54,7 @@ impl Command for Rm {
                 "ask user to confirm action only once",
                 Some('I'),
             )
+            .switch("all", "Remove hidden files if '*' is provided", Some('a'))
             .category(Category::FileSystem)
     }
 
