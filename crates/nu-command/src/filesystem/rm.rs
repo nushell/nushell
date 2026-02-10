@@ -249,10 +249,6 @@ fn rm(
             &currentdir_path,
             call.head,
             glob_options,
-            Some(MatchOptions {
-                require_literal_leading_dot: true,
-                ..Default::default()
-            }),
             engine_state.signals().clone(),
         ) {
             Ok(files) => {
