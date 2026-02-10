@@ -176,6 +176,11 @@ impl Command for MetadataSet {
                 result: None,
             },
             Example {
+                description: "Set the path columns metadata.",
+                example: "glob * | wrap path | metadata set --path-columns [path]",
+                result: None,
+            },
+            Example {
                 description: "Set the content type metadata.",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
