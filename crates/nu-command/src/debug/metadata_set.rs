@@ -1,6 +1,6 @@
 use super::util::{extend_record_with_metadata, parse_metadata_from_record};
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{DataSource, engine::Closure};
+use nu_protocol::{DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure};
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -47,6 +47,19 @@ impl Command for MetadataSet {
             )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("merge".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.111.0".into()),
+            expected_removal: Some("0.112.0".into()),
+            help: Some(
+                "Use the closure parameter instead: `metadata set {|m| $m | merge {key: value}}`"
+                    .into(),
+            ),
+        }]
     }
 
     fn run(
