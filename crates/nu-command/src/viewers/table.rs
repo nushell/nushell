@@ -103,7 +103,7 @@ impl Command for Table {
                 Some('a'),
             )
             .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to ls tables", Some('o'),
+            .switch("icons", "adds icons to file paths in tables", Some('o'),
             )
             .category(Category::Viewers)
     }
