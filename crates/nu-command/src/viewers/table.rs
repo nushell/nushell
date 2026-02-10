@@ -682,51 +682,13 @@ fn handle_row_stream(
     metadata: Option<PipelineMetadata>,
 ) -> ShellResult<PipelineData> {
     let cfg = input.get_config();
-    let stream = match metadata.as_ref() {
-        // First, `ls` sources:
-        Some(PipelineMetadata {
-            data_source: DataSource::Ls,
-            ..
-        }) => {
-            let config = cfg.clone();
-            let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
-                Some(v) => Some(env_to_string(
-                    "LS_COLORS",
-                    v,
-                    input.engine_state,
-                    input.stack,
-                )?),
-                None => None,
-            };
-            let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            stream.map(move |mut value| {
-                if let Value::Record { val: record, .. } = &mut value {
-                    // Only the name column gets special colors, for now
-                    if let Some(value) = record.to_mut().get_mut("name") {
-                        let span = value.span();
-                        if let Value::String { val, .. } = value
-                            && let Some(val) = render_path_name(
-                                val,
-                                &config,
-                                &ls_colors,
-                                input.cwd.clone(),
-                                input.cfg.icons,
-                                span,
-                            )
-                        {
-                            *value = val;
-                        }
-                    }
-                }
-                value
-            })
-        }
-        // Next, `to html -l` sources:
-        Some(PipelineMetadata {
+    let stream = if let Some(metadata) = metadata {
+        let stream = if let PipelineMetadata {
             data_source: DataSource::HtmlThemes,
             ..
-        }) => {
+        } = &metadata
+        {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
                     for (rec_col, rec_val) in record.to_mut().iter_mut() {
@@ -757,8 +719,59 @@ fn handle_row_stream(
                 }
                 value
             })
+        } else {
+            stream
+        };
+
+        let PipelineMetadata {
+            data_source,
+            mut file_columns,
+            ..
+        } = metadata;
+
+        if data_source == DataSource::Ls {
+            file_columns.push(String::from("name"));
         }
-        _ => stream,
+        // Remove duplicates
+        file_columns.sort_unstable();
+        file_columns.dedup();
+
+        let config = cfg.clone();
+        let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+            Some(v) => Some(env_to_string(
+                "LS_COLORS",
+                v,
+                input.engine_state,
+                input.stack,
+            )?),
+            None => None,
+        };
+        let ls_colors = get_ls_colors(ls_colors_env_str);
+
+        stream.map(move |mut value| {
+            if let Value::Record { val: record, .. } = &mut value {
+                for column in &file_columns {
+                    if let Some(value) = record.to_mut().get_mut(column) {
+                        let span = value.span();
+                        if let Value::String { val, .. } = value
+                            && let Some(val) = render_path_name(
+                                val,
+                                &config,
+                                &ls_colors,
+                                input.cwd.clone(),
+                                input.cfg.icons,
+                                span,
+                            )
+                        {
+                            *value = val;
+                        }
+                    }
+                }
+            }
+            value
+        })
+    } else {
+        stream
     };
 
     let paginator = PagingTableCreator::new(
