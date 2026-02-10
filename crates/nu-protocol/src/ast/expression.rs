@@ -494,7 +494,7 @@ impl Expression {
             | Expr::Subexpression(block_id) => {
                 let mut block = Block::clone(working_set.get_block(*block_id));
                 block.replace_in_variable(working_set, new_var_id);
-                *working_set.get_block_mut(*block_id) = block;
+                *block_id = working_set.add_block(Arc::new(block));
             }
             Expr::UnaryNot(expr) => {
                 expr.replace_in_variable(working_set, new_var_id);
