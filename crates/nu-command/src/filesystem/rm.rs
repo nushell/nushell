@@ -248,6 +248,7 @@ fn rm(
             &target,
             &currentdir_path,
             call.head,
+            glob_options,
             Some(MatchOptions {
                 require_literal_leading_dot: true,
                 ..Default::default()

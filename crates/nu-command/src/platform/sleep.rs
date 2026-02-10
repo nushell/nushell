@@ -69,7 +69,7 @@ impl Command for Sleep {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Sleep for 1sec.",
+                description: "Sleep for 1 second.",
                 example: "sleep 1sec",
                 result: Some(Value::nothing(Span::test_data())),
             },
@@ -79,7 +79,7 @@ impl Command for Sleep {
                 result: None,
             },
             Example {
-                description: "Send output after 1sec.",
+                description: "Send output after 1 second.",
                 example: "sleep 1sec; echo done",
                 result: None,
             },
