@@ -49,7 +49,7 @@ pub fn run_nu_command(
 }
 
 pub fn is_ignored_command(command: &str) -> bool {
-    let ignore_list = ["clear", "explore", "exit"];
+    let ignore_list = ["clear", "explore", "exit", "nu"];
 
     for cmd in ignore_list {
         if command.starts_with(cmd) {
