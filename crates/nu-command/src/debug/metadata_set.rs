@@ -56,8 +56,7 @@ impl Command for MetadataSet {
             since: Some("0.111.0".into()),
             expected_removal: Some("0.112.0".into()),
             help: Some(
-                "Use the closure parameter instead: `metadata set {|m| $m | merge {key: value}}`"
-                    .into(),
+                "Use the closure parameter instead: `metadata set { merge {key: value} }`".into(),
             ),
         }]
     }
