@@ -44,7 +44,7 @@ impl Command for Mktemp {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Make a temporary file with the given suffix in the current working directory.",
+                description: "Make a temporary file with the given suffix in the system temp directory.",
                 example: "mktemp --suffix .txt",
                 result: Some(Value::test_string("/tmp/tmp.lekjbhelyx.txt")),
             },
