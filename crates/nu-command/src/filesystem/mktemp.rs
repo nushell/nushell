@@ -35,7 +35,7 @@ impl Command for Mktemp {
             )
             .named("suffix", SyntaxShape::String, "Append suffix to template; must not contain a slash.", None)
             .named("tmpdir-path", SyntaxShape::Filepath, "Interpret TEMPLATE relative to tmpdir-path. If tmpdir-path is not set use $TMPDIR.", Some('p'))
-            .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory.", Some('t'))
+            .switch("tmpdir", "Interpret TEMPLATE relative to the system temporary directory. It is implied if template is not provided.", Some('t'))
             .switch("directory", "Create a directory instead of a file.", Some('d'))
             .switch("dry", "Don't create a file and just return the path that would have been created.", None)
             .category(Category::FileSystem)
@@ -44,9 +44,9 @@ impl Command for Mktemp {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Make a temporary file with the given suffix in the current working directory.",
+                description: "Make a temporary file with the given suffix in the system temp directory.",
                 example: "mktemp --suffix .txt",
-                result: Some(Value::test_string("<WORKING_DIR>/tmp.lekjbhelyx.txt")),
+                result: Some(Value::test_string("/tmp/tmp.lekjbhelyx.txt")),
             },
             Example {
                 description: "Make a temporary file named testfile.XXX with the 'X's as random characters in the current working directory.",
@@ -81,15 +81,15 @@ impl Command for Mktemp {
             .rest(engine_state, stack, 0)?
             .first()
             .cloned()
-            .map(|i: Spanned<String>| i.item)
-            .unwrap_or("tmp.XXXXXXXXXX".to_string()); // same as default in coreutils
+            .map(|i: Spanned<String>| i.item);
         let directory = call.has_flag(engine_state, stack, "directory")?;
         let dry_run = call.has_flag(engine_state, stack, "dry")?;
         let suffix = call.get_flag(engine_state, stack, "suffix")?;
-        let tmpdir = call.has_flag(engine_state, stack, "tmpdir")?;
+        let tmpdir = template.is_none() || call.has_flag(engine_state, stack, "tmpdir")?;
         let tmpdir_path = call
             .get_flag(engine_state, stack, "tmpdir-path")?
             .map(|i: Spanned<PathBuf>| i.item);
+        let template = template.unwrap_or("tmp.XXXXXXXXXX".to_string()); // same as default in coreutils
 
         let tmpdir = if tmpdir_path.is_some() {
             tmpdir_path
