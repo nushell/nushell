@@ -47,7 +47,7 @@ impl Command for UCp {
             .switch("interactive", "Ask before overwriting files.", Some('i'))
             .switch(
                 "update",
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                "Copy only when the SOURCE file is newer than the destination file or when the destination file is missing.",
                 Some('u')
             )
             .switch("progress", "Display a progress bar.", Some('p'))
