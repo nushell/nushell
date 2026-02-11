@@ -41,17 +41,17 @@ impl Command for ToTsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a TSV string representing the contents of this table",
+                description: "Outputs a TSV string representing the contents of this table.",
                 example: "[[foo bar]; [1 2]] | to tsv",
                 result: Some(Value::test_string("foo\tbar\n1\t2\n")),
             },
             Example {
-                description: "Outputs a TSV string representing the contents of this record",
+                description: "Outputs a TSV string representing the contents of this record.",
                 example: "{a: 1 b: 2} | to tsv",
                 result: Some(Value::test_string("a\tb\n1\t2\n")),
             },
             Example {
-                description: "Outputs a TSV stream with column names pre-determined",
+                description: "Outputs a TSV stream with column names pre-determined.",
                 example: "[[foo bar baz]; [1 2 3]] | to tsv --columns [baz foo]",
                 result: Some(Value::test_string("baz\tfoo\n3\t1\n")),
             },

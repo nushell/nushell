@@ -47,7 +47,7 @@ impl Command for AttrSearchTerms {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Add search terms to a custom command",
+            description: "Add search terms to a custom command.",
             example: r###"# Double numbers
     @search-terms multiply times
     def double []: [number -> number] { $in * 2 }"###,

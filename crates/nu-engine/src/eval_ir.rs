@@ -45,6 +45,7 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
+        let finally_handler_base = stack.finally_run_handlers.get_base();
 
         // Allocate and initialize registers. I've found that it's not really worth trying to avoid
         // the heap allocation here by reusing buffers - our allocator is fast enough
@@ -64,6 +65,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 block_span: &block.span,
                 args_base,
                 error_handler_base,
+                finally_handler_base,
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -75,6 +77,7 @@ pub fn eval_ir_block<D: DebugContext>(
         );
 
         stack.error_handlers.leave_frame(error_handler_base);
+        stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
 
         D::leave_block(engine_state, block);
@@ -103,6 +106,8 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
+    /// Base index on the finally handler stack to reset to after a call
+    finally_handler_base: usize,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -199,6 +204,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
+    let mut ret_val = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -224,20 +230,41 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
-            Err(
-                err @ (ShellError::Return { .. }
-                | ShellError::Continue { .. }
-                | ShellError::Break { .. }),
-            ) => {
-                // These block control related errors should be passed through
+            Ok(InstructionResult::Return(reg_id)) => {
+                // need to check if the return value is set by
+                // `Shell::Return` first. If so, we need to respect that value.
+                match ret_val {
+                    Some(err) => return Err(err),
+                    None => return Ok(ctx.take_reg(reg_id)),
+                }
+            }
+            Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
+            }
+            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    // need to run finally block before return.
+                    // and record the return value firstly.
+                    prepare_error_handler(ctx, always_run_handler, None);
+                    pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
+                } else {
+                    // These block control related errors should be passed through
+                    return Err(err);
+                }
             }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
+                } else if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
+                    pc = always_run_handler.handler_index;
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -598,8 +625,9 @@ fn eval_instruction<D: DebugContext>(
             #[cfg(feature = "os")]
             {
                 let mut original_exit = input.exit;
-                let result_exit_status_future =
-                    result.clone_exit_status_future().map(|f| (f, *span));
+                let result_exit_status_future = result
+                    .clone_exit_status_future()
+                    .map(|f| f.with_span(*span));
                 original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,
@@ -890,8 +918,26 @@ fn eval_instruction<D: DebugContext>(
             });
             Ok(Continue)
         }
+        Instruction::Finally { index } => {
+            ctx.stack.finally_run_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_register: None,
+            });
+            Ok(Continue)
+        }
+        Instruction::FinallyInto { index, dst } => {
+            ctx.stack.finally_run_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_register: Some(*dst),
+            });
+            Ok(Continue)
+        }
         Instruction::PopErrorHandler => {
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
+            Ok(Continue)
+        }
+        Instruction::PopFinallyRun => {
+            ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
@@ -912,11 +958,20 @@ fn load_literal(
     lit: &Literal,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(
-        dst,
-        PipelineExecutionData::from(PipelineData::value(value, None)),
-    );
+    // `Literal::Empty` represents "no pipeline input" and should produce
+    // `PipelineData::Empty`. This is distinct from `Literal::Nothing` which
+    // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
+    // Some commands (like `metadata`) distinguish between these when deciding
+    // whether positional args are allowed.
+    if matches!(lit, Literal::Empty) {
+        ctx.put_reg(dst, PipelineExecutionData::empty());
+    } else {
+        let value = literal_value(ctx, lit, span)?;
+        ctx.put_reg(
+            dst,
+            PipelineExecutionData::from(PipelineData::value(value, None)),
+        );
+    }
     Ok(InstructionResult::Continue)
 }
 
@@ -995,6 +1050,8 @@ fn literal_value(
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(path), span),
         Literal::Date(dt) => Value::date(**dt, span),
         Literal::Nothing => Value::nothing(span),
+        // Empty is handled specially in load_literal and should never reach here
+        Literal::Empty => Value::nothing(span),
     })
 }
 

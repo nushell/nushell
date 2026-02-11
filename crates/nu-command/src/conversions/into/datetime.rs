@@ -192,27 +192,27 @@ impl Command for IntoDatetime {
         };
         vec![
             Example {
-                description: "Convert timestamp string to datetime with timezone offset",
+                description: "Convert timestamp string to datetime with timezone offset.",
                 example: "'27.02.2021 1:55 pm +0000' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434100_000000000),
             },
             Example {
-                description: "Convert standard timestamp string to datetime with timezone offset",
+                description: "Convert standard timestamp string to datetime with timezone offset.",
                 example: "'2021-02-27T13:55:40.2246+00:00' | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_224600000),
             },
             Example {
                 description: "Convert non-standard timestamp string, with timezone offset, to \
-                              datetime using a custom format",
+                              datetime using a custom format.",
                 example: "'20210227_135540+0000' | into datetime --format '%Y%m%d_%H%M%S%z'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
                 description: "Convert non-standard timestamp string, without timezone offset, to \
-                              datetime with custom formatting",
+                              datetime with custom formatting.",
                 example: "'16.11.1984 8:00 am' | into datetime --format '%d.%m.%Y %H:%M %P'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: Some(Value::date(
@@ -231,32 +231,32 @@ impl Command for IntoDatetime {
             },
             Example {
                 description: "Convert nanosecond-precision unix timestamp to a datetime with \
-                              offset from UTC",
+                              offset from UTC.",
                 example: "1614434140123456789 | into datetime --offset -5",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_123456789),
             },
             Example {
-                description: "Convert standard (seconds) unix timestamp to a UTC datetime",
+                description: "Convert standard (seconds) unix timestamp to a UTC datetime.",
                 example: "1614434140 | into datetime -f '%s'",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
-                description: "Using a datetime as input simply returns the value",
+                description: "Using a datetime as input simply returns the value.",
                 example: "2021-02-27T13:55:40 | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1614434140_000000000),
             },
             Example {
-                description: "Using a record as input",
+                description: "Using a record as input.",
                 example: "{year: 2025, month: 3, day: 30, hour: 12, minute: 15, second: 59, \
                           timezone: '+02:00'} | into datetime",
                 #[allow(clippy::inconsistent_digit_grouping)]
                 result: example_result_1(1743329759_000000000),
             },
             Example {
-                description: "Convert list of timestamps to datetimes",
+                description: "Convert list of timestamps to datetimes.",
                 example: r#"["2023-03-30 10:10:07 -05:00", "2023-05-05 13:43:49 -05:00", "2023-06-05 01:37:42 -05:00"] | into datetime"#,
                 result: Some(Value::list(
                     vec![

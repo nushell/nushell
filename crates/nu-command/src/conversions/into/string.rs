@@ -68,7 +68,7 @@ impl Command for IntoString {
     }
 
     fn description(&self) -> &str {
-        "Convert value to string."
+        "Convert value to a string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -88,62 +88,62 @@ impl Command for IntoString {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "convert int to string and append three decimal places",
+                description: "convert int to string and append three decimal places.",
                 example: "5 | into string --decimals 3",
                 result: Some(Value::test_string("5.000")),
             },
             Example {
-                description: "convert float to string and round to nearest integer",
+                description: "convert float to string and round to nearest integer.",
                 example: "1.7 | into string --decimals 0",
                 result: Some(Value::test_string("2")),
             },
             Example {
-                description: "convert float to string",
+                description: "convert float to string.",
                 example: "1.7 | into string --decimals 1",
                 result: Some(Value::test_string("1.7")),
             },
             Example {
-                description: "convert float to string and limit to 2 decimals",
+                description: "convert float to string and limit to 2 decimals.",
                 example: "1.734 | into string --decimals 2",
                 result: Some(Value::test_string("1.73")),
             },
             Example {
-                description: "convert float to string",
+                description: "convert float to string.",
                 example: "4.3 | into string",
                 result: Some(Value::test_string("4.3")),
             },
             Example {
-                description: "convert string to string",
+                description: "convert string to string.",
                 example: "'1234' | into string",
                 result: Some(Value::test_string("1234")),
             },
             Example {
-                description: "convert boolean to string",
+                description: "convert boolean to string.",
                 example: "true | into string",
                 result: Some(Value::test_string("true")),
             },
             Example {
-                description: "convert date to string",
+                description: "convert date to string.",
                 example: "'2020-10-10 10:00:00 +02:00' | into datetime | into string",
                 result: Some(Value::test_string("Sat Oct 10 10:00:00 2020")),
             },
             Example {
-                description: "convert filepath to string",
+                description: "convert filepath to string.",
                 example: "ls Cargo.toml | get name | into string",
                 result: None,
             },
             Example {
-                description: "convert filesize to string",
+                description: "convert filesize to string.",
                 example: "1kB | into string",
                 result: Some(Value::test_string("1.0 kB")),
             },
             Example {
-                description: "convert duration to string",
+                description: "convert duration to string.",
                 example: "9day | into string",
                 result: Some(Value::test_string("1wk 2day")),
             },
             Example {
-                description: "convert cell-path to string",
+                description: "convert cell-path to string.",
                 example: "$.name | into string",
                 result: Some(Value::test_string("$.name")),
             },

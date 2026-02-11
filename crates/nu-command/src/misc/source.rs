@@ -111,12 +111,12 @@ impl Command for Source {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Runs foo.nu in the current context",
+                description: "Runs foo.nu in the current context.",
                 example: r#"source foo.nu"#,
                 result: None,
             },
             Example {
-                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`",
+                description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`.",
                 example: r#"source ./foo.nu; say-hi"#,
                 result: None,
             },

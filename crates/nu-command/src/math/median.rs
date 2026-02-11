@@ -58,12 +58,12 @@ impl Command for MathMedian {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute the median of a list of numbers",
+                description: "Compute the median of a list of numbers.",
                 example: "[3 8 9 12 12 15] | math median",
                 result: Some(Value::test_float(10.5)),
             },
             Example {
-                description: "Compute the medians of the columns of a table",
+                description: "Compute the medians of the columns of a table.",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: -3 b: 5}] | math median",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -71,7 +71,7 @@ impl Command for MathMedian {
                 })),
             },
             Example {
-                description: "Find the median of a list of file sizes",
+                description: "Find the median of a list of file sizes.",
                 example: "[5KB 10MB 200B] | math median",
                 result: Some(Value::test_filesize(5 * 1_000)),
             },
@@ -85,12 +85,6 @@ enum Pick {
 }
 
 pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellError> {
-    let take = if values.len().is_multiple_of(2) {
-        Pick::MedianAverage
-    } else {
-        Pick::Median
-    };
-
     let mut sorted = values
         .iter()
         .filter(|x| !x.as_float().is_ok_and(f64::is_nan))
@@ -98,9 +92,15 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
 
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal));
 
+    let take = if sorted.len().is_multiple_of(2) {
+        Pick::MedianAverage
+    } else {
+        Pick::Median
+    };
+
     match take {
         Pick::Median => {
-            let idx = (values.len() as f64 / 2.0).floor() as usize;
+            let idx = sorted.len() / 2;
             Ok(sorted
                 .get(idx)
                 .ok_or_else(|| ShellError::UnsupportedInput {
@@ -113,7 +113,7 @@ pub fn median(values: &[Value], span: Span, head: Span) -> Result<Value, ShellEr
                 .to_owned())
         }
         Pick::MedianAverage => {
-            let idx_end = values.len() / 2;
+            let idx_end = sorted.len() / 2;
             let idx_start = idx_end - 1;
 
             let left = sorted
@@ -152,5 +152,26 @@ mod test {
         use crate::test_examples;
 
         test_examples(MathMedian {})
+    }
+
+    #[test]
+    fn test_median_with_nan_values() {
+        // Test case: [NaN, NaN, 1.0, 2.0, 3.0, 4.0]
+        // values.len() = 6, sorted = [1.0, 2.0, 3.0, 4.0], sorted.len() = 4
+        // Correct median of [1.0, 2.0, 3.0, 4.0] is (2.0 + 3.0) / 2 = 2.5
+        // Bug: using values.len() would give idx_end = 3, returning avg(3.0, 4.0) = 3.5
+        // Fix: using sorted.len() gives idx_end = 2, returning avg(2.0, 3.0) = 2.5
+        let span = Span::test_data();
+        let values = vec![
+            Value::test_float(f64::NAN),
+            Value::test_float(f64::NAN),
+            Value::test_float(1.0),
+            Value::test_float(2.0),
+            Value::test_float(3.0),
+            Value::test_float(4.0),
+        ];
+
+        let result = median(&values, span, span).unwrap();
+        assert_eq!(result, Value::test_float(2.5));
     }
 }

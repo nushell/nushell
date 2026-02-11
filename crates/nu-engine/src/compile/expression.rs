@@ -4,7 +4,7 @@ use super::{
 };
 
 use nu_protocol::{
-    ENV_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
@@ -127,26 +127,58 @@ pub(crate) fn compile_expression(
             )
         }
         Expr::Var(var_id) => {
-            drop_input(builder)?;
-            builder.push(
-                Instruction::LoadVariable {
-                    dst: out_reg,
-                    var_id: *var_id,
-                }
-                .into_spanned(expr.span),
-            )?;
+            // Special case: $in should load from input register if available.
+            // When the input register is present, we store it as $in for user access.
+            if let Some(in_reg) = in_reg
+                && *var_id == IN_VARIABLE_ID
+            {
+                // Clone input to a temporary register so it can be stored and loaded
+                let cloned_reg = builder.clone_reg(in_reg, expr.span)?;
+                builder.push(
+                    Instruction::StoreVariable {
+                        var_id: IN_VARIABLE_ID,
+                        src: cloned_reg,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+                // Now load it into output register
+                builder.push(
+                    Instruction::LoadVariable {
+                        dst: out_reg,
+                        var_id: IN_VARIABLE_ID,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            } else {
+                drop_input(builder)?;
+                builder.push(
+                    Instruction::LoadVariable {
+                        dst: out_reg,
+                        var_id: *var_id,
+                    }
+                    .into_spanned(expr.span),
+                )?;
+            }
             Ok(())
         }
         Expr::VarDecl(_) => Err(unexpected("VarDecl")),
         Expr::Call(call) => {
             move_in_reg_to_out_reg(builder)?;
 
-            compile_call(working_set, builder, call, redirect_modes, out_reg)
+            compile_call(working_set, builder, call, redirect_modes, in_reg, out_reg)
         }
         Expr::ExternalCall(head, args) => {
             move_in_reg_to_out_reg(builder)?;
 
-            compile_external_call(working_set, builder, head, args, redirect_modes, out_reg)
+            compile_external_call(
+                working_set,
+                builder,
+                head,
+                args,
+                redirect_modes,
+                in_reg,
+                out_reg,
+            )
         }
         Expr::Operator(_) => Err(unexpected("Operator")),
         Expr::RowCondition(block_id) => lit(builder, Literal::RowCondition(*block_id)),
@@ -165,7 +197,10 @@ pub(crate) fn compile_expression(
         }
         Expr::BinaryOp(lhs, op, rhs) => {
             if let Expr::Operator(operator) = op.expr {
-                drop_input(builder)?;
+                // Don't drop input if the expression uses $in
+                if !expr.has_in_variable(working_set) {
+                    drop_input(builder)?;
+                }
                 compile_binary_op(
                     working_set,
                     builder,
@@ -173,6 +208,7 @@ pub(crate) fn compile_expression(
                     operator.into_spanned(op.span),
                     rhs,
                     expr.span,
+                    in_reg,
                     out_reg,
                 )
             } else {

@@ -17,7 +17,11 @@ impl Command for ExportConst {
         Signature::build("export const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
+            .required(
+                "const_name",
+                SyntaxShape::VarWithOptType,
+                "The constant name to create and export.",
+            )
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
@@ -47,7 +51,7 @@ impl Command for ExportConst {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Re-export a command from another module",
+            description: "Re-export a constant from another module.",
             example: r#"module spam { export const foo = 3; }
     module eggs { export use spam foo }
     use eggs foo

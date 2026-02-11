@@ -34,7 +34,7 @@ impl Command for ScopeExterns {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the known externals in the current scope",
+            description: "Show the known externals in the current scope.",
             example: "scope externs",
             result: None,
         }]

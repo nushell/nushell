@@ -446,7 +446,7 @@ mod tests {
     #[case::short_flag_name("command.nu", (15, 17), None, serde_json::json!([
         {
             "label": "-e",
-            "detail": "byte encode endian, available options: native(default), little, big",
+            "detail": "Byte encode endian, available options: native(default), little, big.",
             "textEdit": {
                 "newText": "-e ",
                 "range": { "start": { "character": 15, "line": 15 }, "end": { "character": 17, "line": 15 } }
@@ -459,7 +459,7 @@ mod tests {
     #[case::long_flag_name("command.nu", (15, 30), None, serde_json::json!([
         {
             "label": "--endian",
-            "detail": "byte encode endian, available options: native(default), little, big",
+            "detail": "Byte encode endian, available options: native(default), little, big.",
             "textEdit": {
                 "newText": "--endian ",
                 "range": { "start": { "character": 22, "line": 15 }, "end": { "character": 30, "line": 15 } }

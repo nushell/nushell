@@ -1,13 +1,12 @@
+use super::fields;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     HistoryFileFormat,
     shell_error::{self, io::IoError},
 };
-use reedline::{FileBackedHistory, History as ReedlineHistory, SearchDirection, SearchQuery};
 #[cfg(feature = "sqlite")]
-use reedline::{HistoryItem, SqliteBackedHistory};
-
-use super::fields;
+use reedline::SqliteBackedHistory;
+use reedline::{FileBackedHistory, History as ReedlineHistory, SearchDirection, SearchQuery};
 
 #[derive(Clone)]
 pub struct History;
@@ -28,10 +27,35 @@ impl Command for History {
             .switch("clear", "Clears out the history entries", Some('c'))
             .switch(
                 "long",
-                "Show long listing of entries for sqlite history",
+                "Show long format with timestamps and additional details",
                 Some('l'),
             )
             .category(Category::History)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                example: "history | length",
+                description: "Get current history length",
+                result: None,
+            },
+            Example {
+                example: "history | last 5",
+                description: "Show last 5 commands you have ran",
+                result: None,
+            },
+            Example {
+                example: "history --long | last 5",
+                description: "Show last 5 commands with full details",
+                result: None,
+            },
+            Example {
+                example: "history | where command =~ cargo | get command",
+                description: "Search all the commands from history that contains 'cargo'",
+                result: None,
+            },
+        ]
     }
 
     fn run(
@@ -127,106 +151,26 @@ impl Command for History {
                 });
             }
             #[cfg(feature = "sqlite")]
-            HistoryFileFormat::Sqlite => Ok(history_reader
-                .and_then(|h| {
-                    h.search(SearchQuery::everything(SearchDirection::Forward, None))
-                        .ok()
-                })
-                .map(move |entries| {
-                    entries.into_iter().enumerate().map(move |(idx, entry)| {
-                        create_sqlite_history_record(idx, entry, long, head)
-                    })
-                })
-                .ok_or(IoError::new(
-                    shell_error::io::ErrorKind::FileNotFound,
-                    head,
+            HistoryFileFormat::Sqlite => {
+                // Return a lazy SQLiteQueryBuilder for the history table
+                let mut table = nu_command::SQLiteQueryBuilder::new(
                     history_path,
-                ))?
-                .into_pipeline_data(head, signals)),
+                    "history".to_string(),
+                    signals,
+                );
+                if long {
+                    table = table.with_select("id as item_id, start_timestamp, command_line as command, session_id, hostname, cwd, duration_ms as duration, exit_status, rowid as idx".to_string());
+                } else {
+                    table = table.with_select(
+                        "start_timestamp, command_line as command, cwd, duration_ms as duration, exit_status"
+                            .to_string(),
+                    );
+                }
+                Ok(PipelineData::Value(
+                    Value::custom(Box::new(table), head),
+                    None,
+                ))
+            }
         }
-    }
-
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                example: "history | length",
-                description: "Get current history length",
-                result: None,
-            },
-            Example {
-                example: "history | last 5",
-                description: "Show last 5 commands you have ran",
-                result: None,
-            },
-            Example {
-                example: "history | where command =~ cargo | get command",
-                description: "Search all the commands from history that contains 'cargo'",
-                result: None,
-            },
-        ]
-    }
-}
-
-#[cfg(feature = "sqlite")]
-fn create_sqlite_history_record(idx: usize, entry: HistoryItem, long: bool, head: Span) -> Value {
-    //1. Format all the values
-    //2. Create a record of either short or long columns and values
-
-    let item_id_value = Value::int(
-        entry
-            .id
-            .and_then(|id| id.to_string().parse::<i64>().ok())
-            .unwrap_or_default(),
-        head,
-    );
-    let start_timestamp_value = Value::date(
-        entry.start_timestamp.unwrap_or_default().fixed_offset(),
-        head,
-    );
-    let command_value = Value::string(entry.command_line, head);
-    let session_id_value = Value::int(
-        entry
-            .session_id
-            .and_then(|id| id.to_string().parse::<i64>().ok())
-            .unwrap_or_default(),
-        head,
-    );
-    let hostname_value = Value::string(entry.hostname.unwrap_or_default(), head);
-    let cwd_value = Value::string(entry.cwd.unwrap_or_default(), head);
-    let duration_value = Value::duration(
-        entry
-            .duration
-            .and_then(|d| d.as_nanos().try_into().ok())
-            .unwrap_or(0),
-        head,
-    );
-    let exit_status_value = Value::int(entry.exit_status.unwrap_or(0), head);
-    let index_value = Value::int(idx as i64, head);
-    if long {
-        Value::record(
-            record! {
-                "item_id" => item_id_value,
-                fields::START_TIMESTAMP => start_timestamp_value,
-                fields::COMMAND_LINE => command_value,
-                fields::SESSION_ID => session_id_value,
-                fields::HOSTNAME => hostname_value,
-                fields::CWD => cwd_value,
-                fields::DURATION => duration_value,
-                fields::EXIT_STATUS => exit_status_value,
-                "idx" => index_value,
-            },
-            head,
-        )
-    } else {
-        Value::record(
-            record! {
-                fields::START_TIMESTAMP => start_timestamp_value,
-                fields::COMMAND_LINE => command_value,
-                fields::CWD => cwd_value,
-                fields::DURATION => duration_value,
-                fields::EXIT_STATUS => exit_status_value,
-            },
-            head,
-        )
     }
 }

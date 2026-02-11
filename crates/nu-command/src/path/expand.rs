@@ -96,17 +96,17 @@ impl Command for PathExpand {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Expand an absolute path",
+                description: "Expand an absolute path.",
                 example: r"'C:\Users\joe\foo\..\bar' | path expand",
                 result: Some(Value::test_string(r"C:\Users\joe\bar")),
             },
             Example {
-                description: "Expand a relative path",
+                description: "Expand a relative path.",
                 example: r"'foo\..\bar' | path expand",
                 result: None,
             },
             Example {
-                description: "Expand a list of paths",
+                description: "Expand a list of paths.",
                 example: r"[ C:\foo\..\bar, C:\foo\..\baz ] | path expand",
                 result: Some(Value::test_list(vec![
                     Value::test_string(r"C:\bar"),
@@ -120,17 +120,17 @@ impl Command for PathExpand {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Expand an absolute path",
+                description: "Expand an absolute path.",
                 example: "'/home/joe/foo/../bar' | path expand",
                 result: Some(Value::test_string("/home/joe/bar")),
             },
             Example {
-                description: "Expand a relative path",
+                description: "Expand a relative path.",
                 example: "'foo/../bar' | path expand",
                 result: None,
             },
             Example {
-                description: "Expand a list of paths",
+                description: "Expand a list of paths.",
                 example: "[ /foo/../bar, /foo/../baz ] | path expand",
                 result: Some(Value::test_list(vec![
                     Value::test_string("/bar"),

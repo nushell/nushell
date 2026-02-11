@@ -84,7 +84,7 @@ impl Command for UniqBy {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Get rows from table filtered by column uniqueness ",
+            description: "Get rows from table filtered by column uniqueness.",
             example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {

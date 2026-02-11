@@ -1,3 +1,5 @@
+#[cfg(feature = "sqlite")]
+use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
@@ -20,6 +22,11 @@ impl Command for Select {
                 (Type::record(), Type::record()),
                 (Type::table(), Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::Any),
+                #[cfg(feature = "sqlite")]
+                (
+                    Type::Custom("SQLiteQueryBuilder".into()),
+                    Type::Custom("SQLiteQueryBuilder".into()),
+                ),
             ])
             .switch(
                 "optional",
@@ -56,7 +63,7 @@ produce a table, a list will produce a list, and a record will produce a record.
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["pick", "choose", "get"]
+        vec!["pick", "choose", "get", "retain"]
     }
 
     fn run(
@@ -149,14 +156,14 @@ produce a table, a list will produce a list, and a record will produce a record.
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Select a column in a table",
+                description: "Select a column in a table.",
                 example: "[{a: a b: b}] | select a",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_string("a")
                 })])),
             },
             Example {
-                description: "Select a column even if some rows are missing that column",
+                description: "Select a column even if some rows are missing that column.",
                 example: "[{a: a0 b: b0} {b: b1}] | select -o a",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -168,24 +175,24 @@ produce a table, a list will produce a list, and a record will produce a record.
                 ])),
             },
             Example {
-                description: "Select a field in a record",
+                description: "Select a field in a record.",
                 example: "{a: a b: b} | select a",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_string("a")
                 })),
             },
             Example {
-                description: "Select just the `name` column",
+                description: "Select just the `name` column.",
                 example: "ls | select name",
                 result: None,
             },
             Example {
-                description: "Select the first four rows (this is the same as `first 4`)",
+                description: "Select the first four rows (this is the same as `first 4`).",
                 example: "ls | select 0 1 2 3",
                 result: None,
             },
             Example {
-                description: "Select multiple columns",
+                description: "Select multiple columns.",
                 example: "[[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select name type",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -199,7 +206,7 @@ produce a table, a list will produce a list, and a record will produce a record.
                 ])),
             },
             Example {
-                description: "Select multiple columns by spreading a list",
+                description: "Select multiple columns by spreading a list.",
                 example: r#"let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -267,6 +274,38 @@ fn select(
     } else {
         input
     };
+
+    #[cfg(feature = "sqlite")]
+    // Pushdown optimization: handle 'select' on SQLiteQueryBuilder for lazy column selection
+    if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
+        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+    {
+        // Check if all columns are simple string paths
+        let mut select_columns = Vec::new();
+        let mut all_simple = true;
+        for col in &columns {
+            if col.members.len() == 1 {
+                if let PathMember::String { val, .. } = &col.members[0] {
+                    select_columns.push(val.clone());
+                } else {
+                    all_simple = false;
+                    break;
+                }
+            } else {
+                all_simple = false;
+                break;
+            }
+        }
+        if all_simple {
+            let select_str = if select_columns.is_empty() {
+                "*".to_string()
+            } else {
+                select_columns.join(", ")
+            };
+            let new_table = table.clone().with_select(select_str);
+            return Ok(Value::custom(Box::new(new_table), call_span).into_pipeline_data());
+        }
+    }
 
     match input {
         PipelineData::Value(v, metadata, ..) => {

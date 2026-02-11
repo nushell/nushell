@@ -22,14 +22,14 @@ impl Command for FromNuon {
         vec![
             Example {
                 example: "'{ a:1 }' | from nuon",
-                description: "Converts nuon formatted string to table",
+                description: "Converts nuon formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: "'{ a:1, b: [1, 2] }' | from nuon",
-                description: "Converts nuon formatted string to table",
+                description: "Converts nuon formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
@@ -37,7 +37,7 @@ impl Command for FromNuon {
             },
             Example {
                 example: "'{a:1,b:[1,2]}' | from nuon",
-                description: "Converts raw nuon formatted string to table",
+                description: "Converts raw nuon formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),

@@ -31,27 +31,27 @@ impl Command for All {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Check if a list contains only true values",
+                description: "Check if a list contains only true values.",
                 example: "[false true true false] | all {}",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Check if each row's status is the string 'UP'",
+                description: "Check if each row's status is the string 'UP'.",
                 example: "[[status]; [UP] [UP]] | all {|el| $el.status == UP }",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check that each item is a string",
+                description: "Check that each item is a string.",
                 example: "[foo bar 2 baz] | all {|| ($in | describe) == 'string' }",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Check that all values are equal to twice their index",
+                description: "Check that all values are equal to twice their index.",
                 example: "[0 2 4 6] | enumerate | all {|i| $i.item == $i.index * 2 }",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check that all of the values are even, using a stored closure",
+                description: "Check that all of the values are even, using a stored closure.",
                 example: "let cond = {|el| ($el mod 2) == 0 }; [2 4 6 8] | all $cond",
                 result: Some(Value::test_bool(true)),
             },

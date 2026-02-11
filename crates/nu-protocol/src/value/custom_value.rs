@@ -155,4 +155,16 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     fn memory_size(&self) -> usize {
         std::mem::size_of_val(self)
     }
+
+    /// Returns `true` if this custom value should be iterable (like a list) when used with
+    /// commands like `each`, `where`, etc.
+    ///
+    /// When this returns `true`, the engine will call `to_base_value()` to convert the custom
+    /// value to a list before iteration. This is useful for lazy data structures like database
+    /// query builders that should behave like lists when iterated.
+    ///
+    /// The default is `false`.
+    fn is_iterable(&self) -> bool {
+        false
+    }
 }

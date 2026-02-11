@@ -48,6 +48,8 @@ pub struct Stack {
     pub arguments: ArgumentStack,
     /// Error handler stack for IR evaluation
     pub error_handlers: ErrorHandlerStack,
+    /// Finally handler stack for IR evaluation
+    pub finally_run_handlers: ErrorHandlerStack,
     pub recursion_count: u64,
     pub parent_stack: Option<Arc<Stack>>,
     /// Variables that have been deleted (this is used to hide values from parent stack lookups)
@@ -81,6 +83,7 @@ impl Stack {
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
+            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: 0,
             parent_stack: None,
             parent_deletions: vec![],
@@ -102,6 +105,7 @@ impl Stack {
             active_overlays: parent.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
+            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: parent.recursion_count,
             vars: vec![],
             parent_deletions: vec![],
@@ -320,6 +324,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
+            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -354,6 +359,7 @@ impl Stack {
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
+            finally_run_handlers: ErrorHandlerStack::new(),
             recursion_count: self.recursion_count,
             parent_stack: None,
             parent_deletions: vec![],
@@ -697,6 +703,20 @@ impl Stack {
     pub fn collect_value(mut self) -> Self {
         self.out_dest.pipe_stdout = Some(OutDest::Value);
         self.out_dest.pipe_stderr = None;
+        self
+    }
+
+    /// Mark both stdout and stderr for the last command as [`OutDest::Value`].
+    ///
+    /// This captures all output (stdout and stderr) instead of letting it inherit
+    /// to the process's terminal. Useful for programmatic contexts like MCP servers
+    /// where all output must be captured and returned.
+    ///
+    /// This will irreversibly alter the output redirections, and so it only makes sense to use this on an owned `Stack`
+    /// (which is why this function does not take `&mut self`).
+    pub fn capture_all(mut self) -> Self {
+        self.out_dest.pipe_stdout = Some(OutDest::Value);
+        self.out_dest.pipe_stderr = Some(OutDest::Value);
         self
     }
 

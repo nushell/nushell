@@ -29,7 +29,7 @@ chrono = { workspace = true, features = [
 ], default-features = false }
 chrono-tz = "0.10"
 fancy-regex = { workspace = true }
-indexmap = { version = "2.11" }
+indexmap = { version = "2.13" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "=0.53.0" }
@@ -42,15 +42,15 @@ polars-lazy = { version = "=0.52.0" }
 polars-compute = { version = "=0.52.0" }
 planus = { version = "=1.1.1" } # Temporarily here to convince cargo not to upgrade planus to 1.2.0
 typetag = "0.2"
-env_logger = "0.11.3"
+env_logger = "0.11.8"
 log.workspace = true
-uuid = { version = "1.19", features = ["v4", "serde"] }
+uuid = { version = "1.20", features = ["v4", "serde"] }
 
 # Do to a compile error with polars, this included to force the raw dependency
 hashbrown = { version = "0.16", features = ["rayon", "serde"] }
 
 # Cloud support
-aws-config = { version = "1.5", features = ["sso"] }
+aws-config = { version = "1.8", features = ["sso"] }
 aws-credential-types = "1.2"
 tokio = { version = "1.49", features = ["full"] }
 object_store = { version = "0.12", features = ["aws", "azure", "gcp"], default-features = false }

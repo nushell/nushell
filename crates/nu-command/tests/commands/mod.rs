@@ -119,6 +119,8 @@ mod try_;
 mod ucp;
 #[cfg(unix)]
 mod ulimit;
+#[cfg(unix)]
+mod umask_;
 mod unlet;
 mod window;
 

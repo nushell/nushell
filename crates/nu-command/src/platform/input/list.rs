@@ -321,7 +321,7 @@ impl Command for InputList {
     }
 
     fn description(&self) -> &str {
-        "Interactive list selection with fuzzy search support."
+        "Display an interactive list for user selection."
     }
 
     fn extra_description(&self) -> &str {
@@ -631,32 +631,32 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return a single value from a list",
+                description: "Return a single value from a list.",
                 example: r#"[1 2 3 4 5] | input list 'Rate it'"#,
                 result: None,
             },
             Example {
-                description: "Return multiple values from a list",
+                description: "Return multiple values from a list.",
                 example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --multi 'Add fruits to the basket'"#,
                 result: None,
             },
             Example {
-                description: "Return a single record from a table with fuzzy search",
+                description: "Return a single record from a table with fuzzy search.",
                 example: r#"ls | input list --fuzzy 'Select the target'"#,
                 result: None,
             },
             Example {
-                description: "Choose an item from a range",
+                description: "Choose an item from a range.",
                 example: r#"1..10 | input list"#,
                 result: None,
             },
             Example {
-                description: "Return the index of a selected item",
+                description: "Return the index of a selected item.",
                 example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --index"#,
                 result: None,
             },
             Example {
-                description: "Choose an item from a table using a column as display value",
+                description: "Choose an item from a table using a column as display value.",
                 example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
                 result: None,
             },

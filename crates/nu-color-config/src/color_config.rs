@@ -33,7 +33,9 @@ pub fn get_color_map(colors: &HashMap<String, Value>) -> HashMap<String, Style> 
 fn parse_map_entry(hm: &mut HashMap<String, Style>, key: &str, value: &Value) {
     let value = match value {
         Value::String { val, .. } => Some(lookup_ansi_color_style(val)),
-        Value::Record { val, .. } => get_style_from_value(val).map(parse_nustyle),
+        Value::Record { val, .. } => {
+            get_style_from_value(val).and_then(|ns| parse_nustyle(ns).ok())
+        }
         _ => None,
     };
     if let Some(value) = value {
@@ -82,7 +84,7 @@ fn color_string_to_nustyle(color_string: &str) -> Style {
         Err(_) => return Style::default(),
     };
 
-    parse_nustyle(nu_style)
+    parse_nustyle(nu_style).unwrap_or_else(|_| Style::default())
 }
 
 #[cfg(test)]

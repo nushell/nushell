@@ -597,6 +597,14 @@ fn external_commands() {
     #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
+
+    #[cfg(windows)]
+    {
+        let completion_str = "scri";
+        let suggestions = completer.complete(completion_str, completion_str.len());
+        let expected: Vec<_> = vec!["script.ps1"];
+        match_suggestions(&expected, &suggestions);
+    }
 }
 
 /// Disable external commands except for those start with `^`
@@ -2326,7 +2334,7 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(20, suggestions.len());
+    assert_eq!(21, suggestions.len());
 
     let expected: Vec<_> = vec![
         "cache-dir",
@@ -2341,6 +2349,7 @@ fn variables_completions() {
         "is-interactive",
         "is-login",
         "is-lsp",
+        "is-mcp",
         "loginshell-path",
         "os-info",
         "pid",

@@ -35,13 +35,13 @@ impl Command for BytesRemove {
                 SyntaxShape::CellPath,
                 "For a data structure input, remove bytes from data at the given cell paths.",
             )
-            .switch("end", "remove from end of binary", Some('e'))
-            .switch("all", "remove occurrences of finding binary", Some('a'))
+            .switch("end", "Remove from end of binary.", Some('e'))
+            .switch("all", "Remove occurrences of finding binary.", Some('a'))
             .category(Category::Bytes)
     }
 
     fn description(&self) -> &str {
-        "Remove bytes."
+        "Remove specified bytes from the input."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -83,31 +83,31 @@ impl Command for BytesRemove {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Remove contents",
+                description: "Remove contents.",
                 example: "0x[10 AA FF AA FF] | bytes remove 0x[10 AA]",
                 result: Some(Value::test_binary(vec![0xFF, 0xAA, 0xFF])),
             },
             Example {
-                description: "Remove all occurrences of find binary in record field",
+                description: "Remove all occurrences of find binary in record field.",
                 example: "{ data: 0x[10 AA 10 BB 10] } | bytes remove --all 0x[10] data",
                 result: Some(Value::test_record(record! {
                     "data" => Value::test_binary(vec![0xAA, 0xBB])
                 })),
             },
             Example {
-                description: "Remove occurrences of find binary from end",
+                description: "Remove occurrences of find binary from end.",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[10]",
                 result: Some(Value::test_binary(vec![0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA])),
             },
             Example {
-                description: "Remove find binary from end not found",
+                description: "Remove find binary from end not found.",
                 example: "0x[10 AA 10 BB CC AA 10] | bytes remove --end 0x[11]",
                 result: Some(Value::test_binary(vec![
                     0x10, 0xAA, 0x10, 0xBB, 0xCC, 0xAA, 0x10,
                 ])),
             },
             Example {
-                description: "Remove all occurrences of find binary in table",
+                description: "Remove all occurrences of find binary in table.",
                 example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes remove 0x[11] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary ( vec![0x12, 0x13],),

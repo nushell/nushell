@@ -156,7 +156,7 @@ impl Command for ExportUse {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Re-export a command from another module",
+            description: "Re-export a command from another module.",
             example: r#"module spam { export def foo [] { "foo" } }
     module eggs { export use spam foo }
     use eggs foo

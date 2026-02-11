@@ -18,7 +18,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.110.1", features = ["plugi
 indexmap = { workspace = true }
 eml-parser = "0.1"
 ical = "0.11"
-rust-ini = "0.21.0"
+rust-ini = "0.21.3"
 plist = "1.8"
 chrono = "0.4"
 

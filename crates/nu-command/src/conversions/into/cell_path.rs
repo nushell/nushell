@@ -56,21 +56,21 @@ impl Command for IntoCellPath {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert integer into cell path",
+                description: "Convert integer into cell path.",
                 example: "5 | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![PathMember::test_int(5, false)],
                 })),
             },
             Example {
-                description: "Convert cell path into cell path",
+                description: "Convert cell path into cell path.",
                 example: "5 | into cell-path | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![PathMember::test_int(5, false)],
                 })),
             },
             Example {
-                description: "Convert string into cell path",
+                description: "Convert string into cell path.",
                 example: "'some.path' | split row '.' | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
@@ -80,7 +80,7 @@ impl Command for IntoCellPath {
                 })),
             },
             Example {
-                description: "Convert list into cell path",
+                description: "Convert list into cell path.",
                 example: "[5 c 7 h] | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![
@@ -92,7 +92,7 @@ impl Command for IntoCellPath {
                 })),
             },
             Example {
-                description: "Convert table into cell path",
+                description: "Convert table into cell path.",
                 example: "[[value, optional, insensitive]; [5 true false] [c false false] [d false true]] | into cell-path",
                 result: Some(Value::test_cell_path(CellPath {
                     members: vec![

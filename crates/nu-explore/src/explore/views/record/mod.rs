@@ -586,6 +586,8 @@ fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
     }
 
     view.layer_stack.push(next_layer);
+    view.auto_tail = false;
+    view.previous_row_count = view.get_top_layer().record_values.len();
 }
 
 fn estimate_page_size(area: Rect, show_head: bool) -> u16 {

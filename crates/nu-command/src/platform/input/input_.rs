@@ -2,7 +2,9 @@ use crate::platform::input::legacy_input::LegacyInput;
 use crate::platform::input::reedline_prompt::ReedlinePrompt;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::{self, io::IoError};
-use reedline::{FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal};
+use reedline::{
+    EditCommand, FileBackedHistory, HISTORY_SIZE, History, HistoryItem, Reedline, Signal,
+};
 
 #[derive(Clone)]
 pub struct Input;
@@ -15,7 +17,7 @@ impl Command for Input {
     }
 
     fn description(&self) -> &str {
-        "Get input from the user."
+        "Get input from the user via the terminal."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -64,7 +66,7 @@ impl Command for Input {
                 "The maximum number of entries to keep in the history, defaults to $env.config.history.max_size. Implies `--reedline`.",
                 None,
             )
-            .switch("suppress-output", "don't print keystroke values", Some('s'))
+            .switch("suppress-output", "Don't print keystroke values.", Some('s'))
             .category(Category::Platform)
     }
 
@@ -172,6 +174,12 @@ impl Command for Input {
             None => line_editor,
         };
 
+        // In reedline mode, treat `--default` as the initial editable buffer contents.
+        // This keeps options minimal while supporting the "prefilled but editable" UX.
+        if let Some(val) = default_val.as_ref() {
+            prefill_reedline_buffer(&mut line_editor, val);
+        }
+
         let mut buf = String::new();
 
         match line_editor.read_line(&prompt) {
@@ -204,32 +212,32 @@ impl Command for Input {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get input from the user, and assign to a variable",
+                description: "Get input from the user, and assign to a variable.",
                 example: "let user_input = (input)",
                 result: None,
             },
             Example {
-                description: "Get two characters from the user, and assign to a variable",
+                description: "Get two characters from the user, and assign to a variable.",
                 example: "let user_input = (input --numchar 2)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with default value, and assign to a variable",
+                description: "Get input from the user with default value, and assign to a variable.",
                 example: "let user_input = (input --default 10)",
                 result: None,
             },
             Example {
-                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable",
+                description: "Get multiple lines of input from the user (newlines can be entered using `Alt` + `Enter` or `Ctrl` + `Enter`), and assign to a variable.",
                 example: "let multiline_input = (input --reedline)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with history, and assign to a variable",
+                description: "Get input from the user with history, and assign to a variable.",
                 example: "let user_input = ([past,command,entries] | input --reedline)",
                 result: None,
             },
             Example {
-                description: "Get input from the user with history backed by a file, and assign to a variable",
+                description: "Get input from the user with history backed by a file, and assign to a variable.",
                 example: "let user_input = (input --reedline --history-file ./history.txt)",
                 result: None,
             },
@@ -237,13 +245,45 @@ impl Command for Input {
     }
 }
 
+fn prefill_reedline_buffer(line_editor: &mut Reedline, default_val: &str) {
+    if default_val.is_empty() {
+        return;
+    }
+
+    // Start with a clean buffer. This also ensures idempotency if this function is ever called
+    // more than once.
+    line_editor.run_edit_commands(&[EditCommand::Clear]);
+    line_editor.run_edit_commands(&[EditCommand::InsertString(default_val.to_string())]);
+    // Keep cursor at end (insertion point is naturally advanced by InsertString).
+}
+
 #[cfg(test)]
 mod tests {
     use super::Input;
+    use super::prefill_reedline_buffer;
+    use reedline::Reedline;
 
     #[test]
     fn examples_work_as_expected() {
         use crate::test_examples;
         test_examples(Input {})
+    }
+
+    #[test]
+    fn reedline_default_prefills_editable_buffer() {
+        let mut line_editor = Reedline::create();
+        prefill_reedline_buffer(&mut line_editor, "foobar.txt");
+
+        assert_eq!(line_editor.current_buffer_contents(), "foobar.txt");
+        assert_eq!(line_editor.current_insertion_point(), "foobar.txt".len());
+    }
+
+    #[test]
+    fn reedline_default_empty_does_not_prefill() {
+        let mut line_editor = Reedline::create();
+        prefill_reedline_buffer(&mut line_editor, "");
+
+        assert_eq!(line_editor.current_buffer_contents(), "");
+        assert_eq!(line_editor.current_insertion_point(), 0);
     }
 }

@@ -48,12 +48,12 @@ impl Command for Tutor {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Begin the tutorial",
+                description: "Begin the tutorial.",
                 example: "tutor begin",
                 result: None,
             },
             Example {
-                description: "Search a tutorial by phrase",
+                description: "Search a tutorial by phrase.",
                 example: "tutor --find \"$in\"",
                 result: None,
             },

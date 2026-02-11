@@ -1,8 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::NuGlob;
 use uu_mkdir::mkdir;
-#[cfg(not(windows))]
-use uucore::mode;
 use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
@@ -11,12 +9,12 @@ pub struct UMkdir;
 const IS_RECURSIVE: bool = true;
 const DEFAULT_MODE: u32 = 0o777;
 
-#[cfg(not(windows))]
+#[cfg(target_family = "unix")]
 fn get_mode() -> u32 {
-    !mode::get_umask() & DEFAULT_MODE
+    !nu_system::get_umask() & DEFAULT_MODE
 }
 
-#[cfg(windows)]
+#[cfg(not(target_family = "unix"))]
 fn get_mode() -> u32 {
     DEFAULT_MODE
 }
@@ -122,12 +120,12 @@ impl Command for UMkdir {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Make a directory named foo",
+                description: "Make a directory named foo.",
                 example: "mkdir foo",
                 result: None,
             },
             Example {
-                description: "Make multiple directories and show the paths created",
+                description: "Make multiple directories and show the paths created.",
                 example: "mkdir -v foo/bar foo2",
                 result: None,
             },

@@ -103,7 +103,7 @@ impl Command for OverlayHide {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Keep a custom command after hiding the overlay",
+                description: "Keep a custom command after hiding the overlay.",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     def bar [] { "bar" }
@@ -113,21 +113,21 @@ impl Command for OverlayHide {
                 result: None,
             },
             Example {
-                description: "Hide an overlay created from a file",
+                description: "Hide an overlay created from a file.",
                 example: r#"'export alias f = "foo"' | save spam.nu
     overlay use spam.nu
     overlay hide spam"#,
                 result: None,
             },
             Example {
-                description: "Hide the last activated overlay",
+                description: "Hide the last activated overlay.",
                 example: r#"module spam { export-env { $env.FOO = "foo" } }
     overlay use spam
     overlay hide"#,
                 result: None,
             },
             Example {
-                description: "Keep the current working directory when removing an overlay",
+                description: "Keep the current working directory when removing an overlay.",
                 example: r#"overlay new spam
     cd some-dir
     overlay hide --keep-env [ PWD ] spam"#,

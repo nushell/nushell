@@ -34,7 +34,7 @@ This command never blocks.
                 SyntaxShape::Int,
                 "The id of the job to send the message to.",
             )
-            .named("tag", SyntaxShape::Int, "A tag for the message", None)
+            .named("tag", SyntaxShape::Int, "A tag for the message.", None)
             .input_output_types(vec![(Type::Any, Type::Nothing)])
             .allow_variants_without_examples(true)
     }
@@ -104,12 +104,12 @@ This command never blocks.
         vec![
             Example {
                 example: "let id = job spawn { job recv | save sent.txt }; 'hi' | job send $id",
-                description: "Send a message from the main thread to a newly-spawned job",
+                description: "Send a message from the main thread to a newly-spawned job.",
                 result: None,
             },
             Example {
                 example: "job spawn { sleep 1sec; 'hi' | job send 0 }; job recv",
-                description: "Send a message from a newly-spawned job to the main thread (which always has an ID of 0)",
+                description: "Send a message from a newly-spawned job to the main thread (which always has an ID of 0).",
                 result: None,
             },
         ]

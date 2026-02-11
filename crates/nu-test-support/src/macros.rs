@@ -226,7 +226,6 @@ macro_rules! nu_with_plugins {
 
 use crate::{NATIVE_PATH_ENV_VAR, Outcome};
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
-use nu_utils::escape_quote_string;
 use std::{
     ffi::OsStr,
     process::{Command, Stdio},
@@ -352,17 +351,14 @@ where
 
     crate::commands::ensure_plugins_built();
 
-    let plugin_paths_quoted: Vec<String> = plugins
+    let plugin_paths: Vec<std::path::PathBuf> = plugins
         .iter()
         .map(|plugin_name| {
             let plugin = with_exe(plugin_name);
-            let plugin_path = nu_path::canonicalize_with(&plugin, &test_bins)
-                .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin));
-            let plugin_path = plugin_path.to_string_lossy();
-            escape_quote_string(&plugin_path)
+            nu_path::canonicalize_with(&plugin, &test_bins)
+                .unwrap_or_else(|_| panic!("failed to canonicalize plugin {} path", &plugin))
         })
         .collect();
-    let plugins_arg = format!("[{}]", plugin_paths_quoted.join(","));
 
     let target_cwd = crate::fs::in_directory(&cwd);
     // In plugin testing, we need to use installed nushell to drive
@@ -372,8 +368,8 @@ where
         executable_path = crate::fs::installed_nu_path();
     }
 
-    let process = match setup_command(&executable_path, &target_cwd)
-        .envs(envs)
+    let mut cmd = setup_command(&executable_path, &target_cwd);
+    cmd.envs(envs)
         .arg("--commands")
         .arg(command)
         // Use plain errors to help make error text matching more consistent
@@ -383,13 +379,17 @@ where
         .arg("--env-config")
         .arg(temp_env_config_file)
         .arg("--plugin-config")
-        .arg(temp_plugin_file)
-        .arg("--plugins")
-        .arg(plugins_arg)
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
+        .arg(temp_plugin_file);
+
+    // Add each plugin path as a separate argument after --plugins
+    if !plugin_paths.is_empty() {
+        cmd.arg("--plugins");
+        for path in &plugin_paths {
+            cmd.arg(path);
+        }
+    }
+
+    let process = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(child) => child,
         Err(why) => panic!("Can't run test {why}"),
     };
@@ -446,6 +446,17 @@ fn setup_command(executable_path: &AbsolutePath, target_cwd: &AbsolutePath) -> C
                 || n.starts_with("RUSTUP_")
         })
         .collect();
+
+    #[cfg(windows)]
+    let mut envs = envs;
+
+    #[cfg(windows)]
+    if let Some(pathext) = envs.get_mut("PATHEXT")
+        && !pathext.to_uppercase().contains(".PS1")
+    {
+        pathext.push_str(";.PS1");
+    }
+
     command.envs(envs);
 
     command
