@@ -56,7 +56,7 @@ impl Command for HttpHead {
                 "allow insecure server connections when using SSL",
                 Some('k'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -74,7 +74,7 @@ impl Command for HttpHead {
     }
 
     fn description(&self) -> &str {
-        "Get the headers from a URL."
+        "Get the HTTP headers from a URL using HEAD method."
     }
 
     fn extra_description(&self) -> &str {
@@ -98,22 +98,22 @@ impl Command for HttpHead {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get headers from example.com",
+                description: "Get headers from example.com.",
                 example: "http head https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with username and password",
+                description: "Get headers from example.com, with username and password.",
                 example: "http head --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header using a record",
+                description: "Get headers from example.com, with custom header using a record.",
                 example: "http head --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header using a list",
+                description: "Get headers from example.com, with custom header using a list.",
                 example: "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },

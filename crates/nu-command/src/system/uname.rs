@@ -91,7 +91,7 @@ impl Command for UName {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Print all information",
+            description: "Print all information.",
             example: "uname",
             result: None,
         }]

@@ -32,7 +32,7 @@ impl Command for SysUsers {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system users",
+            description: "Show info about the system users.",
             example: "sys users",
             result: None,
         }]

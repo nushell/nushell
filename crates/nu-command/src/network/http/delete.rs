@@ -38,7 +38,7 @@ impl Command for HttpDelete {
                 "the password when authenticating",
                 Some('p'),
             )
-            .named("data", SyntaxShape::Any, "the content to post", Some('d'))
+            .named("data", SyntaxShape::Any, "The content to post.", Some('d'))
             .named(
                 "content-type",
                 SyntaxShape::Any,
@@ -77,7 +77,7 @@ impl Command for HttpDelete {
                 "do not fail if the server returns an error code",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -95,7 +95,7 @@ impl Command for HttpDelete {
     }
 
     fn description(&self) -> &str {
-        "Delete the specified resource."
+        "Delete the specified resource using HTTP DELETE method."
     }
 
     fn extra_description(&self) -> &str {
@@ -119,37 +119,37 @@ impl Command for HttpDelete {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "http delete from example.com",
+                description: "HTTP delete from example.com.",
                 example: "http delete https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with username and password",
+                description: "HTTP delete from example.com, with username and password.",
                 example: "http delete --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with custom header using a record",
+                description: "HTTP delete from example.com, with custom header using a record.",
                 example: "http delete --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with custom header using a list",
+                description: "HTTP delete from example.com, with custom header using a list.",
                 example: "http delete --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with body",
+                description: "HTTP delete from example.com, with body.",
                 example: "http delete --data 'body' https://www.example.com",
                 result: None,
             },
             Example {
-                description: "http delete from example.com, with JSON body",
+                description: "HTTP delete from example.com, with JSON body.",
                 example: "http delete --content-type application/json --data { field: value } https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Perform an HTTP delete with JSON content from a pipeline to example.com",
+                description: "Perform an HTTP delete with JSON content from a pipeline to example.com.",
                 example: "open foo.json | http delete https://www.example.com",
                 result: None,
             },

@@ -32,7 +32,7 @@ impl Command for SysMem {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system memory",
+            description: "Show info about the system memory.",
             example: "sys mem",
             result: None,
         }]
