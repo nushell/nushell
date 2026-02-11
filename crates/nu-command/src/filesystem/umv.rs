@@ -64,7 +64,7 @@ impl Command for UMv {
             .switch("interactive", "Prompt before overwriting.", Some('i'))
             .switch(
                 "update",
-                "move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                "Move and overwrite only when the SOURCE file is newer than the destination file or when the destination file is missing.",
                 Some('u')
             )
             .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
