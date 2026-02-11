@@ -55,7 +55,7 @@ impl Command for UCp {
             .named(
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "preserve only the specified attributes (empty list means no attributes preserved)
+                "Preserve only the specified attributes (empty list means no attributes preserved)
                     if not specified only mode is preserved
                     possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
                 None
