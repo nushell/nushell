@@ -195,7 +195,8 @@ impl BlockBuilder {
                         | Literal::RawString(_)
                         | Literal::CellPath(_)
                         | Literal::Date(_)
-                        | Literal::Nothing => Ok(()),
+                        | Literal::Nothing
+                        | Literal::Empty => Ok(()),
                     },
                 )
             }
@@ -208,7 +209,7 @@ impl BlockBuilder {
             Instruction::Drain { src } => allocate(&[*src], &[]),
             Instruction::DrainIfEnd { src } => allocate(&[*src], &[]),
             Instruction::LoadVariable { dst, var_id: _ } => allocate(&[], &[*dst]),
-            Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[]),
+            Instruction::StoreVariable { var_id: _, src } => allocate(&[*src], &[*src]),
             Instruction::DropVariable { var_id: _ } => Ok(()),
             Instruction::LoadEnv { dst, key: _ } => allocate(&[], &[*dst]),
             Instruction::LoadEnvOpt { dst, key: _ } => allocate(&[], &[*dst]),
@@ -359,8 +360,14 @@ impl BlockBuilder {
 
     /// Set a register to `Empty`, but mark it as in-use, e.g. for input
     pub(crate) fn load_empty(&mut self, reg_id: RegId) -> Result<(), CompileError> {
-        self.drop_reg(reg_id)?;
-        self.mark_register(reg_id)
+        self.push(
+            Instruction::LoadLiteral {
+                dst: reg_id,
+                lit: Literal::Empty,
+            }
+            .into_spanned(self.block_span.unwrap_or(Span::unknown())),
+        )?;
+        Ok(())
     }
 
     /// Drain the stream in a register (fully consuming it)
