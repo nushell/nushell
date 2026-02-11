@@ -166,3 +166,27 @@ fn mkdir_with_tilde() {
         assert!(files_exist_at(&["~tilde2"], dirs.test()));
     })
 }
+
+#[test]
+fn mkdir_with_interpolation_simple() {
+    Playground::setup("mkdir interpolation simple", |dirs, _| {
+        // Test with a simple variable interpolation
+        nu!(cwd: dirs.test(), "let x = 'test'; mkdir xxx/($x)");
+        
+        assert!(dirs.test().join("xxx/test").exists());
+        assert!(!dirs.test().join("xxx/($x)").exists());
+    })
+}
+
+#[test]
+fn mkdir_with_interpolation() {
+    Playground::setup("mkdir with interpolation", |dirs, _| {
+        // Test with each command using interpolation
+        nu!(cwd: dirs.test(), "[ a b c ] | each { mkdir xxx/($in) }");
+
+        assert!(files_exist_at(&["xxx/a", "xxx/b", "xxx/c"], dirs.test()));
+
+        // Should not create a literal directory named "($in)"
+        assert!(!dirs.test().join("xxx/($in)").exists());
+    })
+}
