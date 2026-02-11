@@ -45,16 +45,16 @@ impl Command for Rm {
                 "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
                 Some('p'),
             )
-            .switch("recursive", "delete subdirectories recursively", Some('r'))
-            .switch("force", "suppress error when no file", Some('f'))
-            .switch("verbose", "print names of deleted files", Some('v'))
-            .switch("interactive", "ask user to confirm action", Some('i'))
+            .switch("recursive", "Delete subdirectories recursively.", Some('r'))
+            .switch("force", "Suppress error when no file.", Some('f'))
+            .switch("verbose", "Print names of deleted files.", Some('v'))
+            .switch("interactive", "Ask user to confirm action.", Some('i'))
             .switch(
                 "interactive-once",
                 "ask user to confirm action only once",
                 Some('I'),
             )
-            .switch("all", "Remove hidden files if '*' is provided", Some('a'))
+            .switch("all", "Remove hidden files if '*' is provided.", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -70,32 +70,32 @@ impl Command for Rm {
 
     fn examples(&self) -> Vec<Example<'_>> {
         let mut examples = vec![Example {
-            description: "Delete, or move a file to the trash (based on the 'always_trash' config option)",
+            description: "Delete, or move a file to the trash (based on the 'always_trash' config option).",
             example: "rm file.txt",
             result: None,
         }];
         if TRASH_SUPPORTED {
             examples.append(&mut vec![
                 Example {
-                    description: "Move a file to the trash",
+                    description: "Move a file to the trash.",
                     example: "rm --trash file.txt",
                     result: None,
                 },
                 Example {
                     description:
-                        "Delete a file permanently, even if the 'always_trash' config option is true",
+                        "Delete a file permanently, even if the 'always_trash' config option is true.",
                     example: "rm --permanent file.txt",
                     result: None,
                 },
             ]);
         }
         examples.push(Example {
-            description: "Delete a file, ignoring 'file not found' errors",
+            description: "Delete a file, ignoring 'file not found' errors.",
             example: "rm --force file.txt",
             result: None,
         });
         examples.push(Example {
-            description: "Delete all 0KB files in the current directory",
+            description: "Delete all 0KB files in the current directory.",
             example: "ls | where size == 0KB and type == file | each { rm $in.name } | null",
             result: None,
         });
@@ -116,7 +116,6 @@ fn rm(
     let interactive = call.has_flag(engine_state, stack, "interactive")?;
     let interactive_once = call.has_flag(engine_state, stack, "interactive-once")? && !interactive;
     let all = call.has_flag(engine_state, stack, "all")?;
-
     let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
 
     if paths.is_empty() {

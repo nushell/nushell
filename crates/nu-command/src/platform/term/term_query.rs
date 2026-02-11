@@ -74,7 +74,7 @@ The `prefix` is not included in the output."
                 result: None,
             },
             Example {
-                description: "Get terminal background color. (some terminals prefer `char bel` rather than `ansi st` as string terminator)",
+                description: "Get terminal background color. (some terminals prefer `char bel` rather than `ansi st` as string terminator).",
                 example: r#"term query $'(ansi osc)10;?(char bel)' --prefix $'(ansi osc)10;' --terminator (char bel)"#,
                 result: None,
             },

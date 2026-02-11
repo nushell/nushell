@@ -90,12 +90,12 @@ impl Command for PathBasename {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get basename of a path",
+                description: "Get basename of a path.",
                 example: "'C:\\Users\\joe\\test.txt' | path basename",
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a list of paths",
+                description: "Get basename of a list of paths.",
                 example: r"[ C:\Users\joe, C:\Users\doe ] | path basename",
                 result: Some(Value::test_list(vec![
                     Value::test_string("joe"),
@@ -103,7 +103,7 @@ impl Command for PathBasename {
                 ])),
             },
             Example {
-                description: "Replace basename of a path",
+                description: "Replace basename of a path.",
                 example: "'C:\\Users\\joe\\test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("C:\\Users\\joe\\spam.png")),
             },
@@ -114,12 +114,12 @@ impl Command for PathBasename {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get basename of a path",
+                description: "Get basename of a path.",
                 example: "'/home/joe/test.txt' | path basename",
                 result: Some(Value::test_string("test.txt")),
             },
             Example {
-                description: "Get basename of a list of paths",
+                description: "Get basename of a list of paths.",
                 example: "[ /home/joe, /home/doe ] | path basename",
                 result: Some(Value::test_list(vec![
                     Value::test_string("joe"),
@@ -127,7 +127,7 @@ impl Command for PathBasename {
                 ])),
             },
             Example {
-                description: "Replace basename of a path",
+                description: "Replace basename of a path.",
                 example: "'/home/joe/test.txt' | path basename --replace 'spam.png'",
                 result: Some(Value::test_string("/home/joe/spam.png")),
             },

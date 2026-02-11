@@ -17,7 +17,7 @@ impl Command for Clear {
     }
 
     fn description(&self) -> &str {
-        "Clear the terminal."
+        "Clear the terminal screen."
     }
 
     fn extra_description(&self) -> &str {
@@ -72,12 +72,12 @@ impl Command for Clear {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Clear the terminal",
+                description: "Clear the terminal.",
                 example: "clear",
                 result: None,
             },
             Example {
-                description: "Clear the terminal but not its scrollback history",
+                description: "Clear the terminal but not its scrollback history.",
                 example: "clear --keep-scrollback",
                 result: None,
             },

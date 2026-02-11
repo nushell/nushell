@@ -99,12 +99,12 @@ impl Command for PathDirname {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get dirname of a path",
+                description: "Get dirname of a path.",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname",
                 result: Some(Value::test_string("C:\\Users\\joe\\code")),
             },
             Example {
-                description: "Get dirname of a list of paths",
+                description: "Get dirname of a list of paths.",
                 example: r"[ C:\Users\joe\test.txt, C:\Users\doe\test.txt ] | path dirname",
                 result: Some(Value::test_list(vec![
                     Value::test_string(r"C:\Users\joe"),
@@ -112,12 +112,12 @@ impl Command for PathDirname {
                 ])),
             },
             Example {
-                description: "Walk up two levels",
+                description: "Walk up two levels.",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2",
                 result: Some(Value::test_string("C:\\Users\\joe")),
             },
             Example {
-                description: "Replace the part that would be returned with a custom path",
+                description: "Replace the part that would be returned with a custom path.",
                 example: "'C:\\Users\\joe\\code\\test.txt' | path dirname --num-levels 2 --replace C:\\Users\\viking",
                 result: Some(Value::test_string("C:\\Users\\viking\\code\\test.txt")),
             },
@@ -128,12 +128,12 @@ impl Command for PathDirname {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get dirname of a path",
+                description: "Get dirname of a path.",
                 example: "'/home/joe/code/test.txt' | path dirname",
                 result: Some(Value::test_string("/home/joe/code")),
             },
             Example {
-                description: "Get dirname of a list of paths",
+                description: "Get dirname of a list of paths.",
                 example: "[ /home/joe/test.txt, /home/doe/test.txt ] | path dirname",
                 result: Some(Value::test_list(vec![
                     Value::test_string("/home/joe"),
@@ -141,12 +141,12 @@ impl Command for PathDirname {
                 ])),
             },
             Example {
-                description: "Walk up two levels",
+                description: "Walk up two levels.",
                 example: "'/home/joe/code/test.txt' | path dirname --num-levels 2",
                 result: Some(Value::test_string("/home/joe")),
             },
             Example {
-                description: "Replace the part that would be returned with a custom path",
+                description: "Replace the part that would be returned with a custom path.",
                 example: "'/home/joe/code/test.txt' | path dirname --num-levels 2 --replace /home/viking",
                 result: Some(Value::test_string("/home/viking/code/test.txt")),
             },

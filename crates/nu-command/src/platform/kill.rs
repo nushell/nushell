@@ -11,7 +11,7 @@ impl Command for Kill {
     }
 
     fn description(&self) -> &str {
-        "Kill a process using the process id."
+        "Kill a process using its process ID."
     }
 
     fn signature(&self) -> Signature {
@@ -23,8 +23,8 @@ impl Command for Kill {
                 SyntaxShape::Int,
                 "Process ids of processes that are to be killed.",
             )
-            .switch("force", "forcefully kill the process", Some('f'))
-            .switch("quiet", "won't print anything to the console", Some('q'))
+            .switch("force", "Forcefully kill the process.", Some('f'))
+            .switch("quiet", "Won't print anything to the console.", Some('q'))
             .category(Category::Platform);
 
         if cfg!(windows) {
@@ -137,18 +137,18 @@ impl Command for Kill {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Kill the pid using the most memory",
+                description: "Kill the pid using the most memory.",
                 example: "ps | sort-by mem | last | kill $in.pid",
                 result: None,
             },
             Example {
-                description: "Force kill a given pid",
+                description: "Force kill a given pid.",
                 example: "kill --force 12345",
                 result: None,
             },
             #[cfg(not(target_os = "windows"))]
             Example {
-                description: "Send INT signal",
+                description: "Send INT signal.",
                 example: "kill -s 2 12345",
                 result: None,
             },

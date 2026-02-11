@@ -67,7 +67,7 @@ impl Command for Du {
                 "Exclude files below this size",
                 Some('m'),
             )
-            .switch("all", "Include hidden files if '*' is provided", Some('a'))
+            .switch("all", "Include hidden files if '*' is provided.", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -155,7 +155,7 @@ impl Command for Du {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Disk usage of the current directory",
+            description: "Disk usage of the current directory.",
             example: "du",
             result: None,
         }]

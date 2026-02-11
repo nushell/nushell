@@ -93,12 +93,12 @@ Also note that if you don't have a permission to a directory of a path, false wi
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Check if a file exists",
+                description: "Check if a file exists.",
                 example: "'C:\\Users\\joe\\todo.txt' | path exists",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Check if files in list exist",
+                description: "Check if files in list exist.",
                 example: r"[ C:\joe\todo.txt, C:\Users\doe\todo.txt ] | path exists",
                 result: Some(Value::test_list(vec![
                     Value::test_bool(false),
@@ -112,12 +112,12 @@ Also note that if you don't have a permission to a directory of a path, false wi
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Check if a file exists",
+                description: "Check if a file exists.",
                 example: "'/home/joe/todo.txt' | path exists",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Check if files in list exist",
+                description: "Check if files in list exist.",
                 example: "[ /home/joe/todo.txt, /home/doe/todo.txt ] | path exists",
                 result: Some(Value::test_list(vec![
                     Value::test_bool(false),
