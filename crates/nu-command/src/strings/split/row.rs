@@ -30,7 +30,7 @@ impl Command for SplitRow {
                 "Split into maximum number of items",
                 Some('n'),
             )
-            .switch("regex", "use regex syntax for separator", Some('r'))
+            .switch("regex", "Use regex syntax for separator.", Some('r'))
             .category(Category::Strings)
     }
 
@@ -45,7 +45,7 @@ impl Command for SplitRow {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a string into rows of char",
+                description: "Split a string into rows of char.",
                 example: "'abc' | split row ''",
                 result: Some(Value::list(
                     vec![
@@ -59,7 +59,7 @@ impl Command for SplitRow {
                 )),
             },
             Example {
-                description: "Split a string into rows by the specified separator",
+                description: "Split a string into rows by the specified separator.",
                 example: "'a--b--c' | split row '--'",
                 result: Some(Value::list(
                     vec![
@@ -71,7 +71,7 @@ impl Command for SplitRow {
                 )),
             },
             Example {
-                description: "Split a string by '-'",
+                description: "Split a string by '-'.",
                 example: "'-a-b-c-' | split row '-'",
                 result: Some(Value::list(
                     vec![
@@ -85,7 +85,7 @@ impl Command for SplitRow {
                 )),
             },
             Example {
-                description: "Split a string by regex",
+                description: "Split a string by regex.",
                 example: r"'a   b       c' | split row -r '\s+'",
                 result: Some(Value::list(
                     vec![

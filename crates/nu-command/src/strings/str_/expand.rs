@@ -49,7 +49,7 @@ impl Command for StrExpand {
                 )),
             },
             Example {
-                description: "Ignore the next character after the backslash ('\\')",
+                description: "Ignore the next character after the backslash ('\\').",
                 example: "'A{B\\,,C}' | str expand",
                 result: Some(Value::list(
                     vec![Value::test_string("AB,"), Value::test_string("AC")],
@@ -148,7 +148,7 @@ impl Command for StrExpand {
                 )),
             },
             Example {
-                description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files:",
+                description: "Also, it is possible to use one inside another. Here is a real-world example, that creates files.",
                 example: "\"A{B{1,3},C{2,5}}D\" | str expand",
                 result: Some(Value::list(
                     vec![

@@ -21,7 +21,11 @@ impl Command for SplitChars {
                 ),
             ])
             .allow_variants_without_examples(true)
-            .switch("grapheme-clusters", "split on grapheme clusters", Some('g'))
+            .switch(
+                "grapheme-clusters",
+                "Split on grapheme clusters.",
+                Some('g'),
+            )
             .switch(
                 "code-points",
                 "split on code points (default; splits combined characters)",
@@ -41,7 +45,7 @@ impl Command for SplitChars {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split the string into a list of characters",
+                description: "Split the string into a list of characters.",
                 example: "'hello' | split chars",
                 result: Some(Value::list(
                     vec![
@@ -55,7 +59,7 @@ impl Command for SplitChars {
                 )),
             },
             Example {
-                description: "Split on grapheme clusters",
+                description: "Split on grapheme clusters.",
                 example: "'🇯🇵ほげ' | split chars --grapheme-clusters",
                 result: Some(Value::list(
                     vec![
@@ -67,7 +71,7 @@ impl Command for SplitChars {
                 )),
             },
             Example {
-                description: "Split multiple strings into lists of characters",
+                description: "Split multiple strings into lists of characters.",
                 example: "['hello', 'world'] | split chars",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![

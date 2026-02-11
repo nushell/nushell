@@ -30,7 +30,7 @@ impl Command for Parse {
                 (Type::String, Type::table()),
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
-            .switch("regex", "use full regex syntax for patterns", Some('r'))
+            .switch("regex", "Use full regex syntax for patterns.", Some('r'))
             .named(
                 "backtrack",
                 SyntaxShape::Int,
@@ -44,7 +44,7 @@ impl Command for Parse {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Parse a string into two named columns",
+                description: "Parse a string into two named columns.",
                 example: "\"hi there\" | parse \"{foo} {bar}\"",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),
@@ -52,14 +52,14 @@ impl Command for Parse {
                 })])),
             },
             Example {
-                description: "Parse a string, ignoring a column with _",
+                description: "Parse a string, ignoring a column with _.",
                 example: "\"hello world\" | parse \"{foo} {_}\"",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hello"),
                 })])),
             },
             Example {
-                description: "This is how the first example is interpreted in the source code",
+                description: "This is how the first example is interpreted in the source code.",
                 example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),
@@ -67,14 +67,14 @@ impl Command for Parse {
                 })])),
             },
             Example {
-                description: "Parse a string using fancy-regex named capture group pattern",
+                description: "Parse a string using fancy-regex named capture group pattern.",
                 example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("bar"),
                 })])),
             },
             Example {
-                description: "Parse a string using fancy-regex capture group pattern",
+                description: "Parse a string using fancy-regex capture group pattern.",
                 example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -88,7 +88,7 @@ impl Command for Parse {
                 ])),
             },
             Example {
-                description: "Parse a string using fancy-regex look behind pattern",
+                description: "Parse a string using fancy-regex look behind pattern.",
                 example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "capture0" => Value::test_string("@another"),
@@ -96,14 +96,14 @@ impl Command for Parse {
                 })])),
             },
             Example {
-                description: "Parse a string using fancy-regex look ahead atomic group pattern",
+                description: "Parse a string using fancy-regex look ahead atomic group pattern.",
                 example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "capture0" => Value::test_string("b"),
                 })])),
             },
             Example {
-                description: "Parse a string with a manually set fancy-regex backtrack limit",
+                description: "Parse a string with a manually set fancy-regex backtrack limit.",
                 example: "\"hi there\" | parse --backtrack 1500000 \"{foo} {bar}\"",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),

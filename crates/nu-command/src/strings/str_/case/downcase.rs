@@ -29,7 +29,7 @@ impl Command for StrDowncase {
     }
 
     fn description(&self) -> &str {
-        "Make text lowercase."
+        "Convert text to lowercase."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -64,17 +64,17 @@ impl Command for StrDowncase {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Downcase contents",
+                description: "Downcase contents.",
                 example: "'NU' | str downcase",
                 result: Some(Value::test_string("nu")),
             },
             Example {
-                description: "Downcase contents",
+                description: "Downcase contents.",
                 example: "'TESTa' | str downcase",
                 result: Some(Value::test_string("testa")),
             },
             Example {
-                description: "Downcase contents",
+                description: "Downcase contents.",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_string("test"),
@@ -82,7 +82,7 @@ impl Command for StrDowncase {
                 })])),
             },
             Example {
-                description: "Downcase contents",
+                description: "Downcase contents.",
                 example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_string("test"),
