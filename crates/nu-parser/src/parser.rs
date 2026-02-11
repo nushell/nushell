@@ -3214,7 +3214,7 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
         && bytes.contains(&b'(')
     {
         let interpolation_expr = parse_string_interpolation(working_set, span);
-        
+
         // Convert StringInterpolation to GlobInterpolation
         if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
             return Expression::new(
@@ -3224,7 +3224,7 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
                 Type::Glob,
             );
         }
-        
+
         return interpolation_expr;
     }
 

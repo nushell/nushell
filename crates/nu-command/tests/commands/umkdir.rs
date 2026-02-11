@@ -172,7 +172,7 @@ fn mkdir_with_interpolation_simple() {
     Playground::setup("mkdir interpolation simple", |dirs, _| {
         // Test with a simple variable interpolation
         nu!(cwd: dirs.test(), "let x = 'test'; mkdir xxx/($x)");
-        
+
         assert!(dirs.test().join("xxx/test").exists());
         assert!(!dirs.test().join("xxx/($x)").exists());
     })
