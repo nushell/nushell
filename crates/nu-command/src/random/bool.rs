@@ -43,12 +43,12 @@ impl Command for RandomBool {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Generate a random boolean value",
+                description: "Generate a random boolean value.",
                 example: "random bool",
                 result: None,
             },
             Example {
-                description: "Generate a random boolean value with a 75% chance of \"true\"",
+                description: "Generate a random boolean value with a 75% chance of \"true\".",
                 example: "random bool --bias 0.75",
                 result: None,
             },

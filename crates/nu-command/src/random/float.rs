@@ -40,22 +40,22 @@ impl Command for RandomFloat {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Generate a default float value between 0 and 1",
+                description: "Generate a default float value between 0 and 1.",
                 example: "random float",
                 result: None,
             },
             Example {
-                description: "Generate a random float less than or equal to 500",
+                description: "Generate a random float less than or equal to 500.",
                 example: "random float ..500",
                 result: None,
             },
             Example {
-                description: "Generate a random float greater than or equal to 100000",
+                description: "Generate a random float greater than or equal to 100000.",
                 example: "random float 100000..",
                 result: None,
             },
             Example {
-                description: "Generate a random float between 1.0 and 1.1",
+                description: "Generate a random float between 1.0 and 1.1.",
                 example: "random float 1.0..1.1",
                 result: None,
             },

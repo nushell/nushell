@@ -86,17 +86,17 @@ impl Command for MathVariance {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get the variance of a list of numbers",
+                description: "Get the variance of a list of numbers.",
                 example: "[1 2 3 4 5] | math variance",
                 result: Some(Value::test_float(2.0)),
             },
             Example {
-                description: "Get the sample variance of a list of numbers",
+                description: "Get the sample variance of a list of numbers.",
                 example: "[1 2 3 4 5] | math variance --sample",
                 result: Some(Value::test_float(2.5)),
             },
             Example {
-                description: "Compute the variance of each column in a table",
+                description: "Compute the variance of each column in a table.",
                 example: "[[a b]; [1 2] [3 4]] | math variance",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
