@@ -634,6 +634,12 @@ fn parse_function_signature(#[case] phrase: &str) {
     assert!(actual.err.is_empty());
 }
 
+#[test]
+fn parse_function_signature_switch_is_bool() {
+    let actual = nu!(r#"def foo [--bar] { let baz: int = $bar }"#);
+    assert!(actual.err.contains("expected int, found bool"))
+}
+
 #[rstest]
 #[case("def test [ in ] {}")]
 #[case("def test [ in: string ] {}")]

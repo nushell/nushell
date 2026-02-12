@@ -4177,8 +4177,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4262,8 +4266,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4588,30 +4596,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with no TypeMode are just present/not-present switches
-                                        // in the case, `var_type` is any.
-                                        match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
-                                                }
-                                            }
-                                            t => {
-                                                if !type_compatible(t, &expression_ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value is the wrong type"
-                                                                .into(),
-                                                            format!(
-                                                                "expected default value to be `{t}`"
-                                                            ),
-                                                            expression_span,
-                                                        ),
-                                                    )
-                                                }
-                                            }
+                                        // Flags without type annotations are present/not-present
+                                        // switches *except* when they have a default value
+                                        // assigned. In that case they are regular flags and take
+                                        // on the type of their default value.
+                                        if !*type_annotated {
+                                            *arg = Some(expression_ty.to_shape());
+                                            working_set.set_variable_type(var_id, expression_ty);
+                                        } else if !type_compatible(var_type, &expression_ty) {
+                                            working_set.error(ParseError::AssignmentMismatch(
+                                                "Default value is the wrong type".into(),
+                                                format!(
+                                                    "expected default value to be `{var_type}`"
+                                                ),
+                                                expression_span,
+                                            ))
                                         }
                                     }
                                 }
@@ -4949,13 +4948,15 @@ fn parse_table_expression(
 
 fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
     let mut errors = vec![];
-    let mut rows = rows.to_vec();
-    let mut mk_ty = || -> Type {
-        let types = rows
+    let mut rows: Vec<_> = rows.iter().map(|row| row.iter()).collect();
+
+    let column_types = std::iter::from_fn(move || {
+        let column = rows
             .iter_mut()
-            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default());
-        Type::supertype_of(types).unwrap_or_default()
-    };
+            .filter_map(|row| row.next())
+            .map(|col| col.ty.clone());
+        Some(Type::supertype_of(column).unwrap_or(Type::Any))
+    });
 
     let mk_error = |span| ParseError::LabeledErrorWithHelp {
         error: "Table column name not string".into(),
@@ -4964,24 +4965,20 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         span,
     };
 
-    let mut ty = head
+    let ty: Box<[(String, Type)]> = head
         .iter()
-        .rev()
-        // Include only known column names in type
-        .filter_map(|expr| {
+        .zip(column_types)
+        .filter_map(|(expr, col_ty)| {
             if !Type::String.is_subtype_of(&expr.ty) {
                 errors.push(mk_error(expr.span));
                 None
             } else {
-                expr.as_string()
+                expr.as_string().zip(Some(col_ty))
             }
         })
-        .map(|title| (title, mk_ty()))
-        .collect_vec();
+        .collect();
 
-    ty.reverse();
-
-    (Type::Table(ty.into()), errors)
+    (Type::Table(ty), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
