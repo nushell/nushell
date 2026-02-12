@@ -4098,23 +4098,27 @@ pub fn find_in_dirs(
                 if let Some(lib_dirs) =
                     dirs_env.and_then(|dirs_env| working_set.get_env_var(dirs_env))
                 {
-                    if let Ok(dirs) = lib_dirs.as_list() {
-                        for lib_dir in dirs {
-                            if let Ok(dir) = lib_dir.to_path() {
-                                // make sure the dir is absolute path
-                                if let Ok(dir_abs) = absolute_with(dir, actual_cwd)
-                                    && let Ok(path) = absolute_with(filename, dir_abs)
-                                    && path.exists()
-                                {
-                                    return Some(path);
-                                }
-                            }
-                        }
-
-                        None
+                    let dir_candidates: Vec<PathBuf> = if let Ok(dirs) = lib_dirs.as_list() {
+                        dirs.iter()
+                            .filter_map(|lib_dir| lib_dir.to_path().ok())
+                            .collect()
+                    } else if let Ok(dirs) = lib_dirs.as_str() {
+                        std::env::split_paths(dirs).collect()
                     } else {
-                        None
+                        return None;
+                    };
+
+                    for lib_dir in dir_candidates {
+                        // Make sure the dir is absolute path.
+                        if let Ok(dir_abs) = absolute_with(lib_dir, actual_cwd)
+                            && let Ok(path) = absolute_with(filename, dir_abs)
+                            && path.exists()
+                        {
+                            return Some(path);
+                        }
                     }
+
+                    None
                 } else {
                     None
                 }

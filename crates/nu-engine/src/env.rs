@@ -275,17 +275,26 @@ pub fn find_in_dirs_env(
             return None;
         }
 
-        lib_dirs?
-            .as_list()
-            .ok()?
-            .iter()
-            .map(|lib_dir| -> Option<PathBuf> {
-                let dir = lib_dir.to_path().ok()?;
-                let dir_abs = exists_with(dir, &cwd)?;
-                exists_with(filename, dir_abs)
-            })
-            .find(Option::is_some)
-            .flatten()
+        let lib_dirs = lib_dirs?;
+        if let Ok(dirs) = lib_dirs.as_list() {
+            dirs.iter()
+                .map(|lib_dir| -> Option<PathBuf> {
+                    let dir = lib_dir.to_path().ok()?;
+                    let dir_abs = exists_with(dir, &cwd)?;
+                    exists_with(filename, dir_abs)
+                })
+                .find(Option::is_some)
+                .flatten()
+        } else if let Ok(dirs) = lib_dirs.as_str() {
+            std::env::split_paths(dirs)
+                .filter_map(|lib_dir| {
+                    let dir_abs = exists_with(lib_dir, &cwd)?;
+                    exists_with(filename, dir_abs)
+                })
+                .next()
+        } else {
+            None
+        }
     };
 
     let lib_dirs = dirs_var.and_then(|var_id| engine_state.get_var(var_id).const_val.as_ref());

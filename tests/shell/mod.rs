@@ -2,6 +2,7 @@ use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
+use std::env::join_paths;
 
 mod environment;
 mod pipeline;
@@ -193,6 +194,35 @@ fn nu_lib_dirs_relative_script() {
 
         assert!(actual_repl.err.is_empty());
         assert_eq!(actual_repl.out, "foo");
+    })
+}
+
+#[test]
+fn nu_lib_dirs_env_string() {
+    Playground::setup("nu_lib_dirs_env_string", |dirs, sandbox| {
+        sandbox
+            .mkdir("lib_dir_1")
+            .mkdir("lib_dir_2")
+            .with_files(&[FileWithContentToBeTrimmed(
+                "lib_dir_2/foo.nu",
+                r#"
+                    export def hi [] { "foo" }
+                "#,
+            )]);
+
+        let lib_dirs = join_paths([dirs.test().join("lib_dir_1"), dirs.test().join("lib_dir_2")])
+            .expect("test paths should be joinable")
+            .to_string_lossy()
+            .into_owned();
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            envs: vec![("NU_LIB_DIRS".to_string(), lib_dirs)],
+            "use foo.nu hi; hi"
+        );
+
+        assert!(actual.err.is_empty(), "stderr: {}", actual.err);
+        assert_eq!(actual.out, "foo");
     })
 }
 

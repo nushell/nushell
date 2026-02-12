@@ -1072,6 +1072,8 @@ const NU_LIB_DIRS = []
 #     ($nu.data-dir | path join 'completions')
 # ]
 # An environment variable version ($env.NU_LIB_DIRS) is searched after the constant.
+# If provided from the parent process, use the platform path-list separator
+# (`:` on Unix, `;` on Windows), similar to PATH.
 
 # NU_PLUGIN_DIRS (const): Directories searched for plugin binaries.
 # Default includes <config-dir>/plugins.
@@ -1081,6 +1083,8 @@ const NU_PLUGIN_DIRS = []
 # const NU_PLUGIN_DIRS = [
 #     ($nu.default-config-dir | path join 'plugins')
 # ]
+# If provided from the parent process, use the platform path-list separator
+# (`:` on Unix, `;` on Windows), similar to PATH.
 
 # -----------------
 # Path Manipulation
