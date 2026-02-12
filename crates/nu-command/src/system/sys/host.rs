@@ -34,7 +34,7 @@ impl Command for SysHost {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system host",
+            description: "Show info about the system host.",
             example: "sys host",
             result: None,
         }]

@@ -33,7 +33,7 @@ impl Command for SysNet {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show info about the system network",
+            description: "Show info about the system network.",
             example: "sys net",
             result: None,
         }]

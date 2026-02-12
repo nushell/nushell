@@ -39,7 +39,7 @@ impl Command for Table {
     }
 
     fn description(&self) -> &str {
-        "Render the table."
+        "Render the input as a formatted table."
     }
 
     fn extra_description(&self) -> &str {
@@ -58,7 +58,7 @@ impl Command for Table {
                 Flag::new("theme")
                     .short('t')
                     .arg(SyntaxShape::String)
-                    .desc("set a table mode/theme")
+                    .desc("Set a table mode/theme.")
                     .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
@@ -102,8 +102,8 @@ impl Command for Table {
                 "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
                 Some('a'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to ls tables", Some('o'),
+            .switch("list", "List available table modes/themes.", Some('l'))
+            .switch("icons", "Adds icons to ls tables.", Some('o'),
             )
             .category(Category::Viewers)
     }
@@ -136,12 +136,12 @@ impl Command for Table {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "List the files in current directory, with indexes starting from 1",
+                description: "List the files in current directory, with indexes starting from 1.",
                 example: r#"ls | table --index 1"#,
                 result: None,
             },
             Example {
-                description: "Render data in table view",
+                description: "Render data in table view.",
                 example: r#"[[a b]; [1 2] [3 4]] | table"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -155,7 +155,7 @@ impl Command for Table {
                 ])),
             },
             Example {
-                description: "Render data in table view (expanded)",
+                description: "Render data in table view (expanded).",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -172,7 +172,7 @@ impl Command for Table {
                 ])),
             },
             Example {
-                description: "Render data in table view (collapsed)",
+                description: "Render data in table view (collapsed).",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -189,22 +189,22 @@ impl Command for Table {
                 ])),
             },
             Example {
-                description: "Change the table theme to the specified theme for a single run",
+                description: "Change the table theme to the specified theme for a single run.",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
                 result: None,
             },
             Example {
-                description: "Force showing of the #/index column for a single run",
+                description: "Force showing of the #/index column for a single run.",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
                 result: None,
             },
             Example {
-                description: "Set the starting number of the #/index column to 100 for a single run",
+                description: "Set the starting number of the #/index column to 100 for a single run.",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
                 result: None,
             },
             Example {
-                description: "Force hiding of the #/index column for a single run",
+                description: "Force hiding of the #/index column for a single run.",
                 example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
                 result: None,
             },
