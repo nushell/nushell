@@ -2033,7 +2033,7 @@ fn flag_completions() {
 
     // https://github.com/nushell/nushell/issues/16375
     let suggestions = completer.complete("table -", 7);
-    assert_eq!(22, suggestions.len());
+    assert_eq!(23, suggestions.len());
 }
 
 #[test]
