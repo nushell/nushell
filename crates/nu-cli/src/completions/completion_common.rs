@@ -91,7 +91,6 @@ fn complete_rec(
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             let entry_isdir = entry.path().is_dir();
             let mut built = built.clone();
-            // built.parts.push(entry_name.clone());
             // Symlinks to directories shouldn't have a trailing slash (#13275)
             built.isdir = entry_isdir && !entry.path().is_symlink();
 
@@ -343,7 +342,8 @@ pub fn complete_item(
     .collect()
 }
 
-// Fix files or folders with quotes or hashes
+/// Fix files or folders with quotes or hashes.
+/// Returns `None` if nothing had to be escaped.
 pub fn escape_path(path: &str) -> Option<String> {
     // make glob pattern have the highest priority.
     if nu_glob::is_glob(path) || path.contains('`') {
