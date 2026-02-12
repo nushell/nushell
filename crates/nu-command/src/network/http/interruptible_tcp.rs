@@ -6,21 +6,31 @@
 //! through the [`Read`] trait, which only offers blocking `read()` with no timeout,
 //! so we cannot poll for interrupts.
 //!
-//! Solution: socket shutdown from the signal handler.
+//! Solution: platform-specific interrupt from the signal handler.
 //!
-//! 1. On connect, clone the socket via [`TcpStream::try_clone`] (second handle, same OS socket).
-//! 2. Pass the clone to an [`OnConnect`] callback that registers it with Nushell's
-//!    signal handlers, returning a [`HandlerGuard`] stored in the transport.
-//! 3. On Ctrl+C, the handler calls `shutdown(Shutdown::Both)` on the cloned handle.
-//! 4. Any blocked `read()`/`write()` on the original handle returns an error immediately.
+//! ## Unix
+//! 1. On connect, clone the socket via [`TcpStream::try_clone`].
+//! 2. On Ctrl+C, call `shutdown(Both)` on the clone -- the blocked `read()` returns immediately.
 //!
-//! No polling, no extra threads. The read unblocks because the socket has been closed.
+//! ## Windows
+//! 1. On connect, grab the raw `SOCKET` handle via `as_raw_socket()`.
+//! 2. On Ctrl+C, call `closesocket()` on that handle -- the blocked `recv()` returns immediately.
+//! 3. An `AtomicBool` flag prevents the transport from double-closing on drop.
+//!
+//! No polling, no extra threads.
 
 use std::fmt;
 use std::io::{Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::mem::ManuallyDrop;
+#[cfg(unix)]
+use std::net::Shutdown;
+use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
+
+#[cfg(windows)]
+use std::os::windows::io::AsRawSocket;
 
 use nu_protocol::HandlerGuard;
 use ureq::Error;
@@ -29,19 +39,17 @@ use ureq::unversioned::transport::{
 };
 
 /// Callback invoked when a connection is established.
-/// Takes a cloned socket and returns a guard that keeps the interrupt handler registered.
-pub type OnConnect = Arc<dyn Fn(TcpStream) -> Option<HandlerGuard> + Send + Sync>;
+/// Returns a guard that keeps the interrupt handler registered and a flag
+/// indicating whether the socket has been closed by the interrupt handler.
+pub type OnConnect =
+    Arc<dyn Fn(&TcpStream) -> Option<(HandlerGuard, Arc<AtomicBool>)> + Send + Sync>;
 
 /// Connector for interruptible TCP sockets.
-///
-/// When a connection is established, calls the `on_connect` callback with a cloned
-/// socket handle. The callback registers a signal handler and returns a guard.
 pub struct InterruptibleTcpConnector {
     on_connect: Option<OnConnect>,
 }
 
 impl InterruptibleTcpConnector {
-    /// Create a new interruptible TCP connector.
     pub fn new(on_connect: Option<OnConnect>) -> Self {
         Self { on_connect }
     }
@@ -65,20 +73,21 @@ impl<In: Transport> Connector<In> for InterruptibleTcpConnector {
     ) -> Result<Option<Self::Out>, Error> {
         let stream = try_connect(details)?;
 
-        // Register interrupt handler if callback provided.
-        // If try_clone() fails, we proceed without interrupt handling - the request
-        // will still work, just won't respond to Ctrl+C until data arrives.
-        let guard = self
+        let (guard, closed) = self
             .on_connect
             .as_ref()
-            .and_then(|f| stream.try_clone().ok().and_then(|s| f(s)));
+            .and_then(|f| f(&stream))
+            .map(|(g, c)| (Some(g), c))
+            .unwrap_or_else(|| (None, Arc::new(AtomicBool::new(false))));
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
             details.config.output_buffer_size(),
         );
 
-        Ok(Some(InterruptibleTcpTransport::new(stream, buffers, guard)))
+        Ok(Some(InterruptibleTcpTransport::new(
+            stream, buffers, guard, closed,
+        )))
     }
 }
 
@@ -128,25 +137,43 @@ fn try_connect_single(addr: SocketAddr, timeout: NextTimeout) -> Result<TcpStrea
 
 /// Transport implementation for interruptible TCP sockets.
 ///
-/// Holds a guard that keeps the interrupt handler registered while the transport is alive.
+/// The stream is wrapped in `ManuallyDrop` so that on Windows, if the interrupt handler
+/// has already closed the socket via `closesocket()`, we skip the drop to avoid
+/// double-close. The `closed` flag coordinates this.
 pub struct InterruptibleTcpTransport {
-    stream: TcpStream,
+    stream: ManuallyDrop<TcpStream>,
     buffers: LazyBuffers,
     timeout_write: Option<Duration>,
     timeout_read: Option<Duration>,
+    closed: Arc<AtomicBool>,
     _guard: Option<HandlerGuard>,
 }
 
 impl InterruptibleTcpTransport {
-    /// Create a new TCP transport.
-    pub fn new(stream: TcpStream, buffers: LazyBuffers, guard: Option<HandlerGuard>) -> Self {
+    pub fn new(
+        stream: TcpStream,
+        buffers: LazyBuffers,
+        guard: Option<HandlerGuard>,
+        closed: Arc<AtomicBool>,
+    ) -> Self {
         Self {
-            stream,
+            stream: ManuallyDrop::new(stream),
             buffers,
             timeout_read: None,
             timeout_write: None,
+            closed,
             _guard: guard,
         }
+    }
+}
+
+impl Drop for InterruptibleTcpTransport {
+    fn drop(&mut self) {
+        if !self.closed.swap(true, Ordering::AcqRel) {
+            // SAFETY: We're in Drop, stream won't be used after this.
+            unsafe { ManuallyDrop::drop(&mut self.stream) };
+        }
+        // else: interrupt handler already closed the socket, skip to avoid double-close
     }
 }
 
@@ -164,9 +191,9 @@ impl Transport for InterruptibleTcpTransport {
         )?;
 
         let output = &self.buffers.output()[..amount];
+        // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
         match self.stream.write_all(output) {
             Ok(()) => Ok(()),
-            // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
             Err(e)
                 if e.kind() == std::io::ErrorKind::TimedOut
                     || e.kind() == std::io::ErrorKind::WouldBlock =>
@@ -186,9 +213,9 @@ impl Transport for InterruptibleTcpTransport {
         )?;
 
         let input = self.buffers.input_append_buf();
+        // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
         let amount = match self.stream.read(input) {
             Ok(n) => n,
-            // Match ureq's normalize_would_block behavior: WouldBlock -> TimedOut
             Err(e)
                 if e.kind() == std::io::ErrorKind::TimedOut
                     || e.kind() == std::io::ErrorKind::WouldBlock =>
@@ -240,17 +267,53 @@ fn maybe_update_timeout(
     Ok(())
 }
 
-/// Create an `OnConnect` callback that registers a signal handler to shutdown the socket.
+/// Create an `OnConnect` callback that registers a signal handler to interrupt the socket.
+///
+/// On Unix, the handler calls `shutdown()` via a cloned handle.
+/// On Windows, the handler calls `closesocket()` on the original socket handle.
 pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
     let handlers = handlers.clone();
-    Arc::new(move |socket: TcpStream| {
-        handlers
-            .register(Box::new(move |action| {
-                if matches!(action, nu_protocol::SignalAction::Interrupt) {
-                    let _ = socket.shutdown(Shutdown::Both);
-                }
-            }))
-            .ok()
+    Arc::new(move |stream: &TcpStream| {
+        let closed = Arc::new(AtomicBool::new(false));
+        let closed_clone = Arc::clone(&closed);
+
+        #[cfg(unix)]
+        let guard = {
+            let clone = stream.try_clone().ok()?;
+            handlers
+                .register(Box::new(move |action| {
+                    if matches!(action, nu_protocol::SignalAction::Interrupt) {
+                        let _ = clone.shutdown(Shutdown::Both);
+                    }
+                }))
+                .ok()?
+        };
+
+        #[cfg(windows)]
+        let guard = {
+            let raw = stream.as_raw_socket() as usize;
+            handlers
+                .register(Box::new(move |action| {
+                    if matches!(action, nu_protocol::SignalAction::Interrupt)
+                        && !closed_clone.swap(true, Ordering::AcqRel)
+                    {
+                        // SAFETY: We close the socket exactly once (swap ensures this).
+                        // The blocked recv() on the I/O thread returns immediately.
+                        unsafe {
+                            windows::Win32::Networking::WinSock::closesocket(
+                                windows::Win32::Networking::WinSock::SOCKET(raw),
+                            );
+                        }
+                    }
+                }))
+                .ok()?
+        };
+
+        // On Unix closed_clone is unused, suppress warning
+        #[cfg(unix)]
+        drop(closed_clone);
+
+        Some((guard, closed))
     })
 }
 
@@ -276,44 +339,41 @@ mod tests {
             let _ = stream.write_all(b"delayed response");
         });
 
-        // Set up handlers for interrupt
         let handlers = Handlers::new();
         let on_connect = make_on_connect(&handlers);
 
-        // Connect to the server
         let stream = TcpStream::connect(addr).unwrap();
-        // Register the interrupt handler
-        let _guard = on_connect(stream.try_clone().unwrap());
+        let (guard, closed) = on_connect(&stream).unwrap();
+        let transport = InterruptibleTcpTransport::new(
+            stream,
+            LazyBuffers::new(8192, 8192),
+            Some(guard),
+            closed,
+        );
 
-        // Start reading in current thread, trigger interrupt from another
         let handlers_clone = handlers.clone();
         thread::spawn(move || {
             thread::sleep(Duration::from_millis(100));
             handlers_clone.run(SignalAction::Interrupt);
         });
 
-        // Try to read - this should be interrupted quickly, not wait 10 seconds
         let start = Instant::now();
         let mut buf = [0u8; 1024];
-        let result = std::io::Read::read(&mut &stream, &mut buf);
-
+        let result = std::io::Read::read(&mut &*transport.stream, &mut buf);
         let elapsed = start.elapsed();
 
-        // Should complete quickly (within 1 second) due to interrupt
         assert!(
             elapsed < Duration::from_secs(2),
-            "Read took too long ({:?}), interrupt may not have worked",
-            elapsed
+            "Read took too long ({elapsed:?}), interrupt may not have worked",
         );
 
-        // Read should return an error or 0 bytes (connection closed)
         match result {
-            Ok(0) => {}  // Connection closed - expected
-            Err(_) => {} // Error - also expected
-            Ok(n) => panic!("Unexpected data received: {} bytes", n),
+            Ok(0) => {}
+            Err(_) => {}
+            Ok(n) => panic!("Unexpected data received: {n} bytes"),
         }
 
-        // Clean up
+        drop(transport);
         drop(server_thread);
     }
 

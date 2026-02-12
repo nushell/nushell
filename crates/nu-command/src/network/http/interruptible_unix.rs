@@ -7,9 +7,12 @@
 
 use std::fmt;
 use std::io::{Read, Write};
+use std::mem::ManuallyDrop;
+#[cfg(unix)]
 use std::net::Shutdown;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -23,21 +26,17 @@ use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
 
-/// Callback invoked when a connection is established.
-/// Takes a cloned socket and returns a guard that keeps the interrupt handler registered.
-pub type OnConnectUnix = Arc<dyn Fn(UnixStream) -> Option<HandlerGuard> + Send + Sync>;
+/// Callback invoked when a Unix socket connection is established.
+pub type OnConnectUnix =
+    Arc<dyn Fn(&UnixStream) -> Option<(HandlerGuard, Arc<AtomicBool>)> + Send + Sync>;
 
 /// Connector for interruptible Unix domain sockets.
-///
-/// When a connection is established, calls the `on_connect` callback with a cloned
-/// socket handle. The callback registers a signal handler and returns a guard.
 pub struct InterruptibleUnixSocketConnector {
     socket_path: PathBuf,
     on_connect: Option<OnConnectUnix>,
 }
 
 impl InterruptibleUnixSocketConnector {
-    /// Create a new interruptible Unix socket connector.
     pub fn new(socket_path: PathBuf, on_connect: Option<OnConnectUnix>) -> Self {
         Self {
             socket_path,
@@ -74,13 +73,12 @@ impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
             ))
         })?;
 
-        // Register interrupt handler if callback provided.
-        // If try_clone() fails, we proceed without interrupt handling - the request
-        // will still work, just won't respond to Ctrl+C until data arrives.
-        let guard = self
+        let (guard, closed) = self
             .on_connect
             .as_ref()
-            .and_then(|f| stream.try_clone().ok().and_then(|s| f(s)));
+            .and_then(|f| f(&stream))
+            .map(|(g, c)| (Some(g), c))
+            .unwrap_or_else(|| (None, Arc::new(AtomicBool::new(false))));
 
         let buffers = LazyBuffers::new(
             details.config.input_buffer_size(),
@@ -88,31 +86,44 @@ impl<In: Transport> Connector<In> for InterruptibleUnixSocketConnector {
         );
 
         Ok(Some(InterruptibleUnixSocketTransport::new(
-            stream, buffers, guard,
+            stream, buffers, guard, closed,
         )))
     }
 }
 
 /// Transport implementation for interruptible Unix domain sockets.
-///
-/// Holds a guard that keeps the interrupt handler registered while the transport is alive.
 pub struct InterruptibleUnixSocketTransport {
-    stream: UnixStream,
+    stream: ManuallyDrop<UnixStream>,
     buffers: LazyBuffers,
     timeout_write: Option<Duration>,
     timeout_read: Option<Duration>,
+    closed: Arc<AtomicBool>,
     _guard: Option<HandlerGuard>,
 }
 
 impl InterruptibleUnixSocketTransport {
-    /// Create a new Unix socket transport.
-    pub fn new(stream: UnixStream, buffers: LazyBuffers, guard: Option<HandlerGuard>) -> Self {
+    pub fn new(
+        stream: UnixStream,
+        buffers: LazyBuffers,
+        guard: Option<HandlerGuard>,
+        closed: Arc<AtomicBool>,
+    ) -> Self {
         Self {
-            stream,
+            stream: ManuallyDrop::new(stream),
             buffers,
             timeout_read: None,
             timeout_write: None,
+            closed,
             _guard: guard,
+        }
+    }
+}
+
+impl Drop for InterruptibleUnixSocketTransport {
+    fn drop(&mut self) {
+        if !self.closed.swap(true, Ordering::AcqRel) {
+            // SAFETY: We're in Drop, stream won't be used after this.
+            unsafe { ManuallyDrop::drop(&mut self.stream) };
         }
     }
 }
@@ -184,17 +195,51 @@ impl fmt::Debug for InterruptibleUnixSocketTransport {
     }
 }
 
-/// Create an `OnConnectUnix` callback that registers a signal handler to shutdown the socket.
+/// Create an `OnConnectUnix` callback that registers a signal handler to interrupt the socket.
+///
+/// On Unix, the handler calls `shutdown()` via a cloned handle.
+/// On Windows, the handler calls `closesocket()` on the original socket handle.
 pub fn make_on_connect_unix(handlers: &nu_protocol::Handlers) -> OnConnectUnix {
     let handlers = handlers.clone();
-    Arc::new(move |socket: UnixStream| {
-        handlers
-            .register(Box::new(move |action| {
-                if matches!(action, nu_protocol::SignalAction::Interrupt) {
-                    let _ = socket.shutdown(Shutdown::Both);
-                }
-            }))
-            .ok()
+    Arc::new(move |stream: &UnixStream| {
+        let closed = Arc::new(AtomicBool::new(false));
+        let closed_clone = Arc::clone(&closed);
+
+        #[cfg(unix)]
+        let guard = {
+            let clone = stream.try_clone().ok()?;
+            handlers
+                .register(Box::new(move |action| {
+                    if matches!(action, nu_protocol::SignalAction::Interrupt) {
+                        let _ = clone.shutdown(Shutdown::Both);
+                    }
+                }))
+                .ok()?
+        };
+
+        #[cfg(windows)]
+        let guard = {
+            use std::os::windows::io::AsRawSocket;
+            let raw = stream.as_raw_socket() as usize;
+            handlers
+                .register(Box::new(move |action| {
+                    if matches!(action, nu_protocol::SignalAction::Interrupt)
+                        && !closed_clone.swap(true, Ordering::AcqRel)
+                    {
+                        unsafe {
+                            windows::Win32::Networking::WinSock::closesocket(
+                                windows::Win32::Networking::WinSock::SOCKET(raw),
+                            );
+                        }
+                    }
+                }))
+                .ok()?
+        };
+
+        #[cfg(unix)]
+        drop(closed_clone);
+
+        Some((guard, closed))
     })
 }
 
@@ -247,9 +292,15 @@ mod tests {
         let on_connect = make_on_connect_unix(&handlers);
 
         // Connect to the server
-        let mut stream = UnixStream::connect(&socket_path).unwrap();
+        let stream = UnixStream::connect(&socket_path).unwrap();
         // Register the interrupt handler
-        let _guard = on_connect(stream.try_clone().unwrap());
+        let (guard, closed) = on_connect(&stream).unwrap();
+        let mut transport = InterruptibleUnixSocketTransport::new(
+            stream,
+            LazyBuffers::new(8192, 8192),
+            Some(guard),
+            closed,
+        );
 
         // Start reading in current thread, trigger interrupt from another
         let handlers_clone = handlers.clone();
@@ -258,29 +309,24 @@ mod tests {
             handlers_clone.run(SignalAction::Interrupt);
         });
 
-        // Try to read - this should be interrupted quickly, not wait 10 seconds
         let start = Instant::now();
         let mut buf = [0u8; 1024];
-        let result = stream.read(&mut buf);
-
+        let result = std::io::Read::read(&mut *transport.stream, &mut buf);
         let elapsed = start.elapsed();
 
-        // Should complete quickly (within 1 second) due to interrupt
         assert!(
             elapsed < Duration::from_secs(2),
-            "Read took too long ({:?}), interrupt may not have worked",
-            elapsed
+            "Read took too long ({elapsed:?}), interrupt may not have worked",
         );
 
-        // Read should return an error or 0 bytes (connection closed)
         match result {
-            Ok(0) => {}  // Connection closed - expected
-            Err(_) => {} // Error - also expected
-            Ok(n) => panic!("Unexpected data received: {} bytes", n),
+            Ok(0) => {}
+            Err(_) => {}
+            Ok(n) => panic!("Unexpected data received: {n} bytes"),
         }
 
-        // Clean up
         let _ = std::fs::remove_file(&socket_path);
+        drop(transport);
         drop(server_thread);
     }
 }
