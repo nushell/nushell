@@ -197,13 +197,11 @@ impl fmt::Debug for InterruptibleUnixSocketTransport {
 
 /// Create an `OnConnectUnix` callback that registers a signal handler to interrupt the socket.
 ///
-/// On Unix, the handler calls `shutdown()` via a cloned handle.
-/// On Windows, the handler calls `closesocket()` on the original socket handle.
+/// See [`super::interruptible_tcp::make_on_connect`] for the interrupt strategy.
 pub fn make_on_connect_unix(handlers: &nu_protocol::Handlers) -> OnConnectUnix {
     let handlers = handlers.clone();
     Arc::new(move |stream: &UnixStream| {
         let closed = Arc::new(AtomicBool::new(false));
-        let closed_clone = Arc::clone(&closed);
 
         #[cfg(unix)]
         let guard = {
@@ -220,24 +218,12 @@ pub fn make_on_connect_unix(handlers: &nu_protocol::Handlers) -> OnConnectUnix {
         #[cfg(windows)]
         let guard = {
             use std::os::windows::io::AsRawSocket;
-            let raw = stream.as_raw_socket() as usize;
-            handlers
-                .register(Box::new(move |action| {
-                    if matches!(action, nu_protocol::SignalAction::Interrupt)
-                        && !closed_clone.swap(true, Ordering::AcqRel)
-                    {
-                        unsafe {
-                            windows::Win32::Networking::WinSock::closesocket(
-                                windows::Win32::Networking::WinSock::SOCKET(raw),
-                            );
-                        }
-                    }
-                }))
-                .ok()?
+            super::interruptible_tcp::register_close_handler(
+                &handlers,
+                stream.as_raw_socket(),
+                &closed,
+            )?
         };
-
-        #[cfg(unix)]
-        drop(closed_clone);
 
         Some((guard, closed))
     })

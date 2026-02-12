@@ -267,6 +267,33 @@ fn maybe_update_timeout(
     Ok(())
 }
 
+/// Register a signal handler that calls `closesocket()` on the raw socket handle.
+/// The `AtomicBool` ensures exactly one close across handler and transport drop.
+#[cfg(windows)]
+pub(crate) fn register_close_handler(
+    handlers: &nu_protocol::Handlers,
+    raw_socket: std::os::windows::io::RawSocket,
+    closed: &Arc<AtomicBool>,
+) -> Option<HandlerGuard> {
+    let closed = Arc::clone(closed);
+    let raw = raw_socket as usize;
+    handlers
+        .register(Box::new(move |action| {
+            if matches!(action, nu_protocol::SignalAction::Interrupt)
+                && !closed.swap(true, Ordering::AcqRel)
+            {
+                // SAFETY: We close the socket exactly once (swap ensures this).
+                // The blocked recv() on the I/O thread returns immediately.
+                unsafe {
+                    windows::Win32::Networking::WinSock::closesocket(
+                        windows::Win32::Networking::WinSock::SOCKET(raw),
+                    );
+                }
+            }
+        }))
+        .ok()
+}
+
 /// Create an `OnConnect` callback that registers a signal handler to interrupt the socket.
 ///
 /// On Unix, the handler calls `shutdown()` via a cloned handle.
@@ -275,7 +302,6 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
     let handlers = handlers.clone();
     Arc::new(move |stream: &TcpStream| {
         let closed = Arc::new(AtomicBool::new(false));
-        let closed_clone = Arc::clone(&closed);
 
         #[cfg(unix)]
         let guard = {
@@ -290,28 +316,7 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
         };
 
         #[cfg(windows)]
-        let guard = {
-            let raw = stream.as_raw_socket() as usize;
-            handlers
-                .register(Box::new(move |action| {
-                    if matches!(action, nu_protocol::SignalAction::Interrupt)
-                        && !closed_clone.swap(true, Ordering::AcqRel)
-                    {
-                        // SAFETY: We close the socket exactly once (swap ensures this).
-                        // The blocked recv() on the I/O thread returns immediately.
-                        unsafe {
-                            windows::Win32::Networking::WinSock::closesocket(
-                                windows::Win32::Networking::WinSock::SOCKET(raw),
-                            );
-                        }
-                    }
-                }))
-                .ok()?
-        };
-
-        // On Unix closed_clone is unused, suppress warning
-        #[cfg(unix)]
-        drop(closed_clone);
+        let guard = register_close_handler(&handlers, stream.as_raw_socket(), &closed)?;
 
         Some((guard, closed))
     })
