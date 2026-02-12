@@ -85,8 +85,7 @@ fn complete_rec(
             let entry_isdir = entry.path().is_dir();
             let mut built = built.clone();
             built.parts.push(entry_name.clone());
-            // Symlinks to directories shouldn't have a trailing slash (#13275)
-            built.isdir = entry_isdir && !entry.path().is_symlink();
+            built.isdir = entry_isdir;
 
             if !want_directory || entry_isdir {
                 if enable_exact_match && !multiple_exact_matches && has_more {
