@@ -29,7 +29,7 @@ impl Command for StrUpcase {
     }
 
     fn description(&self) -> &str {
-        "Make text uppercase."
+        "Convert text to uppercase."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -63,7 +63,7 @@ impl Command for StrUpcase {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Upcase contents",
+            description: "Upcase contents.",
             example: "'nu' | str upcase",
             result: Some(Value::test_string("NU")),
         }]
