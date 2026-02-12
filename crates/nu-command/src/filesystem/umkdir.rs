@@ -78,7 +78,7 @@ impl Command for UMkdir {
             recursive: IS_RECURSIVE,
             mode: get_mode(),
             verbose: is_verbose,
-            set_selinux_context: false,
+            set_security_context: false,
             context: None,
         };
 
