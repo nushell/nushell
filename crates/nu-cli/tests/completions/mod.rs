@@ -2,7 +2,7 @@ pub mod support;
 
 use std::{
     fs::{FileType, ReadDir, read_dir},
-    path::{MAIN_SEPARATOR, PathBuf},
+    path::MAIN_SEPARATOR,
     sync::Arc,
 };
 
@@ -1958,44 +1958,122 @@ fn subcommand_vs_external_completer() {
     match_suggestions(&vec!["external", "foo-test-command bar"], &suggestions);
 }
 
-#[test]
-fn file_completion_quoted() {
-    let (_, _, engine, stack) = new_quote_engine();
+#[rstest]
+#[case::no_needle(
+    "prefix",
+    "open ",
+    vec![
+        ("`--help`", "--help", vec![]),
+        ("`-42`", "-42", vec![]),
+        ("`-inf`", "-inf", vec![]),
+        ("`4.2`", "4.2", vec![]),
+        ("\'[a] bc.txt\'", "[a] bc.txt", vec![]),
+        ("`curly-bracket_{.txt`", "curly-bracket_{.txt", vec![]),
+        ("\"double`trouble'.txt\"", "double`trouble'.txt", vec![]),
+        ("`semicolon_;.txt`", "semicolon_;.txt", vec![]),
+        ("'square-bracket_[.txt'", "square-bracket_[.txt", vec![]),
+        ("`te st.txt`", "te st.txt", vec![]),
+        ("`te#st.txt`", "te#st.txt", vec![]),
+        ("`te'st.txt`", "te'st.txt", vec![]),
+        ("`te(st).txt`", "te(st).txt", vec![]),
+        ("`test dir/`", "test dir/", vec![])
+    ],
+)]
+#[case::quoted_needle(
+    "prefix",
+    "open 'test dir/'",
+    vec![
+        ("`test dir/double quote`", "test dir/double quote", vec![0, 1, 2, 3, 4, 5, 6, 7]),
+        ("`test dir/single quote`", "test dir/single quote", vec![0, 1, 2, 3, 4, 5, 6, 7]),
+    ]
+)]
+#[case::same_dir(
+    "fuzzy",
+    "open .t",
+    vec![
+        ("\'[a] bc.txt\'", "[a] bc.txt", vec![6, 7]),
+        ("`te st.txt`", "te st.txt", vec![5, 6]),
+        ("`te#st.txt`", "te#st.txt", vec![5, 6]),
+        ("`te'st.txt`", "te'st.txt", vec![5, 6]),
+        ("`te(st).txt`", "te(st).txt", vec![6, 7]),
+        ("`semicolon_;.txt`", "semicolon_;.txt", vec![11, 12]),
+        ("`curly-bracket_{.txt`", "curly-bracket_{.txt", vec![15, 16]),
+        ("\"double`trouble'.txt\"", "double`trouble'.txt", vec![15, 16]),
+        ("'square-bracket_[.txt'", "square-bracket_[.txt", vec![16, 17]),
+    ],
+)]
+#[case::within_dir(
+    "fuzzy",
+    "open t/q",
+    vec![
+        ("`test dir/double quote`", "test dir/double quote", vec![0, 16]),
+        ("`test dir/single quote`", "test dir/single quote", vec![0, 16]),
+    ],
+)]
+fn file_completion_quoted_match_indices(
+    #[case] algo: &str,
+    #[case] typed: &str,
+    #[case] expected: Vec<(&str, &str, Vec<usize>)>,
+) {
+    let (_, _, mut engine, mut stack) = new_quote_engine();
+    let config = format!("$env.config.completions.algorithm = '{algo}'");
+    support::merge_input(config.as_bytes(), &mut engine, &mut stack).unwrap();
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let target_dir = "open ";
-    let suggestions = completer.complete(target_dir, target_dir.len());
+    let suggestions = completer.complete(typed, typed.len());
 
-    let test_dir_folder = format!("`{}`", folder("test dir"));
-    let expected_paths: Vec<_> = vec![
-        "`--help`",
-        "`-42`",
-        "`-inf`",
-        "`4.2`",
-        "\'[a] bc.txt\'",
-        "`curly-bracket_{.txt`",
-        "`semicolon_;.txt`",
-        "'square-bracket_[.txt'",
-        "`te st.txt`",
-        "`te#st.txt`",
-        "`te'st.txt`",
-        "`te(st).txt`",
-        test_dir_folder.as_str(),
-    ];
+    #[cfg(not(windows))]
+    let use_forward_slashes = true;
+    #[cfg(windows)]
+    let use_forward_slashes = typed.contains('/');
 
-    match_suggestions(&expected_paths, &suggestions);
+    assert_eq!(
+        expected
+            .iter()
+            .map(|(value, display_override, match_indices)| {
+                let value = if use_forward_slashes {
+                    value.to_string()
+                } else {
+                    value.replace("/", "\\")
+                };
+                let display_override = if use_forward_slashes {
+                    display_override.to_string()
+                } else {
+                    display_override.replace("/", "\\")
+                };
+                (value, Some(display_override), Some(match_indices.clone()))
+            })
+            .collect::<Vec<_>>(),
+        suggestions
+            .into_iter()
+            .map(|s| (s.value, s.display_override, s.match_indices))
+            .collect::<Vec<_>>()
+    );
 
-    let dir: PathBuf = "test dir".into();
-    let target_dir = format!("open '{}'", folder(dir.clone()));
-    let suggestions = completer.complete(&target_dir, target_dir.len());
-
-    let expected_paths = [
-        format!("`{}`", file(dir.join("double quote"))),
-        format!("`{}`", file(dir.join("single quote"))),
-    ];
-
-    match_suggestions_by_string(&expected_paths, &suggestions)
+    #[cfg(windows)]
+    {
+        if typed.contains('/') {
+            let typed = typed.replace("/", "\\");
+            let suggestions = completer.complete(typed.as_str(), typed.len());
+            assert_eq!(
+                expected
+                    .into_iter()
+                    .map(|(value, display_override, match_indices)| {
+                        (
+                            value.replace("/", "\\"),
+                            Some(display_override.replace("/", "\\")),
+                            Some(match_indices),
+                        )
+                    })
+                    .collect::<Vec<_>>(),
+                suggestions
+                    .into_iter()
+                    .map(|s| (s.value, s.display_override, s.match_indices))
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
 }
 
 #[test]

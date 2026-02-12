@@ -48,6 +48,8 @@ impl Completer for FileCompletion {
                     start: x.span.start - offset,
                     end: x.span.end - offset,
                 },
+                display_override: x.display_override,
+                match_indices: Some(x.match_indices),
                 ..Suggestion::default()
             },
             kind: Some(if x.is_dir {
