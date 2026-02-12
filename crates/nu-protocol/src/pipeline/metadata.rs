@@ -19,6 +19,7 @@ use crate::Record;
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PipelineMetadata {
     pub data_source: DataSource,
+    pub path_columns: Vec<String>,
     pub content_type: Option<String>,
     #[serde(default)]
     pub custom: Record,
@@ -47,6 +48,7 @@ impl PipelineMetadata {
     pub fn for_collect(self) -> Option<Self> {
         let Self {
             data_source,
+            path_columns,
             content_type,
             custom,
         } = self;
@@ -58,11 +60,16 @@ impl PipelineMetadata {
         };
 
         // Return None if completely empty
-        if matches!(data_source, DataSource::None) && content_type.is_none() && custom.is_empty() {
+        if matches!(data_source, DataSource::None)
+            && path_columns.is_empty()
+            && content_type.is_none()
+            && custom.is_empty()
+        {
             None
         } else {
             Some(Self {
                 data_source,
+                path_columns,
                 content_type,
                 custom,
             })

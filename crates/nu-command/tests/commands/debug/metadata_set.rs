@@ -33,6 +33,20 @@ fn works_with_datasource_ls() {
 }
 
 #[test]
+fn works_with_path_columns_single() {
+    let actual = nu!("[] | metadata set --path-columns [test] | metadata | get path_columns.0");
+    assert_eq!(actual.out, "test");
+}
+
+#[test]
+fn works_with_path_columns_multiple() {
+    let actual = nu!(
+        r#"[] | metadata set --path-columns [name path] | metadata | get path_columns | str join " ""#
+    );
+    assert_eq!(actual.out, "name path");
+}
+
+#[test]
 fn works_with_merge_arbitrary_metadata() {
     let actual = nu!(
         cwd: ".",

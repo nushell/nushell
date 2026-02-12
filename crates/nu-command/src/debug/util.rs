@@ -8,6 +8,7 @@ pub fn extend_record_with_metadata(
 ) -> Record {
     if let Some(PipelineMetadata {
         data_source,
+        path_columns,
         content_type,
         custom,
     }) = metadata
@@ -22,6 +23,13 @@ pub fn extend_record_with_metadata(
                 Value::string(path.to_string_lossy().to_string(), head),
             ),
             DataSource::None => {}
+        }
+        if !path_columns.is_empty() {
+            let path_columns = path_columns
+                .iter()
+                .map(|col| Value::string(col, head))
+                .collect();
+            record.push("path_columns", Value::list(path_columns, head));
         }
         if let Some(content_type) = content_type {
             record.push("content_type", Value::string(content_type, head));
@@ -47,6 +55,16 @@ pub fn parse_metadata_from_record(record: &Record) -> PipelineMetadata {
                         "into html --list" => DataSource::HtmlThemes,
                         _ => DataSource::FilePath(PathBuf::from(s)),
                     };
+                }
+            }
+            "path_columns" => {
+                let path_columns: Option<Vec<String>> = value.as_list().ok().and_then(|list| {
+                    list.iter()
+                        .map(|value| value.as_str().map(String::from).ok())
+                        .collect()
+                });
+                if let Some(path_columns) = path_columns {
+                    metadata.path_columns = path_columns;
                 }
             }
             "content_type" => {
