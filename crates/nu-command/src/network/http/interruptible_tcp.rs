@@ -253,3 +253,74 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
             .ok()
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::{Handlers, SignalAction};
+    use std::io::Write;
+    use std::net::TcpListener;
+    use std::thread;
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn test_interrupt_unblocks_read() {
+        // Start a server that accepts connections but delays sending data
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server_thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            // Wait longer than our test timeout before sending anything
+            thread::sleep(Duration::from_secs(10));
+            let _ = stream.write_all(b"delayed response");
+        });
+
+        // Set up handlers for interrupt
+        let handlers = Handlers::new();
+        let on_connect = make_on_connect(&handlers);
+
+        // Connect to the server
+        let stream = TcpStream::connect(addr).unwrap();
+        // Register the interrupt handler
+        let _guard = on_connect(stream.try_clone().unwrap());
+
+        // Start reading in current thread, trigger interrupt from another
+        let handlers_clone = handlers.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(100));
+            handlers_clone.run(SignalAction::Interrupt);
+        });
+
+        // Try to read - this should be interrupted quickly, not wait 10 seconds
+        let start = Instant::now();
+        let mut buf = [0u8; 1024];
+        let result = std::io::Read::read(&mut &stream, &mut buf);
+
+        let elapsed = start.elapsed();
+
+        // Should complete quickly (within 1 second) due to interrupt
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "Read took too long ({:?}), interrupt may not have worked",
+            elapsed
+        );
+
+        // Read should return an error or 0 bytes (connection closed)
+        match result {
+            Ok(0) => {}  // Connection closed - expected
+            Err(_) => {} // Error - also expected
+            Ok(n) => panic!("Unexpected data received: {} bytes", n),
+        }
+
+        // Clean up
+        drop(server_thread);
+    }
+
+    #[test]
+    fn test_connector_creates_transport() {
+        let connector = InterruptibleTcpConnector::new(None);
+        let debug_str = format!("{connector:?}");
+        assert!(debug_str.contains("InterruptibleTcpConnector"));
+    }
+}

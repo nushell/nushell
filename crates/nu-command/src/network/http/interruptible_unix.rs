@@ -217,4 +217,70 @@ mod tests {
         let debug_str = format!("{connector:?}");
         assert!(debug_str.contains("/var/run/docker.sock"));
     }
+
+    #[test]
+    fn test_interrupt_unblocks_read() {
+        use nu_protocol::{Handlers, SignalAction};
+        use std::io::Write;
+        use std::thread;
+        use std::time::{Duration, Instant};
+
+        #[cfg(unix)]
+        use std::os::unix::net::UnixListener;
+        #[cfg(windows)]
+        use win_uds::net::UnixListener;
+
+        let socket_path = std::env::temp_dir().join("nu_test_interrupt.sock");
+        let _ = std::fs::remove_file(&socket_path);
+
+        let listener = UnixListener::bind(&socket_path).unwrap();
+
+        let server_thread = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            // Wait longer than our test timeout before sending anything
+            thread::sleep(Duration::from_secs(10));
+            let _ = stream.write_all(b"delayed response");
+        });
+
+        // Set up handlers for interrupt
+        let handlers = Handlers::new();
+        let on_connect = make_on_connect_unix(&handlers);
+
+        // Connect to the server
+        let mut stream = UnixStream::connect(&socket_path).unwrap();
+        // Register the interrupt handler
+        let _guard = on_connect(stream.try_clone().unwrap());
+
+        // Start reading in current thread, trigger interrupt from another
+        let handlers_clone = handlers.clone();
+        thread::spawn(move || {
+            thread::sleep(Duration::from_millis(100));
+            handlers_clone.run(SignalAction::Interrupt);
+        });
+
+        // Try to read - this should be interrupted quickly, not wait 10 seconds
+        let start = Instant::now();
+        let mut buf = [0u8; 1024];
+        let result = stream.read(&mut buf);
+
+        let elapsed = start.elapsed();
+
+        // Should complete quickly (within 1 second) due to interrupt
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "Read took too long ({:?}), interrupt may not have worked",
+            elapsed
+        );
+
+        // Read should return an error or 0 bytes (connection closed)
+        match result {
+            Ok(0) => {}  // Connection closed - expected
+            Err(_) => {} // Error - also expected
+            Ok(n) => panic!("Unexpected data received: {} bytes", n),
+        }
+
+        // Clean up
+        let _ = std::fs::remove_file(&socket_path);
+        drop(server_thread);
+    }
 }
