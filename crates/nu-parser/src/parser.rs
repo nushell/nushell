@@ -4,7 +4,7 @@ use crate::{
     Token, TokenContents,
     lex::{LexState, is_assignment_operator, lex, lex_n_tokens, lex_signature},
     lite_parser::{LiteCommand, LitePipeline, LiteRedirection, LiteRedirectionTarget, lite_parse},
-    parse_keywords::{ensure_not_reserved_variable_name, *},
+    parse_keywords::*,
     parse_patterns::parse_pattern,
     parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
     type_check::{self, check_range_types, math_result_type, type_compatible},
