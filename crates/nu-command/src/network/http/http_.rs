@@ -99,7 +99,7 @@ impl Command for Http {
     }
 
     fn description(&self) -> &str {
-        "Various commands for working with http methods."
+        "Various commands for working with HTTP methods."
     }
 
     fn extra_description(&self) -> &str {

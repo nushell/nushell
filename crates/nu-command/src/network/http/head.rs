@@ -74,7 +74,7 @@ impl Command for HttpHead {
     }
 
     fn description(&self) -> &str {
-        "Get the HTTP headers from a URL using HEAD method."
+        "Get the HTTP headers from a URL using HTTP HEAD method."
     }
 
     fn extra_description(&self) -> &str {

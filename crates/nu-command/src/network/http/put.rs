@@ -95,7 +95,7 @@ impl Command for HttpPut {
     }
 
     fn description(&self) -> &str {
-        "Send a PUT request to a URL with a request body."
+        "Send an HTTP PUT request to a URL with a request body."
     }
 
     fn extra_description(&self) -> &str {

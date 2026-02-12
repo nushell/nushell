@@ -95,7 +95,7 @@ impl Command for HttpPost {
     }
 
     fn description(&self) -> &str {
-        "Send a POST request to a URL with a request body."
+        "Send an HTTP POST request to a URL with a request body."
     }
 
     fn extra_description(&self) -> &str {

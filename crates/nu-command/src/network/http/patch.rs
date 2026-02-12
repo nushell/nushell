@@ -91,7 +91,7 @@ impl Command for HttpPatch {
     }
 
     fn description(&self) -> &str {
-        "Send a PATCH request to a URL with a request body."
+        "Send an HTTP PATCH request to a URL with a request body."
     }
 
     fn extra_description(&self) -> &str {
