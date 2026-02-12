@@ -49,10 +49,10 @@ impl Command for Save {
                 "the filename used to save stderr, only works with `-r` flag",
                 Some('e'),
             )
-            .switch("raw", "save file as raw binary", Some('r'))
-            .switch("append", "append input to the end of the file", Some('a'))
-            .switch("force", "overwrite the destination", Some('f'))
-            .switch("progress", "enable progress bar", Some('p'))
+            .switch("raw", "Save file as raw binary.", Some('r'))
+            .switch("append", "Append input to the end of the file.", Some('a'))
+            .switch("force", "Overwrite the destination.", Some('f'))
+            .switch("progress", "Enable progress bar.", Some('p'))
             .category(Category::FileSystem)
     }
 
@@ -262,32 +262,32 @@ impl Command for Save {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Save a string to foo.txt in the current directory",
+                description: "Save a string to foo.txt in the current directory.",
                 example: r#"'save me' | save foo.txt"#,
                 result: None,
             },
             Example {
-                description: "Append a string to the end of foo.txt",
+                description: "Append a string to the end of foo.txt.",
                 example: r#"'append me' | save --append foo.txt"#,
                 result: None,
             },
             Example {
-                description: "Save a record to foo.json in the current directory",
+                description: "Save a record to foo.json in the current directory.",
                 example: r#"{ a: 1, b: 2 } | save foo.json"#,
                 result: None,
             },
             Example {
-                description: "Save a running program's stderr to foo.txt",
+                description: "Save a running program's stderr to foo.txt.",
                 example: r#"do -i {} | save foo.txt --stderr foo.txt"#,
                 result: None,
             },
             Example {
-                description: "Save a running program's stderr to separate file",
+                description: "Save a running program's stderr to separate file.",
                 example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
                 result: None,
             },
             Example {
-                description: "Show the extensions for which the `save` command will automatically serialize",
+                description: "Show the extensions for which the `save` command will automatically serialize.",
                 example: r#"scope commands
     | where name starts-with "to "
     | insert extension { get name | str replace -r "^to " "" | $"*.($in)" }

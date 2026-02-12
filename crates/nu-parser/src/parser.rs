@@ -3204,8 +3204,31 @@ fn modf(x: f64) -> (f64, f64) {
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        let interpolation_expr = parse_string_interpolation(working_set, span);
+
+        // Convert StringInterpolation to GlobInterpolation
+        if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
+            return Expression::new(
+                working_set,
+                Expr::GlobInterpolation(exprs, quoted),
+                span,
+                Type::Glob,
+            );
+        }
+
+        return interpolation_expr;
+    }
+
+    let (token, err) = unescape_unquote_string(bytes, span);
 
     if err.is_none() {
         trace!("-- found {token}");

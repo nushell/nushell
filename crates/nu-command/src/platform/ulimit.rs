@@ -509,7 +509,7 @@ impl Command for ULimit {
             .switch("soft", "Sets soft resource limit", Some('S'))
             .switch("hard", "Sets hard resource limit", Some('H'))
             .switch("all", "Prints all current limits", Some('a'))
-            .optional("limit", SyntaxShape::Any, "Limit value.")
+            .optional("limit", SyntaxShape::Any, "The limit value to set.")
             .category(Category::Platform);
 
         for res in RESOURCE_ARRAY.iter() {
@@ -564,32 +564,32 @@ impl Command for ULimit {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Print all current limits",
+                description: "Print all current limits.",
                 example: "ulimit -a",
                 result: None,
             },
             Example {
-                description: "Print specified limits",
+                description: "Print specified limits.",
                 example: "ulimit --core-size --data-size --file-size",
                 result: None,
             },
             Example {
-                description: "Set limit",
+                description: "Set limit.",
                 example: "ulimit --core-size 102400",
                 result: None,
             },
             Example {
-                description: "Set stack size soft limit",
+                description: "Set stack size soft limit.",
                 example: "ulimit -s -S 10240",
                 result: None,
             },
             Example {
-                description: "Set virtual memory size hard limit",
+                description: "Set virtual memory size hard limit.",
                 example: "ulimit -v -H 10240",
                 result: None,
             },
             Example {
-                description: "Set core size limit to unlimited",
+                description: "Set core size limit to unlimited.",
                 example: "ulimit -c unlimited",
                 result: None,
             },

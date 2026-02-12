@@ -254,47 +254,47 @@ impl Command for UTouch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Creates \"fixture.json\"",
+                description: "Creates \"fixture.json\".",
                 example: "touch fixture.json",
                 result: None,
             },
             Example {
-                description: "Creates files a, b and c",
+                description: "Creates files a, b and c.",
                 example: "touch a b c",
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of "fixture.json" to today's date"#,
+                description: r#"Changes the last modified time of "fixture.json" to today's date."#,
                 example: "touch -m fixture.json",
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date"#,
+                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date."#,
                 example: "touch *.json",
                 result: None,
             },
             Example {
-                description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday",
+                description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday.",
                 example: r#"touch -d "yesterday" a b c"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time"#,
+                description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time."#,
                 example: r#"touch -m -r fixture.json d e"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a datetime"#,
+                description: r#"Changes the last accessed time of "fixture.json" to a datetime."#,
                 example: r#"touch -a -t 2019-08-24T12:30:30 fixture.json"#,
                 result: None,
             },
             Example {
-                description: r#"Change the last accessed and modified times of stdout"#,
+                description: r#"Change the last accessed and modified times of stdout."#,
                 example: r#"touch -"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time"#,
+                description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time."#,
                 example: r#"touch -r fixture.json -d "-1 month" a"#,
                 result: None,
             },

@@ -35,8 +35,8 @@ impl Command for UCp {
     fn signature(&self) -> Signature {
         Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .switch("recursive", "copy directories recursively", Some('r'))
-            .switch("verbose", "explicitly state what is being done", Some('v'))
+            .switch("recursive", "Copy directories recursively.", Some('r'))
+            .switch("verbose", "Explicitly state what is being done.", Some('v'))
             .switch(
                 "force",
                 "if an existing destination file cannot be opened, remove it and try
@@ -44,24 +44,24 @@ impl Command for UCp {
                     currently not implemented for windows",
                 Some('f'),
             )
-            .switch("interactive", "ask before overwriting files", Some('i'))
+            .switch("interactive", "Ask before overwriting files.", Some('i'))
             .switch(
                 "update",
-                "copy only when the SOURCE file is newer than the destination file or when the destination file is missing",
+                "Copy only when the SOURCE file is newer than the destination file or when the destination file is missing.",
                 Some('u')
             )
-            .switch("progress", "display a progress bar", Some('p'))
-            .switch("no-clobber", "do not overwrite an existing file", Some('n'))
+            .switch("progress", "Display a progress bar.", Some('p'))
+            .switch("no-clobber", "Do not overwrite an existing file.", Some('n'))
             .named(
                 "preserve",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "preserve only the specified attributes (empty list means no attributes preserved)
+                "Preserve only the specified attributes (empty list means no attributes preserved)
                     if not specified only mode is preserved
                     possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
                 None
             )
-            .switch("debug", "explain how a file is copied. Implies -v", None)
-            .switch("all", "Copy hidden files if '*' is provided", Some('a'))
+            .switch("debug", "Explain how a file is copied. Implies -v.", None)
+            .switch("all", "Copy hidden files if '*' is provided.", Some('a'))
             .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "Copy SRC file/s to DEST.")
             .allow_variants_without_examples(true)
             .category(Category::FileSystem)
@@ -70,42 +70,42 @@ impl Command for UCp {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Copy myfile to dir_b",
+                description: "Copy myfile to dir_b.",
                 example: "cp myfile dir_b",
                 result: None,
             },
             Example {
-                description: "Recursively copy dir_a to dir_b",
+                description: "Recursively copy dir_a to dir_b.",
                 example: "cp -r dir_a dir_b",
                 result: None,
             },
             Example {
-                description: "Recursively copy dir_a to dir_b, and print the feedbacks",
+                description: "Recursively copy dir_a to dir_b, and print the feedbacks.",
                 example: "cp -r -v dir_a dir_b",
                 result: None,
             },
             Example {
-                description: "Move many files into a directory",
+                description: "Move many files into a directory.",
                 example: "cp *.txt dir_a",
                 result: None,
             },
             Example {
-                description: "Copy only if source file is newer than target file",
+                description: "Copy only if source file is newer than target file.",
                 example: "cp -u myfile newfile",
                 result: None,
             },
             Example {
-                description: "Copy file preserving mode and timestamps attributes",
+                description: "Copy file preserving mode and timestamps attributes.",
                 example: "cp --preserve [ mode timestamps ] myfile newfile",
                 result: None,
             },
             Example {
-                description: "Copy file erasing all attributes",
+                description: "Copy file erasing all attributes.",
                 example: "cp --preserve [] myfile newfile",
                 result: None,
             },
             Example {
-                description: "Copy file to a directory three levels above its current location",
+                description: "Copy file to a directory three levels above its current location.",
                 example: "cp myfile ....",
                 result: None,
             },

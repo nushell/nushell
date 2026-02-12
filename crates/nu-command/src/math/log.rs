@@ -75,13 +75,13 @@ impl Command for MathLog {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get the logarithm of 100 to the base 10",
+                description: "Get the logarithm of 100 to the base 10.",
                 example: "100 | math log 10",
                 result: Some(Value::test_float(2.0f64)),
             },
             Example {
                 example: "[16 8 4] | math log 2",
-                description: "Get the log2 of a list of values",
+                description: "Get the log2 of a list of values.",
                 result: Some(Value::list(
                     vec![
                         Value::test_float(4.0),

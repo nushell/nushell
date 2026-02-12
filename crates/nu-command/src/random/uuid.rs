@@ -69,17 +69,17 @@ impl Command for RandomUuid {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Generate a random uuid v4 string (default)",
+                description: "Generate a random uuid v4 string (default).",
                 example: "random uuid",
                 result: None,
             },
             Example {
-                description: "Generate a uuid v1 string (timestamp-based)",
+                description: "Generate a uuid v1 string (timestamp-based).",
                 example: "random uuid -v 1 -m 00:11:22:33:44:55",
                 result: None,
             },
             Example {
-                description: "Generate a uuid v3 string (namespace with MD5)",
+                description: "Generate a uuid v3 string (namespace with MD5).",
                 example: "random uuid -v 3 -n dns -s example.com",
                 result: None,
             },
@@ -89,12 +89,12 @@ impl Command for RandomUuid {
                 result: None,
             },
             Example {
-                description: "Generate a uuid v5 string (namespace with SHA1)",
+                description: "Generate a uuid v5 string (namespace with SHA1).",
                 example: "random uuid -v 5 -n dns -s example.com",
                 result: None,
             },
             Example {
-                description: "Generate a uuid v7 string (timestamp + random)",
+                description: "Generate a uuid v7 string (timestamp + random).",
                 example: "random uuid -v 7",
                 result: None,
             },

@@ -161,29 +161,29 @@ impl Command for Ls {
             // LsGlobPattern is similar to string, it won't auto-expand
             // and we use it to track if the user input is quoted.
             .rest("pattern", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The glob pattern to use.")
-            .switch("all", "Show hidden files", Some('a'))
+            .switch("all", "Show hidden files.", Some('a'))
             .switch(
                 "long",
-                "Get all available columns for each entry (slower; columns are platform-dependent)",
+                "Get all available columns for each entry (slower; columns are platform-dependent).",
                 Some('l'),
             )
             .switch(
                 "short-names",
-                "Only print the file names, and not the path",
+                "Only print the file names, and not the path.",
                 Some('s'),
             )
-            .switch("full-paths", "display paths as absolute paths", Some('f'))
+            .switch("full-paths", "Display paths as absolute paths.", Some('f'))
             .switch(
                 "du",
-                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size",
+                "Display the apparent directory size (\"disk usage\") in place of the directory metadata size.",
                 Some('d'),
             )
             .switch(
                 "directory",
-                "List the specified directory itself instead of its contents",
+                "List the specified directory itself instead of its contents.",
                 Some('D'),
             )
-            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined)", Some('m'))
+            .switch("mime-type", "Show mime-type in type column instead of 'file' (based on filenames only; files' contents are not examined).", Some('m'))
             .switch("threads", "Use multiple threads to list contents. Output will be non-deterministic.", Some('t'))
             .category(Category::FileSystem)
     }
@@ -267,52 +267,52 @@ impl Command for Ls {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "List visible files in the current directory",
+                description: "List visible files in the current directory.",
                 example: "ls",
                 result: None,
             },
             Example {
-                description: "List visible files in a subdirectory",
+                description: "List visible files in a subdirectory.",
                 example: "ls subdir",
                 result: None,
             },
             Example {
-                description: "List visible files with full path in the parent directory",
+                description: "List visible files with full path in the parent directory.",
                 example: "ls -f ..",
                 result: None,
             },
             Example {
-                description: "List Rust files",
+                description: "List Rust files.",
                 example: "ls *.rs",
                 result: None,
             },
             Example {
-                description: "List files and directories whose name do not contain 'bar'",
+                description: "List files and directories whose name do not contain 'bar'.",
                 example: "ls | where name !~ bar",
                 result: None,
             },
             Example {
-                description: "List the full path of all dirs in your home directory",
+                description: "List the full path of all dirs in your home directory.",
                 example: "ls -a ~ | where type == dir",
                 result: None,
             },
             Example {
-                description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days",
+                description: "List only the names (not paths) of all dirs in your home directory which have not been modified in 7 days.",
                 example: "ls -as ~ | where type == dir and modified < ((date now) - 7day)",
                 result: None,
             },
             Example {
-                description: "Recursively list all files and subdirectories under the current directory using a glob pattern",
+                description: "Recursively list all files and subdirectories under the current directory using a glob pattern.",
                 example: "ls -a **/*",
                 result: None,
             },
             Example {
-                description: "Recursively list *.rs and *.toml files using the glob command",
+                description: "Recursively list *.rs and *.toml files using the glob command.",
                 example: "ls ...(glob **/*.{rs,toml})",
                 result: None,
             },
             Example {
-                description: "List given paths and show directories themselves",
+                description: "List given paths and show directories themselves.",
                 example: "['/path/to/directory' '/path/to/file'] | each {|| ls -D $in } | flatten",
                 result: None,
             },

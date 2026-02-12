@@ -958,11 +958,20 @@ fn load_literal(
     lit: &Literal,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(
-        dst,
-        PipelineExecutionData::from(PipelineData::value(value, None)),
-    );
+    // `Literal::Empty` represents "no pipeline input" and should produce
+    // `PipelineData::Empty`. This is distinct from `Literal::Nothing` which
+    // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
+    // Some commands (like `metadata`) distinguish between these when deciding
+    // whether positional args are allowed.
+    if matches!(lit, Literal::Empty) {
+        ctx.put_reg(dst, PipelineExecutionData::empty());
+    } else {
+        let value = literal_value(ctx, lit, span)?;
+        ctx.put_reg(
+            dst,
+            PipelineExecutionData::from(PipelineData::value(value, None)),
+        );
+    }
     Ok(InstructionResult::Continue)
 }
 
@@ -1041,6 +1050,8 @@ fn literal_value(
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(path), span),
         Literal::Date(dt) => Value::date(**dt, span),
         Literal::Nothing => Value::nothing(span),
+        // Empty is handled specially in load_literal and should never reach here
+        Literal::Empty => Value::nothing(span),
     })
 }
 
