@@ -132,8 +132,7 @@ impl InputListConfig {
             style_computer.compute("separator", &Value::nothing(Span::unknown()));
         let color_config_search_result =
             style_computer.compute("search_result", &Value::string("", Span::unknown()));
-        let color_config_hints =
-            style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        let color_config_hints = style_computer.compute("hints", &Value::nothing(Span::unknown()));
         let color_config_row_index =
             style_computer.compute("row_index", &Value::string("", Span::unknown()));
 
