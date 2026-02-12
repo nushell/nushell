@@ -11,7 +11,8 @@ use nu_protocol::{
     combined_type_string,
     debugger::DebugContext,
     engine::{
-        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+        Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
+        StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
@@ -1539,18 +1540,18 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
                 continue;
             };
             let hidden = ctx.stack.env_hidden.get(overlay_name);
-            let is_hidden = |key: &str| hidden.is_some_and(|hidden| hidden.contains(key));
+            let is_hidden = |key: &EnvName| hidden.is_some_and(|hidden| hidden.contains(key));
 
             if let Some(val) = map
                 // Check for exact match
-                .get(key)
+                .get(&EnvName::from(key))
                 // Skip when encountering an overlay where the key is hidden
-                .filter(|_| !is_hidden(key))
+                .filter(|_| !is_hidden(&EnvName::from(key)))
                 .or_else(|| {
                     // Check to see if it exists at all in the map, with a different case
                     map.iter().find_map(|(k, v)| {
                         // Again, skip something that's hidden
-                        (k.eq_ignore_case(key) && !is_hidden(k)).then_some(v)
+                        (k.as_str().eq_ignore_case(key) && !is_hidden(k)).then_some(v)
                     })
                 })
             {
@@ -1582,13 +1583,15 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
         })
         .find_map(|map| {
             // Use the hashmap first to try to be faster?
-            if map.contains_key(key) {
+            if map.contains_key(&EnvName::from(key)) {
                 Some(Cow::Borrowed(key))
             } else {
-                map.keys().find(|k| k.eq_ignore_case(key)).map(|k| {
-                    // it exists, but with a different case
-                    Cow::Owned(k.to_owned())
-                })
+                map.keys()
+                    .find(|k| k.as_str().eq_ignore_case(key))
+                    .map(|k| {
+                        // it exists, but with a different case
+                        Cow::Owned(k.as_str().to_owned())
+                    })
             }
         })
         // didn't exist.

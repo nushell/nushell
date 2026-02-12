@@ -3,7 +3,7 @@ use nu_path::absolute_with;
 use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
     ast::Expr,
-    engine::{Call, EngineState, Stack},
+    engine::{Call, EngineState, EnvName, Stack},
 };
 use std::{
     collections::HashMap,
@@ -32,9 +32,7 @@ pub fn convert_env_vars(
 ) -> Result<(), ShellError> {
     let conversions = conversions.as_record()?;
     for (key, conversion) in conversions.into_iter() {
-        if let Some((case_preserve_env_name, val)) =
-            stack.get_env_var_insensitive(engine_state, key)
-        {
+        if let Some(val) = stack.get_env_var(engine_state, key) {
             match val.get_type() {
                 Type::String => {}
                 _ => continue,
@@ -54,7 +52,7 @@ pub fn convert_env_vars(
                 .run_with_value(val.clone())?
                 .into_value(val.span())?;
 
-            stack.add_env_var(case_preserve_env_name.to_string(), new_val);
+            stack.add_env_var(key.to_string(), new_val);
         }
     }
     Ok(())
@@ -100,7 +98,7 @@ pub fn convert_env_values(
         if let Some(env_vars) = Arc::make_mut(&mut engine_state.env_vars).get_mut(last_overlay_name)
         {
             for (k, v) in new_scope {
-                env_vars.insert(k, v);
+                env_vars.insert(EnvName::from(k), v);
             }
         } else {
             error = error.or_else(|| {
@@ -194,8 +192,8 @@ pub fn path_str(
     stack: &Stack,
     span: Span,
 ) -> Result<String, ShellError> {
-    let (pathname, pathval) = match stack.get_env_var_insensitive(engine_state, "path") {
-        Some((_, v)) => Ok((if cfg!(windows) { "Path" } else { "PATH" }, v)),
+    let pathval = match stack.get_env_var(engine_state, "path") {
+        Some(v) => Ok(v),
         None => Err(ShellError::EnvVarNotFoundAtRuntime {
             envvar_name: if cfg!(windows) {
                 "Path".to_string()
@@ -205,6 +203,9 @@ pub fn path_str(
             span,
         }),
     }?;
+
+    // Hardcoded pathname needed for case-sensitive ENV_CONVERSIONS lookup to ensure consistent PATH/Path conversion on Windows.
+    let pathname = if cfg!(windows) { "Path" } else { "PATH" };
 
     env_to_string(pathname, pathval, engine_state, stack)
 }
@@ -323,9 +324,10 @@ fn get_converted_value(
 
 fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellError> {
     let mut error = None;
+    let preserve_case_name = if cfg!(windows) { "Path" } else { "PATH" };
 
     // If PATH/Path is still a string, force-convert it to a list
-    if let Some((preserve_case_name, value)) = stack.get_env_var_insensitive(engine_state, "Path") {
+    if let Some(value) = stack.get_env_var(engine_state, "Path") {
         let span = value.span();
         match value {
             Value::String { val, .. } => {
