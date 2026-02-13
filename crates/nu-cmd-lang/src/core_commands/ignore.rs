@@ -20,7 +20,7 @@ impl Command for Ignore {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["silent", "quiet", "out-null"]
+        vec!["silent", "quiet", "out-null", "dev/null"]
     }
 
     fn is_const(&self) -> bool {
