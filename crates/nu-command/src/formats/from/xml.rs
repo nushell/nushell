@@ -554,14 +554,16 @@ mod tests {
         let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
 <note>
   <remember>Event</remember>
-</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | reject span | $in"#;
+</note>' | metadata set --content-type 'application/xml' --path-columns [name] | from xml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }
