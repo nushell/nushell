@@ -10,7 +10,7 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
+use nu_protocol::{Signals, engine::Closure};
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -458,11 +458,27 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
             let secs = input.read_i64::<BigEndian>().err_span(span)?;
             make_date(secs, nanos, span)
         }
+        // Serialized closure
+        (-2, _) => {
+            let mut buf = vec![0u8; len];
+            input.read_exact(&mut buf).err_span(span)?;
+            // Parse the extension body as a msgpack value (should be a record)
+            let record_value = read_value(&mut Cursor::new(buf), span, 0)?;
+            match &record_value {
+                Value::Record { val, .. } => match Closure::from_record(val, span)? {
+                    Some(closure) => Ok(Value::closure(closure, span)),
+                    None => Ok(record_value),
+                },
+                _ => Ok(record_value),
+            }
+        }
         _ => Err(ShellError::GenericError {
             error: "Unknown MessagePack extension".into(),
             msg: format!("encountered extension type {ty}, length {len}"),
             span: Some(span),
-            help: Some("only the timestamp extension (-1) is supported".into()),
+            help: Some(
+                "only the timestamp extension (-1) and closure extension (-2) are supported".into(),
+            ),
             inner: vec![],
         }
         .into()),
