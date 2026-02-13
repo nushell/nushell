@@ -1036,6 +1036,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
+    let decl_name = decl.name().to_string();
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
@@ -1377,6 +1378,12 @@ pub fn parse_internal_call(
     // move missing positional checking into the while loop above with two pointers.
     // Maybe more `CallKind::Invalid` if errors found during argument parsing.
     let call_kind = check_call(working_set, command_span, &signature, &call);
+
+    if decl_name == "let"
+        && let Some(lvalue) = call.positional_nth(0)
+    {
+        ensure_not_reserved_variable_name(working_set, lvalue);
+    }
 
     deprecation
         .into_iter()
