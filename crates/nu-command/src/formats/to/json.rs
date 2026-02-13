@@ -148,7 +148,7 @@ pub fn value_to_json_value(
                 value_to_json_value(engine_state, &closure_record, call_span, serialize_types)?
             } else {
                 return Err(ShellError::UnsupportedInput {
-                    msg: "closures are currently not deserializable (use --serialize to serialize as a record)".into(),
+                    msg: "closures are currently not deserializable as json (consider passing --serialize or using msgpack)".into(),
                     input: "value originates from here".into(),
                     msg_span: call_span,
                     input_span: span,
