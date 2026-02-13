@@ -45,15 +45,15 @@ mod tests {
     fn roundtrip_primitives() {
         let v = to_value(&true, span()).unwrap();
         assert_eq!(v, Value::bool(true, span()));
-        assert_eq!(from_value::<bool>(&v).unwrap(), true);
+        assert!(from_value::<bool>(&v).unwrap());
 
         let v = to_value(&42i64, span()).unwrap();
         assert_eq!(v, Value::int(42, span()));
         assert_eq!(from_value::<i64>(&v).unwrap(), 42);
 
-        let v = to_value(&3.14f64, span()).unwrap();
-        assert_eq!(v, Value::float(3.14, span()));
-        assert_eq!(from_value::<f64>(&v).unwrap(), 3.14);
+        let v = to_value(&1.2f64, span()).unwrap();
+        assert_eq!(v, Value::float(1.2, span()));
+        assert_eq!(from_value::<f64>(&v).unwrap(), 1.2);
 
         let v = to_value(&"hello", span()).unwrap();
         assert_eq!(v, Value::string("hello", span()));
