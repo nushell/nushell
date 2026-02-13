@@ -333,7 +333,7 @@ fn main() -> Result<()> {
                         .collect(),
                     Value::String { val, .. } => {
                         // Split on platform-specific path separators
-                        parse_path_list(&val, if cfg!(windows) { &[';'] } else { &[':'] })
+                        parse_path_list(val, if cfg!(windows) { &[';'] } else { &[':'] })
                     }
                     _ => vec![],
                 }
