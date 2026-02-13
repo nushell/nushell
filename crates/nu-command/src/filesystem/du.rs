@@ -1,7 +1,7 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::command_prelude::*;
 use nu_glob::{MatchOptions, Pattern};
-use nu_protocol::{NuGlob, Signals};
+use nu_protocol::{NuGlob, PipelineMetadata, Signals};
 use serde::Deserialize;
 use std::path::Path;
 
@@ -121,7 +121,14 @@ impl Command for Du {
                 };
                 Ok(
                     du_for_one_pattern(args, &current_dir, tag, engine_state.signals().clone())?
-                        .into_pipeline_data(tag, engine_state.signals().clone()),
+                        .into_pipeline_data_with_metadata(
+                            tag,
+                            engine_state.signals().clone(),
+                            PipelineMetadata {
+                                path_columns: vec![String::from("path")],
+                                ..Default::default()
+                            },
+                        ),
                 )
             }
             Some(paths) => {
@@ -148,7 +155,14 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(tag, engine_state.signals().clone()))
+                    .into_pipeline_data_with_metadata(
+                        tag,
+                        engine_state.signals().clone(),
+                        PipelineMetadata {
+                            path_columns: vec![String::from("path")],
+                            ..Default::default()
+                        },
+                    ))
             }
         }
     }
