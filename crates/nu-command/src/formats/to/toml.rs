@@ -52,6 +52,7 @@ impl Command for ToToml {
 fn helper(
     engine_state: &EngineState,
     v: &Value,
+    call_span: Span,
     serialize_types: bool,
 ) -> Result<toml::Value, ShellError> {
     Ok(match &v {
@@ -66,19 +67,27 @@ fn helper(
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), helper(engine_state, v, serialize_types)?);
+                m.insert(
+                    k.clone(),
+                    helper(engine_state, v, call_span, serialize_types)?,
+                );
             }
             toml::Value::Table(m)
         }
         Value::List { vals, .. } => {
-            toml::Value::Array(toml_list(engine_state, vals, serialize_types)?)
+            toml::Value::Array(toml_list(engine_state, vals, call_span, serialize_types)?)
         }
         Value::Closure { val, .. } => {
             if serialize_types {
                 let closure_record = val.to_record(engine_state, v.span())?;
-                helper(engine_state, &closure_record, serialize_types)?
+                helper(engine_state, &closure_record, call_span, serialize_types)?
             } else {
-                toml::Value::String(format!("closure_{}", val.block_id.get()))
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable as toml (consider passing --serialize or using msgpack)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: v.span(),
+                });
             }
         }
         Value::Nothing { .. } => toml::Value::String("<Nothing>".to_string()),
@@ -104,12 +113,13 @@ fn helper(
 fn toml_list(
     engine_state: &EngineState,
     input: &[Value],
+    call_span: Span,
     serialize_types: bool,
 ) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(helper(engine_state, value, serialize_types)?);
+        out.push(helper(engine_state, value, call_span, serialize_types)?);
     }
 
     Ok(out)
@@ -151,7 +161,9 @@ fn value_to_toml_value(
     serialize_types: bool,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v, serialize_types),
+        Value::Record { .. } | Value::Closure { .. } => {
+            helper(engine_state, v, head, serialize_types)
+        }
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {
@@ -264,7 +276,12 @@ mod tests {
             offset: Some(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let result = helper(&engine_state, &test_date, serialize_types);
+        let result = helper(
+            &engine_state,
+            &test_date,
+            Span::test_data(),
+            serialize_types,
+        );
 
         assert!(result.is_ok_and(|res| res == reference_date));
     }

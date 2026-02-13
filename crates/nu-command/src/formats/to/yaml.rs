@@ -96,6 +96,7 @@ impl Command for ToYml {
 pub fn value_to_yaml_value(
     engine_state: &EngineState,
     v: &Value,
+    call_span: Span,
     serialize_types: bool,
 ) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
@@ -116,7 +117,7 @@ pub fn value_to_yaml_value(
             for (k, v) in &**val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
-                    value_to_yaml_value(engine_state, v, serialize_types)?,
+                    value_to_yaml_value(engine_state, v, call_span, serialize_types)?,
                 );
             }
             serde_yaml::Value::Mapping(m)
@@ -125,7 +126,12 @@ pub fn value_to_yaml_value(
             let mut out = vec![];
 
             for value in vals {
-                out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
+                out.push(value_to_yaml_value(
+                    engine_state,
+                    value,
+                    call_span,
+                    serialize_types,
+                )?);
             }
 
             serde_yaml::Value::Sequence(out)
@@ -133,9 +139,14 @@ pub fn value_to_yaml_value(
         Value::Closure { val, .. } => {
             if serialize_types {
                 let closure_record = val.to_record(engine_state, v.span())?;
-                value_to_yaml_value(engine_state, &closure_record, serialize_types)?
+                value_to_yaml_value(engine_state, &closure_record, call_span, serialize_types)?
             } else {
-                serde_yaml::Value::Null
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable as yaml (consider passing --serialize or using msgpack)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: v.span(),
+                });
             }
         }
         Value::Nothing { .. } => serde_yaml::Value::Null,
@@ -173,7 +184,7 @@ fn to_yaml(
         .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
-    let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
+    let yaml_value = value_to_yaml_value(engine_state, &value, head, serialize_types)?;
     match serde_yaml::to_string(&yaml_value) {
         Ok(serde_yaml_string) => {
             Ok(Value::string(serde_yaml_string, head)

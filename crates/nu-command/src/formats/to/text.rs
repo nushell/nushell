@@ -61,7 +61,8 @@ impl Command for ToText {
                         Value::Record { val, .. } => !val.is_empty(),
                         _ => false,
                     };
-                let mut str = local_into_string(engine_state, value, LINE_ENDING, serialize_types);
+                let mut str =
+                    local_into_string(engine_state, value, LINE_ENDING, head, serialize_types)?;
                 if add_trailing {
                     str.push_str(LINE_ENDING);
                 }
@@ -96,24 +97,26 @@ impl Command for ToText {
                                 &engine_state_clone,
                                 val,
                                 LINE_ENDING,
+                                head,
                                 serialize_types,
-                            );
+                            )?;
                             write!(buf, "{str}").map_err(&from_io_error)?;
                             Ok(true)
                         },
                     )
                 } else {
                     let engine_state_clone = engine_state.clone();
-                    ByteStream::from_iter(
+                    ByteStream::from_result_iter(
                         stream.into_inner().map(move |val| {
                             let mut str = local_into_string(
                                 &engine_state_clone,
                                 val,
                                 LINE_ENDING,
+                                head,
                                 serialize_types,
-                            );
+                            )?;
                             str.push_str(LINE_ENDING);
-                            str
+                            Ok(str)
                         }),
                         span,
                         engine_state.signals().clone(),
@@ -159,10 +162,11 @@ fn local_into_string(
     engine_state: &EngineState,
     value: Value,
     separator: &str,
+    call_span: Span,
     serialize_types: bool,
-) -> String {
+) -> Result<String, ShellError> {
     let span = value.span();
-    match value {
+    Ok(match value {
         Value::Bool { val, .. } => val.to_string(),
         Value::Int { val, .. } => val.to_string(),
         Value::Float { val, .. } => ObviousFloat(val).to_string(),
@@ -186,32 +190,41 @@ fn local_into_string(
         Value::Glob { val, .. } => val,
         Value::List { vals: val, .. } => val
             .into_iter()
-            .map(|x| local_into_string(engine_state, x, ", ", serialize_types))
-            .collect::<Vec<_>>()
+            .map(|x| local_into_string(engine_state, x, ", ", call_span, serialize_types))
+            .collect::<Result<Vec<_>, _>>()?
             .join(separator),
         Value::Record { val, .. } => val
             .into_owned()
             .into_iter()
             .map(|(x, y)| {
-                format!(
+                Ok(format!(
                     "{}: {}",
                     x,
-                    local_into_string(engine_state, y, ", ", serialize_types)
-                )
+                    local_into_string(engine_state, y, ", ", call_span, serialize_types)?
+                ))
             })
-            .collect::<Vec<_>>()
+            .collect::<Result<Vec<_>, ShellError>>()?
             .join(separator),
         Value::Closure { val, .. } => {
             if serialize_types {
                 let closure_record = val.to_record(engine_state, span);
                 match closure_record {
-                    Ok(record) => {
-                        local_into_string(engine_state, record, separator, serialize_types)
-                    }
+                    Ok(record) => local_into_string(
+                        engine_state,
+                        record,
+                        separator,
+                        call_span,
+                        serialize_types,
+                    )?,
                     Err(_) => format!("closure_{}", val.block_id.get()),
                 }
             } else {
-                format!("closure_{}", val.block_id.get())
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable as text (consider passing --serialize or using msgpack)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: span,
+                });
             }
         }
         Value::Nothing { .. } => String::new(),
@@ -222,9 +235,9 @@ fn local_into_string(
         // that critical here
         Value::Custom { val, .. } => val
             .to_base_value(span)
-            .map(|val| local_into_string(engine_state, val, separator, serialize_types))
-            .unwrap_or_else(|_| format!("<{}>", val.type_name())),
-    }
+            .map(|val| local_into_string(engine_state, val, separator, call_span, serialize_types))
+            .unwrap_or_else(|_| Ok(format!("<{}>", val.type_name())))?,
+    })
 }
 
 fn update_metadata(metadata: Option<PipelineMetadata>) -> Option<PipelineMetadata> {
