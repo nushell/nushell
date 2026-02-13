@@ -1,9 +1,9 @@
 use crate::network::http::client::{
-    RequestFlags, RequestMetadata, check_response_redirection, expand_unix_socket_path,
-    http_client, http_parse_redirect_mode, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request_no_body,
+    RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
+    expand_unix_socket_path, http_client, http_client_pool, http_parse_redirect_mode,
+    http_parse_url, request_add_authorization_header, request_add_custom_headers,
+    request_handle_response, request_set_timeout, send_request_no_body,
 };
-use crate::network::http::client::{add_unix_socket_flag, http_client_pool};
 use nu_engine::command_prelude::*;
 
 use super::client::RedirectMode;
