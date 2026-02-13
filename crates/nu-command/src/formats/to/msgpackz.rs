@@ -86,14 +86,7 @@ impl Command for ToMsgpackz {
             window_size.map(|w| w.item).unwrap_or(DEFAULT_WINDOW_SIZE),
         );
 
-        write_value(
-            &mut out,
-            &value,
-            0,
-            engine_state,
-            call.head,
-            serialize_types,
-        )?;
+        write_value(&mut out, &value, 0, engine_state, serialize_types)?;
         out.flush()
             .map_err(|err| IoError::new(err, call.head, None))?;
         drop(out);
