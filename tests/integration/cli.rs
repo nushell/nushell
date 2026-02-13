@@ -1642,8 +1642,16 @@ fn include_path_appends_to_env_nu_lib_dirs() -> TestResult {
     assert!(output.status.success());
     // Should at least contain the -I path
     assert!(stdout.contains(r#"/tmp/append"#));
-    assert!(stdout.contains(r#"/scripts"#));
-    assert!(stdout.contains(r#"/completions"#));
+    #[cfg(windows)]
+    {
+        assert!(stdout.contains(r#"\scripts"#));
+        assert!(stdout.contains(r#"\completions"#));
+    }
+    #[cfg(not(windows))]
+    {
+        assert!(stdout.contains(r#"/scripts"#));
+        assert!(stdout.contains(r#"/completions"#));
+    }
     Ok(())
 }
 
