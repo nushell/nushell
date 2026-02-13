@@ -242,8 +242,14 @@ impl<'de> de::Deserializer<'de> for ValueDeserializer<'de> {
                 content: None,
             }),
             // Non-unit variant: serialized as { "VariantName": content }
-            Value::Record { val, .. } if val.len() == 1 => {
-                let (key, value) = val.iter().next().unwrap();
+            Value::Record { val, .. } => {
+                let mut iter = val.iter();
+                let (Some((key, value)), None) = (iter.next(), iter.next()) else {
+                    return Err(Error::new(format!(
+                        "expected single-key record for enum, got {} keys",
+                        val.len()
+                    )));
+                };
                 visitor.visit_enum(NuEnumAccess {
                     variant: key.as_str(),
                     content: Some(value),
