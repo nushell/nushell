@@ -107,22 +107,42 @@ fn literal_closure() {
 
 #[test]
 fn literal_closure_to_nuon() {
-    test_eval("{||} | to nuon --serialize", Eq("\"{||}\""))
+    test_eval(
+        "{||} | to nuon --serialize",
+        Matches(
+            r#"^\{block: \{signature: \{name: closure, description: "", extra_description: "", search_terms: \[\], required_positional: \[\], optional_positional: \[\], rest_positional: null, named: \[\], input_output_types: \[\], allow_variants_without_examples: false, is_filter: false, creates_scope: false, allows_unknown_args: false, complete: null, category: Default\}, pipelines: \[\], captures: \[\], redirect_env: false, ir_block: \{instructions: \[\[Return\]; \[\{src: 0\}\]\], spans: \[\[start, end\]; \[\d+, \d+\]\], data: \[\], ast: \[null\], comments: \[""\], register_count: 1, file_count: 0\}, span: \{start: \d+, end: \d+\}\}, captures: \[\], nested_blocks: \{\}\}$"#,
+        ),
+    )
 }
 
 #[test]
 fn literal_closure_to_json() {
-    test_eval("{||} | to json --serialize", Eq("\"{||}\""))
+    test_eval(
+        "{||} | to json --serialize",
+        Matches(
+            r#"^\{  "block": \{    "signature": \{      "name": "closure",      "description": "",      "extra_description": "",      "search_terms": \[\],      "required_positional": \[\],      "optional_positional": \[\],      "rest_positional": null,      "named": \[\],      "input_output_types": \[\],      "allow_variants_without_examples": false,      "is_filter": false,      "creates_scope": false,      "allows_unknown_args": false,      "complete": null,      "category": "Default"    \},    "pipelines": \[\],    "captures": \[\],    "redirect_env": false,    "ir_block": \{      "instructions": \[        \{          "Return": \{            "src": 0          \}        \}      \],      "spans": \[        \{          "start": \d+,          "end": \d+        \}      \],      "data": \[\],      "ast": \[        null      \],      "comments": \[        ""      \],      "register_count": 1,      "file_count": 0    \},    "span": \{      "start": \d+,      "end": \d+    \}  \},  "captures": \[\],  "nested_blocks": \{\}\}$"#,
+        ),
+    )
 }
 
 #[test]
 fn literal_closure_to_toml() {
-    test_eval("{a: {||}} | to toml --serialize", Eq("a = \"{||}\""))
+    test_eval(
+        r#"{a: {||}} | to toml --serialize"#,
+        Matches(
+            r#"^\[a\]captures = \[\]\[a\.block\]pipelines = \[\]captures = \[\]redirect_env = false\[a\.block\.signature\]name = "closure"description = ""extra_description = ""search_terms = \[\]required_positional = \[\]optional_positional = \[\]rest_positional = "<Nothing>"named = \[\]input_output_types = \[\]allow_variants_without_examples = falseis_filter = falsecreates_scope = falseallows_unknown_args = falsecomplete = "<Nothing>"category = "Default"\[a\.block\.ir_block\]data = \[\]ast = \["<Nothing>"\]comments = \[""\]register_count = 1file_count = 0\[\[a\.block\.ir_block\.instructions\]\]\[a\.block\.ir_block\.instructions\.Return\]src = 0\[\[a\.block\.ir_block\.spans\]\]start = \d+end = \d+\[a\.block\.span\]start = \d+end = \d+\[a\.nested_blocks\]$"#,
+        ),
+    )
 }
 
 #[test]
 fn literal_closure_to_yaml() {
-    test_eval("{||} | to yaml --serialize", Eq("'{||}'"))
+    test_eval(
+        "{||} | to yaml --serialize",
+        Matches(
+            r"^block:  signature:    name: closure    description: ''    extra_description: ''    search_terms: \[\]    required_positional: \[\]    optional_positional: \[\]    rest_positional: null    named: \[\]    input_output_types: \[\]    allow_variants_without_examples: false    is_filter: false    creates_scope: false    allows_unknown_args: false    complete: null    category: Default  pipelines: \[\]  captures: \[\]  redirect_env: false  ir_block:    instructions:    - Return:        src: 0    spans:    - start: \d+      end: \d+    data: \[\]    ast:    - null    comments:    - ''    register_count: 1    file_count: 0  span:    start: \d+    end: \d+captures: \[\]nested_blocks: \{\}$",
+        ),
+    )
 }
 
 #[test]
