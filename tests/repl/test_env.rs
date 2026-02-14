@@ -18,12 +18,9 @@ fn shorthand_env_3() -> TestResult {
 
 #[test]
 fn default_nu_lib_dirs_env_type() {
-    // Previously, this was a list<string>
-    // While we are transitioning to const NU_LIB_DIRS
-    // the env version will be empty, and thus a
-    // list<any>
+    // Now that $env.NU_LIB_DIRS includes defaults, it's list<string>
     let actual = nu!("$env.NU_LIB_DIRS | describe");
-    assert_eq!(actual.out, "list<any>");
+    assert_eq!(actual.out, "list<string>");
 }
 
 #[test]
