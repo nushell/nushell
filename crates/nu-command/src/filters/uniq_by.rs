@@ -25,6 +25,11 @@ impl Command for UniqBy {
                 Some('c'),
             )
             .switch(
+                "from-last",
+                "Return the last occurrence of each unique value instead of the first.",
+                Some('l'),
+            )
+            .switch(
                 "repeated",
                 "Return the input values that occur more than once",
                 Some('d'),
@@ -83,24 +88,44 @@ impl Command for UniqBy {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            description: "Get rows from table filtered by column uniqueness.",
-            example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
-            result: Some(Value::test_list(vec![
-                Value::test_record(record! {
-                    "fruit" => Value::test_string("apple"),
-                    "count" => Value::test_int(9),
-                }),
-                Value::test_record(record! {
-                    "fruit" => Value::test_string("pear"),
-                    "count" => Value::test_int(3),
-                }),
-                Value::test_record(record! {
-                    "fruit" => Value::test_string("orange"),
-                    "count" => Value::test_int(7),
-                }),
-            ])),
-        }]
+        vec![
+            Example {
+                description: "Get rows from table filtered by column uniqueness.",
+                example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("apple"),
+                        "count" => Value::test_int(9),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("pear"),
+                        "count" => Value::test_int(3),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("orange"),
+                        "count" => Value::test_int(7),
+                    }),
+                ])),
+            },
+            Example {
+                description: "Get rows from table filtered by column uniqueness, keeping the last occurrence of each duplicate.",
+                example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit --from-last",
+                result: Some(Value::test_list(vec![
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("apple"),
+                        "count" => Value::test_int(2),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("pear"),
+                        "count" => Value::test_int(3),
+                    }),
+                    Value::test_record(record! {
+                        "fruit" => Value::test_string("orange"),
+                        "count" => Value::test_int(7),
+                    }),
+                ])),
+            },
+        ]
     }
 }
 
