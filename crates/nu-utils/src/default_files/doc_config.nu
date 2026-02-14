@@ -135,6 +135,35 @@ $env.config.cursor_shape.vi_normal = "inherit"
 # Default: true
 $env.config.show_hints = true
 
+# line_editor.external.hinter.enable (bool): Enable custom script-based hints.
+# true: Evaluate the custom hinter closure when configured.
+# false: Skip custom hinter and always use built-in history hints.
+# Default: true
+$env.config.line_editor.external.hinter.enable = true
+
+# line_editor.external.hinter.closure (closure|null): Custom hint closure.
+# Closure input: one record argument {|ctx| ... } where
+#   $ctx.line (string): current line buffer
+#   $ctx.pos (int): current cursor position
+#   $ctx.cwd (string): current working directory
+# Return:
+#   string -> hint suffix to render and accept
+#   null   -> delegate to built-in hinter
+# Any closure error or unsupported return type falls back to built-in hints.
+# This closure runs frequently while typing, so keep it lightweight.
+# Default: null
+$env.config.line_editor.external.hinter.closure = null
+
+# Example:
+# $env.config.line_editor.external.hinter.closure = {|ctx|
+#   let last = (history | last 1 | get command_line? | get 0?)
+#   if $last == null or not ($last | str starts-with $ctx.line) {
+#     null
+#   } else {
+#     ($last | str substring ($ctx.line | str length)..)
+#   }
+# }
+
 # completions.algorithm (string): The algorithm used for matching completions.
 # "prefix": Match from the beginning of the text.
 # "substring": Match anywhere in the text.
