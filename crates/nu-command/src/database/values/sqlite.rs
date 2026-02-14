@@ -450,7 +450,8 @@ pub fn value_to_sql(
         Value::Binary { val, .. } => Ok(Box::new(val)),
         Value::Nothing { .. } => Ok(Box::new(rusqlite::types::Null)),
         val => {
-            let json_value = crate::value_to_json_value(engine_state, &val, call_span, false)?;
+            let json_value =
+                crate::value_to_json_value(engine_state, &val, call_span, false, false)?;
             match nu_json::to_string_raw(&json_value) {
                 Ok(s) => Ok(Box::new(s)),
                 Err(err) => Err(ShellError::CantConvert {

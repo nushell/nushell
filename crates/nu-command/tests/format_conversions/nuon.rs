@@ -278,10 +278,20 @@ fn to_nuon_errs_on_closure() {
 }
 
 #[test]
-fn to_nuon_closure_serialized_to_record() {
+fn to_nuon_closure_serialized_to_string() {
     let actual = nu!(r#"
         {|| to nuon}
         | to nuon --serialize
+    "#);
+
+    assert_eq!(actual.out, "\"{|| to nuon}\"");
+}
+
+#[test]
+fn to_nuon_closure_serialized_to_record() {
+    let actual = nu!(r#"
+        {|| to nuon}
+        | to nuon --serialize --closure-to-record
     "#);
 
     let re = fancy_regex::Regex::new(

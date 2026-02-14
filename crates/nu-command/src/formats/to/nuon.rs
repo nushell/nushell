@@ -34,6 +34,11 @@ impl Command for ToNuon {
                 Some('s'),
             )
             .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
+            .switch(
                 "raw-strings",
                 "use raw string syntax (r#'...'#) for strings with quotes or backslashes",
                 None,
@@ -58,6 +63,7 @@ impl Command for ToNuon {
             .with_content_type(Some("application/x-nuon".into()));
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
         let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
@@ -76,6 +82,7 @@ impl Command for ToNuon {
             .style(style)
             .span(Some(span))
             .serialize_types(serialize_types)
+            .closure_to_record(closure_to_record)
             .raw_strings(raw_strings);
 
         match nuon::to_nuon(engine_state, &value, config) {

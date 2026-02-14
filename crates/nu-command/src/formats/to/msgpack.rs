@@ -27,6 +27,11 @@ impl Command for ToMsgpack {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -89,8 +94,16 @@ MessagePack: https://msgpack.org/
         let mut out = vec![];
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
 
-        write_value(&mut out, &value, 0, engine_state, serialize_types)?;
+        write_value(
+            &mut out,
+            &value,
+            0,
+            engine_state,
+            serialize_types,
+            closure_to_record,
+        )?;
 
         Ok(Value::binary(out, call.head).into_pipeline_data_with_metadata(Some(metadata)))
     }
@@ -161,6 +174,7 @@ pub(crate) fn write_value(
     depth: usize,
     engine_state: &EngineState,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<(), WriteError> {
     use mp::ValueWriteError::InvalidMarkerWrite;
     let span = value.span();
@@ -211,6 +225,7 @@ pub(crate) fn write_value(
                 depth,
                 engine_state,
                 serialize_types,
+                closure_to_record,
             )?;
         }
         Value::String { val, .. } => {
@@ -223,13 +238,27 @@ pub(crate) fn write_value(
             mp::write_map_len(out, convert(val.len(), span)?).err_span(span)?;
             for (k, v) in val.iter() {
                 mp::write_str(out, k).err_span(span)?;
-                write_value(out, v, depth + 1, engine_state, serialize_types)?;
+                write_value(
+                    out,
+                    v,
+                    depth + 1,
+                    engine_state,
+                    serialize_types,
+                    closure_to_record,
+                )?;
             }
         }
         Value::List { vals, .. } => {
             mp::write_array_len(out, convert(vals.len(), span)?).err_span(span)?;
             for val in vals {
-                write_value(out, val, depth + 1, engine_state, serialize_types)?;
+                write_value(
+                    out,
+                    val,
+                    depth + 1,
+                    engine_state,
+                    serialize_types,
+                    closure_to_record,
+                )?;
             }
         }
         Value::Nothing { .. } => {
@@ -238,21 +267,36 @@ pub(crate) fn write_value(
                 .err_span(span)?;
         }
         Value::Closure { val, .. } => {
-            // Serialize the closure record into a temporary buffer
-            let closure_record = val
-                .to_record(engine_state, span)
-                .map_err(|err| WriteError::Shell(Box::new(err)))?;
-            let mut buf = vec![];
-            write_value(
-                &mut buf,
-                &closure_record,
-                depth + 1,
-                engine_state,
-                serialize_types,
-            )?;
-            // Wrap in a msgpack extension type so it round-trips as a closure
-            mp::write_ext_meta(out, buf.len() as u32, -2).err_span(span)?;
-            out.write_all(&buf).err_span(span)?;
+            if closure_to_record {
+                // Serialize the closure record into a temporary buffer
+                let closure_record = val
+                    .to_record(engine_state, span)
+                    .map_err(|err| WriteError::Shell(Box::new(err)))?;
+                let mut buf = vec![];
+                write_value(
+                    &mut buf,
+                    &closure_record,
+                    depth + 1,
+                    engine_state,
+                    serialize_types,
+                    closure_to_record,
+                )?;
+                // Wrap in a msgpack extension type so it round-trips as a closure
+                mp::write_ext_meta(out, buf.len() as u32, -2).err_span(span)?;
+                out.write_all(&buf).err_span(span)?;
+            } else if serialize_types {
+                let closure_string = val
+                    .coerce_into_string(engine_state, span)
+                    .map_err(|err| WriteError::Shell(Box::new(err)))?;
+                mp::write_str(out, &closure_string).err_span(span)?;
+            } else {
+                return Err(WriteError::Shell(Box::new(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: span,
+                    input_span: span,
+                })));
+            }
         }
         Value::Error { error, .. } => {
             return Err(WriteError::Shell(error.clone()));
@@ -281,6 +325,7 @@ pub(crate) fn write_value(
                 depth,
                 engine_state,
                 serialize_types,
+                closure_to_record,
             )?;
         }
     }
