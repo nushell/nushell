@@ -278,13 +278,21 @@ fn to_nuon_errs_on_closure() {
 }
 
 #[test]
-fn to_nuon_closure_coerced_to_quoted_string() {
+fn to_nuon_closure_serialized_to_record() {
     let actual = nu!(r#"
         {|| to nuon}
         | to nuon --serialize
     "#);
 
-    assert_eq!(actual.out, "\"{|| to nuon}\"");
+    let re = fancy_regex::Regex::new(
+        r#"^\{block: \{signature: \{name: closure, description: "", extra_description: "", search_terms: \[\], required_positional: \[\], optional_positional: \[\], rest_positional: null, named: \[\], input_output_types: \[\], allow_variants_without_examples: false, is_filter: false, creates_scope: false, allows_unknown_args: false, complete: null, category: Default\}, pipelines: \[\[elements\]; \[\[\[pipe, expr, redirection\]; \[null, \{expr: \{Call: \{decl_id: 280, head: \{start: \d+, end: \d+\}, arguments: \[\], parser_info: \{\}\}\}, span: \{start: \d+, end: \d+\}, span_id: 49, ty: String\}, null\]\]\]\], captures: \[\], redirect_env: false, ir_block: \{instructions: \[\{RedirectOut: \{mode: Caller\}\}, \{RedirectErr: \{mode: Caller\}\}, \{Call: \{decl_id: 280, src_dst: 0\}\}, \{Return: \{src: 0\}\}\], spans: \[\[start, end\]; \[\d+, \d+\], \[\d+, \d+\], \[\d+, \d+\], \[\d+, \d+\]\], data: \[\], ast: \[null, null, null, null\], comments: \["", "", "", ""\], register_count: 1, file_count: 0\}, span: \{start: \d+, end: \d+\}\}, captures: \[\], nested_blocks: \{\}\}$"#,
+    )
+    .unwrap();
+    assert!(
+        re.is_match(&actual.out).unwrap_or(false),
+        "output does not match expected closure record format:\n{}",
+        actual.out,
+    );
 }
 
 #[test]
