@@ -543,43 +543,6 @@ impl Stack {
         None
     }
 
-    // Case-Insensitive version of get_env_var
-    // Returns Some((name, value)) if found, None otherwise.
-    // When updating environment variables, make sure to use
-    // the same case (from the returned "name") as the original
-    // environment variable name.
-    // pub fn get_env_var_insensitive<'a>(
-    //     &'a self,
-    //     engine_state: &'a EngineState,
-    //     name: &str,
-    // ) -> Option<(&'a String, &'a Value)> {
-    //     for scope in self.env_vars.iter().rev() {
-    //         for active_overlay in self.active_overlays.iter().rev() {
-    //             if let Some(env_vars) = scope.get(active_overlay)
-    //                 && let Some((k, v)) = env_vars.iter().find(|(k, _)| **k == EnvName::from(name))
-    //             {
-    //                 return Some((&k.0, v));
-    //             }
-    //         }
-    //     }
-
-    //     for active_overlay in self.active_overlays.iter().rev() {
-    //         let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-    //             env_hidden.contains(&EnvName::from(name))
-    //         } else {
-    //             false
-    //         };
-
-    //         if !is_hidden
-    //             && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-    //             && let Some((k, v)) = env_vars.iter().find(|(k, _)| **k == EnvName::from(name))
-    //         {
-    //             return Some((&k.0, v));
-    //         }
-    //     }
-    //     None
-    // }
-
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {

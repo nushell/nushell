@@ -518,23 +518,6 @@ impl EngineState {
         None
     }
 
-    // Returns Some((name, value)) if found, None otherwise.
-    // When updating environment variables, make sure to use
-    // the same case (the returned "name") as the original
-    // environment variable name.
-    // pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
-    //     for overlay_id in self.scope.active_overlays.iter().rev() {
-    //         let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-    //         if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-    //             && let Some((k, v)) = env_vars.iter().find(|(k, _)| **k == EnvName::from(name))
-    //         {
-    //             return Some((&k.0, v));
-    //         }
-    //     }
-
-    //     None
-    // }
-
     #[cfg(feature = "plugin")]
     pub fn plugins(&self) -> &[Arc<dyn RegisteredPlugin>] {
         &self.plugins
