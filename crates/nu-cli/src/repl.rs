@@ -444,17 +444,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-        if config.line_editor.external.hinter.enable {
-            if let Some(closure) = config.line_editor.external.hinter.closure.as_ref() {
-                line_editor.with_hinter(Box::new(ExternalHinter::new(
-                    engine_reference.clone(),
-                    stack_arc.clone(),
-                    closure.clone(),
-                    style,
-                )))
-            } else {
-                line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
-            }
+        if config.line_editor.external.hinter.enable
+            && let Some(closure) = config.line_editor.external.hinter.closure.as_ref()
+        {
+            line_editor.with_hinter(Box::new(ExternalHinter::new(
+                engine_reference.clone(),
+                stack_arc.clone(),
+                closure.clone(),
+                style,
+            )))
         } else {
             line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
         }
