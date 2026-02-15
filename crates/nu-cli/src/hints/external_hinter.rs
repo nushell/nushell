@@ -1,19 +1,18 @@
-use log::debug;
+use log::error;
 use nu_ansi_term::Style;
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    ExternalHinterConfig, PipelineData, Record, Span, Value,
+    PipelineData, Record, Span, Value,
     engine::{Closure, EngineState, Stack},
 };
-use reedline::{CwdAwareHinter, Hinter, History};
+use reedline::{Hinter, History};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub(crate) struct ExternalHinter {
     engine_state: Arc<EngineState>,
     stack: Arc<Stack>,
-    config: ExternalHinterConfig,
-    fallback: CwdAwareHinter,
+    closure: Closure,
     style: Style,
     current_hint: String,
 }
@@ -22,41 +21,24 @@ impl ExternalHinter {
     pub(crate) fn new(
         engine_state: Arc<EngineState>,
         stack: Arc<Stack>,
-        config: ExternalHinterConfig,
+        closure: Closure,
         style: Style,
     ) -> Self {
         Self {
             engine_state,
             stack,
-            fallback: CwdAwareHinter::default().with_style(style),
-            config,
+            closure,
             style,
             current_hint: String::new(),
         }
     }
 
-    fn handle_fallback(
-        &mut self,
-        line: &str,
-        pos: usize,
-        history: &dyn History,
-        use_ansi_coloring: bool,
-        cwd: &str,
-    ) -> String {
-        let hint = self
-            .fallback
-            .handle(line, pos, history, use_ansi_coloring, cwd);
-        self.current_hint = self.fallback.complete_hint();
-        hint
-    }
-
     fn evaluate_external_hint(
         &self,
-        closure: Closure,
         line: &str,
         pos: usize,
         cwd: &str,
-    ) -> Result<Option<String>, ()> {
+    ) -> Result<Option<String>, String> {
         let span = Span::unknown();
         let context = Record::from_raw_cols_vals(
             vec!["line".to_string(), "pos".to_string(), "cwd".to_string()],
@@ -68,12 +50,10 @@ impl ExternalHinter {
             span,
             span,
         )
-        .map_err(|err| {
-            debug!("external_hinter: failed to build context record: {err}");
-        })?;
+        .map_err(|err| format!("failed to build context record: {err}"))?;
 
         let stack = Stack::with_parent(self.stack.clone());
-        let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, closure)
+        let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, self.closure.clone())
             .add_arg(Value::record(context, span))
             .run_with_input(PipelineData::empty())
             .and_then(|data| data.into_value(span));
@@ -82,16 +62,13 @@ impl ExternalHinter {
             Ok(Value::String { val, .. }) => Ok(Some(val)),
             Ok(Value::Nothing { .. }) => Ok(None),
             Ok(value) => {
-                debug!(
-                    "external_hinter: unsupported closure return type {}, using fallback",
+                error!(
+                    "external_hinter: unsupported closure return type {}",
                     value.get_type()
                 );
                 Ok(None)
             }
-            Err(err) => {
-                debug!("external_hinter: closure evaluation failed: {err}");
-                Err(())
-            }
+            Err(err) => Err(format!("closure evaluation failed: {err}")),
         }
     }
 }
@@ -101,28 +78,23 @@ impl Hinter for ExternalHinter {
         &mut self,
         line: &str,
         pos: usize,
-        history: &dyn History,
+        _history: &dyn History,
         use_ansi_coloring: bool,
         cwd: &str,
     ) -> String {
-        if !self.config.enable {
-            return self.handle_fallback(line, pos, history, use_ansi_coloring, cwd);
-        }
-
-        let Some(closure) = self.config.closure.as_ref().cloned() else {
-            return self.handle_fallback(line, pos, history, use_ansi_coloring, cwd);
+        self.current_hint = match self.evaluate_external_hint(line, pos, cwd) {
+            Ok(Some(hint)) => hint,
+            Ok(None) => String::new(),
+            Err(err) => {
+                error!("external_hinter: {err}");
+                String::new()
+            }
         };
 
-        match self.evaluate_external_hint(closure, line, pos, cwd) {
-            Ok(Some(hint)) => {
-                self.current_hint = hint;
-                if use_ansi_coloring && !self.current_hint.is_empty() {
-                    self.style.paint(&self.current_hint).to_string()
-                } else {
-                    self.current_hint.clone()
-                }
-            }
-            Ok(None) | Err(()) => self.handle_fallback(line, pos, history, use_ansi_coloring, cwd),
+        if use_ansi_coloring && !self.current_hint.is_empty() {
+            self.style.paint(&self.current_hint).to_string()
+        } else {
+            self.current_hint.clone()
         }
     }
 
@@ -156,17 +128,13 @@ mod tests {
     use super::*;
     use nu_parser::parse;
     use nu_protocol::{ast::Expr, engine::StateWorkingSet};
-    use reedline::{FileBackedHistory, HistoryItem};
+    use reedline::FileBackedHistory;
 
-    fn history_with_command(command_line: &str) -> FileBackedHistory {
-        let mut history = match FileBackedHistory::new(10) {
+    fn history() -> FileBackedHistory {
+        match FileBackedHistory::new(10) {
             Ok(history) => history,
             Err(err) => panic!("failed to build history: {err}"),
-        };
-        if let Err(err) = history.save(HistoryItem::from_command_line(command_line)) {
-            panic!("failed to seed history: {err}");
         }
-        history
     }
 
     fn parse_test_closure(source: &str) -> (Arc<EngineState>, Closure) {
@@ -207,13 +175,9 @@ mod tests {
     #[test]
     fn uses_external_hint_string_and_caches_for_completion() {
         let (engine_state, closure) = parse_test_closure("{|ctx| 'hello there'}");
-        let config = ExternalHinterConfig {
-            enable: true,
-            closure: Some(closure),
-        };
         let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), config, Style::new());
-        let history = history_with_command("echo fallback");
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
 
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
         assert_eq!(hint, "hello there");
@@ -222,67 +186,59 @@ mod tests {
     }
 
     #[test]
-    fn null_result_uses_fallback_hint() {
+    fn null_result_returns_no_hint() {
         let (engine_state, closure) = parse_test_closure("{|ctx| null}");
-        let config = ExternalHinterConfig {
-            enable: true,
-            closure: Some(closure),
-        };
         let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), config, Style::new());
-        let history = history_with_command("echo fallback");
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
-        assert_eq!(hint, " fallback");
-        assert_eq!(hinter.complete_hint(), " fallback");
-        assert_eq!(hinter.next_hint_token(), " fallback");
+        assert_eq!(hint, "");
+        assert_eq!(hinter.complete_hint(), "");
+        assert_eq!(hinter.next_hint_token(), "");
     }
 
     #[test]
-    fn invalid_return_type_uses_fallback_hint() {
+    fn invalid_return_type_returns_no_hint() {
         let (engine_state, closure) = parse_test_closure("{|ctx| 42}");
-        let config = ExternalHinterConfig {
-            enable: true,
-            closure: Some(closure),
-        };
         let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), config, Style::new());
-        let history = history_with_command("echo fallback");
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
-        assert_eq!(hint, " fallback");
-        assert_eq!(hinter.complete_hint(), " fallback");
+        assert_eq!(hint, "");
+        assert_eq!(hinter.complete_hint(), "");
     }
 
     #[test]
-    fn eval_error_uses_fallback_hint() {
+    fn eval_error_returns_no_hint() {
         let (engine_state, closure) = parse_test_closure("{|ctx| 1 / 0}");
-        let config = ExternalHinterConfig {
-            enable: true,
-            closure: Some(closure),
-        };
         let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), config, Style::new());
-        let history = history_with_command("echo fallback");
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
-        assert_eq!(hint, " fallback");
-        assert_eq!(hinter.complete_hint(), " fallback");
+        assert_eq!(hint, "");
+        assert_eq!(hinter.complete_hint(), "");
     }
 
     #[test]
-    fn disabled_external_hinter_uses_fallback() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| 'never-used'}");
-        let config = ExternalHinterConfig {
-            enable: false,
-            closure: Some(closure),
-        };
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), config, Style::new());
-        let history = history_with_command("echo fallback");
+    fn first_hint_token_empty() {
+        assert_eq!(super::first_hint_token(""), "");
+    }
 
-        let hint = hinter.handle("echo", 4, &history, false, "/tmp");
-        assert_eq!(hint, " fallback");
-        assert_eq!(hinter.complete_hint(), " fallback");
+    #[test]
+    fn first_hint_token_with_leading_whitespace() {
+        assert_eq!(super::first_hint_token("   hello world"), "   hello");
+    }
+
+    #[test]
+    fn first_hint_token_single_word() {
+        assert_eq!(super::first_hint_token("hello"), "hello");
+    }
+
+    #[test]
+    fn first_hint_token_only_whitespace() {
+        assert_eq!(super::first_hint_token("   "), "   ");
     }
 }

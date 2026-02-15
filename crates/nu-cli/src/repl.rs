@@ -38,8 +38,9 @@ use nu_utils::{
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
 use reedline::{
-    CursorConfig, DefaultCompleter, EditCommand, Emacs, FileBackedHistory, HistorySessionId,
-    MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline, SemanticPromptMarkers, Vi,
+    CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
+    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
+    SemanticPromptMarkers, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -443,12 +444,20 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
         let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-        line_editor.with_hinter(Box::new(ExternalHinter::new(
-            engine_reference.clone(),
-            stack_arc.clone(),
-            config.line_editor.external.hinter.clone(),
-            style,
-        )))
+        if config.line_editor.external.hinter.enable {
+            if let Some(closure) = config.line_editor.external.hinter.closure.as_ref() {
+                line_editor.with_hinter(Box::new(ExternalHinter::new(
+                    engine_reference.clone(),
+                    stack_arc.clone(),
+                    closure.clone(),
+                    style,
+                )))
+            } else {
+                line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
+            }
+        } else {
+            line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
+        }
     } else {
         line_editor.disable_hints()
     };
