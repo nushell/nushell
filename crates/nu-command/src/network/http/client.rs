@@ -38,8 +38,14 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
+    unversioned::transport::Connector,
 };
 use url::Url;
+
+#[cfg(feature = "native-tls")]
+use ureq::unversioned::transport::NativeTlsConnector;
+#[cfg(feature = "rustls-tls")]
+use ureq::unversioned::transport::RustlsConnector;
 
 use crate::network::http::interruptible_tcp::{InterruptibleTcpConnector, make_on_connect};
 use crate::network::http::interruptible_unix::{
@@ -144,7 +150,13 @@ pub fn http_client_pool(
     config_builder = config_builder.tls_config(tls_config(false)?);
 
     let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
-    let connector = InterruptibleTcpConnector::new(on_connect);
+    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+
+    #[cfg(feature = "rustls-tls")]
+    let connector = tcp_connector.chain(RustlsConnector::default());
+    #[cfg(feature = "native-tls")]
+    let connector = tcp_connector.chain(NativeTlsConnector::default());
+
     let resolver = DnsLookupResolver;
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
@@ -213,7 +225,13 @@ pub fn http_client(
     }
 
     let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
-    let connector = InterruptibleTcpConnector::new(on_connect);
+    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+
+    #[cfg(feature = "rustls-tls")]
+    let connector = tcp_connector.chain(RustlsConnector::default());
+    #[cfg(feature = "native-tls")]
+    let connector = tcp_connector.chain(NativeTlsConnector::default());
+
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
