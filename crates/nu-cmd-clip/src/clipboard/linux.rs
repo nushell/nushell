@@ -1,7 +1,7 @@
 use super::{arboard_provider::with_clipboard_instance, clipboard::Clipboard};
 use nu_protocol::{ShellError, Value};
 use std::sync::{OnceLock, mpsc};
-use std::{env, thread};
+use std::thread;
 
 pub(crate) struct ClipBoardLinux {
     use_daemon: bool,
@@ -103,21 +103,12 @@ impl Clipboard for ClipBoardLinux {
 
 fn should_use_daemon(config: Option<&Value>) -> bool {
     // Backward-compatible override from old plugin config style:
-    // `$env.config.plugins.clipboard.NO_DAEMON = true`
+    // `$env.config.plugins.clip.NO_DAEMON = true`
     if let Some(no_daemon) = read_no_daemon(config) {
         return !no_daemon;
     }
 
-    match detect_display_server() {
-        DisplayServer::X11 => true,
-        DisplayServer::Wayland | DisplayServer::None => false,
-        DisplayServer::Unknown(server) => {
-            eprintln!(
-                "Unknown display server '{server}', assuming no daemon is needed for clipboard."
-            );
-            false
-        }
-    }
+    true
 }
 
 fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
@@ -138,28 +129,5 @@ fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
         },
         Some(Value::Int { val, .. }) => Some(*val == 1),
         _ => None,
-    }
-}
-
-enum DisplayServer {
-    Wayland,
-    X11,
-    Unknown(String),
-    None,
-}
-
-fn detect_display_server() -> DisplayServer {
-    if let Ok(session_type) = env::var("XDG_SESSION_TYPE") {
-        match session_type.to_lowercase().as_str() {
-            "wayland" => DisplayServer::Wayland,
-            "x11" => DisplayServer::X11,
-            _ => DisplayServer::Unknown(session_type),
-        }
-    } else if env::var("WAYLAND_DISPLAY").is_ok() {
-        DisplayServer::Wayland
-    } else if env::var("DISPLAY").is_ok() {
-        DisplayServer::X11
-    } else {
-        DisplayServer::None
     }
 }

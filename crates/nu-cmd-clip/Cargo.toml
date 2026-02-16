@@ -1,5 +1,7 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors = [
+  "The Nushell Project Developers",
+]
 description = "Clipboard commands for Nushell."
 edition = "2024"
 license = "MIT"
@@ -22,5 +24,8 @@ nu-protocol = { path = "../nu-protocol", version = "0.110.1" }
 arboard = { version = "3.6.0", default-features = false }
 
 [features]
-default = []
-use-wayland = ["arboard/wayland-data-control"]
+default = [
+]
+use-wayland = [
+  "arboard/wayland-data-control",
+]
