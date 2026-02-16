@@ -1,12 +1,11 @@
 use crate::{
     Config, ENV_VARIABLE_ID, IntoValue, NU_VARIABLE_ID, OutDest, ShellError, Span, Value, VarId,
     engine::{
-        ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, ErrorHandlerStack, Redirection,
+        ArgumentStack, DEFAULT_OVERLAY_NAME, EngineState, EnvName, ErrorHandlerStack, Redirection,
         StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
     report_shell_warning,
 };
-use nu_utils::IgnoreCaseExt;
 use std::{
     collections::{HashMap, HashSet},
     fs::File,
@@ -15,7 +14,7 @@ use std::{
 };
 
 /// Environment variables per overlay
-pub type EnvVars = HashMap<String, HashMap<String, Value>>;
+pub type EnvVars = HashMap<String, HashMap<EnvName, Value>>;
 
 /// A runtime value stack used during evaluation
 ///
@@ -41,7 +40,7 @@ pub struct Stack {
     /// Environment variables arranged as a stack to be able to recover values from parent scopes
     pub env_vars: Vec<Arc<EnvVars>>,
     /// Tells which environment variables from engine state are hidden, per overlay.
-    pub env_hidden: Arc<HashMap<String, HashSet<String>>>,
+    pub env_hidden: Arc<HashMap<String, HashSet<EnvName>>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
     /// Argument stack for IR evaluation
@@ -144,7 +143,7 @@ impl Stack {
     pub fn with_env(
         &mut self,
         env_vars: &[Arc<EnvVars>],
-        env_hidden: &Arc<HashMap<String, HashSet<String>>>,
+        env_hidden: &Arc<HashMap<String, HashSet<EnvName>>>,
     ) {
         // Do not clone the environment if it hasn't changed
         if self.env_vars.iter().any(|scope| !scope.is_empty()) {
@@ -262,23 +261,30 @@ impl Stack {
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
         if let Some(last_overlay) = self.active_overlays.last() {
+            let env_name = EnvName::from(var);
             if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
                 // if the env var was hidden, let's activate it again
-                env_hidden.remove(&var);
+                env_hidden.remove(&env_name);
             }
 
             if let Some(scope) = self.env_vars.last_mut() {
                 let scope = Arc::make_mut(scope);
                 if let Some(env_vars) = scope.get_mut(last_overlay) {
-                    env_vars.insert(var, value);
+                    env_vars.insert(env_name, value);
                 } else {
-                    scope.insert(last_overlay.into(), [(var, value)].into_iter().collect());
+                    scope.insert(
+                        last_overlay.into(),
+                        [(env_name, value)].into_iter().collect(),
+                    );
                 }
             } else {
                 self.env_vars.push(Arc::new(
-                    [(last_overlay.into(), [(var, value)].into_iter().collect())]
-                        .into_iter()
-                        .collect(),
+                    [(
+                        last_overlay.into(),
+                        [(env_name, value)].into_iter().collect(),
+                    )]
+                    .into_iter()
+                    .collect(),
                 ));
             }
         } else {
@@ -386,7 +392,7 @@ impl Stack {
                                 true
                             }
                         })
-                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .map(|(k, v)| (k.as_str().to_string(), v.clone()))
                         .collect::<HashMap<String, Value>>(),
                 );
             }
@@ -404,7 +410,11 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.clone());
+                    result.extend(
+                        env_vars
+                            .iter()
+                            .map(|(k, v)| (k.as_str().to_string(), v.clone())),
+                    );
                 }
             }
         }
@@ -420,7 +430,11 @@ impl Stack {
             if let Some(active_overlay) = self.active_overlays.iter().find(|n| n == &overlay_name)
                 && let Some(env_vars) = scope.get(active_overlay)
             {
-                result.extend(env_vars.clone());
+                result.extend(
+                    env_vars
+                        .iter()
+                        .map(|(k, v)| (k.as_str().to_string(), v.clone())),
+                );
             }
         }
 
@@ -441,7 +455,7 @@ impl Stack {
             }
             if let Some(env_names) = self.env_hidden.get(overlay_name) {
                 for n in env_names {
-                    if result.contains_key(n) {
+                    if result.contains_key(n.as_str()) {
                         continue;
                     }
                     // get env value.
@@ -450,7 +464,7 @@ impl Stack {
                         .get(overlay_name)
                         .map(|env_vars| env_vars.get(n))
                     {
-                        result.insert(n.to_string(), v.clone());
+                        result.insert(n.as_str().to_string(), v.clone());
                     }
                 }
             }
@@ -475,7 +489,7 @@ impl Stack {
                                 true
                             }
                         })
-                        .cloned()
+                        .map(|k| k.as_str().to_string())
                         .collect::<HashSet<String>>(),
                 );
             }
@@ -484,7 +498,12 @@ impl Stack {
         for scope in &self.env_vars {
             for active_overlay in self.active_overlays.iter() {
                 if let Some(env_vars) = scope.get(active_overlay) {
-                    result.extend(env_vars.keys().cloned().collect::<HashSet<String>>());
+                    result.extend(
+                        env_vars
+                            .keys()
+                            .map(|k| k.as_str().to_string())
+                            .collect::<HashSet<String>>(),
+                    );
                 }
             }
         }
@@ -500,7 +519,7 @@ impl Stack {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay)
-                    && let Some(v) = env_vars.get(name)
+                    && let Some(v) = env_vars.get(&EnvName::from(name))
                 {
                     return Some(v);
                 }
@@ -509,53 +528,16 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(&EnvName::from(name))
             } else {
                 false
             };
 
             if !is_hidden
                 && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && let Some(v) = env_vars.get(name)
+                && let Some(v) = env_vars.get(&EnvName::from(name))
             {
                 return Some(v);
-            }
-        }
-        None
-    }
-
-    // Case-Insensitive version of get_env_var
-    // Returns Some((name, value)) if found, None otherwise.
-    // When updating environment variables, make sure to use
-    // the same case (from the returned "name") as the original
-    // environment variable name.
-    pub fn get_env_var_insensitive<'a>(
-        &'a self,
-        engine_state: &'a EngineState,
-        name: &str,
-    ) -> Option<(&'a String, &'a Value)> {
-        for scope in self.env_vars.iter().rev() {
-            for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get(active_overlay)
-                    && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
-                {
-                    return Some((v.0, v.1));
-                }
-            }
-        }
-
-        for active_overlay in self.active_overlays.iter().rev() {
-            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.iter().any(|k| k.eq_ignore_case(name))
-            } else {
-                false
-            };
-
-            if !is_hidden
-                && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
-            {
-                return Some((v.0, v.1));
             }
         }
         None
@@ -565,7 +547,7 @@ impl Stack {
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay)
-                    && env_vars.contains_key(name)
+                    && env_vars.contains_key(&EnvName::from(name))
                 {
                     return true;
                 }
@@ -574,14 +556,14 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(name)
+                env_hidden.contains(&EnvName::from(name))
             } else {
                 false
             };
 
             if !is_hidden
                 && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.contains_key(name)
+                && env_vars.contains_key(&EnvName::from(name))
             {
                 return true;
             }
@@ -595,7 +577,7 @@ impl Stack {
             let scope = Arc::make_mut(scope);
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay)
-                    && env_vars.remove(name).is_some()
+                    && env_vars.remove(&EnvName::from(name)).is_some()
                 {
                     return true;
                 }
@@ -604,13 +586,16 @@ impl Stack {
 
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.get(name).is_some()
+                && env_vars.get(&EnvName::from(name)).is_some()
             {
                 let env_hidden = Arc::make_mut(&mut self.env_hidden);
                 if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
-                    env_hidden_in_overlay.insert(name.into());
+                    env_hidden_in_overlay.insert(EnvName::from(name));
                 } else {
-                    env_hidden.insert(active_overlay.into(), [name.into()].into_iter().collect());
+                    env_hidden.insert(
+                        active_overlay.into(),
+                        [EnvName::from(name)].into_iter().collect(),
+                    );
                 }
 
                 return true;

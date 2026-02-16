@@ -5,7 +5,7 @@ use nu_protocol::{
     IntoPipelineData, PipelineData, ShellError, Value,
     ast::Block,
     debugger::{WithDebug, WithoutDebug},
-    engine::{Closure, EngineState, EnvVars, Stack},
+    engine::{Closure, EngineState, EnvName, EnvVars, Stack},
 };
 use std::{
     borrow::Cow,
@@ -64,7 +64,7 @@ pub struct ClosureEval {
     block: Arc<Block>,
     arg_index: usize,
     env_vars: Vec<Arc<EnvVars>>,
-    env_hidden: Arc<HashMap<String, HashSet<String>>>,
+    env_hidden: Arc<HashMap<String, HashSet<EnvName>>>,
     eval: EvalBlockWithEarlyReturnFn,
 }
 

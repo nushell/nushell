@@ -5,8 +5,8 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame, Stack,
-        StateDelta, Variable, Visibility,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
+        Stack, StateDelta, Variable, Visibility,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -16,7 +16,6 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
-use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -497,10 +496,12 @@ impl EngineState {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
         if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
-            env_vars.insert(name, val);
+            env_vars.insert(EnvName::from(name), val);
         } else {
-            Arc::make_mut(&mut self.env_vars)
-                .insert(overlay_name, [(name, val)].into_iter().collect());
+            Arc::make_mut(&mut self.env_vars).insert(
+                overlay_name,
+                [(EnvName::from(name), val)].into_iter().collect(),
+            );
         }
     }
 
@@ -508,26 +509,9 @@ impl EngineState {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(val) = env_vars.get(name)
+                && let Some(val) = env_vars.get(&EnvName::from(name))
             {
                 return Some(val);
-            }
-        }
-
-        None
-    }
-
-    // Returns Some((name, value)) if found, None otherwise.
-    // When updating environment variables, make sure to use
-    // the same case (the returned "name") as the original
-    // environment variable name.
-    pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
-        for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
-            {
-                return Some((v.0, v.1));
             }
         }
 
