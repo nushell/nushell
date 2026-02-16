@@ -28,7 +28,7 @@ impl Command for ClipPaste {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let text = create_clipboard().get_text()?;
+        let text = create_clipboard(None).get_text()?;
         if text.trim().is_empty() {
             return Err(ShellError::GenericError {
                 error: "Clipboard is empty.".into(),

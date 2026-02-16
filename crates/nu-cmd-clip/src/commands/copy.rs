@@ -17,13 +17,13 @@ impl ClipCopy {
         })
     }
 
-    fn copy_text(input: &Value, span: Span) -> Result<(), ShellError> {
+    fn copy_text(input: &Value, span: Span, config: Option<&Value>) -> Result<(), ShellError> {
         let text = match input {
             Value::String { val, .. } => val.to_owned(),
             _ => Self::format_json(input, span)?,
         };
 
-        create_clipboard().copy_text(&text)
+        create_clipboard(config).copy_text(&text)
     }
 }
 
@@ -51,7 +51,20 @@ impl Command for ClipCopy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head)?;
-        Self::copy_text(&value, call.head)?;
+        #[cfg(target_os = "linux")]
+        let plugin_config = {
+            let config = stack.get_config(engine_state);
+            config
+                .plugins
+                .get("clip")
+                .or_else(|| config.plugins.get("clipboard"))
+                .or_else(|| config.plugins.get("nu_plugin_clipboard"))
+                .cloned()
+        };
+        #[cfg(not(target_os = "linux"))]
+        let plugin_config: Option<Value> = None;
+
+        Self::copy_text(&value, call.head, plugin_config.as_ref())?;
 
         if call.has_flag(engine_state, stack, "show")? {
             Ok(value.into_pipeline_data())

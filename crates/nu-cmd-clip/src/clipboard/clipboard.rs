@@ -1,14 +1,16 @@
 use nu_protocol::ShellError;
+#[cfg(target_os = "linux")]
+use nu_protocol::Value;
 
 use super::arboard_provider::with_clipboard_instance;
 
 #[cfg(target_os = "linux")]
-pub fn create_clipboard() -> impl Clipboard {
-    crate::clipboard::linux::ClipBoardLinux::new()
+pub fn create_clipboard(config: Option<&Value>) -> impl Clipboard {
+    crate::clipboard::linux::ClipBoardLinux::new(config)
 }
 
 #[cfg(not(target_os = "linux"))]
-pub fn create_clipboard() -> impl Clipboard {
+pub fn create_clipboard(_: Option<&nu_protocol::Value>) -> impl Clipboard {
     #[cfg(target_os = "macos")]
     {
         crate::clipboard::mac_os::ClipBoardMacos::new()
