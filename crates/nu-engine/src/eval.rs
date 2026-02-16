@@ -4,7 +4,7 @@ use crate::get_full_help;
 use nu_protocol::{
     BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
     ShellError, Span, Value, VarId,
-    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
+    ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, ListItem, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},
     eval_base::Eval,
@@ -27,7 +27,38 @@ pub fn eval_call<D: DebugContext>(
     } else if let Some(block_id) = decl.block_id() {
         let block = engine_state.get_block(block_id);
 
-        let mut callee_stack = caller_stack.gather_captures(engine_state, &block.captures);
+        // Check if this call came from an alias expansion and has captures to apply
+        let mut callee_stack = if let Some(captures_expr) = call.get_parser_info("alias_captures") {
+            if let Expr::List(items) = &captures_expr.expr {
+                let alias_captures: Vec<(VarId, Span)> = items
+                    .iter()
+                    .filter_map(|item| {
+                        if let ListItem::Item(expr) = item
+                            && let Expr::Var(var_id) = expr.expr
+                        {
+                            Some((var_id, expr.span))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                let mut stack_with_captures =
+                    caller_stack.gather_captures(engine_state, &block.captures);
+
+                for (var_id, span) in alias_captures {
+                    if let Ok(value) = caller_stack.get_var(var_id, span) {
+                        stack_with_captures.add_var(var_id, value);
+                    }
+                }
+
+                stack_with_captures
+            } else {
+                caller_stack.gather_captures(engine_state, &block.captures)
+            }
+        } else {
+            caller_stack.gather_captures(engine_state, &block.captures)
+        };
 
         // Rust does not check recursion limits outside of const evaluation.
         // But nu programs run in the same process as the shell.
