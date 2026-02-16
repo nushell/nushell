@@ -4241,6 +4241,7 @@ dependencies = [
  "nu-experimental",
  "nu-parser",
  "nu-protocol",
+ "nu-test-support",
  "nu-utils",
  "quickcheck",
  "quickcheck_macros",

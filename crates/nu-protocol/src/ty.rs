@@ -41,7 +41,14 @@ impl Type {
     }
 
     pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
-        Self::OneOf(types.into_iter().collect())
+        let mut flattened = Vec::new();
+        for t in types {
+            match t {
+                Type::OneOf(inner) => flattened.extend(inner.into_vec()),
+                other => flattened.push(other),
+            }
+        }
+        Self::OneOf(flattened.into())
     }
 
     pub fn record() -> Self {
@@ -162,25 +169,34 @@ impl Type {
                 .collect()
         }
 
-        fn oneof_add(oneof: &mut Vec<Type>, mut t: Type) {
-            if oneof.contains(&t) {
-                return;
-            }
-
-            for one in oneof.iter_mut() {
-                match flat_widen(std::mem::replace(one, Type::Any), t) {
-                    Ok(one_t) => {
-                        *one = one_t;
-                        return;
-                    }
-                    Err((one_, t_)) => {
-                        *one = one_;
-                        t = t_;
+        fn oneof_add(oneof: &mut Vec<Type>, t: Type) {
+            match t {
+                Type::OneOf(inner) => {
+                    for sub_t in inner.into_vec() {
+                        oneof_add(oneof, sub_t);
                     }
                 }
-            }
+                t => {
+                    if oneof.contains(&t) {
+                        return;
+                    }
 
-            oneof.push(t);
+                    for one in oneof.iter_mut() {
+                        match flat_widen(std::mem::replace(one, Type::Any), t.clone()) {
+                            Ok(one_t) => {
+                                *one = one_t;
+                                return;
+                            }
+                            Err((one_, _)) => {
+                                *one = one_;
+                                // Continue with the same type
+                            }
+                        }
+                    }
+
+                    oneof.push(t);
+                }
+            }
         }
 
         let tu = match flat_widen(self, other) {
@@ -419,6 +435,60 @@ mod tests {
                     let list_ty2 = Type::List(Box::new(ty2.clone()));
                     assert_eq!(list_ty1.is_subtype_of(&list_ty2), ty1.is_subtype_of(&ty2));
                 }
+            }
+        }
+    }
+
+    mod oneof_flattening {
+        use super::*;
+
+        #[test]
+        fn test_oneof_creation_flattens() {
+            let nested = Type::one_of([
+                Type::String,
+                Type::one_of([Type::Int, Type::Float]),
+                Type::Bool,
+            ]);
+            if let Type::OneOf(types) = nested {
+                let types_vec = types.to_vec();
+                assert_eq!(types_vec.len(), 4);
+                assert!(types_vec.contains(&Type::String));
+                assert!(types_vec.contains(&Type::Int));
+                assert!(types_vec.contains(&Type::Float));
+                assert!(types_vec.contains(&Type::Bool));
+            } else {
+                panic!("Expected OneOf");
+            }
+        }
+
+        #[test]
+        fn test_widen_flattens_oneof() {
+            let a = Type::one_of([Type::String, Type::Int]);
+            let b = Type::one_of([Type::Float, Type::Bool]);
+            let widened = a.widen(b);
+            if let Type::OneOf(types) = widened {
+                let types_vec = types.to_vec();
+                assert_eq!(types_vec.len(), 3);
+                assert!(types_vec.contains(&Type::String));
+                assert!(types_vec.contains(&Type::Number)); // Int + Float -> Number
+                assert!(types_vec.contains(&Type::Bool));
+            } else {
+                panic!("Expected OneOf");
+            }
+        }
+
+        #[test]
+        fn test_oneof_deduplicates() {
+            let record_type =
+                Type::Record(vec![("content".to_string(), Type::list(Type::String))].into());
+            let oneof = Type::one_of([Type::String, record_type.clone(), record_type.clone()]);
+            if let Type::OneOf(types) = oneof {
+                let types_vec = types.to_vec();
+                assert_eq!(types_vec.len(), 2);
+                assert!(types_vec.contains(&Type::String));
+                assert!(types_vec.contains(&record_type));
+            } else {
+                panic!("Expected OneOf");
             }
         }
     }
