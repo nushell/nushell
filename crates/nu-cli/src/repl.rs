@@ -8,6 +8,7 @@ use crate::prompt_update::{
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
+    hints::ExternalHinter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -441,11 +442,20 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     start_time = std::time::Instant::now();
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
-        line_editor.with_hinter(Box::new({
-            // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-            let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-            CwdAwareHinter::default().with_style(style)
-        }))
+        // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+        let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        if config.line_editor.external.hinter.enable
+            && let Some(closure) = config.line_editor.external.hinter.closure.as_ref()
+        {
+            line_editor.with_hinter(Box::new(ExternalHinter::new(
+                engine_reference.clone(),
+                stack_arc.clone(),
+                closure.clone(),
+                style,
+            )))
+        } else {
+            line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
+        }
     } else {
         line_editor.disable_hints()
     };

@@ -106,3 +106,39 @@ fn plugins() {
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, r#"{nu_plugin_config: {key: value}}"#);
 }
+
+#[test]
+fn line_editor_external_hinter_enable() {
+    let code = &[
+        r#"$env.config = { line_editor: { external: { hinter: { enable: false } } } }"#,
+        r#"$env.config.line_editor.external.hinter.enable | to nuon"#,
+    ];
+    let actual = nu!(nu_repl_code(code));
+    assert_eq!(actual.out, "false");
+}
+
+#[test]
+fn line_editor_external_hinter_closure_set_and_clear() {
+    let code = &[
+        r#"$env.config.line_editor.external.hinter.closure = {|ctx| "hint"}"#,
+        r#"let before = ($env.config.line_editor.external.hinter.closure | describe)"#,
+        r#"$env.config.line_editor.external.hinter.closure = null"#,
+        r#"[$before ($env.config.line_editor.external.hinter.closure | describe)] | to nuon"#,
+    ];
+    let actual = nu!(nu_repl_code(code));
+    assert_eq!(actual.out, "[closure, nothing]");
+}
+
+#[test]
+fn line_editor_external_hinter_closure_rejects_invalid_type() {
+    let actual = nu!(nu_repl_code(&[
+        r#"$env.config.line_editor.external.hinter.closure = 42"#,
+        r#";"#,
+    ]));
+    assert!(actual.err.contains("Type mismatch"));
+    assert!(
+        actual
+            .err
+            .contains("$env.config.line_editor.external.hinter.closure")
+    );
+}
