@@ -1044,10 +1044,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
     let result = interface
         .eval_closure_with_stream(
             &Spanned {
-                item: Closure {
-                    block_id: BlockId::new(42),
-                    captures: vec![(VarId::new(0), Value::test_int(5))],
-                },
+                item: Closure::new(BlockId::new(42), vec![(VarId::new(0), Value::test_int(5))]),
                 span: Span::test_data(),
             },
             vec![Value::test_string("test")],

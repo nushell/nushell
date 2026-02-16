@@ -510,7 +510,7 @@ fn send_json_request(
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(engine_state, &body, span, serialize_types)?;
+            let data = value_to_json_value(engine_state, &body, span, serialize_types, false)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
         // If the body type is string, assume it is string json content.

@@ -51,7 +51,7 @@ is particularly large, this can cause high memory usage."#
         let result;
 
         if let Some(closure) = closure {
-            let block = engine_state.get_block(closure.block_id);
+            let block = closure.get_block(engine_state);
             let mut stack_captures =
                 stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
 

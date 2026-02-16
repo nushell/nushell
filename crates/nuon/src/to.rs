@@ -23,6 +23,8 @@ pub struct ToNuonConfig {
     pub span: Option<Span>,
     /// Serialize non-serializable types (like closures) as strings
     pub serialize_types: bool,
+    /// Serialize closures as records instead of strings
+    pub closure_to_record: bool,
     /// Prefer raw string syntax (`r#'...'#`) when strings contain quotes or backslashes
     pub raw_strings: bool,
 }
@@ -43,6 +45,12 @@ impl ToNuonConfig {
     /// Enable serialization of non-serializable types as strings
     pub fn serialize_types(mut self, serialize_types: bool) -> Self {
         self.serialize_types = serialize_types;
+        self
+    }
+
+    /// Serialize closures as records instead of strings
+    pub fn closure_to_record(mut self, closure_to_record: bool) -> Self {
+        self.closure_to_record = closure_to_record;
         self
     }
 
@@ -128,12 +136,14 @@ pub fn to_nuon(
         0,
         indentation.as_deref(),
         config.serialize_types,
+        config.closure_to_record,
         config.raw_strings,
     )?;
 
     Ok(res)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn value_to_string(
     engine_state: &EngineState,
     v: &Value,
@@ -141,6 +151,7 @@ fn value_to_string(
     depth: usize,
     indent: Option<&str>,
     serialize_types: bool,
+    closure_to_record: bool,
     raw_strings: bool,
 ) -> Result<String, ShellError> {
     let (nl, sep, kv_sep) = get_true_separators(indent);
@@ -164,7 +175,19 @@ fn value_to_string(
             Ok(format!("0x[{s}]"))
         }
         Value::Closure { val, .. } => {
-            if serialize_types {
+            if serialize_types && closure_to_record {
+                let closure_record = val.to_record(engine_state, v.span())?;
+                value_to_string(
+                    engine_state,
+                    &closure_record,
+                    span,
+                    depth,
+                    indent,
+                    serialize_types,
+                    closure_to_record,
+                    raw_strings,
+                )
+            } else if serialize_types {
                 Ok(quote_string(
                     &val.coerce_into_string(engine_state, span)?,
                     raw_strings,
@@ -231,6 +254,7 @@ fn value_to_string(
                                 depth + 2,
                                 indent,
                                 serialize_types,
+                                closure_to_record,
                                 raw_strings,
                             )?);
                         }
@@ -256,6 +280,7 @@ fn value_to_string(
                             depth + 1,
                             indent,
                             serialize_types,
+                            closure_to_record,
                             raw_strings,
                         )?
                     ));
@@ -288,6 +313,7 @@ fn value_to_string(
                         depth + 1,
                         indent,
                         serialize_types,
+                        closure_to_record,
                         raw_strings,
                     )?
                 ));
@@ -332,6 +358,7 @@ fn get_true_separators(indent: Option<&str>) -> (String, String, String) {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn value_to_string_without_quotes(
     engine_state: &EngineState,
     v: &Value,
@@ -339,6 +366,7 @@ fn value_to_string_without_quotes(
     depth: usize,
     indent: Option<&str>,
     serialize_types: bool,
+    closure_to_record: bool,
     raw_strings: bool,
 ) -> Result<String, ShellError> {
     match v {
@@ -356,6 +384,7 @@ fn value_to_string_without_quotes(
             depth,
             indent,
             serialize_types,
+            closure_to_record,
             raw_strings,
         ),
     }

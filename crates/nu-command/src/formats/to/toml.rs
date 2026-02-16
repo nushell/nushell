@@ -18,6 +18,11 @@ impl Command for ToToml {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -42,8 +47,15 @@ impl Command for ToToml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
 
-        to_toml(engine_state, input, head, serialize_types)
+        to_toml(
+            engine_state,
+            input,
+            head,
+            serialize_types,
+            closure_to_record,
+        )
     }
 }
 
@@ -52,7 +64,9 @@ impl Command for ToToml {
 fn helper(
     engine_state: &EngineState,
     v: &Value,
+    call_span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<toml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => toml::Value::Boolean(*val),
@@ -66,26 +80,46 @@ fn helper(
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), helper(engine_state, v, serialize_types)?);
+                m.insert(
+                    k.clone(),
+                    helper(
+                        engine_state,
+                        v,
+                        call_span,
+                        serialize_types,
+                        closure_to_record,
+                    )?,
+                );
             }
             toml::Value::Table(m)
         }
-        Value::List { vals, .. } => {
-            toml::Value::Array(toml_list(engine_state, vals, serialize_types)?)
-        }
+        Value::List { vals, .. } => toml::Value::Array(toml_list(
+            engine_state,
+            vals,
+            call_span,
+            serialize_types,
+            closure_to_record,
+        )?),
         Value::Closure { val, .. } => {
-            if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    toml::Value::String(contents_string.to_string())
-                } else {
-                    toml::Value::String(format!(
-                        "unable to retrieve block contents for toml block_id {}",
-                        val.block_id.get()
-                    ))
-                }
+            if serialize_types && closure_to_record {
+                let closure_record = val.to_record(engine_state, v.span())?;
+                helper(
+                    engine_state,
+                    &closure_record,
+                    call_span,
+                    serialize_types,
+                    closure_to_record,
+                )?
+            } else if serialize_types {
+                let closure_string = val.coerce_into_string(engine_state, v.span())?;
+                toml::Value::String(closure_string.to_string())
+            } else if closure_to_record {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable as toml (consider passing --serialize or using msgpack)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: v.span(),
+                });
             } else {
                 toml::Value::String(format!("closure_{}", val.block_id.get()))
             }
@@ -113,12 +147,20 @@ fn helper(
 fn toml_list(
     engine_state: &EngineState,
     input: &[Value],
+    call_span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<Vec<toml::Value>, ShellError> {
     let mut out = vec![];
 
     for value in input {
-        out.push(helper(engine_state, value, serialize_types)?);
+        out.push(helper(
+            engine_state,
+            value,
+            call_span,
+            serialize_types,
+            closure_to_record,
+        )?);
     }
 
     Ok(out)
@@ -158,9 +200,12 @@ fn value_to_toml_value(
     v: &Value,
     head: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v, serialize_types),
+        Value::Record { .. } | Value::Closure { .. } => {
+            helper(engine_state, v, head, serialize_types, closure_to_record)
+        }
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {
@@ -177,11 +222,18 @@ fn to_toml(
     input: PipelineData,
     span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input.metadata();
     let value = input.into_value(span)?;
 
-    let toml_value = value_to_toml_value(engine_state, &value, span, serialize_types)?;
+    let toml_value = value_to_toml_value(
+        engine_state,
+        &value,
+        span,
+        serialize_types,
+        closure_to_record,
+    )?;
     match toml_value {
         toml::Value::Array(ref vec) => match vec[..] {
             [toml::Value::Table(_)] => toml_into_pipeline_data(
@@ -273,7 +325,13 @@ mod tests {
             offset: Some(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let result = helper(&engine_state, &test_date, serialize_types);
+        let result = helper(
+            &engine_state,
+            &test_date,
+            Span::test_data(),
+            serialize_types,
+            false,
+        );
 
         assert!(result.is_ok_and(|res| res == reference_date));
     }
@@ -302,6 +360,7 @@ mod tests {
             &Value::record(m.into_iter().collect(), Span::test_data()),
             Span::test_data(),
             serialize_types,
+            false,
         )
         .expect("Expected Ok from valid TOML dictionary");
         assert_eq!(
@@ -319,6 +378,7 @@ mod tests {
             &Value::test_string("not_valid"),
             Span::test_data(),
             serialize_types,
+            false,
         )
         .expect_err("Expected non-valid toml (String) to cause error!");
         value_to_toml_value(
@@ -326,6 +386,7 @@ mod tests {
             &Value::list(vec![Value::test_string("1")], Span::test_data()),
             Span::test_data(),
             serialize_types,
+            false,
         )
         .expect_err("Expected non-valid toml (Table) to cause error!");
     }

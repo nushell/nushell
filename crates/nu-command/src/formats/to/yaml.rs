@@ -17,6 +17,11 @@ impl Command for ToYaml {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -41,9 +46,16 @@ impl Command for ToYaml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
         let input = input.try_expand_range()?;
 
-        to_yaml(engine_state, input, head, serialize_types)
+        to_yaml(
+            engine_state,
+            input,
+            head,
+            serialize_types,
+            closure_to_record,
+        )
     }
 }
 
@@ -62,6 +74,11 @@ impl Command for ToYml {
                 "serialize",
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
+            )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
             )
             .category(Category::Formats)
     }
@@ -87,16 +104,25 @@ impl Command for ToYml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
         let input = input.try_expand_range()?;
 
-        to_yaml(engine_state, input, head, serialize_types)
+        to_yaml(
+            engine_state,
+            input,
+            head,
+            serialize_types,
+            closure_to_record,
+        )
     }
 }
 
 pub fn value_to_yaml_value(
     engine_state: &EngineState,
     v: &Value,
+    call_span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<serde_yaml::Value, ShellError> {
     Ok(match &v {
         Value::Bool { val, .. } => serde_yaml::Value::Bool(*val),
@@ -116,7 +142,13 @@ pub fn value_to_yaml_value(
             for (k, v) in &**val {
                 m.insert(
                     serde_yaml::Value::String(k.clone()),
-                    value_to_yaml_value(engine_state, v, serialize_types)?,
+                    value_to_yaml_value(
+                        engine_state,
+                        v,
+                        call_span,
+                        serialize_types,
+                        closure_to_record,
+                    )?,
                 );
             }
             serde_yaml::Value::Mapping(m)
@@ -125,24 +157,37 @@ pub fn value_to_yaml_value(
             let mut out = vec![];
 
             for value in vals {
-                out.push(value_to_yaml_value(engine_state, value, serialize_types)?);
+                out.push(value_to_yaml_value(
+                    engine_state,
+                    value,
+                    call_span,
+                    serialize_types,
+                    closure_to_record,
+                )?);
             }
 
             serde_yaml::Value::Sequence(out)
         }
         Value::Closure { val, .. } => {
-            if serialize_types {
-                let block = engine_state.get_block(val.block_id);
-                if let Some(span) = block.span {
-                    let contents_bytes = engine_state.get_span_contents(span);
-                    let contents_string = String::from_utf8_lossy(contents_bytes);
-                    serde_yaml::Value::String(contents_string.to_string())
-                } else {
-                    serde_yaml::Value::String(format!(
-                        "unable to retrieve block contents for yaml block_id {}",
-                        val.block_id.get()
-                    ))
-                }
+            if serialize_types && closure_to_record {
+                let closure_record = val.to_record(engine_state, v.span())?;
+                value_to_yaml_value(
+                    engine_state,
+                    &closure_record,
+                    call_span,
+                    serialize_types,
+                    closure_to_record,
+                )?
+            } else if serialize_types {
+                let closure_string = val.coerce_into_string(engine_state, v.span())?;
+                serde_yaml::Value::String(closure_string.to_string())
+            } else if closure_to_record {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "closures are currently not deserializable as yaml (consider passing --serialize or using msgpack)".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call_span,
+                    input_span: v.span(),
+                });
             } else {
                 serde_yaml::Value::Null
             }
@@ -174,6 +219,7 @@ fn to_yaml(
     input: PipelineData,
     head: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input
         .metadata()
@@ -182,7 +228,13 @@ fn to_yaml(
         .with_content_type(Some("application/yaml".into()));
     let value = input.into_value(head)?;
 
-    let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
+    let yaml_value = value_to_yaml_value(
+        engine_state,
+        &value,
+        head,
+        serialize_types,
+        closure_to_record,
+    )?;
     match serde_yaml::to_string(&yaml_value) {
         Ok(serde_yaml_string) => {
             Ok(Value::string(serde_yaml_string, head)
