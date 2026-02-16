@@ -148,8 +148,10 @@ $env.config.line_editor.external.hinter.enable = true
 #   $ctx.cwd (string): current working directory
 # Return:
 #   string -> hint suffix to render and accept
-#   null   -> delegate to built-in hinter
-# Any closure error or unsupported return type falls back to built-in hints.
+#   null   -> no hint (equivalent to "")
+# Any closure error or unsupported return type yields no hint.
+# To use the built-in hinter instead, disable external hintering or set
+# line_editor.external.hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
 # Default: null
 $env.config.line_editor.external.hinter.closure = null
