@@ -1,6 +1,6 @@
 mod arboard_provider;
-pub mod clipboard;
 mod error_mapper;
+pub mod provider;
 
 #[cfg(target_os = "linux")]
 pub(crate) mod linux;

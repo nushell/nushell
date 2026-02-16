@@ -1,4 +1,4 @@
-use super::clipboard::Clipboard;
+use super::provider::Clipboard;
 
 pub(crate) struct ClipBoardWindows;
 

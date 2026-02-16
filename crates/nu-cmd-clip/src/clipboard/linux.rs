@@ -1,4 +1,4 @@
-use super::{arboard_provider::with_clipboard_instance, clipboard::Clipboard};
+use super::{arboard_provider::with_clipboard_instance, provider::Clipboard};
 use nu_protocol::{ShellError, Value};
 use std::sync::{OnceLock, mpsc};
 use std::thread;

@@ -1,4 +1,4 @@
-use crate::clipboard::clipboard::{Clipboard, create_clipboard};
+use crate::clipboard::provider::{Clipboard, create_clipboard};
 use crate::utils::json;
 use nu_engine::command_prelude::*;
 
