@@ -1,5 +1,6 @@
 use super::{config_update_string_enum, prelude::*};
 use crate::{self as nu_protocol, ConfigWarning};
+use std::path::PathBuf;
 
 #[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
 pub enum HistoryFileFormat {
@@ -50,20 +51,61 @@ impl UpdateFromValue for HistoryFileFormat {
     }
 }
 
-#[derive(Clone, Copy, Debug, IntoValue, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum HistoryPath {
+    Default,
+    Custom(PathBuf),
+    Disabled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct HistoryConfig {
     pub max_size: i64,
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+    pub path: HistoryPath,
+}
+
+impl IntoValue for HistoryPath {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            HistoryPath::Default | HistoryPath::Disabled => Value::nothing(span),
+            HistoryPath::Custom(path) => Value::string(path.display().to_string(), span),
+        }
+    }
+}
+
+impl IntoValue for HistoryConfig {
+    fn into_value(self, span: Span) -> Value {
+        let mut record = record! {
+            "max_size" => self.max_size.into_value(span),
+            "sync_on_enter" => self.sync_on_enter.into_value(span),
+            "file_format" => self.file_format.into_value(span),
+            "isolation" => self.isolation.into_value(span),
+        };
+
+        match &self.path {
+            HistoryPath::Default => {}
+            other => {
+                record.push("path", other.clone().into_value(span));
+            }
+        }
+
+        Value::record(record, span)
+    }
 }
 
 impl HistoryConfig {
-    pub fn file_path(&self) -> Option<std::path::PathBuf> {
-        nu_path::nu_config_dir().map(|mut history_path| {
-            history_path.push(self.file_format.default_file_name());
-            history_path.into()
-        })
+    pub fn file_path(&self) -> Option<PathBuf> {
+        match &self.path {
+            HistoryPath::Custom(path) => Some(path.clone()),
+            HistoryPath::Disabled => None,
+            HistoryPath::Default => nu_path::nu_config_dir().map(|mut history_path| {
+                history_path.push(self.file_format.default_file_name());
+                history_path.into()
+            }),
+        }
     }
 }
 
@@ -74,6 +116,7 @@ impl Default for HistoryConfig {
             sync_on_enter: true,
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
+            path: HistoryPath::Default,
         }
     }
 }
@@ -104,6 +147,17 @@ impl UpdateFromValue for HistoryConfig {
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
+                "path" => match val {
+                    Value::String { val: s, .. } => {
+                        self.path = HistoryPath::Custom(PathBuf::from(s));
+                    }
+                    Value::Nothing { .. } => {
+                        self.path = HistoryPath::Disabled;
+                    }
+                    _ => {
+                        errors.type_mismatch(path, Type::custom("string or nothing"), val);
+                    }
+                },
                 _ => errors.unknown_option(path, val),
             }
         }
