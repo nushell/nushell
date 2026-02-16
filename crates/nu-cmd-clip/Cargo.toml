@@ -1,0 +1,26 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Clipboard commands for Nushell."
+edition = "2024"
+license = "MIT"
+name = "nu-cmd-clip"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-clip"
+version = "0.110.1"
+
+[lib]
+bench = false
+doctest = false
+
+[lints]
+workspace = true
+
+[dependencies]
+nu-engine = { path = "../nu-engine", version = "0.110.1" }
+nu-json = { path = "../nu-json", version = "0.110.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.110.1" }
+
+arboard = { version = "3.6.0", default-features = false }
+
+[features]
+default = []
+use-wayland = ["arboard/wayland-data-control"]

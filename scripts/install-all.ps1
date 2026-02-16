@@ -16,7 +16,7 @@ $NU_PLUGINS = @(
     'nu_plugin_inc',
     'nu_plugin_query',
     'nu_plugin_custom_values',
-    'nu_plugin_formats'
+    'nu_plugin_formats',
     'nu_plugin_polars'
 )
 
@@ -29,4 +29,3 @@ foreach ( $plugin in $NU_PLUGINS) {
     cargo install --force --path .
     Set-Location ../../
 }
-

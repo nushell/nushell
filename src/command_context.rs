@@ -2,6 +2,7 @@ use nu_protocol::engine::EngineState;
 
 pub(crate) fn add_command_context(engine_state: EngineState) -> EngineState {
     let engine_state = nu_cmd_lang::add_default_context(engine_state);
+    let engine_state = nu_cmd_clip::add_clip_command_context(engine_state);
     #[cfg(feature = "plugin")]
     let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
