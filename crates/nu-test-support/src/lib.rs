@@ -1,10 +1,14 @@
 #![doc = include_str!("../README.md")]
 pub mod commands;
 pub mod fs;
+pub mod harness;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
 use std::process::ExitStatus;
+
+// Expose macros to be used for the test harness.
+pub use harness::macros::*;
 
 // Needs to be reexported for `nu!` macro
 pub use nu_path;

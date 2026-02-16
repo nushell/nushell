@@ -3452,6 +3452,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kitest"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63a3c7847ead6091b8ff4602a6c022b35199f8198671f9952812d2512bbf57b8"
+dependencies = [
+ "crossbeam-channel",
+]
+
+[[package]]
 name = "kqueue"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3635,6 +3644,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "linkme"
+version = "0.3.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e3283ed2d0e50c06dd8602e0ab319bb048b6325d0bba739db64ed8205179898"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5cec0ec4228b4853bb129c84dbf093a27e6c7a20526da046defc334a1b017f7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -4740,12 +4769,29 @@ dependencies = [
 name = "nu-test-support"
 version = "0.110.1"
 dependencies = [
+ "itertools 0.14.0",
+ "kitest",
+ "linkme",
+ "nu-experimental",
  "nu-glob",
  "nu-path",
+ "nu-test-support-macros",
  "nu-utils",
  "num-format",
  "tempfile",
  "which 8.0.0",
+]
+
+[[package]]
+name = "nu-test-support-macros"
+version = "0.110.1"
+dependencies = [
+ "heck",
+ "nu-experimental",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
