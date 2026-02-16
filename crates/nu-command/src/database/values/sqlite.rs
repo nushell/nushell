@@ -20,6 +20,14 @@ const SQLITE_MAGIC_BYTES: &[u8] = "SQLite format 3\0".as_bytes();
 pub const MEMORY_DB: &str = "file:memdb1?mode=memory&cache=shared";
 const DATABASE_NAME: &str = "main";
 
+fn quote_sqlite_identifier(name: &str) -> String {
+    format!("\"{}\"" , name.replace('"', "\"\""))
+}
+
+fn quote_sqlite_string_literal(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SQLiteDatabase {
     // I considered storing a SQLite connection here, but decided against it because
@@ -161,7 +169,7 @@ impl SQLiteDatabase {
         let tables = self.get_tables(conn)?;
 
         for table in tables {
-            conn.execute(&format!("DROP TABLE {}", table.name), [])?;
+            conn.execute(&format!("DROP TABLE {}", quote_sqlite_identifier(&table.name)), [])?;
         }
 
         Ok(())
@@ -173,7 +181,10 @@ impl SQLiteDatabase {
         filename: String,
     ) -> Result<(), SqliteError> {
         //vacuum main into 'c:\\temp\\foo.db'
-        conn.execute(&format!("vacuum main into '{filename}'"), [])?;
+        conn.execute(
+            &format!("vacuum main into {}", quote_sqlite_string_literal(&filename)),
+            [],
+        )?;
 
         Ok(())
     }
@@ -227,8 +238,8 @@ impl SQLiteDatabase {
         table: &DbTable,
     ) -> Result<Vec<DbColumn>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
-            "SELECT * FROM pragma_table_info('{}');",
-            table.name
+            "SELECT * FROM pragma_table_info({});",
+            quote_sqlite_string_literal(&table.name)
         ))?;
 
         let mut columns: Vec<DbColumn> = Vec::new();
@@ -267,10 +278,10 @@ impl SQLiteDatabase {
                 pragma_index_info(s.name) i
             WHERE
                 s.type = 'index'
-                AND tbl_name = '{}'
+                AND tbl_name = {}
                 AND NOT p.origin = 'c'
             ",
-            &table.name
+            quote_sqlite_string_literal(&table.name)
         ))?;
 
         let mut constraints: Vec<DbConstraint> = Vec::new();
@@ -298,8 +309,8 @@ impl SQLiteDatabase {
         table: &DbTable,
     ) -> Result<Vec<DbForeignKey>, SqliteError> {
         let mut column_names = conn.prepare(&format!(
-            "SELECT p.`from`, p.`to`, p.`table` FROM pragma_foreign_key_list('{}') p",
-            &table.name
+            "SELECT p.`from`, p.`to`, p.`table` FROM pragma_foreign_key_list({}) p",
+            quote_sqlite_string_literal(&table.name)
         ))?;
 
         let mut foreign_keys: Vec<DbForeignKey> = Vec::new();
@@ -336,9 +347,9 @@ impl SQLiteDatabase {
                 pragma_index_info(m.name) p
             WHERE
                 m.type = 'index'
-                AND m.tbl_name = '{}'
+                AND m.tbl_name = {}
             ",
-            &table.name,
+            quote_sqlite_string_literal(&table.name),
         ))?;
 
         let mut indexes: Vec<DbIndex> = Vec::new();
@@ -670,7 +681,7 @@ fn read_entire_sqlite_db(
     for row in rows {
         let table_name: String = row?;
         // TODO: Should use params here?
-        let table_stmt = conn.prepare(&format!("select * from [{table_name}]"))?;
+        let table_stmt = conn.prepare(&format!("select * from {}", quote_sqlite_identifier(&table_name)))?;
         let rows =
             prepared_statement_to_nu_list(table_stmt, NuSqlParams::default(), call_span, signals)?;
         tables.push(table_name, rows);
@@ -800,7 +811,7 @@ impl SQLiteQueryBuilder {
 
     pub fn build_sql(&self) -> String {
         let select = self.sql_select.as_deref().unwrap_or("*");
-        let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
+        let mut sql = format!("SELECT {} FROM {}", select, quote_sqlite_identifier(&self.table_name));
 
         if let Some(where_clause) = &self.sql_where {
             sql.push_str(&format!(" WHERE {}", where_clause));
@@ -836,7 +847,7 @@ impl SQLiteQueryBuilder {
 
     pub fn count(&self, call_span: Span) -> Result<i64, ShellError> {
         let conn = open_sqlite_db(&self.db_path, call_span)?;
-        let mut sql = format!("SELECT COUNT(*) FROM [{}]", self.table_name);
+        let mut sql = format!("SELECT COUNT(*) FROM {}", quote_sqlite_identifier(&self.table_name));
         if let Some(where_clause) = &self.sql_where {
             sql.push_str(&format!(" WHERE {}", where_clause));
         }
@@ -1025,7 +1036,7 @@ mod test {
         .with_limit(5);
         assert_eq!(
             table.build_sql(),
-            "SELECT col1 FROM [test] WHERE col2 = ? ORDER BY col1 LIMIT 5"
+            "SELECT col1 FROM \"test\" WHERE col2 = ? ORDER BY col1 LIMIT 5"
         );
     }
 
@@ -1170,7 +1181,7 @@ mod test {
             Signals::empty(),
         )
         .with_select("col1, col2".to_string());
-        assert_eq!(table.build_sql(), "SELECT col1, col2 FROM [test]");
+        assert_eq!(table.build_sql(), "SELECT col1, col2 FROM \"test\"");
     }
 
     #[test]
@@ -1181,7 +1192,7 @@ mod test {
             Signals::empty(),
         )
         .with_where("col = ?".to_string(), vec!["val".to_string()]);
-        assert_eq!(table.build_sql(), "SELECT * FROM [test] WHERE col = ?");
+        assert_eq!(table.build_sql(), "SELECT * FROM \"test\" WHERE col = ?");
     }
 
     #[test]
@@ -1192,7 +1203,7 @@ mod test {
             Signals::empty(),
         )
         .with_order_by("id DESC".to_string());
-        assert_eq!(table.build_sql(), "SELECT * FROM [test] ORDER BY id DESC");
+        assert_eq!(table.build_sql(), "SELECT * FROM \"test\" ORDER BY id DESC");
     }
 
     #[test]
@@ -1203,6 +1214,6 @@ mod test {
             Signals::empty(),
         )
         .with_limit(10);
-        assert_eq!(table.build_sql(), "SELECT * FROM [test] LIMIT 10");
+        assert_eq!(table.build_sql(), "SELECT * FROM \"test\" LIMIT 10");
     }
 }
