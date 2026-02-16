@@ -191,6 +191,11 @@ pub(crate) fn compile_call(
                     arg_reg,
                 )?;
 
+                // Collect the argument to ensure that the first call argument
+                // is evaluated before the next argument begins evaluation.
+                // This prevents a race condition in multiple argument expressions with side effects
+                builder.push(Instruction::Collect { src_dst: arg_reg }.into_spanned(arg.span()))?;
+
                 Ok(arg_reg)
             })
             .transpose()?;
