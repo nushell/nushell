@@ -99,14 +99,15 @@ mod tests {
     #[test]
     fn test_primitives_to_json() {
         let s = span();
+        let pi = std::f64::consts::PI;
 
         assert_eq!(
             value_to_json_value(&Value::int(42, s)).unwrap(),
             JsonValue::I64(42)
         );
         assert_eq!(
-            value_to_json_value(&Value::float(3.14, s)).unwrap(),
-            JsonValue::F64(3.14)
+            value_to_json_value(&Value::float(pi, s)).unwrap(),
+            JsonValue::F64(pi)
         );
         assert_eq!(
             value_to_json_value(&Value::bool(true, s)).unwrap(),
