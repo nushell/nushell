@@ -1,13 +1,16 @@
 use crate::clipboard::provider::{Clipboard, create_clipboard};
-use crate::utils::json;
+use nu_command::formats::to::value_to_json_value;
 use nu_engine::command_prelude::*;
-
 #[derive(Clone)]
 pub struct ClipCopy;
 
 impl ClipCopy {
-    fn format_json(input: &Value, span: Span) -> Result<String, ShellError> {
-        let json_value = json::value_to_json_value(input)?;
+    fn format_json(
+        engine_state: &EngineState,
+        input: &Value,
+        span: Span,
+    ) -> Result<String, ShellError> {
+        let json_value = value_to_json_value(engine_state, input, span, true)?;
         nu_json::to_string_with_indent(&json_value, 4).map_err(|err| ShellError::GenericError {
             error: "Failed to serialize value for clipboard.".into(),
             msg: err.to_string(),
@@ -17,10 +20,15 @@ impl ClipCopy {
         })
     }
 
-    fn copy_text(input: &Value, span: Span, config: Option<&Value>) -> Result<(), ShellError> {
+    fn copy_text(
+        engine_state: &EngineState,
+        input: &Value,
+        span: Span,
+        config: Option<&Value>,
+    ) -> Result<(), ShellError> {
         let text = match input {
             Value::String { val, .. } => val.to_owned(),
-            _ => Self::format_json(input, span)?,
+            _ => Self::format_json(engine_state, input, span)?,
         };
 
         create_clipboard(config).copy_text(&text)
@@ -64,7 +72,7 @@ impl Command for ClipCopy {
         #[cfg(not(target_os = "linux"))]
         let plugin_config: Option<Value> = None;
 
-        Self::copy_text(&value, call.head, plugin_config.as_ref())?;
+        Self::copy_text(engine_state, &value, call.head, plugin_config.as_ref())?;
 
         if call.has_flag(engine_state, stack, "show")? {
             Ok(value.into_pipeline_data())

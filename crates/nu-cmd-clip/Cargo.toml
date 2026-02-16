@@ -19,6 +19,7 @@ workspace = true
 [dependencies]
 nu-engine = { path = "../nu-engine", version = "0.110.1" }
 nu-json = { path = "../nu-json", version = "0.110.1" }
+nu-command = { path = "../nu-command", version = "0.110.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.110.1" }
 
 arboard = { version = "3.6.0", default-features = false }

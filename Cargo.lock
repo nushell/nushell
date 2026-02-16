@@ -4122,6 +4122,7 @@ name = "nu-cmd-clip"
 version = "0.110.1"
 dependencies = [
  "arboard",
+ "nu-command",
  "nu-engine",
  "nu-json",
  "nu-protocol",

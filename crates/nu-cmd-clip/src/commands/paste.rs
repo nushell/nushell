@@ -1,5 +1,5 @@
 use crate::clipboard::provider::{Clipboard, create_clipboard};
-use crate::utils::json::json_to_value;
+use nu_command::convert_json_string_to_value;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -45,18 +45,9 @@ impl Command for ClipPaste {
 
         let trimmed = text.trim_start();
         if trimmed.starts_with('{') || trimmed.starts_with('[') || trimmed.starts_with('"') {
-            return match nu_json::from_str::<nu_json::Value>(&text) {
-                Ok(value) => json_to_value(value, call.head).map(|v| v.into_pipeline_data()),
-                Err(nu_json::Error::Syntax(_, _, _)) => {
-                    Ok(Value::string(trimmed, call.head).into_pipeline_data())
-                }
-                Err(err) => Err(ShellError::GenericError {
-                    error: "Failed to deserialize clipboard JSON.".into(),
-                    msg: err.to_string(),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
-                }),
+            return match convert_json_string_to_value(trimmed, call.head) {
+                Ok(value) => Ok(value.into_pipeline_data()),
+                Err(_) => Ok(Value::string(text, call.head).into_pipeline_data()),
             };
         }
 

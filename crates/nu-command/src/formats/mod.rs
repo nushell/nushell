@@ -1,6 +1,6 @@
-mod from;
+pub mod from;
 mod nu_xml_format;
-mod to;
+pub mod to;
 
 pub use from::*;
 pub use to::*;
