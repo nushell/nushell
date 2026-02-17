@@ -49,7 +49,19 @@ fn users(span: Span) -> Value {
                 .map(|group| Value::string(trim_cstyle_null(group.name()), span))
                 .collect();
 
+            // On Windows, Uid wraps a SID (Security Identifier) which is a string like "S-1-5-18"
+            // On Unix-like systems (macOS, Linux, BSD), Uid wraps a numeric u32 user ID
+            // We need conditional compilation to handle these platform differences
+            #[cfg(windows)]
+            let id_value = Value::string(user.id().to_string(), span);
+            #[cfg(not(windows))]
+            let id_value = {
+                let id_ref: &u32 = user.id();
+                Value::int((*id_ref) as i64, span)
+            };
+
             let record = record! {
+                "id" => id_value,
                 "name" => Value::string(trim_cstyle_null(user.name()), span),
                 "groups" => Value::list(groups, span),
             };
