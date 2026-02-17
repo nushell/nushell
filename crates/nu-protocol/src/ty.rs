@@ -40,13 +40,12 @@ impl Type {
         Self::List(Box::new(inner))
     }
 
+    /// Creates a OneOf type from an iterator of types.
+    /// Flattens any nested OneOf types and removes duplicates.
     pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
         let mut flattened = Vec::new();
         for t in types {
-            match t {
-                Type::OneOf(inner) => flattened.extend(inner.into_vec()),
-                other => flattened.push(other),
-            }
+            Self::oneof_add(&mut flattened, t);
         }
         Self::OneOf(flattened.into())
     }
@@ -116,90 +115,64 @@ impl Type {
         }
     }
 
+    /// Returns supertype of arguments without creating a `oneof`, or falling back to `any`
+    /// (unless one or both of the arguments are `any`)
+    fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
+        Ok(match (lhs.clone(), rhs.clone()) {
+            (lhs, rhs) if lhs == rhs => lhs,
+            (Type::Any, _) | (_, Type::Any) => Type::Any,
+            // (int, int) and (float, float) cases are already handled by the first match arm
+            (Type::Int | Type::Float | Type::Number, Type::Int | Type::Float | Type::Number) => {
+                Type::Number
+            }
+
+            (Type::Glob, Type::String) | (Type::String, Type::Glob) => {
+                return Err((lhs.clone(), rhs.clone()));
+            }
+            (Type::Record(this), Type::Record(that)) => {
+                Type::Record(Self::widen_collection(this, that))
+            }
+            (Type::Table(this), Type::Table(that)) => {
+                Type::Table(Self::widen_collection(this, that))
+            }
+            (Type::List(list_item), Type::Table(table))
+            | (Type::Table(table), Type::List(list_item)) => {
+                let item = match *list_item {
+                    Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
+                    list_item => Type::one_of([list_item, Type::Record(table)]),
+                };
+                Type::List(Box::new(item))
+            }
+            (Type::List(lhs), Type::List(rhs)) => Type::list(lhs.widen(*rhs)),
+            (t, u) => return Err((t, u)),
+        })
+    }
+
+    fn widen_collection(
+        lhs: Box<[(String, Type)]>,
+        rhs: Box<[(String, Type)]>,
+    ) -> Box<[(String, Type)]> {
+        if lhs.is_empty() || rhs.is_empty() {
+            return [].into();
+        }
+        let (small, big) = match lhs.len() <= rhs.len() {
+            true => (lhs, rhs),
+            false => (rhs, lhs),
+        };
+        small
+            .into_iter()
+            .filter_map(|(col, typ)| {
+                big.iter()
+                    .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
+                    .map(|b_typ| (col, typ, b_typ))
+            })
+            .map(|(col, t, u)| (col, t.widen(u)))
+            .collect()
+    }
+
     /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
     pub fn widen(self, other: Type) -> Type {
-        /// Returns supertype of arguments without creating a `oneof`, or falling back to `any`
-        /// (unless one or both of the arguments are `any`)
-        fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
-            Ok(match (lhs, rhs) {
-                (lhs, rhs) if lhs == rhs => lhs,
-                (Type::Any, _) | (_, Type::Any) => Type::Any,
-                // (int, int) and (float, float) cases are already handled by the first match arm
-                (
-                    Type::Int | Type::Float | Type::Number,
-                    Type::Int | Type::Float | Type::Number,
-                ) => Type::Number,
-
-                (Type::Glob, Type::String) | (Type::String, Type::Glob) => Type::String,
-                (Type::Record(this), Type::Record(that)) => {
-                    Type::Record(widen_collection(this, that))
-                }
-                (Type::Table(this), Type::Table(that)) => Type::Table(widen_collection(this, that)),
-                (Type::List(list_item), Type::Table(table))
-                | (Type::Table(table), Type::List(list_item)) => {
-                    let item = match *list_item {
-                        Type::Record(record) => Type::Record(widen_collection(record, table)),
-                        list_item => Type::one_of([list_item, Type::Record(table)]),
-                    };
-                    Type::List(Box::new(item))
-                }
-                (Type::List(lhs), Type::List(rhs)) => Type::list(lhs.widen(*rhs)),
-                (t, u) => return Err((t, u)),
-            })
-        }
-        fn widen_collection(
-            lhs: Box<[(String, Type)]>,
-            rhs: Box<[(String, Type)]>,
-        ) -> Box<[(String, Type)]> {
-            if lhs.is_empty() || rhs.is_empty() {
-                return [].into();
-            }
-            let (small, big) = match lhs.len() <= rhs.len() {
-                true => (lhs, rhs),
-                false => (rhs, lhs),
-            };
-            small
-                .into_iter()
-                .filter_map(|(col, typ)| {
-                    big.iter()
-                        .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
-                        .map(|b_typ| (col, typ, b_typ))
-                })
-                .map(|(col, t, u)| (col, t.widen(u)))
-                .collect()
-        }
-
-        fn oneof_add(oneof: &mut Vec<Type>, t: Type) {
-            match t {
-                Type::OneOf(inner) => {
-                    for sub_t in inner.into_vec() {
-                        oneof_add(oneof, sub_t);
-                    }
-                }
-                t => {
-                    if oneof.contains(&t) {
-                        return;
-                    }
-
-                    for one in oneof.iter_mut() {
-                        match flat_widen(std::mem::replace(one, Type::Any), t.clone()) {
-                            Ok(one_t) => {
-                                *one = one_t;
-                                return;
-                            }
-                            Err((one_, _)) => {
-                                *one = one_;
-                                // Continue with the same type
-                            }
-                        }
-                    }
-
-                    oneof.push(t);
-                }
-            }
-        }
-
-        let tu = match flat_widen(self, other) {
+        let tu = match Self::flat_widen(self, other) {
             Ok(t) => return t,
             Err(tu) => tu,
         };
@@ -212,16 +185,63 @@ impl Type {
                 };
                 let mut out = big.into_vec();
                 for t in small.into_iter() {
-                    oneof_add(&mut out, t);
+                    Self::oneof_add_widen(&mut out, t);
                 }
                 Type::one_of(out)
             }
             (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => {
                 let mut out = oneof.into_vec();
-                oneof_add(&mut out, t);
+                Self::oneof_add_widen(&mut out, t);
                 Type::one_of(out)
             }
             (this, other) => Type::one_of([this, other]),
+        }
+    }
+
+    /// Adds a type to a OneOf union, flattening nested OneOfs, deduplicating, and attempting to widen existing types.
+    fn oneof_add_widen(oneof: &mut Vec<Type>, t: Type) {
+        match t {
+            Type::OneOf(inner) => {
+                for sub_t in inner.into_vec() {
+                    Self::oneof_add_widen(oneof, sub_t);
+                }
+            }
+            t => {
+                if oneof.contains(&t) {
+                    return;
+                }
+
+                for one in oneof.iter_mut() {
+                    match Self::flat_widen(std::mem::replace(one, Type::Any), t.clone()) {
+                        Ok(one_t) => {
+                            *one = one_t;
+                            return;
+                        }
+                        Err((one_, _)) => {
+                            *one = one_;
+                            // Continue with the same type
+                        }
+                    }
+                }
+
+                oneof.push(t);
+            }
+        }
+    }
+
+    /// Adds a type to a OneOf union, flattening nested OneOfs and deduplicating.
+    fn oneof_add(oneof: &mut Vec<Type>, t: Type) {
+        match t {
+            Type::OneOf(inner) => {
+                for sub_t in inner.into_vec() {
+                    Self::oneof_add(oneof, sub_t);
+                }
+            }
+            t => {
+                if !oneof.contains(&t) {
+                    oneof.push(t);
+                }
+            }
         }
     }
 
