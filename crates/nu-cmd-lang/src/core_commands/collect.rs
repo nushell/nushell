@@ -74,11 +74,12 @@ is particularly large, this can cause high memory usage."#
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::Do;
 
     #[test]
     fn test_examples() {
-        use crate::test_examples;
+        use crate::test_examples_with_commands;
 
-        test_examples(Collect {})
+        test_examples_with_commands(Collect {}, &[&Do {}])
     }
 }
