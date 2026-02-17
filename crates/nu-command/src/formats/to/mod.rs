@@ -25,4 +25,4 @@ pub use tsv::ToTsv;
 pub use xml::ToXml;
 pub use yaml::{ToYaml, ToYml};
 
-pub use json::value_to_json_value;
+pub(crate) use json::value_to_json_value;

@@ -1,5 +1,5 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
-use crate::formats::to::value_to_json_value;
+use crate::formats::value_to_json_value;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
