@@ -4025,7 +4025,6 @@ dependencies = [
  "nix",
  "nu-cli",
  "nu-cmd-base",
- "nu-cmd-clip",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-cmd-plugin",
@@ -4118,17 +4117,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nu-cmd-clip"
-version = "0.110.1"
-dependencies = [
- "arboard",
- "nu-command",
- "nu-engine",
- "nu-json",
- "nu-protocol",
-]
-
-[[package]]
 name = "nu-cmd-extra"
 version = "0.110.1"
 dependencies = [
@@ -4200,6 +4188,7 @@ name = "nu-command"
 version = "0.110.1"
 dependencies = [
  "alphanumeric-sort",
+ "arboard",
  "base64",
  "bracoxide",
  "brotli",

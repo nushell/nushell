@@ -1,4 +1,5 @@
 mod clear;
+mod clip;
 mod dir_info;
 mod input;
 mod is_terminal;
@@ -12,6 +13,7 @@ mod umask_;
 mod whoami;
 
 pub use clear::Clear;
+pub use clip::{ClipCommand, ClipCopy, ClipPaste};
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use input::Input;
 pub use input::InputList;

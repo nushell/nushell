@@ -6,18 +6,18 @@ use super::arboard_provider::with_clipboard_instance;
 
 #[cfg(target_os = "linux")]
 pub fn create_clipboard(config: Option<&Value>) -> impl Clipboard {
-    crate::clipboard::linux::ClipBoardLinux::new(config)
+    super::linux::ClipBoardLinux::new(config)
 }
 
 #[cfg(not(target_os = "linux"))]
 pub fn create_clipboard(_: Option<&nu_protocol::Value>) -> impl Clipboard {
     #[cfg(target_os = "macos")]
     {
-        crate::clipboard::mac_os::ClipBoardMacos::new()
+        super::mac_os::ClipBoardMacos::new()
     }
     #[cfg(target_os = "windows")]
     {
-        crate::clipboard::windows::ClipBoardWindows::new()
+        super::windows::ClipBoardWindows::new()
     }
 }
 

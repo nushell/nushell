@@ -115,7 +115,11 @@ fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
     match value {
         None => None,
         Some(Value::Record { val, .. }) => {
-            if let Some(value) = val.get("NO_DAEMON") {
+            if let Some(value) = val
+                .get("NO_DAEMON")
+                .or_else(|| val.get("no_daemon"))
+                .or_else(|| val.get("noDaemon"))
+            {
                 read_no_daemon(Some(value))
             } else {
                 None

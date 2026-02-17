@@ -1,6 +1,7 @@
-use crate::clipboard::provider::{Clipboard, create_clipboard};
-use nu_command::formats::to::value_to_json_value;
+use super::clipboard::provider::{Clipboard, create_clipboard};
+use crate::formats::to::value_to_json_value;
 use nu_engine::command_prelude::*;
+
 #[derive(Clone)]
 pub struct ClipCopy;
 
@@ -20,18 +21,31 @@ impl ClipCopy {
         })
     }
 
+    fn format_raw(input: &Value, config: &nu_protocol::Config) -> String {
+        match input {
+            Value::String { val, .. } => val.to_owned(),
+            _ => input.to_expanded_string("", config),
+        }
+    }
+
     fn copy_text(
         engine_state: &EngineState,
         input: &Value,
         span: Span,
-        config: Option<&Value>,
+        plugin_config: Option<&Value>,
+        raw: bool,
+        config: &nu_protocol::Config,
     ) -> Result<(), ShellError> {
-        let text = match input {
-            Value::String { val, .. } => val.to_owned(),
-            _ => Self::format_json(engine_state, input, span)?,
+        let text = if raw {
+            Self::format_raw(input, config)
+        } else {
+            match input {
+                Value::String { val, .. } => val.to_owned(),
+                _ => Self::format_json(engine_state, input, span)?,
+            }
         };
 
-        create_clipboard(config).copy_text(&text)
+        create_clipboard(plugin_config).copy_text(&text)
     }
 }
 
@@ -43,6 +57,7 @@ impl Command for ClipCopy {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
+            .switch("raw", "Disable JSON serialization.", Some('r'))
             .switch("show", "Display copied value in the output.", Some('s'))
             .category(Category::System)
     }
@@ -59,9 +74,10 @@ impl Command for ClipCopy {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head)?;
+        let config = stack.get_config(engine_state);
+
         #[cfg(target_os = "linux")]
         let plugin_config = {
-            let config = stack.get_config(engine_state);
             config
                 .plugins
                 .get("clip")
@@ -72,7 +88,15 @@ impl Command for ClipCopy {
         #[cfg(not(target_os = "linux"))]
         let plugin_config: Option<Value> = None;
 
-        Self::copy_text(engine_state, &value, call.head, plugin_config.as_ref())?;
+        let raw = call.has_flag(engine_state, stack, "raw")?;
+        Self::copy_text(
+            engine_state,
+            &value,
+            call.head,
+            plugin_config.as_ref(),
+            raw,
+            &config,
+        )?;
 
         if call.has_flag(engine_state, stack, "show")? {
             Ok(value.into_pipeline_data())
@@ -91,6 +115,11 @@ impl Command for ClipCopy {
             Example {
                 example: "$env | clip copy --show",
                 description: "Copy a structured value and pass it through.",
+                result: None,
+            },
+            Example {
+                example: "$env | clip copy --raw",
+                description: "Copy a structured value as plain text without JSON serialization.",
                 result: None,
             },
         ]

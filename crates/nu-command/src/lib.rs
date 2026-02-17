@@ -34,7 +34,7 @@ mod strings;
 mod system;
 mod viewers;
 
-pub mod formats;
+pub(crate) mod formats;
 
 pub use bytes::*;
 pub use charting::*;

@@ -40,7 +40,6 @@ members = [
   "crates/nu_plugin_query",
   "crates/nu_plugin_stress_internals",
   "crates/nu-cli",
-  "crates/nu-cmd-clip",
   "crates/nu-cmd-base",
   "crates/nu-cmd-extra",
   "crates/nu-cmd-lang",
@@ -228,7 +227,6 @@ workspace = true
 
 [dependencies]
 nu-cli = { path = "./crates/nu-cli", version = "0.110.1" }
-nu-cmd-clip = { path = "./crates/nu-cmd-clip", version = "0.110.1" }
 nu-cmd-base = { path = "./crates/nu-cmd-base", version = "0.110.1" }
 nu-cmd-extra = { path = "./crates/nu-cmd-extra", version = "0.110.1" }
 nu-cmd-lang = { path = "./crates/nu-cmd-lang", version = "0.110.1" }

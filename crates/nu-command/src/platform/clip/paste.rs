@@ -1,5 +1,5 @@
-use crate::clipboard::provider::{Clipboard, create_clipboard};
-use nu_command::convert_json_string_to_value;
+use super::clipboard::provider::{Clipboard, create_clipboard};
+use crate::convert_json_string_to_value;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]

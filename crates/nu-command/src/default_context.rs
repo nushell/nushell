@@ -257,6 +257,9 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         // Platform
         #[cfg(feature = "os")]
         bind_command! {
+            ClipCommand,
+            ClipCopy,
+            ClipPaste,
             Clear,
             Du,
             Input,

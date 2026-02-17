@@ -1,6 +1,6 @@
-pub mod from;
+pub(crate) mod from;
 mod nu_xml_format;
-pub mod to;
+pub(crate) mod to;
 
 pub use from::*;
 pub use to::*;
