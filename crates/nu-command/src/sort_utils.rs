@@ -268,8 +268,8 @@ pub fn compare_custom_closure(
     span: Span,
 ) -> Result<Ordering, ShellError> {
     closure_eval
-        .add_arg(left.clone())
-        .add_arg(right.clone())
+        .add_arg(left.clone())?
+        .add_arg(right.clone())?
         .run_with_input(PipelineData::value(
             Value::list(vec![left.clone(), right.clone()], span),
             None,

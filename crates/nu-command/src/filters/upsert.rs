@@ -338,7 +338,7 @@ fn upsert_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(arg)
+        .add_arg(arg)?
         .run_with_input(input)?
         .into_value(span)?;
 
@@ -369,7 +369,7 @@ fn upsert_single_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(arg)
+        .add_arg(arg)?
         .run_with_input(input)?
         .into_value(span)?;
 
