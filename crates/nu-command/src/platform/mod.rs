@@ -1,4 +1,5 @@
 mod clear;
+#[cfg(not(target_arch = "wasm32"))]
 mod clip;
 mod dir_info;
 mod input;
@@ -13,6 +14,7 @@ mod umask_;
 mod whoami;
 
 pub use clear::Clear;
+#[cfg(not(target_arch = "wasm32"))]
 pub use clip::{ClipCommand, ClipCopy, ClipPaste};
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use input::Input;

@@ -34,7 +34,6 @@ nu-utils = { path = "../nu-utils", version = "0.110.1", default-features = false
 nuon = { path = "../nuon", version = "0.110.1" }
 
 alphanumeric-sort = { workspace = true }
-arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
 base64 = { workspace = true }
 bracoxide = { workspace = true }
 brotli = { workspace = true }
@@ -146,6 +145,7 @@ winreg = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
+arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
