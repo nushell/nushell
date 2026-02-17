@@ -3,8 +3,10 @@ use std::{
     env,
     fmt::{Debug, Display},
     hash::{DefaultHasher, Hash, Hasher},
+    num::NonZeroUsize,
     ops::{ControlFlow, Deref},
     process::Termination,
+    sync::LazyLock,
 };
 
 use crate::{self as nu_test_support};
@@ -15,6 +17,7 @@ use kitest::{
     group::{
         SimpleGroupRunner, TestGroupBTreeMap, TestGroupOutcomes, TestGroupRunner, TestGrouper,
     },
+    runner::DefaultRunner,
 };
 #[doc(hidden)]
 pub use linkme;
@@ -24,10 +27,17 @@ use nu_experimental::ExperimentalOption;
 pub use kitest::prelude::*;
 
 pub mod macros {
+    pub use kitest::{dbg, eprint, eprintln, print, println};
     pub use linkme::distributed_slice as collect_test;
     pub use nu_test_support_macros::test;
-    pub use kitest::{print, println, eprint, eprintln, dbg};
 }
+
+pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
+pub static DEFAULT_THREAD_COUNT: LazyLock<NonZeroUsize> = LazyLock::new(|| {
+    std::thread::available_parallelism()
+        .map(|n| n.saturating_mul(DEFAULT_THREAD_COUNT_MUL))
+        .unwrap_or(NonZeroUsize::MIN)
+});
 
 /// All collected tests.
 #[linkme::distributed_slice]
@@ -189,5 +199,6 @@ pub fn main() -> impl Termination {
         .with_formatter(PrettyFormatter::default().with_group_label_from_ctx())
         .with_group_runner(GroupRunner::default())
         .with_groups(TestGroupBTreeMap::default())
+        .with_runner(DefaultRunner::default().with_thread_count(*DEFAULT_THREAD_COUNT))
         .run()
 }
