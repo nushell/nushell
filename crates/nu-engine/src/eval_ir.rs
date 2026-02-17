@@ -173,13 +173,14 @@ impl<'a> EvalContext<'a> {
         // NOTE: in collect, it maybe good to pick the inner PipelineData
         // directly, and drop the ExitStatus queue.
         let data = self.take_reg(reg_id);
+        let body = data.body;
+        let span = body.span().unwrap_or(fallback_span);
+        let result = body.into_value(span);
         #[cfg(feature = "os")]
         if nu_experimental::PIPE_FAIL.get() {
             check_exit_status_future(data.exit)?
         }
-        let data = data.body;
-        let span = data.span().unwrap_or(fallback_span);
-        data.into_value(span)
+        result
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
