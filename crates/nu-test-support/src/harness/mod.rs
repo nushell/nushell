@@ -137,8 +137,8 @@ impl TestGrouper<TestMetaExtra, GroupKey, GroupCtx> for Grouper {
         key
     }
 
-    fn group_ctx(&self, key: &GroupKey) -> Option<&GroupCtx> {
-        self.0.get(key)
+    fn group_ctx(&mut self, key: &GroupKey) -> Option<GroupCtx> {
+        self.0.remove(key)
     }
 }
 

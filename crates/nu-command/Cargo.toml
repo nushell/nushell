@@ -14,7 +14,7 @@ autotests = false
 bench = false
 
 [[test]]
-name = "tests"
+name = "commands"
 path = "tests/main.rs"
 harness = false
 

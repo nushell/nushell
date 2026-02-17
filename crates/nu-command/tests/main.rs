@@ -18,3 +18,11 @@ use nu_test_support::harness::main;
 fn example_is(#[case] is: bool) {
     assert_eq!(EXAMPLE.get(), is);
 }
+
+#[test]
+#[experimental_options(EXAMPLE = true)]
+fn failure() {
+    if true {
+        panic!("oh no, a panic")
+    }
+}
