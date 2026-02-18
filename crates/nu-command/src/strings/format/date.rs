@@ -279,7 +279,8 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                             return Value::error(
                                 ShellError::GenericError {
                                     error: "Can't convert date to RFC 2822 format.".into(),
-                                    msg: "the RFC 2822 format only supports years 0 through 9999".into(),
+                                    msg: "the RFC 2822 format only supports years 0 through 9999"
+                                        .into(),
                                     span: Some(val_span),
                                     help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
                                     inner: vec![],
