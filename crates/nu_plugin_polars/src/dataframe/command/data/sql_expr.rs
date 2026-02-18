@@ -1,10 +1,9 @@
-use nu_protocol::{ShellError, Span};
 use polars::error::PolarsError;
 use polars::prelude::{DataType, Expr, LiteralValue, PolarsResult as Result, TimeUnit, col, lit};
 
 use sqlparser::ast::{
     ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
-    DuplicateTreatment, Expr as SqlExpr, Function as SQLFunction, FunctionArguments, ObjectName,
+    DuplicateTreatment, Expr as SqlExpr, Function as SQLFunction, FunctionArguments,
     ObjectNamePart, Value as SqlValue, WindowType,
 };
 

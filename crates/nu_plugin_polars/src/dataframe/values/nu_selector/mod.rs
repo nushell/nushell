@@ -8,10 +8,7 @@ use uuid::Uuid;
 pub use self::custom_value::NuSelectorCustomValue;
 
 use super::{CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType};
-use crate::{
-    Cacheable, PolarsPlugin,
-    values::{NuExpressionCustomValue, PolarsPluginCustomValue},
-};
+use crate::{Cacheable, PolarsPlugin, values::NuExpressionCustomValue};
 
 #[derive(Default, Clone, Debug)]
 pub struct NuSelector {

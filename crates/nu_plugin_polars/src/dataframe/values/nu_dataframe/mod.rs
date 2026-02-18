@@ -202,14 +202,15 @@ impl NuDataFrame {
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
         let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
 
-        let dataframe =
-            DataFrame::new_infer_height(columns_converted).map_err(|e| ShellError::GenericError {
+        let dataframe = DataFrame::new_infer_height(columns_converted).map_err(|e| {
+            ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: format!("Unable to create DataFrame: {e}"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            })?;
+            }
+        })?;
 
         Ok(Self::new(false, dataframe))
     }
@@ -277,13 +278,14 @@ impl NuDataFrame {
             }
         })?;
 
-        let df = DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: e.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        let df =
+            DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
 
         Ok(Self::new(false, df))
     }

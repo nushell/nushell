@@ -3,7 +3,6 @@ use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
 
-use chrono::DateTime;
 use polars::{
     df,
     frame::DataFrame,
@@ -11,10 +10,9 @@ use polars::{
 };
 
 use crate::{
-    command::required_flag, dataframe::values::utils::convert_columns_string, values::{
-        Column, CustomValueSupport, NuExpression, NuLazyFrame, NuSelector, PolarsPluginObject,
-        PolarsPluginType,
-    }, PolarsPlugin
+    PolarsPlugin,
+    command::required_flag,
+    values::{CustomValueSupport, NuExpression, NuLazyFrame, NuSelector, PolarsPluginType},
 };
 
 use crate::values::NuDataFrame;
@@ -177,63 +175,6 @@ fn command_lazy(
         )
         .into();
     result.to_pipeline_data(plugin, engine, call.head)
-}
-
-fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
-    cols: &[T],
-    col_span: Span,
-) -> Result<(), ShellError> {
-    if cols.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "Merge error".into(),
-            msg: "empty column list".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        });
-    }
-
-    // Checking if they are same type
-    if cols.len() > 1 {
-        for w in cols.windows(2) {
-            let l_series = df
-                .column(w[0].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            let r_series = df
-                .column(w[1].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::GenericError {
-                    error: "Merge error".into(),
-                    msg: "found different column types in list".into(),
-                    span: Some(col_span),
-                    help: Some(format!(
-                        "datatypes {} and {} are incompatible",
-                        l_series.dtype(),
-                        r_series.dtype()
-                    )),
-                    inner: vec![],
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellError> {

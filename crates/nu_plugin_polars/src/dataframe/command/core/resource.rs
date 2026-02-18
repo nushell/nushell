@@ -40,10 +40,7 @@ impl Resource {
             let options = build_cloud_options(plugin, &path)?;
             if options.is_none() {
                 return Err(ShellError::GenericError {
-                    error: format!(
-                        "Could not determine a supported cloud type from path: {}",
-                        path.to_string()
-                    ),
+                    error: format!("Could not determine a supported cloud type from path: {path}"),
                     msg: "".into(),
                     span: None,
                     help: None,
@@ -88,10 +85,10 @@ impl From<Resource> for SinkTarget {
     }
 }
 
-impl Into<SinkDestination> for Resource {
-    fn into(self) -> SinkDestination {
+impl From<Resource> for SinkDestination {
+    fn from(val: Resource) -> Self {
         SinkDestination::File {
-            target: SinkTarget::Path(self.path.clone()),
+            target: SinkTarget::Path(val.path.clone()),
         }
     }
 }

@@ -234,63 +234,6 @@ fn command_lazy(
     res.to_pipeline_data(plugin, engine, call.head)
 }
 
-fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
-    cols: &[T],
-    col_span: Span,
-) -> Result<(), ShellError> {
-    if cols.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "Merge error".into(),
-            msg: "empty column list".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        });
-    }
-
-    // Checking if they are same type
-    if cols.len() > 1 {
-        for w in cols.windows(2) {
-            let l_series = df
-                .column(w[0].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            let r_series = df
-                .column(w[1].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::GenericError {
-                    error: "Merge error".into(),
-                    msg: "found different column types in list".into(),
-                    span: Some(col_span),
-                    help: Some(format!(
-                        "datatypes {} and {} are incompatible",
-                        l_series.dtype(),
-                        r_series.dtype()
-                    )),
-                    inner: vec![],
-                });
-            }
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod test {
     use crate::test::test_polars_plugin_command;

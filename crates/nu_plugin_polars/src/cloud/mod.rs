@@ -12,10 +12,7 @@ pub(crate) fn build_cloud_options(
     plugin: &PolarsPlugin,
     path: &PlRefPath,
 ) -> Result<Option<CloudOptions>, ShellError> {
-    match path
-        .scheme()
-        .map(|scheme| CloudType::from_cloud_scheme(scheme))
-    {
+    match path.scheme().map(CloudType::from_cloud_scheme) {
         Some(CloudType::Aws) => aws::build_cloud_options(plugin).map(Some),
         Some(CloudType::Azure) => azure::build_cloud_options().map(Some),
         Some(CloudType::Gcp) => gcp::build_cloud_options().map(Some),
