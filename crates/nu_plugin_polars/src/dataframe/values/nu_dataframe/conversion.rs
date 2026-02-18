@@ -652,7 +652,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         })
 }
 
-fn value_to_series(name: PlSmallStr, values: &[Value]) -> Result<Series, ShellError> {
+pub fn value_to_series(name: PlSmallStr, values: &[Value]) -> Result<Series, ShellError> {
     let mut builder = ObjectChunkedBuilder::<DataFrameValue>::new(name, values.len());
 
     for v in values {

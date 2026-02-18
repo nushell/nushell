@@ -40,6 +40,12 @@ impl PluginCommand for PivotDF {
                 Some('o'),
             )
             .required_named(
+                "on-cols",
+                SyntaxShape::Any,
+                "column names used as value columns",
+                Some('v'),
+            )
+            .required_named(
                 "index",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "column names for indexes",
@@ -83,7 +89,7 @@ impl PluginCommand for PivotDF {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            example: "[[foo bar baz]; [A k 1] [A l 2] [B m 2] [B n 4] [C o 2]] | polars into-df | polars pivot --on foo --on-cols ([A B C] | polars into-df) --aggregate element --separator '_'",
+            example: "[[foo bar baz]; [A k 1] [A l 2] [B m 2] [B n 4] [C o 2]] | polars into-df | polars pivot --on foo --on-cols [A B C] --aggregate element --separator '_'",
             description: "Pivot on column foo",
             result: Some(
                 NuDataFrame::new(
