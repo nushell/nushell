@@ -111,7 +111,7 @@ fn run(
                         return Err(*error);
                     }
                     Value::Date { val, .. } => {
-                        let date_str = if val.year() >= 0 {
+                        let date_str = if val.year() >= 0 && val.year() <= 9999 {
                             val.to_rfc2822()
                         } else {
                             val.to_rfc3339()

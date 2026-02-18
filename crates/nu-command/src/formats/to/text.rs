@@ -172,7 +172,7 @@ fn local_into_string(
             format!(
                 "{} ({})",
                 {
-                    if val.year() >= 0 {
+                    if val.year() >= 0 && val.year() <= 9999 {
                         val.to_rfc2822()
                     } else {
                         val.to_rfc3339()
