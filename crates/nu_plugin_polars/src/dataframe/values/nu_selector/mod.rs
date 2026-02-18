@@ -1,7 +1,7 @@
 mod custom_value;
 
 use nu_protocol::{ShellError, Span, Value};
-use polars::prelude::{Expr, Selector};
+use polars::prelude::{Expr, PlSmallStr, Selector};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
 
@@ -120,6 +120,17 @@ impl CustomValueSupport for NuSelector {
             Value::String { val, .. } => {
                 let selector = Selector::ByName {
                     names: [val.into()].into(),
+                    strict: true,
+                };
+                Ok(NuSelector::new(Some(selector)))
+            }
+            Value::List { vals, .. } => {
+                let columns: Vec<PlSmallStr> = vals
+                    .iter()
+                    .map(|v| v.as_str().map(PlSmallStr::from_str))
+                    .collect::<Result<Vec<PlSmallStr>, ShellError>>()?;
+                let selector = Selector::ByName {
+                    names: columns.into(),
                     strict: true,
                 };
                 Ok(NuSelector::new(Some(selector)))

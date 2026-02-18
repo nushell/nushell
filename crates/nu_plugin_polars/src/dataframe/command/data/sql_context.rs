@@ -2,8 +2,8 @@ use crate::dataframe::command::data::sql_expr::parse_sql_expr;
 use polars::error::{ErrString, PolarsError};
 use polars::prelude::{DataFrame, DataType, IntoLazy, LazyFrame, col};
 use sqlparser::ast::{
-    Expr as SqlExpr, GroupByExpr, Select, SelectItem, SetExpr, Statement, TableFactor,
-    Value as SQLValue,
+    Expr as SqlExpr, GroupByExpr, LimitClause, Select, SelectItem, SetExpr, Statement, TableFactor,
+    Value as SQLValue, ValueWithSpan,
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
@@ -36,16 +36,15 @@ impl SQLContext {
         let mut alias_map = HashMap::new();
         let tbl_name = match &tbl.relation {
             TableFactor::Table { name, alias, .. } => {
-                let tbl_name = name
-                    .0
-                    .first()
-                    .ok_or_else(|| {
-                        PolarsError::ComputeError(ErrString::from(
-                            "No table found in select statement",
-                        ))
-                    })?
-                    .value
-                    .to_string();
+                let tbl_name = match name.0.first().ok_or_else(|| {
+                    PolarsError::ComputeError(ErrString::from("No table found in select statement"))
+                })? {
+                    sqlparser::ast::ObjectNamePart::Identifier(ident) => ident.value.clone(),
+                    sqlparser::ast::ObjectNamePart::Function(function) => {
+                        function.name.value.clone()
+                    }
+                };
+
                 if self.table_map.contains_key(&tbl_name) {
                     if let Some(alias) = alias {
                         alias_map.insert(alias.name.value.clone(), tbl_name.to_owned());
@@ -107,7 +106,7 @@ impl SQLContext {
             .iter()
             .map(
                 |e|match e {
-                  SqlExpr::Value(SQLValue::Number(idx, _)) => {
+                  SqlExpr::Value(ValueWithSpan { value: SQLValue::Number(idx, _), ..}) => {
                     let idx = match idx.parse::<usize>() {
                         Ok(0)| Err(_) => Err(
                         PolarsError::ComputeError(
@@ -201,8 +200,16 @@ impl SQLContext {
                             ));
                         }
                     };
-                    match &query.limit {
-                        Some(SqlExpr::Value(SQLValue::Number(nrow, _))) => {
+                    match &query.limit_clause {
+                        Some(LimitClause::LimitOffset {
+                            limit:
+                                Some(SqlExpr::Value(ValueWithSpan {
+                                    value: SQLValue::Number(nrow, _),
+                                    ..
+                                })),
+                            offset: None,
+                            limit_by,
+                        }) if limit_by.is_empty() => {
                             let nrow = nrow.parse().map_err(|err| {
                                 PolarsError::ComputeError(
                                     format!("Conversion Error: {err:?}").into(),

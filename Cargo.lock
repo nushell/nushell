@@ -369,7 +369,7 @@ dependencies = [
  "hex",
  "http 1.4.0",
  "ring",
- "time 0.3.47",
+ "time",
  "tokio",
  "tracing",
  "url",
@@ -519,7 +519,7 @@ dependencies = [
  "http 1.4.0",
  "percent-encoding",
  "sha2",
- "time 0.3.47",
+ "time",
  "tracing",
 ]
 
@@ -667,7 +667,7 @@ dependencies = [
  "pin-utils",
  "ryu",
  "serde",
- "time 0.3.47",
+ "time",
 ]
 
 [[package]]
@@ -1051,7 +1051,7 @@ checksum = "41bdeb83af82cd9cb686a19ed7efc2f50a21c262610f51ce945a8528860725ce"
 dependencies = [
  "atoi_simd 0.16.0",
  "byteorder",
- "chrono 0.4.41",
+ "chrono",
  "codepage",
  "encoding_rs",
  "fast-float2",
@@ -1138,16 +1138,6 @@ dependencies = [
 
 [[package]]
 name = "chrono"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "158b0bd7d75cbb6bf9c25967a48a2e9f77da95876b858eadfabaa99cd069de6e"
-dependencies = [
- "num 0.1.43",
- "time 0.1.45",
-]
-
-[[package]]
-name = "chrono"
 version = "0.4.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c469d952047f47f91b68d1cba3f10d63c11d73e4636f24f08daf0278abf01c4d"
@@ -1168,7 +1158,7 @@ version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799627e6b4d27827a814e837b9d8a504832086081806d45b1afa34dc982b023b"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
 ]
 
 [[package]]
@@ -1177,7 +1167,7 @@ version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd6dd8046d00723a59a2f8c5f295c515b9bb9a331ee4f8f3d4dd49e428acd3b6"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz-build",
  "phf 0.11.3",
 ]
@@ -1417,7 +1407,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
 dependencies = [
  "percent-encoding",
- "time 0.3.47",
+ "time",
  "version_check",
 ]
 
@@ -1435,7 +1425,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "time 0.3.47",
+ "time",
  "url",
 ]
 
@@ -2004,7 +1994,7 @@ version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23fb403c0926d35af2cc54d961bc2696a10d40725c08360ef69db04a4c201fd7"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "lazy_static",
  "num-traits",
  "rust_decimal",
@@ -2646,7 +2636,7 @@ dependencies = [
  "cfg-if",
  "js-sys",
  "libc",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "wasm-bindgen",
 ]
 
@@ -2948,7 +2938,7 @@ version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "406f83c56de4b2c9183be52ae9a4fefa22c0e0c3d3d7ef80be26eaee11c7110e"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "pest",
  "pest_consume",
  "pest_derive",
@@ -3968,7 +3958,7 @@ checksum = "a4a650543ca06a924e8b371db273b2756685faae30f8487da1b56505a8f78b0c"
 dependencies = [
  "libc",
  "log",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "windows-sys 0.48.0",
 ]
 
@@ -3980,7 +3970,7 @@ checksum = "78bed444cc8a2160f01cbcf811ef18cac863ad68ae8ca62092e8db51d51c761c"
 dependencies = [
  "libc",
  "log",
- "wasi 0.11.0+wasi-snapshot-preview1",
+ "wasi",
  "windows-sys 0.59.0",
 ]
 
@@ -4126,7 +4116,7 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d89e9874397a1f0a52fc1f197a8effd9735223cb2390e9dcc83ac6cd02923d0"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
 ]
 
 [[package]]
@@ -4182,7 +4172,7 @@ dependencies = [
  "simplelog",
  "tango-bench",
  "tempfile",
- "time 0.3.47",
+ "time",
  "winresource",
 ]
 
@@ -4199,7 +4189,7 @@ dependencies = [
 name = "nu-cli"
 version = "0.110.1"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "crossterm 0.29.0",
  "fancy-regex",
  "is_executable",
@@ -4324,7 +4314,7 @@ dependencies = [
  "bytesize",
  "calamine",
  "chardetng",
- "chrono 0.4.41",
+ "chrono",
  "chrono-humanize",
  "chrono-tz",
  "crossterm 0.29.0",
@@ -4552,7 +4542,7 @@ name = "nu-mcp"
 version = "0.110.1"
 dependencies = [
  "bytes",
- "chrono 0.3.0",
+ "chrono",
  "futures",
  "hyper-util",
  "indoc",
@@ -4578,7 +4568,7 @@ name = "nu-parser"
 version = "0.110.1"
 dependencies = [
  "bytesize",
- "chrono 0.4.41",
+ "chrono",
  "itertools 0.14.0",
  "log",
  "nu-engine",
@@ -4691,7 +4681,7 @@ version = "0.110.1"
 dependencies = [
  "brotli",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "chrono-humanize",
  "dirs",
  "dirs-sys",
@@ -4742,7 +4732,7 @@ dependencies = [
 name = "nu-system"
 version = "0.110.1"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "itertools 0.14.0",
  "libc",
  "libproc",
@@ -4836,7 +4826,7 @@ dependencies = [
 name = "nu_plugin_formats"
 version = "0.110.1"
 dependencies = [
- "chrono 0.3.0",
+ "chrono",
  "eml-parser",
  "ical",
  "indexmap",
@@ -4871,7 +4861,7 @@ version = "0.110.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "env_logger 0.11.8",
  "fancy-regex",
@@ -4887,8 +4877,8 @@ dependencies = [
  "nu-plugin-test-support",
  "nu-protocol",
  "nu-utils",
- "num 0.4.3",
- "object_store 0.12.1",
+ "num",
+ "object_store",
  "planus",
  "polars",
  "polars-arrow",
@@ -4939,17 +4929,6 @@ checksum = "bf33f538733d1a5a3494b836ba913207f14d9d4a1d3cd67030c5061bdd2cac85"
 dependencies = [
  "memchr",
  "unicode-segmentation",
-]
-
-[[package]]
-name = "num"
-version = "0.1.43"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9bdb1fb680e609c2e0930c1866cafdd0be7e7c7a1ecf92aec71ed8d99d3e133"
-dependencies = [
- "num-integer",
- "num-iter",
- "num-traits",
 ]
 
 [[package]]
@@ -5066,7 +5045,7 @@ dependencies = [
 name = "nuon"
 version = "0.110.1"
 dependencies = [
- "chrono 0.3.0",
+ "chrono",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
@@ -5211,43 +5190,6 @@ dependencies = [
 
 [[package]]
 name = "object_store"
-version = "0.12.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d94ac16b433c0ccf75326388c893d2835ab7457ea35ab8ba5d745c053ef5fa16"
-dependencies = [
- "async-trait",
- "base64",
- "bytes",
- "chrono 0.4.41",
- "form_urlencoded",
- "futures",
- "http 1.4.0",
- "http-body-util",
- "httparse",
- "humantime",
- "hyper",
- "itertools 0.14.0",
- "md-5",
- "parking_lot",
- "percent-encoding",
- "quick-xml 0.37.5",
- "rand 0.9.0",
- "reqwest",
- "ring",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "url",
- "wasm-bindgen-futures",
- "web-time",
-]
-
-[[package]]
-name = "object_store"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2858065e55c148d294a9f3aae3b0fa9458edadb41a108397094566f4e3c0dfb"
@@ -5255,7 +5197,7 @@ dependencies = [
  "async-trait",
  "base64",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "form_urlencoded",
  "futures",
  "http 1.4.0",
@@ -5718,7 +5660,7 @@ dependencies = [
  "indexmap",
  "quick-xml 0.38.4",
  "serde",
- "time 0.3.47",
+ "time",
 ]
 
 [[package]]
@@ -5769,7 +5711,7 @@ dependencies = [
  "bitflags 2.10.0",
  "bytemuck",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "dyn-clone",
  "either",
@@ -5824,7 +5766,7 @@ checksum = "42a32eca8e08ac4cc5de2ac3996d2b38567bba72cdb19bbfd94c370193ed51dd"
 dependencies = [
  "atoi_simd 0.17.0",
  "bytemuck",
- "chrono 0.4.41",
+ "chrono",
  "either",
  "fast-float2",
  "hashbrown 0.16.1",
@@ -5851,7 +5793,7 @@ dependencies = [
  "bitflags 2.10.0",
  "boxcar",
  "bytemuck",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "comfy-table",
  "either",
@@ -5902,7 +5844,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8c13126f8baebc13dadf26a80dcf69a607977fc8a67b18671ad2cefc713a7bdd"
 dependencies = [
  "avro-schema",
- "object_store 0.13.1",
+ "object_store",
  "parking_lot",
  "polars-arrow-format",
  "regex",
@@ -5948,7 +5890,7 @@ dependencies = [
  "atoi_simd 0.17.0",
  "blake3",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "fast-float2",
  "flate2",
@@ -5961,7 +5903,7 @@ dependencies = [
  "memchr",
  "memmap2",
  "num-traits",
- "object_store 0.13.1",
+ "object_store",
  "percent-encoding",
  "polars-arrow",
  "polars-buffer",
@@ -5991,7 +5933,7 @@ version = "0.53.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "55581d4cc8f4122cae92d12aec997e6713ac483871391a7db09501604007be4b"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "fallible-streaming-iterator",
  "hashbrown 0.16.1",
@@ -6014,7 +5956,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02e1e24d4db8c349e9576564cfff47a3f08bb831dba9168f6599be178bc725e8"
 dependencies = [
  "bitflags 2.10.0",
- "chrono 0.4.41",
+ "chrono",
  "either",
  "futures",
  "memchr",
@@ -6067,7 +6009,7 @@ dependencies = [
  "argminmax",
  "base64",
  "bytemuck",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "either",
  "hashbrown 0.16.1",
@@ -6148,7 +6090,7 @@ dependencies = [
  "blake3",
  "bytemuck",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "either",
  "futures",
@@ -6281,7 +6223,7 @@ checksum = "72e80404e1e418c997230e3b2972c3be331f45df8bdd3150fe3bef562c7a332f"
 dependencies = [
  "atoi_simd 0.17.0",
  "bytemuck",
- "chrono 0.4.41",
+ "chrono",
  "chrono-tz",
  "now",
  "num-traits",
@@ -6471,7 +6413,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25485360a54d6861439d60facef26de713b1e126bf015ec8f98239467a2b82f7"
 dependencies = [
  "bitflags 2.10.0",
- "chrono 0.4.41",
+ "chrono",
  "flate2",
  "procfs-core",
  "rustix 1.1.3",
@@ -6484,7 +6426,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6401bf7b6af22f78b563665d15a22e9aef27775b79b149a66ca022468a4e405"
 dependencies = [
  "bitflags 2.10.0",
- "chrono 0.4.41",
+ "chrono",
  "hex",
 ]
 
@@ -6541,16 +6483,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7649a7b4df05aed9ea7ec6f628c67c9953a43869b8bc50929569b2999d443fe"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "quick-xml"
-version = "0.37.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "331e97a1af0bf59823e6eadffe373d7b27f485be8748f71471c662c1f269b7fb"
-dependencies = [
- "memchr",
- "serde",
 ]
 
 [[package]]
@@ -6807,7 +6739,7 @@ dependencies = [
  "line-clipping",
  "ratatui-core",
  "strum 0.27.2",
- "time 0.3.47",
+ "time",
  "unicode-segmentation",
  "unicode-width 0.2.2",
 ]
@@ -6893,7 +6825,7 @@ version = "0.45.0"
 source = "git+https://github.com/nushell/reedline?branch=main#bdcc842ed6746a93378971248cc6a5d19bc00ce7"
 dependencies = [
  "arboard",
- "chrono 0.4.41",
+ "chrono",
  "crossterm 0.29.0",
  "fd-lock",
  "itertools 0.13.0",
@@ -7065,7 +6997,7 @@ dependencies = [
  "axum",
  "base64",
  "bytes",
- "chrono 0.4.41",
+ "chrono",
  "futures",
  "http 1.4.0",
  "http-body 1.0.1",
@@ -7170,7 +7102,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "165ca6e57b20e1351573e3729b958bc62f0e48025386970b6e4d29e7a7e71f3f"
 dependencies = [
  "bitflags 2.10.0",
- "chrono 0.4.41",
+ "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
  "hashlink",
@@ -7382,7 +7314,7 @@ version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2b42f36aa1cd011945615b92222f6bf73c599a102a300334cd7f8dbeec726cc"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "dyn-clone",
  "ref-cast",
  "schemars_derive",
@@ -7712,7 +7644,7 @@ checksum = "6d9967e7c3cd89d19cd533d8fceb3e5dcee28cf97fe76441481abe1d32723039"
 dependencies = [
  "const_format",
  "is_debug",
- "time 0.3.47",
+ "time",
  "tzdb",
 ]
 
@@ -7814,7 +7746,7 @@ checksum = "16257adbfaef1ee58b1363bdc0664c9b8e1e30aed86049635fb5f147d065a9c0"
 dependencies = [
  "log",
  "termcolor",
- "time 0.3.47",
+ "time",
 ]
 
 [[package]]
@@ -8324,17 +8256,6 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.45"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b797afad3f312d1c66a56d11d0316f916356d11bd158fbc6ca6389ff6bf805a"
-dependencies = [
- "libc",
- "wasi 0.10.0+wasi-snapshot-preview1",
- "winapi",
-]
-
-[[package]]
-name = "time"
 version = "0.3.47"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "743bd48c283afc0388f9b8827b976905fb217ad9e647fae3a379a9283c4def2c"
@@ -8657,7 +8578,7 @@ version = "5.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8e5ca62c20366b4685e3e41fba17bc7c9bbdcb82e65a89d6fda2ceea5fffd2f"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "libc",
  "log",
  "objc2 0.5.2",
@@ -9058,7 +8979,7 @@ version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "16184c0ecfad258b761087c21612bf8aaa3edfb2b53e00c8a172fc4da31e17c5"
 dependencies = [
- "chrono 0.4.41",
+ "chrono",
  "clap",
  "filetime",
  "fluent",
@@ -9232,12 +9153,6 @@ checksum = "bfa7760aed19e106de2c7c0b581b509f2f25d3dacaf737cb82ac61bc6d760b0e"
 dependencies = [
  "try-lock",
 ]
-
-[[package]]
-name = "wasi"
-version = "0.10.0+wasi-snapshot-preview1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a143597ca7c7793eff794def352d41792a93c481eb1042423ff7ff72ba2c31f"
 
 [[package]]
 name = "wasi"

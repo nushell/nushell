@@ -225,6 +225,8 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::AggGroups(expr)
                 | AggExpr::Std(expr, _)
                 | AggExpr::Item { input: expr, .. }
+                | AggExpr::FirstNonNull(expr)
+                | AggExpr::LastNonNull(expr)
                 | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
                 AggExpr::Quantile {
                     expr,
@@ -290,11 +292,14 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
         Expr::Gather {
             expr,
             idx,
-            returns_scalar: _,
+            returns_scalar,
+            null_on_oob,
         } => Ok(Value::record(
             record! {
                 "expr" => expr_to_value(expr.as_ref(), span)?,
                 "idx" => expr_to_value(idx.as_ref(), span)?,
+                "null_on_oob" => Value::bool(*null_on_oob, span),
+                "returns_scalar" => Value::bool(*returns_scalar, span)
             },
             span,
         )),
@@ -374,11 +379,11 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 span,
             ))
         }
-        Expr::Window {
+        Expr::Over {
             function,
             partition_by,
             order_by,
-            options,
+            mapping,
         } => {
             let partition_by: Result<Vec<Value>, ShellError> = partition_by
                 .iter()
@@ -406,7 +411,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                             Value::nothing(span)
                         }
                     },
-                    "options" => Value::string(format!("{options:?}"), span),
+                    "mapping" => Value::string(format!("{mapping:?}"), span),
                 },
                 span,
             ))
@@ -453,6 +458,49 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             },
             span,
         )),
+        Expr::Rolling {
+            function,
+            index_column,
+            period,
+            offset,
+            closed_window,
+        } => Ok(Value::record(
+            record! {
+                "function" => expr_to_value(function, span)?,
+                "index_column" => expr_to_value(index_column, span)?,
+                "period" => Value::string(format!("{period}"), span),
+                "offset" => Value::string(format!("{offset}"), span),
+                "closed_window" => Value::string(format!("{closed_window:?}"), span),
+            },
+            span,
+        )),
+        Expr::StructEval { expr, evaluation } => {
+            let fields: Vec<Value> = evaluation
+                .iter()
+                .map(|expr| expr_to_value(expr, span))
+                .collect::<Result<Vec<Value>, ShellError>>()?;
+
+            Ok(Value::record(
+                record! {
+                    "expr" => expr_to_value(expr.as_ref(), span)?,
+                    "evaluation" => Value::list(fields, span),
+                },
+                span,
+            ))
+        }
+        Expr::Display { inputs, fmt_str } => {
+            let inputs = inputs
+                .iter()
+                .map(|e| expr_to_value(e, span))
+                .collect::<Result<Vec<Value>, ShellError>>()?;
+            Ok(Value::record(
+                record! {
+                    "inputs" => Value::list(inputs, span),
+                    "fmt_str" => Value::string(fmt_str.to_string(), span),
+                },
+                span,
+            ))
+        }
     }
 }
 

@@ -1,9 +1,9 @@
-use std::{fs::File, path::PathBuf};
+use std::{fs::File, path::PathBuf, sync::Arc};
 
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::{ShellError, Spanned};
-use polars::prelude::{CsvWriter, SerWriter, SinkOptions};
+use polars::prelude::{CsvWriter, SerWriter, UnifiedSinkArgs};
 use polars_io::csv::write::{CsvWriterOptions, SerializeOptions};
 
 use crate::{
@@ -30,19 +30,21 @@ pub(crate) fn command_lazy(
 
     let options = CsvWriterOptions {
         include_header: !no_header,
-        serialize_options: SerializeOptions {
+        serialize_options: Arc::new(SerializeOptions {
             separator,
             ..SerializeOptions::default()
-        },
+        }),
         ..CsvWriterOptions::default()
     };
 
     lazy.to_polars()
-        .sink_csv(
+        .sink(
             resource.clone().into(),
-            options,
-            resource.cloud_options,
-            SinkOptions::default(),
+            polars::prelude::FileWriteFormat::Csv(options),
+            UnifiedSinkArgs {
+                cloud_options: resource.cloud_options.map(Arc::new),
+                ..Default::default()
+            },
         )
         .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
@@ -57,7 +59,7 @@ pub(crate) fn command_eager(
     resource: Resource,
 ) -> Result<(), ShellError> {
     let file_span = resource.span;
-    let file_path: PathBuf = resource.try_into()?;
+    let file_path: PathBuf = resource.as_path_buf();
     let delimiter: Option<Spanned<String>> = call.get_flag("csv-delimiter")?;
     let no_header: bool = call.has_flag("csv-no-header")?;
 

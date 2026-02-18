@@ -203,7 +203,7 @@ impl NuDataFrame {
         let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
 
         let dataframe =
-            DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
+            DataFrame::new_infer_height(columns_converted).map_err(|e| ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: format!("Unable to create DataFrame: {e}"),
                 span: Some(span),
@@ -255,7 +255,7 @@ impl NuDataFrame {
     pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
         self.df
-            .get_columns()
+            .columns()
             .iter()
             .map(|col| conversion::create_column(col, 0, height, span))
             .collect::<Result<Vec<Column>, ShellError>>()
@@ -277,7 +277,7 @@ impl NuDataFrame {
             }
         })?;
 
-        let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
+        let df = DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
             msg: e.to_string(),
             span: Some(span),
@@ -305,7 +305,7 @@ impl NuDataFrame {
 
         let series = self
             .df
-            .get_columns()
+            .columns()
             .first()
             .expect("We have already checked that the width is 1")
             .as_materialized_series();
@@ -399,7 +399,7 @@ impl NuDataFrame {
         let mut size: usize = 0;
         let columns = self
             .df
-            .get_columns()
+            .columns()
             .iter()
             .map(
                 |col| match conversion::create_column(col, from_row, upper_row, span) {
