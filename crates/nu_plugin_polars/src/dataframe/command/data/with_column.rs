@@ -246,71 +246,10 @@ impl PluginCommand for WithColumn {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        let value = input.into_value(call.head)?;
-        match PolarsPluginObject::try_from_value(plugin, &value)? {
-            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
-            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
-            _ => Err(ShellError::CantConvert {
-                to_type: "lazy or eager dataframe".into(),
-                from_type: value.get_type().to_string(),
-                span: value.span(),
-                help: None,
-            }),
-        }
-        .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
-    }
-}
-
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    df: NuDataFrame,
-) -> Result<PipelineData, ShellError> {
-    let new_column: Value = call.req(0)?;
-    let column_span = new_column.span();
-
-    if NuExpression::can_downcast(&new_column) {
-        if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
-            return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsupported when used with expressions. Please use the `polars as` expression to name a column".into(),
-            msg: "".into(),
-            span: Some(name.span),
-            help: Some("Use a `polars as` expression to name a column".into()),
-            inner: vec![],
-        });
-        }
-        let vals: Vec<Value> = call.rest(0)?;
-        let value = Value::list(vals, call.head);
-        let expressions = NuExpression::extract_exprs(plugin, value)?;
-        let lazy = NuLazyFrame::new(true, df.lazy().to_polars().with_columns(&expressions));
-        let df = lazy.collect(call.head)?;
-        df.to_pipeline_data(plugin, engine, call.head)
-    } else {
-        let mut other = NuDataFrame::try_from_value_coerce(plugin, &new_column, call.head)?
-            .as_series(column_span)?;
-
-        let name = match call.get_flag::<String>("name")? {
-            Some(name) => name,
-            None => other.name().to_string(),
-        };
-
-        let series = other.rename(name.into()).clone();
-
-        let mut polars_df = df.to_polars();
-        polars_df
-            .with_column(series)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error adding column to dataframe".into(),
-                msg: e.to_string(),
-                span: Some(column_span),
-                help: None,
-                inner: vec![],
-            })?;
-
-        let df = NuDataFrame::new(df.from_lazy, polars_df);
-        df.to_pipeline_data(plugin, engine, call.head)
+        let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+        command_lazy(plugin, engine, call, lazy)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
 }
 

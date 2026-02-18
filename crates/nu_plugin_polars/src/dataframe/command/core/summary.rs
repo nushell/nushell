@@ -192,7 +192,7 @@ fn command(
 
     let tail = df
         .as_ref()
-        .iter()
+        .materialized_column_iter()
         .filter(|col| !matches!(col.dtype(), &DataType::Object("object")))
         .map(|col| {
             let count = col.len() as f64;

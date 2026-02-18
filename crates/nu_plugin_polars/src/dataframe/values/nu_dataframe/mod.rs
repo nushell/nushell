@@ -144,7 +144,7 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
-        match DataFrame::new(vec![series.into()]) {
+        match DataFrame::new_infer_height(vec![series.into()]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),

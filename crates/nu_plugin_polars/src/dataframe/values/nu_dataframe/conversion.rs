@@ -641,7 +641,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         df_columns.push(series.into());
     }
 
-    DataFrame::new(df_columns)
+    DataFrame::new_infer_height(df_columns)
         .map(|df| NuDataFrame::new(false, df))
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),

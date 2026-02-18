@@ -14,7 +14,6 @@ pub(crate) fn build_cloud_options(
 ) -> Result<Option<CloudOptions>, ShellError> {
     match path
         .scheme()
-
         .map(|scheme| CloudType::from_cloud_scheme(scheme))
     {
         Some(CloudType::Aws) => aws::build_cloud_options(plugin).map(Some),
