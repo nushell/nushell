@@ -54,7 +54,7 @@ impl Command for StrReplace {
                 SyntaxShape::CellPath,
                 "For a data structure input, operate on strings at the given cell paths.",
             )
-            .switch("all", "replace all occurrences of the pattern", Some('a'))
+            .switch("all", "Replace all occurrences of the pattern.", Some('a'))
             .switch(
                 "no-expand",
                 "do not expand capture groups (like $name) in the replacement string",
@@ -75,7 +75,7 @@ impl Command for StrReplace {
     }
 
     fn description(&self) -> &str {
-        "Find and replace text."
+        "Find and replace text in the input string."
     }
 
     fn extra_description(&self) -> &str {
@@ -175,32 +175,32 @@ groups as its argument. It must return a string that will be used as a replaceme
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Find and replace the first occurrence of a substring",
+                description: "Find and replace the first occurrence of a substring.",
                 example: r"'c:\some\cool\path' | str replace 'c:\some\cool' '~'",
                 result: Some(Value::test_string("~\\path")),
             },
             Example {
-                description: "Find and replace all occurrences of a substring",
+                description: "Find and replace all occurrences of a substring.",
                 example: r#"'abc abc abc' | str replace --all 'b' 'z'"#,
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace contents with capture group using regular expression",
+                description: "Find and replace contents with capture group using regular expression.",
                 example: "'my_library.rb' | str replace -r '(.+).rb' '$1.nu'",
                 result: Some(Value::test_string("my_library.nu")),
             },
             Example {
-                description: "Find and replace contents with capture group using regular expression, with escapes",
+                description: "Find and replace contents with capture group using regular expression, with escapes.",
                 example: "'hello=world' | str replace -r '\\$?(?<varname>.*)=(?<value>.*)' '$$$varname = $value'",
                 result: Some(Value::test_string("$hello = world")),
             },
             Example {
-                description: "Find and replace all occurrences of found string using regular expression",
+                description: "Find and replace all occurrences of found string using regular expression.",
                 example: "'abc abc abc' | str replace --all --regex 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
-                description: "Find and replace all occurrences of found string in table using regular expression",
+                description: "Find and replace all occurrences of found string in table using regular expression.",
                 example: "[[ColA ColB ColC]; [abc abc ads]] | str replace --all --regex 'b' 'z' ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_string("azc"),
@@ -209,7 +209,7 @@ groups as its argument. It must return a string that will be used as a replaceme
                 })])),
             },
             Example {
-                description: "Find and replace all occurrences of found string in record using regular expression",
+                description: "Find and replace all occurrences of found string in record using regular expression.",
                 example: "{ KeyA: abc, KeyB: abc, KeyC: ads } | str replace --all --regex 'b' 'z' KeyA KeyC",
                 result: Some(Value::test_record(record! {
                     "KeyA" => Value::test_string("azc"),
@@ -218,34 +218,34 @@ groups as its argument. It must return a string that will be used as a replaceme
                 })),
             },
             Example {
-                description: "Find and replace contents without using the replace parameter as a regular expression",
+                description: "Find and replace contents without using the replace parameter as a regular expression.",
                 example: r"'dogs_$1_cats' | str replace -r '\$1' '$2' -n",
                 result: Some(Value::test_string("dogs_$2_cats")),
             },
             Example {
-                description: "Use captures to manipulate the input text using regular expression",
+                description: "Use captures to manipulate the input text using regular expression.",
                 example: r#""abc-def" | str replace -r "(.+)-(.+)" "${2}_${1}""#,
                 result: Some(Value::test_string("def_abc")),
             },
             Example {
-                description: "Find and replace with fancy-regex using regular expression",
+                description: "Find and replace with fancy-regex using regular expression.",
                 example: r"'a successful b' | str replace -r '\b([sS])uc(?:cs|s?)e(ed(?:ed|ing|s?)|ss(?:es|ful(?:ly)?|i(?:ons?|ve(?:ly)?)|ors?)?)\b' '${1}ucce$2'",
                 result: Some(Value::test_string("a successful b")),
             },
             Example {
-                description: "Find and replace with fancy-regex using regular expression",
+                description: "Find and replace with fancy-regex using regular expression.",
                 example: r#"'GHIKK-9+*' | str replace -r '[*[:xdigit:]+]' 'z'"#,
                 result: Some(Value::test_string("GHIKK-z+*")),
             },
             Example {
-                description: "Find and replace on individual lines using multiline regular expression",
+                description: "Find and replace on individual lines using multiline regular expression.",
                 example: r#""non-matching line\n123. one line\n124. another line\n" | str replace --all --multiline '^[0-9]+\. ' ''"#,
                 result: Some(Value::test_string(
                     "non-matching line\none line\nanother line\n",
                 )),
             },
             Example {
-                description: "Find and replace backslash escape sequences using a closure",
+                description: "Find and replace backslash escape sequences using a closure.",
                 example: r#"'string: \"abc\" backslash: \\ newline:\nend' | str replace -a -r '\\(.)' {|char| if $char == "n" { "\n" } else { $char } }"#,
                 result: Some(Value::test_string(
                     "string: \"abc\" backslash: \\ newline:\nend",

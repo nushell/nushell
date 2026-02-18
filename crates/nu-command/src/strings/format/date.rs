@@ -25,7 +25,7 @@ impl Command for FormatDate {
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .switch("list", "lists strftime cheatsheet", Some('l'))
+            .switch("list", "Lists strftime cheatsheet.", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,

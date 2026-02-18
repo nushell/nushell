@@ -839,6 +839,27 @@ pub fn parse_attributes_external_alias() {
 }
 
 #[test]
+pub fn parse_aliased_variable_in() {
+    // https://github.com/nushell/nushell/issues/13706
+    // https://github.com/nushell/nushell/issues/17538
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Alias));
+    working_set.add_decl(Box::new(AttrEcho));
+
+    let source = b"alias e = attr echo ($in)";
+    let _ = parse(&mut working_set, None, source, false);
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let source = b"1 | e";
+    let _ = parse(&mut working_set, None, source, false);
+
+    assert!(working_set.parse_errors.is_empty());
+}
+
+#[test]
 pub fn parse_if_in_const_expression() {
     // https://github.com/nushell/nushell/issues/15321
     let mut engine_state = EngineState::new();

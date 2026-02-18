@@ -63,12 +63,12 @@ impl Command for StrJoin {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Create a string from input",
+                description: "Create a string from input.",
                 example: "['nu', 'shell'] | str join",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
-                description: "Create a string from input with a separator",
+                description: "Create a string from input with a separator.",
                 example: "['nu', 'shell'] | str join '-'",
                 result: Some(Value::test_string("nu-shell")),
             },

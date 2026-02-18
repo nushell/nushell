@@ -39,7 +39,7 @@ impl Command for StrStartsWith {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
-            .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("ignore-case", "Search is case insensitive.", Some('i'))
             .category(Category::Strings)
     }
 
@@ -99,22 +99,22 @@ impl Command for StrStartsWith {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Checks if input string starts with 'my'",
+                description: "Checks if input string starts with 'my'.",
                 example: "'my_library.rb' | str starts-with 'my'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if input string starts with 'Car'",
+                description: "Checks if input string starts with 'Car'.",
                 example: "'Cargo.toml' | str starts-with 'Car'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if input string starts with '.toml'",
+                description: "Checks if input string starts with '.toml'.",
                 example: "'Cargo.toml' | str starts-with '.toml'",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Checks if input string starts with 'cargo', case-insensitive",
+                description: "Checks if input string starts with 'cargo', case-insensitive.",
                 example: "'Cargo.toml' | str starts-with --ignore-case 'cargo'",
                 result: Some(Value::test_bool(true)),
             },

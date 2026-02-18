@@ -60,6 +60,18 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
 
 pub const RESERVED_VARIABLE_NAMES: [&str; 4] = ["in", "nu", "env", "it"];
 
+pub fn ensure_not_reserved_variable_name(working_set: &mut StateWorkingSet, lvalue: &Expression) {
+    if lvalue.as_var().is_none() {
+        return;
+    }
+
+    let var_name = String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+        .trim_start_matches('$')
+        .to_string();
+
+    verify_not_reserved_variable_name(working_set, &var_name, lvalue.span);
+}
+
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"alias",
@@ -3266,14 +3278,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -3389,14 +3394,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -3559,14 +3557,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();

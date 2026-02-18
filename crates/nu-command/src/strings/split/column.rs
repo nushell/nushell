@@ -24,14 +24,14 @@ impl Command for SplitColumn {
                 SyntaxShape::String,
                 "The character or string that denotes what separates columns.",
             )
-            .switch("collapse-empty", "remove empty columns", Some('c'))
+            .switch("collapse-empty", "Remove empty columns.", Some('c'))
             .named(
                 "number",
                 SyntaxShape::Int,
                 "Split into maximum number of items",
                 Some('n'),
             )
-            .switch("regex", "separator is a regular expression", Some('r'))
+            .switch("regex", "Separator is a regular expression.", Some('r'))
             .rest(
                 "rest",
                 SyntaxShape::String,
@@ -51,7 +51,7 @@ impl Command for SplitColumn {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a string into columns by the specified separator",
+                description: "Split a string into columns by the specified separator.",
                 example: "'a--b--c' | split column '--'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
@@ -60,7 +60,7 @@ impl Command for SplitColumn {
                 })])),
             },
             Example {
-                description: "Split a string into columns of char and remove the empty columns",
+                description: "Split a string into columns of char and remove the empty columns.",
                 example: "'abc' | split column --collapse-empty ''",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                         "column0" => Value::test_string("a"),
@@ -69,7 +69,7 @@ impl Command for SplitColumn {
                 })])),
             },
             Example {
-                description: "Split a list of strings into a table",
+                description: "Split a list of strings into a table.",
                 example: "['a-b' 'c-d'] | split column -",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -83,7 +83,7 @@ impl Command for SplitColumn {
                 ])),
             },
             Example {
-                description: "Split a list of strings into a table, ignoring padding",
+                description: "Split a list of strings into a table, ignoring padding.",
                 example: r"['a -  b' 'c  -    d'] | split column --regex '\s*-\s*'",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -97,7 +97,7 @@ impl Command for SplitColumn {
                 ])),
             },
             Example {
-                description: "Split into columns, last column may contain the delimiter",
+                description: "Split into columns, last column may contain the delimiter.",
                 example: r"['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {

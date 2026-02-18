@@ -34,6 +34,12 @@ impl Command for MetadataSet {
                 Some('f'),
             )
             .named(
+                "path-columns",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Assign path columns metadata to the input",
+                Some('p'),
+            )
+            .named(
                 "content-type",
                 SyntaxShape::String,
                 "Assign content type metadata to the input",
@@ -72,6 +78,8 @@ impl Command for MetadataSet {
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
+        let path_columns: Option<Vec<String>> =
+            call.get_flag(engine_state, stack, "path-columns")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
         let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
@@ -84,7 +92,12 @@ impl Command for MetadataSet {
 
         // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
-            if ds_fp.is_some() || ds_ls || content_type.is_some() || merge.is_some() {
+            if ds_fp.is_some()
+                || ds_ls
+                || path_columns.is_some()
+                || content_type.is_some()
+                || merge.is_some()
+            {
                 return Err(ShellError::GenericError {
                     error: "Incompatible parameters".into(),
                     msg: "cannot use closure with other flags".into(),
@@ -111,6 +124,10 @@ impl Command for MetadataSet {
 
             metadata = parse_metadata_from_record(result_record);
             return Ok(input.set_metadata(Some(metadata)));
+        }
+
+        if let Some(path_columns) = path_columns {
+            metadata.path_columns = path_columns;
         }
 
         // Flag-based metadata modification
@@ -156,6 +173,11 @@ impl Command for MetadataSet {
             Example {
                 description: "Set the metadata of a file path.",
                 example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
+                result: None,
+            },
+            Example {
+                description: "Set the path columns metadata.",
+                example: "glob * | wrap path | metadata set --path-columns [path]",
                 result: None,
             },
             Example {

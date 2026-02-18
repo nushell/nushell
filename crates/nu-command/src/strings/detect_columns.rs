@@ -44,7 +44,7 @@ impl Command for DetectColumns {
                 (Type::String, Type::table()),
                 (Type::table(), Type::table()),
             ])
-            .switch("no-headers", "don't detect headers", Some('n'))
+            .switch("no-headers", "Don't detect headers.", Some('n'))
             .switch(
                 "ignore-box-chars",
                 "ignore lines consisting entirely of box drawing characters and clean box characters from tokens",

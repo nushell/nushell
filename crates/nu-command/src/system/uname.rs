@@ -70,7 +70,8 @@ impl Command for UName {
                     .as_ref()
                     .ok_or("unknown")
                     .map_err(|_| ShellError::NotFound { span })?
-                    .to_string())
+                    .to_string_lossy()
+                    .into_owned())
             })
             .collect::<Result<Vec<String>, ShellError>>()?;
         Ok(PipelineData::value(

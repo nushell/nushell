@@ -38,7 +38,7 @@ impl Command for StrContains {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
-            .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("ignore-case", "Search is case insensitive.", Some('i'))
             .category(Category::Strings)
     }
 
@@ -96,17 +96,17 @@ impl Command for StrContains {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Check if input contains string",
+                description: "Check if input contains string.",
                 example: "'my_library.rb' | str contains '.rb'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check if input contains string case insensitive",
+                description: "Check if input contains string case insensitive.",
                 example: "'my_library.rb' | str contains --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Check if input contains string in a record",
+                description: "Check if input contains string in a record.",
                 example: "{ ColA: test, ColB: 100 } | str contains 'e' ColA",
                 result: Some(Value::test_record(record! {
                     "ColA" => Value::test_bool(true),
@@ -114,7 +114,7 @@ impl Command for StrContains {
                 })),
             },
             Example {
-                description: "Check if input contains string in a table",
+                description: "Check if input contains string in a table.",
                 example: " [[ColA ColB]; [test 100]] | str contains --ignore-case 'E' ColA",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_bool(true),
@@ -122,7 +122,7 @@ impl Command for StrContains {
                 })])),
             },
             Example {
-                description: "Check if input contains string in a table",
+                description: "Check if input contains string in a table.",
                 example: " [[ColA ColB]; [test hello]] | str contains 'e' ColA ColB",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_bool(true),
@@ -130,12 +130,12 @@ impl Command for StrContains {
                 })])),
             },
             Example {
-                description: "Check if input string contains 'banana'",
+                description: "Check if input string contains 'banana'.",
                 example: "'hello' | str contains 'banana'",
                 result: Some(Value::test_bool(false)),
             },
             Example {
-                description: "Check if list contains string",
+                description: "Check if list contains string.",
                 example: "[one two three] | str contains o",
                 result: Some(Value::test_list(vec![
                     Value::test_bool(true),

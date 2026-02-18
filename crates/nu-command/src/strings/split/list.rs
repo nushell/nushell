@@ -30,7 +30,7 @@ impl Command for SubCommand {
             .param(
                 Flag::new("split")
                     .arg(SyntaxShape::String)
-                    .desc("Whether to split lists before, after, or on (default) the separator")
+                    .desc("Whether to split lists before, after, or on (default) the separator.")
                     .completion(Completion::new_list(&["before", "after", "on"])),
             )
             .category(Category::Filters)
@@ -47,7 +47,7 @@ impl Command for SubCommand {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a list of chars into two lists",
+                description: "Split a list of chars into two lists.",
                 example: "[a, b, c, d, e, f, g] | split list d",
                 result: Some(Value::list(
                     vec![
@@ -72,7 +72,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Split a list of lists into two lists of lists",
+                description: "Split a list of lists into two lists of lists.",
                 example: "[[1,2], [2,3], [3,4]] | split list [2,3]",
                 result: Some(Value::list(
                     vec![
@@ -95,7 +95,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Split a list of chars into two lists",
+                description: "Split a list of chars into two lists.",
                 example: "[a, b, c, d, a, e, f, g] | split list a",
                 result: Some(Value::list(
                     vec![
@@ -121,7 +121,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Split a list of chars into lists based on multiple characters",
+                description: "Split a list of chars into lists based on multiple characters.",
                 example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
@@ -143,7 +143,7 @@ impl Command for SubCommand {
                 )),
             },
             Example {
-                description: "Split a list of numbers on multiples of 3",
+                description: "Split a list of numbers on multiples of 3.",
                 example: r"[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
@@ -153,7 +153,7 @@ impl Command for SubCommand {
                 ])),
             },
             Example {
-                description: "Split a list of numbers into lists ending with 0",
+                description: "Split a list of numbers into lists ending with 0.",
                 example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![

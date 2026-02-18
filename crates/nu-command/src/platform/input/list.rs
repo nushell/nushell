@@ -10,7 +10,7 @@ use crossterm::{
 };
 use fuzzy_matcher::{FuzzyMatcher, skim::SkimMatcherV2};
 use nu_ansi_term::{Style, ansi::RESET};
-use nu_color_config::{Alignment, StyleComputer, TextStyle, get_color_map};
+use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
 use nu_protocol::{TableMode, shell_error::io::IoError};
@@ -122,23 +122,27 @@ impl Default for InputListConfig {
 }
 
 impl InputListConfig {
-    #[allow(clippy::collapsible_if)]
     fn from_nu_config(config: &nu_protocol::Config, style_computer: &StyleComputer) -> Self {
         let mut ret = Self::default();
 
-        // Get default styles from color_config (same as regular table command and find)
+        // Get styles from color_config (same as regular table command and find)
         let color_config_header =
             style_computer.compute("header", &Value::string("", Span::unknown()));
         let color_config_separator =
             style_computer.compute("separator", &Value::nothing(Span::unknown()));
         let color_config_search_result =
             style_computer.compute("search_result", &Value::string("", Span::unknown()));
+        let color_config_hints = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        let color_config_row_index =
+            style_computer.compute("row_index", &Value::string("", Span::unknown()));
 
-        // Use color_config styles as defaults
         ret.table_header = color_config_header;
         ret.table_separator = color_config_separator;
-        ret.separator = color_config_separator; // Separator line also inherits from color_config
-        ret.match_text = color_config_search_result; // Match highlighting inherits from search_result
+        ret.separator = color_config_separator;
+        ret.match_text = color_config_search_result;
+        ret.footer = color_config_hints;
+        ret.prompt_marker = color_config_row_index;
+        ret.selected_marker = color_config_row_index;
 
         // Derive table separators from user's table mode
         ret.table_column_separator = table_mode_to_separator(config.table.mode);
@@ -146,95 +150,6 @@ impl InputListConfig {
         ret.table_header_separator = header_sep;
         ret.table_header_intersection = header_int;
 
-        // Style options are nested under "style" key - these override color_config defaults
-        if let Some(style_val) = config.input_list.get("style") {
-            if let Ok(style_record) = style_val.as_record() {
-                let style_map: std::collections::HashMap<String, Value> = style_record
-                    .iter()
-                    .map(|(k, v)| (k.clone(), v.clone()))
-                    .collect();
-                let colors = get_color_map(&style_map);
-                if let Some(s) = colors.get("match_text") {
-                    ret.match_text = *s;
-                }
-                if let Some(s) = colors.get("footer") {
-                    ret.footer = *s;
-                }
-                if let Some(s) = colors.get("separator") {
-                    ret.separator = *s;
-                }
-                if let Some(s) = colors.get("prompt_marker") {
-                    ret.prompt_marker = *s;
-                }
-                if let Some(s) = colors.get("selected_marker") {
-                    ret.selected_marker = *s;
-                }
-                // These override the color_config defaults if explicitly set
-                if let Some(s) = colors.get("table_header") {
-                    ret.table_header = *s;
-                }
-                if let Some(s) = colors.get("table_separator") {
-                    ret.table_separator = *s;
-                }
-            }
-        }
-        if let Some(val) = config.input_list.get("separator_char") {
-            if let Ok(s) = val.as_str() {
-                if !s.is_empty() {
-                    ret.separator_char = s.to_string();
-                } else {
-                    eprintln!("Warning: input_list.separator_char is empty, using default");
-                }
-            }
-        }
-        if let Some(val) = config.input_list.get("prompt_marker_text") {
-            if let Ok(s) = val.as_str() {
-                ret.prompt_marker_text = s.to_string();
-            }
-        }
-        if let Some(val) = config.input_list.get("selected_marker_char") {
-            if let Ok(s) = val.as_str() {
-                let chars: Vec<char> = s.chars().collect();
-                if chars.len() == 1 {
-                    ret.selected_marker_char = chars[0];
-                } else {
-                    eprintln!(
-                        "Warning: input_list.selected_marker_char must be a single character, using default '{}' (got '{}')",
-                        DEFAULT_SELECTED_MARKER, s
-                    );
-                }
-            }
-        }
-        if let Some(val) = config.input_list.get("table_column_separator") {
-            if let Ok(s) = val.as_str() {
-                let chars: Vec<char> = s.chars().collect();
-                if chars.len() == 1 {
-                    ret.table_column_separator = chars[0];
-                } else {
-                    eprintln!(
-                        "Warning: input_list.table_column_separator must be a single character, using default '{}' (got '{}')",
-                        DEFAULT_TABLE_COLUMN_SEPARATOR, s
-                    );
-                }
-            }
-        }
-        if let Some(val) = config.input_list.get("case_sensitive") {
-            // Accept both boolean and string values
-            if let Ok(b) = val.as_bool() {
-                ret.case_sensitivity = if b {
-                    CaseSensitivity::CaseSensitive
-                } else {
-                    CaseSensitivity::CaseInsensitive
-                };
-            } else if let Ok(s) = val.as_str() {
-                ret.case_sensitivity = match s {
-                    "smart" => CaseSensitivity::Smart,
-                    "true" => CaseSensitivity::CaseSensitive,
-                    "false" => CaseSensitivity::CaseInsensitive,
-                    _ => CaseSensitivity::Smart,
-                };
-            }
-        }
         ret
     }
 }
@@ -378,19 +293,13 @@ Fuzzy mode supports readline-style editing:
 - Ctrl+W, Alt+Backspace: Delete previous word
 - Ctrl+D, Delete: Delete character at cursor
 
-Configuration ($env.config.input_list):
-- style.match_text: Style for fuzzy match highlighting (inherits from color_config.search_result)
-- style.footer: Style for the footer text (default: dark_gray)
-- style.separator: Style for the separator line (inherits from color_config.separator)
-- style.prompt_marker: Style for the prompt marker (default: green)
-- style.selected_marker: Style for the selection marker (default: green)
-- style.table_header: Style for table column headers (inherits from color_config.header)
-- style.table_separator: Style for table column separators (inherits from color_config.separator)
-- separator_char: Character(s) for separator line (default: "─")
-- prompt_marker_text: Text for prompt marker (default: "> ")
-- selected_marker_char: Single character for selection marker (default: ">")
-- table_column_separator: Single character for table columns (inherits from table.mode)
-- case_sensitive: true, false, or "smart" (default: "smart")
+Styling (inherited from $env.config.color_config):
+- search_result: Match highlighting in fuzzy mode
+- hints: Footer text
+- separator: Separator line and table column separators
+- row_index: Prompt marker and selection marker
+- header: Table column headers
+- Table column characters inherit from $env.config.table.mode
 
 Use --no-footer and --no-separator to hide the footer and separator line."#
     }
@@ -682,7 +591,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             },
             Example {
                 description: "Fuzzy search with custom match highlighting color",
-                example: r#"$env.config.input_list.style.match_text = "red"; ls | input list --fuzzy"#,
+                example: r#"$env.config.color_config.search_result = "red"; ls | input list --fuzzy"#,
                 result: None,
             },
             Example {
