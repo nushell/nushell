@@ -6,6 +6,7 @@ license = "MIT"
 name = "nu-cmd-extra"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-extra"
 version = "0.110.1"
+autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,6 +15,11 @@ bench = false
 
 [lints]
 workspace = true
+
+[[test]]
+name = "commands"
+path = "tests/main.rs"
+harness = false
 
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.110.1" }

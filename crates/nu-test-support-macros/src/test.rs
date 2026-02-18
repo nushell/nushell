@@ -1,8 +1,8 @@
-use std::mem;
 use quote::quote;
+use std::mem;
 use syn::{
-    Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path,
-    Token, parse::ParseStream,
+    Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path, Token,
+    parse::ParseStream,
 };
 
 pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
