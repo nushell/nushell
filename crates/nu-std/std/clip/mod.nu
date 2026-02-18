@@ -16,6 +16,7 @@ export def copy [
 
 # Copy input to system clipboard using OSC 52 request
 @example "Copy a string to the clipboard" {
+  use std/clip
   "Hello" | clip copy52
 }
 export def copy52 [
@@ -46,6 +47,7 @@ export def paste []: [nothing -> string] {
 
 # Paste contents of system clipboard using OSC 52 request
 @example "Paste a string from the clipboard" {
+  use std/clip
   clip paste52
 } --result "Hello"
 export def paste52 []: [nothing -> string] {
