@@ -7,8 +7,18 @@
 @example "Copy a string to the clipboard" {
   "Hello" | clip copy
 }
-@deprecated "Use `clip copy` without `use std/clip`"
+@deprecated "Use `clip copy` without `use std/clip`, for OCS 52 copy request use `clip copy52`"
 export def copy [
+  --ansi (-a)                 # Copy ansi formatting
+]: any -> nothing {
+  $in | copy52 --ansi $ansi
+}
+
+# Copy input to system clipboard using OSC 52 request
+@example "Copy a string to the clipboard" {
+  "Hello" | clip copy52
+}
+export def copy52 [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
   let input = $in | collect
@@ -29,8 +39,16 @@ export def copy [
 @example "Paste a string from the clipboard" {
   clip paste
 } --result "Hello"
-@deprecated "Use `clip paste` without `use std/clip`"
+@deprecated "Use `clip paste` without `use std/clip`, for OCS 52 paste request use `clip paste52`"
 export def paste []: [nothing -> string] {
+  paste52
+}
+
+# Paste contents of system clipboard using OSC 52 request
+@example "Paste a string from the clipboard" {
+  clip paste52
+} --result "Hello"
+export def paste52 []: [nothing -> string] {
   try {
     term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
   } catch {
