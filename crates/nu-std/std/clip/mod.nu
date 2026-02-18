@@ -11,7 +11,7 @@
 export def copy [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
-  $in | copy52 --ansi $ansi
+  $in | copy52 --ansi=$ansi
 }
 
 # Copy input to system clipboard using OSC 52 request
