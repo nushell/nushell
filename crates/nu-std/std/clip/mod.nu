@@ -7,6 +7,7 @@
 @example "Copy a string to the clipboard" {
   "Hello" | clip copy
 }
+@deprecated "Use `clip copy` without `use std/clip`"
 export def copy [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
@@ -28,6 +29,7 @@ export def copy [
 @example "Paste a string from the clipboard" {
   clip paste
 } --result "Hello"
+@deprecated "Use `clip paste` without `use std/clip`"
 export def paste []: [nothing -> string] {
   try {
     term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
@@ -44,6 +46,7 @@ export def paste []: [nothing -> string] {
 
 # Add a prefix to each line of the content to be copied
 @example "Format output for Nushell doc" {
+  use std/clip
   [1 2 3] | clip prefix '# => '
 } --result "# => ╭───┬───╮
 # => │ 0 │ 1 │
@@ -52,6 +55,7 @@ export def paste []: [nothing -> string] {
 # => ╰───┴───╯
 # => "
 @example "Format output for Nushell doc and copy it" {
+  use std/clip
   ls | clip prefix '# => ' | clip copy
 }
 export def prefix [prefix: string]: any -> string {
