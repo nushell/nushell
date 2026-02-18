@@ -232,6 +232,28 @@ fn list_files_from_two_parents_up_using_multiple_dots() {
 }
 
 #[test]
+fn let_typed_glob_expands_in_ls() {
+    Playground::setup("ls_let_glob_expand", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let g: glob = "*.toml"; ls $g | length"#);
+
+        assert_eq!(actual.out, "2");
+    })
+}
+
+#[test]
+fn let_into_glob_still_works_in_ls() {
+    Playground::setup("ls_into_glob_regression", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let g = "*.toml" | into glob; ls $g | length"#);
+
+        assert_eq!(actual.out, "2");
+    })
+}
+
+#[test]
 fn lists_hidden_file_when_explicitly_specified() {
     Playground::setup("ls_test_7", |dirs, sandbox| {
         sandbox.with_files(&[
