@@ -142,6 +142,26 @@ file=C:\\Windows\\System32\\xcopy.exe' | from ini --escape false",
                 }),
             })),
         },
+        Example {
+            example: "'[foo]
+bar=\"quoted\"' | from ini --quote false",
+            description: "Disable quote handling to keep quote characters",
+            result: Some(Value::test_record(record! {
+                "foo" => Value::test_record(record! {
+                    "bar" => Value::test_string("\"quoted\""),
+                }),
+            })),
+        },
+        Example {
+            example: "[\"[foo]\" \"bar=line one\" \"  line two\"] | str join (char newline) | from ini --indented-multiline-value",
+            description: "Allow values to continue on indented lines",
+            result: None,
+        },
+        Example {
+            example: "[\"[foo]\" \"  key=value\"] | str join (char newline) | from ini --preserve-key-leading-whitespace",
+            description: "Preserve leading whitespace in keys",
+            result: None,
+        },
     ]
 }
 
