@@ -61,10 +61,11 @@ impl SimplePluginCommand for FromIni {
         let span = input.span();
         let input_string = input.coerce_str()?;
         let head = call.head;
-        let mut parse_option = ini::ParseOption::default();
-
-        parse_option.enabled_quote = call.get_flag::<bool>("quote")?.unwrap_or(true);
-        parse_option.enabled_escape = call.get_flag::<bool>("escape")?.unwrap_or(true);
+        let mut parse_option = ini::ParseOption {
+            enabled_quote: call.get_flag::<bool>("quote")?.unwrap_or(true),
+            enabled_escape: call.get_flag::<bool>("escape")?.unwrap_or(true),
+            ..ini::ParseOption::default()
+        };
 
         if call.has_flag("indented-multiline-value")? {
             parse_option.enabled_indented_mutiline_value = true;
