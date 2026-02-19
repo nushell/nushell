@@ -2,7 +2,8 @@ use crate::FormatCmdsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, ShellError, Signature, Type, Value, record,
+    Category, Example, LabeledError, Record, ShellError, Signature, SyntaxShape, Type, Value,
+    record,
 };
 
 pub struct FromIni;
@@ -21,10 +22,16 @@ impl SimplePluginCommand for FromIni {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::record())])
-            .switch("no-quote", "Disable quote handling for values", None)
-            .switch(
-                "no-escape",
-                "Disable escape sequence handling for values",
+            .named(
+                "quote",
+                SyntaxShape::Boolean,
+                "Enable quote handling for values (default: true)",
+                None,
+            )
+            .named(
+                "escape",
+                SyntaxShape::Boolean,
+                "Enable escape sequence handling for values (default: true)",
                 None,
             )
             .switch(
@@ -56,13 +63,8 @@ impl SimplePluginCommand for FromIni {
         let head = call.head;
         let mut parse_option = ini::ParseOption::default();
 
-        if call.has_flag("no-quote")? {
-            parse_option.enabled_quote = false;
-        }
-
-        if call.has_flag("no-escape")? {
-            parse_option.enabled_escape = false;
-        }
+        parse_option.enabled_quote = call.get_flag::<bool>("quote")?.unwrap_or(true);
+        parse_option.enabled_escape = call.get_flag::<bool>("escape")?.unwrap_or(true);
 
         if call.has_flag("indented-multiline-value")? {
             parse_option.enabled_indented_mutiline_value = true;
@@ -132,7 +134,7 @@ b=2' | from ini",
         },
         Example {
             example: "'[start]
-file=C:\\Windows\\System32\\xcopy.exe' | from ini --no-escape",
+file=C:\\Windows\\System32\\xcopy.exe' | from ini --escape false",
             description: "Disable escaping to keep backslashes literal",
             result: Some(Value::test_record(record! {
                 "start" => Value::test_record(record! {
