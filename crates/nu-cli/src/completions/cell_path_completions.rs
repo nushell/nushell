@@ -72,11 +72,9 @@ impl Completer for CellPathCompletion<'_> {
             for suggestion in get_suggestions_by_value(&value, current_span) {
                 matcher.add_semantic_suggestion(suggestion);
             }
-        } else {
-            if let Some(ty) = type_follow_cell_path(&self.full_cell_path.head.ty, path_members) {
-                for suggestion in get_suggestions_by_type(ty, current_span) {
-                    matcher.add_semantic_suggestion(suggestion);
-                }
+        } else if let Some(ty) = type_follow_cell_path(&self.full_cell_path.head.ty, path_members) {
+            for suggestion in get_suggestions_by_type(ty, current_span) {
+                matcher.add_semantic_suggestion(suggestion);
             }
         }
 

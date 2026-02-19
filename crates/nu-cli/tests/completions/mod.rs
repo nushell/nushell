@@ -2664,6 +2664,7 @@ fn record_cell_path_completions(#[case] input: &str) {
 #[case("($foo).", ["a"].into())]
 #[case("($foo).a.", ["b"].into())]
 #[case("$bar.", ["a", "b"].into())]
+#[case("($bar).", ["a", "b"].into())]
 fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
