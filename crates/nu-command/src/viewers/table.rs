@@ -583,6 +583,7 @@ fn handle_record(
         ..
     }) = metadata
     {
+        #[allow(deprecated)]
         if data_source == DataSource::Ls {
             path_columns.push(String::from("name"));
         }
@@ -777,6 +778,7 @@ fn handle_row_stream(
             ..
         } = metadata;
 
+        #[allow(deprecated)]
         if data_source == DataSource::Ls {
             path_columns.push(String::from("name"));
         }

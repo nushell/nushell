@@ -231,7 +231,9 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
+                            #[allow(deprecated)]
                             data_source: DataSource::Ls,
+                            path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
                     ),
@@ -256,7 +258,9 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
+                            #[allow(deprecated)]
                             data_source: DataSource::Ls,
+                            path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
                     ))

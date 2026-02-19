@@ -56,15 +56,28 @@ impl Command for MetadataSet {
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![DeprecationEntry {
-            ty: DeprecationType::Flag("merge".into()),
-            report_mode: ReportMode::FirstUse,
-            since: Some("0.111.0".into()),
-            expected_removal: Some("0.112.0".into()),
-            help: Some(
-                "Use the closure parameter instead: `metadata set { merge {key: value} }`".into(),
-            ),
-        }]
+        vec![
+            DeprecationEntry {
+                ty: DeprecationType::Flag("merge".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.111.0".into()),
+                expected_removal: Some("0.112.0".into()),
+                help: Some(
+                    "Use the closure parameter instead: `metadata set { merge {key: value} }`"
+                        .into(),
+                ),
+            },
+            DeprecationEntry {
+                ty: DeprecationType::Flag("datasource-ls".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.111.0".into()),
+                expected_removal: Some("0.113.0".into()),
+                help: Some(
+                    "Use the path-columns flag instead: `metadata set --path-columns [name]`"
+                        .into(),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -144,7 +157,11 @@ impl Command for MetadataSet {
 
         match (ds_fp, ds_ls) {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
-            (None, true) => metadata.data_source = DataSource::Ls,
+            #[allow(deprecated)]
+            (None, true) => {
+                metadata.data_source = DataSource::Ls;
+                metadata.path_columns.push("name".to_string());
+            }
             (Some(_), true) => {
                 return Err(ShellError::IncompatibleParameters {
                     left_message: "cannot use `--datasource-filepath`".into(),
