@@ -3454,6 +3454,8 @@ dependencies = [
 [[package]]
 name = "kitest"
 version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cf90e5b046929ac3a5972310f759689ccd321aebedb201b4b1109bd450d9a33"
 dependencies = [
  "crossbeam-channel",
 ]
