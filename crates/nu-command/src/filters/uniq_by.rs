@@ -25,7 +25,7 @@ impl Command for UniqBy {
                 Some('c'),
             )
             .switch(
-                "from-last",
+                "keep-last",
                 "Return the last occurrence of each unique value instead of the first.",
                 Some('l'),
             )
@@ -109,7 +109,7 @@ impl Command for UniqBy {
             },
             Example {
                 description: "Get rows from table filtered by column uniqueness, keeping the last occurrence of each duplicate.",
-                example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit --from-last",
+                example: "[[fruit count]; [apple 9] [apple 2] [pear 3] [orange 7]] | uniq-by fruit --keep-last",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "fruit" => Value::test_string("apple"),

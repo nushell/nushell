@@ -245,7 +245,7 @@ pub fn uniq(
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
     // for uniq-by command
-    let flag_from_last = call.has_flag(engine_state, stack, "from-last")?;
+    let flag_keep_last = call.has_flag(engine_state, stack, "keep-last")?;
 
     let signals = engine_state.signals().clone();
     let uniq_values = input
@@ -270,7 +270,7 @@ pub fn uniq(
                     Ok(key) => {
                         match counter.get_mut(&key) {
                             Some(x) => {
-                                if flag_from_last {
+                                if flag_keep_last {
                                     x.val = item.val;
                                 }
                                 x.count += 1;
