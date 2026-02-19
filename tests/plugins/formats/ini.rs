@@ -77,7 +77,7 @@ fn read_ini_with_escape_false() {
         let actual = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open windows_path.ini --raw | from ini --escape false | get start.file"
+            "open windows_path.ini --raw | from ini -e false | get start.file"
         );
 
         assert_eq!(actual.out, r"C:\Windows\System32\xcopy.exe");
@@ -100,7 +100,7 @@ fn read_ini_with_quote_false() {
         let no_quote = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open quoted.ini --raw | from ini --quote false | get foo.bar | $in == \"'quoted'\""
+            "open quoted.ini --raw | from ini -q false | get foo.bar | $in == \"'quoted'\""
         );
         assert_eq!(no_quote.out, "true");
     })
@@ -125,7 +125,7 @@ fn read_ini_with_indented_multiline_value() {
         let multiline = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open multiline.ini --raw | from ini --indented-multiline-value | get foo.bar | str contains 'line two'"
+            "open multiline.ini --raw | from ini -m | get foo.bar | str contains 'line two'"
         );
         assert_eq!(multiline.out, "true");
     })
@@ -150,7 +150,7 @@ fn read_ini_with_preserve_key_leading_whitespace() {
         let keep = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open key_whitespace.ini --raw | from ini --preserve-key-leading-whitespace | get foo.'  key'"
+            "open key_whitespace.ini --raw | from ini -w | get foo.'  key'"
         );
         assert_eq!(keep.out, "value");
     })

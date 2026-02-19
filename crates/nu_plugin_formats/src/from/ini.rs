@@ -26,23 +26,23 @@ impl SimplePluginCommand for FromIni {
                 "quote",
                 SyntaxShape::Boolean,
                 "Enable quote handling for values (default: true)",
-                None,
+                Some('q'),
             )
             .named(
                 "escape",
                 SyntaxShape::Boolean,
                 "Enable escape sequence handling for values (default: true)",
-                None,
+                Some('e'),
             )
             .switch(
                 "indented-multiline-value",
                 "Allow values to continue on indented lines",
-                None,
+                Some('m'),
             )
             .switch(
                 "preserve-key-leading-whitespace",
                 "Preserve leading whitespace in keys",
-                None,
+                Some('w'),
             )
             .category(Category::Formats)
     }
