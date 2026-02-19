@@ -14,6 +14,12 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
 
     let fn_ident = &item_fn.sig.ident;
 
+    let run_in_serial = match attrs.run_in_serial {
+        Some(true) => true,
+        Some(false) => false,
+        None => false,
+    };
+
     let ignore_status = match attrs.ignore {
         (false, _) => quote!(IgnoreStatus::Run),
         (true, None) => quote!(IgnoreStatus::Ignore),
@@ -47,7 +53,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
 
             #[::nu_test_support::collect_test(nu_test_support::harness::TESTS)]
             #[linkme(crate = ::nu_test_support::harness::linkme)]
-            static TEST: Test<TestMetaExtra> =
+            static TEST: Test<NuTestMetaExtra> =
                 Test::new(
                     TestFnHandle::from_const_fn(wrapper),
                     TestMeta {
@@ -55,7 +61,8 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                         ignore: #ignore_status,
                         should_panic: #panic_expectation,
                         origin: ::nu_test_support::harness::origin!(),
-                        extra: TestMetaExtra {
+                        extra: NuTestMetaExtra {
+                            run_in_serial: #run_in_serial,
                             experimental_options: &[#(#experimental_options),*],
                             environment_variables: &[#(#environment_variables),*],
                         }
@@ -72,6 +79,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
 pub struct TestAttributes {
     pub ignore: (bool, Option<LitStr>),
     pub should_panic: (bool, Option<LitStr>),
+    pub run_in_serial: Option<bool>,
     pub experimental_options: Vec<(Path, Option<LitBool>)>,
     pub environment_variables: Vec<(Ident, Expr)>,
     pub rest: Vec<Attribute>,
@@ -120,7 +128,19 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
                     Meta::NameValue(_) => todo!("error"),
                 },
 
-                "experimental_options" => {
+                "serial" => match attr.meta {
+                    Meta::Path(_) => test_attrs.run_in_serial = Some(true),
+                    Meta::NameValue(nv) => match nv.value {
+                        Expr::Lit(expr_lit) => match expr_lit.lit {
+                            Lit::Bool(b) => test_attrs.run_in_serial = Some(b.value),
+                            _ => todo!("error")
+                        },
+                        _ => todo!("error")
+                    }
+                    Meta::List(_) => todo!("error"),
+                },
+
+                "exp" | "experimental_options" => {
                     fn parse(input: ParseStream) -> syn::Result<Vec<(Path, Option<LitBool>)>> {
                         Ok(input
                             .parse_terminated(
@@ -141,9 +161,9 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
                     let options = attr.parse_args_with(parse)?;
                     test_attrs.experimental_options.extend(options);
-                }
+                },
 
-                "env" => {
+                "env" | "environment_variables" => {
                     fn parse(input: ParseStream) -> syn::Result<Vec<(Ident, Expr)>> {
                         Ok(input
                             .parse_terminated(
@@ -161,7 +181,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
                     let envs = attr.parse_args_with(parse)?;
                     test_attrs.environment_variables.extend(envs);
-                }
+                },
 
                 _ => test_attrs.rest.push(attr),
             }
