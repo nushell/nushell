@@ -16,10 +16,9 @@ export def copy [
 
 # Copy input to system clipboard using OSC 52 request
 @example "Copy a string to the clipboard" {
-  use std/clip
   "Hello" | clip copy52
 }
-export def copy52 [
+export def "copy52" [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
   let input = $in | collect
@@ -47,10 +46,9 @@ export def paste []: [nothing -> string] {
 
 # Paste contents of system clipboard using OSC 52 request
 @example "Paste a string from the clipboard" {
-  use std/clip
   clip paste52
 } --result "Hello"
-export def paste52 []: [nothing -> string] {
+export def "paste52" []: [nothing -> string] {
   try {
     term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
   } catch {
@@ -66,7 +64,6 @@ export def paste52 []: [nothing -> string] {
 
 # Add a prefix to each line of the content to be copied
 @example "Format output for Nushell doc" {
-  use std/clip
   [1 2 3] | clip prefix '# => '
 } --result "# => ╭───┬───╮
 # => │ 0 │ 1 │
@@ -75,10 +72,9 @@ export def paste52 []: [nothing -> string] {
 # => ╰───┴───╯
 # => "
 @example "Format output for Nushell doc and copy it" {
-  use std/clip
   ls | clip prefix '# => ' | clip copy
 }
-export def prefix [prefix: string]: any -> string {
+export def "prefix" [prefix: string]: any -> string {
   let input = $in | collect
   match ($input | describe -d | get type) {
     $type if $type in [ table, record, list ] => {
