@@ -27,10 +27,10 @@ impl CommandCompletion {
     ) -> Vec<SemanticSuggestion> {
         let mut external_commands = HashSet::new();
 
-        let paths = working_set.permanent_state.get_env_var_insensitive("path");
+        let paths_val = working_set.permanent_state.get_env_var("path");
 
-        if let Some((_, paths)) = paths
-            && let Ok(paths) = paths.as_list()
+        if let Some(paths_val) = paths_val
+            && let Ok(paths) = paths_val.as_list()
         {
             for path in paths {
                 let path = path.coerce_str().unwrap_or_default();

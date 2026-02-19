@@ -26,6 +26,7 @@ use nu_utils::{get_ls_colors, terminal_size};
 
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
+type NuPath = nu_path::Path<Absolute>;
 
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
@@ -458,9 +459,9 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
-        PipelineData::Value(Value::Record { val, .. }, ..) => {
+        PipelineData::Value(Value::Record { val, .. }, metadata) => {
             input.data = PipelineData::empty();
-            handle_record(input, val.into_owned())
+            handle_record(input, val.into_owned(), metadata)
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -551,7 +552,11 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
     )
 }
 
-fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineData> {
+fn handle_record(
+    input: CmdInput,
+    mut record: Record,
+    metadata: Option<PipelineMetadata>,
+) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
 
     if record.is_empty() {
@@ -571,6 +576,49 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     }
 
     let config = input.get_config();
+
+    if let Some(PipelineMetadata {
+        data_source,
+        mut path_columns,
+        ..
+    }) = metadata
+    {
+        if data_source == DataSource::Ls {
+            path_columns.push(String::from("name"));
+        }
+        // Remove duplicates
+        path_columns.sort_unstable();
+        path_columns.dedup();
+
+        let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+            Some(v) => Some(env_to_string(
+                "LS_COLORS",
+                v,
+                input.engine_state,
+                input.stack,
+            )?),
+            None => None,
+        };
+        let ls_colors = get_ls_colors(ls_colors_env_str);
+
+        for column in &path_columns {
+            if let Some(value) = record.get_mut(column) {
+                let span = value.span();
+                if let Value::String { val, .. } = value
+                    && let Some(val) = render_path_name(
+                        val,
+                        &config,
+                        &ls_colors,
+                        input.cwd.as_deref(),
+                        input.cfg.icons,
+                        span,
+                    )
+                {
+                    *value = val;
+                }
+            }
+        }
+    }
     let opts = create_table_opts(
         input.engine_state,
         input.stack,
@@ -759,7 +807,7 @@ fn handle_row_stream(
                                 val,
                                 &config,
                                 &ls_colors,
-                                input.cwd.clone(),
+                                input.cwd.as_deref(),
                                 input.cfg.icons,
                                 span,
                             )
@@ -1063,7 +1111,7 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
-    cwd: Option<NuPathBuf>,
+    cwd: Option<&NuPath>,
     icons: bool,
     span: Span,
 ) -> Option<Value> {
