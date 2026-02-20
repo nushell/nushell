@@ -227,12 +227,20 @@ static RUN_TEST_GROUP_IN_SERIAL: AtomicBool = AtomicBool::new(false);
 struct NuTestRunner {
     parallel: DefaultRunner<DefaultPanicHookProvider, NoScopeFactory>,
     serial: SimpleRunner<DefaultPanicHookProvider, NoScopeFactory>,
+    exact: bool,
 }
 
 impl NuTestRunner {
     fn with_thread_count(self, thread_count: NonZeroUsize) -> Self {
         Self {
             parallel: self.parallel.with_thread_count(thread_count),
+            ..self
+        }
+    }
+
+    fn with_exact(self, exact: bool) -> Self {
+        Self {
+            exact,
             ..self
         }
     }
@@ -270,7 +278,7 @@ impl<'t> TestRunner<'t, NuTestMetaExtra> for NuTestRunner {
         F: (Fn() -> kitest::outcome::TestStatus) + Send + 's,
         NuTestMetaExtra: 't,
     {
-        match RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
+        match self.exact ||  RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
             false => {
                 NuTestRunnerIterator::Parallel(<DefaultRunner<_, _> as TestRunner<
                     NuTestMetaExtra,
@@ -393,11 +401,12 @@ pub fn main() -> ExitCode {
     let args = Args::parse().unwrap(); // TODO: handle this better
     
     if args.no_capture {
-        todo!()
+        // TODO
     }
 
     let runner = NuTestRunner::default()
-        .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT));
+        .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
+        .with_exact(args.exact);
 
     let filter = DefaultFilter::default()
         .with_exact(args.exact)
