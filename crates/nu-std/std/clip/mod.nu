@@ -3,7 +3,7 @@
 # > These commands require your terminal to support OSC 52
 # > Terminal multiplexers such as screen, tmux, zellij etc may interfere with this command
 
-# Copy input to system clipboard
+# Copy input to system clipboard (stdlib command deprecated)
 @example "Copy a string to the clipboard" {
   "Hello" | copy
 }
@@ -35,7 +35,7 @@ export def copy52 [
   print -n $'(ansi osc)52;c;($text | encode base64)(ansi st)'
 }
 
-# Paste contents of system clipboard
+# Paste contents of system clipboard (stdlib command deprecated)
 @example "Paste a string from the clipboard" {
   paste
 } --result "Hello"
@@ -61,6 +61,8 @@ export def paste52 []: [nothing -> string] {
   | decode base64
   | decode
 }
+
+# After deprecated commands are removed, prefix will need to be changed to use clip copy or clip copy52.
 
 # Add a prefix to each line of the content to be copied
 @example "Format output for Nushell doc" {
