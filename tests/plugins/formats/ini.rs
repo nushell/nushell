@@ -59,8 +59,8 @@ fn read_ini_with_missing_session() {
 }
 
 #[test]
-fn read_ini_with_escape_false() {
-    Playground::setup("from ini with escape false", |dirs, sandbox| {
+fn read_ini_with_no_escape() {
+    Playground::setup("from ini with no escape", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "windows_path.ini",
             "[start]\nfile=C:\\Windows\\System32\\xcopy.exe\n",
@@ -77,7 +77,7 @@ fn read_ini_with_escape_false() {
         let actual = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open windows_path.ini --raw | from ini -e false | get start.file"
+            "open windows_path.ini --raw | from ini --no-escape | get start.file"
         );
 
         assert_eq!(actual.out, r"C:\Windows\System32\xcopy.exe");
@@ -85,8 +85,8 @@ fn read_ini_with_escape_false() {
 }
 
 #[test]
-fn read_ini_with_quote_false() {
-    Playground::setup("from ini with quote false", |dirs, sandbox| {
+fn read_ini_with_no_quote() {
+    Playground::setup("from ini with no quote", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("quoted.ini", "[foo]\nbar='quoted'\n")]);
 
         let cwd = dirs.test();
@@ -100,7 +100,7 @@ fn read_ini_with_quote_false() {
         let no_quote = nu_with_plugins!(
             cwd: cwd,
             plugin: ("nu_plugin_formats"),
-            "open quoted.ini --raw | from ini -q false | get foo.bar | $in == \"'quoted'\""
+            "open quoted.ini --raw | from ini --no-quote | get foo.bar | $in == \"'quoted'\""
         );
         assert_eq!(no_quote.out, "true");
     })

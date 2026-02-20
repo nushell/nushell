@@ -2,8 +2,7 @@ use crate::FormatCmdsPlugin;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, SimplePluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, Record, ShellError, Signature, SyntaxShape, Type, Value,
-    record,
+    Category, Example, LabeledError, Record, ShellError, Signature, Type, Value, record,
 };
 
 pub struct FromIni;
@@ -22,16 +21,10 @@ impl SimplePluginCommand for FromIni {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::record())])
-            .named(
-                "quote",
-                SyntaxShape::Boolean,
-                "Enable quote handling for values (default: true)",
-                Some('q'),
-            )
-            .named(
-                "escape",
-                SyntaxShape::Boolean,
-                "Enable escape sequence handling for values (default: true)",
+            .switch("no-quote", "Disable quote handling for values", Some('q'))
+            .switch(
+                "no-escape",
+                "Disable escape sequence handling for values",
                 Some('e'),
             )
             .switch(
@@ -61,11 +54,15 @@ impl SimplePluginCommand for FromIni {
         let span = input.span();
         let input_string = input.coerce_str()?;
         let head = call.head;
-        let mut parse_option = ini::ParseOption {
-            enabled_quote: call.get_flag::<bool>("quote")?.unwrap_or(true),
-            enabled_escape: call.get_flag::<bool>("escape")?.unwrap_or(true),
-            ..ini::ParseOption::default()
-        };
+        let mut parse_option = ini::ParseOption::default();
+
+        if call.has_flag("no-quote")? {
+            parse_option.enabled_quote = false;
+        }
+
+        if call.has_flag("no-escape")? {
+            parse_option.enabled_escape = false;
+        }
 
         if call.has_flag("indented-multiline-value")? {
             parse_option.enabled_indented_mutiline_value = true;
@@ -135,7 +132,7 @@ b=2' | from ini",
         },
         Example {
             example: "'[start]
-file=C:\\Windows\\System32\\xcopy.exe' | from ini --escape false",
+file=C:\\Windows\\System32\\xcopy.exe' | from ini --no-escape",
             description: "Disable escaping to keep backslashes literal",
             result: Some(Value::test_record(record! {
                 "start" => Value::test_record(record! {
@@ -145,7 +142,7 @@ file=C:\\Windows\\System32\\xcopy.exe' | from ini --escape false",
         },
         Example {
             example: "'[foo]
-bar=\"quoted\"' | from ini --quote false",
+bar=\"quoted\"' | from ini --no-quote",
             description: "Disable quote handling to keep quote characters",
             result: Some(Value::test_record(record! {
                 "foo" => Value::test_record(record! {
