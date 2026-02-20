@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code};
+use nu_test_support::{nu, nu_repl_code, nu_with_std};
 use pretty_assertions::assert_eq;
 
 mod environment;
@@ -459,4 +459,32 @@ fn script_file_not_found() {
         actual.err.contains("commandline"),
         "source file for the error was not commandline"
     );
+}
+
+#[test]
+fn main_script_alias_persists() {
+    // Verify that renaming 'main' to the script filename doesn't prevent the
+    // script from running correctly via its filename as the command name.
+    Playground::setup("alias_main", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("script.nu", r#"def main [] { 'ok' }"#)]);
+
+        let actual = nu!(cwd: dirs.test(), "nu script.nu");
+        assert_eq!(actual.out, "ok");
+    })
+}
+
+// This test will have to change once clip copy is removed after deprecation time.
+#[test]
+fn builtin_commands_can_be_shadowed_and_extended() {
+    // Demonstrate that importing a module can shadow built-in commands and
+    // add new subcommands, which is the motivating use case for this PR.
+    let actual = nu_with_std!(r#"use std/clip; clip"#);
+
+    assert!(actual.out.contains("clip copy52"));
+    assert!(actual.out.contains("clip prefix"));
+    assert!(actual.out.contains("clip copy "));
+    assert_eq!(actual.out.matches("clip copy ").count(), 1);
+
+    let copy_help = nu_with_std!(r#"use std/clip; clip copy --help"#);
+    assert!(copy_help.out.contains("deprecated"));
 }
