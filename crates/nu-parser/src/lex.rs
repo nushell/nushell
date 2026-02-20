@@ -294,17 +294,6 @@ pub fn lex_item(
         );
     }
 
-    // If we didn't accumulate any characters, it's an unexpected error.
-    if *curr_offset - token_start == 0 {
-        return (
-            Token {
-                contents: TokenContents::Item,
-                span,
-            },
-            Some(ParseError::UnexpectedEof("command".to_string(), span)),
-        );
-    }
-
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
         bytes if is_assignment_operator(bytes) => Token {
