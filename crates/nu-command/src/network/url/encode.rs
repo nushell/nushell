@@ -59,12 +59,12 @@ impl Command for UrlEncode {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Encode a url with escape characters",
+                description: "Encode a URL with escape characters.",
                 example: "'https://example.com/foo bar' | url encode",
                 result: Some(Value::test_string("https://example.com/foo%20bar")),
             },
             Example {
-                description: "Encode multiple urls with escape characters in list",
+                description: "Encode multiple URLs with escape characters in list.",
                 example: "['https://example.com/foo bar' 'https://example.com/a>b' '中文字/eng/12 34'] | url encode",
                 result: Some(Value::list(
                     vec![
@@ -76,7 +76,7 @@ impl Command for UrlEncode {
                 )),
             },
             Example {
-                description: "Encode all non alphanumeric chars with all flag",
+                description: "Encode all non alphanumeric chars with all flag.",
                 example: "'https://example.com/foo bar' | url encode --all",
                 result: Some(Value::test_string(
                     "https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar",

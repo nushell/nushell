@@ -33,22 +33,22 @@ impl Command for UrlBuildQuery {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a query string representing the contents of this record",
+                description: "Outputs a query string representing the contents of this record.",
                 example: r#"{ mode:normal userid:31415 } | url build-query"#,
                 result: Some(Value::test_string("mode=normal&userid=31415")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this record, with a value that needs to be url-encoded",
+                description: "Outputs a query string representing the contents of this record, with a value that needs to be URL-encoded.",
                 example: r#"{a:"AT&T", b: "AT T"} | url build-query"#,
                 result: Some(Value::test_string("a=AT%26T&b=AT+T")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this record, \"exploding\" the list into multiple parameters",
+                description: "Outputs a query string representing the contents of this record, \"exploding\" the list into multiple parameters.",
                 example: r#"{a: ["one", "two"], b: "three"} | url build-query"#,
                 result: Some(Value::test_string("a=one&a=two&b=three")),
             },
             Example {
-                description: "Outputs a query string representing the contents of this table containing key-value pairs",
+                description: "Outputs a query string representing the contents of this table containing key-value pairs.",
                 example: r#"[[key, value]; [a, one], [a, two], [b, three], [a, four]] | url build-query"#,
                 result: Some(Value::test_string("a=one&a=two&b=three&a=four")),
             },
