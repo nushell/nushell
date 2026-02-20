@@ -28,10 +28,10 @@ fn find_module_by_head_or_suffix(
     for scope_frame in working_set.delta.scope.iter().rev() {
         for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
             for (mname, &mid) in overlay_frame.modules.iter() {
-                if mname.ends_with(head) {
-                    if mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/' {
-                        return Some(mid);
-                    }
+                if mname.ends_with(head)
+                    && (mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/')
+                {
+                    return Some(mid);
                 }
             }
         }
@@ -44,10 +44,10 @@ fn find_module_by_head_or_suffix(
         .rev()
     {
         for (mname, &mid) in overlay_frame.modules.iter() {
-            if mname.ends_with(head) {
-                if mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/' {
-                    return Some(mid);
-                }
+            if mname.ends_with(head)
+                && (mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/')
+            {
+                return Some(mid);
             }
         }
     }
