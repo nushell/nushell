@@ -151,14 +151,25 @@ bar=\"quoted\"' | from ini --no-quote",
             })),
         },
         Example {
-            example: "[\"[foo]\" \"bar=line one\" \"  line two\"] | str join (char newline) | from ini --indented-multiline-value",
+            example: "'[foo]
+bar=line one
+  line two' | from ini --indented-multiline-value",
             description: "Allow values to continue on indented lines",
-            result: None,
+            result: Some(Value::test_record(record! {
+                "foo" => Value::test_record(record! {
+                    "bar" => Value::test_string("line one\nline two"),
+                }),
+            })),
         },
         Example {
-            example: "[\"[foo]\" \"  key=value\"] | str join (char newline) | from ini --preserve-key-leading-whitespace",
+            example: "'[foo]
+  key=value' | from ini --preserve-key-leading-whitespace",
             description: "Preserve leading whitespace in keys",
-            result: None,
+            result: Some(Value::test_record(record! {
+                "foo" => Value::test_record(record! {
+                    "  key" => Value::test_string("value"),
+                }),
+            })),
         },
     ]
 }
