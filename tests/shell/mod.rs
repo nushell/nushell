@@ -381,8 +381,8 @@ fn source_use_file_named_null() {
 #[test]
 fn main_script_help_uses_script_name1() {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
-    Playground::setup("main_filename", |dirs, sandbox| {
-        sandbox.mkdir("main_filename");
+    Playground::setup("main_filename1", |dirs, sandbox| {
+        sandbox.mkdir("main_filename1");
         sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def main [] {}
@@ -397,8 +397,8 @@ fn main_script_help_uses_script_name1() {
 #[test]
 fn main_script_help_uses_script_name2() {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
-    Playground::setup("main_filename", |dirs, sandbox| {
-        sandbox.mkdir("main_filename");
+    Playground::setup("main_filename2", |dirs, sandbox| {
+        sandbox.mkdir("main_filename2");
         sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def main [foo: string] {}
@@ -413,8 +413,8 @@ fn main_script_help_uses_script_name2() {
 #[test]
 fn main_script_subcommand_help_uses_script_name1() {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
-    Playground::setup("main_filename", |dirs, sandbox| {
-        sandbox.mkdir("main_filename");
+    Playground::setup("main_filename3", |dirs, sandbox| {
+        sandbox.mkdir("main_filename3");
         sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def main [] {}
@@ -430,8 +430,8 @@ fn main_script_subcommand_help_uses_script_name1() {
 #[test]
 fn main_script_subcommand_help_uses_script_name2() {
     // Note: this test is somewhat fragile and might need to be adapted if the usage help message changes
-    Playground::setup("main_filename", |dirs, sandbox| {
-        sandbox.mkdir("main_filename");
+    Playground::setup("main_filename4", |dirs, sandbox| {
+        sandbox.mkdir("main_filename4");
         sandbox.with_files(&[FileWithContent(
             "script.nu",
             r#"def main [] {}

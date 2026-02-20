@@ -187,14 +187,12 @@ pub fn evaluate_file(
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
 
-        // Invoke the main command with arguments.  Use the script filename
-        // instead of hard-coded `main` so help messages reflect the right name.
+        // Invoke the main command with arguments.  Keep using `main` as the
+        // internal command name so the parser reliably resolves it; the block's
+        // signature was already rewritten to the script filename above, so help
+        // messages will show the correct `script.nu`-qualified name.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
-        let args = if args.is_empty() {
-            script_name.clone()
-        } else {
-            format!("{} {}", script_name, args.join(" "))
-        };
+        let args = format!("main {}", args.join(" "));
         eval_source(
             engine_state,
             stack,
