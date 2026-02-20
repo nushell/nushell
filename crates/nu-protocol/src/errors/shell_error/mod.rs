@@ -597,12 +597,13 @@ pub enum ShellError {
         span: Span,
     },
 
-    /// The requested column does not exist.
+    /// The requested column does not exist, or is missing from some rows.
     ///
     /// ## Resolution
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
-    #[error("Cannot find column '{col_name}'")]
+    /// Alternatively, try the '?' operator.
+    #[error("Cannot find column '{col_name}', or not all rows contain a value for it")]
     #[diagnostic(code(nu::shell::column_not_found))]
     CantFindColumn {
         col_name: String,
