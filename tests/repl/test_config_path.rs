@@ -390,3 +390,47 @@ fn history_config_default_path_sqlite() {
     let expected_path = config_dir.join("history.sqlite3");
     assert_eq!(config.file_path(), Some(expected_path.into()));
 }
+
+#[test]
+fn history_path_directory_appends_filename_plaintext() {
+    let dir = std::env::temp_dir();
+    let config = HistoryConfig {
+        path: HistoryPath::Custom(dir.clone()),
+        file_format: HistoryFileFormat::Plaintext,
+        ..Default::default()
+    };
+
+    assert_eq!(config.file_path(), Some(dir.join("history.txt")));
+}
+
+#[test]
+fn history_path_directory_appends_filename_sqlite() {
+    let dir = std::env::temp_dir();
+    let config = HistoryConfig {
+        path: HistoryPath::Custom(dir.clone()),
+        file_format: HistoryFileFormat::Sqlite,
+        ..Default::default()
+    };
+
+    assert_eq!(config.file_path(), Some(dir.join("history.sqlite3")));
+}
+
+#[test]
+fn history_path_default_shows_in_config() {
+    let actual = nu!(
+        format!("nu --no-std-lib -n -c '$env.config.history.path'")
+    );
+
+    assert_eq!(actual.out, "");
+}
+
+#[test]
+fn history_path_empty_string_means_default() {
+    let config = HistoryConfig {
+        path: HistoryPath::Default,
+        ..Default::default()
+    };
+    let config_dir = nu_path::nu_config_dir().unwrap();
+    let expected = config_dir.join("history.txt");
+    assert_eq!(config.file_path(), Some(expected.into()));
+}

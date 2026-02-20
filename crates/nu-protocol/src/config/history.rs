@@ -70,7 +70,8 @@ pub struct HistoryConfig {
 impl IntoValue for HistoryPath {
     fn into_value(self, span: Span) -> Value {
         match self {
-            HistoryPath::Default | HistoryPath::Disabled => Value::nothing(span),
+            HistoryPath::Default => Value::string("", span),
+            HistoryPath::Disabled => Value::nothing(span),
             HistoryPath::Custom(path) => Value::string(path.display().to_string(), span),
         }
     }
@@ -78,34 +79,35 @@ impl IntoValue for HistoryPath {
 
 impl IntoValue for HistoryConfig {
     fn into_value(self, span: Span) -> Value {
-        let mut record = record! {
-            "max_size" => self.max_size.into_value(span),
-            "sync_on_enter" => self.sync_on_enter.into_value(span),
-            "file_format" => self.file_format.into_value(span),
-            "isolation" => self.isolation.into_value(span),
-        };
-
-        match &self.path {
-            HistoryPath::Default => {}
-            other => {
-                record.push("path", other.clone().into_value(span));
-            }
-        }
-
-        Value::record(record, span)
+        Value::record(
+            record! {
+                "max_size" => self.max_size.into_value(span),
+                "sync_on_enter" => self.sync_on_enter.into_value(span),
+                "file_format" => self.file_format.into_value(span),
+                "isolation" => self.isolation.into_value(span),
+                "path" => self.path.into_value(span),
+            },
+            span,
+        )
     }
 }
 
 impl HistoryConfig {
     pub fn file_path(&self) -> Option<PathBuf> {
-        match &self.path {
+        let path = match &self.path {
             HistoryPath::Custom(path) => Some(path.clone()),
             HistoryPath::Disabled => None,
             HistoryPath::Default => nu_path::nu_config_dir().map(|mut history_path| {
                 history_path.push(self.file_format.default_file_name());
                 history_path.into()
             }),
+        }?;
+
+        if path.is_dir() {
+            return Some(path.join(self.file_format.default_file_name()));
         }
+
+        Some(path)
     }
 }
 
@@ -149,6 +151,11 @@ impl UpdateFromValue for HistoryConfig {
                 "file_format" => self.file_format.update(val, path, errors),
                 "path" => match val {
                     Value::String { val: s, .. } => {
+                        if s.is_empty() {
+                            self.path = HistoryPath::Default;
+                            return;
+                        }
+
                         self.path = HistoryPath::Custom(PathBuf::from(s));
                     }
                     Value::Nothing { .. } => {
