@@ -239,10 +239,7 @@ impl NuTestRunner {
     }
 
     fn with_exact(self, exact: bool) -> Self {
-        Self {
-            exact,
-            ..self
-        }
+        Self { exact, ..self }
     }
 }
 
@@ -278,7 +275,7 @@ impl<'t> TestRunner<'t, NuTestMetaExtra> for NuTestRunner {
         F: (Fn() -> kitest::outcome::TestStatus) + Send + 's,
         NuTestMetaExtra: 't,
     {
-        match self.exact ||  RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
+        match self.exact || RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
             false => {
                 NuTestRunnerIterator::Parallel(<DefaultRunner<_, _> as TestRunner<
                     NuTestMetaExtra,
@@ -373,10 +370,13 @@ impl Args {
                 }
                 Long("ignored") => parse_flag(&mut parser, &mut args.ignored)?,
                 Long("list") => parse_flag(&mut parser, &mut args.list)?,
-                Long("no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
+                Long("nocapture" | "no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
                 Long("skip") => args.skip.push(parser.value()?.parse()?),
                 Long("test-threads") => args.test_threads = Some(parser.value()?.parse()?),
-                _ => todo!(),
+                arg => {
+                    dbg!(arg);
+                    todo!()
+                }
             }
         }
 
@@ -399,7 +399,7 @@ impl ListReport for Vec<(FormatError, io::Error)> {
 
 pub fn main() -> ExitCode {
     let args = Args::parse().unwrap(); // TODO: handle this better
-    
+
     if args.no_capture {
         // TODO
     }
