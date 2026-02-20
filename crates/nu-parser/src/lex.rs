@@ -710,7 +710,7 @@ mod tests {
     fn lex_item_always_produces_nonempty_token() {
         // These are the bytes lex_internal handles BEFORE calling lex_item,
         // so lex_item is guaranteed never to see them as the first character.
-        let handled_by_lex_internal: &[u8] = &[b'|', b';', b'\r', b'\n', b'#', b' ', b'\t'];
+        let handled_by_lex_internal: &[u8] = b"|;\r\n# \t";
 
         for byte in 0u8..=127u8 {
             if handled_by_lex_internal.contains(&byte) {
