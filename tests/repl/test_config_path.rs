@@ -417,9 +417,7 @@ fn history_path_directory_appends_filename_sqlite() {
 
 #[test]
 fn history_path_default_shows_in_config() {
-    let actual = nu!(
-        format!("nu --no-std-lib -n -c '$env.config.history.path'")
-    );
+    let actual = nu!(format!("nu --no-std-lib -n -c '$env.config.history.path'"));
 
     assert_eq!(actual.out, "");
 }
