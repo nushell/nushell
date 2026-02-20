@@ -3,9 +3,10 @@ use std::{
     env,
     fmt::{Debug, Display},
     hash::{DefaultHasher, Hash, Hasher},
+    io,
     num::NonZeroUsize,
     ops::{ControlFlow, Deref},
-    process::Termination,
+    process::{ExitCode, Termination},
     sync::{
         LazyLock,
         atomic::{AtomicBool, Ordering},
@@ -18,7 +19,10 @@ use crate::{self as nu_test_support};
 use itertools::Itertools;
 use kitest::{
     capture::DefaultPanicHookProvider,
-    formatter::pretty::PrettyFormatter,
+    filter::DefaultFilter,
+    formatter::{
+        FormatError, common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter,
+    },
     group::{
         SimpleGroupRunner, TestGroupBTreeMap, TestGroupOutcomes, TestGroupRunner, TestGrouper,
     },
@@ -289,12 +293,136 @@ impl<'t> TestRunner<'t, NuTestMetaExtra> for NuTestRunner {
     }
 }
 
-pub fn main() -> impl Termination {
-    kitest::harness(TESTS.deref())
+#[derive(Debug)]
+struct Args {
+    color: ColorSetting,
+    exact: bool,
+    filter: Vec<String>,
+    format: Format,
+    ignored: bool,
+    list: bool,
+    no_capture: bool,
+    skip: Vec<String>,
+    test_threads: Option<NonZeroUsize>,
+}
+
+#[derive(Debug)]
+enum Format {
+    Pretty,
+    Terse,
+}
+
+impl Default for Args {
+    fn default() -> Self {
+        Self {
+            color: ColorSetting::Automatic,
+            exact: false,
+            filter: Vec::new(),
+            format: Format::Pretty,
+            ignored: false,
+            list: false,
+            no_capture: false,
+            skip: Vec::new(),
+            test_threads: None,
+        }
+    }
+}
+
+impl Args {
+    fn parse() -> Result<Args, lexopt::Error> {
+        use lexopt::prelude::*;
+
+        let mut args = Args::default();
+        let mut parser = lexopt::Parser::from_env();
+
+        fn parse_flag(parser: &mut lexopt::Parser, flag: &mut bool) -> Result<(), lexopt::Error> {
+            Ok(match parser.optional_value() {
+                None => *flag = true,
+                Some(value) => *flag = value.parse()?,
+            })
+        }
+
+        while let Some(arg) = parser.next()? {
+            match arg {
+                Long("color") => {
+                    let color = parser.value()?.string()?;
+                    match color.as_str() {
+                        "auto" | "automatic" => args.color = ColorSetting::Automatic,
+                        "always" => args.color = ColorSetting::Always,
+                        "never" => args.color = ColorSetting::Never,
+                        _ => todo!(),
+                    }
+                }
+                Long("exact") => parse_flag(&mut parser, &mut args.exact)?,
+                Value(value) => args.filter.push(value.parse()?),
+                Long("format") => {
+                    let color: String = parser.value()?.parse()?;
+                    match color.as_str() {
+                        "pretty" => args.format = Format::Pretty,
+                        "terse" => args.format = Format::Terse,
+                        _ => todo!(),
+                    }
+                }
+                Long("ignored") => parse_flag(&mut parser, &mut args.ignored)?,
+                Long("list") => parse_flag(&mut parser, &mut args.list)?,
+                Long("no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
+                Long("skip") => args.skip.push(parser.value()?.parse()?),
+                Long("test-threads") => args.test_threads = Some(parser.value()?.parse()?),
+                _ => todo!(),
+            }
+        }
+
+        Ok(args)
+    }
+}
+
+trait ListReport {
+    fn exit_code(&self) -> ExitCode;
+}
+
+impl ListReport for Vec<(FormatError, io::Error)> {
+    fn exit_code(&self) -> ExitCode {
+        match self.len() {
+            0 => ExitCode::SUCCESS,
+            _ => ExitCode::FAILURE,
+        }
+    }
+}
+
+pub fn main() -> ExitCode {
+    let args = Args::parse().unwrap(); // TODO: handle this better
+    
+    if args.no_capture {
+        todo!()
+    }
+
+    let runner = NuTestRunner::default()
+        .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT));
+
+    let filter = DefaultFilter::default()
+        .with_exact(args.exact)
+        .with_filter(args.filter)
+        .with_skip(args.skip)
+        .with_only_ignored(args.ignored);
+
+    let harness = kitest::harness(TESTS.deref())
         .with_grouper(Grouper::default())
-        .with_formatter(PrettyFormatter::default().with_group_label_from_ctx())
         .with_group_runner(GroupRunner::default())
         .with_groups(TestGroupBTreeMap::default())
-        .with_runner(NuTestRunner::default().with_thread_count(*DEFAULT_THREAD_COUNT))
-        .run()
+        .with_runner(runner)
+        .with_filter(filter);
+
+    let pretty_formatter = PrettyFormatter::default()
+        .with_color_setting(args.color)
+        .with_group_label_from_ctx();
+    let terse_formatter = TerseFormatter::default()
+        .with_color_setting(args.color)
+        .with_group_label_from_ctx();
+
+    match (args.format, args.list) {
+        (Format::Pretty, true) => harness.with_formatter(pretty_formatter).list().exit_code(),
+        (Format::Pretty, false) => harness.with_formatter(pretty_formatter).run().exit_code(),
+        (Format::Terse, true) => harness.with_formatter(terse_formatter).list().exit_code(),
+        (Format::Terse, false) => harness.with_formatter(terse_formatter).run().exit_code(),
+    }
 }

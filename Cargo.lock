@@ -3453,9 +3453,9 @@ dependencies = [
 
 [[package]]
 name = "kitest"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9cf90e5b046929ac3a5972310f759689ccd321aebedb201b4b1109bd450d9a33"
+checksum = "74b0bcdda548354b88f623a13c9100e8ef3bdcc4977b4d9fb83331f038c91275"
 dependencies = [
  "crossbeam-channel",
 ]
@@ -4771,6 +4771,7 @@ version = "0.110.1"
 dependencies = [
  "itertools 0.14.0",
  "kitest",
+ "lexopt",
  "linkme",
  "nu-experimental",
  "nu-glob",
