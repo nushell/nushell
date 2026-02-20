@@ -21,20 +21,20 @@ impl SimplePluginCommand for FromIni {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::record())])
-            .switch("no-quote", "Disable quote handling for values", Some('q'))
+            .switch("no-quote", "Disable quote handling for values.", Some('q'))
             .switch(
                 "no-escape",
-                "Disable escape sequence handling for values",
+                "Disable escape sequence handling for values.",
                 Some('e'),
             )
             .switch(
                 "indented-multiline-value",
-                "Allow values to continue on indented lines",
+                "Allow values to continue on indented lines.",
                 Some('m'),
             )
             .switch(
                 "preserve-key-leading-whitespace",
-                "Preserve leading whitespace in keys",
+                "Preserve leading whitespace in keys.",
                 Some('w'),
             )
             .category(Category::Formats)
