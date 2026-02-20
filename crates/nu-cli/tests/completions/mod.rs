@@ -840,17 +840,9 @@ fn dotnu_stdlib_completions() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["std/assert"], &suggestions);
 
-    let completion_str = "use `std-rfc/cli";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["std-rfc/clip"], &suggestions);
-
     let completion_str = "use \"std";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["std", "std-rfc"], &suggestions);
-
-    let completion_str = "overlay use 'std-rfc/cli";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["std-rfc/clip"], &suggestions);
 }
 
 #[test]
@@ -875,10 +867,6 @@ fn exportable_completions() {
     let completion_str = "use std/assert \"not eq";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["'not equal'"], &suggestions);
-
-    let completion_str = "use std-rfc/clip ['prefi";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["prefix"], &suggestions);
 
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete(completion_str, completion_str.len());

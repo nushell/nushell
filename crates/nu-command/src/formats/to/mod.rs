@@ -25,5 +25,4 @@ pub use tsv::ToTsv;
 pub use xml::ToXml;
 pub use yaml::{ToYaml, ToYml};
 
-#[cfg(any(feature = "network", feature = "sqlite"))]
 pub(crate) use json::value_to_json_value;
