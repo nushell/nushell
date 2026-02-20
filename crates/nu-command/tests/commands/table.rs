@@ -512,6 +512,9 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         ");
 
         assert_eq!(actual.out, large_file_body);
+
+        let actual = nu!(cwd: dirs.test(), "let x = cat a_large_file.txt; $x");
+        assert_eq!(actual.out, large_file_body);
     })
 }
 

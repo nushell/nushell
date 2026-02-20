@@ -11,7 +11,8 @@ use nu_protocol::{
     combined_type_string,
     debugger::DebugContext,
     engine::{
-        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+        Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
+        StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
@@ -173,13 +174,14 @@ impl<'a> EvalContext<'a> {
         // NOTE: in collect, it maybe good to pick the inner PipelineData
         // directly, and drop the ExitStatus queue.
         let data = self.take_reg(reg_id);
+        let body = data.body;
+        let span = body.span().unwrap_or(fallback_span);
+        let result = body.into_value(span);
         #[cfg(feature = "os")]
         if nu_experimental::PIPE_FAIL.get() {
             check_exit_status_future(data.exit)?
         }
-        let data = data.body;
-        let span = data.span().unwrap_or(fallback_span);
-        data.into_value(span)
+        result
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -415,7 +417,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnv { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            if let Some(value) = get_env_var_case_insensitive(ctx, key) {
+            if let Some(value) = get_env_var(ctx, key) {
                 let new_value = value.clone().into_pipeline_data();
                 ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
@@ -431,7 +433,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnvOpt { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            let value = get_env_var_case_insensitive(ctx, key)
+            let value = get_env_var(ctx, key)
                 .cloned()
                 .unwrap_or(Value::nothing(*span));
             ctx.put_reg(
@@ -444,7 +446,7 @@ fn eval_instruction<D: DebugContext>(
             let key = ctx.get_str(*key, *span)?;
             let value = ctx.collect_reg(*src, *span)?;
 
-            let key = get_env_var_name_case_insensitive(ctx, key);
+            let key = get_env_var_name(ctx, key);
 
             if !is_automatic_env_var(&key) {
                 let is_config = key == "config";
@@ -1522,8 +1524,8 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
     }
 }
 
-/// Get an environment variable, case-insensitively
-fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
+/// Get an environment variable (case-insensitive lookup is handled by EnvName)
+fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
     // Read scopes in order
     for overlays in ctx
         .stack
@@ -1539,20 +1541,13 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
                 continue;
             };
             let hidden = ctx.stack.env_hidden.get(overlay_name);
-            let is_hidden = |key: &str| hidden.is_some_and(|hidden| hidden.contains(key));
+            let is_hidden = |key: &EnvName| hidden.is_some_and(|hidden| hidden.contains(key));
 
             if let Some(val) = map
-                // Check for exact match
-                .get(key)
+                // Check for exact match (now case-insensitive due to EnvName)
+                .get(&EnvName::from(key))
                 // Skip when encountering an overlay where the key is hidden
-                .filter(|_| !is_hidden(key))
-                .or_else(|| {
-                    // Check to see if it exists at all in the map, with a different case
-                    map.iter().find_map(|(k, v)| {
-                        // Again, skip something that's hidden
-                        (k.eq_ignore_case(key) && !is_hidden(k)).then_some(v)
-                    })
-                })
+                .filter(|_| !is_hidden(&EnvName::from(key)))
             {
                 return Some(val);
             }
@@ -1562,10 +1557,10 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
     None
 }
 
-/// Get the existing name of an environment variable, case-insensitively. This is used to implement
-/// case preservation of environment variables, so that changing an environment variable that
-/// already exists always uses the same case.
-fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
+/// Get the existing name of an environment variable (case-insensitive lookup is handled by EnvName).
+/// This is used to implement case preservation of environment variables, so that changing an
+/// environment variable that already exists always uses the same case.
+fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
     // Read scopes in order
     ctx.stack
         .env_vars
@@ -1581,17 +1576,17 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
                 .filter_map(|name| overlays.get(name))
         })
         .find_map(|map| {
-            // Use the hashmap first to try to be faster?
-            if map.contains_key(key) {
-                Some(Cow::Borrowed(key))
+            // Check if it exists (case-insensitive due to EnvName)
+            if map.contains_key(&EnvName::from(key)) {
+                // Find the existing key to preserve its case
+                map.keys()
+                    .find(|k| k.as_str().eq_ignore_case(key))
+                    .map(|k| Cow::Owned(k.as_str().to_owned()))
             } else {
-                map.keys().find(|k| k.eq_ignore_case(key)).map(|k| {
-                    // it exists, but with a different case
-                    Cow::Owned(k.to_owned())
-                })
+                None
             }
         })
-        // didn't exist.
+        // didn't exist, use the provided key
         .unwrap_or(Cow::Borrowed(key))
 }
 

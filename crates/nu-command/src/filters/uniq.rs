@@ -244,6 +244,9 @@ pub fn uniq(
     let flag_ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
     let flag_only_uniques = call.has_flag(engine_state, stack, "unique")?;
 
+    // for uniq-by command
+    let flag_keep_last = call.has_flag(engine_state, stack, "keep-last")?;
+
     let signals = engine_state.signals().clone();
     let uniq_values = input
         .into_iter()
@@ -266,7 +269,12 @@ pub fn uniq(
                 match key {
                     Ok(key) => {
                         match counter.get_mut(&key) {
-                            Some(x) => x.count += 1,
+                            Some(x) => {
+                                if flag_keep_last {
+                                    x.val = item.val;
+                                }
+                                x.count += 1;
+                            }
                             None => {
                                 counter.insert(key, item);
                             }
