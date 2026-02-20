@@ -345,6 +345,48 @@ fn custom_completions_override_display_value() {
     match_suggestions(&vec!["first", "second"], &suggestions);
 }
 
+#[test]
+fn custom_completions_strip_ansi_from_values() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // Completions with embedded ANSI escape codes should have them stripped
+    let command = r#"
+        def comp [] {
+            [$"\u{1b}[35mfoo", $"\u{1b}[31mbar", $"\u{1b}[34mbaz"]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["bar", "baz", "foo"], &suggestions);
+}
+
+#[test]
+fn custom_completions_strip_ansi_from_record_values() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    // Record-style completions with ANSI codes in the value field should be stripped
+    let command = r#"
+        def comp [] {
+            {
+                completions: [
+                    { value: $"\u{1b}[35mmagenta_dir", description: "a zoxide dir" },
+                    { value: "plain_dir", description: "a normal dir" },
+                ],
+                options: { sort: false }
+            }
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    // ANSI codes should be stripped, leaving clean values
+    assert_eq!(suggestions[0].value, "magenta_dir");
+    assert_eq!(suggestions[1].value, "plain_dir");
+}
+
 #[rstest]
 /// Fallback to file completions if custom completer returns null
 #[case::fallback(r#"
