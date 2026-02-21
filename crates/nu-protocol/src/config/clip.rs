@@ -7,6 +7,7 @@ pub struct ClipConfig {
     pub default_raw: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for ClipConfig {
     fn default() -> Self {
         Self {
