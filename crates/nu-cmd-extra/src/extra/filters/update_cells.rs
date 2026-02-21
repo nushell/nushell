@@ -1,5 +1,7 @@
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{PipelineIterator, engine::Closure};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, engine::Closure,
+};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -27,7 +29,18 @@ impl Command for UpdateCells {
                 "list of columns to update",
                 Some('c'),
             )
+            .rest("rest", SyntaxShape::Any, "List of columns to update.")
             .category(Category::Filters)
+    }
+
+    fn deprecation_info(&self) -> Vec<nu_protocol::DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("columns".into()),
+            report_mode: ReportMode::EveryUse,
+            since: Some("0.107.0".into()),
+            expected_removal: None,
+            help: Some("move the column list to the rest parameters".into()),
+        }]
     }
 
     fn description(&self) -> &str {
@@ -63,13 +76,13 @@ impl Command for UpdateCells {
                 example: r#"[
         ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
         [          37,            0,            0,            0,           37,            0,            0]
-    ] | update cells -c ["2021-11-18", "2021-11-17"] { |value|
+    ] | update cells { |value|
             if $value == 0 {
               ""
             } else {
               $value
             }
-    }"#,
+    } "2021-11-18" "2021-11-17""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "2021-04-16" => Value::test_int(37),
                     "2021-06-10" => Value::test_int(0),
@@ -101,16 +114,7 @@ impl Command for UpdateCells {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
-        let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
-        let columns: Option<HashSet<String>> = match columns {
-            Some(val) => Some(
-                val.into_list()?
-                    .into_iter()
-                    .map(Value::coerce_into_string)
-                    .collect::<Result<HashSet<String>, ShellError>>()?,
-            ),
-            None => None,
-        };
+        let columns = get_columns(engine_state, stack, call)?;
 
         let metadata = input.metadata();
 
@@ -138,6 +142,39 @@ impl Command for UpdateCells {
             .set_metadata(metadata)),
         }
     }
+}
+
+// TODO: once `--columns` flag is removed, re-inline it back to `run()`
+fn get_columns(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call<'_>,
+) -> Result<Option<HashSet<String>>, ShellError> {
+    let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
+    let columns: Option<HashSet<String>> = match columns {
+        Some(val) => Some(
+            val.into_list()?
+                .into_iter()
+                .map(Value::coerce_into_string)
+                .collect::<Result<HashSet<String>, ShellError>>()?,
+        ),
+        None => None,
+    };
+    let rest_columns = call.rest::<Value>(engine_state, stack, 1)?;
+    let rest_columns = rest_columns
+        .into_iter()
+        .map(Value::coerce_into_string)
+        .collect::<Result<HashSet<String>, ShellError>>()?;
+    let rest_columns = (!rest_columns.is_empty()).then_some(rest_columns);
+    let columns = match (columns, rest_columns) {
+        (Some(columns), Some(rest_columns)) => {
+            Some(columns.intersection(&rest_columns).cloned().collect())
+        }
+        (Some(columns), None) => Some(columns),
+        (None, Some(rest_columns)) => Some(rest_columns),
+        (None, None) => None,
+    };
+    Ok(columns)
 }
 
 fn update_record(
