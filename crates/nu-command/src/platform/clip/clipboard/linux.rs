@@ -108,7 +108,11 @@ impl Clipboard for ClipBoardLinux {
     }
 }
 
-fn should_use_resident_thread(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> bool {
+fn should_use_resident_thread(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> bool {
     // new config
     if config.clip.resident_mode {
         return true;
