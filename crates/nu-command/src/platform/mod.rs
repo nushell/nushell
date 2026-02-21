@@ -7,6 +7,7 @@ mod is_terminal;
 mod kill;
 mod sleep;
 mod term;
+mod timeout;
 #[cfg(unix)]
 mod ulimit;
 #[cfg(unix)]
@@ -24,6 +25,7 @@ pub use is_terminal::IsTerminal;
 pub use kill::Kill;
 pub use sleep::Sleep;
 pub use term::{Term, TermQuery, TermSize};
+pub use timeout::Timeout;
 #[cfg(unix)]
 pub use ulimit::ULimit;
 #[cfg(unix)]
