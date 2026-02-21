@@ -1,5 +1,7 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors = [
+	"The Nushell Project Developers",
+]
 description = "Nushell's built-in commands"
 edition = "2024"
 license = "MIT"
@@ -39,7 +41,9 @@ bracoxide = { workspace = true }
 brotli = { workspace = true }
 byteorder = { workspace = true }
 bytesize = { workspace = true }
-calamine = { workspace = true, features = ["dates"] }
+calamine = { workspace = true, features = [
+	"dates",
+] }
 chardetng = { workspace = true }
 chrono = { workspace = true, features = [
 	"std",
@@ -94,20 +98,30 @@ rusqlite = { workspace = true, features = [
 	"chrono",
 	"column_decltype",
 ], optional = true }
-rustls = { workspace = true, optional = true, features = ["ring"] }
+rustls = { workspace = true, optional = true, features = [
+	"ring",
+] }
 rustls-native-certs = { workspace = true, optional = true }
 rmp = { workspace = true }
 scopeguard = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true, features = ["preserve_order"] }
+serde = { workspace = true, features = [
+	"derive",
+] }
+serde_json = { workspace = true, features = [
+	"preserve_order",
+] }
 serde_urlencoded = { workspace = true }
 serde_yaml = { workspace = true }
 sha2 = { workspace = true }
 strum = { workspace = true }
 sysinfo = { workspace = true }
-tabled = { workspace = true, features = ["ansi"], default-features = false }
+tabled = { workspace = true, features = [
+	"ansi",
+], default-features = false }
 titlecase = { workspace = true }
-toml = { workspace = true, features = ["preserve_order"] }
+toml = { workspace = true, features = [
+	"preserve_order",
+] }
 unicode-segmentation = { workspace = true }
 update-informer = { workspace = true, optional = true }
 ureq = { workspace = true, default-features = false, features = [
@@ -135,7 +149,9 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
-data-encoding = { version = "2.10.0", features = ["alloc"] }
+data-encoding = { version = "2.10.0", features = [
+	"alloc",
+] }
 web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
@@ -143,9 +159,15 @@ webpki-roots = { workspace = true, optional = true }
 win_uds = { workspace = true }
 winreg = { workspace = true }
 
+[target.'cfg(and(not(target_arch = "wasm32"),not(target_os = "android")))'.dependencies]
+arboard = { version = "3.6.0", default-features = false, features = [
+	"wayland-data-control",
+] }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-uucore = { workspace = true, features = ["mode"] }
-arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
+uucore = { workspace = true, features = [
+	"mode",
+] }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
@@ -176,7 +198,11 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "network", "rustls-tls"]
+default = [
+	"os",
+	"network",
+	"rustls-tls",
+]
 os = [
 	# include other features
 	"js",
@@ -203,7 +229,12 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["getrandom", "getrandom/js", "rand", "uuid"]
+js = [
+	"getrandom",
+	"getrandom/js",
+	"rand",
+	"uuid",
+]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
@@ -229,9 +260,16 @@ rustls-tls = [
 	"ureq/rustls",
 ]
 
-plugin = ["nu-parser/plugin", "os"]
-sqlite = ["rusqlite"]
-trash-support = ["trash"]
+plugin = [
+	"nu-parser/plugin",
+	"os",
+]
+sqlite = [
+	"rusqlite",
+]
+trash-support = [
+	"trash",
+]
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.110.1" }
