@@ -1904,11 +1904,10 @@ pub fn parse_number(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let result = parse_int(working_set, span);
     if starting_error_count == working_set.parse_errors.len() {
         return result;
-    } else if !matches!(
+    } else if matches!(
         working_set.parse_errors.last(),
         Some(ParseError::Expected(_, _))
     ) {
-    } else {
         working_set.parse_errors.truncate(starting_error_count);
     }
 
