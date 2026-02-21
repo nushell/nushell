@@ -92,18 +92,14 @@ fn get_default_raw(config: &Config, engine_state: &EngineState, stack: &mut Stac
 fn get_legacy_default_raw(value: Option<&Value>) -> bool {
     match value {
         Some(Value::Record { val, .. }) => {
-            if let Some(value) = val
+            if let Some(Value::Bool { val, .. }) = val
                 .get("DEFAULT_RAW")
                 .or_else(|| val.get("default_raw"))
                 .or_else(|| val.get("defaultRaw"))
             {
-                match value {
-                    Value::Bool { val, .. } => *val,
-                    _ => false,
-                }
-            } else {
-                false
+                return *val;
             }
+            false
         }
         _ => false,
     }
