@@ -56,6 +56,10 @@ pub fn create_clipboard(
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-pub fn create_clipboard(_: Option<&nu_protocol::Value>) -> impl Clipboard {
+pub fn create_clipboard(
+    _config: &Config,
+    _engine_state: &EngineState,
+    _stack: &mut Stack,
+) -> impl Clipboard {
     super::dummy::DummyClipboard::new()
 }
