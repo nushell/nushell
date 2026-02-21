@@ -649,6 +649,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Tab,
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("completion_menu".to_string()),
+            ReedlineEvent::PartialComplete,
             ReedlineEvent::MenuNext,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
@@ -659,6 +660,7 @@ fn add_menu_keybindings(keybindings: &mut Keybindings) {
         KeyCode::Char(' '),
         ReedlineEvent::UntilFound(vec![
             ReedlineEvent::Menu("ide_completion_menu".to_string()),
+            ReedlineEvent::PartialComplete,
             ReedlineEvent::MenuNext,
             ReedlineEvent::Edit(vec![EditCommand::Complete]),
         ]),
@@ -1070,6 +1072,7 @@ fn event_from_record(
             let mode = extract_value("mode", record, span)?;
             ReedlineEvent::ViChangeMode(mode.as_str()?.to_owned())
         }
+        "partialcomplete" => ReedlineEvent::PartialComplete,
         str => {
             return Err(ShellError::InvalidValue {
                 valid: "a reedline event".into(),
