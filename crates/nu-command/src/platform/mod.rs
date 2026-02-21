@@ -14,7 +14,7 @@ mod umask_;
 mod whoami;
 
 pub use clear::Clear;
-#[cfg(and(not(target_arch = "wasm32"), not(target_os = "android")))]
+#[cfg(all(not(target_arch = "wasm32"), not(target_os = "android")))]
 pub use clip::{ClipCommand, ClipCopy, ClipPaste};
 pub use dir_info::{DirBuilder, DirInfo, FileInfo};
 pub use input::Input;

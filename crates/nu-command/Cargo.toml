@@ -159,7 +159,7 @@ webpki-roots = { workspace = true, optional = true }
 win_uds = { workspace = true }
 winreg = { workspace = true }
 
-[target.'cfg(and(not(target_arch = "wasm32"),not(target_os = "android")))'.dependencies]
+[target.'cfg(all(not(target_arch = "wasm32"),not(target_os = "android")))'.dependencies]
 arboard = { version = "3.6.0", default-features = false, features = [
 	"wayland-data-control",
 ] }
