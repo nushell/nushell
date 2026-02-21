@@ -6,11 +6,18 @@ edition = "2024"
 license = "MIT"
 name = "nu-protocol"
 version = "0.110.1"
+autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 bench = false
+harness = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
 
 [lints]
 workspace = true

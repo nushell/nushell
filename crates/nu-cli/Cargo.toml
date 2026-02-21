@@ -6,9 +6,16 @@ edition = "2024"
 license = "MIT"
 name = "nu-cli"
 version = "0.110.1"
+autotests = false
 
 [lib]
 bench = false
+harness = false
+
+[[test]]
+name = "commands"
+path = "tests/main.rs"
+harness = false
 
 [dev-dependencies]
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.110.1" }

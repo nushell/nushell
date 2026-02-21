@@ -45,13 +45,22 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
     quote! {
         mod #fn_ident {
             use super::*;
-            use nu_test_support::harness::*;
+            use ::nu_test_support::harness::{
+                Cow,
+                IgnoreStatus,
+                NuTestMetaExtra,
+                PanicExpectation,
+                Test,
+                TestFnHandle,
+                TestMeta,
+                TestResult,
+            };
 
             fn wrapper() -> TestResult {
                 #fn_ident().into()
             }
 
-            #[::nu_test_support::collect_test(nu_test_support::harness::TESTS)]
+            #[::nu_test_support::collect_test(::nu_test_support::harness::TESTS)]
             #[linkme(crate = ::nu_test_support::harness::linkme)]
             static TEST: Test<NuTestMetaExtra> =
                 Test::new(

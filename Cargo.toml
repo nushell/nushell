@@ -12,6 +12,12 @@ name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.91.1"
 version = "0.110.1"
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -110,7 +116,7 @@ indicatif = "0.18"
 interprocess = "2.3.1"
 is_executable = "1.0"
 itertools = "0.14"
-kitest = "0.3.2"
+kitest = { path = "../kitest" }
 lean_string = { version = "0.5", features = ["serde"] }
 lexopt = "0.3.1"
 libc = "=0.2.178" # Pinned to avoid loongarch64 build failure with libc >= 0.2.179 (rust-lang/libc#4939)

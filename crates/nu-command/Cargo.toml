@@ -12,6 +12,7 @@ autotests = false
 
 [lib]
 bench = false
+harness = false
 
 [[test]]
 name = "commands"

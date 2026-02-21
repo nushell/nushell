@@ -3,10 +3,9 @@ use std::{
     env,
     fmt::{Debug, Display},
     hash::{DefaultHasher, Hash, Hasher},
-    io,
     num::NonZeroUsize,
     ops::{ControlFlow, Deref},
-    process::{ExitCode, Termination},
+    process::ExitCode,
     sync::{
         LazyLock,
         atomic::{AtomicBool, Ordering},
@@ -21,7 +20,7 @@ use kitest::{
     capture::DefaultPanicHookProvider,
     filter::DefaultFilter,
     formatter::{
-        FormatError, common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter,
+        common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter,
     },
     group::{
         SimpleGroupRunner, TestGroupBTreeMap, TestGroupOutcomes, TestGroupRunner, TestGrouper,
@@ -381,19 +380,6 @@ impl Args {
         }
 
         Ok(args)
-    }
-}
-
-trait ListReport {
-    fn exit_code(&self) -> ExitCode;
-}
-
-impl ListReport for Vec<(FormatError, io::Error)> {
-    fn exit_code(&self) -> ExitCode {
-        match self.len() {
-            0 => ExitCode::SUCCESS,
-            _ => ExitCode::FAILURE,
-        }
     }
 }
 

@@ -1,4 +1,4 @@
-use kitest::{println, *};
+use kitest::println;
 
 /// Run a command in nu and get its output
 ///
