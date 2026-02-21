@@ -59,52 +59,52 @@ impl Command for Table {
                 Flag::new("theme")
                     .short('t')
                     .arg(SyntaxShape::String)
-                    .desc("set a table mode/theme")
+                    .desc("Set a table mode/theme.")
                     .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
                 "index",
                 SyntaxShape::Any,
-                "enable (true) or disable (false) the #/index column or set the starting index",
+                "Enable (true) or disable (false) the #/index column or set the starting index.",
                 Some('i'),
             )
             .named(
                 "width",
                 SyntaxShape::Int,
-                "number of terminal columns wide (not output columns)",
+                "Number of terminal columns wide (not output columns).",
                 Some('w'),
             )
             .switch(
                 "expand",
-                "expand the table structure in a light mode",
+                "Expand the table structure in a light mode.",
                 Some('e'),
             )
             .named(
                 "expand-deep",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place, must be used with --expand",
+                "An expand limit of recursion which will take place, must be used with --expand.",
                 Some('d'),
             )
-            .switch("flatten", "Flatten simple arrays", None)
+            .switch("flatten", "Flatten simple arrays.", None)
             .named(
                 "flatten-separator",
                 SyntaxShape::String,
-                "sets a separator when 'flatten' used",
+                "Sets a separator when 'flatten' is used.",
                 None,
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "Expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control.",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                "Abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom.",
                 Some('a'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to file paths in tables", Some('o'),
+            .switch("list", "List available table modes/themes.", Some('l'))
+            .switch("icons", "Add icons to file paths in tables.", Some('o'),
             )
             .category(Category::Viewers)
     }

@@ -36,7 +36,7 @@ impl Command for HttpDelete {
                 "The password when authenticating.",
                 Some('p'),
             )
-            .named("data", SyntaxShape::Any, "the content to post", Some('d'))
+            .named("data", SyntaxShape::Any, "The content to post.", Some('d'))
             .named(
                 "content-type",
                 SyntaxShape::Any,
@@ -52,7 +52,7 @@ impl Command for HttpDelete {
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "Custom headers you want to add. ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
@@ -75,7 +75,7 @@ impl Command for HttpDelete {
                 "Do not fail if the server returns an error code.",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')

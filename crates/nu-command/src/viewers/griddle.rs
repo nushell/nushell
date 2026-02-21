@@ -28,19 +28,19 @@ impl Command for Griddle {
             .named(
                 "width",
                 SyntaxShape::Int,
-                "number of terminal columns wide (not output columns)",
+                "Number of terminal columns wide (not output columns).",
                 Some('w'),
             )
-            .switch("color", "draw output with color", Some('c'))
+            .switch("color", "Draw output with color.", Some('c'))
             .switch(
                 "icons",
-                "draw output with icons (assumes nerd font is used)",
+                "Draw output with icons (assumes nerd font is used).",
                 Some('i'),
             )
             .named(
                 "separator",
                 SyntaxShape::String,
-                "character to separate grid with",
+                "Character to separate grid with.",
                 Some('s'),
             )
             .category(Category::Viewers)

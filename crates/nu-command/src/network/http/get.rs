@@ -46,7 +46,7 @@ impl Command for HttpGet {
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "Custom headers you want to add. ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
@@ -69,7 +69,7 @@ impl Command for HttpGet {
                 "Do not fail if the server returns an error code.",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')

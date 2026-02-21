@@ -45,7 +45,7 @@ impl Command for HttpHead {
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "Custom headers you want to add. ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
@@ -53,7 +53,7 @@ impl Command for HttpHead {
                 "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')

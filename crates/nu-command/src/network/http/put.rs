@@ -27,46 +27,46 @@ impl Command for HttpPut {
             .named(
                 "user",
                 SyntaxShape::Any,
-                "the username when authenticating",
+                "The username when authenticating.",
                 Some('u'),
             )
             .named(
                 "password",
                 SyntaxShape::Any,
-                "the password when authenticating",
+                "The password when authenticating.",
                 Some('p'),
             )
             .named(
                 "content-type",
                 SyntaxShape::Any,
-                "the MIME type of content to post",
+                "The MIME type of content to post.",
                 Some('t'),
             )
             .named(
                 "max-time",
                 SyntaxShape::Duration,
-                "max duration before timeout occurs",
+                "Max duration before timeout occurs.",
                 Some('m'),
             )
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
                 "raw",
-                "return values as a string instead of a table",
+                "Return values as a string instead of a table.",
                 Some('r'),
             )
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
             .switch(
                 "full",
-                "returns the full response instead of only the body",
+                "Returns the full response instead of only the body.",
                 Some('f'),
             )
             .switch(

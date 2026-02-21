@@ -26,13 +26,13 @@ impl Command for NuCheck {
             ])
             // type is string to avoid automatically canonicalizing the path
             .optional("path", SyntaxShape::String, "File path to parse.")
-            .switch("as-module", "Parse content as module", Some('m'))
-            .switch("debug", "Show error messages", Some('d'))
+            .switch("as-module", "Parse content as module.", Some('m'))
+            .switch("debug", "Show error messages.", Some('d'))
             .category(Category::Strings)
     }
 
     fn description(&self) -> &str {
-        "Validate and parse input content."
+        "Validate and parse Nushell input content."
     }
 
     fn search_terms(&self) -> Vec<&str> {
