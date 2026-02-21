@@ -93,11 +93,11 @@ $env.config.recursion_limit = 50
 # Clipboard Settings
 # ------------------
 
-# clip.daemon_mode (bool): Use a background process for clipboard operations on Linux.
-# true: Use a daemon process for clipboard functionality (Linux-only).
-# false: Do not use a daemon process.
+# clip.resident_mode (bool): Use a background process for clipboard operations on Linux.
+# true: Serves clipboard content in a background process for clipboard functionality (Linux-only).
+# false: Just sets the clipboard value and forgets.
 # Default: true (on Linux), false (otherwise)
-$env.config.clip.daemon_mode = ($nu.os-info.name == linux)
+$env.config.clip.resident_mode = ($nu.os-info.name == linux)
 
 # clip.default_raw (bool): Controls whether `clip` copies raw content by default.
 # true: `clip` will copy content as raw bytes by default.
