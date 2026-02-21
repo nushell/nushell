@@ -1,6 +1,9 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
-use crate::{convert_json_string_to_value, platform::clip::get_config::get_clip_config};
+use crate::{
+    convert_json_string_to_value, platform::clip::get_config::get_clip_config_with_plugin_fallback,
+};
 use nu_engine::command_prelude::*;
+use nu_protocol::Config;
 
 #[derive(Clone)]
 pub struct ClipPaste;
@@ -24,7 +27,7 @@ impl Command for ClipPaste {
     fn description(&self) -> &str {
         "Output the current clipboard content.
  By default, it tries to parse clipboard content as JSON and outputs the corresponding Nushell value.
- This behavior can be inverted using `$env.config.plugins.clip.DEFAULT_RAW = true`."
+ This behavior can be inverted using `$env.config.clip.default_raw = true`."
     }
     fn run(
         &self,
@@ -33,7 +36,8 @@ impl Command for ClipPaste {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let text = create_clipboard(None).get_text()?;
+        let config = stack.get_config(engine_state);
+        let text = create_clipboard(&config, engine_state, stack).get_text()?;
         if text.trim().is_empty() {
             return Err(ShellError::GenericError {
                 error: "Clipboard is empty.".into(),
@@ -44,8 +48,7 @@ impl Command for ClipPaste {
             });
         }
 
-        let plugin_config = get_clip_config(engine_state, stack);
-        let default_raw = get_default_raw(plugin_config.as_ref());
+        let default_raw = get_default_raw(&config, engine_state, stack);
         if default_raw != call.has_flag(engine_state, stack, "raw")? {
             return Ok(Value::string(text, call.head).into_pipeline_data());
         }
@@ -77,7 +80,16 @@ impl Command for ClipPaste {
     }
 }
 
-fn get_default_raw(value: Option<&Value>) -> bool {
+fn get_default_raw(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> bool {
+    // new config
+    if config.clip.default_raw {
+        return true;
+    }
+    // legacy config
+    get_legacy_default_raw(get_clip_config_with_plugin_fallback(engine_state, stack).as_ref())
+}
+
+fn get_legacy_default_raw(value: Option<&Value>) -> bool {
     match value {
         Some(Value::Record { val, .. }) => {
             if let Some(value) = val

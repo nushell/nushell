@@ -1,6 +1,6 @@
 use super::{arboard_provider::with_clipboard_instance, provider::Clipboard};
-use nu_protocol::{ShellError, Value};
-use std::sync::{OnceLock, mpsc};
+use nu_protocol::{Config, ShellError, Value, engine::{EngineState, Stack}};
+use std::sync::{mpsc, OnceLock};
 use std::thread;
 
 pub(crate) struct ClipBoardLinux {
@@ -84,9 +84,9 @@ impl ClipboardDaemon {
 }
 
 impl ClipBoardLinux {
-    pub fn new(config: Option<&Value>) -> Self {
+    pub fn new(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> Self {
         Self {
-            use_daemon: should_use_daemon(config),
+            use_daemon: should_use_daemon(config, engine_state, stack),
         }
     }
 }
@@ -101,17 +101,25 @@ impl Clipboard for ClipBoardLinux {
     }
 }
 
-fn should_use_daemon(config: Option<&Value>) -> bool {
+fn should_use_daemon(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> bool {
+    // new config
+    if config.clip.daemon_mode {
+        return true
+    }
+
+    // legacy config
     // Backward-compatible override from old plugin config style:
     // `$env.config.plugins.clip.NO_DAEMON = true`
-    if let Some(no_daemon) = read_no_daemon(config) {
+    if let Some(no_daemon) = read_no_daemon_legacy(
+        crate::platform::clip::get_config::get_clip_config_with_plugin_fallback(engine_state, stack).as_ref(),
+    ) {
         return !no_daemon;
     }
 
     true
 }
 
-fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
+fn read_no_daemon_legacy(value: Option<&Value>) -> Option<bool> {
     match value {
         None => None,
         Some(Value::Record { val, .. }) => {
@@ -120,7 +128,7 @@ fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
                 .or_else(|| val.get("no_daemon"))
                 .or_else(|| val.get("noDaemon"))
             {
-                read_no_daemon(Some(value))
+                read_no_daemon_legacy(Some(value))
             } else {
                 None
             }
