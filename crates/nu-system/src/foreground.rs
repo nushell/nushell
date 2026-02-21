@@ -349,6 +349,7 @@ mod child_pgroup {
         unistd::{self, Pid},
     };
     use std::{
+        io::Write,
         os::{
             fd::{AsFd, BorrowedFd},
             unix::prelude::CommandExt,
@@ -428,8 +429,10 @@ mod child_pgroup {
             // Use write_all instead of eprintln! to avoid panicking (and
             // subsequently aborting due to a double-panic) when stderr is
             // unavailable — e.g. the terminal has already been torn down.
-            let msg = format!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}\n");
-            let _ = std::io::Write::write_all(&mut std::io::stderr(), msg.as_bytes());
+            let _ = writeln!(
+                std::io::stderr(),
+                "ERROR: reset foreground id failed, tcsetpgrp result: {e:?}"
+            );
         }
     }
 }
