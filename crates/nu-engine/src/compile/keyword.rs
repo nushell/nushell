@@ -371,12 +371,17 @@ pub(crate) fn compile_let(
 
     let variable = working_set.get_variable(var_id);
 
-    // If the variable is a glob type variable, we should cast it with GlobFrom
+    // If the variable is annotated with type `glob`, convert the value to
+    // a `Glob` (expandable) *before* storing.  We use `GlobFrom { no_expand: false }`
+    // so the stored Value::Glob behaves like a glob literal and will expand at
+    // runtime (e.g. `let g: glob = "*.toml"; ls $g` should expand).  This
+    // mirrors the `into glob` conversion and matches interpreter coercion in
+    // `nu-cmd-lang::let` (see tests in `nu-command`).
     if variable.ty == Type::Glob {
         builder.push(
             Instruction::GlobFrom {
                 src_dst: io_reg,
-                no_expand: true,
+                no_expand: false,
             }
             .into_spanned(call.head),
         )?;

@@ -90,8 +90,23 @@ impl Command for Let {
             input.into_value(call.head)?
         };
 
-        // Store the value in the variable
-        stack.add_var(var_id, rhs.clone());
+        // If the variable is declared `: glob` and the RHS is a string,
+        // coerce it to an *expandable* `Value::Glob(..., no_expand = false)` so
+        // runtime `let` behavior matches the compiled `GlobFrom { no_expand: false }`.
+        // This ensures `let g: glob = "*.toml"; ls $g` expands like a glob
+        // literal and keeps parity with `into glob`.
+        let value_to_store = {
+            let variable = engine_state.get_var(var_id);
+            if variable.ty == Type::Glob {
+                match &rhs {
+                    Value::String { val, .. } => Value::glob(val.clone(), false, rhs.span()),
+                    _ => rhs.clone(),
+                }
+            } else {
+                rhs.clone()
+            }
+        };
+        stack.add_var(var_id, value_to_store);
 
         if initial_value.is_some() {
             // `let var = expr`: suppress output (traditional assignment, no display)
