@@ -1,5 +1,4 @@
 use nu_protocol::ShellError;
-#[cfg(target_os = "linux")]
 use nu_protocol::{
     Config,
     engine::{EngineState, Stack},
