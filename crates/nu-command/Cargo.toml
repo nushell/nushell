@@ -145,6 +145,7 @@ winreg = { workspace = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
+arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }

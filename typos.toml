@@ -30,6 +30,7 @@ styl = "styl"
 
 [default.extend-identifiers]
 ratatui = "ratatui"
+enabled_indented_mutiline_value = "enabled_indented_mutiline_value"
 
 [default.extend-words]
 ratatui = "ratatui"
