@@ -1,4 +1,6 @@
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use rstest::rstest;
 
 #[test]
@@ -161,6 +163,16 @@ fn mut_value_with_match() {
 fn mut_glob_type() {
     let actual = nu!("mut x: glob = 'aa'; $x | describe");
     assert_eq!(actual.out, "glob");
+}
+
+#[test]
+fn mut_typed_glob_expands_in_ls() {
+    Playground::setup("mut_glob_ls", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), r#"mut x: glob = "*.toml"; ls $x | length"#);
+        assert_eq!(actual.out, "2");
+    })
 }
 
 #[test]
