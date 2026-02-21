@@ -604,20 +604,35 @@ pub fn find_columns(input: &str) -> Vec<Spanned<String>> {
     output
 }
 
+/// Return `true` if any of the given string‑like items contains duplicates.
+///
+/// The generic form accepts anything whose items implement `AsRef<str>`, which
+/// includes `&str`, `String`, and `Spanned<String>` (via `.item`).
+///
+/// We allocate owned `String`s in the hash set; this keeps lifetimes simple and
+/// avoids borrowing issues when the input iterator produces temporaries.
+fn has_duplicate_names<I, S>(iter: I) -> bool
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<str>,
+{
+    let mut set = std::collections::HashSet::new();
+    for item in iter {
+        let s = item.as_ref();
+        if !set.insert(s.to_string()) {
+            return true;
+        }
+    }
+    false
+}
+
 /// Check for duplicate column names and return an error if found.
 fn check_duplicate_headers(
     headers: &[Spanned<String>],
     input_span: Span,
     name_span: Span,
 ) -> Result<(), ShellError> {
-    let has_duplicate_headers = headers
-        .iter()
-        .map(|h| &h.item)
-        .collect::<std::collections::HashSet<_>>()
-        .len()
-        != headers.len();
-
-    if has_duplicate_headers {
+    if has_duplicate_names(headers.iter().map(|h| &h.item)) {
         Err(ShellError::ColumnDetectionFailure {
             bad_value: input_span,
             failure_site: name_span,
@@ -633,13 +648,7 @@ fn check_duplicate_string_headers(
     input_span: Span,
     name_span: Span,
 ) -> Result<(), ShellError> {
-    let has_duplicate_headers = headers
-        .iter()
-        .collect::<std::collections::HashSet<_>>()
-        .len()
-        != headers.len();
-
-    if has_duplicate_headers {
+    if has_duplicate_names(headers.iter().map(|s| s.as_str())) {
         Err(ShellError::ColumnDetectionFailure {
             bad_value: input_span,
             failure_site: name_span,
@@ -712,8 +721,57 @@ fn find_header_positions(header_line: &str) -> Vec<(usize, String)> {
     positions
 }
 
+/// Adjust an index to the nearest character boundary for the given string.
+///
+/// - if `backward` is true, walk *backwards* from `idx` until a valid boundary is
+///   found (or zero is reached). this is used for column **starts**, since a
+///   header-derived offset landing inside a multibyte char should be moved to the
+///   beginning of that char.
+/// - otherwise walk *forwards* until a valid boundary or the end of the string is
+///   reached. this is used for column **ends** so that we don't truncate a character.
+#[inline]
+fn adjust_char_boundary(s: &str, idx: usize, backward: bool) -> usize {
+    if s.is_char_boundary(idx) {
+        return idx;
+    }
+
+    if backward {
+        (0..idx).rev().find(|&i| s.is_char_boundary(i)).unwrap_or(0)
+    } else {
+        (idx..=s.len())
+            .find(|&i| s.is_char_boundary(i))
+            .unwrap_or(s.len())
+    }
+}
+
+/// Given the raw header-derived byte `start`/`end` positions, compute a safe
+/// (start,end) pair for `line`, clamped to `prev_end` to avoid overlap.  Both
+/// returned indices are guaranteed to be valid char boundaries.
+fn safe_slice_range(line: &str, start: usize, end: usize, prev_end: usize) -> (usize, usize) {
+    let line_len = line.len();
+    let actual_end = end.min(line_len);
+
+    let mut safe_start = adjust_char_boundary(line, start, true);
+    if safe_start < prev_end {
+        safe_start = prev_end;
+    }
+
+    let mut safe_end = adjust_char_boundary(line, actual_end, false);
+    if safe_end < safe_start {
+        safe_end = safe_start;
+    }
+
+    (safe_start, safe_end)
+}
+
 /// Split a data line into columns based on header positions.
 /// Each column's value is the substring from its header position to the next header position.
+///
+/// Note that the header positions are computed from the first line only and are
+/// therefore byte offsets **in that header string**. subsequent rows may contain
+/// wider characters (e.g. an ellipsis or accented letter) which makes those offsets
+/// invalid for the later lines. we therefore adjust each start/end offset to a
+/// valid character boundary *for the line being sliced* to avoid panics.
 fn split_line_by_positions(line: &str, positions: &[(usize, String)]) -> Vec<String> {
     if positions.is_empty() {
         return vec![line.to_string()];
@@ -722,6 +780,7 @@ fn split_line_by_positions(line: &str, positions: &[(usize, String)]) -> Vec<Str
     let mut values = vec![];
     let line_len = line.len();
 
+    let mut prev_end = 0;
     for (i, (start, _)) in positions.iter().enumerate() {
         let start = *start;
         let end = if i + 1 < positions.len() {
@@ -730,12 +789,11 @@ fn split_line_by_positions(line: &str, positions: &[(usize, String)]) -> Vec<Str
             line_len
         };
 
-        // Extract the substring for this column using byte indices
         if start < line_len {
-            let actual_end = end.min(line_len);
-            // Safe slice since we're using char boundaries from the header
-            let value = &line[start..actual_end];
+            let (safe_start, safe_end) = safe_slice_range(line, start, end, prev_end);
+            let value = &line[safe_start..safe_end];
             values.push(value.trim().to_string());
+            prev_end = safe_end;
         } else {
             values.push(String::new());
         }
@@ -964,5 +1022,47 @@ mod test {
     #[test]
     fn test_examples() {
         crate::test_examples(DetectColumns)
+    }
+
+    /// Ensure that splitting a line using a header offset that falls inside a
+    /// multibyte character does not panic and produces a reasonable result. This
+    /// mirrors the crash described in the issue where an ellipsis in a data row
+    /// caused slicing to panic.
+    #[test]
+    fn split_line_by_positions_multibyte_boundary() {
+        // `…` is three bytes long; choose an index in the middle of it.
+        let line = "a…b";
+        assert!(!line.is_char_boundary(2));
+
+        // pretend the second column was discovered at byte offset 2
+        let positions = vec![(0, "a".to_string()), (2, "b".to_string())];
+
+        let cols = split_line_by_positions(line, &positions);
+        // After clamping, the first column captures the ellipsis and the second
+        // column begins at the byte boundary after it. result should be
+        // ["a…", "b"].
+        assert_eq!(cols, vec!["a…".to_string(), "b".to_string()]);
+    }
+
+    #[test]
+    fn split_line_with_various_unicode() {
+        // header positions for three simple space-separated columns
+        let positions = find_header_positions("a b c");
+
+        let examples = [
+            "x é y",         // combining accent
+            "x 😄 y",        // single emoji
+            "x 👨‍👩‍👧‍👦 y",        // ZWJ family emoji
+            "x 中 y",        // CJK character
+            "x a\u{0301} y", // decomposed accent
+        ];
+
+        for &line in examples.iter() {
+            // should never panic and should produce three columns; we don't assert
+            // on the exact values because wide graphemes may be split unpredictably,
+            // but the column count should remain stable.
+            let cols = split_line_by_positions(line, &positions);
+            assert_eq!(cols.len(), 3, "line produced wrong column count: {}", line);
+        }
     }
 }

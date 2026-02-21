@@ -190,3 +190,17 @@ val1 val2 val3""#;
         "With --ignore-box-chars, separator is ignored and columns work"
     );
 }
+
+// Regression test for the panic reported when a data row contained a
+// multibyte character (… ellipsis) and a header offset landed inside it.
+// The command should complete successfully and provide the expected field.
+#[test]
+fn detect_columns_no_panic_with_multibyte_data() {
+    let input = r#"Name                   Id                                 Version      Match     Source
+katharsis              arghena.katharsis                  1.0.0-canar… Tag: rust winget"#;
+
+    let out = nu!(format!(
+        "$'{input}' | detect columns --ignore-box-chars | get Version | first"
+    ));
+    assert_eq!(out.out, "1.0.0-canar…");
+}
