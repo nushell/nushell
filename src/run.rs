@@ -1,6 +1,6 @@
 use crate::{
     command,
-    config_files::{self, setup_config},
+    config_files::{self, nu_autoload_on_command, read_vendor_autoload_files, setup_config},
 };
 use log::trace;
 #[cfg(feature = "plugin")]
@@ -79,6 +79,15 @@ pub(crate) fn run_commands(
         }
 
         perf!("read login.nu", start_time, use_color);
+        // Only run vendor autoload if NU_AUTOLOAD_ON_COMMAND is set
+
+        if nu_autoload_on_command(engine_state, &stack) {
+            read_vendor_autoload_files(engine_state, &mut stack);
+            if let Err(e) = engine_state.merge_env(&mut stack) {
+                report_shell_error(engine_state, &e);
+            }
+            perf!("read vendor autoload", start_time, use_color);
+        }
     }
 
     // Before running commands, set up the startup time
