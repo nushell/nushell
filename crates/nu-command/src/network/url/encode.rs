@@ -22,7 +22,7 @@ impl Command for UrlEncode {
             .allow_variants_without_examples(true)
             .switch(
             "all",
-            "encode all non-alphanumeric chars including `/`, `.`, `:`",
+            "Encode all non-alphanumeric chars including `/`, `.`, `:`.",
             Some('a'))
             .rest(
                 "rest",
