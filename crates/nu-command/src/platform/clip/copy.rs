@@ -30,9 +30,9 @@ impl ClipCopy {
 
     fn copy_text(
         engine_state: &EngineState,
+        stack: &mut Stack,
         input: &Value,
         span: Span,
-        plugin_config: Option<&Value>,
         raw: bool,
         config: &nu_protocol::Config,
     ) -> Result<(), ShellError> {
@@ -45,7 +45,7 @@ impl ClipCopy {
             }
         };
 
-        create_clipboard(plugin_config).copy_text(&text)
+        create_clipboard(config, engine_state, stack).copy_text(&text)
     }
 }
 
@@ -76,27 +76,8 @@ impl Command for ClipCopy {
         let value = input.into_value(call.head)?;
         let config = stack.get_config(engine_state);
 
-        #[cfg(target_os = "linux")]
-        let plugin_config = {
-            config
-                .plugins
-                .get("clip")
-                .or_else(|| config.plugins.get("clipboard"))
-                .or_else(|| config.plugins.get("nu_plugin_clipboard"))
-                .cloned()
-        };
-        #[cfg(not(target_os = "linux"))]
-        let plugin_config: Option<Value> = None;
-
         let raw = call.has_flag(engine_state, stack, "raw")?;
-        Self::copy_text(
-            engine_state,
-            &value,
-            call.head,
-            plugin_config.as_ref(),
-            raw,
-            &config,
-        )?;
+        Self::copy_text(engine_state, stack, &value, call.head, raw, &config)?;
 
         if call.has_flag(engine_state, stack, "show")? {
             Ok(value.into_pipeline_data())

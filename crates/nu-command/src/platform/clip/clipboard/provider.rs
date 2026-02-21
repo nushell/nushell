@@ -1,6 +1,8 @@
 use nu_protocol::ShellError;
-#[cfg(target_os = "linux")]
-use nu_protocol::Value;
+use nu_protocol::{
+    Config,
+    engine::{EngineState, Stack},
+};
 
 // All clipboard providers must implement this trait.
 pub trait Clipboard {
@@ -36,12 +38,20 @@ mod arboard_clipboard {
 }
 
 #[cfg(target_os = "linux")]
-pub fn create_clipboard(config: Option<&Value>) -> impl Clipboard {
-    super::linux::ClipBoardLinux::new(config)
+pub fn create_clipboard(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> impl Clipboard {
+    super::linux::ClipBoardLinux::new(config, engine_state, stack)
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
-pub fn create_clipboard(_: Option<&nu_protocol::Value>) -> impl Clipboard {
+pub fn create_clipboard(
+    _config: &Config,
+    _engine_state: &EngineState,
+    _stack: &mut Stack,
+) -> impl Clipboard {
     arboard_clipboard::ArboardClipboard::new()
 }
 

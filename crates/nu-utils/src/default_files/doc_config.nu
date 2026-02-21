@@ -89,6 +89,23 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
+# ------------------
+# Clipboard Settings
+# ------------------
+
+# clip.resident_mode (bool): Use a background process for clipboard operations on Linux.
+# true: Serves clipboard content in a background process for clipboard functionality (Linux-only).
+# false: Just sets the clipboard value and forgets.
+# Default: true (on Linux), false (otherwise)
+$env.config.clip.resident_mode = ($nu.os-info.name == linux)
+
+# clip.default_raw (bool): Controls whether `clip` copies raw content by default.
+# true: `clip` will copy content as raw bytes by default.
+# false: `clip` will attempt to convert content to a string before copying.
+# This can be overridden with the `--raw` flag on the `clip` command.
+# Default: false
+$env.config.clip.default_raw = false
+
 # ---------------------------
 # Commandline Editor Settings
 # ---------------------------

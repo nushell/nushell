@@ -1,28 +1,31 @@
 use super::{arboard_provider::with_clipboard_instance, provider::Clipboard};
-use nu_protocol::{ShellError, Value};
+use nu_protocol::{
+    Config, ShellError, Value,
+    engine::{EngineState, Stack},
+};
 use std::sync::{OnceLock, mpsc};
 use std::thread;
 
 pub(crate) struct ClipBoardLinux {
-    use_daemon: bool,
+    use_resident_thread: bool,
 }
 
-enum DaemonMessage {
+enum ResidentThreadMessage {
     SetText(String, mpsc::Sender<Result<(), String>>),
 }
 
-struct ClipboardDaemon {
-    tx: mpsc::Sender<DaemonMessage>,
+struct ClipboardResidentThread {
+    tx: mpsc::Sender<ResidentThreadMessage>,
 }
 
-impl ClipboardDaemon {
-    fn global() -> &'static ClipboardDaemon {
-        static DAEMON: OnceLock<ClipboardDaemon> = OnceLock::new();
-        DAEMON.get_or_init(Self::start)
+impl ClipboardResidentThread {
+    fn global() -> &'static ClipboardResidentThread {
+        static CLIPBOARD_THREAD: OnceLock<ClipboardResidentThread> = OnceLock::new();
+        CLIPBOARD_THREAD.get_or_init(Self::start)
     }
 
-    fn start() -> ClipboardDaemon {
-        let (tx, rx) = mpsc::channel::<DaemonMessage>();
+    fn start() -> ClipboardResidentThread {
+        let (tx, rx) = mpsc::channel::<ResidentThreadMessage>();
 
         thread::Builder::new()
             .name("nu-clipboard-holder".into())
@@ -31,14 +34,14 @@ impl ClipboardDaemon {
                 let mut clipboard = match clipboard {
                     Ok(clipboard) => clipboard,
                     Err(err) => {
-                        while let Ok(DaemonMessage::SetText(_, ack_tx)) = rx.recv() {
+                        while let Ok(ResidentThreadMessage::SetText(_, ack_tx)) = rx.recv() {
                             let _ = ack_tx.send(Err(err.to_string()));
                         }
                         return;
                     }
                 };
 
-                while let Ok(DaemonMessage::SetText(text, ack_tx)) = rx.recv() {
+                while let Ok(ResidentThreadMessage::SetText(text, ack_tx)) = rx.recv() {
                     let result = clipboard
                         .set_text(text)
                         .map_err(|err| err.to_string())
@@ -48,15 +51,15 @@ impl ClipboardDaemon {
             })
             .expect("clipboard background thread failed to start");
 
-        ClipboardDaemon { tx }
+        ClipboardResidentThread { tx }
     }
 
     fn copy_text(&self, text: &str) -> Result<(), ShellError> {
         let (ack_tx, ack_rx) = mpsc::channel();
         self.tx
-            .send(DaemonMessage::SetText(text.to_owned(), ack_tx))
+            .send(ResidentThreadMessage::SetText(text.to_owned(), ack_tx))
             .map_err(|err| ShellError::GenericError {
-                error: "Clipboard daemon channel failed.".into(),
+                error: "Clipboard thread channel failed.".into(),
                 msg: err.to_string(),
                 span: None,
                 help: None,
@@ -64,7 +67,7 @@ impl ClipboardDaemon {
             })?;
 
         let result = ack_rx.recv().map_err(|err| ShellError::GenericError {
-            error: "Clipboard daemon failed.".into(),
+            error: "Clipboard thread failed.".into(),
             msg: err.to_string(),
             span: None,
             help: None,
@@ -72,7 +75,7 @@ impl ClipboardDaemon {
         })?;
 
         result.map_err(|err| ShellError::GenericError {
-            error: "Clipboard daemon failed.".into(),
+            error: "Clipboard thread failed.".into(),
             msg: err,
             span: None,
             help: None,
@@ -84,17 +87,17 @@ impl ClipboardDaemon {
 }
 
 impl ClipBoardLinux {
-    pub fn new(config: Option<&Value>) -> Self {
+    pub fn new(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> Self {
         Self {
-            use_daemon: should_use_daemon(config),
+            use_resident_thread: should_use_resident_thread(config, engine_state, stack),
         }
     }
 }
 
 impl Clipboard for ClipBoardLinux {
     fn copy_text(&self, text: &str) -> Result<(), ShellError> {
-        if self.use_daemon {
-            ClipboardDaemon::global().copy_text(text)
+        if self.use_resident_thread {
+            ClipboardResidentThread::global().copy_text(text)
         } else {
             with_clipboard_instance(|clip: &mut arboard::Clipboard| clip.set_text(text))
         }
@@ -105,26 +108,42 @@ impl Clipboard for ClipBoardLinux {
     }
 }
 
-fn should_use_daemon(config: Option<&Value>) -> bool {
+fn should_use_resident_thread(
+    config: &Config,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> bool {
+    // new config
+    if config.clip.resident_mode {
+        return true;
+    }
+
+    // legacy config
     // Backward-compatible override from old plugin config style:
-    // `$env.config.plugins.clip.NO_DAEMON = true`
-    if let Some(no_daemon) = read_no_daemon(config) {
-        return !no_daemon;
+    // `$env.config.plugins.clip.NO_RESIDENT = true`
+    if let Some(no_resident) = read_no_resident_legacy(
+        crate::platform::clip::get_config::get_clip_config_with_plugin_fallback(
+            engine_state,
+            stack,
+        )
+        .as_ref(),
+    ) {
+        return !no_resident;
     }
 
     true
 }
 
-fn read_no_daemon(value: Option<&Value>) -> Option<bool> {
+fn read_no_resident_legacy(value: Option<&Value>) -> Option<bool> {
     match value {
         None => None,
         Some(Value::Record { val, .. }) => {
             if let Some(value) = val
-                .get("NO_DAEMON")
-                .or_else(|| val.get("no_daemon"))
-                .or_else(|| val.get("noDaemon"))
+                .get("NO_RESIDENT")
+                .or_else(|| val.get("no_resident"))
+                .or_else(|| val.get("noResident"))
             {
-                read_no_daemon(Some(value))
+                read_no_resident_legacy(Some(value))
             } else {
                 None
             }
