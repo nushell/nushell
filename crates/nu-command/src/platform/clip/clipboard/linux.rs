@@ -99,6 +99,10 @@ impl Clipboard for ClipBoardLinux {
             with_clipboard_instance(|clip: &mut arboard::Clipboard| clip.set_text(text))
         }
     }
+
+    fn get_text(&self) -> Result<String, ShellError> {
+        with_clipboard_instance(|clip| clip.get_text())
+    }
 }
 
 fn should_use_daemon(config: Option<&Value>) -> bool {

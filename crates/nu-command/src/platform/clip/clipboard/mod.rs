@@ -5,8 +5,6 @@ pub mod provider;
 #[cfg(target_os = "linux")]
 pub(crate) mod linux;
 
-#[cfg(target_os = "macos")]
-pub(crate) mod mac_os;
-
-#[cfg(target_os = "windows")]
-pub(crate) mod windows;
+// On other platforms, the clipboard is either a dummy or implemented in `provider.rs`.
+#[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+pub(crate) mod dummy;
