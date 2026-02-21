@@ -1,4 +1,7 @@
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 mod arboard_provider;
+
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
 mod error_mapper;
 pub mod provider;
 
