@@ -21,7 +21,11 @@ fn txt(text: String) -> String {
 
 // This test will fail if/when `nu_test_support::fs::assets()`'s return value changes.
 #[rstest]
-fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json")] rstest_supplied: PathBuf) {
+fn assert_rstest_finds_assets(
+    #[files("../../tests/assets/nu_json")]
+    #[dirs]
+    rstest_supplied: PathBuf,
+) {
     // rstest::files runs paths through `fs::canonicalize`, which:
     // > On Windows, this converts the path to use extended length path syntax
     // So we make sure to canonicalize both paths.
