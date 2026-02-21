@@ -1,3 +1,5 @@
+use web_time::Instant;
+
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     JobId,
@@ -96,6 +98,7 @@ fn unfreeze_job(
         Job::Frozen(FrozenJob {
             unfreeze: handle,
             tag,
+            ..
         }) => {
             let pid = handle.pid();
 
@@ -130,6 +133,7 @@ fn unfreeze_job(
                         Job::Frozen(FrozenJob {
                             unfreeze: handle,
                             tag,
+                            timestamp: Instant::now(),
                         }),
                     )
                     .expect("job was supposed to be removed");
