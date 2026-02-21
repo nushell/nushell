@@ -125,9 +125,8 @@ fn run_ps(
                     },
                 );
                 record.push("user_id", Value::int(proc.curr_proc.owner() as i64, span));
-                // These work and may be helpful, but it just seemed crowded
-                // record.push("group_id", Value::int(proc_stat.pgrp as i64, span));
-                // record.push("session_id", Value::int(proc_stat.session as i64, span));
+                record.push("process_group_id", Value::int(proc_stat.pgrp as i64, span));
+                record.push("session_id", Value::int(proc_stat.session as i64, span));
                 // This may be helpful for ctrl+z type of checking, once we get there
                 // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
                 record.push("priority", Value::int(proc_stat.priority, span));
