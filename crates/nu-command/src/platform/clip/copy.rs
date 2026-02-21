@@ -1,5 +1,5 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
-use crate::formats::value_to_json_value;
+use crate::{formats::value_to_json_value, platform::clip::get_config::get_clip_config};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -76,17 +76,7 @@ impl Command for ClipCopy {
         let value = input.into_value(call.head)?;
         let config = stack.get_config(engine_state);
 
-        #[cfg(target_os = "linux")]
-        let plugin_config = {
-            config
-                .plugins
-                .get("clip")
-                .or_else(|| config.plugins.get("clipboard"))
-                .or_else(|| config.plugins.get("nu_plugin_clipboard"))
-                .cloned()
-        };
-        #[cfg(not(target_os = "linux"))]
-        let plugin_config: Option<Value> = None;
+        let plugin_config = get_clip_config(engine_state, stack);
 
         let raw = call.has_flag(engine_state, stack, "raw")?;
         Self::copy_text(

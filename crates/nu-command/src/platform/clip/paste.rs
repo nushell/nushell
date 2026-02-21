@@ -1,5 +1,5 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
-use crate::convert_json_string_to_value;
+use crate::{convert_json_string_to_value, platform::clip::get_config::get_clip_config};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -12,15 +12,20 @@ impl Command for ClipPaste {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("raw", "Disable JSON parsing.", Some('r'))
+            .switch(
+                "raw",
+                "Disable JSON parsing. (act inverted if default_raw config is true)",
+                Some('r'),
+            )
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .category(Category::System)
     }
 
     fn description(&self) -> &str {
-        "Output the current clipboard content."
+        "Output the current clipboard content.
+ By default, it tries to parse clipboard content as JSON and outputs the corresponding Nushell value.
+ This behavior can be inverted using `$env.config.plugins.clip.DEFAULT_RAW = true`."
     }
-
     fn run(
         &self,
         engine_state: &EngineState,
@@ -39,7 +44,9 @@ impl Command for ClipPaste {
             });
         }
 
-        if call.has_flag(engine_state, stack, "raw")? {
+        let plugin_config = get_clip_config(engine_state, stack);
+        let default_raw = get_default_raw(plugin_config.as_ref());
+        if default_raw != call.has_flag(engine_state, stack, "raw")? {
             return Ok(Value::string(text, call.head).into_pipeline_data());
         }
 
@@ -67,5 +74,25 @@ impl Command for ClipPaste {
                 result: None,
             },
         ]
+    }
+}
+
+fn get_default_raw(value: Option<&Value>) -> bool {
+    match value {
+        Some(Value::Record { val, .. }) => {
+            if let Some(value) = val
+                .get("DEFAULT_RAW")
+                .or_else(|| val.get("default_raw"))
+                .or_else(|| val.get("defaultRaw"))
+            {
+                match value {
+                    Value::Bool { val, .. } => *val,
+                    _ => false,
+                }
+            } else {
+                false
+            }
+        }
+        _ => false,
     }
 }
