@@ -387,7 +387,7 @@ pub fn main() -> ExitCode {
     let args = Args::parse().unwrap(); // TODO: handle this better
 
     if args.no_capture {
-        // TODO
+        kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
     }
 
     let runner = NuTestRunner::default()
