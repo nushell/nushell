@@ -36,10 +36,15 @@ lscolors = { workspace = true, default-features = false, features = [
 ratatui = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
 strip-ansi-escapes = { workspace = true }
+tui-tree-widget = "0.24"
+unicode-segmentation = { workspace = true }
+unicode-width = { workspace = true }
+
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
 edtui = { version = "0.11.1", default-features = false, features = [
     "system-editor",
     "arboard",
 ] }
-tui-tree-widget = "0.24"
-unicode-segmentation = { workspace = true }
-unicode-width = { workspace = true }
+
+[target.'cfg(not(any(windows, target_os = "macos", target_os = "linux")))'.dependencies]
+edtui = { version = "0.11.1", default-features = false, features = [ "system-editor" ] }
