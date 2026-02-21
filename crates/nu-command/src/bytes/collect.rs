@@ -11,7 +11,10 @@ impl Command for BytesCollect {
 
     fn signature(&self) -> Signature {
         Signature::build("bytes collect")
-            .input_output_types(vec![(Type::List(Box::new(Type::Binary)), Type::Binary)])
+            .input_output_types(vec![
+                (Type::List(Box::new(Type::Binary)), Type::Binary),
+                (Type::table(), Type::Binary),
+            ])
             .optional(
                 "separator",
                 SyntaxShape::Binary,
@@ -84,6 +87,11 @@ impl Command for BytesCollect {
                     vec![0x11, 0x01, 0x33, 0x01, 0x44],
                     Span::test_data(),
                 )),
+            },
+            Example {
+                description: "Create a byte array from a table",
+                example: "0..3 | each {} | into binary --compact | bytes collect",
+                result: Some(Value::binary(vec![0x00, 0x01, 0x02], Span::test_data())),
             },
         ]
     }
