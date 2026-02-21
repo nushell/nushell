@@ -212,13 +212,34 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             Value::string(res, span)
         }
         Value::Float { val, .. } => {
-            if let Some(decimal_value) = digits {
+            let val_str = if let Some(decimal_value) = digits {
                 let decimal_value = decimal_value as usize;
-                Value::string(format!("{val:.decimal_value$}"), span)
+                format!("{val:.decimal_value$}")
             } else {
-                Value::string(val.to_string(), span)
+                val.to_string()
+            };
+
+            if group_digits {
+                let parts: Vec<&str> = val_str.split('.').collect();
+                let int_part = parts[0];
+                let frac_part = if parts.len() > 1 { parts[1] } else { "" };
+
+                let formatted_int = int_part
+                    .parse::<i64>()
+                    .map(|i| format_int(i, true, 0))
+                    .unwrap_or_else(|_| int_part.to_string());
+
+                if !frac_part.is_empty() {
+                    let decimal_sep = get_system_locale().decimal();
+                    Value::string(format!("{formatted_int}{decimal_sep}{frac_part}"), span)
+                } else {
+                    Value::string(formatted_int, span)
+                }
+            } else {
+                Value::string(val_str, span)
             }
         }
+
         Value::Bool { val, .. } => Value::string(val.to_string(), span),
         Value::Date { val, .. } => Value::string(val.format("%c").to_string(), span),
         Value::String { val, .. } => Value::string(val, span),
