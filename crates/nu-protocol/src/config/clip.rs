@@ -3,7 +3,7 @@ use crate as nu_protocol;
 
 #[derive(Clone, Debug, IntoValue, Serialize, Deserialize)]
 pub struct ClipConfig {
-    pub daemon_mode: bool,
+    pub resident_mode: bool,
     pub default_raw: bool,
 }
 
@@ -11,7 +11,7 @@ pub struct ClipConfig {
 impl Default for ClipConfig {
     fn default() -> Self {
         Self {
-            daemon_mode: cfg!(target_os = "linux"),
+            resident_mode: cfg!(target_os = "linux"),
             default_raw: false,
         }
     }
@@ -32,7 +32,7 @@ impl UpdateFromValue for ClipConfig {
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
             match col.as_str() {
-                "daemon_mode" => self.daemon_mode.update(val, path, errors),
+                "resident_mode" => self.resident_mode.update(val, path, errors),
                 "default_raw" => self.default_raw.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
