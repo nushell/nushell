@@ -1,4 +1,4 @@
-use nu_test_support::nu;
+use nu_test_support::{nu, playground::Playground};
 
 #[test]
 fn job_send_root_job_works() {
@@ -456,4 +456,48 @@ fn job_tag_modifies_tagged_job_tag() {
 
     assert_eq!(actual.out, "beep");
     assert_eq!(actual.err, "");
+}
+
+#[test]
+fn job_wait_does_wait_for_completion() {
+    Playground::setup("job_wait_test_1", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let actual = nu!(cwd: dirs.root(),
+            r#"
+            let id = job spawn { sleep 1sec; 'beep' | save a.txt }
+
+            job wait $id
+
+            open a.txt
+            "#);
+
+        assert_eq!(actual.err, "");
+        assert_eq!(actual.out, "beep");
+    })
+}
+
+#[test]
+fn job_wait_when_done_through_multiple_jobs_does_wait() {
+    Playground::setup("job_wait_test_2", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let actual = nu!(
+        cwd: dirs.root(),
+
+        r#"
+        let id = job spawn { sleep 1sec; 'beep' | save original.txt }
+
+        let a = job spawn { job wait $id; open original.txt | save a.txt }
+        let b = job spawn { job wait $id; open original.txt | save b.txt }
+        let c = job spawn { job wait $id; open original.txt | save c.txt }
+
+        sleep 1.2sec
+
+        [(open a.txt), (open b.txt), (open c.txt)] | to nuon
+        "#);
+
+        assert_eq!(actual.err, "");
+        assert_eq!(actual.out, "[beep, beep, beep]");
+    })
 }
