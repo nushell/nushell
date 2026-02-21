@@ -108,7 +108,7 @@ impl Default for Config {
             filesize: FilesizeConfig::default(),
 
             cursor_shape: CursorShapeConfig::default(),
-            
+
             clip: ClipConfig::default(),
 
             color_config: HashMap::new(),

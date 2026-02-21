@@ -1,6 +1,9 @@
 use super::{arboard_provider::with_clipboard_instance, provider::Clipboard};
-use nu_protocol::{Config, ShellError, Value, engine::{EngineState, Stack}};
-use std::sync::{mpsc, OnceLock};
+use nu_protocol::{
+    Config, ShellError, Value,
+    engine::{EngineState, Stack},
+};
+use std::sync::{OnceLock, mpsc};
 use std::thread;
 
 pub(crate) struct ClipBoardLinux {
@@ -104,14 +107,18 @@ impl Clipboard for ClipBoardLinux {
 fn should_use_daemon(config: &Config, engine_state: &EngineState, stack: &mut Stack) -> bool {
     // new config
     if config.clip.daemon_mode {
-        return true
+        return true;
     }
 
     // legacy config
     // Backward-compatible override from old plugin config style:
     // `$env.config.plugins.clip.NO_DAEMON = true`
     if let Some(no_daemon) = read_no_daemon_legacy(
-        crate::platform::clip::get_config::get_clip_config_with_plugin_fallback(engine_state, stack).as_ref(),
+        crate::platform::clip::get_config::get_clip_config_with_plugin_fallback(
+            engine_state,
+            stack,
+        )
+        .as_ref(),
     ) {
         return !no_daemon;
     }
