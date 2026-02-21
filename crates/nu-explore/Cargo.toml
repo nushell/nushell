@@ -43,5 +43,5 @@ tui-tree-widget = "0.24"
 unicode-segmentation = { workspace = true }
 unicode-width = { workspace = true }
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+[target.'cfg(any(windows, target_os = "macos", target_os = "linux"))'.dependencies]
 edtui = { version = "0.11.1", default-features = false, features = ["system-editor", "arboard"] }
