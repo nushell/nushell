@@ -15,23 +15,23 @@ impl Command for RegistryQuery {
     fn signature(&self) -> Signature {
         Signature::build("registry query")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .switch("hkcr", "query the hkey_classes_root hive", None)
-            .switch("hkcu", "query the hkey_current_user hive", None)
-            .switch("hklm", "query the hkey_local_machine hive", None)
-            .switch("hku", "query the hkey_users hive", None)
-            .switch("hkpd", "query the hkey_performance_data hive", None)
-            .switch("hkpt", "query the hkey_performance_text hive", None)
-            .switch("hkpnls", "query the hkey_performance_nls_text hive", None)
-            .switch("hkcc", "query the hkey_current_config hive", None)
-            .switch("hkdd", "query the hkey_dyn_data hive", None)
+            .switch("hkcr", "Query the hkey_classes_root hive.", None)
+            .switch("hkcu", "Query the hkey_current_user hive.", None)
+            .switch("hklm", "Query the hkey_local_machine hive.", None)
+            .switch("hku", "Query the hkey_users hive.", None)
+            .switch("hkpd", "Query the hkey_performance_data hive.", None)
+            .switch("hkpt", "Query the hkey_performance_text hive.", None)
+            .switch("hkpnls", "Query the hkey_performance_nls_text hive.", None)
+            .switch("hkcc", "Query the hkey_current_config hive.", None)
+            .switch("hkdd", "Query the hkey_dyn_data hive.", None)
             .switch(
                 "hkculs",
-                "query the hkey_current_user_local_settings hive",
+                "Query the hkey_current_user_local_settings hive.",
                 None,
             )
             .switch(
                 "no-expand",
-                "do not expand %ENV% placeholders in REG_EXPAND_SZ",
+                "Do not expand %ENV% placeholders in REG_EXPAND_SZ.",
                 Some('u'),
             )
             .required("key", SyntaxShape::String, "Registry key to query.")
