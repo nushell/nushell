@@ -59,7 +59,7 @@ fn with_env(
 ) -> Result<PipelineData, ShellError> {
     let env: Record = call.req(engine_state, stack, 0)?;
     let capture_block: Closure = call.req(engine_state, stack, 1)?;
-    let block = engine_state.get_block(capture_block.block_id);
+    let block = capture_block.get_block(engine_state).clone();
     let mut stack = stack.captures_to_stack_preserve_out_dest(capture_block.captures);
 
     // TODO: factor list of prohibited env vars into common place
@@ -76,7 +76,7 @@ fn with_env(
         stack.add_env_var(k, v);
     }
 
-    eval_block::<WithoutDebug>(engine_state, &mut stack, block, input).map(|p| p.body)
+    eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input).map(|p| p.body)
 }
 
 #[cfg(test)]

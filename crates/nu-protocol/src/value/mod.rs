@@ -2084,10 +2084,7 @@ impl Value {
             Value::test_string(String::new()),
             Value::test_record(Record::new()),
             Value::test_list(Vec::new()),
-            Value::test_closure(Closure {
-                block_id: BlockId::new(0),
-                captures: Vec::new(),
-            }),
+            Value::test_closure(Closure::new(BlockId::new(0), Vec::new())),
             Value::test_nothing(),
             Value::error(
                 ShellError::NushellFailed { msg: String::new() },

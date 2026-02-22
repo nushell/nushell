@@ -98,7 +98,7 @@ In this case, generation also stops when the input stream stops."#
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let initial: Option<Value> = call.opt(engine_state, stack, 1)?;
-        let block = engine_state.get_block(closure.block_id);
+        let block = closure.get_block(engine_state).clone();
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
         match input {

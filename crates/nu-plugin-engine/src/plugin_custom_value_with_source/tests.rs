@@ -133,13 +133,13 @@ fn check_closure_custom_values(
 #[test]
 fn add_source_in_nested_closure() -> Result<(), ShellError> {
     let orig_custom_val = Value::test_custom_value(Box::new(test_plugin_custom_value()));
-    let mut val = Value::test_closure(Closure {
-        block_id: BlockId::new(0),
-        captures: vec![
+    let mut val = Value::test_closure(Closure::new(
+        BlockId::new(0),
+        vec![
             (VarId::new(0), orig_custom_val.clone()),
             (VarId::new(1), orig_custom_val.clone()),
         ],
-    });
+    ));
     let source = Arc::new(PluginSource::new_fake("foo"));
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 

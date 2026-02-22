@@ -1,5 +1,7 @@
 use super::Pipeline;
-use crate::{OutDest, Signature, Span, Type, VarId, engine::StateWorkingSet, ir::IrBlock};
+use crate::{
+    OutDest, ShellError, Signature, Span, Type, Value, VarId, engine::StateWorkingSet, ir::IrBlock,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +92,18 @@ impl Block {
                 element.replace_in_variable(working_set, new_var_id);
             }
         }
+    }
+}
+
+impl Block {
+    /// Convert this block to a nushell Value (record) for serialization.
+    pub fn to_nu_value(&self, span: Span) -> Result<Value, ShellError> {
+        crate::serde::to_value(self, span).map_err(Into::into)
+    }
+
+    /// Reconstruct a Block from a nushell Value previously created by `to_nu_value`.
+    pub fn from_nu_value(value: &Value) -> Result<Self, ShellError> {
+        crate::serde::from_value(value).map_err(Into::into)
     }
 }
 

@@ -13,6 +13,7 @@ impl Command for IntoRecord {
     fn signature(&self) -> Signature {
         Signature::build("into record")
             .input_output_types(vec![
+                (Type::Closure, Type::record()),
                 (Type::Date, Type::record()),
                 (Type::Duration, Type::record()),
                 (Type::List(Box::new(Type::Any)), Type::record()),
@@ -31,12 +32,12 @@ impl Command for IntoRecord {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        into_record(call, input)
+        into_record(engine_state, call, input)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -100,6 +101,58 @@ impl Command for IntoRecord {
                 })),
             },
             Example {
+                description: "convert closure to record.",
+                example: "{|| } | into record",
+                result: Some(Value::test_record(record! {
+                    "block" => Value::test_record(record! {
+                        "signature" => Value::test_record(record! {
+                            "name" => Value::test_string("closure"),
+                            "description" => Value::test_string(""),
+                            "extra_description" => Value::test_string(""),
+                            "search_terms" => Value::test_list(vec![]),
+                            "required_positional" => Value::test_list(vec![]),
+                            "optional_positional" => Value::test_list(vec![]),
+                            "rest_positional" => Value::test_nothing(),
+                            "named" => Value::test_list(vec![]),
+                            "input_output_types" => Value::test_list(vec![]),
+                            "allow_variants_without_examples" => Value::test_bool(false),
+                            "is_filter" => Value::test_bool(false),
+                            "creates_scope" => Value::test_bool(false),
+                            "allows_unknown_args" => Value::test_bool(false),
+                            "complete" => Value::test_nothing(),
+                            "category" => Value::test_string("Default"),
+                        }),
+                        "pipelines" => Value::test_list(vec![]),
+                        "captures" => Value::test_list(vec![]),
+                        "redirect_env" => Value::test_bool(false),
+                        "ir_block" => Value::test_record(record! {
+                            "instructions" => Value::test_list(vec![
+                                Value::test_record(record! {
+                                    "Return" => Value::test_record(record! {
+                                        "src" => Value::test_int(0),
+                                    }),
+                                }),
+                            ]),
+                            "spans" => Value::test_list(vec![Value::test_record(record! {
+                                "start" => Value::test_int(207),
+                                "end" => Value::test_int(212),
+                            })]),
+                            "data" => Value::test_list(vec![]),
+                            "ast" => Value::test_list(vec![Value::test_nothing()]),
+                            "comments" => Value::test_list(vec![Value::test_string("")]),
+                            "register_count" => Value::test_int(1),
+                            "file_count" => Value::test_int(0),
+                        }),
+                        "span" => Value::test_record(record! {
+                            "start" => Value::test_int(207),
+                            "end" => Value::test_int(212),
+                        }),
+                    }),
+                    "captures" => Value::test_list(vec![]),
+                    "nested_blocks" => Value::test_record(record! {}),
+                })),
+            },
+            Example {
                 description: "convert date components to table columns.",
                 example: "2020-04-12T22:10:57+02:00 | into record | transpose | transpose -r",
                 result: None,
@@ -108,9 +161,16 @@ impl Command for IntoRecord {
     }
 }
 
-fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
+fn into_record(
+    engine_state: &EngineState,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
     match input {
+        PipelineData::Value(Value::Closure { val, .. }, _) => {
+            Ok(val.to_record(engine_state, span)?.into_pipeline_data())
+        }
         PipelineData::Value(Value::Date { val, .. }, _) => {
             Ok(parse_date_into_record(val, span).into_pipeline_data())
         }

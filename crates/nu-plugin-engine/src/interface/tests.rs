@@ -435,10 +435,7 @@ fn manager_consume_engine_call_forwards_to_subscriber_with_pipeline_data() -> Re
         id: 46,
         call: EngineCall::EvalClosure {
             closure: Spanned {
-                item: Closure {
-                    block_id: BlockId::new(0),
-                    captures: vec![],
-                },
+                item: Closure::new(BlockId::new(0), vec![]),
                 span: Span::test_data(),
             },
             positional: vec![],

@@ -38,10 +38,10 @@ fn find_custom_values() {
             Value::test_int(4),
         ]),
         "closure" => Value::test_closure(
-            Closure {
-                block_id: BlockId::new(0),
-                captures: vec![(VarId::new(0), cv.clone()), (VarId::new(1), Value::test_string("foo"))]
-            }
+            Closure::new(
+                BlockId::new(0),
+                vec![(VarId::new(0), cv.clone()), (VarId::new(1), Value::test_string("foo"))]
+            )
         ),
     });
 

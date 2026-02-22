@@ -34,6 +34,11 @@ impl Command for ToJson {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -52,12 +57,19 @@ impl Command for ToJson {
         let use_tabs = call.get_flag(engine_state, stack, "tabs")?;
         let indent = call.get_flag(engine_state, stack, "indent")?;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
 
         let span = call.head;
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
         let value = input.into_value(span)?;
-        let json_value = value_to_json_value(engine_state, &value, span, serialize_types)?;
+        let json_value = value_to_json_value(
+            engine_state,
+            &value,
+            span,
+            serialize_types,
+            closure_to_record,
+        )?;
 
         let json_result = if raw {
             nu_json::to_string_raw(&json_value)
@@ -116,6 +128,7 @@ pub fn value_to_json_value(
     v: &Value,
     call_span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<nu_json::Value, ShellError> {
     let span = v.span();
     Ok(match v {
@@ -138,12 +151,25 @@ pub fn value_to_json_value(
                 .collect::<Result<Vec<nu_json::Value>, ShellError>>()?,
         ),
 
-        Value::List { vals, .. } => {
-            nu_json::Value::Array(json_list(engine_state, vals, call_span, serialize_types)?)
-        }
+        Value::List { vals, .. } => nu_json::Value::Array(json_list(
+            engine_state,
+            vals,
+            call_span,
+            serialize_types,
+            closure_to_record,
+        )?),
         Value::Error { error, .. } => return Err(*error.clone()),
         Value::Closure { val, .. } => {
-            if serialize_types {
+            if serialize_types && closure_to_record {
+                let closure_record = val.to_record(engine_state, span)?;
+                value_to_json_value(
+                    engine_state,
+                    &closure_record,
+                    call_span,
+                    serialize_types,
+                    closure_to_record,
+                )?
+            } else if serialize_types {
                 let closure_string = val.coerce_into_string(engine_state, span)?;
                 nu_json::Value::String(closure_string.to_string())
             } else {
@@ -164,14 +190,26 @@ pub fn value_to_json_value(
             for (k, v) in &**val {
                 m.insert(
                     k.clone(),
-                    value_to_json_value(engine_state, v, call_span, serialize_types)?,
+                    value_to_json_value(
+                        engine_state,
+                        v,
+                        call_span,
+                        serialize_types,
+                        closure_to_record,
+                    )?,
                 );
             }
             nu_json::Value::Object(m)
         }
         Value::Custom { val, .. } => {
             let collected = val.to_base_value(span)?;
-            value_to_json_value(engine_state, &collected, call_span, serialize_types)?
+            value_to_json_value(
+                engine_state,
+                &collected,
+                call_span,
+                serialize_types,
+                closure_to_record,
+            )?
         }
     })
 }
@@ -181,6 +219,7 @@ fn json_list(
     input: &[Value],
     call_span: Span,
     serialize_types: bool,
+    closure_to_record: bool,
 ) -> Result<Vec<nu_json::Value>, ShellError> {
     let mut out = vec![];
 
@@ -190,6 +229,7 @@ fn json_list(
             value,
             call_span,
             serialize_types,
+            closure_to_record,
         )?);
     }
 

@@ -890,6 +890,18 @@ impl EngineState {
             .expect("internal error: missing block")
     }
 
+    /// Add a block with a specific BlockId, growing the blocks vector if needed.
+    /// This is used to add nested blocks from deserialized closures.
+    pub fn add_block_with_id(&mut self, block: Arc<Block>, block_id: BlockId) {
+        let blocks = Arc::make_mut(&mut self.blocks);
+        let idx = block_id.get();
+        // Grow the vector if needed
+        if idx >= blocks.len() {
+            blocks.resize(idx + 1, Arc::new(Block::new()));
+        }
+        blocks[idx] = block;
+    }
+
     /// Optionally get a block by id, if it exists
     ///
     /// Prefer to use [`.get_block()`](Self::get_block) in most cases - `BlockId`s that don't exist

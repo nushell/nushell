@@ -37,6 +37,11 @@ impl Command for ToMsgpackz {
                 "serialize nushell types that cannot be deserialized",
                 Some('s'),
             )
+            .switch(
+                "closure-to-record",
+                "serialize closures as records instead of strings (requires --serialize)",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -75,6 +80,7 @@ impl Command for ToMsgpackz {
             .map(to_u32)
             .transpose()?;
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let closure_to_record = call.has_flag(engine_state, stack, "closure-to-record")?;
 
         let value_span = input.span().unwrap_or(call.head);
         let value = input.into_value(value_span)?;
@@ -91,8 +97,8 @@ impl Command for ToMsgpackz {
             &value,
             0,
             engine_state,
-            call.head,
             serialize_types,
+            closure_to_record,
         )?;
         out.flush()
             .map_err(|err| IoError::new(err, call.head, None))?;
