@@ -3,31 +3,48 @@
 # > These commands require your terminal to support OSC 52
 # > Terminal multiplexers such as screen, tmux, zellij etc may interfere with this command
 
-use std/clip52
-
-# Copy input to system clipboard
+# Copy input to system clipboard using OSC 52 request
 @example "Copy a string to the clipboard" {
   "Hello" | clip52 copy
 }
-@deprecated "Use `clip copy` without `use std/clip`, for OCS 52 copy request use `clip52 copy` using `std/clip52` module"
-export def copy [
+export def "copy" [
   --ansi (-a)                 # Copy ansi formatting
 ]: any -> nothing {
-  $in | clip52 copy --ansi=$ansi
+  let input = $in | collect
+  if not $ansi {
+    $env.config.use_ansi_coloring = false
+  }
+  let text = match ($input | describe -d | get type) {
+    $type if $type in [ table, record, list ] => {
+      $input | table -e
+    }
+    _ => {$input}
+  }
+
+  print -n $'(ansi osc)52;c;($text | encode base64)(ansi st)'
 }
 
-# Paste contents of system clipboard
+# Paste contents of system clipboard using OSC 52 request
 @example "Paste a string from the clipboard" {
   clip52 paste
 } --result "Hello"
-@deprecated "Use `clip paste` without `use std/clip`, for OCS 52 paste request use `clip52 paste` using `std/clip52` module"
-export def paste []: [nothing -> string] {
-  clip52 paste
+export def "paste" []: [nothing -> string] {
+  try {
+    term query $'(ansi osc)52;c;?(ansi st)' -p $'(ansi osc)52;c;' -t (ansi st)
+  } catch {
+    error make -u {
+      msg: "Terminal did not responds to OSC 52 paste request."
+      help: $"Check if your terminal supports OSC 52."
+    }
+  }
+  | decode
+  | decode base64
+  | decode
 }
 
 # Add a prefix to each line of the content to be copied
 @example "Format output for Nushell doc" {
-  [1 2 3] | prefix '# => '
+  [1 2 3] | clip52 prefix '# => '
 } --result "# => ╭───┬───╮
 # => │ 0 │ 1 │
 # => │ 1 │ 2 │
@@ -35,7 +52,7 @@ export def paste []: [nothing -> string] {
 # => ╰───┴───╯
 # => "
 @example "Format output for Nushell doc and copy it" {
-  ls | prefix '# => ' | clip52 copy
+  ls | clip52 prefix '# => ' | clip52 copy
 }
 export def "prefix" [prefix: string]: any -> string {
   let input = $in | collect

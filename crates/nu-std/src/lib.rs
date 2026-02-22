@@ -65,6 +65,7 @@ pub fn load_standard_library(
             include_str!("../std/testing/mod.nu"),
         ),
         ("mod.nu", "std/clip", include_str!("../std/clip/mod.nu")),
+        ("mod.nu", "std/clip52", include_str!("../std/clip52/mod.nu")),
         ("mod.nu", "std/random", include_str!("../std/random/mod.nu")),
     ];
 
