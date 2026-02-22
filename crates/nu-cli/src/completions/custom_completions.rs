@@ -26,7 +26,7 @@ fn map_value_completions<'a>(
         if let Ok(s) = x.coerce_string() {
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: s,
+                    value: strip_ansi_string_unlikely(s),
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
@@ -55,7 +55,7 @@ fn map_value_completions<'a>(
                     "value" => {
                         value_type = value.get_type();
                         if let Ok(val_str) = value.coerce_string() {
-                            suggestion.value = val_str;
+                            suggestion.value = strip_ansi_string_unlikely(val_str);
                         }
                     }
                     "display_override" => {
@@ -472,5 +472,40 @@ fn convert_whole_command_completion_results(
             );
             Some(vec![])
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::map_value_completions;
+    use nu_protocol::{Span, Value, record};
+
+    #[test]
+    fn strips_ansi_from_string_completion_values() {
+        let span = Span::new(10, 13);
+        let values = [Value::test_string("\u{1b}[35mfoo\u{1b}[0m")];
+
+        let suggestions = map_value_completions(values.iter(), span, 0, 0);
+
+        assert_eq!(suggestions.len(), 1);
+        assert_eq!(suggestions[0].suggestion.value, "foo");
+    }
+
+    #[test]
+    fn strips_ansi_from_record_value_field_and_keeps_style() {
+        let span = Span::new(20, 23);
+        let values = [Value::record(
+            record! {
+                "value" => Value::test_string("\u{1b}[31mbar\u{1b}[0m"),
+                "style" => Value::test_string("red"),
+            },
+            Span::test_data(),
+        )];
+
+        let suggestions = map_value_completions(values.iter(), span, 0, 0);
+
+        assert_eq!(suggestions.len(), 1);
+        assert_eq!(suggestions[0].suggestion.value, "bar");
+        assert!(suggestions[0].suggestion.style.is_some());
     }
 }
