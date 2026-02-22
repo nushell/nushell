@@ -12,3 +12,5 @@ pub use default_context::*;
 pub use example_support::*;
 #[cfg(test)]
 pub use example_test::test_examples;
+#[cfg(test)]
+pub use example_test::test_examples_with_commands;

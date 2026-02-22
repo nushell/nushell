@@ -1,5 +1,5 @@
 use nu_protocol::{
-    IntoSpanned, RegId, Type, VarId,
+    IntoSpanned, RegId, Span, Type, VarId,
     ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
@@ -653,38 +653,7 @@ pub(crate) fn compile_try(
             )?;
         }
         Some(CatchType::Closure { closure_reg }) => {
-            // We should call `do`. Error will be in io_reg
-            let do_decl_id = working_set.find_decl(b"do").ok_or_else(|| {
-                CompileError::MissingRequiredDeclaration {
-                    decl_name: "do".into(),
-                    span: call.head,
-                }
-            })?;
-
-            // Take a copy of io_reg, because we pass it both as an argument and input
-            builder.mark_register(io_reg)?;
-            let err_reg = builder.next_register()?;
-            builder.push(
-                Instruction::Clone {
-                    dst: err_reg,
-                    src: io_reg,
-                }
-                .into_spanned(catch_span),
-            )?;
-
-            // Push the closure and the error
-            builder
-                .push(Instruction::PushPositional { src: closure_reg }.into_spanned(catch_span))?;
-            builder.push(Instruction::PushPositional { src: err_reg }.into_spanned(catch_span))?;
-
-            // Call `$err | do $closure $err`
-            builder.push(
-                Instruction::Call {
-                    decl_id: do_decl_id,
-                    src_dst: io_reg,
-                }
-                .into_spanned(catch_span),
-            )?;
+            compile_closure_call(working_set, builder, call, io_reg, closure_reg, catch_span)?
         }
         None => {
             // Just set out to empty.
@@ -725,6 +694,50 @@ pub(crate) fn compile_try(
             io_reg,
         )?;
     }
+
+    Ok(())
+}
+
+fn compile_closure_call(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    io_reg: RegId,
+    closure_reg: RegId,
+    span: Span,
+) -> Result<(), CompileError> {
+    // We should call `do`. Error will be in io_reg
+    let do_decl_id =
+        working_set
+            .find_decl(b"do")
+            .ok_or_else(|| CompileError::MissingRequiredDeclaration {
+                decl_name: "do".into(),
+                span: call.head,
+            })?;
+
+    // Take a copy of io_reg, because we pass it both as an argument and input
+    builder.mark_register(io_reg)?;
+    let arg_reg = builder.next_register()?;
+    builder.push(
+        Instruction::Clone {
+            dst: arg_reg,
+            src: io_reg,
+        }
+        .into_spanned(span),
+    )?;
+
+    // Push the closure and the argument
+    builder.push(Instruction::PushPositional { src: closure_reg }.into_spanned(span))?;
+    builder.push(Instruction::PushPositional { src: arg_reg }.into_spanned(span))?;
+
+    // Call `$err | do $closure $arg`
+    builder.push(
+        Instruction::Call {
+            decl_id: do_decl_id,
+            src_dst: io_reg,
+        }
+        .into_spanned(span),
+    )?;
 
     Ok(())
 }
@@ -1052,6 +1065,57 @@ pub(crate) fn compile_return(
 
     // io_reg is supposed to remain allocated
     builder.load_empty(io_reg)?;
+
+    Ok(())
+}
+
+/// Compile a call to `collect` as a `Collect` instruction.
+///
+/// This makes it possible to check pipefail exit status when calling the
+/// `collect` command.
+pub(crate) fn compile_collect(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    _redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode (no closure argument):
+    //
+    // collect %io_reg
+    //
+    // With closure argument:
+    //
+    // collect %io_reg
+    // %closure_reg <- <arg expr>
+    // clone %arg_reg, %io_reg
+    // push-positional %closure_reg
+    // push-positional %arg_reg
+    // call "do", %io_reg
+
+    builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
+
+    if let Some(arg_expr) = call.positional_nth(0) {
+        // We have to compile the expression into a closure,
+        // then compile a closure call
+        let closure_reg = builder.next_register()?;
+        compile_expression(
+            working_set,
+            builder,
+            arg_expr,
+            RedirectModes::value(arg_expr.span),
+            None,
+            closure_reg,
+        )?;
+        compile_closure_call(
+            working_set,
+            builder,
+            call,
+            io_reg,
+            closure_reg,
+            arg_expr.span,
+        )?;
+    }
 
     Ok(())
 }
