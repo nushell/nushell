@@ -310,6 +310,9 @@ mod test {
     use super::*;
 
     #[test]
+    #[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+    #[env(LANG = "en_US.UTF-8")]
+    #[env(LANGUAGE = "en")]
     fn test_examples() {
         use crate::test_examples;
 
