@@ -64,6 +64,12 @@ $env.config.history.sync_on_enter = true
 # Default: false
 $env.config.history.isolation = false
 
+# history.ignore_space_prefixed (bool): Whether commands starting with leading whitespace are saved to history.
+# true: Commands starting with one or more spaces or tabs will NOT be saved.
+# false: All commands are saved, including those with any amount of leading whitespace.
+# Default: true
+$env.config.history.ignore_space_prefixed = true
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------

@@ -56,6 +56,7 @@ pub struct HistoryConfig {
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
+    pub ignore_space_prefixed: bool,
 }
 
 impl HistoryConfig {
@@ -74,6 +75,7 @@ impl Default for HistoryConfig {
             sync_on_enter: true,
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
+            ignore_space_prefixed: true,
         }
     }
 }
@@ -104,6 +106,7 @@ impl UpdateFromValue for HistoryConfig {
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
                 "file_format" => self.file_format.update(val, path, errors),
+                "ignore_space_prefixed" => self.ignore_space_prefixed.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }

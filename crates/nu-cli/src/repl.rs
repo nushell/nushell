@@ -481,6 +481,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     if let Some(history) = engine_state.history_config() {
         start_time = std::time::Instant::now();
+
+        line_editor = line_editor
+            .with_history_exclusion_prefix(history.ignore_space_prefixed.then_some(" ".into()));
+
         if history.sync_on_enter
             && let Err(e) = line_editor.sync_history()
         {
@@ -1266,6 +1270,7 @@ fn update_line_editor_history(
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
+    let ignore_space_prefixed = history.ignore_space_prefixed;
     let history: Box<dyn reedline::History> = match history.file_format {
         HistoryFileFormat::Plaintext => Box::new(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
@@ -1291,7 +1296,7 @@ fn update_line_editor_history(
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(Some(" ".into()))
+        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()))
         .with_history(history);
 
     store_history_id_in_engine(engine_state, &line_editor);
