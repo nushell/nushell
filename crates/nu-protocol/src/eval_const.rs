@@ -89,7 +89,12 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
         match &engine_state.config.history.path {
             HistoryPath::Disabled => Value::string("", span),
             HistoryPath::Custom(custom_path) => {
-                let canon_hist_path = canonicalize_path(engine_state, custom_path);
+                let effective_path = if custom_path.is_dir() {
+                    custom_path.join(engine_state.config.history.file_format.default_file_name())
+                } else {
+                    custom_path.clone()
+                };
+                let canon_hist_path = canonicalize_path(engine_state, &effective_path);
                 Value::string(canon_hist_path.to_string_lossy(), span)
             }
             HistoryPath::Default => config_path.clone().map_or_else(
