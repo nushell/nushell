@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    ShellError, Span, SuggestionKind, Value,
+    ShellError, Span, SuggestionKind, Type, Value,
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
@@ -66,12 +66,18 @@ impl Completer for CellPathCompletion<'_> {
             &self.full_cell_path.head,
             path_members,
             span,
-        )
-        .unwrap_or_default();
+        );
 
-        for suggestion in get_suggestions_by_value(&value, current_span) {
-            matcher.add_semantic_suggestion(suggestion);
+        if let Ok(value) = value {
+            for suggestion in get_suggestions_by_value(&value, current_span) {
+                matcher.add_semantic_suggestion(suggestion);
+            }
+        } else if let Some(ty) = type_follow_cell_path(&self.full_cell_path.head.ty, path_members) {
+            for suggestion in get_suggestions_by_type(ty, current_span) {
+                matcher.add_semantic_suggestion(suggestion);
+            }
         }
+
         matcher.suggestion_results()
     }
 }
@@ -145,6 +151,51 @@ fn get_suggestions_by_value(
                 to_suggestion(s, sub_val)
             })
             .collect(),
+        _ => vec![],
+    }
+}
+
+fn type_follow_cell_path<'a>(
+    parent_type: &'a Type,
+    path_members: &[PathMember],
+) -> Option<&'a Type> {
+    match (parent_type, path_members.first()) {
+        (Type::Table(fields), Some(PathMember::String { val, .. }))
+        | (Type::Record(fields), Some(PathMember::String { val, .. })) => {
+            let sub_type = fields
+                .iter()
+                .find_map(|(name, ty)| (name == val).then_some(ty))?;
+            type_follow_cell_path(sub_type, &path_members[1..])
+        }
+        (Type::Table(_), Some(PathMember::Int { .. })) => {
+            type_follow_cell_path(parent_type, &path_members[1..])
+        }
+        (Type::List(inner), Some(PathMember::Int { .. })) => {
+            type_follow_cell_path(inner, &path_members[1..])
+        }
+        (Type::List(inner), Some(PathMember::String { .. })) => {
+            type_follow_cell_path(inner, path_members)
+        }
+        (_, None) => Some(parent_type),
+        _ => None,
+    }
+}
+
+fn get_suggestions_by_type(ty: &Type, current_span: reedline::Span) -> Vec<SemanticSuggestion> {
+    match ty {
+        Type::Record(fields) | Type::Table(fields) => fields
+            .iter()
+            .map(|(name, ty)| SemanticSuggestion {
+                suggestion: Suggestion {
+                    value: name.to_string(),
+                    span: current_span,
+                    description: Some(ty.to_string()),
+                    ..Suggestion::default()
+                },
+                kind: Some(SuggestionKind::CellPath),
+            })
+            .collect(),
+        Type::List(inner) => get_suggestions_by_type(inner, current_span),
         _ => vec![],
     }
 }

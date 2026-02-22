@@ -2628,55 +2628,38 @@ fn unlet_variable_grandparent_stack_not_in_completions() {
     );
 }
 
-#[test]
-fn record_cell_path_completions() {
+#[rstest]
+#[case("$foo.")]
+#[case("$foo.a.1.")]
+#[case("($foo).")]
+#[case("$bar.")]
+#[case("$bar.a.1.")]
+#[case("{a: [1 {a: 2}]}.a.1.")]
+fn record_cell_path_completions(#[case] input: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let expected: Vec<_> = vec!["a"];
-    let completion_str = "$foo.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$foo.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$bar.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$bar.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "{a: [1 {a: 2}]}.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete(input, input.len());
+    let expected = ["a"].into();
     match_suggestions(&expected, &suggestions);
 }
 
-#[test]
-fn table_cell_path_completions() {
+#[rstest]
+#[case("$foo.", ["a"].into())]
+#[case("$foo.a.", ["b"].into())]
+#[case("($foo).", ["a"].into())]
+#[case("($foo).a.", ["b"].into())]
+#[case("$bar.", ["a", "b"].into())]
+#[case("($bar).", ["a", "b"].into())]
+fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let expected: Vec<_> = vec!["a"];
-    let completion_str = "$foo.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let expected: Vec<_> = vec!["b"];
-    let completion_str = "$foo.a.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let expected: Vec<_> = vec!["a", "b"];
-    let completion_str = "$bar.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete(input, input.len());
     match_suggestions(&expected, &suggestions);
 }
 
