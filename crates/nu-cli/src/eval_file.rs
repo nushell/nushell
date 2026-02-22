@@ -90,6 +90,10 @@ pub fn evaluate_file(
         .file_name()
         .expect("internal error: missing filename");
 
+    // we'll need the script name repeatedly; keep both String and bytes
+    let script_name = source_filename.to_string_lossy().to_string();
+    let script_name_bytes = script_name.as_bytes().to_vec();
+
     let mut working_set = StateWorkingSet::new(engine_state);
     trace!("parsing file: {file_path_str}");
     let block = parse(&mut working_set, Some(file_path_str), &file, false);
@@ -109,21 +113,64 @@ pub fn evaluate_file(
         std::process::exit(1);
     }
 
-    // Look for blocks whose name starts with "main" and replace it with the filename.
+    // Look for blocks whose name is `main` or begins with `main `; if any are
+    // found we:
+    // 1. rewrite the signature to use the script's filename,
+    // 2. remember that the file contained a `main` command, and
+    // 3. later add an alias in the overlay so users can still call `main`.
+    let mut file_has_main = false;
     for block in working_set.delta.blocks.iter_mut().map(Arc::make_mut) {
         if block.signature.name == "main" {
-            block.signature.name = source_filename.to_string_lossy().to_string();
+            file_has_main = true;
+            block.signature.name = script_name.clone();
         } else if block.signature.name.starts_with("main ") {
-            block.signature.name =
-                source_filename.to_string_lossy().to_string() + " " + &block.signature.name[5..];
+            file_has_main = true;
+            block.signature.name = script_name.clone() + " " + &block.signature.name[5..];
+        }
+    }
+
+    // If we found a main declaration, alias the overlay entries so that
+    // `script.nu` (and `script.nu foo`) resolve just like `main`.
+    if file_has_main && let Some(overlay) = working_set.delta.last_overlay_mut() {
+        // Collect new entries to avoid mutating while iterating.
+        // For "main" → new_name is just the script filename.
+        // For "main foo" → name[4..] is " foo" (space included), giving "script.nu foo".
+        let mut new_decls = Vec::new();
+        for (name, &decl_id) in &overlay.decls {
+            if name == b"main" || name.starts_with(b"main ") {
+                let mut new_name = script_name_bytes.clone();
+                if name.len() > 4 {
+                    new_name.extend_from_slice(&name[4..]);
+                }
+                new_decls.push((new_name, decl_id));
+            }
+        }
+        for (n, id) in new_decls {
+            overlay.decls.insert(n, id);
+        }
+
+        let mut new_predecls = Vec::new();
+        for (name, &decl_id) in &overlay.predecls {
+            if name == b"main" || name.starts_with(b"main ") {
+                let mut new_name = script_name_bytes.clone();
+                if name.len() > 4 {
+                    new_name.extend_from_slice(&name[4..]);
+                }
+                new_predecls.push((new_name, decl_id));
+            }
+        }
+        for (n, id) in new_predecls {
+            overlay.predecls.insert(n, id);
         }
     }
 
     // Merge the changes into the engine state.
     engine_state.merge_delta(working_set.delta)?;
 
-    // Check if the file contains a main command.
-    let exit_code = if engine_state.find_decl(b"main", &[]).is_some() {
+    // Check if the file contains a main command.  We use the script name instead
+    // of the literal `main` because the delta (above) may have rewritten the
+    // declaration and added an alias.
+    let exit_code = if file_has_main && engine_state.find_decl(&script_name_bytes, &[]).is_some() {
         // Evaluate the file, but don't run main yet.
         let pipeline =
             match eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
@@ -140,7 +187,10 @@ pub fn evaluate_file(
         // Print the pipeline output of the last command of the file.
         print_pipeline(engine_state, stack, pipeline, true)?;
 
-        // Invoke the main command with arguments.
+        // Invoke the main command with arguments.  Keep using `main` as the
+        // internal command name so the parser reliably resolves it; the block's
+        // signature was already rewritten to the script filename above, so help
+        // messages will show the correct `script.nu`-qualified name.
         // Arguments with whitespaces are quoted, thus can be safely concatenated by whitespace.
         let args = format!("main {}", args.join(" "));
         eval_source(

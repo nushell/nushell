@@ -81,7 +81,23 @@ pub fn help_commands(
 
         if let Some(decl) = decl_id {
             let cmd = engine_state.get_decl(decl);
-            let help_text = get_full_help(cmd, engine_state, stack);
+
+            // Get the canonical signature for this declaration so we can detect when the
+            // user asked for a module-qualified name (e.g. `clip prefix`) and adjust the
+            // Usage line in the generated help text accordingly.
+            let sig = engine_state.get_signature(cmd).update_from_command(cmd);
+
+            let mut help_text = get_full_help(cmd, engine_state, stack);
+
+            // If the requested name differs from the signature's base name (module-qualified
+            // request), replace the first occurrence of the usage call name so help shows
+            // the qualified form the user asked for.
+            if name != sig.name {
+                let search = format!("> {}", sig.name);
+                let replace = format!("> {}", name);
+                help_text = help_text.replacen(&search, &replace, 1);
+            }
+
             Ok(Value::string(help_text, call.head).into_pipeline_data())
         } else {
             Err(ShellError::CommandNotFound {
@@ -134,11 +150,13 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
     let commands = engine_state.get_decls_sorted(false);
     let mut found_cmds_vec = Vec::new();
 
-    for (_, decl_id) in commands {
+    for (decl_name_bytes, decl_id) in commands {
         let decl = engine_state.get_decl(decl_id);
         let sig = decl.signature().update_from_command(decl);
 
-        let key = sig.name;
+        // Use the overlay-visible name (decl_name_bytes) as the help `name` so module-qualified
+        // names (e.g. "clip prefix") are shown instead of the bare signature name.
+        let key = String::from_utf8_lossy(&decl_name_bytes).to_string();
         let description = sig.description;
         let search_terms = sig.search_terms;
 

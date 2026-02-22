@@ -3348,3 +3348,31 @@ fn suggestion_match_indices(
         assert_eq!(Some(indices), sugg.match_indices);
     }
 }
+
+#[test]
+fn clip_subcommands_show_before_and_after_use() {
+    // Ensure `clip` subcommands (e.g. `clip copy`) appear in completions both before
+    // and after `use std/clip`.
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    // Before `use` — built-in `clip copy` should be present
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let suggestions = completer.complete("clip ", 5);
+    assert!(suggestions.iter().any(|s| s.value == "clip copy"));
+
+    // Also check the no-space case (`clip`) returns subcommands
+    let suggestions_no_space = completer.complete("clip", 4);
+    assert!(suggestions_no_space.iter().any(|s| s.value == "clip copy"));
+
+    // After `use std/clip` — completions should still include `clip copy`
+    // load_standard_library registers the virtual std paths so `use std/clip` can be parsed
+    assert!(load_standard_library(&mut engine).is_ok());
+    assert!(support::merge_input("use std/clip".as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer2 = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions2 = completer2.complete("clip ", 5);
+    assert!(suggestions2.iter().any(|s| s.value == "clip copy"));
+
+    // And the no-space case after `use`
+    let suggestions2_no_space = completer2.complete("clip", 4);
+    assert!(suggestions2_no_space.iter().any(|s| s.value == "clip copy"));
+}

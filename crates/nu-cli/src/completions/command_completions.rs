@@ -9,6 +9,52 @@ use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
+// Try to resolve a module by its head or by matching module names that end with
+// `/head` (so `clip` will match `std/clip`). This is a local helper used only
+// by the command completer to keep the lookup logic in one place and avoid
+// duplicating traversal code.
+fn find_module_by_head_or_suffix(
+    working_set: &StateWorkingSet,
+    head: &[u8],
+) -> Option<nu_protocol::ModuleId> {
+    // Exact lookup first
+    if let Some(mid) = working_set.find_module(head) {
+        return Some(mid);
+    }
+
+    let mut removed_overlays: Vec<Vec<u8>> = vec![];
+
+    // Search delta scope overlays
+    for scope_frame in working_set.delta.scope.iter().rev() {
+        for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
+            for (mname, &mid) in overlay_frame.modules.iter() {
+                if mname.ends_with(head)
+                    && (mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/')
+                {
+                    return Some(mid);
+                }
+            }
+        }
+    }
+
+    // Search permanent overlays
+    for overlay_frame in working_set
+        .permanent_state
+        .active_overlays(&removed_overlays)
+        .rev()
+    {
+        for (mname, &mid) in overlay_frame.modules.iter() {
+            if mname.ends_with(head)
+                && (mname.len() == head.len() || mname[mname.len() - head.len() - 1] == b'/')
+            {
+                return Some(mid);
+            }
+        }
+    }
+
+    None
+}
+
 // TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
 pub struct CommandCompletion {
     /// Whether to include internal commands
@@ -147,7 +193,88 @@ impl Completer for CommandCompletion {
                     internal_suggs.insert(name.to_string());
                 }
             });
+            // If the prefix is a module name (or a module name followed by a
+            // trailing space), include module-qualified decls (e.g. `clip copy`)
+            // even when the module overlay is active and top-level declarations
+            // may have shadowed or changed visibility.
+            let trimmed_prefix = prefix.as_ref().trim_end();
+            if !trimmed_prefix.contains(' ') {
+                let prefix_bytes = trimmed_prefix.as_bytes();
+
+                if let Some(module_id) = find_module_by_head_or_suffix(working_set, prefix_bytes) {
+                    let module = working_set.get_module(module_id);
+                    for (full_name, decl_id) in module.decls_with_head(prefix_bytes) {
+                        let name = String::from_utf8_lossy(&full_name).to_string();
+                        if internal_suggs.contains(&name) {
+                            continue;
+                        }
+
+                        // Skip removed/deprecated commands
+                        let command = working_set.get_decl(decl_id);
+                        if command.signature().category == Category::Removed {
+                            continue;
+                        }
+
+                        let _ = matcher.add_semantic_suggestion(SemanticSuggestion {
+                            suggestion: Suggestion {
+                                value: name.clone(),
+                                description: Some(command.description().to_string()),
+                                span: sugg_span,
+                                append_whitespace: true,
+                                ..Suggestion::default()
+                            },
+                            kind: Some(SuggestionKind::Command(
+                                command.command_type(),
+                                Some(decl_id),
+                            )),
+                        });
+                    }
+                }
+            }
+
+            // Collect matcher results first
             res.extend(matcher.suggestion_results());
+
+            // If the user typed a single token (e.g. `clip`) and we didn't produce any
+            // module-qualified suggestions (e.g. `clip copy`), attempt a conservative
+            // fallback by scanning permanent declarations for `prefix + ' '` entries.
+            // This covers cases where overlays shadow the permanent decls.
+            if !trimmed_prefix.contains(' ') {
+                let prefix_space = format!("{} ", trimmed_prefix);
+                let has_module_suggestion = res
+                    .iter()
+                    .any(|s| s.suggestion.value.starts_with(&prefix_space));
+
+                if !has_module_suggestion {
+                    working_set
+                        .permanent_state
+                        .traverse_commands(|name, decl_id| {
+                            let name_str = String::from_utf8_lossy(name).to_string();
+                            if name_str.starts_with(&prefix_space)
+                                && !res.iter().any(|s| s.suggestion.value == name_str)
+                            {
+                                let command = working_set.permanent_state.get_decl(decl_id);
+                                if command.signature().category == Category::Removed {
+                                    return;
+                                }
+
+                                res.push(SemanticSuggestion {
+                                    suggestion: Suggestion {
+                                        value: name_str.clone(),
+                                        description: Some(command.description().to_string()),
+                                        span: sugg_span,
+                                        append_whitespace: true,
+                                        ..Suggestion::default()
+                                    },
+                                    kind: Some(SuggestionKind::Command(
+                                        command.command_type(),
+                                        Some(decl_id),
+                                    )),
+                                });
+                            }
+                        });
+                }
+            }
         }
 
         if self.externals {
