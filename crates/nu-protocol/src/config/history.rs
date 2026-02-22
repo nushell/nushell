@@ -153,7 +153,7 @@ impl UpdateFromValue for HistoryConfig {
                     Value::String { val: s, .. } => {
                         if s.is_empty() {
                             self.path = HistoryPath::Default;
-                            return;
+                            continue;
                         }
 
                         self.path = HistoryPath::Custom(PathBuf::from(s));
