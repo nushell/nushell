@@ -467,6 +467,8 @@ mod nu_script {
 
 mod tilde_expansion {
     use super::nu;
+    use nu_test_support::fs::Stub::EmptyFile;
+    use nu_test_support::playground::Playground;
 
     #[test]
     fn as_home_directory_when_passed_as_argument_and_begins_with_tilde() {
@@ -484,6 +486,58 @@ mod tilde_expansion {
                 "#);
 
         assert_eq!(actual.out, "1~1");
+    }
+
+    #[test]
+    fn expands_tilde_in_wrapped_function_arguments() {
+        let actual = nu!(r#"
+            def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }
+            test-wrapper ~
+        "#);
+
+        assert!(!actual.out.contains('~'));
+    }
+
+    #[test]
+    fn expands_tilde_path_in_wrapped_function_arguments() {
+        let actual = nu!(r#"
+            def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }
+            test-wrapper ~/foo
+        "#);
+
+        assert!(!actual.out.contains('~'));
+        // Check for path separator (/ on Unix, \ on Windows)
+        assert!(actual.out.contains("/foo") || actual.out.contains("\\foo"));
+    }
+
+    #[test]
+    fn expands_glob_in_wrapped_function_arguments() {
+        Playground::setup("glob_expand_wrapped", |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("a.txt"), EmptyFile("b.txt")]);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }; test-wrapper *.txt"#
+            );
+
+            assert!(actual.out.contains("a.txt"));
+            assert!(actual.out.contains("b.txt"));
+        });
+    }
+
+    #[test]
+    fn preserves_quoted_glob_in_wrapped_function_arguments() {
+        Playground::setup("quoted_glob_wrapped", |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("a.txt"), EmptyFile("b.txt")]);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#"def --wrapped test-wrapper [...rest] { nu --testbin cococo ...$rest }; test-wrapper "*.txt""#
+            );
+
+            // Quoted glob should NOT expand
+            assert_eq!(actual.out.trim(), "*.txt");
+        });
     }
 }
 
