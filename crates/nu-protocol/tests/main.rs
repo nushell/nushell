@@ -1,5 +1,5 @@
-mod pipeline;
 mod into_config;
+mod pipeline;
 mod test_config;
 mod test_pipeline_data;
 mod test_signature;

@@ -1,6 +1,11 @@
 use std::{num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
 
-use kitest::{capture::DefaultPanicHookProvider, outcome::TestOutcome, runner::{DefaultRunner, SimpleRunner, TestRunner, scope::NoScopeFactory}, test::TestMeta};
+use kitest::{
+    capture::DefaultPanicHookProvider,
+    outcome::TestOutcome,
+    runner::{DefaultRunner, SimpleRunner, scope::NoScopeFactory},
+    test::TestMeta,
+};
 use nu_experimental::ExperimentalOption;
 
 use crate::harness::group::RUN_TEST_GROUP_IN_SERIAL;
@@ -12,13 +17,13 @@ pub struct Extra {
 }
 
 #[derive(Debug, Default)]
-pub struct NuTestRunner {
+pub struct TestRunner {
     parallel: DefaultRunner<DefaultPanicHookProvider, NoScopeFactory>,
     serial: SimpleRunner<DefaultPanicHookProvider, NoScopeFactory>,
     exact: bool,
 }
 
-impl NuTestRunner {
+impl TestRunner {
     pub fn with_thread_count(self, thread_count: NonZeroUsize) -> Self {
         Self {
             parallel: self.parallel.with_thread_count(thread_count),
@@ -52,7 +57,7 @@ where
     }
 }
 
-impl<'t> TestRunner<'t, Extra> for NuTestRunner {
+impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
     fn run<'s, I, F>(
         &self,
         tests: I,
@@ -64,21 +69,25 @@ impl<'t> TestRunner<'t, Extra> for NuTestRunner {
         Extra: 't,
     {
         match self.exact || RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
-            false => {
-                NuTestRunnerIterator::Parallel(<DefaultRunner<_, _> as TestRunner<
+            false => NuTestRunnerIterator::Parallel(
+                <DefaultRunner<_, _> as kitest::runner::TestRunner<Extra>>::run(
+                    &self.parallel,
+                    tests,
+                    scope,
+                ),
+            ),
+            true => {
+                NuTestRunnerIterator::Serial(<SimpleRunner<_, _> as kitest::runner::TestRunner<
                     Extra,
-                >>::run(&self.parallel, tests, scope))
+                >>::run(&self.serial, tests, scope))
             }
-            true => NuTestRunnerIterator::Serial(<SimpleRunner<_, _> as TestRunner<
-                Extra,
-            >>::run(&self.serial, tests, scope)),
         }
     }
 
     fn worker_count(&self, tests_count: usize) -> NonZeroUsize {
         match RUN_TEST_GROUP_IN_SERIAL.load(Ordering::Relaxed) {
             true => const { NonZeroUsize::new(1).unwrap() },
-            false => <DefaultRunner<_, _> as TestRunner<Extra>>::worker_count(
+            false => <DefaultRunner<_, _> as kitest::runner::TestRunner<Extra>>::worker_count(
                 &self.parallel,
                 tests_count,
             ),

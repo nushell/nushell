@@ -1,38 +1,25 @@
 use std::{
-    collections::{BTreeMap, HashMap},
-    env,
-    fmt::{Debug, Display},
-    hash::{DefaultHasher, Hash, Hasher},
-    io::stdout,
     num::NonZeroUsize,
-    ops::{ControlFlow, Deref},
+    ops::Deref,
     process::ExitCode,
-    sync::{
-        LazyLock,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread::Scope,
+    sync::{LazyLock, atomic::Ordering},
 };
 
 use crate::{
     self as nu_test_support,
-    harness::{args::{Args, Format}, group::{GroupRunner, Grouper}, test::{NuTestRunner}},
+    harness::{
+        args::{Args, Format},
+        group::{GroupRunner, Grouper},
+        test::TestRunner,
+    },
 };
 
-use itertools::Itertools;
 use kitest::{
-    capture::DefaultPanicHookProvider,
     filter::DefaultFilter,
-    formatter::{common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter},
-    group::{
-        SimpleGroupRunner, TestGroupBTreeMap, TestGroupOutcomes, TestGroupRunner, TestGrouper,
-    },
-    outcome::TestOutcome,
-    runner::{DefaultRunner, SimpleRunner, TestRunner, scope::NoScopeFactory},
+    formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
+    group::TestGroupBTreeMap,
 };
 use nu_ansi_term::Color;
-
-pub use test::Extra;
 
 #[doc(hidden)]
 pub use linkme;
@@ -41,8 +28,10 @@ pub use linkme;
 pub use kitest::prelude::*;
 
 mod args;
-mod test;
 mod group;
+mod test;
+
+pub use test::Extra;
 
 pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
@@ -61,7 +50,6 @@ pub static DEFAULT_THREAD_COUNT: LazyLock<NonZeroUsize> = LazyLock::new(|| {
 #[linkme::distributed_slice]
 #[linkme(crate = nu_test_support::harness::linkme)]
 pub static TESTS: [kitest::test::Test<Extra>];
-
 
 pub fn main() -> ExitCode {
     let args = match Args::parse() {
@@ -83,7 +71,7 @@ pub fn main() -> ExitCode {
         kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
     }
 
-    let runner = NuTestRunner::default()
+    let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact);
 

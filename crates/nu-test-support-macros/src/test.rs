@@ -142,10 +142,10 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
                     Meta::NameValue(nv) => match nv.value {
                         Expr::Lit(expr_lit) => match expr_lit.lit {
                             Lit::Bool(b) => test_attrs.run_in_serial = Some(b.value),
-                            _ => todo!("error")
+                            _ => todo!("error"),
                         },
-                        _ => todo!("error")
-                    }
+                        _ => todo!("error"),
+                    },
                     Meta::List(_) => todo!("error"),
                 },
 
@@ -170,7 +170,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
                     let options = attr.parse_args_with(parse)?;
                     test_attrs.experimental_options.extend(options);
-                },
+                }
 
                 "env" | "environment_variables" => {
                     fn parse(input: ParseStream) -> syn::Result<Vec<(Ident, Expr)>> {
@@ -190,7 +190,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
                     let envs = attr.parse_args_with(parse)?;
                     test_attrs.environment_variables.extend(envs);
-                },
+                }
 
                 _ => test_attrs.rest.push(attr),
             }

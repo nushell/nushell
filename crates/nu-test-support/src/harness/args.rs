@@ -47,10 +47,11 @@ impl Args {
         let mut parser = lexopt::Parser::from_env();
 
         fn parse_flag(parser: &mut lexopt::Parser, flag: &mut bool) -> Result<(), lexopt::Error> {
-            Ok(match parser.optional_value() {
+            let _: () = match parser.optional_value() {
                 None => *flag = true,
                 Some(value) => *flag = value.parse()?,
-            })
+            };
+            Ok(())
         }
 
         while let Some(arg) = parser.next()? {

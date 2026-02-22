@@ -1,7 +1,17 @@
-use std::{collections::{BTreeMap, HashMap}, env, fmt::Display, hash::{DefaultHasher, Hash, Hasher}, ops::ControlFlow, sync::atomic::{AtomicBool, Ordering}};
 use itertools::Itertools;
-use kitest::{group::{SimpleGroupRunner, TestGroupOutcomes, TestGroupRunner, TestGrouper}, test::TestMeta};
+use kitest::{
+    group::{SimpleGroupRunner, TestGroupOutcomes, TestGroupRunner, TestGrouper},
+    test::TestMeta,
+};
 use nu_experimental::ExperimentalOption;
+use std::{
+    collections::{BTreeMap, HashMap},
+    env,
+    fmt::Display,
+    hash::{DefaultHasher, Hash, Hasher},
+    ops::ControlFlow,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use crate::harness::test::Extra;
 
@@ -86,26 +96,21 @@ pub struct Grouper(HashMap<GroupKey, GroupCtx>);
 impl TestGrouper<Extra, GroupKey, GroupCtx> for Grouper {
     fn group(&mut self, meta: &TestMeta<Extra>) -> GroupKey {
         let key = GroupKey::from(&meta.extra);
-        if !self.0.contains_key(&key) {
-            self.0.insert(
-                key,
-                GroupCtx {
-                    experimental_options: meta
-                        .extra
-                        .experimental_options
-                        .iter()
-                        .map(|(option, value)| (*option, *value))
-                        .collect(),
-                    environment_variables: meta
-                        .extra
-                        .environment_variables
-                        .iter()
-                        .map(|(key, val)| (*key, *val))
-                        .collect(),
-                    run_in_serial: meta.extra.run_in_serial,
-                },
-            );
-        }
+        self.0.entry(key).or_insert_with(|| GroupCtx {
+            experimental_options: meta
+                .extra
+                .experimental_options
+                .iter()
+                .map(|(option, value)| (*option, *value))
+                .collect(),
+            environment_variables: meta
+                .extra
+                .environment_variables
+                .iter()
+                .map(|(key, val)| (*key, *val))
+                .collect(),
+            run_in_serial: meta.extra.run_in_serial,
+        });
         key
     }
 
@@ -138,24 +143,20 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
 
         let old_envs: Vec<_> = ctx
             .iter()
-            .map(|ctx| ctx.environment_variables.iter().map(|(key, _)| key))
-            .flatten()
+            .flat_map(|ctx| ctx.environment_variables.keys())
             .map(|key| (key, env::var_os(key)))
             .collect();
         ctx.iter()
-            .map(|ctx| ctx.environment_variables.iter())
-            .flatten()
+            .flat_map(|ctx| ctx.environment_variables.iter())
             .for_each(|(key, value)| unsafe { env::set_var(key, value) });
 
         let run_test_group_in_serial = ctx.map(|ctx| ctx.run_in_serial).unwrap_or(false);
         RUN_TEST_GROUP_IN_SERIAL.store(run_test_group_in_serial, Ordering::Relaxed);
 
-        let outcomes = <SimpleGroupRunner as TestGroupRunner<
-            't,
-            Extra,
-            GroupKey,
-            GroupCtx,
-        >>::run_group::<F>(&self.0, f, key, ctx);
+        let outcomes =
+            <SimpleGroupRunner as TestGroupRunner<'t, Extra, GroupKey, GroupCtx>>::run_group::<F>(
+                &self.0, f, key, ctx,
+            );
 
         old_envs.into_iter().for_each(|(key, value)| unsafe {
             match value {
@@ -167,4 +168,3 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
         outcomes
     }
 }
-
