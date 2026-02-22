@@ -1,6 +1,6 @@
-use crate::repl::tests::run_test_contains;
+use crate::repl::tests::{TestResult, run_test_contains};
 
-const TEST_SCRIPT: &str = r#"
+const ALIAS_SUB_COMMAND_TEST_SCRIPT: &str = r#"
     def test1 [] {
       echo "This is test 1"
     }
@@ -16,22 +16,60 @@ const TEST_SCRIPT: &str = r#"
     "#;
 
 #[test]
-fn test_one_level_alias() {
-    let input = format!("{TEST_SCRIPT}\n t1a");
+fn test_one_level_alias() -> TestResult {
+    let input = format!("{ALIAS_SUB_COMMAND_TEST_SCRIPT}\n t1a");
     let expected = "This is test 1";
-    run_test_contains(&input, expected).unwrap();
+    run_test_contains(&input, expected)
 }
 
 #[test]
-fn test_two_level_alias() {
-    let input = format!("{TEST_SCRIPT}\n t2a");
+fn test_two_level_alias() -> TestResult {
+    let input = format!("{ALIAS_SUB_COMMAND_TEST_SCRIPT}\n t2a");
     let expected = "This is test 2";
-    run_test_contains(&input, expected).unwrap();
+    run_test_contains(&input, expected)
 }
 
 #[test]
-fn test_three_level_alias() {
-    let input = format!("{TEST_SCRIPT}\n t3a");
+fn test_three_level_alias() -> TestResult {
+    let input = format!("{ALIAS_SUB_COMMAND_TEST_SCRIPT}\n t3a");
     let expected = "This is test 3";
-    run_test_contains(&input, expected).unwrap();
+    run_test_contains(&input, expected)
+}
+
+#[test]
+fn test_non_shadowed() -> TestResult {
+    run_test_contains(
+        r#"
+            let x = 10
+            alias xx = echo $x
+            xx
+        "#,
+        "10",
+    )
+}
+
+#[test]
+fn test_shadowed() -> TestResult {
+    run_test_contains(
+        r#"
+            let x = 10
+            alias xx = echo $x
+            let x = 20
+            xx
+        "#,
+        "10",
+    )
+}
+
+#[test]
+fn test_mut() -> TestResult {
+    run_test_contains(
+        r#"
+            mut x = 10
+            alias xx = echo $x
+            $x = 20
+            xx
+        "#,
+        "20",
+    )
 }

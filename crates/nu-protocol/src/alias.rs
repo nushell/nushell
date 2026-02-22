@@ -1,5 +1,5 @@
 use crate::{
-    PipelineData, ShellError, Signature,
+    PipelineData, ShellError, Signature, Span, VarId,
     ast::Expression,
     engine::{Call, Command, CommandType, EngineState, Stack},
 };
@@ -17,6 +17,7 @@ pub struct Alias {
     pub wrapped_call: Expression,
     pub description: String,
     pub extra_description: String,
+    pub captures: Vec<(VarId, Span)>,
 }
 
 impl Command for Alias {
