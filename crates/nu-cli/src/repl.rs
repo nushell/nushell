@@ -333,6 +333,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
     } = ctx;
 
+    // Reset the cwd error flag at the start of each REPL iteration.
+    // This prevents duplicate "$env.PWD points to a non-existent directory" errors
+    // when multiple operations try to access the cwd in the same iteration.
+    engine_state.reset_cwd_error_reported();
+
     let mut start_time = std::time::Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.

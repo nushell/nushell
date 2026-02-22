@@ -135,6 +135,11 @@ pub struct EngineState {
     //
     // This ensures that running exit twice will terminate the program correctly
     pub exit_warning_given: Arc<AtomicBool>,
+
+    // Tracks whether a cwd error has already been reported in the current REPL cycle.
+    // This prevents duplicate "$env.PWD points to a non-existent directory" messages
+    // when multiple operations try to access the cwd in the same iteration.
+    pub cwd_error_reported_this_cycle: Arc<AtomicBool>,
 }
 
 // The max number of compiled regexes to keep around in a LRU cache, arbitrarily chosen
@@ -218,7 +223,27 @@ impl EngineState {
             },
             root_job_sender: send,
             exit_warning_given: Arc::new(AtomicBool::new(false)),
+            cwd_error_reported_this_cycle: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// Reset the cwd error reported flag. Should be called at the start of each REPL iteration.
+    pub fn reset_cwd_error_reported(&self) {
+        self.cwd_error_reported_this_cycle
+            .store(false, Ordering::SeqCst);
+    }
+
+    /// Check if a cwd error has already been reported this REPL cycle.
+    pub fn is_cwd_error_reported(&self) -> bool {
+        self.cwd_error_reported_this_cycle.load(Ordering::SeqCst)
+    }
+
+    /// Mark that a cwd error has been reported this REPL cycle.
+    /// Returns true if this is the first report (and it was marked), false if already reported.
+    pub fn mark_cwd_error_reported(&self) -> bool {
+        !self
+            .cwd_error_reported_this_cycle
+            .swap(true, Ordering::SeqCst)
     }
 
     pub fn signals(&self) -> &Signals {
@@ -360,10 +385,22 @@ impl EngineState {
             }
         }
 
-        let cwd = self.cwd(Some(stack))?;
-        std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err, "Could not set current dir", crate::location!())
-        })?;
+        // Only validate and set cwd if we haven't already reported a cwd error this cycle.
+        // This prevents duplicate error messages when cwd is invalid.
+        if !self.is_cwd_error_reported() {
+            match self.cwd(Some(stack)) {
+                Ok(cwd) => {
+                    std::env::set_current_dir(cwd).map_err(|err| {
+                        IoError::new_internal(err, "Could not set current dir", crate::location!())
+                    })?;
+                }
+                Err(err) => {
+                    // Mark that we've encountered a cwd error so it's only reported once
+                    self.mark_cwd_error_reported();
+                    return Err(err);
+                }
+            }
+        }
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
