@@ -135,19 +135,57 @@ command o+e>| other_command                     # Redirect stderr to stdout, pip
 command o+e>| ignore                            # Discard both stdout and stderr
 ```
 
-HTTP request examples:
+## HTTP Requests
+
+**Automatic JSON parsing:** HTTP commands (`http get`, `http post`, etc.) automatically parse JSON responses into structured Nushell data based on the `Content-Type` header. Do NOT pipe to `from json` - the data is already parsed.
+
+```nu
+# BAD - redundant, will error because input is already structured
+http get https://api.example.com/data | from json
+
+# GOOD - returns structured data directly
+http get https://api.example.com/data
+
+# GOOD - access fields immediately
+http get https://api.example.com/users | get name
+
+# Use --raw (-r) to disable auto-parsing and get raw string
+http get --raw https://api.example.com/data | from json  # Manual parsing
+```
+
+**Pipeline Content-Type metadata:** Format commands like `to json`, `to yaml`, etc. set a `content_type` metadata value that HTTP commands automatically use. This enables clean pipelines without explicit `-t` flags:
+
+```nu
+# GOOD - to json sets content-type metadata, http post uses it automatically
+{a: 1, b: "bar"} | to json | http post https://api.example.com/data
+
+# Equivalent to (but cleaner than):
+http post -t json https://api.example.com/data {a: 1, b: "bar"}
+```
+
+**Common flags:**
+- `-H {key: value}` or `--headers {key: value}`: Custom headers as a record
+- `-t json` or `--content-type application/json`: Set Content-Type for request body (overrides pipeline metadata)
+- `(bytes build)`: Empty body (required for POST/PUT when you have no data to send)
+
 ```nu
 # GET request
 http get https://api.example.com/data
 
-# POST with JSON body
-http post --content-type application/json https://api.example.com/endpoint {foo: "bar", baz: 123}
+# GET with auth header
+http get -H {Authorization: "Bearer token"} https://api.example.com/data
 
-# POST with custom headers and empty body
-http post https://api.example.com/sync -H {X-API-Key: "secret"} (bytes build)
+# POST with JSON body via pipeline (to json sets content-type metadata)
+{foo: "bar", baz: 123} | to json | http post https://api.example.com/endpoint
 
-# POST with headers and JSON body
-http post --content-type application/json https://api.example.com/data -H {Authorization: "Bearer token"} {key: "value"}
+# POST with explicit content-type flag (alternative approach)
+http post -t json https://api.example.com/endpoint {foo: "bar", baz: 123}
+
+# POST with headers but empty body (bytes build creates empty body)
+http post -H {X-API-Key: "secret"} https://api.example.com/sync (bytes build)
+
+# POST with both headers and JSON body
+http post -t json -H {Authorization: "Bearer token"} https://api.example.com/data {key: "value"}
 ```
 
 **Parallel iteration:** Prefer `par-each` over `each` for better performance. `par-each` runs closures in parallel across multiple threads.
