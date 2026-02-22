@@ -3,10 +3,10 @@ use miette::{Diagnostic, SourceCode, SourceSpan};
 use nu_protocol::{
     PipelineData, PipelineExecutionData, Signals, Span, Value,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{CurrentJob, EngineState, Job, Mailbox, Stack, StateWorkingSet, ThreadJob},
 };
 use std::{
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, Mutex as StdMutex, atomic::AtomicBool, mpsc},
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Mutex;
@@ -165,9 +165,56 @@ pub(crate) fn shell_error_to_mcp_error(
     )
 }
 
-/// MCP error for cancelled operations.
-fn cancelled_error() -> rmcp::ErrorData {
-    rmcp::ErrorData::internal_error("Operation cancelled by client".to_string(), None)
+/// MCP error for promoted jobs. See [`Evaluator::eval_async`] for details.
+fn promoted_to_job_error(job_id: nu_protocol::JobId) -> rmcp::ErrorData {
+    rmcp::ErrorData::internal_error(
+        format!(
+            "Operation promoted to background job (id: {}). \
+            This is a best-effort notification - use `job list` to see active jobs \
+            and `job recv` to retrieve results when ready.",
+            job_id.get()
+        ),
+        None,
+    )
+}
+
+fn mcp_job_tag(source: &str) -> Option<String> {
+    const TAG_LEN: usize = 50;
+
+    let mut tag = String::new();
+    let mut tag_len = 0usize;
+    let mut last_was_space = false;
+
+    for ch in source.chars() {
+        if tag_len >= TAG_LEN {
+            break;
+        }
+
+        // Keep tags single-line and table-friendly.
+        let ch = if ch.is_whitespace() { ' ' } else { ch };
+        if ch.is_control() {
+            continue;
+        }
+
+        if ch == ' ' {
+            if tag.is_empty() || last_was_space {
+                continue;
+            }
+            last_was_space = true;
+        } else {
+            last_was_space = false;
+        }
+
+        tag.push(ch);
+        tag_len += 1;
+    }
+
+    let tag = tag.trim_end();
+    if tag.is_empty() {
+        None
+    } else {
+        Some(format!("mcp: {tag}"))
+    }
 }
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
@@ -269,65 +316,167 @@ impl Evaluator {
         }
     }
 
-    /// Evaluates nushell source code with cancellation support.
+    /// Evaluates nushell source code with cancellation support and job promotion.
     ///
     /// This method:
     /// 1. Forks the current state (cheap due to Arc-based copy-on-write)
     /// 2. Runs the evaluation on the forked state in a blocking task
     /// 3. Races the evaluation against the cancellation token
     /// 4. On success: merges changes back to the main state
-    /// 5. On cancellation: discards the forked state, original unchanged
+    /// 5. On cancellation: promotes to background job instead of discarding
+    ///
+    /// # Job Promotion on Cancellation
+    ///
+    /// When a client cancels (e.g., timeout), instead of aborting the evaluation
+    /// and losing work, we promote it to a background job. The evaluation continues
+    /// running, and results are sent to the main mailbox when complete.
+    ///
+    /// Users can discover promoted jobs via:
+    /// - `job list` - see active background jobs
+    /// - `job recv` - retrieve results when ready
+    ///
+    /// Note: Promoted jobs cannot commit state changes (variables, env vars) back
+    /// to the main state - only the output is captured. This matches the semantics
+    /// of regular background jobs spawned via `job spawn`.
+    ///
+    /// # Response on Cancellation
+    ///
+    /// We send a response after cancellation, but this response may be dropped
+    /// by the client since they've already sent cancellation and moved on.
+    /// The real discovery mechanism is via job commands (`job list`, `job recv`).
     pub async fn eval_async(
         &self,
         nu_source: &str,
         ct: CancellationToken,
     ) -> Result<String, rmcp::ErrorData> {
-        // Fork the state for isolated evaluation
-        let (forked_state, interrupt) = {
+        // Fork the state for isolated evaluation and capture the main job context so we don't
+        // accidentally commit a background-job `CurrentJob` back to the main state.
+        let (mut forked_state, interrupt, original_current_job) = {
             let state = self.state.lock().await;
-            state.fork()
+            let original_current_job = state.engine_state.current_job.clone();
+            let (forked_state, interrupt) = state.fork();
+            (forked_state, interrupt, original_current_job)
         };
 
+        // Capture references needed for job promotion
+        let jobs = forked_state.engine_state.jobs.clone();
+        let root_job_sender = forked_state.engine_state.root_job_sender.clone();
         let source = nu_source.to_string();
+        let job_tag = mcp_job_tag(&source);
 
-        // Run evaluation in a blocking task since eval_block is synchronous
-        let eval_handle = tokio::task::spawn_blocking(move || eval_inner(forked_state, &source));
+        // Create a real background job context up front so external process tracking
+        // and `job id` behave consistently if we end up promoting this request.
+        let (job_tx, job_rx) = mpsc::channel();
+        let thread_job = ThreadJob::new(Signals::new(interrupt.clone()), job_tag, job_tx);
+        let job_id = {
+            let mut jobs_guard = jobs.lock().map_err(|_| {
+                rmcp::ErrorData::internal_error("jobs lock poisoned".to_string(), None)
+            })?;
+            jobs_guard.add_job(Job::Thread(thread_job.clone()))
+        };
+        forked_state.engine_state.current_job = CurrentJob {
+            id: job_id,
+            background_thread_job: Some(thread_job),
+            mailbox: Arc::new(StdMutex::new(Mailbox::new(job_rx))),
+        };
 
-        // Set up cancellation monitoring
-        let abort_handle = eval_handle.abort_handle();
+        // Use a oneshot channel to allow the eval result to be handled in either branch
+        let (result_tx, mut result_rx) = tokio::sync::oneshot::channel();
 
-        // Spawn a task to trigger interrupt on cancellation
-        let interrupt_clone = interrupt.clone();
-        let ct_clone = ct.clone();
+        // Run evaluation in a blocking task and send result through channel
         tokio::spawn(async move {
-            ct_clone.cancelled().await;
-            // Trigger nushell's interrupt signal to stop any running commands
-            interrupt_clone.store(true, std::sync::atomic::Ordering::Relaxed);
-            // Abort the blocking task
-            abort_handle.abort();
+            let eval_handle =
+                tokio::task::spawn_blocking(move || eval_inner(forked_state, &source));
+            let result = eval_handle.await;
+            let _ = result_tx.send(result);
         });
 
-        // Wait for evaluation to complete
-        match eval_handle.await {
-            Ok((new_state, eval_result)) => {
-                // Check if we were cancelled
-                if ct.is_cancelled() {
-                    return Err(cancelled_error());
+        // Race evaluation against cancellation
+        tokio::select! {
+            // Evaluation completed before cancellation
+            result = &mut result_rx => {
+                match result {
+                    Ok(Ok((new_state, eval_result))) => {
+                        // If cancellation arrived after completion, surface the result via
+                        // the main mailbox and return a best-effort promotion notice.
+                        if ct.is_cancelled() {
+                            let result_value = match &eval_result {
+                                Ok(output) => Value::string(output, Span::unknown()),
+                                Err(e) => Value::string(format!("error: {}", e.message), Span::unknown()),
+                            };
+                            let _ = root_job_sender
+                                .send((None, PipelineData::Value(result_value, None)));
+                            // Completed already; remove job entry rather than leaving a finished job listed.
+                            if let Ok(mut jobs_guard) = jobs.lock() {
+                                jobs_guard.remove_job(job_id);
+                            }
+                            return Err(promoted_to_job_error(job_id));
+                        }
+                        // Commit the forked state back to main state
+                        let mut new_state = new_state;
+                        new_state.engine_state.current_job = original_current_job;
+                        let mut state = self.state.lock().await;
+                        *state = new_state;
+                        // Finished without promotion; remove from the job table.
+                        if let Ok(mut jobs_guard) = jobs.lock() {
+                            jobs_guard.remove_job(job_id);
+                        }
+                        eval_result
+                    }
+                    Ok(Err(join_error)) => {
+                        if let Ok(mut jobs_guard) = jobs.lock() {
+                            jobs_guard.remove_job(job_id);
+                        }
+                        Err(rmcp::ErrorData::internal_error(
+                            format!("Evaluation task panicked: {join_error}"),
+                            None,
+                        ))
+                    }
+                    Err(_) => {
+                        // Channel closed unexpectedly
+                        if let Ok(mut jobs_guard) = jobs.lock() {
+                            jobs_guard.remove_job(job_id);
+                        }
+                        Err(rmcp::ErrorData::internal_error(
+                            "Evaluation channel closed unexpectedly".to_string(),
+                            None,
+                        ))
+                    }
                 }
-                // Commit the forked state back to main state
-                let mut state = self.state.lock().await;
-                *state = new_state;
-                eval_result
             }
-            Err(join_error) => {
-                if join_error.is_cancelled() {
-                    Err(cancelled_error())
-                } else {
-                    Err(rmcp::ErrorData::internal_error(
-                        format!("Evaluation task panicked: {join_error}"),
-                        None,
-                    ))
-                }
+
+            // Cancellation received - promote to background job (see doc above)
+            _ = ct.cancelled() => {
+                // Note: We DON'T set the interrupt flag - let the eval continue.
+                // The job entry was created up front to ensure correct job control behavior.
+                // Spawn a monitor task that:
+                // 1. Waits for the evaluation to complete (via the channel)
+                // 2. Sends result to main mailbox (for `job recv`)
+                // 3. Cleans up the job entry
+                tokio::spawn(async move {
+                    // Wait for evaluation to complete (it's still running!)
+                    if let Ok(Ok((_, eval_result))) = result_rx.await {
+                        // Send result to main thread's mailbox
+                        // Users retrieve with `job recv`
+                        let result_value = match eval_result {
+                            Ok(output) => Value::string(output, Span::unknown()),
+                            Err(e) => Value::string(format!("error: {}", e.message), Span::unknown()),
+                        };
+                        if let Err(e) = root_job_sender.send((None, PipelineData::Value(result_value, None))) {
+                            tracing::warn!("Failed to send promoted job result to mailbox: {e}");
+                        }
+                    }
+
+                    // Clean up job entry (best-effort, don't panic if mutex is poisoned)
+                    if let Ok(mut jobs_guard) = jobs.lock() {
+                        jobs_guard.remove_job(job_id);
+                    }
+                });
+
+                // Return "promoted" message - this is best-effort notification
+                // Client may or may not see this depending on their timeout handling
+                // Real discovery is via `job list` and `job recv`
+                Err(promoted_to_job_error(job_id))
             }
         }
     }
@@ -338,7 +487,15 @@ impl Evaluator {
     #[cfg(test)]
     pub fn eval(&self, nu_source: &str) -> Result<String, rmcp::ErrorData> {
         // Create a runtime for sync evaluation in tests
-        let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .map_err(|e| {
+                rmcp::ErrorData::internal_error(
+                    format!("failed to create tokio runtime: {e}"),
+                    None,
+                )
+            })?;
         rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
     }
 }
@@ -511,9 +668,12 @@ fn process_pipeline(
     }
 
     let value_to_store = match values.len() {
-        1 => values
-            .pop()
-            .expect("values has exactly one element; this cannot fail"),
+        1 => values.pop().ok_or_else(|| {
+            rmcp::ErrorData::internal_error(
+                "pipeline had exactly one value, but it was missing".to_string(),
+                None,
+            )
+        })?,
         _ => Value::list(values, span.unwrap_or(Span::unknown())),
     };
 
@@ -887,5 +1047,21 @@ mod tests {
             result.contains('1') && !result.contains("999"),
             "Variable should still be 1 after cancelled eval, got: {result}"
         );
+    }
+
+    #[test]
+    fn test_mcp_job_tag_is_single_line_and_trimmed() {
+        let tag = mcp_job_tag("  foo\nbar\tbaz  ").expect("tag should be present");
+        assert!(tag.starts_with("mcp: "));
+        assert!(!tag.contains('\n'));
+        assert!(!tag.contains('\t'));
+        assert!(!tag.ends_with(' '));
+        assert!(tag.contains("foo bar baz"));
+    }
+
+    #[test]
+    fn test_mcp_job_tag_empty_source_is_none() {
+        assert!(mcp_job_tag("").is_none());
+        assert!(mcp_job_tag(" \n\t ").is_none());
     }
 }

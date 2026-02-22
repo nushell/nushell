@@ -235,6 +235,34 @@ job spawn { let my_id = job id; ... }
  - `job send` always takes a target job id. The main thread id is `0`.
  - `job recv --tag N` will ignore untagged messages and messages with other tags.
 
+## Timed-Out Requests (Auto-Promoted Jobs)
+
+When a client times out waiting for a response, the operation is **automatically promoted to a background job** instead of being cancelled. This prevents losing work from long-running operations.
+
+**How it works:**
+1. Client sends a request (e.g., a slow computation)
+2. Client times out and sends cancellation
+3. Server promotes the operation to a background job
+4. Operation continues running in background
+5. Results are sent to the main mailbox when complete
+
+**Discovering promoted jobs:**
+```nu
+# See all active jobs (including auto-promoted ones)
+job list
+# Promoted jobs show a description label like "mcp: <first 50 chars of command>"
+
+# Retrieve results when ready (no --tag needed, messages are untagged)
+job recv
+
+# Or with a timeout
+job recv --timeout 60sec
+```
+
+**Notes:**
+- Promoted jobs cannot commit state changes (variables, environment) back to the main session - only the output is captured. This matches the semantics of regular `job spawn` jobs.
+- The "mcp: ..." shown in `job list` is a description label (set via `job tag`), not to be confused with the numeric filter tags used with `job send --tag N` / `job recv --tag N` for message routing.
+
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.
 You can use the eval tool to run any command that would work on the relevant operating system.
