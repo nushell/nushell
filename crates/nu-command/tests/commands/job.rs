@@ -308,6 +308,7 @@ fn killing_job_removes_it_from_table() {
 // this test is unreliable on the macOS CI, but it worked fine for a couple months.
 // still works on other operating systems.
 #[test]
+#[serial] // try to reduce load during testing with this
 fn killing_job_kills_pids() {
     let actual = nu!(format!(
         r#"
