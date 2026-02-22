@@ -4771,6 +4771,7 @@ dependencies = [
  "kitest",
  "lexopt",
  "linkme",
+ "nu-ansi-term",
  "nu-experimental",
  "nu-glob",
  "nu-path",

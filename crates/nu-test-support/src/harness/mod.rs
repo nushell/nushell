@@ -3,6 +3,7 @@ use std::{
     env,
     fmt::{Debug, Display},
     hash::{DefaultHasher, Hash, Hasher},
+    io::stdout,
     num::NonZeroUsize,
     ops::{ControlFlow, Deref},
     process::ExitCode,
@@ -19,9 +20,7 @@ use itertools::Itertools;
 use kitest::{
     capture::DefaultPanicHookProvider,
     filter::DefaultFilter,
-    formatter::{
-        common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter,
-    },
+    formatter::{common::color::ColorSetting, pretty::PrettyFormatter, terse::TerseFormatter},
     group::{
         SimpleGroupRunner, TestGroupBTreeMap, TestGroupOutcomes, TestGroupRunner, TestGrouper,
     },
@@ -30,6 +29,7 @@ use kitest::{
 };
 #[doc(hidden)]
 pub use linkme;
+use nu_ansi_term::Color;
 use nu_experimental::ExperimentalOption;
 
 #[doc(hidden)]
@@ -303,6 +303,7 @@ struct Args {
     exact: bool,
     filter: Vec<String>,
     format: Format,
+    help: bool,
     ignored: bool,
     list: bool,
     no_capture: bool,
@@ -323,6 +324,7 @@ impl Default for Args {
             exact: false,
             filter: Vec::new(),
             format: Format::Pretty,
+            help: false,
             ignored: false,
             list: false,
             no_capture: false,
@@ -367,24 +369,78 @@ impl Args {
                         _ => todo!(),
                     }
                 }
+                Long("help") => parse_flag(&mut parser, &mut args.help)?,
                 Long("ignored") => parse_flag(&mut parser, &mut args.ignored)?,
                 Long("list") => parse_flag(&mut parser, &mut args.list)?,
                 Long("nocapture" | "no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
                 Long("skip") => args.skip.push(parser.value()?.parse()?),
                 Long("test-threads") => args.test_threads = Some(parser.value()?.parse()?),
-                arg => {
-                    dbg!(arg);
-                    todo!()
-                }
+                arg => return Err(arg.unexpected()),
             }
         }
 
         Ok(args)
     }
+
+    #[rustfmt::skip]
+    fn help() {
+        use std::io::Write;
+
+        let mut out = stdout();
+
+        macro_rules! line {
+            () => {{ let _ = ::std::writeln!(out); }};
+            ($fmt:expr) => {{ let _ = ::std::writeln!(out, $fmt); }};
+            ($fmt:expr, $($args:tt)*) => {{ let _ = ::std::writeln!(out, $fmt, $($args)*); }};
+        }
+
+        line!("nu-test-support test harness (kitest based)");
+        line!();
+        line!("Usage: [OPTIONS] [FILTERS...]");
+        line!();
+        line!("Arguments:");
+        line!("  [OPTIONS]     Settings that adjust how the test binary runs");
+        line!("  [FILTERS...]  Names or patterns of tests to run");
+        line!();
+        line!("Options:");
+        line!("  --color <auto|always|never>  Control colored output");
+        line!("  --exact                      Match filters exactly");
+        line!("  --format <pretty|terse>      Choose output style");
+        line!("  --help                       Show this help text");
+        line!("  --ignored                    Run only ignored tests");
+        line!("  --list                       List tests without running them");
+        line!("  --nocapture                  Print test output directly");
+        line!("  --skip <FILTER>              Skip matching tests, can be used multiple times");
+        line!("  --test-threads <N>           Number of test threads to use, default is {}", *DEFAULT_THREAD_COUNT);
+        line!();
+        line!("Test Attributes:");
+        line!("  #[test]                      Mark a function as a test. Must take no arguments.");
+        line!("  #[should_panic]              Test passes only if it panics."); 
+        line!("                               Can check the panic message with #[should_panic(expected = \"foo\")].");
+        line!("  #[ignore]                    Skip this test in normal runs. Use --ignored to run it.");
+        line!("  #[exp(option = true|false)]  Set an experimental option for this test.");
+        line!("                               For the key import an `ExperimentalOption` and set it to");
+        line!("                               true or false to enable or disable it.");
+        line!("  #[env(KEY = \"value\")]        Set environment variables for this test.");
+        line!("  #[serial]                    Run this test serially, with no other tests at the same time.");
+    }
 }
 
 pub fn main() -> ExitCode {
-    let args = Args::parse().unwrap(); // TODO: handle this better
+    let args = match Args::parse() {
+        Ok(args) => args,
+        Err(err) => {
+            eprintln!("{}: {err}", Color::Red.bold().paint("error"));
+            eprintln!("help: use `--help` to see valid options");
+            eprintln!();
+            return ExitCode::FAILURE;
+        }
+    };
+
+    if args.help {
+        Args::help();
+        return ExitCode::SUCCESS;
+    }
 
     if args.no_capture {
         kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);

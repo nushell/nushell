@@ -25,6 +25,7 @@ itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }
 linkme = { workspace = true }
+nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
 tempfile = { workspace = true }
 which = { workspace = true }
