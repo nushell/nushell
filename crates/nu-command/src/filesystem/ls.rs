@@ -690,6 +690,24 @@ pub fn get_file_type(md: &std::fs::Metadata, display_name: &str, use_mime_type: 
     }
 }
 
+/// Escape control characters in filenames so they are displayed visibly
+/// rather than being interpreted by the terminal.
+fn escape_filename_control_chars(name: &str) -> String {
+    if !name.chars().any(|c| c.is_control()) {
+        return name.to_string();
+    }
+
+    let mut buf = String::with_capacity(name.len());
+    for c in name.chars() {
+        if c.is_control() {
+            buf.extend(c.escape_unicode());
+        } else {
+            buf.push(c);
+        }
+    }
+    buf
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dir_entry_dict(
     filename: &std::path::Path, // absolute path
@@ -715,7 +733,10 @@ pub(crate) fn dir_entry_dict(
     let mut record = Record::new();
     let mut file_type = "unknown".to_string();
 
-    record.push("name", Value::string(display_name, span));
+    record.push(
+        "name",
+        Value::string(escape_filename_control_chars(display_name), span),
+    );
 
     if let Some(md) = metadata {
         file_type = get_file_type(md, display_name, use_mime_type);
@@ -940,7 +961,10 @@ mod windows_helper {
     ) -> Value {
         let mut record = Record::new();
 
-        record.push("name", Value::string(display_name, span));
+        record.push(
+            "name",
+            Value::string(escape_filename_control_chars(display_name), span),
+        );
 
         let find_data = match find_first_file(filename, span) {
             Ok(fd) => fd,
@@ -1118,4 +1142,27 @@ fn read_dir(
         return Ok(Box::new(collected.into_iter()));
     }
     Ok(Box::new(items))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escape_filename_control_chars;
+
+    #[test]
+    fn escape_filename_control_chars_renders_control_chars_visibly() {
+        // Normal filenames pass through unchanged
+        assert_eq!(escape_filename_control_chars("hello.txt"), "hello.txt");
+        // ESC (0x1b) is escaped to its unicode representation
+        assert_eq!(escape_filename_control_chars("hooks\x1bE"), "hooks\\u{1b}E");
+        // NUL byte
+        assert_eq!(
+            escape_filename_control_chars("file\x00name"),
+            "file\\u{0}name"
+        );
+        // Multiple control characters
+        assert_eq!(
+            escape_filename_control_chars("\x01a\x02b"),
+            "\\u{1}a\\u{2}b"
+        );
+    }
 }
