@@ -352,6 +352,7 @@ fn exiting_nushell_kills_jobs() {
 
 #[cfg(unix)]
 #[test]
+#[serial]
 fn jobs_get_group_id_right() {
     let actual = nu!(r#"
             let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
