@@ -18,7 +18,7 @@ nu-protocol = { path = "../nu-protocol", version = "0.110.1", features = ["plugi
 nu-engine = { path = "../nu-engine", version = "0.110.1" }
 nu-parser = { path = "../nu-parser", version = "0.110.1" }
 
-rmcp = { version = "0.14", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
+rmcp = { version = "0.16", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
 schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
