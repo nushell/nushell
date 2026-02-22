@@ -13,7 +13,7 @@ bench = false
 harness = false
 
 [[test]]
-name = "commands"
+name = "tests"
 path = "tests/main.rs"
 harness = false
 

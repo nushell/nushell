@@ -18,7 +18,7 @@ harness = false
 workspace = true
 
 [[test]]
-name = "commands"
+name = "tests"
 path = "tests/main.rs"
 harness = false
 
