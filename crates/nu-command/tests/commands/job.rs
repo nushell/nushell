@@ -258,7 +258,7 @@ fn jobs_get_removed_from_list_after_termination() {
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
-#[serial]
+#[serial] // seems to fail less often with this
 fn job_list_shows_pids() {
     let actual = nu!(format!(
         r#"

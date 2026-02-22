@@ -48,7 +48,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
             use ::nu_test_support::harness::{
                 Cow,
                 IgnoreStatus,
-                NuTestMetaExtra,
+                Extra,
                 PanicExpectation,
                 Test,
                 TestFnHandle,
@@ -62,7 +62,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
 
             #[::nu_test_support::collect_test(::nu_test_support::harness::TESTS)]
             #[linkme(crate = ::nu_test_support::harness::linkme)]
-            static TEST: Test<NuTestMetaExtra> =
+            static TEST: Test<Extra> =
                 Test::new(
                     TestFnHandle::from_const_fn(wrapper),
                     TestMeta {
@@ -70,7 +70,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                         ignore: #ignore_status,
                         should_panic: #panic_expectation,
                         origin: ::nu_test_support::harness::origin!(),
-                        extra: NuTestMetaExtra {
+                        extra: Extra {
                             run_in_serial: #run_in_serial,
                             experimental_options: &[#(#experimental_options),*],
                             environment_variables: &[#(#environment_variables),*],
