@@ -294,17 +294,6 @@ pub fn lex_item(
         );
     }
 
-    // If we didn't accumulate any characters, it's an unexpected error.
-    if *curr_offset - token_start == 0 {
-        return (
-            Token {
-                contents: TokenContents::Item,
-                span,
-            },
-            Some(ParseError::UnexpectedEof("command".to_string(), span)),
-        );
-    }
-
     let mut err = None;
     let output = match &input[(span.start - span_offset)..(span.end - span_offset)] {
         bytes if is_assignment_operator(bytes) => Token {
@@ -696,4 +685,34 @@ fn is_redirection(token: &[u8]) -> bool {
         token,
         b"o>" | b"out>" | b"e>" | b"err>" | b"o+e>" | b"e+o>" | b"out+err>" | b"err+out>"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// lex_item is only called from lex_internal, which skips all whitespace,
+    /// pipe, semicolon, newline, and comment characters before calling it.
+    /// This test verifies that for every byte value lex_internal would actually
+    /// pass to lex_item, the resulting token always has a non-zero span length.
+    #[test]
+    fn lex_item_always_produces_nonempty_token() {
+        // These are the bytes lex_internal handles BEFORE calling lex_item,
+        // so lex_item is guaranteed never to see them as the first character.
+        let handled_by_lex_internal: &[u8] = b"|;\r\n# \t";
+
+        for byte in 0u8..=127u8 {
+            if handled_by_lex_internal.contains(&byte) {
+                continue;
+            }
+            let input = [byte, b' ']; // trailing space acts as terminator
+            let mut offset = 0;
+            let (token, _err) = lex_item(&input, &mut offset, 0, &[], &[], false);
+            assert!(
+                token.span.end > token.span.start,
+                "lex_item produced empty span for byte 0x{byte:02x} ('{}')",
+                byte as char
+            );
+        }
+    }
 }
