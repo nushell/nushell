@@ -78,6 +78,7 @@ fn test_failing_local_socket_fallback() {
 }
 
 #[test]
+#[serial]
 fn test_exit_before_hello_stdio() {
     ensure_stress_env_vars_unset();
     // This can deadlock if not handled properly, so we try several times and timeout

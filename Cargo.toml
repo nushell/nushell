@@ -12,6 +12,12 @@ name = "nu"
 repository = "https://github.com/nushell/nushell"
 rust-version = "1.91.1"
 version = "0.110.1"
+autotests = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -65,6 +71,7 @@ members = [
   "crates/nu-table",
   "crates/nu-term-grid",
   "crates/nu-test-support",
+  "crates/nu-test-support-macros",
   "crates/nu-utils",
   "crates/nuon",
   "crates/nu-mcp",
@@ -109,6 +116,7 @@ indicatif = "0.18"
 interprocess = "2.3.1"
 is_executable = "1.0"
 itertools = "0.14"
+kitest = "0.4.1"
 lean_string = { version = "0.5", features = ["serde"] }
 lexopt = "0.3.1"
 libc = "=0.2.178" # Pinned to avoid loongarch64 build failure with libc >= 0.2.179 (rust-lang/libc#4939)
@@ -119,6 +127,7 @@ lscolors = { version = "0.20", default-features = false }
 lsp-server = "0.7.9"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.5.0"
+linkme = "0.3.35"
 mach2 = "0.6"
 md5 = { version = "0.10", package = "md-5" }
 miette = "7.6"

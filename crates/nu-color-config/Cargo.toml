@@ -9,6 +9,7 @@ version = "0.110.1"
 
 [lib]
 bench = false
+harness = false
 
 [lints]
 workspace = true

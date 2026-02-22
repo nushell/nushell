@@ -59,6 +59,7 @@ fn test_float_equality_comparison() {
         ),
         (Value::test_float(1e-16), Value::test_float(0.0)),
         (
+            #[allow(clippy::eq_op)]
             Value::test_float((1e16 + 1.0) - 1e16),
             Value::test_float(0.0),
         ),

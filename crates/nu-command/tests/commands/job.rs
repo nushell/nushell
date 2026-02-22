@@ -258,6 +258,7 @@ fn jobs_get_removed_from_list_after_termination() {
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
+#[serial] // seems to fail less often with this
 fn job_list_shows_pids() {
     let actual = nu!(format!(
         r#"
@@ -307,7 +308,7 @@ fn killing_job_removes_it_from_table() {
 // this test is unreliable on the macOS CI, but it worked fine for a couple months.
 // still works on other operating systems.
 #[test]
-#[cfg(not(target_os = "macos"))]
+#[serial] // try to reduce load during testing with this
 fn killing_job_kills_pids() {
     let actual = nu!(format!(
         r#"
@@ -352,6 +353,7 @@ fn exiting_nushell_kills_jobs() {
 
 #[cfg(unix)]
 #[test]
+#[serial]
 fn jobs_get_group_id_right() {
     let actual = nu!(r#"
             let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
