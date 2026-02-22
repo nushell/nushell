@@ -2,7 +2,7 @@ use quote::quote;
 use std::mem;
 use syn::{
     Attribute, Expr, Ident, ItemFn, Lit, LitBool, LitStr, Meta, MetaNameValue, Path, Token,
-    parse::ParseStream,
+    parse::ParseStream, spanned::Spanned,
 };
 
 pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
@@ -99,6 +99,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
 
     fn try_from(attrs: Vec<Attribute>) -> Result<Self, Self::Error> {
         let mut test_attrs = TestAttributes::default();
+
         for attr in attrs {
             let Some(ident) = attr.path().get_ident() else {
                 test_attrs.rest.push(attr);
@@ -108,21 +109,39 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
             match ident.to_string().as_str() {
                 "ignore" => match attr.meta {
                     Meta::Path(_) => test_attrs.ignore.0 = true,
+
                     Meta::NameValue(MetaNameValue { value, .. }) => match value {
-                        Expr::Lit(lit) => match lit.lit {
+                        Expr::Lit(expr_lit) => match expr_lit.lit {
                             Lit::Str(lit_str) => {
                                 test_attrs.ignore.0 = true;
                                 test_attrs.ignore.1 = Some(lit_str);
                             }
-                            _ => todo!("error"),
+                            other => {
+                                return Err(syn::Error::new(
+                                    other.span(),
+                                    "invalid #[ignore = ...] value, expected a string like #[ignore = \"reason\"]",
+                                ));
+                            }
                         },
-                        _ => todo!("error"),
+                        other => {
+                            return Err(syn::Error::new(
+                                other.span(),
+                                "invalid #[ignore = ...] value, expected a string literal like #[ignore = \"reason\"]",
+                            ));
+                        }
                     },
-                    Meta::List(_meta_list) => todo!("error"),
+
+                    Meta::List(meta_list) => {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            "invalid #[ignore(...)] form. Use #[ignore] or #[ignore = \"reason\"]",
+                        ));
+                    }
                 },
 
                 "should_panic" => match attr.meta {
                     Meta::Path(_) => test_attrs.should_panic.0 = true,
+
                     Meta::List(meta_list) => meta_list.parse_nested_meta(|meta| {
                         if meta.path.is_ident("expected") {
                             let value = meta.value()?;
@@ -131,22 +150,48 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
                             test_attrs.should_panic.1 = Some(expected);
                             Ok(())
                         } else {
-                            todo!("error")
+                            Err(syn::Error::new(
+                                meta.path.span(),
+                                "unknown argument for #[should_panic(...)]. Only `expected = \"...\"` is supported",
+                            ))
                         }
                     })?,
-                    Meta::NameValue(_) => todo!("error"),
+
+                    Meta::NameValue(nv) => {
+                        return Err(syn::Error::new(
+                            nv.span(),
+                            "invalid #[should_panic = ...] form. Use #[should_panic] or #[should_panic(expected = \"...\")]",
+                        ));
+                    }
                 },
 
                 "serial" => match attr.meta {
                     Meta::Path(_) => test_attrs.run_in_serial = Some(true),
+
                     Meta::NameValue(nv) => match nv.value {
                         Expr::Lit(expr_lit) => match expr_lit.lit {
                             Lit::Bool(b) => test_attrs.run_in_serial = Some(b.value),
-                            _ => todo!("error"),
+                            other => {
+                                return Err(syn::Error::new(
+                                    other.span(),
+                                    "invalid #[serial = ...] value, expected a boolean like #[serial = true] or #[serial = false]",
+                                ));
+                            }
                         },
-                        _ => todo!("error"),
+                        other => {
+                            return Err(syn::Error::new(
+                                other.span(),
+                                "invalid #[serial = ...] value, expected a boolean literal",
+                            ));
+                        }
                     },
-                    Meta::List(_) => todo!("error"),
+
+                    Meta::List(meta_list) => {
+                        return Err(syn::Error::new(
+                            meta_list.span(),
+                            "invalid #[serial(...)] form. Use #[serial] or #[serial = true|false]",
+                        ));
+                    }
                 },
 
                 "exp" | "experimental_options" => {
@@ -157,7 +202,7 @@ impl TryFrom<Vec<Attribute>> for TestAttributes {
                                     let path: Path = input.parse()?;
                                     if !input.peek(Token![=]) {
                                         return Ok((path, None));
-                                    };
+                                    }
                                     let _: Token![=] = input.parse()?;
                                     let value: LitBool = input.parse()?;
                                     Ok((path, Some(value)))
