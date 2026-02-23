@@ -6,6 +6,7 @@ use tabled::{
         ansi::ANSIStr,
         config::{Borders, CompactMultilineConfig},
         dimension::{DimensionPriority, PoolTableDimension},
+        util::string::get_text_width,
     },
     settings::{Alignment, Color, Padding, TableOption},
     tables::{PoolTable, TableValue},
@@ -167,30 +168,84 @@ fn build_map_from_record(vals: Vec<Value>, config: &Config) -> TableValue {
     // assumes that we have a valid record structure (checked by is_valid_record)
 
     let head = get_columns_in_record(&vals);
-    let mut list = Vec::with_capacity(head.len());
+    let count_columns = head.len();
+
+    let mut v = vec![Vec::with_capacity(count_columns); vals.len() + 1];
+
     for col in head {
-        list.push(TableValue::Column(vec![TableValue::Cell(col)]));
+        v[0].push(TableValue::Cell(col));
     }
 
-    for val in vals {
-        let val = get_as_record(val);
-        for (i, (_, val)) in val.into_owned().into_iter().enumerate() {
+    for (i, val) in vals.into_iter().enumerate() {
+        for (_, val) in get_as_record(val).into_owned().into_iter() {
             let value = convert_nu_value_to_table_value(val, config);
-            let list = get_table_value_column_mut(&mut list[i]);
-
-            list.push(value);
+            v[i + 1].push(value);
         }
     }
 
-    TableValue::Row(list)
+    for col in 0..count_columns {
+        let column_width = v
+            .iter()
+            .map(|row| get_table_value_width(&row[col], 2))
+            .max()
+            .unwrap_or(0);
+
+        for row in &mut v {
+            append_table_value_width(&mut row[col], 2, column_width);
+        }
+    }
+
+    let rows = v.into_iter().map(|list| TableValue::Row(list)).collect();
+
+    TableValue::Column(rows)
 }
 
-fn get_table_value_column_mut(val: &mut TableValue) -> &mut Vec<TableValue> {
-    match val {
-        TableValue::Column(row) => row,
-        _ => {
-            unreachable!();
+fn get_table_value_width(value: &TableValue, pad: usize) -> usize {
+    match value {
+        TableValue::Row(vals) => {
+            vals.iter()
+                .map(|v| get_table_value_width(v, pad))
+                .sum::<usize>()
+                + vals.len().saturating_sub(1)
         }
+        TableValue::Column(vals) => vals
+            .iter()
+            .map(|v| get_table_value_width(v, pad))
+            .max()
+            .unwrap_or(0),
+        TableValue::Cell(val) => get_text_width(val) + pad,
+    }
+}
+
+fn append_table_value_width(value: &mut TableValue, pad: usize, new: usize) {
+    let width = get_table_value_width(value, pad);
+
+    match value {
+        TableValue::Row(vals) => {
+            if vals.is_empty() {
+                return;
+            }
+
+            let available = new - width;
+            let share = available / vals.len();
+            let remainder = available % vals.len();
+
+            for val in vals.iter_mut() {
+                let width = get_table_value_width(val, pad);
+                append_table_value_width(val, pad, width + share);
+            }
+
+            if remainder > 0 {
+                let width = get_table_value_width(&vals[0], pad);
+                append_table_value_width(&mut vals[0], pad, width + remainder);
+            }
+        }
+        TableValue::Column(vals) => {
+            for val in vals {
+                append_table_value_width(val, pad, new);
+            }
+        }
+        TableValue::Cell(val) => string_append_to_width(val, new - pad),
     }
 }
 
