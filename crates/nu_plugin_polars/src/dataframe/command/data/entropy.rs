@@ -30,13 +30,13 @@ impl PluginCommand for Entropy {
             .named(
                 "base",
                 SyntaxShape::Float,
-                "Given base, defaults to e",
+                "Given base, defaults to e.",
                 None,
             )
             .named(
                 "normalize",
                 SyntaxShape::Boolean,
-                "Normalize pk if it doesn’t sum to 1. Default to true. ",
+                "Normalize pk if it doesn’t sum to 1. Default to true.",
                 None,
             )
             .input_output_types(vec![(

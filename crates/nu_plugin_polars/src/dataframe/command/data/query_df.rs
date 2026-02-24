@@ -31,7 +31,7 @@ impl PluginCommand for QueryDf {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("sql", SyntaxShape::String, "sql query")
+            .required("sql", SyntaxShape::String, "Sql query.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

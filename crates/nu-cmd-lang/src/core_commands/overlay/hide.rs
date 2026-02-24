@@ -25,7 +25,7 @@ impl Command for OverlayHide {
             .named(
                 "keep-env",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "List of environment variables to keep in the next activated overlay",
+                "List of environment variables to keep in the next activated overlay.",
                 Some('e'),
             )
             .category(Category::Core)

@@ -24,41 +24,41 @@ impl Command for SeqDate {
             .named(
                 "output-format",
                 SyntaxShape::String,
-                "prints dates in this format (defaults to %Y-%m-%d)",
+                "Prints dates in this format (defaults to %Y-%m-%d).",
                 Some('o'),
             )
             .named(
                 "input-format",
                 SyntaxShape::String,
-                "give argument dates in this format (defaults to %Y-%m-%d)",
+                "Give argument dates in this format (defaults to %Y-%m-%d).",
                 Some('i'),
             )
             .named(
                 "begin-date",
                 SyntaxShape::String,
-                "beginning date range",
+                "Beginning date range.",
                 Some('b'),
             )
-            .named("end-date", SyntaxShape::String, "ending date", Some('e'))
+            .named("end-date", SyntaxShape::String, "Ending date.", Some('e'))
             .named(
                 "increment",
                 SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::Int]),
-                "increment dates by this duration (defaults to days if integer)",
+                "Increment dates by this duration (defaults to days if integer).",
                 Some('n'),
             )
             .named(
                 "days",
                 SyntaxShape::Int,
-                "number of days to print (ignored if periods is used)",
+                "Number of days to print (ignored if periods is used).",
                 Some('d'),
             )
             .named(
                 "periods",
                 SyntaxShape::Int,
-                "number of periods to print",
+                "Number of periods to print.",
                 Some('p'),
             )
-            .switch("reverse", "print dates in reverse", Some('r'))
+            .switch("reverse", "Print dates in reverse.", Some('r'))
             .category(Category::Generators)
     }
 

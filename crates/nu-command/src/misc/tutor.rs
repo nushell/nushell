@@ -21,7 +21,7 @@ impl Command for Tutor {
             .named(
                 "find",
                 SyntaxShape::String,
-                "Search tutorial for a phrase",
+                "Search tutorial for a phrase.",
                 Some('f'),
             )
             .category(Category::Misc)

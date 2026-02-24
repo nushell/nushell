@@ -19,7 +19,7 @@ impl Command for Collect {
             )
             .switch(
                 "keep-env",
-                "let the closure affect environment variables",
+                "Let the closure affect environment variables.",
                 None,
             )
             .category(Category::Filters)

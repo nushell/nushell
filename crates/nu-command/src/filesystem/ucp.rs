@@ -39,9 +39,9 @@ impl Command for UCp {
             .switch("verbose", "Explicitly state what is being done.", Some('v'))
             .switch(
                 "force",
-                "if an existing destination file cannot be opened, remove it and try
+                "If an existing destination file cannot be opened, remove it and try
                     again (this option is ignored when the -n option is also used).
-                    currently not implemented for windows",
+                    Currently not implemented for windows.",
                 Some('f'),
             )
             .switch("interactive", "Ask before overwriting files.", Some('i'))
@@ -57,7 +57,7 @@ impl Command for UCp {
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
                 "Preserve only the specified attributes (empty list means no attributes preserved)
                     if not specified only mode is preserved
-                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr",
+                    possible values: mode, ownership (unix only), timestamps, context, link, links, xattr.",
                 None
             )
             .switch("debug", "Explain how a file is copied. Implies -v.", None)

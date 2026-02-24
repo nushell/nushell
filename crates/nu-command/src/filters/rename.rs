@@ -19,13 +19,13 @@ impl Command for Rename {
             .named(
                 "column",
                 SyntaxShape::Record(vec![]),
-                "column name to be changed",
+                "Column name to be changed.",
                 Some('c'),
             )
             .named(
                 "block",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "A closure to apply changes on each column",
+                "A closure to apply changes on each column.",
                 Some('b'),
             )
             .rest(

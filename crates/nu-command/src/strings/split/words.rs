@@ -41,17 +41,17 @@ impl Command for SplitWords {
             .named(
                 "min-word-length",
                 SyntaxShape::Int,
-                "The minimum word length",
+                "The minimum word length.",
                 Some('l'),
             )
             .switch(
                 "grapheme-clusters",
-                "measure word length in grapheme clusters (requires -l)",
+                "Measure word length in grapheme clusters (requires -l).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+)",
+                "Measure word length in UTF-8 bytes (default; requires -l; non-ASCII chars are length 2+).",
                 Some('b'),
             )
     }

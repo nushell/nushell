@@ -28,12 +28,12 @@ impl PluginCommand for ExprConcatStr {
             .required(
                 "separator",
                 SyntaxShape::String,
-                "Separator used during the concatenation",
+                "Separator used during the concatenation.",
             )
             .required(
                 "concat expressions",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "Expression(s) that define the string concatenation",
+                "Expression(s) that define the string concatenation.",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))

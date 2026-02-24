@@ -15,7 +15,7 @@ impl Command for SysCpu {
             .filter()
             .switch(
                 "long",
-                "Get all available columns (slower, needs to sample CPU over time)",
+                "Get all available columns (slower, needs to sample CPU over time).",
                 Some('l'),
             )
             .category(Category::System)

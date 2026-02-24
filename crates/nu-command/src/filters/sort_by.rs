@@ -32,17 +32,17 @@ impl Command for SortBy {
             .switch("reverse", "Sort in reverse order.", Some('r'))
             .switch(
                 "ignore-case",
-                "Sort string-based data case-insensitively",
+                "Sort string-based data case-insensitively.",
                 Some('i'),
             )
             .switch(
                 "natural",
-                "Sort alphanumeric string-based data naturally (1, 9, 10, 99, 100, ...)",
+                "Sort alphanumeric string-based data naturally (1, 9, 10, 99, 100, ...).",
                 Some('n'),
             )
             .switch(
                 "custom",
-                "Use closures to specify a custom sort order, rather than to compute a comparison key",
+                "Use closures to specify a custom sort order, rather than to compute a comparison key.",
                 Some('c'),
             )
             .allow_variants_without_examples(true)

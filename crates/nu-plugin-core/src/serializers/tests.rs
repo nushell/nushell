@@ -221,16 +221,21 @@ macro_rules! generate_tests {
         fn response_round_trip_signature() {
             let signature = PluginSignature::new(
                 Signature::build("nu-plugin")
-                    .required("first", SyntaxShape::String, "first required")
-                    .required("second", SyntaxShape::Int, "second required")
-                    .required_named("first-named", SyntaxShape::String, "first named", Some('f'))
+                    .required("first", SyntaxShape::String, "First required.")
+                    .required("second", SyntaxShape::Int, "Second required.")
+                    .required_named(
+                        "first-named",
+                        SyntaxShape::String,
+                        "First named.",
+                        Some('f'),
+                    )
                     .required_named(
                         "second-named",
                         SyntaxShape::String,
-                        "second named",
+                        "Second named.",
                         Some('s'),
                     )
-                    .rest("remaining", SyntaxShape::Int, "remaining"),
+                    .rest("remaining", SyntaxShape::Int, "Remaining."),
                 vec![],
             );
 

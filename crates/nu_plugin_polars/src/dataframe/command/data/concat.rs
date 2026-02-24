@@ -30,10 +30,10 @@ impl PluginCommand for ConcatDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("no-parallel", "Disable parallel execution", None)
-            .switch("rechunk", "Rechunk the resulting dataframe", None)
-            .switch("to-supertypes", "Cast to supertypes", None)
-            .switch("diagonal", "Concatenate dataframes diagonally", None)
+            .switch("no-parallel", "Disable parallel execution.", None)
+            .switch("rechunk", "Rechunk the resulting dataframe.", None)
+            .switch("to-supertypes", "Cast to supertypes.", None)
+            .switch("diagonal", "Concatenate dataframes diagonally.", None)
             .switch(
                 "no-maintain-order",
                 "Do not maintain order. The default behavior is to maintain order.",
@@ -41,13 +41,13 @@ impl PluginCommand for ConcatDF {
             )
             .switch(
                 "from-partitioned-ds",
-                "Concatenate dataframes from a partitioned dataset",
+                "Concatenate dataframes from a partitioned dataset.",
                 None,
             )
             .rest(
                 "dataframes",
                 SyntaxShape::Any,
-                "The dataframes to concatenate",
+                "The dataframes to concatenate.",
             )
             .input_output_types(vec![
                 (Type::Any, PolarsPluginType::NuDataFrame.into()),

@@ -17,27 +17,27 @@ impl Command for Glob {
             .named(
                 "depth",
                 SyntaxShape::Int,
-                "directory depth to search",
+                "Directory depth to search.",
                 Some('d'),
             )
             .switch(
                 "no-dir",
-                "Whether to filter out directories from the returned paths",
+                "Whether to filter out directories from the returned paths.",
                 Some('D'),
             )
             .switch(
                 "no-file",
-                "Whether to filter out files from the returned paths",
+                "Whether to filter out files from the returned paths.",
                 Some('F'),
             )
             .switch(
                 "no-symlink",
-                "Whether to filter out symlinks from the returned paths",
+                "Whether to filter out symlinks from the returned paths.",
                 Some('S'),
             )
             .switch(
                 "follow-symlinks",
-                "Whether to follow symbolic links to their targets",
+                "Whether to follow symbolic links to their targets.",
                 Some('l'),
             )
             .named(

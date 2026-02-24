@@ -16,7 +16,7 @@ impl Command for DropColumn {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .switch("left", "drop columns from the left", Some('l'))
+            .switch("left", "Drop columns from the left.", Some('l'))
             .optional(
                 "columns",
                 SyntaxShape::Int,

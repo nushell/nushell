@@ -954,7 +954,7 @@ fn parse_extern_inner(
                         *signature = signature.rest(
                             "args",
                             SyntaxShape::ExternalArgument,
-                            "all other arguments to the command",
+                            "All other arguments to the command.",
                         );
                     }
 

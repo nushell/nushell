@@ -59,8 +59,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             .switch("keep-empty", "Keep empty result cells.", Some('k'))
             .switch(
                 "flatten",
-                "combine outputs into a single stream instead of \
-                    collecting them to separate values",
+                "Combine outputs into a single stream instead of collecting them to separate values.",
                 Some('f'),
             )
             .allow_variants_without_examples(true)

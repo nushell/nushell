@@ -42,7 +42,7 @@ impl Command for UMkdir {
             )
             .switch(
                 "verbose",
-                "print a message for each created directory.",
+                "Print a message for each created directory.",
                 Some('v'),
             )
             .category(Category::FileSystem)

@@ -751,13 +751,19 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for file in &self.files {
+        self.try_get_file_contents(span).unwrap_or(&[0u8; 0])
+    }
+
+    pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
+        self.files.iter().find_map(|file| {
             if file.covered_span.contains_span(span) {
-                return &file.content
-                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
+                let start = span.start - file.covered_span.start;
+                let end = span.end - file.covered_span.start;
+                Some(&file.content[start..end])
+            } else {
+                None
             }
-        }
-        &[0u8; 0]
+        })
     }
 
     /// If the span's content starts with the given prefix, return two subspans

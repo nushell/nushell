@@ -255,6 +255,13 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         };
 
         // Platform
+        #[cfg(all(feature = "os", not(target_arch = "wasm32")))]
+        bind_command! {
+            ClipCommand,
+            ClipCopy,
+            ClipPaste,
+        };
+
         #[cfg(feature = "os")]
         bind_command! {
             Clear,

@@ -30,10 +30,10 @@ impl PluginCommand for UnnestDF {
             .named(
                 "separator",
                 SyntaxShape::String,
-                "optional separator to use when creating new column names",
+                "Optional separator to use when creating new column names.",
                 Some('s'),
             )
-            .rest("cols", SyntaxShape::String, "columns to unnest")
+            .rest("cols", SyntaxShape::String, "Columns to unnest.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

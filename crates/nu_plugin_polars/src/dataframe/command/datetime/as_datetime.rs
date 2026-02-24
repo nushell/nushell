@@ -66,9 +66,9 @@ impl PluginCommand for AsDateTime {
                     PolarsPluginType::NuExpression.into(),
                 ),
             ])
-            .required("format", SyntaxShape::String, "formatting date time string")
-            .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
-            .switch("naive", "the input datetimes should be parsed as naive (i.e., not timezone-aware). Ignored if input is an expression.", None)
+            .required("format", SyntaxShape::String, "Formatting date time string.")
+            .switch("not-exact", "The format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01).", Some('n'))
+            .switch("naive", "The input datetimes should be parsed as naive (i.e., not timezone-aware). Ignored if input is an expression.", None)
             .named(
                 "ambiguous",
                 SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
@@ -80,8 +80,8 @@ impl PluginCommand for AsDateTime {
                     Used only when input is a lazyframe or expression and ignored otherwise"#,
                 Some('a'),
             )            .category(Category::Custom("dataframe".into()))
-            .named("time-unit", SyntaxShape::String, "time unit for the output datetime. One of: ns, us, ms. Default is ns", None)
-            .named("time-zone", SyntaxShape::String, "time zone for the output datetime. E.g. 'UTC', 'America/New_York'",  None)
+            .named("time-unit", SyntaxShape::String, "Time unit for the output datetime. One of: ns, us, ms. Default is ns.", None)
+            .named("time-zone", SyntaxShape::String, "Time zone for the output datetime. E.g. 'UTC', 'America/New_York'.",  None)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

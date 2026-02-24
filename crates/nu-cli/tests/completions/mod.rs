@@ -345,6 +345,38 @@ fn custom_completions_override_display_value() {
     match_suggestions(&vec!["first", "second"], &suggestions);
 }
 
+#[test]
+fn custom_completions_strip_ansi_from_values() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            [$"\u{1b}[35mfoo", $"\u{1b}[31mbar", $"\u{1b}]8;;http://example.com\u{7}baz\u{1b}]8;;\u{7}"]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["bar", "baz", "foo"], &suggestions);
+}
+
+#[test]
+fn custom_completions_strip_ansi_from_record_values() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            [{ value: $"\u{1b}[35mmagenta_dir" }, { value: "plain_dir" }]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command ";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["magenta_dir", "plain_dir"], &suggestions);
+}
+
 #[rstest]
 /// Fallback to file completions if custom completer returns null
 #[case::fallback(r#"
@@ -840,17 +872,9 @@ fn dotnu_stdlib_completions() {
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["std/assert"], &suggestions);
 
-    let completion_str = "use `std-rfc/cli";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["std-rfc/clip"], &suggestions);
-
     let completion_str = "use \"std";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["std", "std-rfc"], &suggestions);
-
-    let completion_str = "overlay use 'std-rfc/cli";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["std-rfc/clip"], &suggestions);
 }
 
 #[test]
@@ -875,10 +899,6 @@ fn exportable_completions() {
     let completion_str = "use std/assert \"not eq";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["'not equal'"], &suggestions);
-
-    let completion_str = "use std-rfc/clip ['prefi";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["prefix"], &suggestions);
 
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete(completion_str, completion_str.len());
@@ -2640,55 +2660,38 @@ fn unlet_variable_grandparent_stack_not_in_completions() {
     );
 }
 
-#[test]
-fn record_cell_path_completions() {
+#[rstest]
+#[case("$foo.")]
+#[case("$foo.a.1.")]
+#[case("($foo).")]
+#[case("$bar.")]
+#[case("$bar.a.1.")]
+#[case("{a: [1 {a: 2}]}.a.1.")]
+fn record_cell_path_completions(#[case] input: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let expected: Vec<_> = vec!["a"];
-    let completion_str = "$foo.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$foo.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$bar.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "$bar.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let completion_str = "{a: [1 {a: 2}]}.a.1.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete(input, input.len());
+    let expected = ["a"].into();
     match_suggestions(&expected, &suggestions);
 }
 
-#[test]
-fn table_cell_path_completions() {
+#[rstest]
+#[case("$foo.", ["a"].into())]
+#[case("$foo.a.", ["b"].into())]
+#[case("($foo).", ["a"].into())]
+#[case("($foo).a.", ["b"].into())]
+#[case("$bar.", ["a", "b"].into())]
+#[case("($bar).", ["a", "b"].into())]
+fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let expected: Vec<_> = vec!["a"];
-    let completion_str = "$foo.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let expected: Vec<_> = vec!["b"];
-    let completion_str = "$foo.a.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&expected, &suggestions);
-
-    let expected: Vec<_> = vec!["a", "b"];
-    let completion_str = "$bar.";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete(input, input.len());
     match_suggestions(&expected, &suggestions);
 }
 
@@ -3359,4 +3362,32 @@ fn suggestion_match_indices(
         assert_eq!(*value, sugg.value);
         assert_eq!(Some(indices), sugg.match_indices);
     }
+}
+
+#[test]
+fn clip_subcommands_show_before_and_after_use() {
+    // Ensure `clip` subcommands (e.g. `clip copy`) appear in completions both before
+    // and after `use std/clip`.
+    let (_, _, mut engine, mut stack) = new_engine();
+
+    // Before `use` — built-in `clip copy` should be present
+    let mut completer = NuCompleter::new(Arc::new(engine.clone()), Arc::new(stack.clone()));
+    let suggestions = completer.complete("clip ", 5);
+    assert!(suggestions.iter().any(|s| s.value == "clip copy"));
+
+    // Also check the no-space case (`clip`) returns subcommands
+    let suggestions_no_space = completer.complete("clip", 4);
+    assert!(suggestions_no_space.iter().any(|s| s.value == "clip copy"));
+
+    // After `use std/clip` — completions should still include `clip copy`
+    // load_standard_library registers the virtual std paths so `use std/clip` can be parsed
+    assert!(load_standard_library(&mut engine).is_ok());
+    assert!(support::merge_input("use std/clip".as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer2 = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions2 = completer2.complete("clip ", 5);
+    assert!(suggestions2.iter().any(|s| s.value == "clip copy"));
+
+    // And the no-space case after `use`
+    let suggestions2_no_space = completer2.complete("clip", 4);
+    assert!(suggestions2_no_space.iter().any(|s| s.value == "clip copy"));
 }

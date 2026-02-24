@@ -27,7 +27,7 @@ impl Command for SplitRow {
             .named(
                 "number",
                 SyntaxShape::Int,
-                "Split into maximum number of items",
+                "Split into maximum number of items.",
                 Some('n'),
             )
             .switch("regex", "Use regex syntax for separator.", Some('r'))

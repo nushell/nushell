@@ -1,4 +1,4 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
+use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::nu_with_plugins;
 use nu_test_support::playground::Playground;
 use pretty_assertions::assert_eq;
@@ -55,5 +55,103 @@ fn read_ini_with_missing_session() {
         );
 
         assert_eq!(actual.out, "450");
+    })
+}
+
+#[test]
+fn read_ini_with_no_escape() {
+    Playground::setup("from ini with no escape", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "windows_path.ini",
+            "[start]\nfile=C:\\Windows\\System32\\xcopy.exe\n",
+        )]);
+
+        let cwd = dirs.test();
+        let default = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open windows_path.ini --raw | from ini"
+        );
+        assert!(default.err.contains("unknown character in \\xHH form"));
+
+        let actual = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open windows_path.ini --raw | from ini --no-escape | get start.file"
+        );
+
+        assert_eq!(actual.out, r"C:\Windows\System32\xcopy.exe");
+    })
+}
+
+#[test]
+fn read_ini_with_no_quote() {
+    Playground::setup("from ini with no quote", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent("quoted.ini", "[foo]\nbar='quoted'\n")]);
+
+        let cwd = dirs.test();
+        let default = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open quoted.ini --raw | from ini | get foo.bar | $in == 'quoted'"
+        );
+        assert_eq!(default.out, "true");
+
+        let no_quote = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open quoted.ini --raw | from ini --no-quote | get foo.bar | $in == \"'quoted'\""
+        );
+        assert_eq!(no_quote.out, "true");
+    })
+}
+
+#[test]
+fn read_ini_with_indented_multiline_value() {
+    Playground::setup("from ini with indented multiline", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "multiline.ini",
+            "[foo]\nbar=line one\n  line two\n",
+        )]);
+
+        let cwd = dirs.test();
+        let default = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open multiline.ini --raw | from ini | get foo.bar | str contains 'line two'"
+        );
+        assert_ne!(default.out, "true");
+
+        let multiline = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open multiline.ini --raw | from ini -m | get foo.bar | str contains 'line two'"
+        );
+        assert_eq!(multiline.out, "true");
+    })
+}
+
+#[test]
+fn read_ini_with_preserve_key_leading_whitespace() {
+    Playground::setup("from ini with key whitespace", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "key_whitespace.ini",
+            "[foo]\n  key=value\n",
+        )]);
+
+        let cwd = dirs.test();
+        let default = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open key_whitespace.ini --raw | from ini | get foo.key"
+        );
+        assert_eq!(default.out, "value");
+
+        let keep = nu_with_plugins!(
+            cwd: cwd,
+            plugin: ("nu_plugin_formats"),
+            "open key_whitespace.ini --raw | from ini -w | get foo.'  key'"
+        );
+        assert_eq!(keep.out, "value");
     })
 }

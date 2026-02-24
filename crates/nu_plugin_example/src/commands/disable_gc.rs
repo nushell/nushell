@@ -30,7 +30,7 @@ using `plugin stop example`."
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("reset", "Turn the garbage collector back on", None)
+            .switch("reset", "Turn the garbage collector back on.", None)
             .category(Category::Experimental)
     }
 

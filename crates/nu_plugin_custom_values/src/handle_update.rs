@@ -25,7 +25,7 @@ impl SimplePluginCommand for HandleUpdate {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "the closure to run on the value",
+                "The closure to run on the value.",
             )
     }
 

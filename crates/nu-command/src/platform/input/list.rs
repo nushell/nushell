@@ -191,19 +191,19 @@ impl Command for InputList {
             .optional("prompt", SyntaxShape::String, "The prompt to display.")
             .switch(
                 "multi",
-                "Use multiple results, you can press a to toggle all, Ctrl+R to refine",
+                "Use multiple results, you can press a to toggle all, Ctrl+R to refine.",
                 Some('m'),
             )
             .switch("fuzzy", "Use a fuzzy select.", Some('f'))
             .switch("index", "Returns list indexes.", Some('i'))
             .switch(
                 "no-footer",
-                "Hide the footer showing item count and selection count",
+                "Hide the footer showing item count and selection count.",
                 Some('n'),
             )
             .switch(
                 "no-separator",
-                "Hide the separator line between the search box and results",
+                "Hide the separator line between the search box and results.",
                 None,
             )
             .named(
@@ -223,12 +223,12 @@ impl Command for InputList {
             )
             .switch(
                 "no-table",
-                "Disable table rendering for table input (show as single lines)",
+                "Disable table rendering for table input (show as single lines).",
                 Some('t'),
             )
             .switch(
                 "per-column",
-                "Match filter text against each column independently (table mode only)",
+                "Match filter text against each column independently (table mode only).",
                 Some('c'),
             )
             .allow_variants_without_examples(true)

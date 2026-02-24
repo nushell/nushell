@@ -29,12 +29,12 @@ impl PluginCommand for Replace {
             .required(
                 "old",
                 SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
-                "Values to be replaced",
+                "Values to be replaced.",
             )
             .optional(
                 "new",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "Values to replace by",
+                "Values to replace by.",
             )
             .switch(
                 "strict",

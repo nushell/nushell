@@ -31,7 +31,7 @@ impl PluginCommand for LastDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .optional("rows", SyntaxShape::Int, "Number of rows for tail")
+            .optional("rows", SyntaxShape::Int, "Number of rows for tail.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),

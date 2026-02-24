@@ -35,7 +35,7 @@ impl PluginCommand for ToDecimal {
             .required(
                 "infer_length",
                 SyntaxShape::Int,
-                "Number of decimal points to infer",
+                "Number of decimal points to infer.",
             )
             .input_output_type(
                 PolarsPluginType::NuExpression.into(),

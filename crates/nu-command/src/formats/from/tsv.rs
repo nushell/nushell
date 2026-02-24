@@ -15,29 +15,29 @@ impl Command for FromTsv {
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it",
+                "A comment character to ignore lines starting with it.",
                 Some('c'),
             )
             .named(
                 "quote",
                 SyntaxShape::String,
-                "a quote character to ignore separators in strings, defaults to '\"'",
+                "A quote character to ignore separators in strings, defaults to '\"'.",
                 Some('q'),
             )
             .named(
                 "escape",
                 SyntaxShape::String,
-                "an escape character for strings containing the quote character",
+                "An escape character for strings containing the quote character.",
                 Some('e'),
             )
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
             .switch(
                 "flexible",
-                "allow the number of fields in records to be variable",
+                "Allow the number of fields in records to be variable.",
                 None,
             )
             .switch("no-infer", "No field type inferencing.", None)
@@ -46,8 +46,7 @@ impl Command for FromTsv {
                     .short('t')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "drop leading and trailing whitespaces around headers names and/or field \
-                         values",
+                        "Drop leading and trailing whitespaces around headers names and/or field values.",
                     )
                     .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )
@@ -194,14 +193,16 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a\tb\n1\t2" | metadata set --content-type 'text/tab-separated-values' --datasource-ls | from tsv | metadata | reject span | $in"#;
+        let cmd = r#""a\tb\n1\t2" | metadata set --content-type 'text/tab-separated-values' --path-columns [name] | from tsv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

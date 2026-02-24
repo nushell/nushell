@@ -16,12 +16,12 @@ impl Command for DetectType {
             .input_output_types(vec![(Type::String, Type::Any), (Type::Any, Type::Any)])
             .switch(
                 "prefer-filesize",
-                "For ints display them as human-readable file sizes",
+                "For ints display them as human-readable file sizes.",
                 Some('f'),
             )
             .switch(
                 "prefer-dmy",
-                "Prefer day-month-year format for ambiguous dates",
+                "Prefer day-month-year format for ambiguous dates.",
                 None,
             )
             .category(Category::Strings)

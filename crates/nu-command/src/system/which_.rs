@@ -19,7 +19,7 @@ impl Command for Which {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .allow_variants_without_examples(true)
             .rest("applications", SyntaxShape::String, "Application(s).")
-            .switch("all", "list all executables", Some('a'))
+            .switch("all", "List all executables.", Some('a'))
             .category(Category::System)
     }
 

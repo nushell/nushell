@@ -15,7 +15,7 @@ impl Command for GroupBy {
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Any)])
             .switch(
                 "to-table",
-                "Return a table with \"groups\" and \"items\" columns",
+                "Return a table with \"groups\" and \"items\" columns.",
                 None,
             )
             .rest(

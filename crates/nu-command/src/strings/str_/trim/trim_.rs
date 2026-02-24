@@ -48,17 +48,17 @@ impl Command for StrTrim {
             .named(
                 "char",
                 SyntaxShape::String,
-                "character to trim (default: whitespace)",
+                "Character to trim (default: whitespace).",
                 Some('c'),
             )
             .switch(
                 "left",
-                "trims characters only from the beginning of the string",
+                "Trims characters only from the beginning of the string.",
                 Some('l'),
             )
             .switch(
                 "right",
-                "trims characters only from the end of the string",
+                "Trims characters only from the end of the string.",
                 Some('r'),
             )
             .category(Category::Strings)

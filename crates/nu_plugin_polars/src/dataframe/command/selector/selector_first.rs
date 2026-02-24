@@ -29,7 +29,7 @@ impl PluginCommand for SelectorFirst {
             .optional(
                 "n",
                 SyntaxShape::Int,
-                "Number of columns to select from the beginning (default: 1)",
+                "Number of columns to select from the beginning (default: 1).",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuSelector.into())
             .category(Category::Custom("expression".into()))

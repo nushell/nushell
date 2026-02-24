@@ -28,7 +28,7 @@ impl PluginCommand for ToLazyGroupBy {
             .rest(
                 "Group-by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the lazy group-by",
+                "Expression(s) that define the lazy group-by.",
             )
             .switch(
                 "maintain-order",

@@ -27,33 +27,33 @@ impl Command for HttpHead {
             .named(
                 "user",
                 SyntaxShape::Any,
-                "the username when authenticating",
+                "The username when authenticating.",
                 Some('u'),
             )
             .named(
                 "password",
                 SyntaxShape::Any,
-                "the password when authenticating",
+                "The password when authenticating.",
                 Some('p'),
             )
             .named(
                 "max-time",
                 SyntaxShape::Duration,
-                "max duration before timeout occurs",
+                "Max duration before timeout occurs.",
                 Some('m'),
             )
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -95,22 +95,22 @@ impl Command for HttpHead {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get headers from example.com",
+                description: "Get headers from example.com.",
                 example: "http head https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with username and password",
+                description: "Get headers from example.com, with username and password.",
                 example: "http head --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header using a record",
+                description: "Get headers from example.com, with custom header using a record.",
                 example: "http head --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get headers from example.com, with custom header using a list",
+                description: "Get headers from example.com, with custom header using a list.",
                 example: "http head --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },

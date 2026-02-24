@@ -79,7 +79,7 @@ impl Command for IntoInt {
             )
             .switch(
                 "signed",
-                "always treat input number as a signed number",
+                "Always treat input number as a signed number.",
                 Some('s'),
             )
             .rest(

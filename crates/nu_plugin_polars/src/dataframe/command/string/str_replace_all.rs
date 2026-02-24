@@ -32,13 +32,13 @@ impl PluginCommand for StrReplaceAll {
             .required_named(
                 "pattern",
                 SyntaxShape::String,
-                "Regex pattern to be matched",
+                "Regex pattern to be matched.",
                 Some('p'),
             )
             .required_named(
                 "replace",
                 SyntaxShape::String,
-                "replacing string",
+                "Replacing string.",
                 Some('r'),
             )
             .input_output_types(vec![

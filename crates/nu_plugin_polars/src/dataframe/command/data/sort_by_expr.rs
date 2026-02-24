@@ -29,20 +29,20 @@ impl PluginCommand for LazySortBy {
             .rest(
                 "sort expression",
                 SyntaxShape::Any,
-                "sort expression for the dataframe",
+                "Sort expression for the dataframe.",
             )
             .named(
                 "reverse",
                 SyntaxShape::List(Box::new(SyntaxShape::Boolean)),
-                "Reverse sorting. Default is false",
+                "Reverse sorting. Default is false.",
                 Some('r'),
             )
             .switch(
                 "nulls-last",
-                "nulls are shown last in the dataframe",
+                "Nulls are shown last in the dataframe.",
                 Some('n'),
             )
-            .switch("maintain-order", "Maintains order during sort", Some('m'))
+            .switch("maintain-order", "Maintains order during sort.", Some('m'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

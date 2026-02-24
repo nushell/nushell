@@ -16,7 +16,7 @@ impl Command for Compact {
             ])
             .switch(
                 "empty",
-                "also compact empty items like \"\", {}, and []",
+                "Also compact empty items like \"\", {}, and [].",
                 Some('e'),
             )
             .rest(

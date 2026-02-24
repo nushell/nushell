@@ -355,14 +355,16 @@ mod tests {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --datasource-ls | from toml | metadata | reject span | $in"#;
+        let cmd = r#""[a]\nb = 1\nc = 1" | metadata set --content-type 'text/x-toml' --path-columns [name] | from toml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

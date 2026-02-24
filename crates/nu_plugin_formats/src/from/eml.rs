@@ -28,7 +28,7 @@ impl SimplePluginCommand for FromEml {
             .named(
                 "preview-body",
                 SyntaxShape::Int,
-                "How many bytes of the body to preview",
+                "How many bytes of the body to preview.",
                 Some('b'),
             )
             .category(Category::Formats)

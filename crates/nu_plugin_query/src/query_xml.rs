@@ -32,11 +32,11 @@ Output of the nodeset results depends on the flags used:
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("query", SyntaxShape::String, "xpath query")
+            .required("query", SyntaxShape::String, "Xpath query.")
             .named(
                 "namespaces",
                 SyntaxShape::Record(vec![]),
-                "map of prefixes to namespace URIs",
+                "Map of prefixes to namespace URIs.",
                 Some('n'),
             )
             .switch(

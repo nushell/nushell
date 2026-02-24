@@ -21,12 +21,12 @@ impl Command for Describe {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "no-collect",
-                "do not collect streams of structured data",
+                "Do not collect streams of structured data.",
                 Some('n'),
             )
             .switch(
                 "detailed",
-                "show detailed information about the value",
+                "Show detailed information about the value.",
                 Some('d'),
             )
             .category(Category::Core)

@@ -20,19 +20,19 @@ impl Command for AttrDeprecated {
             .named(
                 "flag",
                 SyntaxShape::String,
-                "Mark a flag as deprecated rather than the command",
+                "Mark a flag as deprecated rather than the command.",
                 None,
             )
             .named(
                 "since",
                 SyntaxShape::String,
-                "Denote a version when this item was deprecated",
+                "Denote a version when this item was deprecated.",
                 Some('s'),
             )
             .named(
                 "remove",
                 SyntaxShape::String,
-                "Denote a version when this item will be removed",
+                "Denote a version when this item will be removed.",
                 Some('r'),
             )
             .param(
