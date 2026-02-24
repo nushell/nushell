@@ -172,20 +172,27 @@ fn get_all_entries_in_path(
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Vec<Value> {
+    // `which_in_all` canonicalizes every result path. On systems where PATH
+    // contains both a real directory and a symlink pointing to the same place
+    // (e.g. `/usr/bin` and `/bin -> /usr/bin` on WSL/Debian), the same
+    // canonical path would appear multiple times. The HashSet deduplicates
+    // those before we build the output rows.
+    let mut seen = HashSet::new();
     which::which_in_all(item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| {
-                let full_path = path.to_string_lossy().to_string();
-                entry(
-                    item,
-                    full_path.clone(),
-                    CommandType::External,
-                    None,
-                    Some(full_path),
-                    span,
-                )
-            })
-            .collect()
+            iter.filter(|path| seen.insert(path.clone()))
+                .map(|path| {
+                    let full_path = path.to_string_lossy().to_string();
+                    entry(
+                        item,
+                        full_path.clone(),
+                        CommandType::External,
+                        None,
+                        Some(full_path),
+                        span,
+                    )
+                })
+                .collect()
         })
         .unwrap_or_default()
 }
@@ -271,17 +278,14 @@ fn which_single(
 ) -> Vec<Value> {
     let cwd = cwd.as_ref();
     let paths = paths.as_ref();
-
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
         (false, application.item.clone())
     };
 
-    //If prog_name is an external command, don't search for nu-specific programs
-    //If all is false, we can save some time by only searching for the first matching
-    //program
-    //This match handles all different cases
+    // If prog_name is an external command, don't search for nu-specific programs.
+    // If all is false, we can save some time by only searching for the first match.
     match (all, external) {
         (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
         (true, false) => {
@@ -321,13 +325,14 @@ fn which(
     let mut output = vec![];
 
     let cwd = engine_state.cwd_as_string(Some(stack))?;
+
     // PATH may not be set in minimal environments (e.g. plugin test harnesses).
     // In that case we can still resolve built-ins, aliases, custom commands and
     // known externals; we just won't find any PATH-based binaries.
     let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
     if which_args.applications.is_empty() {
-        return Ok(list_all_executables(engine_state, paths, which_args.all)
+        return Ok(list_all_executables(engine_state, &paths, which_args.all)
             .into_iter()
             .into_pipeline_data(head, engine_state.signals().clone()));
     }
