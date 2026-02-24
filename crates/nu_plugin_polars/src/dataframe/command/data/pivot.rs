@@ -70,9 +70,6 @@ impl PluginCommand for PivotDF {
                 Some('p'),
             )
             .switch(
-                "maintain-order",
-                "Maintain column order",
-                Some('m'),
                 "sort",
                 "Sort columns",
                 Some('s'),
@@ -80,19 +77,6 @@ impl PluginCommand for PivotDF {
             .switch(
                 "streamable",
                 "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
-                Some('t'),
-            )
-            .switch(
-                "stable",
-                "Perform a stable pivot.",
-                None,
-                "sort",
-                "Sort columns.",
-                Some('s'),
-            )
-            .switch(
-                "streamable",
-                "Whether or not to use the polars streaming engine. Only valid for lazy dataframes.",
                 Some('t'),
             )
             .switch(

@@ -32,10 +32,6 @@ impl PluginCommand for LazyExplode {
                 "columns",
                 SyntaxShape::Any,
                 "A polars selector or columns to explode, only applicable for dataframes",
-                SyntaxShape::String,
-                "columns to explode, only applicable for dataframes",
-                SyntaxShape::String,
-                "Columns to explode, only applicable for dataframes.",
             )
             .input_output_types(vec![
                 (
