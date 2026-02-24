@@ -35,7 +35,7 @@ impl Command for ViewSpan {
         let start_span: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let end_span: Spanned<usize> = call.req(engine_state, stack, 1)?;
 
-        let source = if start_span.item < end_span.item {
+        let source = if start_span.item <= end_span.item {
             let bin_contents =
                 engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
             Ok(
