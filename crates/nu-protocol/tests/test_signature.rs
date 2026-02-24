@@ -25,7 +25,12 @@ fn test_signature_chained() {
             "Required named description.",
             Some('r'),
         )
-        .named("named", SyntaxShape::String, "Named description.", Some('n'))
+        .named(
+            "named",
+            SyntaxShape::String,
+            "Named description.",
+            Some('n'),
+        )
         .switch("switch", "Switch description.", None)
         .rest("rest", SyntaxShape::String, "rest description");
 
@@ -111,7 +116,12 @@ fn test_signature_same_short() {
             "Required named description.",
             Some('n'),
         )
-        .named("named", SyntaxShape::String, "Named description.", Some('n'));
+        .named(
+            "named",
+            SyntaxShape::String,
+            "Named description.",
+            Some('n'),
+        );
 }
 
 #[test]
@@ -141,7 +151,12 @@ fn test_signature_round_trip() {
             "Required named description.",
             Some('r'),
         )
-        .named("named", SyntaxShape::String, "Named description.", Some('n'))
+        .named(
+            "named",
+            SyntaxShape::String,
+            "Named description.",
+            Some('n'),
+        )
         .switch("switch", "Switch description.", None)
         .rest("rest", SyntaxShape::String, "Rest description.")
         .category(nu_protocol::Category::Conversions);

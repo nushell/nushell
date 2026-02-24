@@ -223,7 +223,12 @@ macro_rules! generate_tests {
                 Signature::build("nu-plugin")
                     .required("first", SyntaxShape::String, "First required.")
                     .required("second", SyntaxShape::Int, "Second required.")
-                    .required_named("first-named", SyntaxShape::String, "First named.", Some('f'))
+                    .required_named(
+                        "first-named",
+                        SyntaxShape::String,
+                        "First named.",
+                        Some('f'),
+                    )
                     .required_named(
                         "second-named",
                         SyntaxShape::String,

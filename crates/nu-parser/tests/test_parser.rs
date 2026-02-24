@@ -2346,7 +2346,11 @@ mod mock {
                 .input_output_types(vec![(Type::Nothing, Type::Nothing)])
                 .required("def_name", SyntaxShape::String, "Definition name.")
                 .required("params", SyntaxShape::Signature, "Parameters.")
-                .required("body", SyntaxShape::Closure(None), "Body of the definition.")
+                .required(
+                    "body",
+                    SyntaxShape::Closure(None),
+                    "Body of the definition.",
+                )
                 .category(Category::Core)
         }
 

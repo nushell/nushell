@@ -37,7 +37,11 @@ impl PluginCommand for SaveDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::String, "Path or cloud url to write to.")
+            .required(
+                "path",
+                SyntaxShape::String,
+                "Path or cloud url to write to.",
+            )
             .named(
                 "type",
                 SyntaxShape::String,
