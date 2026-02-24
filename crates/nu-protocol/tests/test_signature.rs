@@ -18,7 +18,7 @@ fn test_signature_chained() {
     let signature = Signature::new("new_signature")
         .description("description")
         .required("required", SyntaxShape::String, "Required description.")
-        .optional("optional", SyntaxShape::String, "optional description")
+        .optional("optional", SyntaxShape::String, "Optional description.")
         .required_named(
             "req-named",
             SyntaxShape::String,
@@ -32,7 +32,7 @@ fn test_signature_chained() {
             Some('n'),
         )
         .switch("switch", "Switch description.", None)
-        .rest("rest", SyntaxShape::String, "rest description");
+        .rest("rest", SyntaxShape::String, "Rest description.");
 
     assert_eq!(signature.required_positional.len(), 1);
     assert_eq!(signature.optional_positional.len(), 1);
@@ -46,7 +46,7 @@ fn test_signature_chained() {
         signature.get_positional(0),
         Some(&PositionalArg {
             name: "required".to_string(),
-            desc: "required description".to_string(),
+            desc: "Required description.".to_string(),
             shape: SyntaxShape::String,
             var_id: None,
             default_value: None,
@@ -57,7 +57,7 @@ fn test_signature_chained() {
         signature.get_positional(1),
         Some(&PositionalArg {
             name: "optional".to_string(),
-            desc: "optional description".to_string(),
+            desc: "Optional description.".to_string(),
             shape: SyntaxShape::String,
             var_id: None,
             default_value: None,
@@ -68,7 +68,7 @@ fn test_signature_chained() {
         signature.get_positional(2),
         Some(&PositionalArg {
             name: "rest".to_string(),
-            desc: "rest description".to_string(),
+            desc: "Rest description.".to_string(),
             shape: SyntaxShape::String,
             var_id: None,
             default_value: None,
@@ -83,7 +83,7 @@ fn test_signature_chained() {
             short: Some('r'),
             arg: Some(SyntaxShape::String),
             required: true,
-            desc: "required named description".to_string(),
+            desc: "Required named description.".to_string(),
             var_id: None,
             default_value: None,
             completion: None,
@@ -97,7 +97,7 @@ fn test_signature_chained() {
             short: Some('r'),
             arg: Some(SyntaxShape::String),
             required: true,
-            desc: "required named description".to_string(),
+            desc: "Required named description.".to_string(),
             var_id: None,
             default_value: None,
             completion: None,
