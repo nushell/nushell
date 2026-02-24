@@ -2,6 +2,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::io::IoError};
 use std::io::Read;
 
+#[cfg(feature = "sqlite")]
+use crate::database::SQLiteQueryBuilder;
+
 #[derive(Clone)]
 pub struct First;
 
@@ -27,7 +30,7 @@ impl Command for First {
                 SyntaxShape::Int,
                 "Starting from the front, the number of rows to return.",
             )
-            .switch("strict", "Throw an error if input is empty", Some('s'))
+            .switch("strict", "Throw an error if input is empty.", Some('s'))
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -49,12 +52,12 @@ impl Command for First {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return the first item of a list/table",
+                description: "Return the first item of a list/table.",
                 example: "[1 2 3] | first",
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Return the first 2 items of a list/table",
+                description: "Return the first 2 items of a list/table.",
                 example: "[1 2 3] | first 2",
                 result: Some(Value::list(
                     vec![Value::test_int(1), Value::test_int(2)],
@@ -62,12 +65,12 @@ impl Command for First {
                 )),
             },
             Example {
-                description: "Return the first 2 bytes of a binary value",
+                description: "Return the first 2 bytes of a binary value.",
                 example: "0x[01 23 45] | first 2",
                 result: Some(Value::binary(vec![0x01, 0x23], Span::test_data())),
             },
             Example {
-                description: "Return the first item of a range",
+                description: "Return the first item of a range.",
                 example: "1..3 | first",
                 result: Some(Value::test_int(1)),
             },
@@ -166,6 +169,49 @@ fn first_helper(
                 }
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error, .. } => Err(*error),
+                #[cfg(feature = "sqlite")]
+                // Pushdown optimization: handle 'first' on SQLiteQueryBuilder for lazy SQL execution
+                Value::Custom {
+                    val: custom_val,
+                    internal_span,
+                    ..
+                } => {
+                    if let Some(table) = custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>() {
+                        if return_single_element {
+                            // For single element, limit 1
+                            let new_table = table.clone().with_limit(1);
+                            let result = new_table.execute(head)?;
+                            let value = result.into_value(head)?;
+                            if let Value::List { vals, .. } = value {
+                                if let Some(val) = vals.into_iter().next() {
+                                    Ok(val.into_pipeline_data())
+                                } else if strict_mode {
+                                    Err(ShellError::AccessEmptyContent { span: head })
+                                } else {
+                                    // There are no values, so return nothing instead of an error so
+                                    // that users can pipe this through 'default' if they want to.
+                                    Ok(Value::nothing(head)
+                                        .into_pipeline_data_with_metadata(metadata))
+                                }
+                            } else {
+                                Err(ShellError::NushellFailed {
+                                    msg: "Expected list from SQLiteQueryBuilder".into(),
+                                })
+                            }
+                        } else {
+                            // For multiple, limit rows
+                            let new_table = table.clone().with_limit(rows as i64);
+                            new_table.execute(head)
+                        }
+                    } else {
+                        Err(ShellError::OnlySupportsThisInputType {
+                            exp_input_type: "list, binary or range".into(),
+                            wrong_type: custom_val.type_name(),
+                            dst_span: head,
+                            src_span: internal_span,
+                        })
+                    }
+                }
                 other => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "list, binary or range".into(),
                     wrong_type: other.get_type().to_string(),

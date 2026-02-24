@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
-use nu_test_support::{nu, nu_repl_code};
+use nu_test_support::{nu, nu_repl_code, nu_with_std};
 
 // Note: These tests might slightly overlap with tests/scope/mod.rs
 
@@ -367,6 +367,52 @@ fn help_modules_main_2() {
     assert_eq!(actual.out, "spam");
 }
 
+#[test]
+fn help_shows_module_qualified_usage() {
+    let inp = &[
+        r#"module spam { export def prefix [p:string] { $p } }"#,
+        "use spam",
+        "help spam prefix",
+    ];
+
+    let actual = nu!(&inp.join("; "));
+
+    // Usage line should show the module-qualified command name
+    assert!(actual.out.contains("> spam prefix"));
+}
+
+#[test]
+fn help_commands_shows_overlay_name_for_module_decls() {
+    Playground::setup("help_overlay_name", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContent(
+            "spam.nu",
+            r#"
+                # exported function
+                export def prefix [prefix: string] { $prefix }
+            "#,
+        )]);
+
+        let code = &[
+            "use spam.nu",
+            "help commands | where name == \"spam prefix\" | length",
+        ];
+
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(code));
+
+        assert_eq!(actual.out, "1");
+    })
+}
+
+#[test]
+fn clip_command_shows_module_qualified_decls_after_use() {
+    // Ensure running `clip` shows module-qualified subcommands like `clip prefix` after `use std/clip`.
+    let actual = nu_with_std!(r#"use std/clip; clip"#);
+    assert!(
+        actual.out.contains("clip prefix"),
+        "help for `clip` must include `clip prefix`, got:\n{}",
+        actual.out
+    );
+}
 #[test]
 fn nothing_type_annotation() {
     let actual = nu!("

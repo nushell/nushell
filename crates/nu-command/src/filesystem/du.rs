@@ -1,7 +1,7 @@
 use crate::{DirBuilder, DirInfo, FileInfo};
 use nu_engine::command_prelude::*;
 use nu_glob::{MatchOptions, Pattern};
-use nu_protocol::{NuGlob, Signals};
+use nu_protocol::{NuGlob, PipelineMetadata, Signals};
 use serde::Deserialize;
 use std::path::Path;
 
@@ -41,33 +41,33 @@ impl Command for Du {
             )
             .switch(
                 "deref",
-                "Dereference symlinks to their targets for size",
+                "Dereference symlinks to their targets for size.",
                 Some('r'),
             )
             .switch(
                 "long",
-                "Get underlying directories and files for each entry",
+                "Get underlying directories and files for each entry.",
                 Some('l'),
             )
             .named(
                 "exclude",
                 SyntaxShape::GlobPattern,
-                "Exclude these file names",
+                "Exclude these file names.",
                 Some('x'),
             )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
-                "Directory recursion limit",
+                "Directory recursion limit.",
                 Some('d'),
             )
             .named(
                 "min-size",
                 SyntaxShape::Int,
-                "Exclude files below this size",
+                "Exclude files below this size.",
                 Some('m'),
             )
-            .switch("all", "move hidden files if '*' is provided", Some('a'))
+            .switch("all", "Include hidden files if '*' is provided.", Some('a'))
             .category(Category::FileSystem)
     }
 
@@ -121,7 +121,14 @@ impl Command for Du {
                 };
                 Ok(
                     du_for_one_pattern(args, &current_dir, tag, engine_state.signals().clone())?
-                        .into_pipeline_data(tag, engine_state.signals().clone()),
+                        .into_pipeline_data_with_metadata(
+                            tag,
+                            engine_state.signals().clone(),
+                            PipelineMetadata {
+                                path_columns: vec![String::from("path")],
+                                ..Default::default()
+                            },
+                        ),
                 )
             }
             Some(paths) => {
@@ -148,14 +155,21 @@ impl Command for Du {
                 Ok(result_iters
                     .into_iter()
                     .flatten()
-                    .into_pipeline_data(tag, engine_state.signals().clone()))
+                    .into_pipeline_data_with_metadata(
+                        tag,
+                        engine_state.signals().clone(),
+                        PipelineMetadata {
+                            path_columns: vec![String::from("path")],
+                            ..Default::default()
+                        },
+                    ))
             }
         }
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Disk usage of the current directory",
+            description: "Disk usage of the current directory.",
             example: "du",
             result: None,
         }]

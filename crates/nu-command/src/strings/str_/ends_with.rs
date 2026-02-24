@@ -38,7 +38,7 @@ impl Command for StrEndswith {
                 SyntaxShape::CellPath,
                 "For a data structure input, check strings at the given cell paths, and replace with result.",
             )
-            .switch("ignore-case", "search is case insensitive", Some('i'))
+            .switch("ignore-case", "Search is case insensitive.", Some('i'))
             .category(Category::Strings)
     }
 
@@ -96,12 +96,12 @@ impl Command for StrEndswith {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Checks if string ends with '.rb'",
+                description: "Checks if string ends with '.rb'.",
                 example: "'my_library.rb' | str ends-with '.rb'",
                 result: Some(Value::test_bool(true)),
             },
             Example {
-                description: "Checks if strings end with '.txt'",
+                description: "Checks if strings end with '.txt'.",
                 example: "['my_library.rb', 'README.txt'] | str ends-with '.txt'",
                 result: Some(Value::test_list(vec![
                     Value::test_bool(false),
@@ -109,7 +109,7 @@ impl Command for StrEndswith {
                 ])),
             },
             Example {
-                description: "Checks if string ends with '.RB', case-insensitive",
+                description: "Checks if string ends with '.RB', case-insensitive.",
                 example: "'my_library.rb' | str ends-with --ignore-case '.RB'",
                 result: Some(Value::test_bool(true)),
             },

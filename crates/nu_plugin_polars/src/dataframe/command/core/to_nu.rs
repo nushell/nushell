@@ -30,11 +30,11 @@ impl PluginCommand for ToNu {
             .named(
                 "rows",
                 SyntaxShape::Number,
-                "number of rows to be shown",
+                "Number of rows to be shown.",
                 Some('n'),
             )
-            .switch("tail", "shows tail rows", Some('t'))
-            .switch("index", "add an index column", Some('i'))
+            .switch("tail", "Shows tail rows.", Some('t'))
+            .switch("index", "Add an index column.", Some('i'))
             .input_output_types(
                 PolarsPluginType::types()
                     .iter()
@@ -121,6 +121,10 @@ fn command(
             let value = schema.base_value(call.head)?;
             Ok(PipelineData::value(value, None))
         }
+        PolarsPluginObject::NuSelector(selector) => {
+            let value = selector.to_value(call.head)?;
+            Ok(PipelineData::value(value, None))
+        }
         _ => Err(cant_convert_err(
             &value,
             &[
@@ -129,6 +133,7 @@ fn command(
                 PolarsPluginType::NuExpression,
                 PolarsPluginType::NuDataType,
                 PolarsPluginType::NuSchema,
+                PolarsPluginType::NuSelector,
             ],
         )),
     }

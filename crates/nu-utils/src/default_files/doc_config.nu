@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.109.2"
+# version = "0.110.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -88,6 +88,23 @@ $env.config.rm.always_trash = false
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50
+
+# ------------------
+# Clipboard Settings
+# ------------------
+
+# clip.resident_mode (bool): Use a background process for clipboard operations on Linux.
+# true: Serves clipboard content in a background process for clipboard functionality (Linux-only).
+# false: Just sets the clipboard value and forgets.
+# Default: true (on Linux), false (otherwise)
+$env.config.clip.resident_mode = ($nu.os-info.name == linux)
+
+# clip.default_raw (bool): Controls whether `clip` copies raw content by default.
+# true: `clip` will copy content as raw bytes by default.
+# false: `clip` will attempt to convert content to a string before copying.
+# This can be overridden with the `--raw` flag on the `clip` command.
+# Default: false
+$env.config.clip.default_raw = false
 
 # ---------------------------
 # Commandline Editor Settings
@@ -238,7 +255,7 @@ $env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # shell_integration.osc133 (bool): Enable OSC 133 support for shell semantic zones.
 # Reports prompt location and command exit status to terminal.
-# Enables features like collapsible output, prompt-to-prompt scrolling.
+# Enables features like collapsible output, prompt-to-prompt scrolling, and click-to-cursor.
 # Default: true
 $env.config.shell_integration.osc133 = true
 
@@ -260,7 +277,7 @@ $env.config.shell_integration.reset_application_mode = true
 $env.config.bracketed_paste = true
 
 # use_ansi_coloring ("auto"|bool): Control ANSI coloring in Nushell output.
-# "auto": Determine based on FORCE_COLOR, NO_COLOR, CLICOLOR env vars, or if stdout is a terminal.
+# "auto": Determine based on FORCE_COLOR, NO_COLOR, CLICOLOR, TERM="dumb" env vars, or if stdout is a terminal.
 # true: Always enable ANSI coloring.
 # false: Disable ANSI coloring (use default foreground only).
 # Note: Does not affect the `ansi` command.
@@ -271,11 +288,12 @@ $env.config.use_ansi_coloring = "auto"
 # Error Display Settings
 # ----------------------
 
-# error_style (string): How errors are displayed.
-# "fancy": Use line-drawing characters to point to error location.
-# "plain": Plain-text errors suitable for screen readers.
-# "short": Concise, single-line error messages.
-# Default: "fancy"
+# error_style (string): One of "fancy", "plain", "short" or "nested"
+# Plain: Display plain-text errors for screen-readers
+# Fancy: Display errors using line-drawing characters to point to the span in which the
+#        problem occurred.
+# Short: Display errors as concise, single-line messages similar to classic shells.
+# Nested: Same as Fancy but with nesting for related errors.
 $env.config.error_style = "fancy"
 
 # display_errors.exit_code (bool): Show Nushell error when external command returns non-zero.
@@ -290,6 +308,10 @@ $env.config.display_errors.exit_code = false
 # false: Don't show error for signal termination.
 # Default: true
 $env.config.display_errors.termination_signal = true
+
+# error_lines (int):
+# Sets the number of context lines in the error output. Must be a positive integer.
+$env.config.error_lines = 1
 
 # -------------
 # Table Display

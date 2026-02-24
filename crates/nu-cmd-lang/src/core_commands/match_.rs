@@ -52,42 +52,42 @@ impl Command for Match {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Match on a value",
+                description: "Match on a value.",
                 example: "match 3 { 1 => 'one', 2 => 'two', 3 => 'three' }",
                 result: Some(Value::test_string("three")),
             },
             Example {
-                description: "Match against alternative values",
+                description: "Match against alternative values.",
                 example: "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => '---' }",
                 result: Some(Value::test_string("---")),
             },
             Example {
-                description: "Match on a value in range",
+                description: "Match on a value in range.",
                 example: "match 3 { 1..10 => 'yes!' }",
                 result: Some(Value::test_string("yes!")),
             },
             Example {
-                description: "Match on a field in a record",
+                description: "Match on a field in a record.",
                 example: "match {a: 100} { {a: $my_value} => { $my_value } }",
                 result: Some(Value::test_int(100)),
             },
             Example {
-                description: "Match with a catch-all",
+                description: "Match with a catch-all.",
                 example: "match 3 { 1 => { 'yes!' }, _ => { 'no!' } }",
                 result: Some(Value::test_string("no!")),
             },
             Example {
-                description: "Match against a list",
+                description: "Match against a list.",
                 example: "match [1, 2, 3] { [$a, $b, $c] => { $a + $b + $c }, _ => 0 }",
                 result: Some(Value::test_int(6)),
             },
             Example {
-                description: "Match against pipeline input",
+                description: "Match against pipeline input.",
                 example: "{a: {b: 3}} | match $in {{a: { $b }} => ($b + 10) }",
                 result: Some(Value::test_int(13)),
             },
             Example {
-                description: "Match with a guard",
+                description: "Match with a guard.",
                 example: "match [1 2 3] {
         [$x, ..$y] if $x == 1 => { 'good list' },
         _ => { 'not a very good list' }

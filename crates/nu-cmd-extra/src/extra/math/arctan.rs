@@ -10,7 +10,7 @@ impl Command for MathArcTan {
 
     fn signature(&self) -> Signature {
         Signature::build("math arctan")
-            .switch("degrees", "Return degrees instead of radians", Some('d'))
+            .switch("degrees", "Return degrees instead of radians.", Some('d'))
             .input_output_types(vec![
                 (Type::Number, Type::Float),
                 (

@@ -31,39 +31,39 @@ impl Command for UTouch {
             .named(
                 "reference",
                 SyntaxShape::Filepath,
-                "Use the access and modification times of the reference file/directory instead of the current time",
+                "Use the access and modification times of the reference file/directory instead of the current time.",
                 Some('r'),
             )
             .named(
                 "timestamp",
                 SyntaxShape::DateTime,
-                "Use the given timestamp instead of the current time",
+                "Use the given timestamp instead of the current time.",
                 Some('t')
             )
             .named(
                 "date",
                 SyntaxShape::String,
-                "Use the given time instead of the current time. This can be a full timestamp or it can be relative to either the current time or reference file time (if given). For more information, see https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html",
+                "Use the given time instead of the current time. This can be a full timestamp or it can be relative to either the current time or reference file time (if given). For more information, see https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html.",
                 Some('d')
             )
             .switch(
                 "modified",
-                "Change only the modification time (if used with -a, access time is changed too)",
+                "Change only the modification time (if used with -a, access time is changed too).",
                 Some('m'),
             )
             .switch(
                 "access",
-                "Change only the access time (if used with -m, modification time is changed too)",
+                "Change only the access time (if used with -m, modification time is changed too).",
                 Some('a'),
             )
             .switch(
                 "no-create",
-                "Don't create the file if it doesn't exist",
+                "Don't create the file if it doesn't exist.",
                 Some('c'),
             )
             .switch(
                 "no-deref",
-                "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
+                "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout.",
                 Some('s'),
             )
             .category(Category::FileSystem)
@@ -254,47 +254,47 @@ impl Command for UTouch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Creates \"fixture.json\"",
+                description: "Creates \"fixture.json\".",
                 example: "touch fixture.json",
                 result: None,
             },
             Example {
-                description: "Creates files a, b and c",
+                description: "Creates files a, b and c.",
                 example: "touch a b c",
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of "fixture.json" to today's date"#,
+                description: r#"Changes the last modified time of "fixture.json" to today's date."#,
                 example: "touch -m fixture.json",
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date"#,
+                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date."#,
                 example: "touch *.json",
                 result: None,
             },
             Example {
-                description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday",
+                description: "Changes the last accessed and modified times of files a, b and c to the current time but yesterday.",
                 example: r#"touch -d "yesterday" a b c"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time"#,
+                description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time."#,
                 example: r#"touch -m -r fixture.json d e"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last accessed time of "fixture.json" to a datetime"#,
+                description: r#"Changes the last accessed time of "fixture.json" to a datetime."#,
                 example: r#"touch -a -t 2019-08-24T12:30:30 fixture.json"#,
                 result: None,
             },
             Example {
-                description: r#"Change the last accessed and modified times of stdout"#,
+                description: r#"Change the last accessed and modified times of stdout."#,
                 example: r#"touch -"#,
                 result: None,
             },
             Example {
-                description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time"#,
+                description: r#"Changes the last accessed and modified times of file a to 1 month before "fixture.json"'s last modified time."#,
                 example: r#"touch -r fixture.json -d "-1 month" a"#,
                 result: None,
             },

@@ -19,7 +19,10 @@ fn which_alias_ls() {
 fn which_custom_alias() {
     let actual = nu!(r#"alias foo = print "foo!"; which foo | to nuon"#);
 
-    assert_eq!(actual.out, r#"[[command, path, type]; [foo, "", alias]]"#);
+    assert_eq!(
+        actual.out,
+        r#"[[command, path, type, definition]; [foo, "", alias, "print \"foo!\""]]"#
+    );
 }
 
 #[test]

@@ -15,8 +15,8 @@ Command Equivalents to Bash:
 | `> <path>`  | `o> <path>` | Save command output to a file |
 | `>> <path>` | `o>> <path>` | Append command output to a file |
 | `> /dev/null` | `ignore` | Discard command output |
-| `> /dev/null 2>&1` | `o+e>| ignore` | Discard command output, including stderr |
-| `command 2>&1` | `command o+e>| ...` | Redirect stderr to stdout (use `o+e>` or `out+err>`) |
+| `> /dev/null 2>&1` | `o+e>\| ignore` | Discard command output, including stderr |
+| `command 2>&1` | `command o+e>\| ...` | Redirect stderr to stdout (use `o+e>` or `out+err>`) |
 | `cmd1 \| tee log.txt \| cmd2` | `cmd1 \| tee { save log.txt } \| cmd2` | Tee command output to a log file |
 | `command \| head -5` | `command \| first 5` | Limit the output to the first 5 rows of an internal command (see also last and skip) |
 | `cat <path>` | `open --raw <path>` | Display the contents of the given file |

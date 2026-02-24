@@ -21,7 +21,7 @@ fn call() {
             "--no-std-lib",
             "--plugins",
             &format!(
-                "[crates{0}nu_plugin_nu_example{0}nu_plugin_nu_example.nu]",
+                "crates{0}nu_plugin_nu_example{0}nu_plugin_nu_example.nu",
                 std::path::MAIN_SEPARATOR
             ),
             "--commands",

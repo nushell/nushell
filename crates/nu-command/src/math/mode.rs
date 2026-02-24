@@ -88,7 +88,7 @@ impl Command for MathMode {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute the mode(s) of a list of numbers",
+                description: "Compute the mode(s) of a list of numbers.",
                 example: "[3 3 9 12 12 15] | math mode",
                 result: Some(Value::test_list(vec![
                     Value::test_int(3),
@@ -96,7 +96,7 @@ impl Command for MathMode {
                 ])),
             },
             Example {
-                description: "Compute the mode(s) of the columns of a table",
+                description: "Compute the mode(s) of the columns of a table.",
                 example: "[{a: 1 b: 3} {a: 2 b: -1} {a: 1 b: 5}] | math mode",
                 result: Some(Value::test_record(record! {
                         "a" => Value::list(vec![Value::test_int(1)], Span::test_data()),

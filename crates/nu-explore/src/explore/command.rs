@@ -30,18 +30,18 @@ impl Command for Explore {
             .named(
                 "head",
                 SyntaxShape::Boolean,
-                "Show or hide column headers (default true)",
+                "Show or hide column headers (default true).",
                 None,
             )
-            .switch("index", "Show row indexes when viewing a list", Some('i'))
+            .switch("index", "Show row indexes when viewing a list.", Some('i'))
             .switch(
                 "tail",
-                "Start with the viewport scrolled to the bottom",
+                "Start with the viewport scrolled to the bottom.",
                 Some('t'),
             )
             .switch(
                 "peek",
-                "When quitting, output the value of the cell the cursor was on",
+                "When quitting, output the value of the cell the cursor was on.",
                 Some('p'),
             )
             .category(Category::Viewers)

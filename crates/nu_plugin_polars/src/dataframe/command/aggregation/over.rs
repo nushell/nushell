@@ -28,7 +28,7 @@ impl PluginCommand for Over {
             .rest(
                 "partition by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the partition window",
+                "Expression(s) that define the partition window.",
             )
             .input_output_type(
                 PolarsPluginType::NuExpression.into(),

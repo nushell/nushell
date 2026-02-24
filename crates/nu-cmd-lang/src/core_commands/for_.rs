@@ -58,17 +58,17 @@ impl Command for For {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Print the square of each integer",
+                description: "Print the square of each integer.",
                 example: "for x in [1 2 3] { print ($x * $x) }",
                 result: None,
             },
             Example {
-                description: "Work with elements of a range",
+                description: "Work with elements of a range.",
                 example: "for $x in 1..3 { print $x }",
                 result: None,
             },
             Example {
-                description: "Number each item and print a message",
+                description: "Number each item and print a message.",
                 example: r#"for $it in (['bob' 'fred'] | enumerate) { print $"($it.index) is ($it.item)" }"#,
                 result: None,
             },

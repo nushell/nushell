@@ -20,7 +20,7 @@ impl Command for FromXlsx {
             .named(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Only convert specified sheets",
+                "Only convert specified sheets.",
                 Some('s'),
             )
             .category(Category::Formats)
@@ -54,12 +54,12 @@ impl Command for FromXlsx {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert binary .xlsx data to a table",
+                description: "Convert binary .xlsx data to a table.",
                 example: "open --raw test.xlsx | from xlsx",
                 result: None,
             },
             Example {
-                description: "Convert binary .xlsx data to a table, specifying the tables",
+                description: "Convert binary .xlsx data to a table, specifying the tables.",
                 example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1]",
                 result: None,
             },

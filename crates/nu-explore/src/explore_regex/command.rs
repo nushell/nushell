@@ -32,6 +32,7 @@ use ratatui::{
     Terminal,
     backend::CrosstermBackend,
     crossterm::{
+        cursor::{SetCursorStyle, Show},
         event::{DisableMouseCapture, EnableMouseCapture},
         execute,
         terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
@@ -62,7 +63,8 @@ impl Command for ExploreRegex {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output."#
+        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
+Supports AltGr key combinations for international keyboard layouts."#
     }
 
     fn run(
@@ -129,8 +131,14 @@ fn setup_terminal(span: Span) -> Result<Terminal<CrosstermBackend<io::Stdout>>, 
     enable_raw_mode().map_err(|e| terminal_error("Could not enable raw mode", e, span))?;
 
     let mut stdout = io::stdout();
-    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)
-        .map_err(|e| terminal_error("Could not enter alternate screen", e, span))?;
+    execute!(
+        stdout,
+        EnterAlternateScreen,
+        EnableMouseCapture,
+        Show,
+        SetCursorStyle::SteadyBar
+    )
+    .map_err(|e| terminal_error("Could not enter alternate screen", e, span))?;
 
     Terminal::new(CrosstermBackend::new(stdout))
         .map_err(|e| terminal_error("Could not initialize terminal", e, span))

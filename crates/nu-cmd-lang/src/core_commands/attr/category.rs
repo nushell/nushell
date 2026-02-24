@@ -51,7 +51,7 @@ impl Command for AttrCategory {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Add a category to a custom command",
+            description: "Add a category to a custom command.",
             example: r###"# Double numbers
     @category math
     def double []: [number -> number] { $in * 2 }"###,

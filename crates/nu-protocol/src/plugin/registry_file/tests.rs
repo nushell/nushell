@@ -46,11 +46,11 @@ fn bar_plugin() -> PluginRegistryItem {
             commands: vec![PluginSignature {
                 sig: Signature::new("bar")
                     .description("overwrites files with random data")
-                    .switch("force", "ignore errors", Some('f'))
+                    .switch("force", "Ignore errors.", Some('f'))
                     .required(
                         "path",
                         SyntaxShape::Filepath,
-                        "file to overwrite with random data",
+                        "File to overwrite with random data.",
                     )
                     .category(Category::Experimental),
                 examples: vec![],

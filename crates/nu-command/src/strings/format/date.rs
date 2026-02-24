@@ -25,7 +25,7 @@ impl Command for FormatDate {
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .switch("list", "lists strftime cheatsheet", Some('l'))
+            .switch("list", "Lists strftime cheatsheet.", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,
@@ -105,11 +105,11 @@ impl Command for FormatDate {
 
         // get the locale first so we can use the proper get_env_var functions since this is a const command
         // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = engine_state
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| engine_state.get_env_var("LC_ALL"))
-            .or_else(|| engine_state.get_env_var("LC_TIME"))
-            .or_else(|| engine_state.get_env_var("LANG"))
+        let locale = if let Some(loc) = stack
+            .get_env_var(engine_state, LOCALE_OVERRIDE_ENV_VAR)
+            .or_else(|| stack.get_env_var(engine_state, "LC_ALL"))
+            .or_else(|| stack.get_env_var(engine_state, "LC_TIME"))
+            .or_else(|| stack.get_env_var(engine_state, "LANG"))
         {
             let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
             locale_str.try_into().unwrap_or(Locale::en_US)
@@ -251,10 +251,19 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     match value {
         Value::Date { val, .. } => Value::string(
             {
-                if val.year() >= 0 {
+                if val.year() >= 0 && val.year() <= 9999 {
                     val.to_rfc2822()
                 } else {
-                    val.to_rfc3339()
+                    return Value::error(
+                        ShellError::GenericError {
+                            error: "Can't convert date to RFC 2822 format.".into(),
+                            msg: "the RFC 2822 format only supports years 0 through 9999".into(),
+                            span: Some(val_span),
+                            help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
+                            inner: vec![],
+                        },
+                        span,
+                    );
                 }
             },
             span,
@@ -264,10 +273,20 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             match dt {
                 Ok(x) => Value::string(
                     {
-                        if x.year() >= 0 {
+                        if x.year() >= 0 && x.year() <= 9999 {
                             x.to_rfc2822()
                         } else {
-                            x.to_rfc3339()
+                            return Value::error(
+                                ShellError::GenericError {
+                                    error: "Can't convert date to RFC 2822 format.".into(),
+                                    msg: "the RFC 2822 format only supports years 0 through 9999"
+                                        .into(),
+                                    span: Some(val_span),
+                                    help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
+                                    inner: vec![],
+                                },
+                                span,
+                            );
                         }
                     },
                     span,

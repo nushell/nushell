@@ -1,8 +1,7 @@
-use crate::network::http::client::add_unix_socket_flag;
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, RequestMetadata, expand_unix_socket_path, http_client,
-    http_client_pool, http_parse_url, request_add_authorization_header, request_add_custom_headers,
-    request_handle_response, request_set_timeout, send_request_no_body,
+    RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag, expand_unix_socket_path,
+    http_client, http_client_pool, http_parse_url, request_add_authorization_header,
+    request_add_custom_headers, request_handle_response, request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -26,38 +25,38 @@ impl Command for HttpOptions {
             .named(
                 "user",
                 SyntaxShape::Any,
-                "the username when authenticating",
+                "The username when authenticating.",
                 Some('u'),
             )
             .named(
                 "password",
                 SyntaxShape::Any,
-                "the password when authenticating",
+                "The password when authenticating.",
                 Some('p'),
             )
             .named(
                 "max-time",
                 SyntaxShape::Duration,
-                "max duration before timeout occurs",
+                "Max duration before timeout occurs.",
                 Some('m'),
             )
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
             .switch(
                 "allow-errors",
-                "do not fail if the server returns an error code",
+                "Do not fail if the server returns an error code.",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .filter()
             .category(Category::Network);
 
@@ -89,27 +88,27 @@ impl Command for HttpOptions {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get options from example.com",
+                description: "Get options from example.com.",
                 example: "http options https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with username and password",
+                description: "Get options from example.com, with username and password.",
                 example: "http options --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom header using a record",
+                description: "Get options from example.com, with custom header using a record.",
                 example: "http options --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get options from example.com, with custom headers using a list",
+                description: "Get options from example.com, with custom headers using a list.",
                 example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Simulate a browser cross-origin preflight request from www.example.com to media.example.com",
+                description: "Simulate a browser cross-origin preflight request from www.example.com to media.example.com.",
                 example: "http options https://media.example.com/api/ --headers [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
                 result: None,
             },
@@ -168,7 +167,7 @@ fn helper(
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
     let mut request = if args.pool {
-        http_client_pool(engine_state, stack).options(&requested_url)
+        http_client_pool(engine_state, stack)?.options(&requested_url)
     } else {
         let client = http_client(
             args.insecure,

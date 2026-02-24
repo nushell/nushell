@@ -35,7 +35,7 @@ impl Command for ScopeEngineStats {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the stats on the current engine state",
+            description: "Show the stats on the current engine state.",
             example: "scope engine-stats",
             result: None,
         }]

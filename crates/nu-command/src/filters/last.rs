@@ -2,6 +2,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 use std::{collections::VecDeque, io::Read};
 
+#[cfg(feature = "sqlite")]
+use crate::database::SQLiteQueryBuilder;
+
 #[derive(Clone)]
 pub struct Last;
 
@@ -27,7 +30,8 @@ impl Command for Last {
                 SyntaxShape::Int,
                 "Starting from the back, the number of rows to return.",
             )
-            .switch("strict", "Throw an error if input is empty", Some('s'))
+            .allow_variants_without_examples(true)
+            .switch("strict", "Throw an error if input is empty.", Some('s'))
             .category(Category::Filters)
     }
 
@@ -39,7 +43,7 @@ impl Command for Last {
         vec![
             Example {
                 example: "[1,2,3] | last 2",
-                description: "Return the last 2 items of a list/table",
+                description: "Return the last 2 items of a list/table.",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(3)],
                     Span::test_data(),
@@ -47,17 +51,17 @@ impl Command for Last {
             },
             Example {
                 example: "[1,2,3] | last",
-                description: "Return the last item of a list/table",
+                description: "Return the last item of a list/table.",
                 result: Some(Value::test_int(3)),
             },
             Example {
                 example: "0x[01 23 45] | last 2",
-                description: "Return the last 2 bytes of a binary value",
+                description: "Return the last 2 bytes of a binary value.",
                 result: Some(Value::binary(vec![0x23, 0x45], Span::test_data())),
             },
             Example {
                 example: "1..3 | last",
-                description: "Return the last item of a range",
+                description: "Return the last item of a range.",
                 result: Some(Value::test_int(3)),
             },
         ]
@@ -162,6 +166,57 @@ impl Command for Last {
                     }
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
+                    #[cfg(feature = "sqlite")]
+                    // Pushdown optimization: handle 'last' on SQLiteQueryBuilder for lazy SQL execution
+                    Value::Custom {
+                        val: custom_val,
+                        internal_span,
+                        ..
+                    } => {
+                        if let Some(table) =
+                            custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+                        {
+                            if return_single_element {
+                                // For single element, ORDER BY rowid DESC LIMIT 1
+                                let new_table = table
+                                    .clone()
+                                    .with_order_by("rowid DESC".to_string())
+                                    .with_limit(1);
+                                let result = new_table.execute(head)?;
+                                let value = result.into_value(head)?;
+                                if let Value::List { vals, .. } = value {
+                                    if let Some(val) = vals.into_iter().next() {
+                                        Ok(val.into_pipeline_data())
+                                    } else if strict_mode {
+                                        Err(ShellError::AccessEmptyContent { span: head })
+                                    } else {
+                                        // There are no values, so return nothing instead of an error so
+                                        // that users can pipe this through 'default' if they want to.
+                                        Ok(Value::nothing(head)
+                                            .into_pipeline_data_with_metadata(metadata))
+                                    }
+                                } else {
+                                    Err(ShellError::NushellFailed {
+                                        msg: "Expected list from SQLiteQueryBuilder".into(),
+                                    })
+                                }
+                            } else {
+                                // For multiple, ORDER BY rowid DESC LIMIT rows
+                                let new_table = table
+                                    .clone()
+                                    .with_order_by("rowid DESC".to_string())
+                                    .with_limit(rows as i64);
+                                new_table.execute(head)
+                            }
+                        } else {
+                            Err(ShellError::OnlySupportsThisInputType {
+                                exp_input_type: "list, binary or range".into(),
+                                wrong_type: custom_val.type_name(),
+                                dst_span: head,
+                                src_span: internal_span,
+                            })
+                        }
+                    }
                     other => Err(ShellError::OnlySupportsThisInputType {
                         exp_input_type: "list, binary or range".into(),
                         wrong_type: other.get_type().to_string(),

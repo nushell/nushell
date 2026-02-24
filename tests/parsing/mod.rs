@@ -634,6 +634,12 @@ fn parse_function_signature(#[case] phrase: &str) {
     assert!(actual.err.is_empty());
 }
 
+#[test]
+fn parse_function_signature_switch_is_bool() {
+    let actual = nu!(r#"def foo [--bar] { let baz: int = $bar }"#);
+    assert!(actual.err.contains("expected int, found bool"))
+}
+
 #[rstest]
 #[case("def test [ in ] {}")]
 #[case("def test [ in: string ] {}")]
@@ -722,4 +728,10 @@ fn wacky_range_parse_comb() {
 fn wacky_range_unmatched_paren() {
     let actual = nu!(r#"') .."#);
     assert!(!actual.err.is_empty());
+}
+
+#[test]
+fn parse_let_pipeline_builtin_var() {
+    let actual = nu!("1 | let $nu | let $in | let $it | let $env");
+    assert!(actual.err.contains("nu::parser::name_is_builtin_var"))
 }

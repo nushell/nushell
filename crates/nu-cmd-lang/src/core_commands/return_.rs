@@ -50,7 +50,7 @@ impl Command for Return {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Return early",
+            description: "Return early.",
             example: r#"def foo [] { return }"#,
             result: None,
         }]

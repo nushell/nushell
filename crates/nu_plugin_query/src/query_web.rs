@@ -20,12 +20,12 @@ impl SimplePluginCommand for QueryWeb {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .named("query", SyntaxShape::String, "selector query", Some('q'))
-            .switch("as-html", "return the query output as html", Some('m'))
+            .named("query", SyntaxShape::String, "Selector query.", Some('q'))
+            .switch("as-html", "Return the query output as html.", Some('m'))
             .named(
                 "attribute",
                 SyntaxShape::Any,
-                "downselect based on the given attribute",
+                "Downselect based on the given attribute.",
                 Some('a'),
             )
             // TODO: use detailed shape when https://github.com/nushell/nushell/issues/13253 is resolved
@@ -41,12 +41,12 @@ impl SimplePluginCommand for QueryWeb {
             .named(
                 "as-table",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "find table based on column header list",
+                "Find table based on column header list.",
                 Some('t'),
             )
             .switch(
                 "inspect",
-                "run in inspect mode to provide more information for determining column headers",
+                "Run in inspect mode to provide more information for determining column headers.",
                 Some('i'),
             )
             .category(Category::Network)

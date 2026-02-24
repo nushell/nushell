@@ -9,7 +9,7 @@ use crate::{
 };
 
 use log::trace;
-use nu_path::canonicalize_with;
+use nu_path::absolute_with;
 use nu_path::is_windows_device_path;
 use nu_protocol::{
     Alias, BlockId, CommandWideCompleter, CustomExample, DeclId, FromValue, Module, ModuleId,
@@ -58,7 +58,19 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"overlay use",
 ];
 
-pub const RESERVED_VARIABLE_NAMES: [&str; 3] = ["in", "nu", "env"];
+pub const RESERVED_VARIABLE_NAMES: [&str; 4] = ["in", "nu", "env", "it"];
+
+pub fn ensure_not_reserved_variable_name(working_set: &mut StateWorkingSet, lvalue: &Expression) {
+    if lvalue.as_var().is_none() {
+        return;
+    }
+
+    let var_name = String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
+        .trim_start_matches('$')
+        .to_string();
+
+    verify_not_reserved_variable_name(working_set, &var_name, lvalue.span);
+}
 
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
@@ -942,7 +954,7 @@ fn parse_extern_inner(
                         *signature = signature.rest(
                             "args",
                             SyntaxShape::ExternalArgument,
-                            "all other arguments to the command",
+                            "All other arguments to the command.",
                         );
                     }
 
@@ -3266,14 +3278,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -3389,14 +3394,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -3559,14 +3557,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
+                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -4039,8 +4030,10 @@ pub fn find_in_dirs(
             }
         }
 
-        // Try if we have an existing physical path
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+        // Try if we have an existing filesystem path
+        if let Ok(p) = absolute_with(filename, actual_cwd)
+            && p.exists()
+        {
             return Some(ParserPath::RealPath(p));
         }
 
@@ -4062,8 +4055,9 @@ pub fn find_in_dirs(
             .iter()
             .map(|lib_dir| -> Option<PathBuf> {
                 let dir = lib_dir.to_path().ok()?;
-                let dir_abs = canonicalize_with(dir, actual_cwd).ok()?;
-                canonicalize_with(filename, dir_abs).ok()
+                let dir_abs = absolute_with(dir, actual_cwd).ok()?;
+                let path = absolute_with(filename, dir_abs).ok()?;
+                path.exists().then_some(path)
             })
             .find(Option::is_some)
             .flatten()
@@ -4084,7 +4078,9 @@ pub fn find_in_dirs(
             .current_working_directory()
             .unwrap_or(Path::new(cwd));
 
-        if let Ok(p) = canonicalize_with(filename, actual_cwd) {
+        if let Ok(p) = absolute_with(filename, actual_cwd)
+            && p.exists()
+        {
             Some(p)
         } else {
             let path = Path::new(filename);
@@ -4097,8 +4093,9 @@ pub fn find_in_dirs(
                         for lib_dir in dirs {
                             if let Ok(dir) = lib_dir.to_path() {
                                 // make sure the dir is absolute path
-                                if let Ok(dir_abs) = canonicalize_with(dir, actual_cwd)
-                                    && let Ok(path) = canonicalize_with(filename, dir_abs)
+                                if let Ok(dir_abs) = absolute_with(dir, actual_cwd)
+                                    && let Ok(path) = absolute_with(filename, dir_abs)
+                                    && path.exists()
                                 {
                                     return Some(path);
                                 }

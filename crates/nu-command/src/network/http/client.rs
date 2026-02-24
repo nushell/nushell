@@ -38,11 +38,19 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::transport::DefaultConnector,
+    unversioned::transport::Connector,
 };
 use url::Url;
 
-use crate::network::http::unix_socket::UnixSocketConnector;
+#[cfg(feature = "native-tls")]
+use ureq::unversioned::transport::NativeTlsConnector;
+#[cfg(feature = "rustls-tls")]
+use ureq::unversioned::transport::RustlsConnector;
+
+use crate::network::http::interruptible_tcp::{InterruptibleTcpConnector, make_on_connect};
+use crate::network::http::interruptible_unix::{
+    InterruptibleUnixSocketConnector, make_on_connect_unix,
+};
 
 const HTTP_DOCS: &str = "https://www.nushell.sh/cookbook/http.html";
 
@@ -102,7 +110,7 @@ pub fn add_unix_socket_flag(sig: Signature) -> Signature {
     sig.named(
         "unix-socket",
         SyntaxShape::Filepath,
-        "Connect to the specified Unix socket instead of using TCP",
+        "Connect to the specified Unix socket instead of using TCP.",
         Some('U'),
     )
 }
@@ -115,11 +123,14 @@ pub fn expand_unix_socket_path(
     unix_socket.map(|s| expand_path_with(s.item, cwd.as_ref(), true))
 }
 
-pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Agent> {
+pub fn http_client_pool(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Result<Arc<Agent>, ShellError> {
     {
         let guard = GLOBAL_CLIENT.read().expect("the lock should be valid");
         if let Some(client) = guard.as_ref() {
-            return Arc::clone(client);
+            return Ok(Arc::clone(client));
         }
     }
     let mut config_builder = ureq::config::Config::builder()
@@ -133,14 +144,26 @@ pub fn http_client_pool(engine_state: &EngineState, stack: &mut Stack) -> Arc<Ag
         config_builder = config_builder.proxy(Some(proxy));
     };
 
-    let connector = DefaultConnector::default();
+    // Apply TLS configuration with certificate verification enabled by default.
+    // This matches the behavior of http_client() to ensure pooled connections
+    // are secure. Users must explicitly use `http pool --insecure` to disable.
+    config_builder = config_builder.tls_config(tls_config(false)?);
+
+    let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
+    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+
+    #[cfg(feature = "rustls-tls")]
+    let connector = tcp_connector.chain(RustlsConnector::default());
+    #[cfg(feature = "native-tls")]
+    let connector = tcp_connector.chain(NativeTlsConnector::default());
+
     let resolver = DnsLookupResolver;
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
     let arc_agent = Arc::new(agent);
     let mut guard = GLOBAL_CLIENT.write().expect("the lock should be valid");
     *guard = Some(Arc::clone(&arc_agent));
-    arc_agent
+    Ok(arc_agent)
 }
 
 pub fn reset_http_client_pool(
@@ -189,16 +212,26 @@ pub fn http_client(
     let config = config_builder.build();
 
     if let Some(socket_path) = unix_socket_path {
-        // Use custom Unix socket connector
         use ureq::unversioned::resolver::DefaultResolver;
 
-        let connector = UnixSocketConnector::new(socket_path);
+        let on_connect = engine_state
+            .signal_handlers
+            .as_ref()
+            .map(make_on_connect_unix);
+        let connector = InterruptibleUnixSocketConnector::new(socket_path, on_connect);
         let resolver = DefaultResolver::default();
 
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
-    let connector = DefaultConnector::default();
+    let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
+    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+
+    #[cfg(feature = "rustls-tls")]
+    let connector = tcp_connector.chain(RustlsConnector::default());
+    #[cfg(feature = "native-tls")]
+    let connector = tcp_connector.chain(NativeTlsConnector::default());
+
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
 }
@@ -279,11 +312,9 @@ pub fn response_to_buffer(
         r: response.into_body().into_reader(),
     };
 
-    PipelineData::byte_stream(
-        ByteStream::read(reader, span, engine_state.signals().clone(), response_type)
-            .with_known_size(buffer_size),
-        Some(metadata),
-    )
+    let byte_stream = ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
+
+    PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
 }
 
 fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadata {
@@ -1039,7 +1070,6 @@ pub(crate) fn request_handle_response(
         redirect_mode,
         flags,
     }: RequestMetadata,
-
     resp: Response,
 ) -> Result<PipelineData, ShellError> {
     // #response_to_buffer moves "resp" making it impossible to read headers later.

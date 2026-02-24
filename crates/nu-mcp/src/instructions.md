@@ -109,6 +109,21 @@ $"2 + 2 = (2 + 2)"                              # Expressions work too
 
 **Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
 
+**ANSI escape codes:** Use `ansi strip` to remove ANSI color/formatting codes from output. Do NOT use `\u001b` or similar unicode escapes - nushell doesn't support that syntax.
+```nu
+# BAD - nushell doesn't support \uXXXX unicode escapes
+$output | str replace -a "\u001b" ""        # ERROR: invalid unicode escape
+
+# GOOD - use ansi strip to remove ANSI codes
+$output | ansi strip                         # Removes all ANSI escape sequences
+^rg pattern | ansi strip                     # Strip colors from external command output
+
+# To produce special characters, use the char command
+char escape                                  # ESC character (0x1b)
+char newline                                 # Newline
+char tab                                     # Tab
+```
+
 **Stderr redirection:** Use `o+e>` or `out+err>` instead of bash-style `2>&1`.
 ```nu
 # BAD - bash syntax doesn't work in nushell
@@ -151,6 +166,74 @@ ls **/*.rs | par-each --threads 8 { |f| wc -l $f.name }
 - Order must be preserved exactly (par-each returns results in completion order)
 - Side effects must happen sequentially
 - Very small lists where parallelization overhead exceeds benefit
+
+## Background Jobs
+
+Use `job spawn` to run commands in the background. This is the idiomatic nushell replacement for bash's `command &`.
+
+```nu
+# Spawn a background job (returns job ID immediately)
+job spawn { sleep 5sec; echo "done" }
+
+# Spawn with a descriptive tag
+job spawn --tag "web-server" { uvicorn main:app }
+
+# List all running background jobs
+job list
+
+# Kill a background job by ID
+job kill 1
+```
+
+**Getting output from background jobs:** Use the mailbox system with `job send` and `job recv`.
+`job recv` reads from the *current job's mailbox* only. It does not take a job ID.
+The main thread always has job ID `0`, so background jobs should `job send 0`.
+
+```nu
+# Spawn job that sends result back to main thread
+job spawn { ls | job send 0 }
+
+# Wait and receive the result
+job recv
+
+# One-liner version
+job spawn { ls | job send 0 }; job recv
+
+# With timeout (to avoid blocking forever)
+job spawn { some-command | job send 0 }; job recv --timeout 5sec
+
+# Capture stderr too (external command)
+job spawn { ^nc -vz -w 5 51.81.221.204 5432 o+e>| job send 0 }; job recv --timeout 10sec
+```
+
+**Inter-job communication and tags:** Jobs can send messages to each other using tags as filters.
+Tags are integers. `job send --tag N` attaches a tag to the message.
+`job recv --tag N` only receives messages with that exact tag.
+Untagged messages are only received by `job recv` without a `--tag` filter.
+
+```nu
+# Send with a tag for filtering
+job spawn { "result" | job send 0 --tag 1 }
+job recv --tag 1    # Only receives messages with tag 1
+
+# Get current job's ID from within a job
+job spawn { let my_id = job id; ... }
+```
+
+**Job management commands:**
+- `job spawn { ... }` - Start a background job, returns job ID
+- `job list` - List all running jobs
+- `job kill <id>` - Terminate a job
+- `job send <id>` - Send data to a job's mailbox
+- `job recv` - Receive data from mailbox (blocks until message arrives)
+- `job id` - Get current job's ID
+- `job tag <id> <tag>` - Add/change a job's description tag
+
+**Common gotchas:**
+- There is no `job ls`. Use `job list`.
+- `job recv` does not accept a job id or `--id`. It only reads from the current job's mailbox.
+ - `job send` always takes a target job id. The main thread id is `0`.
+ - `job recv --tag N` will ignore untagged messages and messages with other tags.
 
 To find a nushell command or to see all available commands use the list_commands tool.
 To learn more about how to use a command, use the command_help tool.

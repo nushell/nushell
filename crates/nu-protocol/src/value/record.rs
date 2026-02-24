@@ -450,6 +450,14 @@ impl Record {
         self.inner.truncate(len);
     }
 
+    pub fn truncate_front(&mut self, len: usize) {
+        if self.len() < len {
+            return;
+        }
+        let drop = self.len() - len;
+        self.inner.drain(..drop);
+    }
+
     pub fn columns(&self) -> Columns<'_> {
         Columns {
             iter: self.inner.iter(),

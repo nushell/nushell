@@ -18,13 +18,13 @@ impl Command for RandomDice {
             .named(
                 "dice",
                 SyntaxShape::Int,
-                "The amount of dice being rolled",
+                "The amount of dice being rolled.",
                 Some('d'),
             )
             .named(
                 "sides",
                 SyntaxShape::Int,
-                "The amount of sides a die has",
+                "The amount of sides a die has.",
                 Some('s'),
             )
             .category(Category::Random)
@@ -61,12 +61,12 @@ impl Command for RandomDice {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Roll 1 dice with 6 sides each",
+                description: "Roll 1 dice with 6 sides each.",
                 example: "random dice",
                 result: None,
             },
             Example {
-                description: "Roll 10 dice with 12 sides each",
+                description: "Roll 10 dice with 12 sides each.",
                 example: "random dice --dice 10 --sides 12",
                 result: None,
             },

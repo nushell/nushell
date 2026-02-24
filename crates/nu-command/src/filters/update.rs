@@ -57,7 +57,7 @@ When updating a specific index, the closure will instead be run once. The first 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Update a column value",
+                description: "Update a column value.",
                 example: "{'name': 'nu', 'stars': 5} | update name 'Nushell'",
                 result: Some(Value::test_record(record! {
                     "name" =>  Value::test_string("Nushell"),
@@ -65,7 +65,7 @@ When updating a specific index, the closure will instead be run once. The first 
                 })),
             },
             Example {
-                description: "Use a closure to alter each value in the 'authors' column to a single string",
+                description: "Use a closure to alter each value in the 'authors' column to a single string.",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors {|row| $row.authors | str join ',' }",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("nu"),
@@ -73,7 +73,7 @@ When updating a specific index, the closure will instead be run once. The first 
                 })])),
             },
             Example {
-                description: "Implicitly use the `$in` value in a closure to update 'authors'",
+                description: "Implicitly use the `$in` value in a closure to update 'authors'.",
                 example: "[[project, authors]; ['nu', ['Andrés', 'JT', 'Yehuda']]] | update authors { str join ',' }",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "project" => Value::test_string("nu"),
@@ -81,7 +81,7 @@ When updating a specific index, the closure will instead be run once. The first 
                 })])),
             },
             Example {
-                description: "Update a value at an index in a list",
+                description: "Update a value at an index in a list.",
                 example: "[1 2 3] | update 1 4",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
@@ -90,7 +90,7 @@ When updating a specific index, the closure will instead be run once. The first 
                 ])),
             },
             Example {
-                description: "Use a closure to compute a new value at an index",
+                description: "Use a closure to compute a new value at an index.",
                 example: "[1 2 3] | update 1 {|i| $i + 2 }",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),

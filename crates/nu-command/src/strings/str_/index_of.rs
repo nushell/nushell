@@ -40,12 +40,12 @@ impl Command for StrIndexOf {
             .required("string", SyntaxShape::String, "The string to find in the input.")
             .switch(
                 "grapheme-clusters",
-                "count indexes using grapheme clusters (all visible chars have length 1)",
+                "Count indexes using grapheme clusters (all visible chars have length 1).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                "Count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+).",
                 Some('b'),
             )
             .rest(
@@ -56,10 +56,10 @@ impl Command for StrIndexOf {
             .named(
                 "range",
                 SyntaxShape::Range,
-                "optional start and/or end index",
+                "Optional start and/or end index.",
                 Some('r'),
             )
-            .switch("end", "search from the end of the input", Some('e'))
+            .switch("end", "Search from the end of the input.", Some('e'))
             .category(Category::Strings)
     }
 
@@ -123,32 +123,32 @@ impl Command for StrIndexOf {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Returns index of string in input",
+                description: "Returns index of string in input.",
                 example: " 'my_library.rb' | str index-of '.rb'",
                 result: Some(Value::test_int(10)),
             },
             Example {
-                description: "Count length using grapheme clusters",
+                description: "Count length using grapheme clusters.",
                 example: "'🇯🇵ほげ ふが ぴよ' | str index-of --grapheme-clusters 'ふが'",
                 result: Some(Value::test_int(4)),
             },
             Example {
-                description: "Returns index of string in input within a`rhs open range`",
+                description: "Returns index of string in input within a`rhs open range`.",
                 example: " '.rb.rb' | str index-of '.rb' --range 1..",
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: "Returns index of string in input within a lhs open range",
+                description: "Returns index of string in input within a lhs open range.",
                 example: " '123456' | str index-of '6' --range ..4",
                 result: Some(Value::test_int(-1)),
             },
             Example {
-                description: "Returns index of string in input within a range",
+                description: "Returns index of string in input within a range.",
                 example: " '123456' | str index-of '3' --range 1..4",
                 result: Some(Value::test_int(2)),
             },
             Example {
-                description: "Returns index of string in input",
+                description: "Returns index of string in input.",
                 example: " '/this/is/some/path/file.txt' | str index-of '/' -e",
                 result: Some(Value::test_int(18)),
             },

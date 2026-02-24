@@ -47,8 +47,7 @@ impl UseAnsiColoring {
 
         let env_value = |env_name| {
             engine_state
-                .get_env_var_insensitive(env_name)
-                .map(|(_, v)| v)
+                .get_env_var(env_name)
                 .and_then(|v| v.coerce_bool().ok())
                 .unwrap_or(false)
         };
@@ -61,10 +60,17 @@ impl UseAnsiColoring {
             return false;
         }
 
-        if let Some((_, cli_color)) = engine_state.get_env_var_insensitive("clicolor")
+        if let Some(cli_color) = engine_state.get_env_var("clicolor")
             && let Ok(cli_color) = cli_color.coerce_bool()
         {
             return cli_color;
+        }
+
+        // If the TERM environment variable is set to "dumb", disable ANSI colors
+        if let Some(term) = engine_state.get_env_var("term")
+            && term.as_str().ok() == Some("dumb")
+        {
+            return false;
         }
 
         is_terminal
@@ -269,6 +275,25 @@ mod tests {
         set_env(&mut engine_state, "force_color", true);
         assert!(
             engine_state
+                .get_config()
+                .use_ansi_coloring
+                .get(&engine_state)
+        );
+    }
+
+    #[test]
+    fn test_use_ansi_coloring_auto_term_dumb() {
+        let mut engine_state = EngineState::new();
+        engine_state.config = Config {
+            use_ansi_coloring: UseAnsiColoring::Auto,
+            ..Default::default()
+        }
+        .into();
+
+        // `term` set to "dumb" disables ANSI colors
+        engine_state.add_env_var("term".to_string(), Value::test_string("dumb"));
+        assert!(
+            !engine_state
                 .get_config()
                 .use_ansi_coloring
                 .get(&engine_state)

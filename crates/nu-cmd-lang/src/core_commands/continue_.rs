@@ -46,7 +46,7 @@ impl Command for Continue {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Continue a loop from the next iteration",
+            description: "Continue a loop from the next iteration.",
             example: r#"for i in 1..10 { if $i == 5 { continue }; print $i }"#,
             result: None,
         }]

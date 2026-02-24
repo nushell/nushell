@@ -23,8 +23,8 @@ impl PluginCommand for SliceDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("offset", SyntaxShape::Int, "start of slice")
-            .required("size", SyntaxShape::Int, "size of slice")
+            .required("offset", SyntaxShape::Int, "Start of slice.")
+            .required("size", SyntaxShape::Int, "Size of slice.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

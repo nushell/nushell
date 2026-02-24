@@ -1,6 +1,6 @@
 #[cfg(windows)]
 use std::path::{Component, Prefix};
-use std::path::{Path, PathBuf};
+use std::path::{Path, PathBuf, absolute};
 
 use crate::AbsolutePathBuf;
 
@@ -30,11 +30,17 @@ fn configurable_dir_path(
     name: &'static str,
     dir: impl FnOnce() -> Option<PathBuf>,
 ) -> Option<AbsolutePathBuf> {
-    std::env::var(name)
-        .ok()
-        .and_then(|path| AbsolutePathBuf::try_from(path).ok())
-        .or_else(|| dir().and_then(|path| AbsolutePathBuf::try_from(path).ok()))
-        .map(|path| path.canonicalize().map(Into::into).unwrap_or(path))
+    // If the environment variable is not empty and contains an absolute path
+    // then use it. Otherwise use dir().
+    let path = if let Ok(path) = std::env::var(name)
+        && !path.is_empty()
+        && Path::new(&path).is_absolute()
+    {
+        PathBuf::from(path)
+    } else {
+        dir()?
+    };
+    AbsolutePathBuf::try_from(absolute(&path).unwrap_or(path)).ok()
 }
 
 // List of special paths that can be written to and/or read from, even though they

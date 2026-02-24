@@ -1,6 +1,6 @@
 //! Color scheme and style helpers for the regex explorer UI.
 
-use ratatui::style::{Color, Modifier, Style, Stylize};
+use ratatui::style::{Color, Modifier, Style};
 
 // UI colors - using standard ANSI colors that adapt to terminal theme
 pub const ACCENT: Color = Color::Cyan;
@@ -12,6 +12,7 @@ pub const WARNING: Color = Color::Yellow;
 pub const BG_DARK: Color = Color::Black;
 pub const FG_PRIMARY: Color = Color::Reset; // Uses terminal default
 pub const FG_MUTED: Color = Color::DarkGray;
+pub const FG_LIGHT: Color = Color::Gray; // Brighter than muted, for modal descriptions
 
 // Highlight colors for regex matches as an array for easy iteration
 pub const HIGHLIGHT_COLORS: &[Color] = &[
@@ -103,16 +104,6 @@ pub mod styles {
         selected().bold()
     }
 
-    /// Style for active cursor in text areas
-    pub fn cursor_active() -> Style {
-        Style::new().bg(ACCENT).fg(BG_DARK)
-    }
-
-    /// Style for hidden cursor
-    pub fn cursor_hidden() -> Style {
-        Style::new().hidden()
-    }
-
     /// Border style for focused panels
     pub fn border_focused() -> Style {
         Style::new().fg(ACCENT)
@@ -126,5 +117,10 @@ pub mod styles {
     /// Border style for unfocused panels
     pub fn border_unfocused() -> Style {
         Style::new().fg(FG_MUTED)
+    }
+
+    /// Style for modal help description text (brighter than separator)
+    pub fn modal_desc() -> Style {
+        Style::new().fg(FG_LIGHT)
     }
 }

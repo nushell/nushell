@@ -11,6 +11,7 @@ const DEFAULT_HISTORY_LIMIT: usize = 100;
 ///
 /// Maintains a fixed-size buffer of values that can be accessed via the `$history` variable.
 /// When the buffer is full, oldest entries are evicted to make room for new ones.
+#[derive(Clone)]
 pub struct History {
     buffer: VecDeque<Value>,
     var_id: VarId,

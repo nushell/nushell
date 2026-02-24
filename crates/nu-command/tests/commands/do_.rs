@@ -55,8 +55,8 @@ fn ignore_error_works_with_list_stream() {
 }
 
 #[test]
-fn run_closure_with_it_using() {
-    let actual = nu!(r#"let x = {let it = 3; $it}; do $x"#);
+fn run_closure_with_do_using() {
+    let actual = nu!(r#"let x = {let var = 3; $var}; do $x"#);
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, "3");
 }

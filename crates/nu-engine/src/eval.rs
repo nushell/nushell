@@ -276,12 +276,24 @@ pub fn eval_expression_with_input<D: DebugContext>(
                 }
             }
             _ => {
+                let input_value = input.into_value(expr.span)?;
+                stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
                 input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
             }
         },
 
+        Expr::StringInterpolation(_) | Expr::GlobInterpolation(_, _) => {
+            let input_value = input.into_value(expr.span)?;
+            stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
+            let value = eval_expression::<D>(engine_state, stack, expr)?;
+            input = PipelineData::Value(value, None);
+        }
+
         _ => {
-            input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
+            let input_value = input.into_value(expr.span)?;
+            stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
+            let value = eval_expression::<D>(engine_state, stack, expr)?;
+            input = PipelineData::Value(value, None);
         }
     };
 
@@ -295,6 +307,9 @@ pub fn eval_block<D: DebugContext>(
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
+    if let Err(ShellError::Exit { code }) = &result {
+        std::process::exit(*code)
+    }
     if let Err(err) = &result {
         stack.set_last_error(err);
     }
@@ -311,6 +326,7 @@ pub fn eval_block_with_early_return<D: DebugContext>(
         Err(ShellError::Return { span: _, value }) => Ok(PipelineExecutionData::from(
             PipelineData::value(*value, None),
         )),
+        Err(ShellError::Exit { code }) => std::process::exit(code),
         x => x,
     }
 }

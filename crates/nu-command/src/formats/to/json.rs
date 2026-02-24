@@ -14,24 +14,24 @@ impl Command for ToJson {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "raw",
-                "remove all of the whitespace and trailing line ending",
+                "Remove all of the whitespace and trailing line ending.",
                 Some('r'),
             )
             .named(
                 "indent",
                 SyntaxShape::Number,
-                "specify indentation width",
+                "Specify indentation width.",
                 Some('i'),
             )
             .named(
                 "tabs",
                 SyntaxShape::Number,
-                "specify indentation tab quantity",
+                "Specify indentation tab quantity.",
                 Some('t'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)
@@ -91,19 +91,19 @@ impl Command for ToJson {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a JSON string, with default indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with default indentation, representing the contents of this table.",
                 example: "[a b c] | to json",
                 result: Some(Value::test_string("[\n  \"a\",\n  \"b\",\n  \"c\"\n]")),
             },
             Example {
-                description: "Outputs a JSON string, with 4-space indentation, representing the contents of this table",
+                description: "Outputs a JSON string, with 4-space indentation, representing the contents of this table.",
                 example: "[Joe Bob Sam] | to json --indent 4",
                 result: Some(Value::test_string(
                     "[\n    \"Joe\",\n    \"Bob\",\n    \"Sam\"\n]",
                 )),
             },
             Example {
-                description: "Outputs an unformatted JSON string representing the contents of this table",
+                description: "Outputs an unformatted JSON string representing the contents of this table.",
                 example: "[1 2 3] | to json -r",
                 result: Some(Value::test_string("[1,2,3]")),
             },

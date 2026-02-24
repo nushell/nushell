@@ -20,23 +20,29 @@ use std::{
 /// This is used to implement pipefail.
 #[cfg(feature = "os")]
 pub fn check_exit_status_future(
-    exit_status: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
+    exit_status: Vec<Option<ExitStatusGuard>>,
 ) -> Result<(), ShellError> {
-    for (future, span) in exit_status.into_iter().rev().flatten() {
-        check_exit_status_future_ok(future, span)?
+    for one_status in exit_status.into_iter().rev().flatten() {
+        check_exit_status_future_ok(one_status)?
     }
     Ok(())
 }
 
-fn check_exit_status_future_ok(
-    exit_status_future: Arc<Mutex<ExitStatusFuture>>,
-    span: Span,
-) -> Result<(), ShellError> {
-    let mut future = exit_status_future
+fn check_exit_status_future_ok(exit_status_guard: ExitStatusGuard) -> Result<(), ShellError> {
+    let ignore_error = {
+        let guard = exit_status_guard
+            .ignore_error
+            .lock()
+            .expect("lock ignore_error should success");
+        *guard
+    };
+    let mut future = exit_status_guard
+        .exit_status_future
         .lock()
         .expect("lock exit_status_future should success");
+    let span = exit_status_guard.span.unwrap_or_default();
     let exit_status = future.wait(span)?;
-    check_ok(exit_status, false, span)
+    check_ok(exit_status, ignore_error, span)
 }
 
 pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<(), ShellError> {
@@ -78,6 +84,39 @@ pub fn check_ok(status: ExitStatus, ignore_error: bool, span: Span) -> Result<()
                     }
                 })
             }
+        }
+    }
+}
+
+/// A wrapper for both `exit_status_future: Arc<Mutex<ExitStatusFuture>>`
+/// and `ignore_error: Arc<Mutex<bool>>`
+///
+/// It's useful for `pipefail` feature, which tracks exit status code with potentially
+/// ignore the error.
+#[derive(Debug)]
+pub struct ExitStatusGuard {
+    pub exit_status_future: Arc<Mutex<ExitStatusFuture>>,
+    pub ignore_error: Arc<Mutex<bool>>,
+    pub span: Option<Span>,
+}
+
+impl ExitStatusGuard {
+    pub fn new(
+        exit_status_future: Arc<Mutex<ExitStatusFuture>>,
+        ignore_error: Arc<Mutex<bool>>,
+    ) -> Self {
+        Self {
+            exit_status_future,
+            ignore_error,
+            span: None,
+        }
+    }
+
+    pub fn with_span(self, span: Span) -> Self {
+        Self {
+            exit_status_future: self.exit_status_future,
+            ignore_error: self.ignore_error,
+            span: Some(span),
         }
     }
 }
@@ -192,7 +231,7 @@ pub struct ChildProcess {
     pub stdout: Option<ChildPipe>,
     pub stderr: Option<ChildPipe>,
     exit_status: Arc<Mutex<ExitStatusFuture>>,
-    ignore_error: bool,
+    ignore_error: Arc<Mutex<bool>>,
     span: Span,
 }
 
@@ -325,13 +364,16 @@ impl ChildProcess {
                     .map(ExitStatusFuture::Running)
                     .unwrap_or(ExitStatusFuture::Finished(Ok(ExitStatus::Exited(0)))),
             )),
-            ignore_error: false,
+            ignore_error: Arc::new(Mutex::new(false)),
             span,
         }
     }
 
     pub fn ignore_error(&mut self, ignore: bool) -> &mut Self {
-        self.ignore_error = ignore;
+        {
+            let mut ignore_error = self.ignore_error.lock().expect("lock should success");
+            *ignore_error = ignore;
+        }
         self
     }
 
@@ -361,7 +403,14 @@ impl ChildProcess {
             .exit_status
             .lock()
             .expect("lock exit_status future should success");
-        check_ok(exit_status.wait(self.span)?, self.ignore_error, self.span)?;
+        let ignore_error = {
+            let guard = self
+                .ignore_error
+                .lock()
+                .expect("lock ignore error should success");
+            *guard
+        };
+        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)?;
 
         Ok(bytes)
     }
@@ -406,7 +455,14 @@ impl ChildProcess {
             .exit_status
             .lock()
             .expect("lock exit_status future should success");
-        check_ok(exit_status.wait(self.span)?, self.ignore_error, self.span)
+        let ignore_error = {
+            let guard = self
+                .ignore_error
+                .lock()
+                .expect("lock ignore error should success");
+            *guard
+        };
+        check_ok(exit_status.wait(self.span)?, ignore_error, self.span)
     }
 
     pub fn try_wait(&mut self) -> Result<Option<ExitStatus>, ShellError> {
@@ -471,6 +527,10 @@ impl ChildProcess {
 
     pub fn clone_exit_status_future(&self) -> Arc<Mutex<ExitStatusFuture>> {
         self.exit_status.clone()
+    }
+
+    pub fn clone_ignore_error(&self) -> Arc<Mutex<bool>> {
+        self.ignore_error.clone()
     }
 }
 

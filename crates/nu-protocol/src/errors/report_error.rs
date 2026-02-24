@@ -2,6 +2,7 @@
 //!
 //! Relies on the `miette` crate for pretty layout
 use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::Write;
 
 use crate::{
     CompileError, Config, ErrorStyle, ParseError, ParseWarning, ShellError, ShellWarning,
@@ -171,7 +172,10 @@ fn report_error(
     error: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    eprintln!(
+    // Avoid eprintln! since it panics on broken stderr, which double-panics
+    // through miette's panic hook and aborts.
+    let _ = writeln!(
+        std::io::stderr(),
         "Error: {:?}",
         CliError::new(stack, error, working_set, Some(default_code))
     );
@@ -188,7 +192,8 @@ fn report_warning(
     warning: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    eprintln!(
+    let _ = writeln!(
+        std::io::stderr(),
         "Warning: {:?}",
         CliError::new(stack, warning, working_set, Some(default_code))
     );
@@ -214,19 +219,30 @@ impl std::fmt::Debug for CliError<'_> {
 
         let error_style = config.error_style;
 
+        let error_lines = config.error_lines;
+
         let miette_handler: Box<dyn ReportHandler> = match error_style {
             ErrorStyle::Short => Box::new(ShortReportHandler::new()),
             ErrorStyle::Plain => Box::new(NarratableReportHandler::new()),
-            ErrorStyle::Fancy => Box::new(
-                MietteHandlerOpts::new()
+            style => {
+                let handler = MietteHandlerOpts::new()
                     // For better support of terminal themes use the ANSI coloring
                     .rgb_colors(RgbColors::Never)
                     // If ansi support is disabled in the config disable the eye-candy
                     .color(ansi_support)
                     .unicode(ansi_support)
                     .terminal_links(ansi_support)
-                    .build(),
-            ),
+                    .context_lines(error_lines as usize);
+                match style {
+                    ErrorStyle::Nested => Box::new(
+                        handler
+                            .show_related_errors_as_nested()
+                            .with_cause_chain()
+                            .build(),
+                    ),
+                    _ => Box::new(handler.build()),
+                }
+            }
         };
 
         // Ignore error to prevent format! panics. This can happen if span points at some

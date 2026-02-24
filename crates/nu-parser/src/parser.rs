@@ -1036,6 +1036,7 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
+    let decl_name = decl.name().to_string();
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
@@ -1333,12 +1334,16 @@ pub fn parse_internal_call(
             // loop { try { } catch {|e| break } }
             // ```
             // Thus, we discard the compilation error here
-            if let SyntaxShape::Keyword(ref keyword, ..) = positional.shape
-                && keyword == b"catch"
-                && let [nu_protocol::CompileError::NotInALoop { .. }] =
-                    &working_set.compile_errors[compile_error_count..]
-            {
-                working_set.compile_errors.truncate(compile_error_count);
+            if let SyntaxShape::OneOf(ref shapes) = positional.shape {
+                for one_shape in shapes {
+                    if let SyntaxShape::Keyword(keyword, ..) = one_shape
+                        && keyword == b"catch"
+                        && let [nu_protocol::CompileError::NotInALoop { .. }] =
+                            &working_set.compile_errors[compile_error_count..]
+                    {
+                        working_set.compile_errors.truncate(compile_error_count);
+                    }
+                }
             }
 
             let arg = if !type_compatible(&positional.shape.to_type(), &arg.ty) {
@@ -1373,6 +1378,12 @@ pub fn parse_internal_call(
     // move missing positional checking into the while loop above with two pointers.
     // Maybe more `CallKind::Invalid` if errors found during argument parsing.
     let call_kind = check_call(working_set, command_span, &signature, &call);
+
+    if decl_name == "let"
+        && let Some(lvalue) = call.positional_nth(0)
+    {
+        ensure_not_reserved_variable_name(working_set, lvalue);
+    }
 
     deprecation
         .into_iter()
@@ -1572,6 +1583,40 @@ pub fn find_longest_decl_with_prefix(
         }
         maybe_decl_id = working_set.find_decl(&name);
     }
+
+    // If there is a declaration and there are remaining spans, check if it's an alias.
+    // If it is, try to see if there are sub commands
+    if let Some(decl_id) = maybe_decl_id
+        && pos < spans.len()
+    {
+        let decl = working_set.get_decl(decl_id);
+        if let Some(alias) = decl.as_alias() {
+            // Extract the command name from the alias
+            // The wrapped_call should be a Call expression for internal commands
+            if let Expression {
+                expr: Expr::Call(call),
+                ..
+            } = &alias.wrapped_call
+            {
+                let aliased_decl_id = call.decl_id;
+                let aliased_name = working_set.get_decl(aliased_decl_id).name().to_string();
+
+                // Try to find a longer match using the aliased command name with remaining spans
+                let (_, new_pos, new_name, new_decl_id) = find_longest_decl_with_prefix(
+                    working_set,
+                    &spans[pos..],
+                    aliased_name.as_bytes(),
+                );
+
+                // If we find a sub command, use it instead.
+                if new_decl_id.is_some() && new_pos > 0 {
+                    let total_pos = pos + new_pos;
+                    return (cmd_start, total_pos, new_name, new_decl_id);
+                }
+            }
+        }
+    }
+
     (cmd_start, pos, name, maybe_decl_id)
 }
 
@@ -3166,8 +3211,31 @@ fn modf(x: f64) -> (f64, f64) {
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        let interpolation_expr = parse_string_interpolation(working_set, span);
+
+        // Convert StringInterpolation to GlobInterpolation
+        if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
+            return Expression::new(
+                working_set,
+                Expr::GlobInterpolation(exprs, quoted),
+                span,
+                Type::Glob,
+            );
+        }
+
+        return interpolation_expr;
+    }
+
+    let (token, err) = unescape_unquote_string(bytes, span);
 
     if err.is_none() {
         trace!("-- found {token}");
@@ -4116,8 +4184,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4201,8 +4273,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                let var_id = working_set.add_variable(
+                                    variable_name,
+                                    span,
+                                    Type::Bool,
+                                    false,
+                                );
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4527,30 +4603,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with no TypeMode are just present/not-present switches
-                                        // in the case, `var_type` is any.
-                                        match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
-                                                }
-                                            }
-                                            t => {
-                                                if !type_compatible(t, &expression_ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value is the wrong type"
-                                                                .into(),
-                                                            format!(
-                                                                "expected default value to be `{t}`"
-                                                            ),
-                                                            expression_span,
-                                                        ),
-                                                    )
-                                                }
-                                            }
+                                        // Flags without type annotations are present/not-present
+                                        // switches *except* when they have a default value
+                                        // assigned. In that case they are regular flags and take
+                                        // on the type of their default value.
+                                        if !*type_annotated {
+                                            *arg = Some(expression_ty.to_shape());
+                                            working_set.set_variable_type(var_id, expression_ty);
+                                        } else if !type_compatible(var_type, &expression_ty) {
+                                            working_set.error(ParseError::AssignmentMismatch(
+                                                "Default value is the wrong type".into(),
+                                                format!(
+                                                    "expected default value to be `{var_type}`"
+                                                ),
+                                                expression_span,
+                                            ))
                                         }
                                     }
                                 }
@@ -4888,13 +4955,15 @@ fn parse_table_expression(
 
 fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
     let mut errors = vec![];
-    let mut rows = rows.to_vec();
-    let mut mk_ty = || -> Type {
-        let types = rows
+    let mut rows: Vec<_> = rows.iter().map(|row| row.iter()).collect();
+
+    let column_types = std::iter::from_fn(move || {
+        let column = rows
             .iter_mut()
-            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default());
-        Type::supertype_of(types).unwrap_or_default()
-    };
+            .filter_map(|row| row.next())
+            .map(|col| col.ty.clone());
+        Some(Type::supertype_of(column).unwrap_or(Type::Any))
+    });
 
     let mk_error = |span| ParseError::LabeledErrorWithHelp {
         error: "Table column name not string".into(),
@@ -4903,24 +4972,20 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         span,
     };
 
-    let mut ty = head
+    let ty: Box<[(String, Type)]> = head
         .iter()
-        .rev()
-        // Include only known column names in type
-        .filter_map(|expr| {
+        .zip(column_types)
+        .filter_map(|(expr, col_ty)| {
             if !Type::String.is_subtype_of(&expr.ty) {
                 errors.push(mk_error(expr.span));
                 None
             } else {
-                expr.as_string()
+                expr.as_string().zip(Some(col_ty))
             }
         })
-        .map(|title| (title, mk_ty()))
-        .collect_vec();
+        .collect();
 
-    ty.reverse();
-
-    (Type::Table(ty.into()), errors)
+    (Type::Table(ty), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {

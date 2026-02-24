@@ -173,9 +173,8 @@ impl PreparedServerCommunication {
             }
             #[cfg(feature = "local-socket")]
             PreparedServerCommunication::LocalSocket { listener, .. } => {
-                use interprocess::local_socket::traits::{
-                    Listener, ListenerNonblockingMode, Stream,
-                };
+                use interprocess::local_socket::ListenerNonblockingMode;
+                use interprocess::local_socket::traits::{Listener, Stream};
                 use std::time::{Duration, Instant};
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);

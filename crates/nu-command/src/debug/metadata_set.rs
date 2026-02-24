@@ -1,6 +1,6 @@
 use super::util::{extend_record_with_metadata, parse_metadata_from_record};
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{DataSource, engine::Closure};
+use nu_protocol::{DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure};
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -24,29 +24,60 @@ impl Command for MetadataSet {
             )
             .switch(
                 "datasource-ls",
-                "Assign the DataSource::Ls metadata to the input",
+                "Assign the DataSource::Ls metadata to the input.",
                 Some('l'),
             )
             .named(
                 "datasource-filepath",
                 SyntaxShape::Filepath,
-                "Assign the DataSource::FilePath metadata to the input",
+                "Assign the DataSource::FilePath metadata to the input.",
                 Some('f'),
+            )
+            .named(
+                "path-columns",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "Assign path columns metadata to the input.",
+                Some('p'),
             )
             .named(
                 "content-type",
                 SyntaxShape::String,
-                "Assign content type metadata to the input",
+                "Assign content type metadata to the input.",
                 Some('c'),
             )
             .named(
                 "merge",
                 SyntaxShape::Record(vec![]),
-                "Merge arbitrary metadata fields",
+                "Merge arbitrary metadata fields.",
                 Some('m'),
             )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![
+            DeprecationEntry {
+                ty: DeprecationType::Flag("merge".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.111.0".into()),
+                expected_removal: Some("0.112.0".into()),
+                help: Some(
+                    "Use the closure parameter instead: `metadata set { merge {key: value} }`"
+                        .into(),
+                ),
+            },
+            DeprecationEntry {
+                ty: DeprecationType::Flag("datasource-ls".into()),
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.111.0".into()),
+                expected_removal: Some("0.113.0".into()),
+                help: Some(
+                    "Use the path-columns flag instead: `metadata set --path-columns [name]`"
+                        .into(),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -60,6 +91,8 @@ impl Command for MetadataSet {
         let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
         let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
+        let path_columns: Option<Vec<String>> =
+            call.get_flag(engine_state, stack, "path-columns")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
         let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
@@ -72,7 +105,12 @@ impl Command for MetadataSet {
 
         // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
-            if ds_fp.is_some() || ds_ls || content_type.is_some() || merge.is_some() {
+            if ds_fp.is_some()
+                || ds_ls
+                || path_columns.is_some()
+                || content_type.is_some()
+                || merge.is_some()
+            {
                 return Err(ShellError::GenericError {
                     error: "Incompatible parameters".into(),
                     msg: "cannot use closure with other flags".into(),
@@ -101,6 +139,10 @@ impl Command for MetadataSet {
             return Ok(input.set_metadata(Some(metadata)));
         }
 
+        if let Some(path_columns) = path_columns {
+            metadata.path_columns = path_columns;
+        }
+
         // Flag-based metadata modification
         if let Some(content_type) = content_type {
             metadata.content_type = Some(content_type);
@@ -115,7 +157,11 @@ impl Command for MetadataSet {
 
         match (ds_fp, ds_ls) {
             (Some(path), false) => metadata.data_source = DataSource::FilePath(path.into()),
-            (None, true) => metadata.data_source = DataSource::Ls,
+            #[allow(deprecated)]
+            (None, true) => {
+                metadata.data_source = DataSource::Ls;
+                metadata.path_columns.push("name".to_string());
+            }
             (Some(_), true) => {
                 return Err(ShellError::IncompatibleParameters {
                     left_message: "cannot use `--datasource-filepath`".into(),
@@ -137,27 +183,32 @@ impl Command for MetadataSet {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set the metadata of a table literal",
+                description: "Set the metadata of a table literal.",
                 example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --datasource-ls",
                 result: None,
             },
             Example {
-                description: "Set the metadata of a file path",
+                description: "Set the metadata of a file path.",
                 example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
                 result: None,
             },
             Example {
-                description: "Set the content type metadata",
+                description: "Set the path columns metadata.",
+                example: "glob * | wrap path | metadata set --path-columns [path]",
+                result: None,
+            },
+            Example {
+                description: "Set the content type metadata.",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
             },
             Example {
-                description: "Set custom metadata",
+                description: "Set custom metadata.",
                 example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
                 result: Some(Value::test_string("value")),
             },
             Example {
-                description: "Set metadata using a closure",
+                description: "Set metadata using a closure.",
                 example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
                 result: Some(Value::test_string("text/csv-processed")),
             },

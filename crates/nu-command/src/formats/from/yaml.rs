@@ -209,14 +209,14 @@ pub fn get_examples() -> Vec<Example<'static>> {
     vec![
         Example {
             example: "'a: 1' | from yaml",
-            description: "Converts yaml formatted string to table",
+            description: "Converts yaml formatted string to table.",
             result: Some(Value::test_record(record! {
                 "a" => Value::test_int(1),
             })),
         },
         Example {
             example: "'[ a: 1, b: [1, 2] ]' | from yaml",
-            description: "Converts yaml formatted string to table",
+            description: "Converts yaml formatted string to table.",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -259,14 +259,14 @@ mod test {
         }
         let tt: Vec<TestCase> = vec![
             TestCase {
-                description: "Double Curly Braces With Quotes",
+                description: "Double Curly Braces With Quotes.",
                 input: r#"value: "{{ something }}""#,
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),
                 })),
             },
             TestCase {
-                description: "Double Curly Braces Without Quotes",
+                description: "Double Curly Braces Without Quotes.",
                 input: r#"value: {{ something }}"#,
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),
@@ -419,14 +419,16 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --datasource-ls | from yaml | metadata | reject span | $in"#;
+        let cmd = r#""a: 1\nb: 2" | metadata set --content-type 'application/yaml' --path-columns [name] | from yaml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

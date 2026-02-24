@@ -7,6 +7,7 @@ use prelude::*;
 use std::collections::HashMap;
 
 pub use ansi_coloring::UseAnsiColoring;
+pub use clip::ClipConfig;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
@@ -25,6 +26,7 @@ pub use shell_integration::ShellIntegrationConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod ansi_coloring;
+mod clip;
 mod completions;
 mod datetime_format;
 mod display_errors;
@@ -47,6 +49,7 @@ pub struct Config {
     pub filesize: FilesizeConfig,
     pub table: TableConfig,
     pub ls: LsConfig,
+    pub clip: ClipConfig,
     pub color_config: HashMap<String, Value>,
     pub footer_mode: FooterMode,
     pub float_precision: i64,
@@ -69,6 +72,7 @@ pub struct Config {
     pub cursor_shape: CursorShapeConfig,
     pub datetime_format: DatetimeFormatConfig,
     pub error_style: ErrorStyle,
+    pub error_lines: i64,
     pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
@@ -105,6 +109,8 @@ impl Default for Config {
 
             cursor_shape: CursorShapeConfig::default(),
 
+            clip: ClipConfig::default(),
+
             color_config: HashMap::new(),
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
@@ -124,7 +130,8 @@ impl Default for Config {
 
             keybindings: Vec::new(),
 
-            error_style: ErrorStyle::Fancy,
+            error_style: ErrorStyle::default(),
+            error_lines: 1,
             display_errors: DisplayErrors::default(),
 
             use_kitty_protocol: false,
@@ -160,6 +167,7 @@ impl UpdateFromValue for Config {
                 "filesize" => self.filesize.update(val, path, errors),
                 "explore" => self.explore.update(val, path, errors),
                 "color_config" => self.color_config.update(val, path, errors),
+                "clip" => self.clip.update(val, path, errors),
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
@@ -204,6 +212,17 @@ impl UpdateFromValue for Config {
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),
                 "error_style" => self.error_style.update(val, path, errors),
+                "error_lines" => {
+                    if let Ok(lines) = val.as_int() {
+                        if lines >= 0 {
+                            self.error_lines = lines;
+                        } else {
+                            errors.invalid_value(path, "an int greater than or equal to 0", val);
+                        }
+                    } else {
+                        errors.type_mismatch(path, Type::Int, val);
+                    }
+                }
                 "recursion_limit" => {
                     if let Ok(limit) = val.as_int() {
                         if limit > 1 {

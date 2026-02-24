@@ -1,6 +1,6 @@
 use crate::util::eval_source;
 #[cfg(feature = "plugin")]
-use nu_path::canonicalize_with;
+use nu_path::absolute_with;
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, PluginRegistryFile, Spanned, engine::StateWorkingSet};
 use nu_protocol::{
@@ -169,12 +169,14 @@ pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spann
         if let Some(plugin_file) = plugin_file {
             let path = Path::new(&plugin_file.item);
             let path_dir = path.parent().unwrap_or(path);
-            // Just try to canonicalize the directory of the plugin file first.
-            if let Ok(path_dir) = canonicalize_with(path_dir, &cwd) {
-                // Try to canonicalize the actual filename, but it's ok if that fails. The file doesn't
-                // have to exist.
+            // Just try the absolute directory of the plugin file first.
+            if let Ok(path_dir) = absolute_with(path_dir, &cwd)
+                && path_dir.exists()
+            {
+                // Get an absolute path to the file.
+                // We don't need to check if it exists.
                 let path = path_dir.join(path.file_name().unwrap_or(path.as_os_str()));
-                let path = canonicalize_with(&path, &cwd).unwrap_or(path);
+                let path = absolute_with(&path, &cwd).unwrap_or(path);
                 engine_state.plugin_path = Some(path)
             } else {
                 // It's an error if the directory for the plugin file doesn't exist.
@@ -189,10 +191,9 @@ pub fn add_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Spann
             }
         } else if let Some(plugin_path) = nu_path::nu_config_dir() {
             // Path to store plugins signatures
-            let mut plugin_path =
-                canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
+            let mut plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path.into());
             plugin_path.push(PLUGIN_FILE);
-            let plugin_path = canonicalize_with(&plugin_path, &cwd).unwrap_or(plugin_path);
+            let plugin_path = absolute_with(&plugin_path, &cwd).unwrap_or(plugin_path);
             engine_state.plugin_path = Some(plugin_path);
         }
     }
@@ -251,14 +252,18 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     };
 
     let Some(config_dir) =
-        nu_path::nu_config_dir().and_then(|dir| nu_path::canonicalize_with(dir, &cwd).ok())
+        nu_path::nu_config_dir().and_then(|dir| nu_path::absolute_with(dir, &cwd).ok())
     else {
         return false;
     };
 
-    let Ok(old_plugin_file_path) = nu_path::canonicalize_with(OLD_PLUGIN_FILE, &config_dir) else {
+    let Ok(old_plugin_file_path) = nu_path::absolute_with(OLD_PLUGIN_FILE, &config_dir) else {
         return false;
     };
+
+    if !config_dir.exists() || !old_plugin_file_path.exists() {
+        return false;
+    }
 
     let old_contents = match std::fs::read(&old_plugin_file_path) {
         Ok(old_contents) => old_contents,

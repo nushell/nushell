@@ -124,16 +124,16 @@ fn test_case_insensitive_env_var() {
         engine_state.add_env_var(name, Value::test_string(value));
     }
 
-    let path_lower = engine_state.get_env_var_insensitive("path");
-    let path_upper = engine_state.get_env_var_insensitive("PATH");
-    let path_mixed = engine_state.get_env_var_insensitive("PaTh");
+    let path_lower = engine_state.get_env_var("path");
+    let path_upper = engine_state.get_env_var("PATH");
+    let path_mixed = engine_state.get_env_var("PaTh");
 
     assert_eq!(path_lower, path_upper);
     assert_eq!(path_lower, path_mixed);
 
-    let stack_path_lower = stack.get_env_var_insensitive(&engine_state, "path");
-    let stack_path_upper = stack.get_env_var_insensitive(&engine_state, "PATH");
-    let stack_path_mixed = stack.get_env_var_insensitive(&engine_state, "PaTh");
+    let stack_path_lower = stack.get_env_var(&engine_state, "path");
+    let stack_path_upper = stack.get_env_var(&engine_state, "PATH");
+    let stack_path_mixed = stack.get_env_var(&engine_state, "PaTh");
 
     assert_eq!(stack_path_lower, stack_path_upper);
     assert_eq!(stack_path_lower, stack_path_mixed);

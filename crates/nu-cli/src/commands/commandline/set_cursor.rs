@@ -15,7 +15,7 @@ impl Command for CommandlineSetCursor {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
                 "end",
-                "set the current cursor position to the end of the buffer",
+                "Set the current cursor position to the end of the buffer.",
                 Some('e'),
             )
             .optional("pos", SyntaxShape::Int, "Cursor position to be set.")

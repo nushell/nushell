@@ -11,7 +11,8 @@ use nu_protocol::{
     combined_type_string,
     debugger::DebugContext,
     engine::{
-        Argument, Closure, EngineState, ErrorHandler, Matcher, Redirection, Stack, StateWorkingSet,
+        Argument, Closure, EngineState, EnvName, ErrorHandler, Matcher, Redirection, Stack,
+        StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
     shell_error::io::IoError,
@@ -45,6 +46,7 @@ pub fn eval_ir_block<D: DebugContext>(
 
         let args_base = stack.arguments.get_base();
         let error_handler_base = stack.error_handlers.get_base();
+        let finally_handler_base = stack.finally_run_handlers.get_base();
 
         // Allocate and initialize registers. I've found that it's not really worth trying to avoid
         // the heap allocation here by reusing buffers - our allocator is fast enough
@@ -64,6 +66,7 @@ pub fn eval_ir_block<D: DebugContext>(
                 block_span: &block.span,
                 args_base,
                 error_handler_base,
+                finally_handler_base,
                 redirect_out: None,
                 redirect_err: None,
                 matches: vec![],
@@ -75,6 +78,7 @@ pub fn eval_ir_block<D: DebugContext>(
         );
 
         stack.error_handlers.leave_frame(error_handler_base);
+        stack.finally_run_handlers.leave_frame(finally_handler_base);
         stack.arguments.leave_frame(args_base);
 
         D::leave_block(engine_state, block);
@@ -103,6 +107,8 @@ struct EvalContext<'a> {
     args_base: usize,
     /// Base index on the error handler stack to reset to after a call
     error_handler_base: usize,
+    /// Base index on the finally handler stack to reset to after a call
+    finally_handler_base: usize,
     /// State set by redirect-out
     redirect_out: Option<Redirection>,
     /// State set by redirect-err
@@ -168,13 +174,14 @@ impl<'a> EvalContext<'a> {
         // NOTE: in collect, it maybe good to pick the inner PipelineData
         // directly, and drop the ExitStatus queue.
         let data = self.take_reg(reg_id);
+        let body = data.body;
+        let span = body.span().unwrap_or(fallback_span);
+        let result = body.into_value(span);
         #[cfg(feature = "os")]
         if nu_experimental::PIPE_FAIL.get() {
             check_exit_status_future(data.exit)?
         }
-        let data = data.body;
-        let span = data.span().unwrap_or(fallback_span);
-        data.into_value(span)
+        result
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -199,6 +206,7 @@ fn eval_ir_block_impl<D: DebugContext>(
     // Program counter, starts at zero.
     let mut pc = 0;
     let need_backtrace = ctx.engine_state.get_env_var("NU_BACKTRACE").is_some();
+    let mut ret_val = None;
 
     while pc < ir_block.instructions.len() {
         let instruction = &ir_block.instructions[pc];
@@ -224,20 +232,41 @@ fn eval_ir_block_impl<D: DebugContext>(
             Ok(InstructionResult::Branch(next_pc)) => {
                 pc = next_pc;
             }
-            Ok(InstructionResult::Return(reg_id)) => return Ok(ctx.take_reg(reg_id)),
-            Err(
-                err @ (ShellError::Return { .. }
-                | ShellError::Continue { .. }
-                | ShellError::Break { .. }),
-            ) => {
-                // These block control related errors should be passed through
+            Ok(InstructionResult::Return(reg_id)) => {
+                // need to check if the return value is set by
+                // `Shell::Return` first. If so, we need to respect that value.
+                match ret_val {
+                    Some(err) => return Err(err),
+                    None => return Ok(ctx.take_reg(reg_id)),
+                }
+            }
+            Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
+            }
+            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
+                if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    // need to run finally block before return.
+                    // and record the return value firstly.
+                    prepare_error_handler(ctx, always_run_handler, None);
+                    pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
+                } else {
+                    // These block control related errors should be passed through
+                    return Err(err);
+                }
             }
             Err(err) => {
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
+                } else if let Some(always_run_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                {
+                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
+                    pc = always_run_handler.handler_index;
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -388,7 +417,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnv { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            if let Some(value) = get_env_var_case_insensitive(ctx, key) {
+            if let Some(value) = get_env_var(ctx, key) {
                 let new_value = value.clone().into_pipeline_data();
                 ctx.put_reg(*dst, PipelineExecutionData::from(new_value));
                 Ok(Continue)
@@ -404,7 +433,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::LoadEnvOpt { dst, key } => {
             let key = ctx.get_str(*key, *span)?;
-            let value = get_env_var_case_insensitive(ctx, key)
+            let value = get_env_var(ctx, key)
                 .cloned()
                 .unwrap_or(Value::nothing(*span));
             ctx.put_reg(
@@ -417,7 +446,7 @@ fn eval_instruction<D: DebugContext>(
             let key = ctx.get_str(*key, *span)?;
             let value = ctx.collect_reg(*src, *span)?;
 
-            let key = get_env_var_name_case_insensitive(ctx, key);
+            let key = get_env_var_name(ctx, key);
 
             if !is_automatic_env_var(&key) {
                 let is_config = key == "config";
@@ -598,8 +627,9 @@ fn eval_instruction<D: DebugContext>(
             #[cfg(feature = "os")]
             {
                 let mut original_exit = input.exit;
-                let result_exit_status_future =
-                    result.clone_exit_status_future().map(|f| (f, *span));
+                let result_exit_status_future = result
+                    .clone_exit_status_future()
+                    .map(|f| f.with_span(*span));
                 original_exit.push(result_exit_status_future);
                 ctx.put_reg(
                     *src_dst,
@@ -890,8 +920,26 @@ fn eval_instruction<D: DebugContext>(
             });
             Ok(Continue)
         }
+        Instruction::Finally { index } => {
+            ctx.stack.finally_run_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_register: None,
+            });
+            Ok(Continue)
+        }
+        Instruction::FinallyInto { index, dst } => {
+            ctx.stack.finally_run_handlers.push(ErrorHandler {
+                handler_index: *index,
+                error_register: Some(*dst),
+            });
+            Ok(Continue)
+        }
         Instruction::PopErrorHandler => {
             ctx.stack.error_handlers.pop(ctx.error_handler_base);
+            Ok(Continue)
+        }
+        Instruction::PopFinallyRun => {
+            ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base);
             Ok(Continue)
         }
         Instruction::ReturnEarly { src } => {
@@ -912,11 +960,20 @@ fn load_literal(
     lit: &Literal,
     span: Span,
 ) -> Result<InstructionResult, ShellError> {
-    let value = literal_value(ctx, lit, span)?;
-    ctx.put_reg(
-        dst,
-        PipelineExecutionData::from(PipelineData::value(value, None)),
-    );
+    // `Literal::Empty` represents "no pipeline input" and should produce
+    // `PipelineData::Empty`. This is distinct from `Literal::Nothing` which
+    // represents the `null` value and should produce `PipelineData::Value(Value::Nothing)`.
+    // Some commands (like `metadata`) distinguish between these when deciding
+    // whether positional args are allowed.
+    if matches!(lit, Literal::Empty) {
+        ctx.put_reg(dst, PipelineExecutionData::empty());
+    } else {
+        let value = literal_value(ctx, lit, span)?;
+        ctx.put_reg(
+            dst,
+            PipelineExecutionData::from(PipelineData::value(value, None)),
+        );
+    }
     Ok(InstructionResult::Continue)
 }
 
@@ -995,6 +1052,8 @@ fn literal_value(
         Literal::CellPath(path) => Value::cell_path(CellPath::clone(path), span),
         Literal::Date(dt) => Value::date(**dt, span),
         Literal::Nothing => Value::nothing(span),
+        // Empty is handled specially in load_literal and should never reach here
+        Literal::Empty => Value::nothing(span),
     })
 }
 
@@ -1465,8 +1524,8 @@ fn get_var(ctx: &EvalContext<'_>, var_id: VarId, span: Span) -> Result<Value, Sh
     }
 }
 
-/// Get an environment variable, case-insensitively
-fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
+/// Get an environment variable (case-insensitive lookup is handled by EnvName)
+fn get_env_var<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> Option<&'a Value> {
     // Read scopes in order
     for overlays in ctx
         .stack
@@ -1482,20 +1541,13 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
                 continue;
             };
             let hidden = ctx.stack.env_hidden.get(overlay_name);
-            let is_hidden = |key: &str| hidden.is_some_and(|hidden| hidden.contains(key));
+            let is_hidden = |key: &EnvName| hidden.is_some_and(|hidden| hidden.contains(key));
 
             if let Some(val) = map
-                // Check for exact match
-                .get(key)
+                // Check for exact match (now case-insensitive due to EnvName)
+                .get(&EnvName::from(key))
                 // Skip when encountering an overlay where the key is hidden
-                .filter(|_| !is_hidden(key))
-                .or_else(|| {
-                    // Check to see if it exists at all in the map, with a different case
-                    map.iter().find_map(|(k, v)| {
-                        // Again, skip something that's hidden
-                        (k.eq_ignore_case(key) && !is_hidden(k)).then_some(v)
-                    })
-                })
+                .filter(|_| !is_hidden(&EnvName::from(key)))
             {
                 return Some(val);
             }
@@ -1505,10 +1557,10 @@ fn get_env_var_case_insensitive<'a>(ctx: &'a mut EvalContext<'_>, key: &str) -> 
     None
 }
 
-/// Get the existing name of an environment variable, case-insensitively. This is used to implement
-/// case preservation of environment variables, so that changing an environment variable that
-/// already exists always uses the same case.
-fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
+/// Get the existing name of an environment variable (case-insensitive lookup is handled by EnvName).
+/// This is used to implement case preservation of environment variables, so that changing an
+/// environment variable that already exists always uses the same case.
+fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str> {
     // Read scopes in order
     ctx.stack
         .env_vars
@@ -1524,17 +1576,17 @@ fn get_env_var_name_case_insensitive<'a>(ctx: &mut EvalContext<'_>, key: &'a str
                 .filter_map(|name| overlays.get(name))
         })
         .find_map(|map| {
-            // Use the hashmap first to try to be faster?
-            if map.contains_key(key) {
-                Some(Cow::Borrowed(key))
+            // Check if it exists (case-insensitive due to EnvName)
+            if map.contains_key(&EnvName::from(key)) {
+                // Find the existing key to preserve its case
+                map.keys()
+                    .find(|k| k.as_str().eq_ignore_case(key))
+                    .map(|k| Cow::Owned(k.as_str().to_owned()))
             } else {
-                map.keys().find(|k| k.eq_ignore_case(key)).map(|k| {
-                    // it exists, but with a different case
-                    Cow::Owned(k.to_owned())
-                })
+                None
             }
         })
-        // didn't exist.
+        // didn't exist, use the provided key
         .unwrap_or(Cow::Borrowed(key))
 }
 

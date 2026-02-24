@@ -63,12 +63,12 @@ impl Command for StrJoin {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Create a string from input",
+                description: "Create a string from input.",
                 example: "['nu', 'shell'] | str join",
                 result: Some(Value::test_string("nushell")),
             },
             Example {
-                description: "Create a string from input with a separator",
+                description: "Create a string from input with a separator.",
                 example: "['nu', 'shell'] | str join '-'",
                 result: Some(Value::test_string("nu-shell")),
             },
@@ -111,7 +111,7 @@ fn run(
                         return Err(*error);
                     }
                     Value::Date { val, .. } => {
-                        let date_str = if val.year() >= 0 {
+                        let date_str = if val.year() >= 0 && val.year() <= 9999 {
                             val.to_rfc2822()
                         } else {
                             val.to_rfc3339()

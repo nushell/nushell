@@ -19,27 +19,27 @@ impl Command for DebugProfile {
                 SyntaxShape::Closure(None),
                 "The closure to profile.",
             )
-            .switch("spans", "Collect spans of profiled elements", Some('s'))
+            .switch("spans", "Collect spans of profiled elements.", Some('s'))
             .switch(
                 "expand-source",
-                "Collect full source fragments of profiled elements",
+                "Collect full source fragments of profiled elements.",
                 Some('e'),
             )
             .switch(
                 "values",
-                "Collect pipeline element output values",
+                "Collect pipeline element output values.",
                 Some('v'),
             )
-            .switch("lines", "Collect line numbers", Some('l'))
+            .switch("lines", "Collect line numbers.", Some('l'))
             .switch(
                 "duration-values",
-                "Report instruction duration as duration values rather than milliseconds",
+                "Report instruction duration as duration values rather than milliseconds.",
                 Some('d'),
             )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
-                "How many blocks/closures deep to step into (default 2)",
+                "How many blocks/closures deep to step into (default 2).",
                 Some('m'),
             )
             .input_output_types(vec![(Type::Any, Type::table())])
@@ -167,12 +167,12 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Profile config evaluation",
+                description: "Profile config evaluation.",
                 example: "debug profile { source $nu.config-path }",
                 result: None,
             },
             Example {
-                description: "Profile config evaluation with more granularity",
+                description: "Profile config evaluation with more granularity.",
                 example: "debug profile { source $nu.config-path } --max-depth 4",
                 result: None,
             },

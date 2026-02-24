@@ -32,7 +32,7 @@ impl Command for BitsOr {
             .named(
                 "endian",
                 SyntaxShape::String,
-                "byte encode endian, available options: native(default), little, big",
+                "Byte encode endian, available options: native(default), little, big.",
                 Some('e'),
             )
             .category(Category::Bits)

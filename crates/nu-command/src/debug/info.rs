@@ -46,7 +46,7 @@ impl Command for DebugInfo {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "View process information",
+            description: "View process information.",
             example: "debug info",
             result: None,
         }]

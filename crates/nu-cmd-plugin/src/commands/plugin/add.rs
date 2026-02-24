@@ -21,13 +21,13 @@ impl Command for PluginAdd {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`.",
                 None,
             )
             .named(
                 "shell",
                 SyntaxShape::Filepath,
-                "Use an additional shell program (cmd, sh, python, etc.) to run the plugin",
+                "Use an additional shell program (cmd, sh, python, etc.) to run the plugin.",
                 Some('s'),
             )
             .required(
@@ -99,8 +99,7 @@ apparent the next time `nu` is next launched with that plugin registry file.
         let shell_expanded = shell
             .as_ref()
             .map(|s| {
-                nu_path::canonicalize_with(&s.item, &cwd)
-                    .map_err(|err| IoError::new(err, s.span, None))
+                nu_path::absolute_with(&s.item, &cwd).map_err(|err| IoError::new(err, s.span, None))
             })
             .transpose()?;
 

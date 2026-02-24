@@ -24,8 +24,8 @@ impl PluginCommand for LazyJoinWhere {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("other", SyntaxShape::Any, "LazyFrame to join with")
-            .required("condition", SyntaxShape::Any, "Condition")
+            .required("other", SyntaxShape::Any, "LazyFrame to join with.")
+            .required("condition", SyntaxShape::Any, "Condition.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

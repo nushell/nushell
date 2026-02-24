@@ -57,12 +57,12 @@ impl Command for JobTag {
         vec![
             Example {
                 example: "let id = job spawn { sleep 10sec }; job tag $id abc ",
-                description: "Tag a newly spawned job",
+                description: "Tag a newly spawned job.",
                 result: None,
             },
             Example {
                 example: "let id = job spawn { sleep 10sec }; job tag $id abc; job tag $id null",
-                description: "Remove the tag of a job",
+                description: "Remove the tag of a job.",
                 result: None,
             },
         ]

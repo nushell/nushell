@@ -29,11 +29,11 @@ impl Command for FakeCmd {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("second", SyntaxShape::String, "optional second")
-            .required("first", SyntaxShape::String, "required integer value")
+            .required("first", SyntaxShape::String, "Required integer value.")
             .named(
                 "flag",
                 SyntaxShape::Int,
-                "example flag which support auto completion",
+                "Example flag which support auto completion.",
                 Some('f'),
             )
     }
@@ -284,6 +284,16 @@ pub fn merge_input(
         )
         .is_ok()
     );
+
+    // Update engine_state with deleted variables (mirrors util.rs behavior)
+    for var_id in &stack.deletions {
+        if let Some(active_id) = engine_state.scope.active_overlays.last()
+            && let Some((_, overlay)) = engine_state.scope.overlays.get_mut((*active_id).get())
+        {
+            overlay.vars.retain(|_, v| *v != *var_id);
+        }
+    }
+    stack.deletions.clear();
 
     // Merge environment into the permanent state
     engine_state.merge_env(stack)

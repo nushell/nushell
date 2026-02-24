@@ -114,7 +114,7 @@ impl Command for AttrExample {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Add examples to custom command",
+            description: "Add examples to custom command.",
             example: r###"# Double numbers
     @example "double an int" { 2 | double } --result 4
     @example "double a float" { 0.25 | double } --result 0.5

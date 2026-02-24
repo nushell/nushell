@@ -31,7 +31,7 @@ are also available in the current scope. Commands/aliases that were imported und
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in module names and descriptions",
+                "String to find in module names and descriptions.",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -41,17 +41,17 @@ are also available in the current scope. Commands/aliases that were imported und
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "show all modules",
+                description: "Show all modules.",
                 example: "help modules",
                 result: None,
             },
             Example {
-                description: "show help for single module",
+                description: "Show help for single module.",
                 example: "help modules my-module",
                 result: None,
             },
             Example {
-                description: "search for string in module names and descriptions",
+                description: "Search for string in module names and descriptions.",
                 example: "help modules --find my-module",
                 result: None,
             },

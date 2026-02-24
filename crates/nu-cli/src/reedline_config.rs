@@ -1099,6 +1099,11 @@ fn edit_from_record(
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
         },
+        "movetolinenonblankstart" => EditCommand::MoveToLineNonBlankStart {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
         "movetoend" => EditCommand::MoveToEnd {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
@@ -1192,8 +1197,17 @@ fn edit_from_record(
         "complete" => EditCommand::Complete,
         "cutcurrentline" => EditCommand::CutCurrentLine,
         "cutfromstart" => EditCommand::CutFromStart,
+        "cutfromstartlinewise" => EditCommand::CutFromStartLinewise {
+            leave_blank_line: extract_value("value", record, span)
+                .and_then(|value| value.as_bool())?,
+        },
         "cutfromlinestart" => EditCommand::CutFromLineStart,
+        "cutfromlinenonblankstart" => EditCommand::CutFromLineNonBlankStart,
         "cuttoend" => EditCommand::CutToEnd,
+        "cuttoendlinewise" => EditCommand::CutToEndLinewise {
+            leave_blank_line: extract_value("value", record, span)
+                .and_then(|value| value.as_bool())?,
+        },
         "cuttolineend" => EditCommand::CutToLineEnd,
         "killline" => EditCommand::KillLine,
         "cutwordleft" => EditCommand::CutWordLeft,
@@ -1269,8 +1283,11 @@ fn edit_from_record(
         "copyselection" => EditCommand::CopySelection,
         "paste" => EditCommand::Paste,
         "copyfromstart" => EditCommand::CopyFromStart,
+        "copyfromstartlinewise" => EditCommand::CopyFromStartLinewise,
         "copyfromlinestart" => EditCommand::CopyFromLineStart,
+        "copyfromlinenonblankstart" => EditCommand::CopyFromLineNonBlankStart,
         "copytoend" => EditCommand::CopyToEnd,
+        "copytoendlinewise" => EditCommand::CopyToEndLinewise,
         "copytolineend" => EditCommand::CopyToLineEnd,
         "copycurrentline" => EditCommand::CopyCurrentLine,
         "copywordleft" => EditCommand::CopyWordLeft,

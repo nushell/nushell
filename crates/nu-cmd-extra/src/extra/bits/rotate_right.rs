@@ -40,13 +40,13 @@ impl Command for BitsRor {
             .required("bits", SyntaxShape::Int, "Number of bits to rotate right.")
             .switch(
                 "signed",
-                "always treat input number as a signed number",
+                "Always treat input number as a signed number.",
                 Some('s'),
             )
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number)",
+                "The word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number).",
                 Some('n'),
             )
             .category(Category::Bits)

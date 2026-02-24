@@ -16,7 +16,7 @@ impl Command for Rotate {
                 (Type::list(Type::Any), Type::table()),
                 (Type::String, Type::table()),
             ])
-            .switch("ccw", "rotate counter clockwise", None)
+            .switch("ccw", "Rotate counter clockwise.", None)
             .rest(
                 "rest",
                 SyntaxShape::String,

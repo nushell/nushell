@@ -386,28 +386,6 @@ mod tests {
             "kind": 9
         }
     ]))]
-    #[case::use_clip("use.nu", (5, 22), None, serde_json::json!([
-        {
-            "label": "std-rfc/clip",
-            "labelDetails": { "description": "module" },
-            "textEdit": {
-                "newText": "std-rfc/clip",
-                "range": { "start": { "character": 11, "line": 5 }, "end": { "character": 23, "line": 5 } }
-            },
-            "kind": 9
-        }
-    ]))]
-    #[case::use_paste("use.nu", (5, 35), None, serde_json::json!([
-        {
-            "label": "paste",
-            "labelDetails": { "description": "custom" },
-            "textEdit": {
-                "newText": "paste",
-                "range": { "start": { "character": 32, "line": 5 }, "end": { "character": 37, "line": 5 } }
-            },
-            "kind": 2
-        }
-    ]))]
     #[case::use_null_device("use.nu", (6, 14), None, serde_json::json!([
         {
             "label": "null_device",
@@ -446,7 +424,7 @@ mod tests {
     #[case::short_flag_name("command.nu", (15, 17), None, serde_json::json!([
         {
             "label": "-e",
-            "detail": "byte encode endian, available options: native(default), little, big",
+            "detail": "Byte encode endian, available options: native(default), little, big.",
             "textEdit": {
                 "newText": "-e ",
                 "range": { "start": { "character": 15, "line": 15 }, "end": { "character": 17, "line": 15 } }
@@ -459,7 +437,7 @@ mod tests {
     #[case::long_flag_name("command.nu", (15, 30), None, serde_json::json!([
         {
             "label": "--endian",
-            "detail": "byte encode endian, available options: native(default), little, big",
+            "detail": "Byte encode endian, available options: native(default), little, big.",
             "textEdit": {
                 "newText": "--endian ",
                 "range": { "start": { "character": 22, "line": 15 }, "end": { "character": 30, "line": 15 } }

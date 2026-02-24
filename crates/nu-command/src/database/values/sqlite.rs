@@ -3,8 +3,8 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    CustomValue, PipelineData, Record, ShellError, Signals, Span, Spanned, Value, casing::Casing,
-    engine::EngineState, shell_error::io::IoError,
+    CustomValue, IntoPipelineData, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
+    ast, casing::Casing, engine::EngineState, shell_error::io::IoError,
 };
 use rusqlite::{
     Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
@@ -394,9 +394,9 @@ impl CustomValue for SQLiteDatabase {
         _optional: bool,
         _casing: Casing,
     ) -> Result<Value, ShellError> {
-        let db = open_sqlite_db(&self.path, path_span)?;
-        read_single_table(db, column_name, path_span, &self.signals)
-            .map_err(|e| e.into_shell_error(path_span, "Failed to read from SQLite database"))
+        // Return a lazy SQLiteQueryBuilder instead of executing the query immediately
+        let table = SQLiteQueryBuilder::new(self.path.clone(), column_name, self.signals.clone());
+        Ok(Value::custom(Box::new(table), path_span))
     }
 
     fn typetag_name(&self) -> &'static str {
@@ -560,17 +560,6 @@ impl SqliteOrShellError {
             Self::ShellError(err) => err,
         }
     }
-}
-
-fn read_single_table(
-    conn: Connection,
-    table_name: String,
-    call_span: Span,
-    signals: &Signals,
-) -> Result<Value, SqliteOrShellError> {
-    // TODO: Should use params here?
-    let stmt = conn.prepare(&format!("SELECT * FROM [{table_name}]"))?;
-    prepared_statement_to_nu_list(stmt, NuSqlParams::default(), call_span, signals)
 }
 
 /// The SQLite type behind a query column returned as some raw type (e.g. 'text')
@@ -759,6 +748,193 @@ pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
     })
 }
 
+/// A lazy query builder for SQLite tables, allowing SQL pushdown optimizations
+/// for commands like `length`, `select`, `first`, and `last`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SQLiteQueryBuilder {
+    pub db_path: PathBuf,
+    pub table_name: String,
+    pub sql_select: Option<String>, // e.g., "column1, column2" or "*" for all
+    pub sql_where: Option<String>,  // e.g., "column = ?"
+    pub sql_params: Vec<String>,    // parameters for the where clause
+    pub sql_order_by: Option<String>, // e.g., "id DESC"
+    pub sql_limit: Option<i64>,
+    #[serde(skip, default = "Signals::empty")]
+    signals: Signals,
+}
+
+impl SQLiteQueryBuilder {
+    pub fn new(db_path: PathBuf, table_name: String, signals: Signals) -> Self {
+        Self {
+            db_path,
+            table_name,
+            sql_select: None,
+            sql_where: None,
+            sql_params: Vec::new(),
+            sql_order_by: None,
+            sql_limit: None,
+            signals,
+        }
+    }
+
+    pub fn with_select(mut self, select: String) -> Self {
+        self.sql_select = Some(select);
+        self
+    }
+
+    pub fn with_where(mut self, where_clause: String, params: Vec<String>) -> Self {
+        self.sql_where = Some(where_clause);
+        self.sql_params = params;
+        self
+    }
+
+    pub fn with_order_by(mut self, order_by: String) -> Self {
+        self.sql_order_by = Some(order_by);
+        self
+    }
+
+    pub fn with_limit(mut self, limit: i64) -> Self {
+        self.sql_limit = Some(limit);
+        self
+    }
+
+    pub fn build_sql(&self) -> String {
+        let select = self.sql_select.as_deref().unwrap_or("*");
+        let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
+
+        if let Some(where_clause) = &self.sql_where {
+            sql.push_str(&format!(" WHERE {}", where_clause));
+        }
+
+        if let Some(order_by) = &self.sql_order_by {
+            sql.push_str(&format!(" ORDER BY {}", order_by));
+        }
+
+        if let Some(limit) = self.sql_limit {
+            sql.push_str(&format!(" LIMIT {}", limit));
+        }
+
+        sql
+    }
+
+    pub fn execute(&self, call_span: Span) -> Result<PipelineData, ShellError> {
+        let conn = open_sqlite_db(&self.db_path, call_span)?;
+        let sql = self.build_sql();
+        let params = NuSqlParams::List(Vec::new()); // FIXME: handle params properly
+        run_sql_query(
+            conn,
+            &Spanned {
+                item: sql,
+                span: call_span,
+            },
+            params,
+            &self.signals,
+        )
+        .map(IntoPipelineData::into_pipeline_data)
+        .map_err(|e| e.into_shell_error(call_span, "Failed to execute query"))
+    }
+
+    pub fn count(&self, call_span: Span) -> Result<i64, ShellError> {
+        let conn = open_sqlite_db(&self.db_path, call_span)?;
+        let mut sql = format!("SELECT COUNT(*) FROM [{}]", self.table_name);
+        if let Some(where_clause) = &self.sql_where {
+            sql.push_str(&format!(" WHERE {}", where_clause));
+        }
+        let mut stmt = conn.prepare(&sql).map_err(|e| ShellError::GenericError {
+            error: "Failed to prepare count query".into(),
+            msg: e.to_string(),
+            span: Some(call_span),
+            help: None,
+            inner: vec![],
+        })?;
+        let params: Vec<Box<dyn ToSql>> = self
+            .sql_params
+            .iter()
+            .map(|s| Box::new(s.clone()) as Box<dyn ToSql>)
+            .collect();
+        let count: i64 = stmt
+            .query_row(rusqlite::params_from_iter(params), |row| row.get(0))
+            .map_err(|e| ShellError::GenericError {
+                error: "Failed to execute count query".into(),
+                msg: e.to_string(),
+                span: Some(call_span),
+                help: None,
+                inner: vec![],
+            })?;
+        Ok(count)
+    }
+}
+
+impl CustomValue for SQLiteQueryBuilder {
+    fn clone_value(&self, span: Span) -> Value {
+        Value::custom(Box::new(self.clone()), span)
+    }
+
+    fn type_name(&self) -> String {
+        "SQLiteQueryBuilder".to_string()
+    }
+
+    fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+        self.execute(span).and_then(|pd| pd.into_value(span))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
+    fn follow_path_int(
+        &self,
+        _self_span: Span,
+        index: usize,
+        path_span: Span,
+        optional: bool,
+    ) -> Result<Value, ShellError> {
+        // Execute and then index - this could be optimized with LIMIT/OFFSET later
+        let data = self.to_base_value(path_span)?;
+        data.follow_cell_path(&[ast::PathMember::Int {
+            val: index,
+            span: path_span,
+            optional,
+        }])
+        .map(|v| v.into_owned())
+    }
+
+    fn follow_path_string(
+        &self,
+        _self_span: Span,
+        column_name: String,
+        path_span: Span,
+        _optional: bool,
+        _: Casing,
+    ) -> Result<Value, ShellError> {
+        // For now, just execute and get the column - this could be optimized later
+        let data = self.to_base_value(path_span)?;
+        data.follow_cell_path(&[ast::PathMember::String {
+            val: column_name,
+            span: path_span,
+            optional: false,
+            casing: Casing::default(),
+        }])
+        .map(|v| v.into_owned())
+    }
+
+    fn typetag_name(&self) -> &'static str {
+        "SQLiteQueryBuilder"
+    }
+
+    fn typetag_deserialize(&self) {
+        unimplemented!("typetag_deserialize")
+    }
+
+    fn is_iterable(&self) -> bool {
+        true
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -834,5 +1010,199 @@ mod test {
         });
 
         assert_eq!(converted_db, expected);
+    }
+
+    #[test]
+    fn sqlite_table_build_sql_combined() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "test".to_string(),
+            Signals::empty(),
+        )
+        .with_select("col1".to_string())
+        .with_where("col2 = ?".to_string(), vec!["val".to_string()])
+        .with_order_by("col1".to_string())
+        .with_limit(5);
+        assert_eq!(
+            table.build_sql(),
+            "SELECT col1 FROM [test] WHERE col2 = ? ORDER BY col1 LIMIT 5"
+        );
+    }
+
+    #[test]
+    fn sqlite_table_count_integration() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_path_buf();
+        let signals = Signals::empty();
+
+        // Create a test DB with data
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute("CREATE TABLE test (id INTEGER, name TEXT)", [])
+                .unwrap();
+            for i in 0..10 {
+                conn.execute(
+                    "INSERT INTO test (id, name) VALUES (?, ?)",
+                    rusqlite::params![i, format!("name{}", i)],
+                )
+                .unwrap();
+            }
+        }
+
+        let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals);
+        let count = table.count(Span::test_data()).unwrap();
+        assert_eq!(count, 10);
+    }
+
+    #[test]
+    fn sqlite_table_execute_integration() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_path_buf();
+        let signals = Signals::empty();
+
+        // Create a test DB with data
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute("CREATE TABLE test (id INTEGER, name TEXT)", [])
+                .unwrap();
+            conn.execute("INSERT INTO test (id, name) VALUES (1, 'first')", [])
+                .unwrap();
+            conn.execute("INSERT INTO test (id, name) VALUES (2, 'second')", [])
+                .unwrap();
+        }
+
+        let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals);
+        let result = table.execute(Span::test_data()).unwrap();
+        let value = result.into_value(Span::test_data()).unwrap();
+
+        if let Value::List { vals, .. } = value {
+            assert_eq!(vals.len(), 2);
+        } else {
+            panic!("Expected list");
+        }
+    }
+
+    #[test]
+    fn sqlite_table_first_integration() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_path_buf();
+        let signals = Signals::empty();
+
+        // Create a test DB with data
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute("CREATE TABLE test (id INTEGER, name TEXT)", [])
+                .unwrap();
+            for i in 0..5 {
+                conn.execute(
+                    "INSERT INTO test (id, name) VALUES (?, ?)",
+                    rusqlite::params![i, format!("name{}", i)],
+                )
+                .unwrap();
+            }
+        }
+
+        let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals).with_limit(2);
+        let result = table.execute(Span::test_data()).unwrap();
+        let value = result.into_value(Span::test_data()).unwrap();
+
+        if let Value::List { vals, .. } = value {
+            assert_eq!(vals.len(), 2);
+            // Check first two ids
+            if let Value::Record { val: record, .. } = &vals[0] {
+                assert_eq!(record.get("id"), Some(&Value::int(0, Span::test_data())));
+            }
+        } else {
+            panic!("Expected list");
+        }
+    }
+
+    #[test]
+    fn sqlite_table_last_integration() {
+        use tempfile::NamedTempFile;
+
+        let temp_file = NamedTempFile::new().unwrap();
+        let db_path = temp_file.path().to_path_buf();
+        let signals = Signals::empty();
+
+        // Create a test DB with data
+        {
+            let conn = Connection::open(&db_path).unwrap();
+            conn.execute("CREATE TABLE test (id INTEGER, name TEXT)", [])
+                .unwrap();
+            for i in 0..5 {
+                conn.execute(
+                    "INSERT INTO test (id, name) VALUES (?, ?)",
+                    rusqlite::params![i, format!("name{}", i)],
+                )
+                .unwrap();
+            }
+        }
+
+        let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals)
+            .with_order_by("rowid DESC".to_string())
+            .with_limit(2);
+        let result = table.execute(Span::test_data()).unwrap();
+        let value = result.into_value(Span::test_data()).unwrap();
+
+        if let Value::List { vals, .. } = value {
+            assert_eq!(vals.len(), 2);
+            // Check last two ids (since DESC, first in result is highest)
+            if let Value::Record { val: record, .. } = &vals[0] {
+                assert_eq!(record.get("id"), Some(&Value::int(4, Span::test_data())));
+            }
+        } else {
+            panic!("Expected list");
+        }
+    }
+
+    #[test]
+    fn sqlite_table_build_sql_with_select() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "test".to_string(),
+            Signals::empty(),
+        )
+        .with_select("col1, col2".to_string());
+        assert_eq!(table.build_sql(), "SELECT col1, col2 FROM [test]");
+    }
+
+    #[test]
+    fn sqlite_table_build_sql_with_where() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "test".to_string(),
+            Signals::empty(),
+        )
+        .with_where("col = ?".to_string(), vec!["val".to_string()]);
+        assert_eq!(table.build_sql(), "SELECT * FROM [test] WHERE col = ?");
+    }
+
+    #[test]
+    fn sqlite_table_build_sql_with_order_by() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "test".to_string(),
+            Signals::empty(),
+        )
+        .with_order_by("id DESC".to_string());
+        assert_eq!(table.build_sql(), "SELECT * FROM [test] ORDER BY id DESC");
+    }
+
+    #[test]
+    fn sqlite_table_build_sql_with_limit() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "test".to_string(),
+            Signals::empty(),
+        )
+        .with_limit(10);
+        assert_eq!(table.build_sql(), "SELECT * FROM [test] LIMIT 10");
     }
 }

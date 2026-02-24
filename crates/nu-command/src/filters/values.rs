@@ -30,7 +30,7 @@ impl Command for Values {
         vec![
             Example {
                 example: "{ mode:normal userid:31415 } | values",
-                description: "Get the values from the record (produce a list)",
+                description: "Get the values from the record (produce a list).",
                 result: Some(Value::list(
                     vec![Value::test_string("normal"), Value::test_int(31415)],
                     Span::test_data(),
@@ -38,7 +38,7 @@ impl Command for Values {
             },
             Example {
                 example: "{ f:250 g:191 c:128 d:1024 e:2000 a:16 b:32 } | values",
-                description: "Values are ordered by the column order of the record",
+                description: "Values are ordered by the column order of the record.",
                 result: Some(Value::list(
                     vec![
                         Value::test_int(250),
@@ -54,7 +54,7 @@ impl Command for Values {
             },
             Example {
                 example: "[[name meaning]; [ls list] [mv move] [cd 'change directory']] | values",
-                description: "Get the values from the table (produce a list of lists)",
+                description: "Get the values from the table (produce a list of lists).",
                 result: Some(Value::list(
                     vec![
                         Value::list(

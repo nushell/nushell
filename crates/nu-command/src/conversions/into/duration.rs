@@ -76,7 +76,7 @@ impl Command for IntoDuration {
     }
 
     fn description(&self) -> &str {
-        "Convert value to duration."
+        "Convert value to a duration."
     }
 
     fn extra_description(&self) -> &str {
@@ -127,19 +127,19 @@ impl Command for IntoDuration {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert duration string to duration value",
+                description: "Convert duration string to duration value.",
                 example: "'7min' | into duration",
                 result: Some(Value::test_duration(7 * 60 * NS_PER_SEC)),
             },
             Example {
-                description: "Convert compound duration string to duration value",
+                description: "Convert compound duration string to duration value.",
                 example: "'1day 2hr 3min 4sec' | into duration",
                 result: Some(Value::test_duration(
                     (((((/* 1 * */24) + 2) * 60) + 3) * 60 + 4) * NS_PER_SEC,
                 )),
             },
             Example {
-                description: "Convert table of duration strings to table of duration values",
+                description: "Convert table of duration strings to table of duration values.",
                 example: "[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -160,27 +160,27 @@ impl Command for IntoDuration {
                 ])),
             },
             Example {
-                description: "Convert duration to duration",
+                description: "Convert duration to duration.",
                 example: "420sec | into duration",
                 result: Some(Value::test_duration(7 * 60 * NS_PER_SEC)),
             },
             Example {
-                description: "Convert a number of ns to duration",
+                description: "Convert a number of ns to duration.",
                 example: "1_234_567 | into duration",
                 result: Some(Value::test_duration(1_234_567)),
             },
             Example {
-                description: "Convert a number of an arbitrary unit to duration",
+                description: "Convert a number of an arbitrary unit to duration.",
                 example: "1_234 | into duration --unit ms",
                 result: Some(Value::test_duration(1_234 * 1_000_000)),
             },
             Example {
-                description: "Convert a floating point number of an arbitrary unit to duration",
+                description: "Convert a floating point number of an arbitrary unit to duration.",
                 example: "1.234 | into duration --unit sec",
                 result: Some(Value::test_duration(1_234 * 1_000_000)),
             },
             Example {
-                description: "Convert a record to a duration",
+                description: "Convert a record to a duration.",
                 example: "{day: 10, hour: 2, minute: 6, second: 50, sign: '+'} | into duration",
                 result: Some(Value::duration(
                     10 * NS_PER_DAY + 2 * NS_PER_HOUR + 6 * NS_PER_MINUTE + 50 * NS_PER_SEC,

@@ -27,10 +27,10 @@ impl CommandCompletion {
     ) -> Vec<SemanticSuggestion> {
         let mut external_commands = HashSet::new();
 
-        let paths = working_set.permanent_state.get_env_var_insensitive("path");
+        let paths_val = working_set.permanent_state.get_env_var("path");
 
-        if let Some((_, paths)) = paths
-            && let Ok(paths) = paths.as_list()
+        if let Some(paths_val) = paths_val
+            && let Ok(paths) = paths_val.as_list()
         {
             for path in paths {
                 let path = path.coerce_str().unwrap_or_default();
@@ -64,7 +64,7 @@ impl CommandCompletion {
                         // `is_executable` for performance consideration, should avoid
                         // duplicated `match_aux` call for matched items in the future
                         if matcher.check_match(&name).is_some()
-                            && is_executable::is_executable(item.path())
+                            && Self::is_executable_command(item.path())
                         {
                             external_commands.insert(value.clone());
                             matcher.add(
@@ -89,6 +89,21 @@ impl CommandCompletion {
         }
 
         matcher.suggestion_results()
+    }
+
+    fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
+        let path = path.as_ref();
+        if is_executable::is_executable(path) {
+            return true;
+        }
+
+        if cfg!(windows)
+            && let Some(ext) = path.extension()
+        {
+            return ext.eq_ignore_ascii_case("ps1") && path.is_file();
+        }
+
+        false
     }
 }
 

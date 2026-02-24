@@ -129,10 +129,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     }
 
     fn get_env_var(&self, name: &str) -> Result<Option<&Value>, ShellError> {
-        Ok(self
-            .stack
-            .get_env_var_insensitive(&self.engine_state, name)
-            .map(|(_, value)| value))
+        Ok(self.stack.get_env_var(&self.engine_state, name))
     }
 
     fn get_env_vars(&self) -> Result<HashMap<String, Value>, ShellError> {

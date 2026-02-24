@@ -1,3 +1,4 @@
+mod test_alias;
 mod test_bits;
 mod test_cell_path;
 mod test_commandline;

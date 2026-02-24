@@ -10,6 +10,7 @@ mod drop;
 mod drop_duplicates;
 mod drop_nulls;
 mod dummies;
+mod entropy;
 mod explode;
 mod fill_nan;
 mod fill_null;
@@ -89,6 +90,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(DropNulls),
         Box::new(Dummies),
         Box::new(filter_with::FilterWith),
+        Box::new(entropy::Entropy),
         Box::new(GetDF),
         Box::new(pivot::PivotDF),
         Box::new(unpivot::Unpivot),

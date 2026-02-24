@@ -30,12 +30,12 @@ impl PluginCommand for Generate {
             .required(
                 "initial",
                 SyntaxShape::Any,
-                "The initial value to pass to the closure",
+                "The initial value to pass to the closure.",
             )
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "The closure to run to generate values",
+                "The closure to run to generate values.",
             )
             .category(Category::Experimental)
     }

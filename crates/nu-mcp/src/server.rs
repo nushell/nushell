@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
-    ErrorData as McpError, ServerHandler,
+    ErrorData as McpError, RoleServer, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{ServerCapabilities, ServerInfo},
+    service::RequestContext,
     tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
@@ -35,6 +36,7 @@ impl NushellMcpServer {
 By default all available commands will be returned. To find a specific command by searching command names, descriptions and search terms, use the find parameter."#)]
     async fn list_commands(
         &self,
+        ctx: RequestContext<RoleServer>,
         Parameters(ListCommandsRequest { find }): Parameters<ListCommandsRequest>,
     ) -> Result<String, McpError> {
         let cmd = if let Some(f) = find {
@@ -43,7 +45,7 @@ By default all available commands will be returned. To find a specific command b
             "help commands".to_string()
         };
 
-        self.evaluator.eval(&cmd)
+        self.evaluator.eval_async(&cmd, ctx.ct).await
     }
 
     #[tool(
@@ -51,19 +53,21 @@ By default all available commands will be returned. To find a specific command b
     )]
     async fn command_help(
         &self,
+        ctx: RequestContext<RoleServer>,
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
     ) -> Result<String, McpError> {
         let cmd = format!("help {name}");
-        self.evaluator.eval(&cmd)
+        self.evaluator.eval_async(&cmd, ctx.ct).await
     }
 
     #[doc = include_str!("evaluate_tool.md")]
     #[tool]
     async fn evaluate(
         &self,
+        ctx: RequestContext<RoleServer>,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
     ) -> Result<String, McpError> {
-        self.evaluator.eval(&input)
+        self.evaluator.eval_async(&input, ctx.ct).await
     }
 }
 

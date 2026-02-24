@@ -24,13 +24,13 @@ impl Command for StorInsert {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to insert into",
+                "Name of the table you want to insert into.",
                 Some('t'),
             )
             .named(
                 "data-record",
                 SyntaxShape::Record(vec![]),
-                "a record of column names and column values to insert into the specified table",
+                "A record of column names and column values to insert into the specified table.",
                 Some('d'),
             )
             .allow_variants_without_examples(true)

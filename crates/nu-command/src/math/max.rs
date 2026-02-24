@@ -61,12 +61,12 @@ impl Command for MathMax {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Find the maximum of a list of numbers",
+                description: "Find the maximum of a list of numbers.",
                 example: "[-50 100 25] | math max",
                 result: Some(Value::test_int(100)),
             },
             Example {
-                description: "Find the maxima of the columns of a table",
+                description: "Find the maxima of the columns of a table.",
                 example: "[{a: 1 b: 3} {a: 2 b: -1}] | math max",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(2),
@@ -74,7 +74,7 @@ impl Command for MathMax {
                 })),
             },
             Example {
-                description: "Find the maximum of a list of dates",
+                description: "Find the maximum of a list of dates.",
                 example: "[2022-02-02 2022-12-30 2012-12-12] | math max",
                 result: Some(Value::test_date(
                     "2022-12-30 00:00:00Z".parse().unwrap_or_default(),

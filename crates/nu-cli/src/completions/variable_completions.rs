@@ -15,7 +15,7 @@ impl Completer for VariableCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
-        _stack: &Stack,
+        stack: &Stack,
         prefix: impl AsRef<str>,
         span: Span,
         offset: usize,
@@ -40,8 +40,11 @@ impl Completer for VariableCompletion {
         for scope_frame in working_set.delta.scope.iter().rev() {
             for overlay_frame in scope_frame.active_overlays(&mut removed_overlays).rev() {
                 for (name, var_id) in &overlay_frame.vars {
-                    let name = String::from_utf8_lossy(name).to_string();
-                    variables.insert(name, var_id);
+                    if !stack.parent_deletions.contains(var_id) && !stack.deletions.contains(var_id)
+                    {
+                        let name = String::from_utf8_lossy(name).to_string();
+                        variables.insert(name, var_id);
+                    }
                 }
             }
         }
@@ -53,8 +56,10 @@ impl Completer for VariableCompletion {
             .rev()
         {
             for (name, var_id) in &overlay_frame.vars {
-                let name = String::from_utf8_lossy(name).to_string();
-                variables.insert(name, var_id);
+                if !stack.parent_deletions.contains(var_id) && !stack.deletions.contains(var_id) {
+                    let name = String::from_utf8_lossy(name).to_string();
+                    variables.insert(name, var_id);
+                }
             }
         }
 

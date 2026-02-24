@@ -1150,6 +1150,16 @@ pub enum ShellError {
         value: Box<Value>,
     },
 
+    /// Exit event, it can still be caught by `try {..} finally {..}` block.
+    #[error("Exit doesn't catch internally")]
+    #[diagnostic(
+        code(nu::shell::exit),
+        help(
+            "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
+        )
+    )]
+    Exit { code: i32 },
+
     /// The code being executed called itself too many times.
     ///
     /// ## Resolution

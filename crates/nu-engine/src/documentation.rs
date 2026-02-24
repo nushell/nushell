@@ -81,11 +81,21 @@ pub fn get_full_help(
         ),
     };
 
-    if !nu_config.use_ansi_coloring.get(engine_state) {
+    let mut final_help = if !nu_config.use_ansi_coloring.get(engine_state) {
         nu_utils::strip_ansi_string_likely(long_desc)
     } else {
         long_desc
+    };
+
+    if let Some(cmd) = command.as_alias().and_then(|alias| alias.command.as_ref()) {
+        let nested_help = get_full_help(cmd.as_ref(), engine_state, stack);
+        if !nested_help.is_empty() {
+            final_help.push_str("\n\n");
+            final_help.push_str(&nested_help);
+        }
     }
+
+    final_help
 }
 
 /// Syntax highlight code using the `nu-highlight` command if available
@@ -165,7 +175,11 @@ fn highlight_capture_group(
         .map(|text| {
             let resets = text.match_indices(RESET).count();
             // replace resets with reset + italic, so the whole string is italicized, excluding the final reset
-            let text = text.replacen(RESET, &format!("{RESET}{DEFAULT_ITALIC}"), resets - 1);
+            let text = text.replacen(
+                RESET,
+                &format!("{RESET}{DEFAULT_ITALIC}"),
+                resets.saturating_sub(1),
+            );
             // start italicized
             format!("{DEFAULT_ITALIC}{text}")
         });
@@ -282,8 +296,15 @@ fn get_command_documentation(
     for (sig, decl_id) in signatures {
         let command_type = engine_state.get_decl(decl_id).command_type();
 
+        // Prefer the overlay-visible declaration name (if any) for display and matching.
+        // Fall back to the signature's name if not present.
+        let display_name = engine_state
+            .find_decl_name(decl_id, &[])
+            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+            .unwrap_or_else(|| sig.name.clone());
+
         // Don't display removed/deprecated commands in the Subcommands list
-        if sig.name.starts_with(&format!("{cmd_name} "))
+        if display_name.starts_with(&format!("{cmd_name} "))
             && !matches!(sig.category, Category::Removed)
         {
             // If it's a plugin, alias, or custom command, display that information in the help
@@ -293,14 +314,14 @@ fn get_command_documentation(
             {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    sig.name,
+                    display_name,
                     command_type,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name,
+                    display_name,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             }

@@ -1,4 +1,12 @@
 #![doc = include_str!("../README.md")]
+#![cfg_attr(
+    not(target_arch = "wasm32"),
+    allow(
+        clippy::disallowed_types,
+        reason = "This file may be compiled as host build-script code while building the wasm target"
+    )
+)]
+
 mod exit_status;
 mod foreground;
 mod util;
@@ -12,6 +20,8 @@ mod macos;
 #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 mod netbsd;
 pub mod os_info;
+#[cfg(target_family = "unix")]
+mod unix;
 #[cfg(target_os = "windows")]
 mod windows;
 
@@ -32,5 +42,7 @@ pub use self::linux::*;
 pub use self::macos::*;
 #[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
 pub use self::netbsd::*;
+#[cfg(target_family = "unix")]
+pub use self::unix::*;
 #[cfg(target_os = "windows")]
 pub use self::windows::*;

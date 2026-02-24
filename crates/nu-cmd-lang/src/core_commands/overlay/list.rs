@@ -79,7 +79,7 @@ impl Command for OverlayList {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "List all overlays with their active status",
+                description: "List all overlays with their active status.",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay list"#,
@@ -89,7 +89,7 @@ impl Command for OverlayList {
                 })])),
             },
             Example {
-                description: "Get overlay status after hiding",
+                description: "Get overlay status after hiding.",
                 example: r#"module spam { export def foo [] { "foo" } }
     overlay use spam
     overlay hide spam

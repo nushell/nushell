@@ -2,9 +2,6 @@ use nu_test_support::fs::files_exist_at;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
 
-#[cfg(not(windows))]
-use uucore::mode;
-
 #[test]
 fn creates_directory() {
     Playground::setup("mkdir_test_1", |dirs, _| {
@@ -145,7 +142,7 @@ fn mkdir_umask_permission() {
             .permissions()
             .mode();
 
-        let umask = mode::get_umask();
+        let umask = nu_system::get_umask();
         let default_mode = 0o40777;
         let expected: u32 = default_mode & !umask;
 
@@ -167,5 +164,29 @@ fn mkdir_with_tilde() {
         let actual = nu!(cwd: dirs.test(), "let f = '~tilde2'; mkdir $f");
         assert!(actual.err.is_empty());
         assert!(files_exist_at(&["~tilde2"], dirs.test()));
+    })
+}
+
+#[test]
+fn mkdir_with_interpolation_simple() {
+    Playground::setup("mkdir interpolation simple", |dirs, _| {
+        // Test with a simple variable interpolation
+        nu!(cwd: dirs.test(), "let x = 'test'; mkdir xxx/($x)");
+
+        assert!(dirs.test().join("xxx/test").exists());
+        assert!(!dirs.test().join("xxx/($x)").exists());
+    })
+}
+
+#[test]
+fn mkdir_with_interpolation() {
+    Playground::setup("mkdir with interpolation", |dirs, _| {
+        // Test with each command using interpolation
+        nu!(cwd: dirs.test(), "[ a b c ] | each { mkdir xxx/($in) }");
+
+        assert!(files_exist_at(&["xxx/a", "xxx/b", "xxx/c"], dirs.test()));
+
+        // Should not create a literal directory named "($in)"
+        assert!(!dirs.test().join("xxx/($in)").exists());
     })
 }

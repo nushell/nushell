@@ -24,7 +24,7 @@ impl Command for Enumerate {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Add an index to each element of a list",
+            description: "Add an index to each element of a list.",
             example: r#"[a, b, c] | enumerate "#,
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {

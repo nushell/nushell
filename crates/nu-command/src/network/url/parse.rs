@@ -29,7 +29,7 @@ impl Command for UrlParse {
     }
 
     fn description(&self) -> &str {
-        "Parses a url."
+        "Parse a URL string into structured data."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,7 +54,7 @@ impl Command for UrlParse {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Parses a url",
+            description: "Parses a URL.",
             example: "'http://user123:pass567@www.example.com:8081/foo/bar?param1=section&p2=&f[name]=vldc&f[no]=42#hello' | url parse",
             result: Some(Value::test_record(record! {
                     "scheme" =>   Value::test_string("http"),
