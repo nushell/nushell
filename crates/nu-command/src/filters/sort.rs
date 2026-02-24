@@ -23,17 +23,17 @@ impl Command for Sort {
     .switch("reverse", "Sort in reverse order.", Some('r'))
             .switch(
                 "ignore-case",
-                "Sort string-based data case-insensitively",
+                "Sort string-based data case-insensitively.",
                 Some('i'),
             )
             .switch(
                 "values",
-                "If input is a single record, sort the record by values; ignored if input is not a single record",
+                "If input is a single record, sort the record by values; ignored if input is not a single record.",
                 Some('v'),
             )
             .switch(
                 "natural",
-                "Sort alphanumeric string-based values naturally (1, 9, 10, 99, 100, ...)",
+                "Sort alphanumeric string-based values naturally (1, 9, 10, 99, 100, ...).",
                 Some('n'),
             )
             .category(Category::Filters)

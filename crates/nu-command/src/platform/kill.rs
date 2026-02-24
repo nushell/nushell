@@ -34,7 +34,7 @@ impl Command for Kill {
         signature.named(
             "signal",
             SyntaxShape::Int,
-            "signal decimal number to be sent instead of the default 15 (unsupported on Windows)",
+            "Signal decimal number to be sent instead of the default 15 (unsupported on Windows).",
             Some('s'),
         )
     }

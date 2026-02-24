@@ -32,8 +32,8 @@ impl PluginCommand for StrSlice {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("start", SyntaxShape::Int, "start of slice")
-            .named("length", SyntaxShape::Int, "optional length", Some('l'))
+            .required("start", SyntaxShape::Int, "Start of slice.")
+            .named("length", SyntaxShape::Int, "Optional length.", Some('l'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),

@@ -22,24 +22,24 @@ impl Command for DebugProfile {
             .switch("spans", "Collect spans of profiled elements.", Some('s'))
             .switch(
                 "expand-source",
-                "Collect full source fragments of profiled elements",
+                "Collect full source fragments of profiled elements.",
                 Some('e'),
             )
             .switch(
                 "values",
-                "Collect pipeline element output values",
+                "Collect pipeline element output values.",
                 Some('v'),
             )
             .switch("lines", "Collect line numbers.", Some('l'))
             .switch(
                 "duration-values",
-                "Report instruction duration as duration values rather than milliseconds",
+                "Report instruction duration as duration values rather than milliseconds.",
                 Some('d'),
             )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
-                "How many blocks/closures deep to step into (default 2)",
+                "How many blocks/closures deep to step into (default 2).",
                 Some('m'),
             )
             .input_output_types(vec![(Type::Any, Type::table())])

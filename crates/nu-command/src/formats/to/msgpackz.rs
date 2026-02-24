@@ -23,18 +23,18 @@ impl Command for ToMsgpackz {
             .named(
                 "quality",
                 SyntaxShape::Int,
-                "Quality of brotli compression (default 3)",
+                "Quality of brotli compression (default 3).",
                 Some('q'),
             )
             .named(
                 "window-size",
                 SyntaxShape::Int,
-                "Window size for brotli compression (default 20)",
+                "Window size for brotli compression (default 20).",
                 Some('w'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)

@@ -34,24 +34,24 @@ impl Command for Input {
             .named(
                 "bytes-until-any",
                 SyntaxShape::String,
-                "read bytes (not text) until any of the given stop bytes is seen",
+                "Read bytes (not text) until any of the given stop bytes is seen.",
                 Some('u'),
             )
             .named(
                 "numchar",
                 SyntaxShape::Int,
-                "number of characters to read; suppresses output",
+                "Number of characters to read; suppresses output.",
                 Some('n'),
             )
             .named(
                 "default",
                 SyntaxShape::String,
-                "default value if no input is provided",
+                "Default value if no input is provided.",
                 Some('d'),
             )
             .switch(
                 "reedline",
-                "use the reedline library, defaults to false",
+                "Use the reedline library, defaults to false.",
                 None
             )
             .named(

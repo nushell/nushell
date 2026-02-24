@@ -29,7 +29,7 @@ impl PluginCommand for SelectorByName {
             .rest(
                 "column names",
                 SyntaxShape::String,
-                "Names of columns to select",
+                "Names of columns to select.",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuSelector.into())
             .category(Category::Custom("expression".into()))

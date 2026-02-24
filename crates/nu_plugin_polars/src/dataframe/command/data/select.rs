@@ -27,7 +27,7 @@ impl PluginCommand for LazySelect {
             .rest(
                 "select expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the column selection",
+                "Expression(s) that define the column selection.",
             )
             .input_output_types(vec![
                 (

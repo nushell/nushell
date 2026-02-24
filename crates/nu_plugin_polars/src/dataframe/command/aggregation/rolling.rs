@@ -58,8 +58,8 @@ impl PluginCommand for Rolling {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("type", SyntaxShape::String, "rolling operation")
-            .required("window", SyntaxShape::Int, "Window size for rolling")
+            .required("type", SyntaxShape::String, "Rolling operation.")
+            .required("window", SyntaxShape::Int, "Window size for rolling.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

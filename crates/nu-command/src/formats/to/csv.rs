@@ -23,18 +23,18 @@ impl Command for ToCsv {
             .named(
                 "separator",
                 SyntaxShape::String,
-                "a character to separate columns, defaults to ','",
+                "A character to separate columns, defaults to ','.",
                 Some('s'),
             )
             .switch(
                 "noheaders",
-                "do not output the columns names as the first row",
+                "Do not output the columns names as the first row.",
                 Some('n'),
             )
             .named(
                 "columns",
                 SyntaxShape::List(SyntaxShape::String.into()),
-                "the names (in order) of the columns to use",
+                "The names (in order) of the columns to use.",
                 None,
             )
             .category(Category::Formats)

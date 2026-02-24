@@ -77,7 +77,7 @@ impl Command for Http {
                 - headers.request: list of headers passed when doing the request
                 - headers.response: list of received headers
                 - body: the http body of the response
-                - status: the http status of the response\n",
+                - status: the http status of the response.",
                 Some('f'),
             )
             .switch(

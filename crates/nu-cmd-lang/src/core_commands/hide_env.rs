@@ -19,7 +19,7 @@ impl Command for HideEnv {
             )
             .switch(
                 "ignore-errors",
-                "do not throw an error if an environment variable was not found",
+                "Do not throw an error if an environment variable was not found.",
                 Some('i'),
             )
             .category(Category::Core)

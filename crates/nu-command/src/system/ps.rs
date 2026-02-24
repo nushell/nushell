@@ -21,7 +21,7 @@ impl Command for Ps {
             .input_output_types(vec![(Type::Nothing, Type::table())])
             .switch(
                 "long",
-                "list all available columns for each entry",
+                "List all available columns for each entry.",
                 Some('l'),
             )
             .filter()

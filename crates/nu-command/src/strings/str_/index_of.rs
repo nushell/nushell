@@ -40,12 +40,12 @@ impl Command for StrIndexOf {
             .required("string", SyntaxShape::String, "The string to find in the input.")
             .switch(
                 "grapheme-clusters",
-                "count indexes using grapheme clusters (all visible chars have length 1)",
+                "Count indexes using grapheme clusters (all visible chars have length 1).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                "Count indexes using UTF-8 bytes (default; non-ASCII chars have length 2+).",
                 Some('b'),
             )
             .rest(
@@ -56,7 +56,7 @@ impl Command for StrIndexOf {
             .named(
                 "range",
                 SyntaxShape::Range,
-                "optional start and/or end index",
+                "Optional start and/or end index.",
                 Some('r'),
             )
             .switch("end", "Search from the end of the input.", Some('e'))

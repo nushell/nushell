@@ -19,7 +19,7 @@ impl Command for DateFromHuman {
             .allow_variants_without_examples(true)
             .switch(
                 "list",
-                "Show human-readable datetime parsing examples",
+                "Show human-readable datetime parsing examples.",
                 Some('l'),
             )
             .category(Category::Date)

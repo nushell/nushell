@@ -15,11 +15,11 @@ impl Command for KeybindingsList {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .switch("modifiers", "list of modifiers", Some('m'))
-            .switch("keycodes", "list of keycodes", Some('k'))
-            .switch("modes", "list of edit modes", Some('o'))
-            .switch("events", "list of reedline event", Some('e'))
-            .switch("edits", "list of edit commands", Some('d'))
+            .switch("modifiers", "List of modifiers.", Some('m'))
+            .switch("keycodes", "List of keycodes.", Some('k'))
+            .switch("modes", "List of edit modes.", Some('o'))
+            .switch("events", "List of reedline event.", Some('e'))
+            .switch("edits", "List of edit commands.", Some('d'))
             .category(Category::Platform)
     }
 

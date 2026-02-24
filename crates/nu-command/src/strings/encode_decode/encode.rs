@@ -26,7 +26,7 @@ impl Command for Encode {
             .required("encoding", SyntaxShape::String, "The text encoding to use.")
             .switch(
                 "ignore-errors",
-                "when a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`)",
+                "When a character isn't in the given encoding, replace with a HTML entity (like `&#127880;`).",
                 Some('i'),
             )
             .category(Category::Strings)

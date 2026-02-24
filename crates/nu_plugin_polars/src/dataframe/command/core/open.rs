@@ -47,73 +47,73 @@ impl PluginCommand for OpenDataFrame {
             .required(
                 "file",
                 SyntaxShape::String,
-                "file path or cloud url to load values from",
+                "File path or cloud url to load values from.",
             )
-            .switch("eager", "Open dataframe as an eager dataframe", None)
+            .switch("eager", "Open dataframe as an eager dataframe.", None)
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension",
+                "File type: csv, tsv, json, parquet, arrow, avro. If omitted, derive from file extension.",
                 Some('t'),
             )
             .named(
                 "delimiter",
                 SyntaxShape::String,
-                "file delimiter character. CSV file",
+                "File delimiter character. CSV file.",
                 Some('d'),
             )
             .switch(
                 "no-header",
-                "Indicates if file doesn't have header. CSV file",
+                "Indicates if file doesn't have header. CSV file.",
                 None,
             )
             .named(
                 "infer-schema",
                 SyntaxShape::Number,
-                "Number of rows to infer the schema of the file. CSV file",
+                "Number of rows to infer the schema of the file. CSV file.",
                 None,
             )
             .named(
                 "skip-rows",
                 SyntaxShape::Number,
-                "Number of rows to skip from file. CSV file",
+                "Number of rows to skip from file. CSV file.",
                 None,
             )
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Columns to be selected from csv file. CSV and Parquet file",
+                "Columns to be selected from csv file. CSV and Parquet file.",
                 None,
             )
             .named(
                 "schema",
                 SyntaxShape::Any,
-                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files"#,
+                r#"Polars Schema in format [{name: str}]. CSV, JSON, and JSONL files."#,
                 Some('s')
             )
             .switch(
                 "hive-enabled",
-                "Enable hive support. Parquet and Arrow files",
+                "Enable hive support. Parquet and Arrow files.",
                 None,
             )
             .named(
                 "hive-start-idx",
                 SyntaxShape::Number,
-                "Start index of hive partitioning. Parquet and Arrow files",
+                "Start index of hive partitioning. Parquet and Arrow files.",
                 None,
             )
             .named(
                 "hive-schema",
                 SyntaxShape::Any,
-                r#"Hive schema in format [{name: str}]. Parquet and Arrow files"#,
+                r#"Hive schema in format [{name: str}]. Parquet and Arrow files."#,
                 None,
             )
             .switch(
                 "hive-try-parse-dates",
-                "Try to parse dates in hive partitioning. Parquet and Arrow files",
+                "Try to parse dates in hive partitioning. Parquet and Arrow files.",
                 None,
             )
-            .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file", None)
+            .switch("truncate-ragged-lines", "Truncate lines that are longer than the schema. CSV file.", None)
             .input_output_types(vec![
                 (
                     Type::Any,

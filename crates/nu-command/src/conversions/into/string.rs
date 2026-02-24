@@ -55,13 +55,13 @@ impl Command for IntoString {
             )
             .switch(
                 "group-digits",
-                "group digits together by the locale specific thousands separator",
+                "Group digits together by the locale specific thousands separator.",
                 Some('g'),
             )
             .named(
                 "decimals",
                 SyntaxShape::Int,
-                "decimal digits to which to round",
+                "Decimal digits to which to round.",
                 Some('d'),
             )
             .category(Category::Conversions)

@@ -29,11 +29,11 @@ impl Command for FakeCmd {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional("second", SyntaxShape::String, "optional second")
-            .required("first", SyntaxShape::String, "required integer value")
+            .required("first", SyntaxShape::String, "Required integer value.")
             .named(
                 "flag",
                 SyntaxShape::Int,
-                "example flag which support auto completion",
+                "Example flag which support auto completion.",
                 Some('f'),
             )
     }

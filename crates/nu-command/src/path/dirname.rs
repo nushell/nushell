@@ -30,13 +30,13 @@ impl Command for PathDirname {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Return original path with dirname replaced by this string",
+                "Return original path with dirname replaced by this string.",
                 Some('r'),
             )
             .named(
                 "num-levels",
                 SyntaxShape::Int,
-                "Number of directories to walk up",
+                "Number of directories to walk up.",
                 Some('n'),
             )
             .category(Category::Path)

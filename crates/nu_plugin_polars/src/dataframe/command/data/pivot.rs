@@ -34,41 +34,41 @@ impl PluginCommand for PivotDF {
             .required_named(
                 "on",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "column names for pivoting",
+                "Column names for pivoting.",
                 Some('o'),
             )
             .required_named(
                 "index",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "column names for indexes",
+                "Column names for indexes.",
                 Some('i'),
             )
             .required_named(
                 "values",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "column names used as value columns",
+                "Column names used as value columns.",
                 Some('v'),
             )
             .named(
                 "aggregate",
                 SyntaxShape::Any,
-                "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last, or a custom expression",
+                "Aggregation to apply when pivoting. The following are supported: first, sum, min, max, mean, median, count, last, or a custom expression.",
                 Some('a'),
             )
             .named(
                 "separator",
                 SyntaxShape::String,
-                "Delimiter in generated column names in case of multiple `values` columns (default '_')",
+                "Delimiter in generated column names in case of multiple `values` columns (default '_').",
                 Some('p'),
             )
             .switch(
                 "sort",
-                "Sort columns",
+                "Sort columns.",
                 Some('s'),
             )
             .switch(
                 "streamable",
-                "Whether or not to use the polars streaming engine. Only valid for lazy dataframes",
+                "Whether or not to use the polars streaming engine. Only valid for lazy dataframes.",
                 Some('t'),
             )
             .switch(

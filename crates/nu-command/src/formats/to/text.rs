@@ -24,12 +24,12 @@ impl Command for ToText {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "no-newline",
-                "Do not append a newline to the end of the text",
+                "Do not append a newline to the end of the text.",
                 Some('n'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)

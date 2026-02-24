@@ -24,31 +24,31 @@ impl Command for MetadataSet {
             )
             .switch(
                 "datasource-ls",
-                "Assign the DataSource::Ls metadata to the input",
+                "Assign the DataSource::Ls metadata to the input.",
                 Some('l'),
             )
             .named(
                 "datasource-filepath",
                 SyntaxShape::Filepath,
-                "Assign the DataSource::FilePath metadata to the input",
+                "Assign the DataSource::FilePath metadata to the input.",
                 Some('f'),
             )
             .named(
                 "path-columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Assign path columns metadata to the input",
+                "Assign path columns metadata to the input.",
                 Some('p'),
             )
             .named(
                 "content-type",
                 SyntaxShape::String,
-                "Assign content type metadata to the input",
+                "Assign content type metadata to the input.",
                 Some('c'),
             )
             .named(
                 "merge",
                 SyntaxShape::Record(vec![]),
-                "Merge arbitrary metadata fields",
+                "Merge arbitrary metadata fields.",
                 Some('m'),
             )
             .allow_variants_without_examples(true)

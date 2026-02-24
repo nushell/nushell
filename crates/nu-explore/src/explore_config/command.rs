@@ -44,18 +44,18 @@ impl Command for ExploreConfigCommand {
             ])
             .switch(
                 "use-example-data",
-                "Show the nushell configuration TUI using example data",
+                "Show the nushell configuration TUI using example data.",
                 Some('e'),
             )
             .switch(
                 "tree",
-                "Do not show the TUI, just show a tree structure of the data",
+                "Do not show the TUI, just show a tree structure of the data.",
                 Some('t'),
             )
             .named(
                 "output",
                 SyntaxShape::String,
-                "Optional output file to save changes to (default: output.json)",
+                "Optional output file to save changes to (default: output.json).",
                 Some('o'),
             )
             .category(Category::Viewers)

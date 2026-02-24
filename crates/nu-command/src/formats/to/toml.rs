@@ -15,7 +15,7 @@ impl Command for ToToml {
             .input_output_types(vec![(Type::record(), Type::String)])
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)

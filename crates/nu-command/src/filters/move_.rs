@@ -32,13 +32,13 @@ impl Command for Move {
             .named(
                 "after",
                 SyntaxShape::String,
-                "the column that will precede the columns moved",
+                "The column that will precede the columns moved.",
                 None,
             )
             .named(
                 "before",
                 SyntaxShape::String,
-                "the column that will be the next after the columns moved",
+                "The column that will be the next after the columns moved.",
                 None,
             )
             .switch("first", "Makes the columns be the first ones.", None)

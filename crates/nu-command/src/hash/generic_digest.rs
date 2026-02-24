@@ -56,7 +56,7 @@ where
             .allow_variants_without_examples(true)
             .switch(
                 "binary",
-                "Output binary instead of hexadecimal representation",
+                "Output binary instead of hexadecimal representation.",
                 Some('b'),
             )
             .rest(

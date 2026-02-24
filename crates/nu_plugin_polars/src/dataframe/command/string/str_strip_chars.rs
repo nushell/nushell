@@ -32,10 +32,10 @@ impl PluginCommand for StrStripChars {
             .required(
                 "pattern",
                 SyntaxShape::Any,
-                "Characters to strip as either a string or polars expression",
+                "Characters to strip as either a string or polars expression.",
             )
-            .switch("start", "Strip from start of strings only", Some('s'))
-            .switch("end", "Strip from end of strings only", Some('e'))
+            .switch("start", "Strip from start of strings only.", Some('s'))
+            .switch("end", "Strip from end of strings only.", Some('e'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),

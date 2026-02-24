@@ -30,7 +30,7 @@ impl Command for Clear {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
                 "keep-scrollback",
-                "Do not clear the scrollback history",
+                "Do not clear the scrollback history.",
                 Some('k'),
             )
     }

@@ -18,12 +18,12 @@ impl Command for FromXml {
             .switch("keep-comments", "Add comment nodes to result.", None)
             .switch(
                 "allow-dtd",
-                "allow parsing documents with DTDs (may result in exponential entity expansion)",
+                "Allow parsing documents with DTDs (may result in exponential entity expansion).",
                 None,
             )
             .switch(
                 "keep-pi",
-                "add processing instruction nodes to result",
+                "Add processing instruction nodes to result.",
                 None,
             )
             .category(Category::Formats)

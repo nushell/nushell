@@ -17,35 +17,35 @@ impl Command for FromCsv {
             .named(
                 "separator",
                 SyntaxShape::String,
-                "a character to separate columns (either single char or 4 byte unicode sequence), defaults to ','",
+                "A character to separate columns (either single char or 4 byte unicode sequence), defaults to ','.",
                 Some('s'),
             )
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it",
+                "A comment character to ignore lines starting with it.",
                 Some('c'),
             )
             .named(
                 "quote",
                 SyntaxShape::String,
-                "a quote character to ignore separators in strings, defaults to '\"'",
+                "A quote character to ignore separators in strings, defaults to '\"'.",
                 Some('q'),
             )
             .named(
                 "escape",
                 SyntaxShape::String,
-                "an escape character for strings containing the quote character",
+                "An escape character for strings containing the quote character.",
                 Some('e'),
             )
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
             .switch(
                 "flexible",
-                "allow the number of fields in records to be variable",
+                "Allow the number of fields in records to be variable.",
                 None,
             )
             .switch("no-infer", "No field type inferencing.", None)

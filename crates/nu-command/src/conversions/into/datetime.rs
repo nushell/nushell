@@ -99,28 +99,25 @@ impl Command for IntoDatetime {
                     .short('z')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' \
-                         ('u') or 'LOCAL' ('l')",
+                        "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l').",
                     )
                     .completion(Completion::new_list(Zone::OPTIONS)),
             )
             .named(
                 "offset",
                 SyntaxShape::Int,
-                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', \
-                 '-4'",
+                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', '-4'.",
                 Some('o'),
             )
             .named(
                 "format",
                 SyntaxShape::String,
-                "Specify expected format of INPUT string to parse to datetime. Use --list to see \
-                 options",
+                "Specify expected format of INPUT string to parse to datetime. Use --list to see options.",
                 Some('f'),
             )
             .switch(
                 "list",
-                "Show all possible variables for use in --format flag",
+                "Show all possible variables for use in --format flag.",
                 Some('l'),
             )
             .rest(

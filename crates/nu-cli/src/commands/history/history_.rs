@@ -24,10 +24,10 @@ impl Command for History {
         Signature::build("history")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .switch("clear", "Clears out the history entries", Some('c'))
+            .switch("clear", "Clears out the history entries.", Some('c'))
             .switch(
                 "long",
-                "Show long format with timestamps and additional details",
+                "Show long format with timestamps and additional details.",
                 Some('l'),
             )
             .category(Category::History)

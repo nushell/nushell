@@ -24,7 +24,7 @@ impl SimplePluginCommand for QueryJson {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("query", SyntaxShape::String, "json query")
+            .required("query", SyntaxShape::String, "Json query.")
             .category(Category::Filters)
     }
 

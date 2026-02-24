@@ -29,7 +29,7 @@ impl Command for PathBasename {
             .named(
                 "replace",
                 SyntaxShape::String,
-                "Return original path with basename replaced by this string",
+                "Return original path with basename replaced by this string.",
                 Some('r'),
             )
             .category(Category::Path)

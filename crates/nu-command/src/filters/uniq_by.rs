@@ -21,7 +21,7 @@ impl Command for UniqBy {
             .rest("columns", SyntaxShape::Any, "The column(s) to filter by.")
             .switch(
                 "count",
-                "Return a table containing the distinct input values together with their counts",
+                "Return a table containing the distinct input values together with their counts.",
                 Some('c'),
             )
             .switch(
@@ -31,17 +31,17 @@ impl Command for UniqBy {
             )
             .switch(
                 "repeated",
-                "Return the input values that occur more than once",
+                "Return the input values that occur more than once.",
                 Some('d'),
             )
             .switch(
                 "ignore-case",
-                "Ignore differences in case when comparing input values",
+                "Ignore differences in case when comparing input values.",
                 Some('i'),
             )
             .switch(
                 "unique",
-                "Return the input values that occur once only",
+                "Return the input values that occur once only.",
                 Some('u'),
             )
             .allow_variants_without_examples(true)

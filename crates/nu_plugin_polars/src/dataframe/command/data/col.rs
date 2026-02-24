@@ -34,9 +34,9 @@ impl PluginCommand for ExprCol {
             .rest(
                 "more columns",
                 SyntaxShape::String,
-                "Additional columns to be used. Cannot be '*'",
+                "Additional columns to be used. Cannot be '*'.",
             )
-            .switch("type", "Treat column names as type names", Some('t'))
+            .switch("type", "Treat column names as type names.", Some('t'))
             .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))
     }

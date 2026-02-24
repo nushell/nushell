@@ -72,7 +72,7 @@ impl SimplePluginCommand for DropCheck {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("msg", SyntaxShape::String, "the message to print on drop")
+            .required("msg", SyntaxShape::String, "The message to print on drop.")
             .category(Category::Experimental)
     }
 

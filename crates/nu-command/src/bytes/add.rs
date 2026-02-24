@@ -39,7 +39,7 @@ impl Command for BytesAdd {
             .named(
                 "index",
                 SyntaxShape::Int,
-                "index to insert binary data",
+                "Index to insert binary data.",
                 Some('i'),
             )
             .switch("end", "Add to the end of binary.", Some('e'))

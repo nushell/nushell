@@ -34,7 +34,7 @@ impl Command for IntoSqliteDb {
             .named(
                 "table-name",
                 SyntaxShape::String,
-                "Specify table name to store the data in",
+                "Specify table name to store the data in.",
                 Some('t'),
             )
     }

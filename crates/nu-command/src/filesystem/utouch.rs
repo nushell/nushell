@@ -31,39 +31,39 @@ impl Command for UTouch {
             .named(
                 "reference",
                 SyntaxShape::Filepath,
-                "Use the access and modification times of the reference file/directory instead of the current time",
+                "Use the access and modification times of the reference file/directory instead of the current time.",
                 Some('r'),
             )
             .named(
                 "timestamp",
                 SyntaxShape::DateTime,
-                "Use the given timestamp instead of the current time",
+                "Use the given timestamp instead of the current time.",
                 Some('t')
             )
             .named(
                 "date",
                 SyntaxShape::String,
-                "Use the given time instead of the current time. This can be a full timestamp or it can be relative to either the current time or reference file time (if given). For more information, see https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html",
+                "Use the given time instead of the current time. This can be a full timestamp or it can be relative to either the current time or reference file time (if given). For more information, see https://www.gnu.org/software/coreutils/manual/html_node/touch-invocation.html.",
                 Some('d')
             )
             .switch(
                 "modified",
-                "Change only the modification time (if used with -a, access time is changed too)",
+                "Change only the modification time (if used with -a, access time is changed too).",
                 Some('m'),
             )
             .switch(
                 "access",
-                "Change only the access time (if used with -m, modification time is changed too)",
+                "Change only the access time (if used with -m, modification time is changed too).",
                 Some('a'),
             )
             .switch(
                 "no-create",
-                "Don't create the file if it doesn't exist",
+                "Don't create the file if it doesn't exist.",
                 Some('c'),
             )
             .switch(
                 "no-deref",
-                "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout",
+                "Affect each symbolic link instead of any referenced file (only for systems that can change the timestamps of a symlink). Ignored if touching stdout.",
                 Some('s'),
             )
             .category(Category::FileSystem)

@@ -27,20 +27,20 @@ impl SimplePluginCommand for Inc {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .optional("cell_path", SyntaxShape::CellPath, "cell path to update")
+            .optional("cell_path", SyntaxShape::CellPath, "Cell path to update.")
             .switch(
                 "major",
-                "increment the major version (eg 1.2.1 -> 2.0.0)",
+                "Increment the major version (eg 1.2.1 -> 2.0.0).",
                 Some('M'),
             )
             .switch(
                 "minor",
-                "increment the minor version (eg 1.2.1 -> 1.3.0)",
+                "Increment the minor version (eg 1.2.1 -> 1.3.0).",
                 Some('m'),
             )
             .switch(
                 "patch",
-                "increment the patch version (eg 1.2.1 -> 1.2.2)",
+                "Increment the patch version (eg 1.2.1 -> 1.2.2).",
                 Some('p'),
             )
     }

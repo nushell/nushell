@@ -37,7 +37,7 @@ impl Command for DetectColumns {
             .named(
                 "skip",
                 SyntaxShape::Int,
-                "number of rows to skip before detecting",
+                "Number of rows to skip before detecting.",
                 Some('s'),
             )
             .input_output_types(vec![
@@ -47,18 +47,18 @@ impl Command for DetectColumns {
             .switch("no-headers", "Don't detect headers.", Some('n'))
             .switch(
                 "ignore-box-chars",
-                "ignore lines consisting entirely of box drawing characters and clean box characters from tokens",
+                "Ignore lines consisting entirely of box drawing characters and clean box characters from tokens.",
                 Some('i'),
             )
             .named(
                 "combine-columns",
                 SyntaxShape::Range,
-                "columns to be combined; listed as a range",
+                "Columns to be combined; listed as a range.",
                 Some('c'),
             )
             .switch(
                 "guess",
-                "detect columns by guessing width, it may be useful if default one doesn't work",
+                "Detect columns by guessing width, it may be useful if default one doesn't work.",
                 None,
             )
             .category(Category::Strings)

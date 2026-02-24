@@ -20,7 +20,7 @@ impl Command for Help {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, descriptions, and search terms",
+                "String to find in command names, descriptions, and search terms.",
                 Some('f'),
             )
             .category(Category::Core)

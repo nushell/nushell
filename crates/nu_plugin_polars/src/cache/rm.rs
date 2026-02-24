@@ -23,7 +23,7 @@ impl PluginCommand for CacheRemove {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest("keys", SyntaxShape::String, "Keys of objects to remove")
+            .rest("keys", SyntaxShape::String, "Keys of objects to remove.")
             .input_output_type(Type::Any, Type::List(Box::new(Type::String)))
             .category(Category::Custom("dataframe".into()))
     }

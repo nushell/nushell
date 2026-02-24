@@ -27,7 +27,7 @@ impl PluginCommand for TakeDF {
             .required(
                 "indices",
                 SyntaxShape::Any,
-                "list of indices used to take data",
+                "List of indices used to take data.",
             )
             .input_output_types(vec![
                 (

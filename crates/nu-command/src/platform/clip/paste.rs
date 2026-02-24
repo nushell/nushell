@@ -17,7 +17,7 @@ impl Command for ClipPaste {
         Signature::build(self.name())
             .switch(
                 "raw",
-                "Disable JSON parsing. (act inverted if default_raw config is true)",
+                "Disable JSON parsing. (act inverted if default_raw config is true).",
                 Some('r'),
             )
             .input_output_types(vec![(Type::Nothing, Type::Any)])

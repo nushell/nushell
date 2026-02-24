@@ -19,17 +19,17 @@ impl PluginCommand for CallDecl {
             .required(
                 "name",
                 SyntaxShape::String,
-                "the name of the command to call",
+                "The name of the command to call.",
             )
             .optional(
                 "named_args",
                 SyntaxShape::Record(vec![]),
-                "named arguments to pass to the command",
+                "Named arguments to pass to the command.",
             )
             .rest(
                 "positional_args",
                 SyntaxShape::Any,
-                "positional arguments to pass to the command",
+                "Positional arguments to pass to the command.",
             )
     }
 

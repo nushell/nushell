@@ -28,12 +28,12 @@ impl Command for ParEach {
             .named(
                 "threads",
                 SyntaxShape::Int,
-                "the number of threads to use",
+                "The number of threads to use.",
                 Some('t'),
             )
             .switch(
                 "keep-order",
-                "keep sequence of output same as the order of input",
+                "Keep sequence of output same as the order of input.",
                 Some('k'),
             )
             .required(

@@ -23,7 +23,7 @@ impl Command for AnsiLink {
                 "text",
                 SyntaxShape::String,
                 "Link text. Uses uri as text if absent. In case of
-                tables, records and lists applies this text to all elements",
+                tables, records and lists applies this text to all elements.",
                 Some('t'),
             )
             .rest(

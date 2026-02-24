@@ -15,29 +15,29 @@ impl Command for FromTsv {
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it",
+                "A comment character to ignore lines starting with it.",
                 Some('c'),
             )
             .named(
                 "quote",
                 SyntaxShape::String,
-                "a quote character to ignore separators in strings, defaults to '\"'",
+                "A quote character to ignore separators in strings, defaults to '\"'.",
                 Some('q'),
             )
             .named(
                 "escape",
                 SyntaxShape::String,
-                "an escape character for strings containing the quote character",
+                "An escape character for strings containing the quote character.",
                 Some('e'),
             )
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
             .switch(
                 "flexible",
-                "allow the number of fields in records to be variable",
+                "Allow the number of fields in records to be variable.",
                 None,
             )
             .switch("no-infer", "No field type inferencing.", None)
@@ -46,8 +46,7 @@ impl Command for FromTsv {
                     .short('t')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "drop leading and trailing whitespaces around headers names and/or field \
-                         values",
+                        "Drop leading and trailing whitespaces around headers names and/or field values.",
                     )
                     .completion(Completion::new_list(&["all", "fields", "headers", "none"])),
             )

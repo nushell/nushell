@@ -24,7 +24,7 @@ impl Command for DecodeHex {
             .rest(
                 "rest",
                 SyntaxShape::CellPath,
-                "For a data structure input, decode data at the given cell paths",
+                "For a data structure input, decode data at the given cell paths.",
             )
             .category(Category::Formats)
     }
