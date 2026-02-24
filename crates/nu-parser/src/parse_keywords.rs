@@ -962,6 +962,7 @@ fn parse_extern_inner(
                         signature,
                         attributes: attribute_vals,
                         examples,
+                        span: call_span,
                     };
 
                     *declaration = Box::new(decl);
