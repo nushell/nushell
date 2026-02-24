@@ -45,7 +45,7 @@ impl Command for ViewSpan {
         } else {
             Err(ShellError::GenericError {
                 error: "Cannot view span".to_string(),
-                msg: "this start and end does not correspond to a viewable value".to_string(),
+                msg: "the start position of this span is later than the end position".to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
