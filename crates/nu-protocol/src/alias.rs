@@ -61,4 +61,8 @@ impl Command for Alias {
     fn as_alias(&self) -> Option<&Alias> {
         Some(self)
     }
+
+    fn decl_span(&self) -> Option<crate::Span> {
+        Some(self.wrapped_call.span)
+    }
 }

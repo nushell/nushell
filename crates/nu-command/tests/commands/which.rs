@@ -1,4 +1,8 @@
+use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
 use nu_test_support::nu;
+#[cfg(feature = "plugin")]
+use nu_test_support::nu_with_plugins;
+use nu_test_support::playground::Playground;
 
 #[test]
 fn which_ls() {
@@ -7,12 +11,11 @@ fn which_ls() {
     assert_eq!(actual.out, "built-in");
 }
 
-#[ignore = "TODO: Can't have alias recursion"]
 #[test]
 fn which_alias_ls() {
     let actual = nu!("alias ls = ls -a; which ls | get path.0 | str trim");
 
-    assert_eq!(actual.out, "Nushell alias: ls -a");
+    assert_eq!(actual.out, "source");
 }
 
 #[test]
@@ -21,7 +24,7 @@ fn which_custom_alias() {
 
     assert_eq!(
         actual.out,
-        r#"[[command, path, type, definition]; [foo, "", alias, "print \"foo!\""]]"#
+        r#"[[command, path, type, definition]; [foo, source, alias, "print \"foo!\""]]"#
     );
 }
 
@@ -32,16 +35,14 @@ fn which_def_ls() {
     assert_eq!(actual.out, "custom");
 }
 
-#[ignore = "TODO: Can't have alias with the same name as command"]
 #[test]
 fn correct_precedence_alias_def_custom() {
     let actual =
         nu!("def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim");
 
-    assert_eq!(actual.out, "Nushell alias: echo alias");
+    assert_eq!(actual.out, "source");
 }
 
-#[ignore = "TODO: Can't have alias with the same name as command"]
 #[test]
 fn multiple_reports_for_alias_def_custom() {
     let actual = nu!("def ls [] {echo def}; alias ls = echo alias; which -a ls | length");
@@ -112,7 +113,7 @@ fn do_not_show_hidden_commands() {
 #[test]
 fn which_accepts_spread_list() {
     let actual = nu!(r#"
-        let apps = [ls]; 
+        let apps = [ls];
         $apps | which ...$in | get command.0
         "#);
 
@@ -125,4 +126,77 @@ fn which_dedup_is_less_than_all() {
     let dedup: i32 = nu!("which | length").out.parse().unwrap();
 
     assert!(all >= dedup);
+}
+
+#[test]
+fn which_custom_command_reports_file() {
+    Playground::setup("which_file_1", |dirs, sandbox| {
+        sandbox.with_files(&[FileWithContentToBeTrimmed(
+            "foo.nu",
+            r#"
+                def foo [] { echo hi }
+            "#,
+        )]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            r#"
+        source foo.nu
+        which foo | to json
+        "#
+        );
+
+        // JSON should include an object with a "path" key pointing to foo.nu
+        assert!(
+            actual.out.contains("\"path\""),
+            "output was: {}",
+            actual.out
+        );
+        assert!(
+            actual.out.contains("foo.nu"),
+            "file value missing: {}",
+            actual.out
+        );
+    })
+}
+
+#[cfg(feature = "plugin")]
+#[test]
+fn which_plugin_reports_executable() {
+    // `example` is the root command provided by nu_plugin_example.
+    // `which example` should resolve via plugin_identity to the plugin binary path,
+    // which contains "nu_plugin_example" in its filename.
+    let actual = nu_with_plugins!(
+        cwd: ".",
+        plugin: ("nu_plugin_example"),
+        "which example | to json"
+    );
+
+    assert!(
+        actual.out.contains("nu_plugin_example"),
+        "plugin binary path missing from output: {}",
+        actual.out
+    );
+    assert!(
+        actual.out.contains("\"path\""),
+        "path column missing from output: {}",
+        actual.out
+    );
+}
+
+#[test]
+fn which_external_command_reports_path() {
+    // `nu` itself should be on PATH; PATH-found binaries report a non-empty path.
+    let actual = nu!(r#"which nu | to json"#);
+    assert!(
+        actual.out.contains("\"path\""),
+        "path column missing: {}",
+        actual.out
+    );
+    // The path value should be non-empty (not just an empty string)
+    assert!(
+        !actual.out.contains("\"path\":\"\""),
+        "path was empty: {}",
+        actual.out
+    );
 }

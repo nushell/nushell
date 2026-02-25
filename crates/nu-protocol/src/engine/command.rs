@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
     Alias, BlockId, DeprecationEntry, DynamicCompletionCallRef, DynamicSuggestion, Example,
-    OutDest, PipelineData, ShellError, Signature, Value, engine::Call,
+    OutDest, PipelineData, ShellError, Signature, Span, Value, engine::Call,
 };
 use std::{borrow::Cow, fmt::Display};
 
@@ -144,6 +144,13 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn is_known_external(&self) -> bool {
         self.command_type() == CommandType::External
+    }
+
+    /// The span of this command's declaration, if available.
+    /// Used to look up the source file where the command was declared.
+    /// Applicable to any command type that knows its declaration site.
+    fn decl_span(&self) -> Option<Span> {
+        None
     }
 
     fn is_alias(&self) -> bool {
