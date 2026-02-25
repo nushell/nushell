@@ -18,13 +18,13 @@ impl Command for RandomDice {
             .named(
                 "dice",
                 SyntaxShape::Int,
-                "The amount of dice being rolled",
+                "The amount of dice being rolled.",
                 Some('d'),
             )
             .named(
                 "sides",
                 SyntaxShape::Int,
-                "The amount of sides a die has",
+                "The amount of sides a die has.",
                 Some('s'),
             )
             .category(Category::Random)

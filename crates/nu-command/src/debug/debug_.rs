@@ -25,7 +25,7 @@ impl Command for Debug {
             .switch("raw", "Prints the raw value representation.", Some('r'))
             .switch(
                 "raw-value",
-                "Prints the raw value representation but not the nushell value part",
+                "Prints the raw value representation but not the nushell value part.",
                 Some('v'),
             )
     }

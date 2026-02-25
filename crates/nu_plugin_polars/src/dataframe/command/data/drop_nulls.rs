@@ -28,7 +28,7 @@ impl PluginCommand for DropNulls {
             .optional(
                 "subset",
                 SyntaxShape::Table(vec![]),
-                "subset of columns to drop nulls",
+                "Subset of columns to drop nulls.",
             )
             .input_output_types(vec![
                 (

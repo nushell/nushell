@@ -541,7 +541,7 @@ pub fn parse_call() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+    let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
 
     let block = parse(&mut working_set, None, b"foo", true);
@@ -564,7 +564,7 @@ pub fn parse_call_missing_flag_arg() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").named("jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+    let sig = Signature::build("foo").named("jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
 
     parse(&mut working_set, None, b"foo --jazz", true);
@@ -579,7 +579,7 @@ pub fn parse_call_missing_short_flag_arg() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+    let sig = Signature::build("foo").named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
 
     parse(&mut working_set, None, b"foo -j", true);
@@ -595,8 +595,8 @@ pub fn parse_call_short_flag_batch_arg_allowed() {
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo")
-        .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
-        .switch("--math", "math!!", Some('m'));
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'))
+        .switch("--math", "Math!!.", Some('m'));
     working_set.add_decl(sig.predeclare());
 
     let block = parse(&mut working_set, None, b"foo -mj 10", true);
@@ -622,8 +622,8 @@ pub fn parse_call_short_flag_batch_arg_disallowed() {
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo")
-        .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'))
-        .switch("--math", "math!!", Some('m'));
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'))
+        .switch("--math", "Math!!.", Some('m'));
     working_set.add_decl(sig.predeclare());
 
     parse(&mut working_set, None, b"foo -jm 10", true);
@@ -639,8 +639,8 @@ pub fn parse_call_short_flag_batch_disallow_multiple_args() {
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     let sig = Signature::build("foo")
-        .named("--math", SyntaxShape::Int, "math!!", Some('m'))
-        .named("--jazz", SyntaxShape::Int, "jazz!!", Some('j'));
+        .named("--math", SyntaxShape::Int, "Math!!.", Some('m'))
+        .named("--jazz", SyntaxShape::Int, "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
 
     parse(&mut working_set, None, b"foo -mj 10 20", true);
@@ -655,7 +655,7 @@ pub fn parse_call_unknown_shorthand() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
+    let sig = Signature::build("foo").switch("--jazz", "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo -mj", true);
     assert!(matches!(
@@ -669,7 +669,7 @@ pub fn parse_call_extra_positional() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").switch("--jazz", "jazz!!", Some('j'));
+    let sig = Signature::build("foo").switch("--jazz", "Jazz!!.", Some('j'));
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo -j 100", true);
     assert!(matches!(
@@ -683,7 +683,7 @@ pub fn parse_call_missing_req_positional() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "jazz!!");
+    let sig = Signature::build("foo").required("jazz", SyntaxShape::Int, "Jazz!!.");
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
@@ -697,7 +697,7 @@ pub fn parse_call_missing_req_flag() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "jazz!!", None);
+    let sig = Signature::build("foo").required_named("--jazz", SyntaxShape::Int, "Jazz!!.", None);
     working_set.add_decl(sig.predeclare());
     parse(&mut working_set, None, b"foo", true);
     assert!(matches!(
@@ -2251,11 +2251,11 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("let")
-                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
                 .required(
                     "initial_value",
                     SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                    "equals sign followed by value",
+                    "Equals sign followed by value.",
                 )
         }
 
@@ -2284,11 +2284,11 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("mut")
-                .required("var_name", SyntaxShape::VarWithOptType, "variable name")
+                .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
                 .required(
                     "initial_value",
                     SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
-                    "equals sign followed by value",
+                    "Equals sign followed by value.",
                 )
         }
 
@@ -2344,9 +2344,13 @@ mod mock {
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("def")
                 .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-                .required("def_name", SyntaxShape::String, "definition name")
-                .required("params", SyntaxShape::Signature, "parameters")
-                .required("body", SyntaxShape::Closure(None), "body of the definition")
+                .required("def_name", SyntaxShape::String, "Definition name.")
+                .required("params", SyntaxShape::Signature, "Parameters.")
+                .required(
+                    "body",
+                    SyntaxShape::Closure(None),
+                    "Body of the definition.",
+                )
                 .category(Category::Core)
         }
 
@@ -2408,7 +2412,7 @@ mod mock {
             Signature::build("attr echo").required(
                 "value",
                 SyntaxShape::Any,
-                "Value to store as an attribute",
+                "Value to store as an attribute.",
             )
         }
 
@@ -2456,7 +2460,7 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .required("column", SyntaxShape::String, "column name")
+                .required("column", SyntaxShape::String, "Column name.")
                 .category(Category::Default)
         }
 
@@ -2514,8 +2518,8 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .required("column", SyntaxShape::String, "column name")
-                .required("other", SyntaxShape::String, "other value")
+                .required("column", SyntaxShape::String, "Column name.")
+                .required("other", SyntaxShape::String, "Other value.")
                 .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
@@ -2545,7 +2549,7 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name())
-                .required("operation", SyntaxShape::String, "operation")
+                .required("operation", SyntaxShape::String, "Operation.")
                 .input_output_type(Type::Custom("custom".into()), Type::Custom("custom".into()))
                 .category(Category::Custom("custom".into()))
         }
@@ -2661,11 +2665,11 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build("if")
-                .required("cond", SyntaxShape::MathExpression, "condition to check")
+                .required("cond", SyntaxShape::MathExpression, "Condition to check.")
                 .required(
                     "then_block",
                     SyntaxShape::Block,
-                    "block to run if check succeeds",
+                    "Block to run if check succeeds.",
                 )
                 .optional(
                     "else_expression",
@@ -2676,7 +2680,7 @@ mod mock {
                             SyntaxShape::Expression,
                         ])),
                     ),
-                    "expression or block to run if check fails",
+                    "Expression or block to run if check fails.",
                 )
                 .category(Category::Core)
         }

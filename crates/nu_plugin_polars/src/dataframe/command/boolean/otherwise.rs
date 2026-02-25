@@ -26,7 +26,7 @@ impl PluginCommand for ExprOtherwise {
             .required(
                 "otherwise expression",
                 SyntaxShape::Any,
-                "expression to apply when no when predicate matches",
+                "Expression to apply when no when predicate matches.",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))

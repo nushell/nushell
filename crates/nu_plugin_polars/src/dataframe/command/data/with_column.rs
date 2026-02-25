@@ -30,7 +30,7 @@ impl PluginCommand for WithColumn {
             .rest(
                 "series or expressions",
                 SyntaxShape::Any,
-                "series to be added or expressions used to define the new columns",
+                "Series to be added or expressions used to define the new columns.",
             )
             .input_output_types(vec![
                 (

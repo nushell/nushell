@@ -190,7 +190,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-pub(crate) fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 
@@ -284,14 +284,16 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | reject span | $in"#;
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --path-columns [name] | from json | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

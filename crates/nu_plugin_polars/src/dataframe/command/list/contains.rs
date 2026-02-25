@@ -31,7 +31,7 @@ impl PluginCommand for ListContains {
             .required(
                 "element",
                 SyntaxShape::Any,
-                "Element to search for in the list",
+                "Element to search for in the list.",
             )
             .input_output_types(vec![
                 (

@@ -17,7 +17,7 @@ impl Command for UrlJoin {
     }
 
     fn description(&self) -> &str {
-        "Converts a record to url."
+        "Convert a record to a URL string."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -29,7 +29,7 @@ impl Command for UrlJoin {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs a url representing the contents of this record, `params` and `query` fields must be equivalent",
+                description: "Outputs a URL representing the contents of this record, `params` and `query` fields must be equivalent.",
                 example: r#"{
         "scheme": "http",
         "username": "",
@@ -50,7 +50,7 @@ impl Command for UrlJoin {
                 )),
             },
             Example {
-                description: "Outputs a url representing the contents of this record, \"exploding\" the list in `params` into multiple parameters",
+                description: "Outputs a URL representing the contents of this record, \"exploding\" the list in `params` into multiple parameters.",
                 example: r#"{
         "scheme": "http",
         "username": "user",
@@ -65,7 +65,7 @@ impl Command for UrlJoin {
                 )),
             },
             Example {
-                description: "Outputs a url representing the contents of this record",
+                description: "Outputs a URL representing the contents of this record.",
                 example: r#"{
         "scheme": "http",
         "username": "user",
@@ -80,7 +80,7 @@ impl Command for UrlJoin {
                 )),
             },
             Example {
-                description: "Outputs a url representing the contents of this record",
+                description: "Outputs a URL representing the contents of this record.",
                 example: r#"{
         "scheme": "http",
         "host": "www.pixiv.net",

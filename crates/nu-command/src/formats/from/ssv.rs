@@ -16,14 +16,14 @@ impl Command for FromSsv {
             .input_output_types(vec![(Type::String, Type::table())])
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
             .switch("aligned-columns", "Assume columns are aligned.", Some('a'))
             .named(
                 "minimum-spaces",
                 SyntaxShape::Int,
-                "the minimum spaces to separate columns",
+                "The minimum spaces to separate columns.",
                 Some('m'),
             )
             .category(Category::Formats)

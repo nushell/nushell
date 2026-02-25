@@ -29,11 +29,11 @@ impl PluginCommand for Shift {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("period", SyntaxShape::Int, "shift period")
+            .required("period", SyntaxShape::Int, "Shift period.")
             .named(
                 "fill",
                 SyntaxShape::Any,
-                "Expression used to fill the null values (lazy df)",
+                "Expression used to fill the null values (lazy df).",
                 Some('f'),
             )
             .input_output_types(vec![

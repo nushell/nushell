@@ -1,4 +1,6 @@
+use nu_test_support::fs::Stub::EmptyFile;
 use nu_test_support::nu;
+use nu_test_support::playground::Playground;
 use rstest::rstest;
 
 #[rstest]
@@ -107,6 +109,16 @@ fn let_with_external_failed() {
 fn let_glob_type() {
     let actual = nu!("let x: glob = 'aa'; $x | describe");
     assert_eq!(actual.out, "glob");
+}
+
+#[test]
+fn let_typed_glob_expands_in_ls() {
+    Playground::setup("let_glob_ls", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("a.toml"), EmptyFile("b.toml"), EmptyFile("c.txt")]);
+
+        let actual = nu!(cwd: dirs.test(), r#"let x: glob = "*.toml"; ls $x | length"#);
+        assert_eq!(actual.out, "2");
+    })
 }
 
 #[test]

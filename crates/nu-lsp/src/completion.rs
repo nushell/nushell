@@ -386,28 +386,6 @@ mod tests {
             "kind": 9
         }
     ]))]
-    #[case::use_clip("use.nu", (5, 22), None, serde_json::json!([
-        {
-            "label": "std-rfc/clip",
-            "labelDetails": { "description": "module" },
-            "textEdit": {
-                "newText": "std-rfc/clip",
-                "range": { "start": { "character": 11, "line": 5 }, "end": { "character": 23, "line": 5 } }
-            },
-            "kind": 9
-        }
-    ]))]
-    #[case::use_paste("use.nu", (5, 35), None, serde_json::json!([
-        {
-            "label": "paste",
-            "labelDetails": { "description": "custom" },
-            "textEdit": {
-                "newText": "paste",
-                "range": { "start": { "character": 32, "line": 5 }, "end": { "character": 37, "line": 5 } }
-            },
-            "kind": 2
-        }
-    ]))]
     #[case::use_null_device("use.nu", (6, 14), None, serde_json::json!([
         {
             "label": "null_device",

@@ -27,27 +27,27 @@ impl Command for Cal {
 
     fn signature(&self) -> Signature {
         Signature::build("cal")
-            .switch("year", "Display the year column", Some('y'))
-            .switch("quarter", "Display the quarter column", Some('q'))
-            .switch("month", "Display the month column", Some('m'))
-            .switch("as-table", "output as a table", Some('t'))
+            .switch("year", "Display the year column.", Some('y'))
+            .switch("quarter", "Display the quarter column.", Some('q'))
+            .switch("month", "Display the month column.", Some('m'))
+            .switch("as-table", "Output as a table.", Some('t'))
             .named(
                 "full-year",
                 SyntaxShape::Int,
-                "Display a year-long calendar for the specified year",
+                "Display a year-long calendar for the specified year.",
                 None,
             )
             .param(
                 Flag::new("week-start")
                     .arg(SyntaxShape::String)
                     .desc(
-                        "Display the calendar with the specified day as the first day of the week",
+                        "Display the calendar with the specified day as the first day of the week.",
                     )
                     .completion(Completion::new_list(DAYS_OF_THE_WEEK.as_slice())),
             )
             .switch(
                 "month-names",
-                "Display the month names in a separate column",
+                "Display the month names in a separate column.",
                 None,
             )
             .input_output_types(vec![

@@ -29,7 +29,7 @@ impl PluginCommand for LazyAggregate {
             .rest(
                 "Group-by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the aggregations to be applied",
+                "Expression(s) that define the aggregations to be applied.",
             )
             .input_output_types(vec![
                 (

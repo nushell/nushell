@@ -20,7 +20,7 @@ impl Command for FromXlsx {
             .named(
                 "sheets",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Only convert specified sheets",
+                "Only convert specified sheets.",
                 Some('s'),
             )
             .category(Category::Formats)

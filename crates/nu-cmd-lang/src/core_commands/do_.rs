@@ -28,17 +28,17 @@ impl Command for Do {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .switch(
                 "ignore-errors",
-                "ignore errors as the closure runs",
+                "Ignore errors as the closure runs.",
                 Some('i'),
             )
             .switch(
                 "capture-errors",
-                "catch errors as the closure runs, and return them",
+                "Catch errors as the closure runs, and return them.",
                 Some('c'),
             )
             .switch(
                 "env",
-                "keep the environment defined inside the command",
+                "Keep the environment defined inside the command.",
                 None,
             )
             .rest(

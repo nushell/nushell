@@ -20,7 +20,7 @@ impl SimplePluginCommand for Generate2 {
             .optional(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "An optional closure to pass the custom value to",
+                "An optional closure to pass the custom value to.",
             )
             .category(Category::Experimental)
     }

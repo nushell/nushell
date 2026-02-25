@@ -63,16 +63,16 @@ impl PluginCommand for Horizontal {
             .required(
                 "type",
                 SyntaxShape::String,
-                "horizontal operation. Values of all, any, min, max, sum, and mean are accepted.",
+                "Horizontal operation. Values of all, any, min, max, sum, and mean are accepted.",
             )
             .rest(
                 "Group-by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the lazy group-by",
+                "Expression(s) that define the lazy group-by.",
             )
             .switch(
                 "nulls",
-                "If set, null value in the input will lead to null output",
+                "If set, null value in the input will lead to null output.",
                 Some('n'),
             )
             .category(Category::Custom("expression".into()))

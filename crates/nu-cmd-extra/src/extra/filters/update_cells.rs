@@ -24,7 +24,7 @@ impl Command for UpdateCells {
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "list of columns to update",
+                "List of columns to update.",
                 Some('c'),
             )
             .category(Category::Filters)

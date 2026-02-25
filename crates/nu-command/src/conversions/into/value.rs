@@ -27,12 +27,12 @@ impl Command for IntoValue {
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "list of columns to update",
+                "List of columns to update.",
                 Some('c'),
             )
             .switch(
                 "prefer-filesizes",
-                "For ints display them as human-readable file sizes",
+                "For ints display them as human-readable file sizes.",
                 Some('f'),
             )
     }

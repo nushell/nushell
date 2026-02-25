@@ -30,23 +30,23 @@ impl PluginCommand for LazyJoin {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("other", SyntaxShape::Any, "LazyFrame to join with")
-            .optional("left_on", SyntaxShape::Any, "Left column(s) to join on")
-            .optional("right_on", SyntaxShape::Any, "Right column(s) to join on")
+            .required("other", SyntaxShape::Any, "LazyFrame to join with.")
+            .optional("left_on", SyntaxShape::Any, "Left column(s) to join on.")
+            .optional("right_on", SyntaxShape::Any, "Right column(s) to join on.")
             .switch(
                 "inner",
-                "inner joining between lazyframes (default)",
+                "Inner joining between lazyframes (default).",
                 Some('i'),
             )
-            .switch("left", "left join between lazyframes", Some('l'))
-            .switch("full", "full join between lazyframes", Some('f'))
-            .switch("cross", "cross join between lazyframes", Some('c'))
+            .switch("left", "Left join between lazyframes.", Some('l'))
+            .switch("full", "Full join between lazyframes.", Some('f'))
+            .switch("cross", "Cross join between lazyframes.", Some('c'))
             .switch("coalesce-columns", "Sets the join coalesce strategy to colesce columns. Most useful when used with --full, which will not otherwise coalesce.", None)
-            .switch("nulls-equal", "Join on null values. By default null values will never produce matches", None)
+            .switch("nulls-equal", "Join on null values. By default null values will never produce matches.", None)
             .named(
                 "suffix",
                 SyntaxShape::String,
-                "Suffix to use on columns with same name",
+                "Suffix to use on columns with same name.",
                 Some('s'),
             )
             .input_output_types(vec![

@@ -7,6 +7,7 @@ use prelude::*;
 use std::collections::HashMap;
 
 pub use ansi_coloring::UseAnsiColoring;
+pub use clip::ClipConfig;
 pub use completions::{
     CompletionAlgorithm, CompletionConfig, CompletionSort, ExternalCompleterConfig,
 };
@@ -25,6 +26,7 @@ pub use shell_integration::ShellIntegrationConfig;
 pub use table::{FooterMode, TableConfig, TableIndent, TableIndexMode, TableMode, TrimStrategy};
 
 mod ansi_coloring;
+mod clip;
 mod completions;
 mod datetime_format;
 mod display_errors;
@@ -47,6 +49,7 @@ pub struct Config {
     pub filesize: FilesizeConfig,
     pub table: TableConfig,
     pub ls: LsConfig,
+    pub clip: ClipConfig,
     pub color_config: HashMap<String, Value>,
     pub footer_mode: FooterMode,
     pub float_precision: i64,
@@ -106,6 +109,8 @@ impl Default for Config {
 
             cursor_shape: CursorShapeConfig::default(),
 
+            clip: ClipConfig::default(),
+
             color_config: HashMap::new(),
             footer_mode: FooterMode::RowCount(25),
             float_precision: 2,
@@ -162,6 +167,7 @@ impl UpdateFromValue for Config {
                 "filesize" => self.filesize.update(val, path, errors),
                 "explore" => self.explore.update(val, path, errors),
                 "color_config" => self.color_config.update(val, path, errors),
+                "clip" => self.clip.update(val, path, errors),
                 "footer_mode" => self.footer_mode.update(val, path, errors),
                 "float_precision" => self.float_precision.update(val, path, errors),
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),

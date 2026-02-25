@@ -37,23 +37,27 @@ impl PluginCommand for SaveDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("path", SyntaxShape::String, "Path or cloud url to write to")
+            .required(
+                "path",
+                SyntaxShape::String,
+                "Path or cloud url to write to.",
+            )
             .named(
                 "type",
                 SyntaxShape::String,
-                "File type: csv, json, parquet, arrow/ipc. If omitted, derive from file extension",
+                "File type: csv, json, parquet, arrow/ipc. If omitted, derive from file extension.",
                 Some('t'),
             )
             .named(
                 "avro-compression",
                 SyntaxShape::String,
-                "Compression for avro supports deflate or snappy",
+                "Compression for avro supports deflate or snappy.",
                 None,
             )
             .named(
                 "csv-delimiter",
                 SyntaxShape::String,
-                "file delimiter character",
+                "File delimiter character.",
                 None,
             )
             .switch(

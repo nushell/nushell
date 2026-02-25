@@ -36,25 +36,25 @@ impl PluginCommand for Unpivot {
             .required_named(
                 "index",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "column names for unpivoting",
+                "Column names for unpivoting.",
                 Some('i'),
             )
             .required_named(
                 "on",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "column names used as value columns",
+                "Column names used as value columns.",
                 Some('o'),
             )
             .named(
                 "variable-name",
                 SyntaxShape::String,
-                "optional name for variable column",
+                "Optional name for variable column.",
                 Some('r'),
             )
             .named(
                 "value-name",
                 SyntaxShape::String,
-                "optional name for value column",
+                "Optional name for value column.",
                 Some('l'),
             )
             .input_output_types(vec![

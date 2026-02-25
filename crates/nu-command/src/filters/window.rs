@@ -20,12 +20,12 @@ impl Command for Window {
             .named(
                 "stride",
                 SyntaxShape::Int,
-                "the number of rows to slide over between windows",
+                "The number of rows to slide over between windows.",
                 Some('s'),
             )
             .switch(
                 "remainder",
-                "yield last chunks even if they have fewer elements than size",
+                "Yield last chunks even if they have fewer elements than size.",
                 Some('r'),
             )
             .category(Category::Filters)

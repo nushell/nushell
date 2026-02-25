@@ -46,7 +46,7 @@ impl Command for Save {
             .named(
                 "stderr",
                 SyntaxShape::Filepath,
-                "the filename used to save stderr, only works with `-r` flag",
+                "The filename used to save stderr, only works with `-r` flag.",
                 Some('e'),
             )
             .switch("raw", "Save file as raw binary.", Some('r'))

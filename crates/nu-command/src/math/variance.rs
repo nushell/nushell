@@ -19,7 +19,7 @@ impl Command for MathVariance {
             ])
             .switch(
                 "sample",
-                "calculate sample variance (i.e. using N-1 as the denominator)",
+                "Calculate sample variance (i.e. using N-1 as the denominator).",
                 Some('s'),
             )
             .allow_variants_without_examples(true)

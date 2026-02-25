@@ -75,13 +75,13 @@ impl Command for Watch {
             .named(
                 "debounce-ms",
                 SyntaxShape::Int,
-                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated)",
+                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated).",
                 Some('d'),
             )
             .named(
                 "debounce",
                 SyntaxShape::Duration,
-                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events",
+                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events.",
                 None,
             )
             .named(
@@ -93,11 +93,11 @@ impl Command for Watch {
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
+                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true).",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
+            .switch("quiet", "Hide the initial status message (default: false).", Some('q'))
+            .switch("verbose", "Operate in verbose mode (default: false).", Some('v'))
             .category(Category::FileSystem)
     }
 

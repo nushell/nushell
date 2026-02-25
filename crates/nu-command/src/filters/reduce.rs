@@ -19,7 +19,7 @@ impl Command for Reduce {
             .named(
                 "fold",
                 SyntaxShape::Any,
-                "reduce with initial value",
+                "Reduce with initial value.",
                 Some('f'),
             )
             .required(

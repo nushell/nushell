@@ -22,17 +22,17 @@ impl Command for ToXml {
             .named(
                 "indent",
                 SyntaxShape::Int,
-                "Formats the XML text with the provided indentation setting",
+                "Formats the XML text with the provided indentation setting.",
                 Some('i'),
             )
             .switch(
                 "partial-escape",
-                "Only escape mandatory characters in text and attributes",
+                "Only escape mandatory characters in text and attributes.",
                 Some('p'),
             )
             .switch(
                 "self-closed",
-                "Output empty tags as self closing",
+                "Output empty tags as self closing.",
                 Some('s'),
             )
             .category(Category::Formats)

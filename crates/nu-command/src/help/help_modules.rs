@@ -31,7 +31,7 @@ are also available in the current scope. Commands/aliases that were imported und
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in module names and descriptions",
+                "String to find in module names and descriptions.",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])

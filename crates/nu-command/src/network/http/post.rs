@@ -27,54 +27,54 @@ impl Command for HttpPost {
             .named(
                 "user",
                 SyntaxShape::Any,
-                "the username when authenticating",
+                "The username when authenticating.",
                 Some('u'),
             )
             .named(
                 "password",
                 SyntaxShape::Any,
-                "the password when authenticating",
+                "The password when authenticating.",
                 Some('p'),
             )
             .named(
                 "content-type",
                 SyntaxShape::Any,
-                "the MIME type of content to post",
+                "The MIME type of content to post.",
                 Some('t'),
             )
             .named(
                 "max-time",
                 SyntaxShape::Duration,
-                "max duration before timeout occurs",
+                "Max duration before timeout occurs.",
                 Some('m'),
             )
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
                 "raw",
-                "return values as a string instead of a table",
+                "Return values as a string instead of a table.",
                 Some('r'),
             )
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
             .switch(
                 "full",
-                "returns the full response instead of only the body",
+                "Returns the full response instead of only the body.",
                 Some('f'),
             )
             .switch(
                 "allow-errors",
-                "do not fail if the server returns an error code",
+                "Do not fail if the server returns an error code.",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -94,7 +94,7 @@ impl Command for HttpPost {
     }
 
     fn description(&self) -> &str {
-        "Post a body to a URL."
+        "Send a POST request to a URL with a request body."
     }
 
     fn extra_description(&self) -> &str {
@@ -118,52 +118,52 @@ impl Command for HttpPost {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Post content to example.com",
+                description: "Post content to example.com.",
                 example: "http post https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with username and password",
+                description: "Post content to example.com, with username and password.",
                 example: "http post --user myuser --password mypass https://www.example.com 'body'",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with custom header using a record",
+                description: "Post content to example.com, with custom header using a record.",
                 example: "http post --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with custom header using a list",
+                description: "Post content to example.com, with custom header using a list.",
                 example: "http post --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Post content to example.com, with JSON body",
+                description: "Post content to example.com, with JSON body.",
                 example: "http post --content-type application/json https://www.example.com { field: value }",
                 result: None,
             },
             Example {
-                description: "Post JSON content from a pipeline to example.com",
+                description: "Post JSON content from a pipeline to example.com.",
                 example: "open --raw foo.json | http post https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Upload a binary file to example.com",
+                description: "Upload a binary file to example.com.",
                 example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.mp3) }",
                 result: None,
             },
             Example {
-                description: "Convert a text file into binary and upload it to example.com",
+                description: "Convert a text file into binary and upload it to example.com.",
                 example: "http post --content-type multipart/form-data https://www.example.com { file: (open -r file.txt | into binary) }",
                 result: None,
             },
             Example {
-                description: "Get the response status code",
+                description: "Get the response status code.",
                 example: r#"http post https://www.example.com 'body' | metadata | get http_response.status"#,
                 result: None,
             },
             Example {
-                description: "Check response status while streaming",
+                description: "Check response status while streaming.",
                 example: r#"http post --allow-errors https://example.com/upload 'data' | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },

@@ -21,10 +21,29 @@ pub(crate) fn compile_call(
 
     // Check if this call has --help - if so, just redirect to `help`
     if call.named_iter().any(|(name, _, _)| name.item == "help") {
-        let name = working_set
-            .find_decl_name(call.decl_id) // check for name in scope
-            .and_then(|name| std::str::from_utf8(name).ok())
-            .unwrap_or(decl.name()); // fall back to decl's name
+        let decl_name = decl.name();
+        // Prefer the overlay-visible name (e.g. "spam prefix" for module-qualified lookups).
+        // However, if the block's own signature name was rewritten (e.g. "main" → "script.nu"
+        // for script files), the overlay may contain *multiple* keys for the same DeclId,
+        // making `find_decl_name` non-deterministic.  In that case, use the authoritative
+        // block signature name instead.
+        let name = if let Some(block_id) = decl.block_id() {
+            let block_sig_name = working_set.get_block(block_id).signature.name.as_str();
+            if block_sig_name != decl_name {
+                // Block signature was intentionally rewritten; use the canonical block name.
+                block_sig_name
+            } else {
+                working_set
+                    .find_decl_name(call.decl_id) // check for name in scope
+                    .and_then(|name| std::str::from_utf8(name).ok())
+                    .unwrap_or(decl_name)
+            }
+        } else {
+            working_set
+                .find_decl_name(call.decl_id) // check for name in scope
+                .and_then(|name| std::str::from_utf8(name).ok())
+                .unwrap_or(decl_name) // fall back to decl's name
+        };
         return compile_help(working_set, builder, name.into_spanned(call.head), io_reg);
     }
 

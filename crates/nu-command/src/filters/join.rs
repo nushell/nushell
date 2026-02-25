@@ -60,10 +60,10 @@ impl Command for Join {
                 "Suffix columns from the right table with this string (excluding the shared join key).",
                 Some('s'),
             )
-            .switch("inner", "Inner join (default)", Some('i'))
-            .switch("left", "Left-outer join", Some('l'))
-            .switch("right", "Right-outer join", Some('r'))
-            .switch("outer", "Outer join", Some('o'))
+            .switch("inner", "Inner join (default).", Some('i'))
+            .switch("left", "Left-outer join.", Some('l'))
+            .switch("right", "Right-outer join.", Some('r'))
+            .switch("outer", "Outer join.", Some('o'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }

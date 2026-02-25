@@ -13,29 +13,29 @@ impl Command for ToNuon {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "raw",
-                "remove all of the whitespace (overwrites -i and -t)",
+                "Remove all of the whitespace (overwrites -i and -t).",
                 Some('r'),
             )
             .named(
                 "indent",
                 SyntaxShape::Number,
-                "specify indentation width",
+                "Specify indentation width.",
                 Some('i'),
             )
             .named(
                 "tabs",
                 SyntaxShape::Number,
-                "specify indentation tab quantity",
+                "Specify indentation tab quantity.",
                 Some('t'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .switch(
                 "raw-strings",
-                "use raw string syntax (r#'...'#) for strings with quotes or backslashes",
+                "Use raw string syntax (r#'...'#) for strings with quotes or backslashes.",
                 None,
             )
             .category(Category::Formats)

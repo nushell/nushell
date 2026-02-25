@@ -25,7 +25,7 @@ impl PluginCommand for ExprIsIn {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("list", SyntaxShape::Any, "List to check if values are in")
+            .required("list", SyntaxShape::Any, "List to check if values are in.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),

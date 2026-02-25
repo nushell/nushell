@@ -22,12 +22,12 @@ impl Command for RollRight {
             .named(
                 "by",
                 SyntaxShape::Int,
-                "Number of columns to roll",
+                "Number of columns to roll.",
                 Some('b'),
             )
             .switch(
                 "cells-only",
-                "rotates columns leaving headers fixed",
+                "Rotates columns leaving headers fixed.",
                 Some('c'),
             )
             .category(Category::Filters)

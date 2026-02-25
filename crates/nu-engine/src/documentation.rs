@@ -296,8 +296,15 @@ fn get_command_documentation(
     for (sig, decl_id) in signatures {
         let command_type = engine_state.get_decl(decl_id).command_type();
 
+        // Prefer the overlay-visible declaration name (if any) for display and matching.
+        // Fall back to the signature's name if not present.
+        let display_name = engine_state
+            .find_decl_name(decl_id, &[])
+            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+            .unwrap_or_else(|| sig.name.clone());
+
         // Don't display removed/deprecated commands in the Subcommands list
-        if sig.name.starts_with(&format!("{cmd_name} "))
+        if display_name.starts_with(&format!("{cmd_name} "))
             && !matches!(sig.category, Category::Removed)
         {
             // If it's a plugin, alias, or custom command, display that information in the help
@@ -307,14 +314,14 @@ fn get_command_documentation(
             {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    sig.name,
+                    display_name,
                     command_type,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name,
+                    display_name,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             }

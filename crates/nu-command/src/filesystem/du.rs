@@ -41,30 +41,30 @@ impl Command for Du {
             )
             .switch(
                 "deref",
-                "Dereference symlinks to their targets for size",
+                "Dereference symlinks to their targets for size.",
                 Some('r'),
             )
             .switch(
                 "long",
-                "Get underlying directories and files for each entry",
+                "Get underlying directories and files for each entry.",
                 Some('l'),
             )
             .named(
                 "exclude",
                 SyntaxShape::GlobPattern,
-                "Exclude these file names",
+                "Exclude these file names.",
                 Some('x'),
             )
             .named(
                 "max-depth",
                 SyntaxShape::Int,
-                "Directory recursion limit",
+                "Directory recursion limit.",
                 Some('d'),
             )
             .named(
                 "min-size",
                 SyntaxShape::Int,
-                "Exclude files below this size",
+                "Exclude files below this size.",
                 Some('m'),
             )
             .switch("all", "Include hidden files if '*' is provided.", Some('a'))

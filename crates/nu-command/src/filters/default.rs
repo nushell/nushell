@@ -32,7 +32,7 @@ impl Command for Default {
             )
             .switch(
                 "empty",
-                "also replace empty items like \"\", {}, and []",
+                "Also replace empty items like \"\", {}, and [].",
                 Some('e'),
             )
             .category(Category::Filters)

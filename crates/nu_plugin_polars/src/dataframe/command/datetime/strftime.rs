@@ -29,7 +29,7 @@ impl PluginCommand for StrFTime {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("fmt", SyntaxShape::String, "Format rule")
+            .required("fmt", SyntaxShape::String, "Format rule.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuExpression.into(),

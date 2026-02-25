@@ -38,8 +38,8 @@ impl PluginCommand for AsDate {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("format", SyntaxShape::String, "formatting date string")
-            .switch("not-exact", "the format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01)", Some('n'))
+            .required("format", SyntaxShape::String, "Formatting date string.")
+            .switch("not-exact", "The format string may be contained in the date (e.g. foo-2021-01-01-bar could match 2021-01-01).", Some('n'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

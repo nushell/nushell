@@ -27,7 +27,7 @@ impl SimplePluginCommand for IntoPlist {
 
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self))
-            .switch("binary", "Output plist in binary format", Some('b'))
+            .switch("binary", "Output plist in binary format.", Some('b'))
             .category(Category::Formats)
     }
 

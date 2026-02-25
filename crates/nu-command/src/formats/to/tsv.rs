@@ -22,13 +22,13 @@ impl Command for ToTsv {
             ])
             .switch(
                 "noheaders",
-                "do not output the column names as the first row",
+                "Do not output the column names as the first row.",
                 Some('n'),
             )
             .named(
                 "columns",
                 SyntaxShape::List(SyntaxShape::String.into()),
-                "the names (in order) of the columns to use",
+                "The names (in order) of the columns to use.",
                 None,
             )
             .category(Category::Formats)

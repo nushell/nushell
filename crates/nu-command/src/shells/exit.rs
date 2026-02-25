@@ -19,7 +19,7 @@ impl Command for Exit {
                 SyntaxShape::Int,
                 "Exit code to return immediately with.",
             )
-            .switch("abort", "exit by abort", None)
+            .switch("abort", "Exit by abort.", None)
             .category(Category::Shells)
     }
 

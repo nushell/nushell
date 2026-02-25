@@ -27,7 +27,7 @@ impl PluginCommand for LazyFillNull {
             .required(
                 "fill",
                 SyntaxShape::Any,
-                "Expression to use to fill the null values",
+                "Expression to use to fill the null values.",
             )
             .input_output_types(vec![
                 (

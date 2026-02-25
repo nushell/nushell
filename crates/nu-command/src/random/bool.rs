@@ -16,7 +16,7 @@ impl Command for RandomBool {
             .named(
                 "bias",
                 SyntaxShape::Number,
-                "Adjusts the probability of a \"true\" outcome",
+                "Adjusts the probability of a \"true\" outcome.",
                 Some('b'),
             )
             .category(Category::Random)

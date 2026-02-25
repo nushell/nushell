@@ -22,8 +22,8 @@ impl PluginCommand for Seq {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("first", SyntaxShape::Int, "first number to generate")
-            .required("last", SyntaxShape::Int, "last number to generate")
+            .required("first", SyntaxShape::Int, "First number to generate.")
+            .required("last", SyntaxShape::Int, "Last number to generate.")
             .input_output_type(Type::Nothing, Type::List(Type::Int.into()))
             .category(Category::Experimental)
     }

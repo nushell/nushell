@@ -45,7 +45,7 @@ impl PluginCommand for CastDF {
             .required(
                 "dtype",
                 SyntaxShape::String,
-                "The dtype to cast the column to",
+                "The dtype to cast the column to.",
             )
             .optional(
                 "column",

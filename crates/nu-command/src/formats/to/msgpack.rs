@@ -24,7 +24,7 @@ impl Command for ToMsgpack {
             .input_output_type(Type::Any, Type::Binary)
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)

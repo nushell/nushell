@@ -29,7 +29,7 @@ impl PluginCommand for LazyExplode {
             .rest(
                 "columns",
                 SyntaxShape::String,
-                "columns to explode, only applicable for dataframes",
+                "Columns to explode, only applicable for dataframes.",
             )
             .input_output_types(vec![
                 (

@@ -28,7 +28,7 @@ impl Command for SplitChars {
             )
             .switch(
                 "code-points",
-                "split on code points (default; splits combined characters)",
+                "Split on code points (default; splits combined characters).",
                 Some('c'),
             )
             .category(Category::Strings)

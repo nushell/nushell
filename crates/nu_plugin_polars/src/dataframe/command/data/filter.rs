@@ -28,7 +28,7 @@ impl PluginCommand for LazyFilter {
             .required(
                 "filter expression",
                 SyntaxShape::Any,
-                "Expression that define the column selection",
+                "Expression that define the column selection.",
             )
             .input_output_types(vec![
                 (
