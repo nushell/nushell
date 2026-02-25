@@ -1,4 +1,4 @@
-// all tests in here are marked as serial to give your processor some room to breath while 
+// all tests in here are marked as serial to give your processor some room to breath while
 // executing these tests
 
 use std::{sync::mpsc, time::Duration};
