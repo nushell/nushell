@@ -71,11 +71,13 @@ fn http_head_full_response_includes_status_and_headers() {
     assert_eq!(output["status"], 204);
 
     let headers = &output["headers"]["response"];
-    assert!(headers
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|h| h["name"] == "x-custom-header" && h["value"] == "value"));
+    assert!(
+        headers
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|h| h["name"] == "x-custom-header" && h["value"] == "value")
+    );
 }
 
 #[test]
