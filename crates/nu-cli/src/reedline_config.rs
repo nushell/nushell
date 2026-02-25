@@ -150,7 +150,7 @@ pub(crate) fn add_menus(
                 let mut working_set = StateWorkingSet::new(&engine_state);
                 let output = parse(
                     &mut working_set,
-                    Some(name), // format!("entry #{}", entry_num)
+                    Some(name), // format!("repl_entry #{}", entry_num)
                     definition.as_bytes(),
                     true,
                 );
