@@ -57,21 +57,66 @@ impl Command for Do {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let block: Closure = call.req(engine_state, caller_stack, 0)?;
+        let closure: Closure = call.req(engine_state, caller_stack, 0)?;
         let rest: Vec<Value> = call.rest(engine_state, caller_stack, 1)?;
         let ignore_all_errors = call.has_flag(engine_state, caller_stack, "ignore-errors")?;
 
         let capture_errors = call.has_flag(engine_state, caller_stack, "capture-errors")?;
         let has_env = call.has_flag(engine_state, caller_stack, "env")?;
 
-        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(block.captures);
-        let block = engine_state.get_block(block.block_id);
+        // If the closure has nested blocks (from deserialization), we need to add them
+        // to a cloned engine state so they can be resolved during IR evaluation
+        let engine_state_for_eval: std::borrow::Cow<'_, EngineState> =
+            if closure.has_nested_blocks() {
+                let mut cloned = engine_state.clone();
+                for (block_id, block) in &closure.nested_blocks {
+                    cloned.add_block_with_id(block.clone(), *block_id);
+                }
+                std::borrow::Cow::Owned(cloned)
+            } else {
+                std::borrow::Cow::Borrowed(engine_state)
+            };
+
+        let mut callee_stack =
+            caller_stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+        let block = closure.get_block(&engine_state_for_eval);
 
         bind_args_to(&mut callee_stack, &block.signature, rest, head)?;
-        let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);
+        let eval_block_with_early_return = get_eval_block_with_early_return(&engine_state_for_eval);
 
-        let result = eval_block_with_early_return(engine_state, &mut callee_stack, block, input)
-            .map(|p| p.body);
+        let result =
+            eval_block_with_early_return(&engine_state_for_eval, &mut callee_stack, block, input)
+                .map(|p| p.body);
+
+        // If the parent closure had nested blocks (from deserialization), propagate
+        // them to any closure in the result so it remains self-contained when the
+        // temporarily-cloned engine state goes out of scope.
+        let result = if closure.has_nested_blocks() {
+            result.map(|data| match data {
+                PipelineData::Value(
+                    Value::Closure {
+                        val, internal_span, ..
+                    },
+                    meta,
+                ) => {
+                    let mut inner = val;
+                    if inner.inline_block.is_none() {
+                        // Give the inner closure its own inline block from the
+                        // temporarily-added blocks and carry all nested blocks forward
+                        if let Some(block) = closure.nested_blocks.get(&inner.block_id) {
+                            inner.inline_block = Some(block.clone());
+                        }
+                    }
+                    inner
+                        .nested_blocks
+                        .extend(closure.nested_blocks.iter().map(|(id, b)| (*id, b.clone())));
+                    PipelineData::Value(Value::closure(*inner, internal_span), meta)
+                }
+                other => other,
+            })
+        } else {
+            result
+        };
 
         if has_env {
             // Merge the block's environment to the current stack

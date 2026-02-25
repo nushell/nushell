@@ -31,6 +31,7 @@ mod pipeline;
 mod plugin;
 #[cfg(feature = "os")]
 pub mod process;
+pub mod serde;
 mod signature;
 pub mod span;
 mod syntax_shape;

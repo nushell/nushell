@@ -37,7 +37,7 @@ impl Command for MetadataAccess {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, caller_stack, 0)?;
-        let block = engine_state.get_block(closure.block_id);
+        let block = closure.get_block(engine_state).clone();
 
         // `ClosureEvalOnce` is not used as it uses `Stack::captures_to_stack` rather than
         // `Stack::captures_to_stack_preserve_out_dest`. This command shouldn't collect streams
@@ -49,7 +49,7 @@ impl Command for MetadataAccess {
         }
 
         let eval = get_eval_block_with_early_return(engine_state);
-        eval(engine_state, &mut callee_stack, block, input).map(|p| p.body)
+        eval(engine_state, &mut callee_stack, &block, input).map(|p| p.body)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

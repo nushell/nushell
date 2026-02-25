@@ -996,13 +996,7 @@ fn literal_value(
                 .iter()
                 .map(|(var_id, span)| get_var(ctx, *var_id, *span).map(|val| (*var_id, val)))
                 .collect::<Result<Vec<_>, ShellError>>()?;
-            Value::closure(
-                Closure {
-                    block_id: *block_id,
-                    captures,
-                },
-                span,
-            )
+            Value::closure(Closure::new(*block_id, captures), span)
         }
         Literal::Range {
             start,

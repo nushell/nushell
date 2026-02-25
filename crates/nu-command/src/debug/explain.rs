@@ -38,9 +38,9 @@ impl Command for Explain {
         let head = call.head;
         // This was all delightfully stolen from benchmark :)
         let capture_block: Closure = call.req(engine_state, stack, 0)?;
-        let block = engine_state.get_block(capture_block.block_id);
+        let block = capture_block.get_block(engine_state).clone();
         let mut stack = stack.captures_to_stack(capture_block.captures);
-        let elements = get_pipeline_elements(engine_state, &mut stack, block, head);
+        let elements = get_pipeline_elements(engine_state, &mut stack, &block, head);
         Ok(Value::list(elements, head).into_pipeline_data())
     }
 
@@ -278,7 +278,7 @@ pub fn debug_string_without_formatting(engine_state: &EngineState, value: &Value
                 .join(" ")
         ),
         Value::Closure { val, .. } => {
-            let block = engine_state.get_block(val.block_id);
+            let block = val.get_block(engine_state);
             if let Some(span) = block.span {
                 let contents_bytes = engine_state.get_span_contents(span);
                 let contents_string = String::from_utf8_lossy(contents_bytes);

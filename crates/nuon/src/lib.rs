@@ -186,10 +186,7 @@ mod tests {
         assert!(
             to_nuon(
                 &engine_state,
-                &Value::test_closure(Closure {
-                    block_id: BlockId::new(0),
-                    captures: vec![]
-                }),
+                &Value::test_closure(Closure::new(BlockId::new(0), vec![])),
                 ToNuonConfig::default(),
             )
             .unwrap_err()

@@ -246,13 +246,7 @@ mod test {
         let span = Span::test_data();
         let values = [
             Value::list(vec![Value::bool(true, span)], span),
-            Value::closure(
-                Closure {
-                    block_id: BlockId::new(0),
-                    captures: Vec::new(),
-                },
-                span,
-            ),
+            Value::closure(Closure::new(BlockId::new(0), Vec::new()), span),
             Value::nothing(span),
             Value::error(
                 ShellError::DidYouMean {
