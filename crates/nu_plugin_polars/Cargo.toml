@@ -37,7 +37,7 @@ polars-io = { version = "=0.52.0", features = ["avro", "cloud", "aws", "azure", 
 polars-arrow = { version = "=0.52.0" }
 polars-ops = { version = "=0.52.0", features = ["pivot", "cutqcut"] }
 polars-plan = { version = "=0.52.0", features = ["regex"] }
-polars-utils = { version = "=0.52.0" }
+polars-utils = { version = "=0.53.0" }
 polars-lazy = { version = "=0.52.0" }
 polars-compute = { version = "=0.52.0" }
 planus = { version = "=1.1.1" } # Temporarily here to convince cargo not to upgrade planus to 1.2.0
