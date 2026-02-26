@@ -1,0 +1,30 @@
+
+  [1m━━[0m Explore Help [1m━━[0m
+
+  Explore helps you dynamically navigate through your data.
+  Launch it by piping data into the command: [1;34mls | explore[0m
+
+  [1;36m▸[0m Navigation
+
+    [1;32m↑ ↓ ← →[0m            Move cursor up/down/left/right
+    [1;32mEnter[0m              Drill into a cell (select it)
+    [1;32mEsc / q[0m            Go back / exit current view
+    [1;32mPgUp / PgDn[0m        Page up / Page down
+
+  [1;36m▸[0m Data Manipulation
+
+    [1;32mt[0m                  Transpose (flip rows and columns)
+    [1;32me[0m                  Expand (show all nested data)
+
+  [1;36m▸[0m Commands [2m(type : then command)[0m
+
+    [1;32m:help[0m              Show this help page
+    [1;32m:try[0m               Open interactive REPL
+    [1;32m:nu <cmd>[0m          Run a Nushell command on current data
+    [1;32m:q[0m                 Exit Explore
+
+  [1;36m▸[0m Search
+
+    [1;32m/[0m                  Start forward search
+    [1;32m?[0m                  Start reverse search
+    [1;32mn[0m [1;32mN[0m [1;32mEnter[0m          Navigate search results
