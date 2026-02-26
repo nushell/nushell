@@ -10,7 +10,7 @@ use std::{
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     OutDest, Signals,
-    engine::{Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob},
+    engine::{Closure, CurrentJob, Job, Mailbox, Redirection, ThreadJob, completion_signal},
     report_shell_error,
 };
 
@@ -56,7 +56,9 @@ impl Command for JobSpawn {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
-        let closure: Closure = call.req(engine_state, stack, 0)?;
+        let spanned_closure: Spanned<Closure> = call.req(engine_state, stack, 0)?;
+
+        let closure: Closure = spanned_closure.item;
 
         let tag: Option<String> = call.get_flag(engine_state, stack, "tag")?;
         let job_stack = stack.clone();
@@ -76,10 +78,11 @@ impl Command for JobSpawn {
         let jobs = job_state.jobs.clone();
         let mut jobs = jobs.lock().expect("jobs lock is poisoned!");
 
+        let (completer, wait) = completion_signal();
         let (send, recv) = mpsc::channel();
 
         let id = {
-            let thread_job = ThreadJob::new(job_signals, tag, send);
+            let thread_job = ThreadJob::new(job_signals, tag, send, wait);
 
             let id = jobs.add_job(Job::Thread(thread_job.clone()));
 
@@ -100,7 +103,7 @@ impl Command for JobSpawn {
                     Some(Redirection::Pipe(OutDest::Null)),
                     Some(Redirection::Pipe(OutDest::Null)),
                 );
-                ClosureEvalOnce::new_preserve_out_dest(&job_state, &stack, closure)
+                ClosureEvalOnce::new(&job_state, &stack, closure)
                     .run_with_input(Value::nothing(head).into_pipeline_data())
                     .and_then(|data| data.drain())
                     .unwrap_or_else(|err| {
@@ -108,6 +111,8 @@ impl Command for JobSpawn {
                             report_shell_error(None, &job_state, &err);
                         }
                     });
+
+                completer.complete(());
 
                 {
                     let mut jobs = job_state.jobs.lock().expect("jobs lock is poisoned!");
