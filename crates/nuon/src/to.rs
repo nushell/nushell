@@ -25,6 +25,8 @@ pub struct ToNuonConfig {
     pub serialize_types: bool,
     /// Prefer raw string syntax (`r#'...'#`) when strings contain quotes or backslashes
     pub raw_strings: bool,
+    /// Serialize list-of-records values as list-of-records instead of table syntax
+    pub list_of_records: bool,
 }
 
 impl ToNuonConfig {
@@ -49,6 +51,12 @@ impl ToNuonConfig {
     /// Prefer raw string syntax when strings contain quotes or backslashes
     pub fn raw_strings(mut self, raw_strings: bool) -> Self {
         self.raw_strings = raw_strings;
+        self
+    }
+
+    /// Serialize list-of-records values as list-of-records instead of table syntax
+    pub fn list_of_records(mut self, list_of_records: bool) -> Self {
+        self.list_of_records = list_of_records;
         self
     }
 }
@@ -127,11 +135,21 @@ pub fn to_nuon(
         span,
         0,
         indentation.as_deref(),
-        config.serialize_types,
-        config.raw_strings,
+        StringifyOptions {
+            serialize_types: config.serialize_types,
+            raw_strings: config.raw_strings,
+            list_of_records: config.list_of_records,
+        },
     )?;
 
     Ok(res)
+}
+
+#[derive(Clone, Copy)]
+struct StringifyOptions {
+    serialize_types: bool,
+    raw_strings: bool,
+    list_of_records: bool,
 }
 
 fn value_to_string(
@@ -140,8 +158,7 @@ fn value_to_string(
     span: Span,
     depth: usize,
     indent: Option<&str>,
-    serialize_types: bool,
-    raw_strings: bool,
+    options: StringifyOptions,
 ) -> Result<String, ShellError> {
     let (nl, sep, kv_sep) = get_true_separators(indent);
     let idt = get_true_indentation(depth, indent);
@@ -164,10 +181,10 @@ fn value_to_string(
             Ok(format!("0x[{s}]"))
         }
         Value::Closure { val, .. } => {
-            if serialize_types {
+            if options.serialize_types {
                 Ok(quote_string(
                     &val.coerce_into_string(engine_state, span)?,
-                    raw_strings,
+                    options.raw_strings,
                 ))
             } else {
                 Err(ShellError::UnsupportedInput {
@@ -203,7 +220,10 @@ fn value_to_string(
         Value::Int { val, .. } => Ok(val.to_string()),
         Value::List { vals, .. } => {
             let headers = get_columns(vals);
-            if !headers.is_empty() && vals.iter().all(|x| x.columns().eq(headers.iter())) {
+            let is_table =
+                !headers.is_empty() && vals.iter().all(|x| x.columns().eq(headers.iter()));
+
+            if is_table && !options.list_of_records {
                 // Table output
                 let headers: Vec<String> = headers
                     .iter()
@@ -230,8 +250,7 @@ fn value_to_string(
                                 span,
                                 depth + 2,
                                 indent,
-                                serialize_types,
-                                raw_strings,
+                                options,
                             )?);
                         }
                     }
@@ -244,6 +263,28 @@ fn value_to_string(
                     headers_output,
                     table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
                 ))
+            } else if is_table && options.list_of_records {
+                let mut collection = vec![];
+                let row_indent = if indent == Some("") { Some("") } else { None };
+
+                for val in vals {
+                    collection.push(format!(
+                        "{idt_po}{}",
+                        value_to_string_without_quotes(
+                            engine_state,
+                            val,
+                            span,
+                            depth + 1,
+                            row_indent,
+                            options,
+                        )?
+                    ));
+                }
+
+                Ok(format!(
+                    "[{nl}{}{nl}{idt}]",
+                    collection.join(&format!(",{sep}{nl}"))
+                ))
             } else {
                 let mut collection = vec![];
                 for val in vals {
@@ -255,8 +296,7 @@ fn value_to_string(
                             span,
                             depth + 1,
                             indent,
-                            serialize_types,
-                            raw_strings,
+                            options,
                         )?
                     ));
                 }
@@ -287,8 +327,7 @@ fn value_to_string(
                         span,
                         depth + 1,
                         indent,
-                        serialize_types,
-                        raw_strings,
+                        options,
                     )?
                 ));
             }
@@ -299,8 +338,8 @@ fn value_to_string(
         }
         // All strings outside data structures are quoted because they are in 'command position'
         // (could be mistaken for commands by the Nu parser)
-        Value::String { val, .. } => Ok(quote_string(val, raw_strings)),
-        Value::Glob { val, .. } => Ok(quote_string(val, raw_strings)),
+        Value::String { val, .. } => Ok(quote_string(val, options.raw_strings)),
+        Value::Glob { val, .. } => Ok(quote_string(val, options.raw_strings)),
     }
 }
 
@@ -338,25 +377,16 @@ fn value_to_string_without_quotes(
     span: Span,
     depth: usize,
     indent: Option<&str>,
-    serialize_types: bool,
-    raw_strings: bool,
+    options: StringifyOptions,
 ) -> Result<String, ShellError> {
     match v {
         Value::String { val, .. } => Ok({
             if needs_quoting(val) {
-                quote_string(val, raw_strings)
+                quote_string(val, options.raw_strings)
             } else {
                 val.clone()
             }
         }),
-        _ => value_to_string(
-            engine_state,
-            v,
-            span,
-            depth,
-            indent,
-            serialize_types,
-            raw_strings,
-        ),
+        _ => value_to_string(engine_state, v, span, depth, indent, options),
     }
 }

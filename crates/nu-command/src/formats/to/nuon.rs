@@ -36,7 +36,12 @@ impl Command for ToNuon {
             .switch(
                 "raw-strings",
                 "Use raw string syntax (r#'...'#) for strings with quotes or backslashes.",
-                None,
+                Some('R'),
+            )
+            .switch(
+                "list-of-records",
+                "Serialize table values as list-of-records instead of table syntax.",
+                Some('l'),
             )
             .category(Category::Formats)
     }
@@ -59,6 +64,7 @@ impl Command for ToNuon {
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
+        let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -76,7 +82,8 @@ impl Command for ToNuon {
             .style(style)
             .span(Some(span))
             .serialize_types(serialize_types)
-            .raw_strings(raw_strings);
+            .raw_strings(raw_strings)
+            .list_of_records(list_of_records);
 
         match nuon::to_nuon(engine_state, &value, config) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
@@ -122,6 +129,16 @@ impl Command for ToNuon {
                 description: "Use raw string syntax for strings with quotes or backslashes.",
                 example: r#"'hello "world"' | to nuon --raw-strings"#,
                 result: Some(Value::test_string(r#"r#'hello "world"'#"#)),
+            },
+            Example {
+                description: "Serialize table values as a list of records instead of table syntax.",
+                example: "[[a, b]; [1, 2], [3, 4]] | to nuon --list-of-records",
+                result: Some(Value::test_string("[{a: 1, b: 2}, {a: 3, b: 4}]")),
+            },
+            Example {
+                description: "Serialize table values as list of records with pretty indentation.",
+                example: "[[a, b]; [1, 2], [3, 4]] | to nuon --list-of-records --indent 2",
+                result: Some(Value::test_string("[\n  {a: 1, b: 2},\n  {a: 3, b: 4}\n]")),
             },
         ]
     }
