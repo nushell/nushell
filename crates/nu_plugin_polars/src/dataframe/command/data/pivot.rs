@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
@@ -6,7 +8,7 @@ use nu_protocol::{
 use polars::{
     df,
     frame::DataFrame,
-    prelude::{Expr, PlSmallStr, Selector},
+    prelude::{AggExpr, Expr, PlSmallStr, Selector},
 };
 
 use crate::{
@@ -35,7 +37,7 @@ impl PluginCommand for PivotDF {
         Signature::build(self.name())
             .required_named(
                 "on",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                SyntaxShape::Any,
                 "Column names for pivoting.",
                 Some('o'),
             )
@@ -43,19 +45,19 @@ impl PluginCommand for PivotDF {
                 "on-cols",
                 SyntaxShape::Any,
                 "column names used as value columns",
-                Some('v'),
+                Some('c'),
             )
             .required_named(
                 "index",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Column names for indexes.",
+                SyntaxShape::Any,
+                "Selector or column names for indexes.",
                 Some('i'),
             )
             .required_named(
                 "values",
-                SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Column names used as value columns.",
-                Some('v'),
+                SyntaxShape::Any,
+                "Selector or column names used as value columns.",
+                None,
             )
             .named(
                 "aggregate",
@@ -70,9 +72,9 @@ impl PluginCommand for PivotDF {
                 Some('p'),
             )
             .switch(
-                "sort",
-                "Sort columns",
-                Some('s'),
+                "maintain-order",
+                "Maintain Order.",
+                None,
             )
             .switch(
                 "streamable",
@@ -99,15 +101,20 @@ impl PluginCommand for PivotDF {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            example: "[[foo bar baz]; [A k 1] [A l 2] [B m 2] [B n 4] [C o 2]] | polars into-df | polars pivot --on foo --on-cols [A B C] --aggregate element --separator '_'",
+            example: r#"[[foo bar N]; [A k 1] [A l 2] [B m 2] [B n 4] [C o 2]] |
+                polars into-df -s {foo:str, bar:str, N:u8} |
+                polars pivot --on foo --on-cols [A B C] --index bar --aggregate element --values N --separator '_' |
+                polars sort-by bar A B |
+                polars collect"#,
             description: "Pivot on column foo",
             result: Some(
                 NuDataFrame::new(
                     false,
                     df!(
-                            "foo"=> ["A", "A", "B", "B", "C"],
                             "bar"=> ["k", "l", "m", "n", "o"],
-                            "N"=> [1, 2, 2, 4, 2],
+                            "A"=> [Some(1u8), Some(2u8), None, None, None],
+                            "B"=> [None, None, Some(2u8), Some(4u8), None],
+                            "C"=> [None, None, None, None, Some(2u8)],
                     )
                     .expect("Should be able to create example dataframe."),
                 )
@@ -144,25 +151,25 @@ fn command_lazy(
         .ok_or(required_flag("on", call.head))?
         .into_polars();
 
-    let on_cols: DataFrame = call
+    let on_columns: DataFrame = call
         .get_flag::<Value>("on-cols")?
         .map(|ref v| NuDataFrame::try_from_value(plugin, v))
         .transpose()?
         .ok_or(required_flag("on-cols", call.head))?
         .to_polars();
 
-    let index_col: Selector = call
+    let index: Selector = call
         .get_flag::<Value>("index")?
         .map(|ref v| NuSelector::try_from_value(plugin, v))
         .transpose()?
         .ok_or(required_flag("index", call.head))?
         .into_polars();
 
-    let val_col: Selector = call
-        .get_flag::<Value>("val")?
+    let values: Selector = call
+        .get_flag::<Value>("values")?
         .map(|ref v| NuSelector::try_from_value(plugin, v))
         .transpose()?
-        .ok_or(required_flag("val", call.head))?
+        .ok_or(required_flag("values", call.head))?
         .into_polars();
 
     let agg: Expr = call
@@ -176,15 +183,15 @@ fn command_lazy(
         .map(PlSmallStr::from)
         .ok_or(required_flag("separator", call.head))?;
 
-    let maintain_order = call.has_flag("maintain_order")?;
+    let maintain_order = call.has_flag("maintain-order")?;
 
     let result: NuLazyFrame = lazy
         .to_polars()
         .pivot(
             on,
-            on_cols.into(),
-            index_col,
-            val_col,
+            on_columns.into(),
+            index,
+            values,
             agg,
             maintain_order,
             separator,
@@ -205,7 +212,10 @@ fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellE
             "count" => Ok(polars::prelude::len()),
             "len" => Ok(polars::prelude::len()),
             "last" => Ok(polars::prelude::last().as_expr()),
-            "element" => Ok(polars::prelude::element()),
+            "element" => Ok(Expr::Agg(AggExpr::Item {
+                input: Arc::new(Expr::Element),
+                allow_empty: true,
+            })),
             s => Err(ShellError::GenericError {
                 error: format!("{s} is not a valid aggregation"),
                 msg: "".into(),

@@ -571,21 +571,8 @@ impl CustomValueSupport for NuDataFrame {
         match value {
             Value::Custom { val, .. } => {
                 if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
-                            Self::try_from_custom_value(plugin, cv)
-                        } else {
-                            Err(ShellError::CantConvert {
-                                to_type: Self::get_type_static().to_string(),
-                                from_type: value.get_type().to_string(),
-                                span: value.span(),
-                                help: None,
-                            })
-                        }
-            }
-            Value::List { vals, .. } => {
-                let series = conversion::value_to_series("0".into(), vals)?;
-                NuDataFrame::try_from_series(series, value.span())
-            }
-            _ => {
+                    Self::try_from_custom_value(plugin, cv)
+                } else {
                     Err(ShellError::CantConvert {
                         to_type: Self::get_type_static().to_string(),
                         from_type: value.get_type().to_string(),
@@ -593,6 +580,17 @@ impl CustomValueSupport for NuDataFrame {
                         help: None,
                     })
                 }
+            }
+            Value::List { vals, .. } => {
+                let series = conversion::value_to_series("".into(), vals)?;
+                NuDataFrame::try_from_series(series, value.span())
+            }
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::get_type_static().to_string(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            }),
         }
     }
 }
