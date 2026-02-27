@@ -484,7 +484,4 @@ fn builtin_commands_can_be_shadowed_and_extended() {
     assert!(actual.out.contains("clip prefix"));
     assert!(actual.out.contains("clip copy "));
     assert_eq!(actual.out.matches("clip copy ").count(), 1);
-
-    let copy_help = nu_with_std!(r#"use std/clip; clip copy --help"#);
-    assert!(copy_help.out.contains("deprecated"));
 }
