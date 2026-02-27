@@ -135,6 +135,7 @@ impl PluginCommand for PivotDF {
                 } |
                 polars into-df --as-columns |
                 polars pivot --on subject --on-cols [maths physics] --index name --values (polars selector starts-with test) |
+                polars sort-by name test_1_maths test_1_physics test_2_maths test_2_physics |
                 polars collect
             "#,
                 description: "Given a set of test scores, reshape so we have one row per student, utilize a selector for the values come to include all test scores",
