@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
@@ -8,7 +6,7 @@ use nu_protocol::{
 use polars::{
     df,
     frame::DataFrame,
-    prelude::{AggExpr, Expr, PlSmallStr, Selector},
+    prelude::{Expr, PlSmallStr, Selector, element},
 };
 
 use crate::{
@@ -47,13 +45,13 @@ impl PluginCommand for PivotDF {
                 "column names used as value columns",
                 Some('c'),
             )
-            .required_named(
+            .named(
                 "index",
                 SyntaxShape::Any,
                 "Selector or column names for indexes.",
                 Some('i'),
             )
-            .required_named(
+            .named(
                 "values",
                 SyntaxShape::Any,
                 "Selector or column names used as value columns.",
@@ -100,27 +98,89 @@ impl PluginCommand for PivotDF {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![Example {
-            example: r#"[[foo bar N]; [A k 1] [A l 2] [B m 2] [B n 4] [C o 2]] |
-                polars into-df -s {foo:str, bar:str, N:u8} |
-                polars pivot --on foo --on-cols [A B C] --index bar --aggregate element --values N --separator '_' |
-                polars sort-by bar A B |
-                polars collect"#,
-            description: "Pivot on column foo",
-            result: Some(
-                NuDataFrame::new(
-                    false,
-                    df!(
-                            "bar"=> ["k", "l", "m", "n", "o"],
-                            "A"=> [Some(1u8), Some(2u8), None, None, None],
-                            "B"=> [None, None, Some(2u8), Some(4u8), None],
-                            "C"=> [None, None, None, None, Some(2u8)],
+        vec![
+            Example {
+                example: r#"
+                {
+                "name": ["Cady", "Cady", "Karen", "Karen"],
+                "subject": ["maths", "physics", "maths", "physics"],
+                "test_1": [98, 99, 61, 58],
+                "test_2": [100, 100, 60, 60],
+                } | 
+                polars into-df --as-columns | 
+                polars pivot --on subject --on-cols [maths physics] --index name --values test_1 |
+                polars sort-by name maths physics |
+                polars collect
+            "#,
+                description: "Given a set of test scores, reshape so we have one row per student, with different subjects as columns, and their `test_1` scores as values",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "name" => ["Cady", "Karen"],
+                            "maths" => [98, 61],
+                            "physics" => [99, 58],
+                        )
+                        .expect("Could not create test datafarme"),
                     )
-                    .expect("Should be able to create example dataframe."),
-                )
-                .into_value(Span::test_data()),
-            ),
-        }]
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                example: r#"
+                {
+                    "name": ["Cady", "Cady", "Karen", "Karen"],
+                    "subject": ["maths", "physics", "maths", "physics"],
+                    "test_1": [98, 99, 61, 58],
+                    "test_2": [100, 100, 60, 60],
+                } |
+                polars into-df --as-columns |
+                polars pivot --on subject --on-cols [maths physics] --index name --values (polars selector starts-with test) |
+                polars collect
+            "#,
+                description: "Given a set of test scores, reshape so we have one row per student, utilize a selector for the values come to include all test scores",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "name" => ["Cady", "Karen"],
+                            "test_1_maths" => [98, 61],
+                            "test_1_physics" => [99, 58],
+                            "test_2_maths" => [100, 60],
+                            "test_2_physics" => [100, 60],
+                        )
+                        .expect("Could not create test datafarme"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                example: r#"
+                {
+                    "ix": [1, 1, 2, 2, 1, 2],
+                    "col": ["a", "a", "a", "a", "b", "b"],
+                    "foo": [0, 1, 2, 2, 7, 1],
+                    "bar": [0, 2, 0, 0, 9, 4],
+                } |
+                polars into-df --as-columns |
+                polars pivot --on col --on-cols [a b] --index ix --aggregate sum |
+                polars sort-by ix foo_a foo_b bar_a bar_b |
+                polars collect
+            "#,
+                description: "Given a DataFrame with duplicate entries for the pivot columns, use the `aggregate` flag to specify how to aggregate values for those duplicates. In this example, we sum the `foo` and `bar` values for rows with the same `ix` and `col` values.",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "ix" => [1, 2],
+                            "foo_a" => [1, 4],
+                            "foo_b" => [7, 1],
+                            "bar_a" => [2, 0],
+                            "bar_b" => [9, 4],
+                        )
+                        .expect("Could not create test datafarme"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
     }
 
     fn run(
@@ -158,64 +218,81 @@ fn command_lazy(
         .ok_or(required_flag("on-cols", call.head))?
         .to_polars();
 
-    let index: Selector = call
+    let index: Option<Selector> = call
         .get_flag::<Value>("index")?
         .map(|ref v| NuSelector::try_from_value(plugin, v))
         .transpose()?
-        .ok_or(required_flag("index", call.head))?
-        .into_polars();
+        .map(|s| s.into_polars());
 
-    let values: Selector = call
+    let values: Option<Selector> = call
         .get_flag::<Value>("values")?
         .map(|ref v| NuSelector::try_from_value(plugin, v))
         .transpose()?
-        .ok_or(required_flag("values", call.head))?
-        .into_polars();
+        .map(|s| s.into_polars());
 
     let agg: Expr = call
         .get_flag::<Value>("aggregate")?
         .map(|val| pivot_agg_for_value(plugin, val))
         .transpose()?
-        .ok_or(required_flag("aggregate", call.head))?;
+        .unwrap_or(element().item(true));
+
+    let maintain_order = call.has_flag("maintain-order")?;
 
     let separator: PlSmallStr = call
         .get_flag::<String>("separator")?
         .map(PlSmallStr::from)
-        .ok_or(required_flag("separator", call.head))?;
+        .unwrap_or_else(|| PlSmallStr::from("_"));
 
-    let maintain_order = call.has_flag("maintain-order")?;
+    if index.is_none() && values.is_none() {
+        return Err(ShellError::GenericError {
+            error: "`pivot` needs either `--index or `--values` needs to be specified".into(),
+            msg: "".into(),
+            span: Some(call.head),
+            help: None,
+            inner: vec![],
+        });
+    }
+
+    let index_selector = if let Some(index) = index.clone() {
+        index
+    } else {
+        Selector::Wildcard - on.clone() - values.clone().unwrap_or_else(|| Selector::Empty)
+    };
+
+    let values_selector = if let Some(values) = values {
+        values
+    } else {
+        Selector::Wildcard - on.clone() - index.unwrap_or_else(|| Selector::Empty)
+    };
 
     let result: NuLazyFrame = lazy
         .to_polars()
         .pivot(
             on,
             on_columns.into(),
-            index,
-            values,
+            index_selector,
+            values_selector,
             agg,
             maintain_order,
             separator,
         )
         .into();
+
     result.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellError> {
     match agg {
         Value::String { val, .. } => match val.as_str() {
-            "first" => Ok(polars::prelude::first().as_expr()),
-            "sum" => Ok(polars::prelude::sum("*")),
-            "min" => Ok(polars::prelude::min("*")),
-            "max" => Ok(polars::prelude::max("*")),
-            "mean" => Ok(polars::prelude::mean("*")),
-            "median" => Ok(polars::prelude::median("*")),
-            "count" => Ok(polars::prelude::len()),
-            "len" => Ok(polars::prelude::len()),
-            "last" => Ok(polars::prelude::last().as_expr()),
-            "element" => Ok(Expr::Agg(AggExpr::Item {
-                input: Arc::new(Expr::Element),
-                allow_empty: true,
-            })),
+            "first" => Ok(element().first()),
+            "sum" => Ok(element().sum()),
+            "min" => Ok(element().min()),
+            "max" => Ok(element().max()),
+            "mean" => Ok(element().mean()),
+            "median" => Ok(element().median()),
+            "length" | "len" | "count" => Ok(element().len()),
+            "last" => Ok(element().last()),
+            "element" | "item" => Ok(element().item(true)),
             s => Err(ShellError::GenericError {
                 error: format!("{s} is not a valid aggregation"),
                 msg: "".into(),
