@@ -1,48 +1,21 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
-use crate::formats::value_to_json_value;
+use crate::viewers::render_value_as_plain_table_text;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
 pub struct ClipCopy;
 
 impl ClipCopy {
-    fn format_json(
-        engine_state: &EngineState,
-        input: &Value,
-        span: Span,
-    ) -> Result<String, ShellError> {
-        let json_value = value_to_json_value(engine_state, input, span, true)?;
-        nu_json::to_string_with_indent(&json_value, 4).map_err(|err| ShellError::GenericError {
-            error: "Failed to serialize value for clipboard.".into(),
-            msg: err.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
-    }
-
-    fn format_raw(input: &Value, config: &nu_protocol::Config) -> String {
-        match input {
-            Value::String { val, .. } => val.to_owned(),
-            _ => input.to_expanded_string("", config),
-        }
-    }
-
     fn copy_text(
         engine_state: &EngineState,
         stack: &mut Stack,
         input: &Value,
         span: Span,
-        raw: bool,
         config: &nu_protocol::Config,
     ) -> Result<(), ShellError> {
-        let text = if raw {
-            Self::format_raw(input, config)
-        } else {
-            match input {
-                Value::String { val, .. } => val.to_owned(),
-                _ => Self::format_json(engine_state, input, span)?,
-            }
+        let text = match input {
+            Value::String { val, .. } => val.to_owned(),
+            _ => render_value_as_plain_table_text(engine_state, stack, input.clone(), span)?,
         };
 
         create_clipboard(config, engine_state, stack).copy_text(&text)
@@ -57,7 +30,6 @@ impl Command for ClipCopy {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Any, Type::Any)])
-            .switch("raw", "Disable JSON serialization.", Some('r'))
             .switch("show", "Display copied value in the output.", Some('s'))
             .category(Category::System)
     }
@@ -76,8 +48,7 @@ impl Command for ClipCopy {
         let value = input.into_value(call.head)?;
         let config = stack.get_config(engine_state);
 
-        let raw = call.has_flag(engine_state, stack, "raw")?;
-        Self::copy_text(engine_state, stack, &value, call.head, raw, &config)?;
+        Self::copy_text(engine_state, stack, &value, call.head, &config)?;
 
         if call.has_flag(engine_state, stack, "show")? {
             Ok(value.into_pipeline_data())
@@ -99,8 +70,8 @@ impl Command for ClipCopy {
                 result: None,
             },
             Example {
-                example: "$env | clip copy --raw",
-                description: "Copy a structured value as plain text without JSON serialization.",
+                example: "ls | clip copy",
+                description: "Copy structured values as plain table text without ANSI escape sequences.",
                 result: None,
             },
         ]
