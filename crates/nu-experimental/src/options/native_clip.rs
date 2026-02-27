@@ -15,5 +15,5 @@ impl ExperimentalOptionMarker for NativeClip {
     const DESCRIPTION: &'static str = "Adds clipboard commands that implement copy and pasting via native APIs instead of OSC52 codes.";
     const STATUS: Status = Status::OptIn;
     const SINCE: Version = (0, 110, 1);
-    const ISSUE: u32 = 0;
+    const ISSUE: u32 = 17665;
 }
