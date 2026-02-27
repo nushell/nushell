@@ -3,17 +3,6 @@
 # > These commands require your terminal to support OSC 52
 # > Terminal multiplexers such as screen, tmux, zellij etc may interfere with this command
 
-# Copy input to system clipboard (stdlib command deprecated)
-@example "Copy a string to the clipboard" {
-  "Hello" | copy
-}
-@deprecated "Use `clip copy` without `use std/clip`, for OCS 52 copy request use `clip copy52`"
-export def copy [
-  --ansi (-a)                 # Copy ansi formatting
-]: any -> nothing {
-  $in | copy52 --ansi=$ansi
-}
-
 # Copy input to system clipboard using OSC 52 request
 @example "Copy a string to the clipboard" {
   "Hello" | copy52
@@ -33,15 +22,6 @@ export def copy52 [
   }
 
   print -n $'(ansi osc)52;c;($text | encode base64)(ansi st)'
-}
-
-# Paste contents of system clipboard (stdlib command deprecated)
-@example "Paste a string from the clipboard" {
-  paste
-} --result "Hello"
-@deprecated "Use `clip paste` without `use std/clip`, for OCS 52 paste request use `clip paste52`"
-export def paste []: [nothing -> string] {
-  paste52
 }
 
 # Paste contents of system clipboard using OSC 52 request
