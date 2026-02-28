@@ -626,6 +626,12 @@ fn eval_instruction<D: DebugContext>(
             #[cfg(feature = "os")]
             {
                 let mut original_exit = input.exit;
+                // `complete` converts external process status into data (`exit_code`).
+                // Drop inherited exit futures so downstream collect/print/assignment
+                // does not re-raise the same non-zero status via `pipefail`.
+                if ctx.engine_state.get_decl(*decl_id).name() == "complete" {
+                    original_exit.clear();
+                }
                 let result_exit_status_future = result
                     .clone_exit_status_future()
                     .map(|f| f.with_span(*span));

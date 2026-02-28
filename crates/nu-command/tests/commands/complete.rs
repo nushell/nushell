@@ -1,5 +1,9 @@
 use nu_test_support::nu;
 
+fn built_nu_path() -> String {
+    nu_test_support::fs::executable_path().display().to_string()
+}
+
 #[test]
 fn basic_stdout() {
     let without_complete = nu!(r#"
@@ -106,4 +110,52 @@ fn err_pipe_redirection() {
     let actual =
         nu!("$env.FOO = 'hello'; nu --testbin echo_env_stderr FOO e>| complete | get stdout");
     assert_eq!(actual.out, "hello");
+}
+
+#[test]
+fn pipefail_let_with_parenthesized_complete_assignment() {
+    let nu_path = built_nu_path();
+    let command = format!(
+        "let result = (^{nu_path} --no-config-file --commands \"exit 1\" | complete); print $result"
+    );
+    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
+
+    assert!(actual.out.contains("exit_code"));
+    assert!(!actual.err.contains("non_zero_exit_code"));
+}
+
+#[test]
+fn pipefail_let_with_complete_assignment() {
+    let nu_path = built_nu_path();
+    let command = format!(
+        "let result = ^{nu_path} --no-config-file --commands \"exit 1\" | complete; print $result"
+    );
+    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
+
+    assert!(actual.out.contains("exit_code"));
+    assert!(!actual.err.contains("non_zero_exit_code"));
+}
+
+#[test]
+fn pipefail_pipeline_complete_into_let() {
+    let nu_path = built_nu_path();
+    let command = format!(
+        "^{nu_path} --no-config-file --commands \"exit 1\" | complete | let result; print $result"
+    );
+    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
+
+    assert!(actual.out.contains("exit_code"));
+    assert!(!actual.err.contains("non_zero_exit_code"));
+}
+
+#[test]
+fn pipefail_parenthesized_pipeline_let_keeps_scope() {
+    let nu_path = built_nu_path();
+    let command = format!(
+        "(^{nu_path} --no-config-file --commands \"exit 1\" | complete | let result); print $result"
+    );
+    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
+
+    assert!(actual.err.contains("nu::parser::variable_not_found"));
+    assert!(!actual.err.contains("nu::shell::non_zero_exit_code"));
 }
