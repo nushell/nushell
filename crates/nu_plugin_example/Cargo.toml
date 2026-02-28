@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_exam
 edition = "2024"
 license = "MIT"
 name = "nu_plugin_example"
-version = "0.110.1"
+version = "0.111.0"
 publish = false
 
 [[bin]]
@@ -19,9 +19,9 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.110.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.110.1", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.111.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.111.0", features = ["plugin"] }
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.110.1" }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.110.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.111.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.0" }

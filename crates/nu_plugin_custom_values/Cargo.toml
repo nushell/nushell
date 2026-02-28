@@ -14,10 +14,10 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.110.1", features = [] }
-nu-protocol = { path = "../nu-protocol", version = "0.110.1", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.111.0", features = [] }
+nu-protocol = { path = "../nu-protocol", version = "0.111.0", features = ["plugin"] }
 serde = { workspace = true }
 typetag = "0.2"
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.110.1" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.111.0" }
