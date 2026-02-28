@@ -166,6 +166,9 @@ impl Command for History {
                             .to_string(),
                     );
                 }
+                table = table
+                    .with_unix_millis_datetime_column(fields::START_TIMESTAMP.to_string())
+                    .with_millis_duration_column(fields::DURATION.to_string());
                 Ok(PipelineData::Value(
                     Value::custom(Box::new(table), head),
                     None,
