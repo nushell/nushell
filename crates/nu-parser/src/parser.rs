@@ -2783,10 +2783,14 @@ pub fn parse_full_cell_path(
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
         let ty = if !tail.is_empty() {
-            head.ty
-                .follow_cell_path(&tail)
-                .map(|ty| ty.into_owned())
-                .unwrap_or(Type::Any)
+            if nu_experimental::CELL_PATH_TYPES.get() {
+                head.ty
+                    .follow_cell_path(&tail)
+                    .map(|ty| ty.into_owned())
+                    .unwrap_or(Type::Any)
+            } else {
+                Type::Any
+            }
         } else {
             head.ty.clone()
         };

@@ -5,6 +5,7 @@
 
 use crate::*;
 
+mod cell_path_types;
 mod enforce_runtime_annotations;
 mod example;
 mod native_clip;
@@ -59,6 +60,7 @@ pub(crate) trait ExperimentalOptionMarker {
 
 // Export only the static values.
 // The marker structs are not relevant and needlessly clutter the generated docs.
+pub use cell_path_types::CELL_PATH_TYPES;
 pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
 pub use example::EXAMPLE;
 pub use native_clip::NATIVE_CLIP;
@@ -73,6 +75,7 @@ pub use reorder_cell_paths::REORDER_CELL_PATHS;
 /// Use this to show users every experimental option, including their descriptions,
 /// identifiers, and current state.
 pub static ALL: &[&ExperimentalOption] = &[
+    &CELL_PATH_TYPES,
     &EXAMPLE,
     &REORDER_CELL_PATHS,
     &PIPE_FAIL,
