@@ -36,7 +36,7 @@ impl Command for MetadataSet {
             .named(
                 "path-columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Assign path columns metadata to the input.",
+                "A list of columns in the input for which path metadata will be assigned.",
                 Some('p'),
             )
             .named(
@@ -48,7 +48,7 @@ impl Command for MetadataSet {
             .named(
                 "merge",
                 SyntaxShape::Record(vec![]),
-                "Merge arbitrary metadata fields.",
+                "(DEPRECATED) Merge arbitrary metadata fields.",
                 Some('m'),
             )
             .allow_variants_without_examples(true)
@@ -63,7 +63,7 @@ impl Command for MetadataSet {
                 since: Some("0.111.0".into()),
                 expected_removal: Some("0.112.0".into()),
                 help: Some(
-                    "Use the closure parameter instead: `metadata set { merge {key: value} }`"
+                    "Use the closure parameter instead: `metadata set {|| merge {key: value}}`"
                         .into(),
                 ),
             },
@@ -198,8 +198,8 @@ impl Command for MetadataSet {
                 result: Some(Value::test_string("text/plain")),
             },
             Example {
-                description: "Set custom metadata.",
-                example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
+                description: "Merge custom metadata.",
+                example: r#""data" | metadata set {|| merge {custom_key: "value"}} | metadata | get custom_key"#,
                 result: Some(Value::test_string("value")),
             },
             Example {
