@@ -2782,11 +2782,11 @@ pub fn parse_full_cell_path(
         };
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
-        // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
         let ty = if !tail.is_empty() {
-            // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
-            // such as $a.1 = 2 to work correctly.
-            Type::Any
+            head.ty
+                .follow_cell_path(&tail)
+                .map(|ty| ty.into_owned())
+                .unwrap_or(Type::Any)
         } else {
             head.ty.clone()
         };
