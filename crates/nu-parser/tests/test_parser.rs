@@ -1813,6 +1813,20 @@ mod string {
 
             assert!(working_set.parse_errors.is_empty());
         }
+
+        #[test]
+        pub fn parse_string_interpolation_unclosed_subexpression() {
+            let engine_state = EngineState::new();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            let _ = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+
+            assert!(
+                working_set.parse_errors.iter().any(
+                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if delimiter == ")")
+                )
+            );
+        }
     }
 
     #[test]

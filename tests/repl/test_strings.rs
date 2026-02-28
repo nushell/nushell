@@ -58,6 +58,11 @@ fn single_tick_interpolation() -> TestResult {
 }
 
 #[test]
+fn unclosed_interpolation_subexpression() -> TestResult {
+    fail_test("$\"foo (2 + 3\"", "unclosed )")
+}
+
+#[test]
 fn detect_newlines() -> TestResult {
     run_test("'hello\r\nworld' | lines | get 0 | str length", "5")
 }
