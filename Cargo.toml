@@ -188,7 +188,7 @@ tempfile = "3.24"
 thiserror = "2.0.18"
 titlecase = "3.6"
 toml = "0.9"
-trash = "5.2"
+trash = "=5.2.4"
 update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
 umask = "2.1"
 unicode-segmentation = "1.12"
