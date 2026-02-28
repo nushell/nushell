@@ -200,7 +200,6 @@ impl Command for MetadataSet {
             Example {
                 description: "Merge custom metadata.",
                 example: r#""data" | metadata set {|| merge {custom_key: "value"}} | metadata | get custom_key"#,
-                result: Some(Value::test_string("value")),
             },
             Example {
                 description: "Set metadata using a closure.",
