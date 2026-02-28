@@ -209,6 +209,9 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
+    let input = match input.try_into_stream(engine_state) {
+        Ok(input) | Err(input) => input,
+    };
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let metadata = input.metadata();
     let mut new_columns = vec![];

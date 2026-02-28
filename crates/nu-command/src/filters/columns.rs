@@ -62,11 +62,14 @@ impl Command for Columns {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
+        engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = match input.try_into_stream(engine_state) {
+            Ok(input) | Err(input) => input,
+        };
         getcol(call.head, input)
     }
 }
