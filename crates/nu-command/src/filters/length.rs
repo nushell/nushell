@@ -1,8 +1,5 @@
-use std::io::Read;
-
-#[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Length;
@@ -22,8 +19,6 @@ impl Command for Length {
                 (Type::List(Box::new(Type::Any)), Type::Int),
                 (Type::Binary, Type::Int),
                 (Type::Nothing, Type::Int),
-                #[cfg(feature = "sqlite")]
-                (Type::Custom("SQLiteQueryBuilder".into()), Type::Int),
             ])
             .allow_variants_without_examples(true)
             .category(Category::Filters)
@@ -72,15 +67,6 @@ impl Command for Length {
 fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellError> {
     let span = input.span().unwrap_or(call.head);
 
-    #[cfg(feature = "sqlite")]
-    // Pushdown optimization: handle 'length' on SQLiteQueryBuilder using COUNT(*)
-    if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
-        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
-    {
-        let count = table.count(call.head)?;
-        return Ok(Value::int(count, call.head).into_pipeline_data());
-    }
-
     match input {
         PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
             Ok(Value::int(0, call.head).into_pipeline_data())
@@ -88,29 +74,6 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             Ok(Value::int(val.len() as i64, call.head).into_pipeline_data())
         }
-        #[cfg(feature = "sqlite")]
-        PipelineData::Value(Value::Custom { val, .. }, ..)
-            if val.as_any().downcast_ref::<SQLiteQueryBuilder>().is_some() =>
-        {
-            let table = val
-                .as_any()
-                .downcast_ref::<SQLiteQueryBuilder>()
-                .expect("already checked");
-            let count = table.count(call.head)?;
-            Ok(Value::int(count, call.head).into_pipeline_data())
-        }
-        #[cfg(feature = "sqlite")]
-        PipelineData::Value(
-            Value::Custom {
-                val, internal_span, ..
-            },
-            ..,
-        ) => Err(ShellError::OnlySupportsThisInputType {
-            exp_input_type: "list, table, binary, and nothing".into(),
-            wrong_type: val.type_name(),
-            dst_span: call.head,
-            src_span: internal_span,
-        }),
         PipelineData::Value(Value::List { vals, .. }, ..) => {
             Ok(Value::int(vals.len() as i64, call.head).into_pipeline_data())
         }

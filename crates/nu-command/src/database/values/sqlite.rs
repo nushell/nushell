@@ -388,15 +388,46 @@ impl CustomValue for SQLiteDatabase {
 
     fn follow_path_string(
         &self,
-        _self_span: Span,
+        self_span: Span,
         column_name: String,
         path_span: Span,
-        _optional: bool,
+        optional: bool,
         _casing: Casing,
     ) -> Result<Value, ShellError> {
-        // Return a lazy SQLiteQueryBuilder instead of executing the query immediately
-        let table = SQLiteQueryBuilder::new(self.path.clone(), column_name, self.signals.clone());
-        Ok(Value::custom(Box::new(table), path_span))
+        let conn = open_sqlite_db(&self.path, path_span)?;
+        let table_exists =
+            sqlite_table_exists(&conn, &column_name).map_err(|err| ShellError::GenericError {
+                error: "Failed to read from SQLite database".into(),
+                msg: err.to_string(),
+                span: Some(path_span),
+                help: None,
+                inner: Vec::new(),
+            })?;
+
+        if !table_exists {
+            return if optional {
+                Ok(Value::nothing(path_span))
+            } else {
+                Err(ShellError::CantFindColumn {
+                    col_name: column_name,
+                    span: Some(path_span),
+                    src_span: self_span,
+                })
+            };
+        }
+
+        let table_stmt = conn
+            .prepare(&format!("select * from [{column_name}]"))
+            .map_err(|err| ShellError::GenericError {
+                error: "Failed to read from SQLite database".into(),
+                msg: err.to_string(),
+                span: Some(path_span),
+                help: None,
+                inner: Vec::new(),
+            })?;
+
+        prepared_statement_to_nu_list(table_stmt, NuSqlParams::default(), path_span, &self.signals)
+            .map_err(|e| e.into_shell_error(path_span, "Failed to read from SQLite database"))
     }
 
     fn typetag_name(&self) -> &'static str {
@@ -421,6 +452,13 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
             inner: Vec::new(),
         })
     }
+}
+
+fn sqlite_table_exists(conn: &Connection, table_name: &str) -> Result<bool, SqliteError> {
+    let mut table_exists_stmt =
+        conn.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1 LIMIT 1")?;
+    let mut rows = table_exists_stmt.query([table_name])?;
+    Ok(rows.next()?.is_some())
 }
 
 fn run_sql_query(

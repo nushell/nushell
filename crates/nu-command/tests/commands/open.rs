@@ -161,6 +161,44 @@ fn parses_sqlite_get_column_name() {
     assert_eq!(actual.out, "hello");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_columns_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "z");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_values_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | values
+        | first
+        | first
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_missing_is_path_error() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get not_a_table
+    ");
+
+    assert!(actual.err.contains("cannot find column 'not_a_table'"));
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(

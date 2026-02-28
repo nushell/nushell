@@ -152,7 +152,7 @@ impl Command for History {
             }
             #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => {
-                // Return a lazy SQLiteQueryBuilder for the history table
+                // Eagerly execute query against history table and return Nushell values.
                 let mut table = nu_command::SQLiteQueryBuilder::new(
                     history_path,
                     "history".to_string(),
@@ -166,10 +166,7 @@ impl Command for History {
                             .to_string(),
                     );
                 }
-                Ok(PipelineData::Value(
-                    Value::custom(Box::new(table), head),
-                    None,
-                ))
+                table.execute(head)
             }
         }
     }
