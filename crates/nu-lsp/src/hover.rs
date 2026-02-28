@@ -167,6 +167,11 @@ impl LanguageServer {
                                 format!("```\n{ty}\n```")
                             }
                         })
+                        .or_else(|| {
+                            var.ty
+                                .follow_cell_path(&cell_path)
+                                .map(|ty| format!("```\n{ty}\n```"))
+                        })
                         .unwrap_or("`unknown`".into()),
                 )
             }
