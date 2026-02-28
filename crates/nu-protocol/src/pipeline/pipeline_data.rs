@@ -1,5 +1,5 @@
 #[cfg(feature = "os")]
-use crate::process::ExitStatusGuard;
+use crate::process::ExitStatusFuture;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
     Range, ShellError, Signals, Span, Type, Value,
@@ -8,7 +8,12 @@ use crate::{
     location,
     shell_error::{io::IoError, location::Location},
 };
-use std::{borrow::Cow, io::Write, ops::Deref};
+use std::{
+    borrow::Cow,
+    io::Write,
+    ops::Deref,
+    sync::{Arc, Mutex},
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -868,16 +873,12 @@ impl PipelineData {
     // PipelineData might connect to a running process which has an exit status future
     // Use this method to retrieve that future, it's useful for implementing `pipefail` feature.
     #[cfg(feature = "os")]
-    pub fn clone_exit_status_future(&self) -> Option<ExitStatusGuard> {
+    pub fn clone_exit_status_future(&self) -> Option<Arc<Mutex<ExitStatusFuture>>> {
         match self {
             PipelineData::Empty | PipelineData::Value(..) | PipelineData::ListStream(..) => None,
             PipelineData::ByteStream(stream, ..) => match stream.source() {
                 ByteStreamSource::Read(..) | ByteStreamSource::File(..) => None,
-                ByteStreamSource::Child(c) => {
-                    let exit_future = c.clone_exit_status_future();
-                    let ignore_error = c.clone_ignore_error();
-                    Some(ExitStatusGuard::new(exit_future, ignore_error))
-                }
+                ByteStreamSource::Child(c) => Some(c.clone_exit_status_future()),
             },
         }
     }
@@ -1088,7 +1089,7 @@ fn value_to_bytes(value: Value) -> Result<Vec<u8>, ShellError> {
 pub struct PipelineExecutionData {
     pub body: PipelineData,
     #[cfg(feature = "os")]
-    pub exit: Vec<Option<ExitStatusGuard>>,
+    pub exit: Vec<Option<(Arc<Mutex<ExitStatusFuture>>, Span)>>,
 }
 
 impl Deref for PipelineExecutionData {
@@ -1113,9 +1114,7 @@ impl From<PipelineData> for PipelineExecutionData {
     #[cfg(feature = "os")]
     fn from(value: PipelineData) -> Self {
         let value_span = value.span().unwrap_or_else(Span::unknown);
-        let exit_status_future = value
-            .clone_exit_status_future()
-            .map(|f| f.with_span(value_span));
+        let exit_status_future = value.clone_exit_status_future().map(|f| (f, value_span));
         Self {
             body: value,
             exit: vec![exit_status_future],
