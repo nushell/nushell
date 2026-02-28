@@ -151,7 +151,7 @@ fn update(
                 &PathMember::Int {
                     val,
                     span: path_span,
-                    ..
+                    optional,
                 },
                 path,
             )) = cell_path.members.split_first()
@@ -162,6 +162,15 @@ fn update(
                 for idx in 0..=val {
                     if let Some(v) = stream.next() {
                         pre_elems.push(v);
+                    } else if optional {
+                        return Ok(pre_elems
+                            .into_iter()
+                            .chain(stream)
+                            .into_pipeline_data_with_metadata(
+                                head,
+                                engine_state.signals().clone(),
+                                metadata,
+                            ));
                     } else if idx == 0 {
                         return Err(ShellError::AccessEmptyContent { span: path_span });
                     } else {
