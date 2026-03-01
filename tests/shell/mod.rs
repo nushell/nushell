@@ -475,6 +475,7 @@ fn main_script_alias_persists() {
 
 // This test will have to change once clip copy is removed after deprecation time.
 #[test]
+#[ignore = "run this test only when experimental option native-clip is set"]
 fn builtin_commands_can_be_shadowed_and_extended() {
     // Demonstrate that importing a module can shadow built-in commands and
     // add new subcommands, which is the motivating use case for this PR.

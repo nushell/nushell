@@ -223,6 +223,27 @@ impl PipelineData {
                     metadata,
                 ))
             }
+            PipelineData::Value(Value::Custom { val, internal_span }, metadata) => {
+                match val.to_base_value(internal_span) {
+                    Ok(Value::List { vals, .. }) => Ok(PipelineData::list_stream(
+                        ListStream::new(vals.into_iter(), span, engine_state.signals().clone()),
+                        metadata,
+                    )),
+                    Ok(Value::Range { val, .. }) => Ok(PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty()),
+                            span,
+                            engine_state.signals().clone(),
+                        ),
+                        metadata,
+                    )),
+                    Ok(other) => Err(PipelineData::value(other, metadata)),
+                    Err(_) => Err(PipelineData::Value(
+                        Value::Custom { val, internal_span },
+                        metadata,
+                    )),
+                }
+            }
             _ => Err(self),
         }
     }
@@ -480,6 +501,22 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => match f(value) {
+                                Value::Error { error, .. } => return Err(*error),
+                                v => v.into_pipeline_data(),
+                            },
+                        }
+                    }
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -518,6 +555,21 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .flat_map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .flat_map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .flat_map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => f(value)
+                                .into_iter()
+                                .into_pipeline_data(span, signals.clone()),
+                        }
+                    }
                     value => f(value)
                         .into_iter()
                         .into_pipeline_data(span, signals.clone()),
@@ -565,6 +617,25 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .filter(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .filter(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => {
+                                if f(&value) {
+                                    value.into_pipeline_data()
+                                } else {
+                                    Value::nothing(span).into_pipeline_data()
+                                }
+                            }
+                        }
+                    }
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()

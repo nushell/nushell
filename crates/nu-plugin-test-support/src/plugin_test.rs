@@ -105,7 +105,7 @@ impl PluginTest {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let mut working_set = StateWorkingSet::new(&self.engine_state);
-        let fname = format!("entry #{}", self.entry_num);
+        let fname = format!("repl_entry #{}", self.entry_num);
         self.entry_num += 1;
 
         // Parse the source code

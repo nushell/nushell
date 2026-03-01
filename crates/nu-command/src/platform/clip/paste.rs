@@ -26,8 +26,8 @@ impl Command for ClipPaste {
 
     fn description(&self) -> &str {
         "Output the current clipboard content.
- By default, it tries to parse clipboard content as JSON and outputs the corresponding Nushell value.
- This behavior can be inverted using `$env.config.clip.default_raw = true`."
+  By default, it tries to parse clipboard content as JSON and outputs the corresponding Nushell value.
+  This behavior can be inverted using `$env.config.clip.default_raw = true`."
     }
     fn run(
         &self,

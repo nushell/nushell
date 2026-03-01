@@ -2211,7 +2211,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let mod_nu_path = module_path.clone().join("mod.nu");
+        let mod_nu_path = module_path
+            .clone()
+            .join("mod.nu")
+            .normalize_slashes_forward();
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
             working_set.error(ParseError::ModuleMissingModNuFile(

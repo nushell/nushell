@@ -116,6 +116,9 @@ impl Command for ParEach {
         let max_threads = threads.unwrap_or(0);
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
 
+        let input = match input.try_into_stream(engine_state) {
+            Ok(input) | Err(input) => input,
+        };
         let metadata = input.metadata();
 
         // A helper function sorts the output if needed

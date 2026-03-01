@@ -366,8 +366,7 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
-            // NOTE: is it ok to just using `data.inner`?
-            let value = collect(data.body, *span)?;
+            let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
@@ -627,6 +626,12 @@ fn eval_instruction<D: DebugContext>(
             #[cfg(feature = "os")]
             {
                 let mut original_exit = input.exit;
+                // `complete` converts external process status into data (`exit_code`).
+                // Drop inherited exit futures so downstream collect/print/assignment
+                // does not re-raise the same non-zero status via `pipefail`.
+                if ctx.engine_state.get_decl(*decl_id).name() == "complete" {
+                    original_exit.clear();
+                }
                 let result_exit_status_future = result
                     .clone_exit_status_future()
                     .map(|f| f.with_span(*span));
@@ -1593,10 +1598,15 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
-fn collect(data: PipelineData, fallback_span: Span) -> Result<PipelineData, ShellError> {
+fn collect(pipe: PipelineExecutionData, fallback_span: Span) -> Result<PipelineData, ShellError> {
+    let data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
     let metadata = data.metadata().and_then(|m| m.for_collect());
     let value = data.into_value(span)?;
+    #[cfg(feature = "os")]
+    if nu_experimental::PIPE_FAIL.get() {
+        check_exit_status_future(pipe.exit)?
+    }
     Ok(PipelineData::value(value, metadata))
 }
 

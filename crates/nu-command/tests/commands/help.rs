@@ -404,6 +404,7 @@ fn help_commands_shows_overlay_name_for_module_decls() {
 }
 
 #[test]
+#[ignore = "run this test only when experimental option native-clip is set"]
 fn clip_command_shows_module_qualified_decls_after_use() {
     // Ensure running `clip` shows module-qualified subcommands like `clip prefix` after `use std/clip`.
     let actual = nu_with_std!(r#"use std/clip; clip"#);
