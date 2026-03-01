@@ -68,12 +68,23 @@ pub enum BodyType {
     Unknown(Option<ContentType>),
 }
 
+/// Compares the media type portion of a Content-Type value against the
+/// expected type, ignoring any parameters such as `charset`.
+fn mime_type_eq(content_type: &str, expected: &str) -> bool {
+    content_type
+        .split(';')
+        .next()
+        .unwrap_or("")
+        .trim()
+        == expected
+}
+
 impl From<Option<ContentType>> for BodyType {
     fn from(content_type: Option<ContentType>) -> Self {
         match content_type {
-            Some(it) if it.contains("application/json") => BodyType::Json,
-            Some(it) if it.contains("application/x-www-form-urlencoded") => BodyType::Form,
-            Some(it) if it.contains("multipart/form-data") => BodyType::Multipart,
+            Some(it) if mime_type_eq(&it, "application/json") => BodyType::Json,
+            Some(it) if mime_type_eq(&it, "application/x-www-form-urlencoded") => BodyType::Form,
+            Some(it) if mime_type_eq(&it, "multipart/form-data") => BodyType::Multipart,
             Some(it) => BodyType::Unknown(Some(it)),
             None => BodyType::Unknown(None),
         }
@@ -1269,6 +1280,24 @@ mod test {
 
         let none = None;
         assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
+
+        // JSON variant media types must not be confused with application/json
+        let json_patch = Some("application/json-patch+json".to_string());
+        assert_eq!(
+            BodyType::Unknown(json_patch.clone()),
+            BodyType::from(json_patch)
+        );
+
+        let merge_patch = Some("application/merge-patch+json".to_string());
+        assert_eq!(
+            BodyType::Unknown(merge_patch.clone()),
+            BodyType::from(merge_patch)
+        );
+
+        // Form with charset parameter should still match
+        let form_charset =
+            Some("application/x-www-form-urlencoded; charset=utf-8".to_string());
+        assert_eq!(BodyType::Form, BodyType::from(form_charset));
     }
 
     #[test]
