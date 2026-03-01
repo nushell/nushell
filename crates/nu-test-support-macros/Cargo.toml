@@ -5,13 +5,13 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-test-suppor
 edition = "2024"
 license = "MIT"
 name = "nu-test-support-macros"
-version = "0.110.1"
+version = "0.111.1"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-nu-experimental = { path = "../nu-experimental", version = "0.110.1" }
+nu-experimental = { path = "../nu-experimental", version = "0.111.1" }
 
 heck = { workspace = true }
 proc-macro-error2 = { workspace = true }

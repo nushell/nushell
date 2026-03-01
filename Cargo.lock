@@ -4668,7 +4668,7 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support-macros"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "heck",
  "nu-experimental",
