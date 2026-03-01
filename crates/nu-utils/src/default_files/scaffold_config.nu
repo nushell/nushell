@@ -1,7 +1,7 @@
 # config.nu
 #
 # Installed by:
-# version = "0.111.0"
+# version = "0.111.1"
 #
 # This file is used to override default Nushell settings, define
 # (or import) custom commands, or run any other startup tasks.
