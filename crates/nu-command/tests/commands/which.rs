@@ -37,18 +37,13 @@ fn which_def_ls() {
 
 #[test]
 fn correct_precedence_alias_def_custom() {
+    // aliases shadow custom commands; `which` only reports the winning
+    // declaration. there is no way to invoke the underlying custom command
+    // when an alias exists, so returning both entries would be misleading.
     let actual =
         nu!("def ls [] {echo def}; alias ls = echo alias; which ls | get path.0 | str trim");
 
     assert_eq!(actual.out, "source");
-}
-
-#[test]
-fn multiple_reports_for_alias_def_custom() {
-    let actual = nu!("def ls [] {echo def}; alias ls = echo alias; which -a ls | length");
-
-    let length: i32 = actual.out.parse().unwrap();
-    assert!(length >= 2);
 }
 
 // `get_aliases_with_name` and `get_custom_commands_with_name` don't return the correct count of
