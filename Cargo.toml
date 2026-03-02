@@ -29,10 +29,10 @@ pkg-fmt = "tgz"
 pkg-fmt = "zip"
 
 [package.metadata.winresource]
-LegalCopyright = "Copyright © 2019-2025 The Nushell Project Developers"
+LegalCopyright = "Copyright © 2019-2026 The Nushell Project Developers"
 FileDescription = "A new type of shell"
-FileVersion = "0.108.1"
-ProductVersion = "0.108.1"
+FileVersion = "0.111.1"
+ProductVersion = "0.111.1"
 ProductName = "Nushell"
 
 [workspace]
