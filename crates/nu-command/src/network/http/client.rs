@@ -71,12 +71,7 @@ pub enum BodyType {
 /// Compares the media type portion of a Content-Type value against the
 /// expected type, ignoring any parameters such as `charset`.
 fn mime_type_eq(content_type: &str, expected: &str) -> bool {
-    content_type
-        .split(';')
-        .next()
-        .unwrap_or("")
-        .trim()
-        == expected
+    content_type.split(';').next().unwrap_or("").trim() == expected
 }
 
 impl From<Option<ContentType>> for BodyType {
@@ -1295,8 +1290,7 @@ mod test {
         );
 
         // Form with charset parameter should still match
-        let form_charset =
-            Some("application/x-www-form-urlencoded; charset=utf-8".to_string());
+        let form_charset = Some("application/x-www-form-urlencoded; charset=utf-8".to_string());
         assert_eq!(BodyType::Form, BodyType::from(form_charset));
     }
 
