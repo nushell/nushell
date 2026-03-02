@@ -15,6 +15,35 @@ fn proper_shadow() -> TestResult {
 }
 
 #[test]
+fn param_default_value_does_not_shadow_const() -> TestResult {
+    run_test("const foo = 123; def bar [foo = $foo] { $foo }; bar", "123")
+}
+
+#[test]
+fn flag_default_value_does_not_shadow_const() -> TestResult {
+    run_test(
+        "const foo = 123; def bar [--foo = $foo] { $foo }; bar",
+        "123",
+    )
+}
+
+#[test]
+fn param_default_value_overridden_by_argument() -> TestResult {
+    run_test(
+        "const foo = 123; def bar [foo = $foo] { $foo }; bar 456",
+        "456",
+    )
+}
+
+#[test]
+fn sibling_param_default_does_not_shadow_const() -> TestResult {
+    run_test(
+        "const foo = 123; def bar [foo = $foo, a: int = $foo] { $foo + $a }; bar",
+        "246",
+    )
+}
+
+#[test]
 fn in_variable_1() -> TestResult {
     run_test(r#"[3] | if $in.0 > 4 { "yay!" } else { "boo" }"#, "boo")
 }
