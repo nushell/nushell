@@ -1226,25 +1226,46 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
-                            match val {
-                                Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
-                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
-                                        val.upsert_data_at_cell_path(path, new_val.clone())?;
-                                    } else {
-                                        let new_col =
-                                            Value::with_data_at_cell_path(path, new_val.clone())?;
-                                        record.push(col_name, new_col);
+                        if nu_experimental::REORDER_CELL_PATHS.get()
+                            && let Some(idx) = path
+                                .iter()
+                                .position(|pm| matches!(pm, PathMember::Int { .. }))
+                            && let PathMember::Int { val: list_idx, .. } = path[idx]
+                            && let Some(val) = vals.get_mut(list_idx)
+                        {
+                            // Extra clones and `collect()` seem wasteful, but `cell_path` is
+                            // typically short in length, so it won't be too bad.
+                            let path: Vec<_> = cell_path
+                                .iter()
+                                .enumerate()
+                                .filter_map(|(i, pm)| (i != (idx + 1)).then_some(pm.clone()))
+                                .collect();
+                            val.upsert_data_at_cell_path(&path, new_val.clone())?;
+                        } else {
+                            for val in vals.iter_mut() {
+                                match val {
+                                    Value::Record { val: record, .. } => {
+                                        let record = record.to_mut();
+                                        if let Some(val) =
+                                            record.cased_mut(*casing).get_mut(col_name)
+                                        {
+                                            val.upsert_data_at_cell_path(path, new_val.clone())?;
+                                        } else {
+                                            let new_col = Value::with_data_at_cell_path(
+                                                path,
+                                                new_val.clone(),
+                                            )?;
+                                            record.push(col_name, new_col);
+                                        }
                                     }
-                                }
-                                Value::Error { error, .. } => return Err(*error.clone()),
-                                v => {
-                                    return Err(ShellError::CantFindColumn {
-                                        col_name: col_name.clone(),
-                                        span: Some(*span),
-                                        src_span: v.span(),
-                                    });
+                                    Value::Error { error, .. } => return Err(*error.clone()),
+                                    v => {
+                                        return Err(ShellError::CantFindColumn {
+                                            col_name: col_name.clone(),
+                                            span: Some(*span),
+                                            src_span: v.span(),
+                                        });
+                                    }
                                 }
                             }
                         }
