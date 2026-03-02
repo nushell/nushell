@@ -323,10 +323,9 @@ impl View for RecordView {
             for (data_row, cells) in layer.record_values.iter().enumerate() {
                 if data_pos >= i && data_pos < i + cells.len() {
                     let column = data_pos - i;
-                    let row = data_row + 1; // +1 for header row
                     self.get_top_layer_mut()
                         .cursor
-                        .set_window_start_position(row, column);
+                        .set_window_start_position(data_row, column);
                     return true;
                 }
                 i += cells.len();
@@ -864,5 +863,61 @@ mod tests {
 
         // Test without header
         assert_eq!(estimate_page_size(area, false), 21); // 24 - 3 (status bar) = 21
+    }
+
+    #[test]
+    fn test_show_data_positions_window_on_matched_row() {
+        // Create a table with 3 columns and 3 data rows
+        let columns = vec![
+            "name".to_string(),
+            "size".to_string(),
+            "type".to_string(),
+        ];
+        let records = vec![
+            vec![
+                Value::string("file_a", Span::test_data()),
+                Value::int(100, Span::test_data()),
+                Value::string("txt", Span::test_data()),
+            ],
+            vec![
+                Value::string("file_b", Span::test_data()),
+                Value::int(200, Span::test_data()),
+                Value::string("csv", Span::test_data()),
+            ],
+            vec![
+                Value::string("file_c", Span::test_data()),
+                Value::int(300, Span::test_data()),
+                Value::string("json", Span::test_data()),
+            ],
+        ];
+        let cfg = ExploreConfig::default();
+        let mut view = RecordView::new(columns, records, cfg);
+
+        // collect_data returns: [name, size, type, file_a, 100, txt, file_b, 200, csv, file_c, 300, json]
+        // indices:               0     1     2     3       4    5    6       7    8    9       10   11
+
+        // Searching for a match in the first data row (pos=3 corresponds to "file_a")
+        assert!(view.show_data(3));
+        // The window should start at data row 0 (the row containing the match)
+        assert_eq!(view.get_window_origin().row, 0);
+        assert_eq!(view.get_window_origin().column, 0);
+
+        // Searching for a match in the second data row (pos=7 corresponds to "200")
+        assert!(view.show_data(7));
+        // The window should start at data row 1
+        assert_eq!(view.get_window_origin().row, 1);
+        assert_eq!(view.get_window_origin().column, 1);
+
+        // Searching for a match in the third data row (pos=11 corresponds to "json")
+        assert!(view.show_data(11));
+        // The window should start at data row 2
+        assert_eq!(view.get_window_origin().row, 2);
+        assert_eq!(view.get_window_origin().column, 2);
+
+        // Searching for a header match (pos=1 corresponds to "size")
+        assert!(view.show_data(1));
+        // The window should be at the top (row 0) with column 1
+        assert_eq!(view.get_window_origin().row, 0);
+        assert_eq!(view.get_window_origin().column, 1);
     }
 }
