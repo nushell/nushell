@@ -172,13 +172,16 @@ fn report_error(
     error: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    // Avoid eprintln! since it panics on broken stderr, which double-panics
-    // through miette's panic hook and aborts.
-    let _ = writeln!(
-        std::io::stderr(),
+    let report = format!(
         "Error: {:?}",
         CliError::new(stack, error, working_set, Some(default_code))
     );
+
+    // Avoid eprintln! since it panics on broken stderr, which double-panics
+    // through miette's panic hook and aborts.
+    if writeln!(std::io::stderr(), "{report}").is_err() {
+        let _ = writeln!(std::io::stdout(), "{report}");
+    }
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
@@ -192,11 +195,14 @@ fn report_warning(
     warning: &dyn miette::Diagnostic,
     default_code: &'static str,
 ) {
-    let _ = writeln!(
-        std::io::stderr(),
+    let report = format!(
         "Warning: {:?}",
         CliError::new(stack, warning, working_set, Some(default_code))
     );
+
+    if writeln!(std::io::stderr(), "{report}").is_err() {
+        let _ = writeln!(std::io::stdout(), "{report}");
+    }
     // reset vt processing, aka ansi because illbehaved externals can break it
     #[cfg(windows)]
     {
