@@ -268,7 +268,7 @@ The closure receives each item and should return the string to display and searc
 The original value is always returned when selected, regardless of what --display shows.
 
 Keyboard shortcuts:
-- Up/Down, j/k: Navigate items
+- Up/Down, j/k, Ctrl+n/p: Navigate items
 - Left/Right, h/l: Scroll columns horizontally (table mode, single/multi)
 - Shift+Left/Right: Scroll columns horizontally (fuzzy mode)
 - Home/End: Jump to first/last item
@@ -1224,11 +1224,21 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn handle_single_key(&mut self, key: KeyEvent) -> KeyAction {
+        let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
+            KeyCode::Char('p' | 'P') if ctrl => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.navigate_up();
+                KeyAction::Continue
+            }
+            KeyCode::Char('n' | 'N') if ctrl => {
+                self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('j') => {
@@ -1274,8 +1284,16 @@ impl<'a> SelectWidget<'a> {
                 self.refine_list();
                 KeyAction::Continue
             }
+            KeyCode::Char('p' | 'P') if ctrl => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
             KeyCode::Up | KeyCode::Char('k') => {
                 self.navigate_up();
+                KeyAction::Continue
+            }
+            KeyCode::Char('n' | 'N') if ctrl => {
+                self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::Down | KeyCode::Char('j') => {
