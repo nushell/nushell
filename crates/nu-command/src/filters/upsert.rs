@@ -151,13 +151,12 @@ If the command is inserting at the end of a list or table, then both of these va
                 example: "[{} {a: [{}]}] | upsert a.0.b \"value\"",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record!(
-                        "a" => Value::test_list(vec![Value::test_record(record!(
+                        "a" => Value::test_record(record!(
                             "b" => Value::test_string("value"),
-                        ))]),
+                        )),
                     )),
                     Value::test_record(record!(
                         "a" => Value::test_list(vec![Value::test_record(record!(
-                            "b" => Value::test_string("value"),
                         ))]),
                     )),
                 ])),
