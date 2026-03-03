@@ -1100,6 +1100,9 @@ impl Value {
     /// Should only be called when the value being accessed is a list of records,
     /// and the first path member is a string.
     pub fn try_put_int_path_member_on_top(cell_paths: &[PathMember]) -> Option<Vec<PathMember>> {
+        if !nu_experimental::REORDER_CELL_PATHS.get() {
+            return None;
+        }
         let idx = cell_paths
             .iter()
             .position(|pm| matches!(pm, PathMember::Int { .. }));
@@ -1241,9 +1244,7 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        if nu_experimental::REORDER_CELL_PATHS.get()
-                            && let Some(new_cell_path) =
-                                Self::try_put_int_path_member_on_top(cell_path)
+                        if let Some(new_cell_path) = Self::try_put_int_path_member_on_top(cell_path)
                         {
                             self.upsert_data_at_cell_path(&new_cell_path, new_val.clone())?;
                         } else {
@@ -1353,9 +1354,7 @@ impl Value {
                     optional,
                 } => match self {
                     Value::List { vals, .. } => {
-                        if nu_experimental::REORDER_CELL_PATHS.get()
-                            && let Some(new_cell_path) =
-                                Self::try_put_int_path_member_on_top(cell_path)
+                        if let Some(new_cell_path) = Self::try_put_int_path_member_on_top(cell_path)
                         {
                             self.upsert_data_at_cell_path(&new_cell_path, new_val.clone())?;
                         } else {
