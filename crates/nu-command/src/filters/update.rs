@@ -118,6 +118,7 @@ fn update_recursive(
                     ClosureEvalOnce::new(engine_state, stack, *val),
                     head_span,
                     cell_paths,
+                    false,
                 )?;
             } else {
                 value.update_data_at_cell_path(cell_paths, replacement)?;
@@ -168,6 +169,7 @@ fn update_recursive(
                         ClosureEvalOnce::new(engine_state, stack, *val),
                         head_span,
                         path,
+                        true,
                     )?;
                 } else {
                     value.update_data_at_cell_path(path, replacement)?;
@@ -282,6 +284,7 @@ fn update_single_value_by_closure(
     closure: ClosureEvalOnce,
     span: Span,
     cell_path: &[PathMember],
+    cell_value_as_arg: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path)?;
 
@@ -294,8 +297,17 @@ fn update_single_value_by_closure(
         return Ok(());
     }
 
+    // FIXME: this leads to inconsistent behavior between
+    // `{a: b} | update a {|x| print $x}` and
+    // `[{a: b}] | update 0.a {|x| print $x}`
+    let arg = if cell_value_as_arg {
+        value_at_path.as_ref()
+    } else {
+        &*value
+    };
+
     let new_value = closure
-        .add_arg(value.clone())
+        .add_arg(arg.clone())
         .run_with_input(value_at_path.into_owned().into_pipeline_data())?
         .into_value(span)?;
 

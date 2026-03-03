@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::ast::PathMember;
 
@@ -151,6 +153,7 @@ fn insert_recursive(
                     ClosureEvalOnce::new(engine_state, stack, *val),
                     head_span,
                     cell_paths,
+                    false,
                 )?;
             } else {
                 value.insert_data_at_cell_path(cell_paths, replacement, head_span)?;
@@ -204,6 +207,7 @@ fn insert_recursive(
                             ClosureEvalOnce::new(engine_state, stack, *val),
                             head_span,
                             path,
+                            true,
                         )?;
                     } else {
                         value.insert_data_at_cell_path(path, replacement, head_span)?;
@@ -311,8 +315,20 @@ fn insert_single_value_by_closure(
     closure: ClosureEvalOnce,
     span: Span,
     cell_path: &[PathMember],
+    cell_value_as_arg: bool,
 ) -> Result<(), ShellError> {
-    let new_value = closure.run_with_value(value.clone())?.into_value(span)?;
+    // FIXME: this leads to inconsistent behavior between
+    // `{a: b} | upsert c {|x| print $x}` and
+    // `[{a: b}] | upsert 0.c {|x| print $x}`
+    let arg = if cell_value_as_arg {
+        value
+            .follow_cell_path(cell_path)
+            .map(Cow::into_owned)
+            .unwrap_or(Value::nothing(span))
+    } else {
+        value.clone()
+    };
+    let new_value = closure.run_with_value(arg)?.into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 

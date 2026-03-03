@@ -181,6 +181,7 @@ fn upsert_recursive(
                     ClosureEvalOnce::new(engine_state, stack, *val),
                     head_span,
                     cell_paths,
+                    false,
                 )?;
             } else {
                 value.upsert_data_at_cell_path(cell_paths, replacement)?;
@@ -227,6 +228,7 @@ fn upsert_recursive(
                             ClosureEvalOnce::new(engine_state, stack, *val),
                             head_span,
                             path,
+                            true,
                         )?;
                     } else {
                         value.upsert_data_at_cell_path(path, replacement)?;
@@ -347,8 +349,21 @@ fn upsert_single_value_by_closure(
     closure: ClosureEvalOnce,
     span: Span,
     cell_path: &[PathMember],
+    cell_value_as_arg: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path);
+
+    // FIXME: this leads to inconsistent behavior between
+    // `{a: b} | upsert a {|x| print $x}` and
+    // `[{a: b}] | upsert 0.a {|x| print $x}`
+    let arg = if cell_value_as_arg {
+        value_at_path
+            .as_deref()
+            .cloned()
+            .unwrap_or(Value::nothing(span))
+    } else {
+        value.clone()
+    };
 
     let input = value_at_path
         .map(Cow::into_owned)
@@ -356,7 +371,7 @@ fn upsert_single_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(value.clone())
+        .add_arg(arg)
         .run_with_input(input)?
         .into_value(span)?;
 
