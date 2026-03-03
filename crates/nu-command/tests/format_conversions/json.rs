@@ -252,8 +252,6 @@ fn top_level_values_from_json_strict() -> Result {
 fn strict_parsing_fails_on_comment() -> Result {
     let code = r#"'{ "a": 1, /* comment */ "b": 2 }' | from json -s"#;
 
-    // Depending on how this is wired, this is usually a shell error with a message.
-    // If your harness classifies it as parse error instead, swap expect_shell_error -> expect_parse_error.
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::GenericError { msg, .. } => {
