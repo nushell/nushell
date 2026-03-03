@@ -1095,6 +1095,21 @@ impl Value {
         }
     }
 
+    /// Try to put the first int path member on top.
+    /// Return None if not any.
+    /// Should only be called when the value being accessed is a list of records,
+    /// and the first path member is a string.
+    pub fn try_put_int_path_member_on_top(cell_paths: &[PathMember]) -> Option<Vec<PathMember>> {
+        let idx = cell_paths
+            .iter()
+            .position(|pm| matches!(pm, PathMember::Int { .. }));
+        idx.map(|idx| {
+            let mut cell_paths = cell_paths.to_vec();
+            cell_paths[0..idx + 1].rotate_right(1);
+            cell_paths
+        })
+    }
+
     /// Follow a given cell path into the value: for example accessing select elements in a stream or list
     pub fn follow_cell_path<'out>(
         &'out self,
@@ -1227,20 +1242,10 @@ impl Value {
                 } => match self {
                     Value::List { vals, .. } => {
                         if nu_experimental::REORDER_CELL_PATHS.get()
-                            && let Some(idx) = path
-                                .iter()
-                                .position(|pm| matches!(pm, PathMember::Int { .. }))
-                            && let PathMember::Int { val: list_idx, .. } = path[idx]
-                            && let Some(val) = vals.get_mut(list_idx)
+                            && let Some(new_cell_path) =
+                                Self::try_put_int_path_member_on_top(cell_path)
                         {
-                            // Extra clones and `collect()` seem wasteful, but `cell_path` is
-                            // typically short in length, so it won't be too bad.
-                            let path: Vec<_> = cell_path
-                                .iter()
-                                .enumerate()
-                                .filter_map(|(i, pm)| (i != (idx + 1)).then_some(pm.clone()))
-                                .collect();
-                            val.upsert_data_at_cell_path(&path, new_val.clone())?;
+                            self.upsert_data_at_cell_path(&new_cell_path, new_val.clone())?;
                         } else {
                             for val in vals.iter_mut() {
                                 match val {
@@ -1348,30 +1353,37 @@ impl Value {
                     optional,
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
-                            let v_span = val.span();
-                            match val {
-                                Value::Record { val: record, .. } => {
-                                    if let Some(val) =
-                                        record.to_mut().cased_mut(*casing).get_mut(col_name)
-                                    {
-                                        val.update_data_at_cell_path(path, new_val.clone())?;
-                                    } else if !*optional {
-                                        return Err(ShellError::CantFindColumn {
-                                            col_name: col_name.clone(),
-                                            span: Some(*span),
-                                            src_span: v_span,
-                                        });
+                        if nu_experimental::REORDER_CELL_PATHS.get()
+                            && let Some(new_cell_path) =
+                                Self::try_put_int_path_member_on_top(cell_path)
+                        {
+                            self.upsert_data_at_cell_path(&new_cell_path, new_val.clone())?;
+                        } else {
+                            for val in vals.iter_mut() {
+                                let v_span = val.span();
+                                match val {
+                                    Value::Record { val: record, .. } => {
+                                        if let Some(val) =
+                                            record.to_mut().cased_mut(*casing).get_mut(col_name)
+                                        {
+                                            val.update_data_at_cell_path(path, new_val.clone())?;
+                                        } else if !*optional {
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.clone(),
+                                                span: Some(*span),
+                                                src_span: v_span,
+                                            });
+                                        }
                                     }
-                                }
-                                Value::Error { error, .. } => return Err(*error.clone()),
-                                v => {
-                                    if !*optional {
-                                        return Err(ShellError::CantFindColumn {
-                                            col_name: col_name.clone(),
-                                            span: Some(*span),
-                                            src_span: v.span(),
-                                        });
+                                    Value::Error { error, .. } => return Err(*error.clone()),
+                                    v => {
+                                        if !*optional {
+                                            return Err(ShellError::CantFindColumn {
+                                                col_name: col_name.clone(),
+                                                span: Some(*span),
+                                                src_span: v.span(),
+                                            });
+                                        }
                                     }
                                 }
                             }

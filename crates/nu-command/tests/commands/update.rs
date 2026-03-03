@@ -200,6 +200,39 @@ fn update_optional_column_in_table_with_closure_mixed() {
 }
 
 #[test]
+fn update_table_cell_respects_reorder_option() {
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+        let a = [[foo]; [bar]];
+        let b = ($a | update foo.0 'baz');
+        $b.0.foo
+    "#);
+
+    assert_eq!(actual.out, "baz")
+}
+
+#[test]
+fn update_table_cell_multiple_ints_reorder() {
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+        let a = [ [[foo]; [bar]] ];
+        let b = ($a | update 0.0.foo 'hi');
+        $b.0.0.foo
+    "#);
+
+    assert_eq!(actual.out, "hi")
+}
+
+#[test]
+fn update_table_cell_mixed_rows() {
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+        let table = [ [foo]; ['a'] ['b'] ];
+        let t = ($table | update foo.0 'z');
+        $t.foo.0
+    "#);
+
+    assert_eq!(actual.out, "z")
+}
+
+#[test]
 fn update_optional_index_with_closure_present() {
     let actual = nu!("[1, 2, 3] | update 1? { $in * 10 } | to nuon");
     assert_eq!(actual.out, "[1, 20, 3]");
