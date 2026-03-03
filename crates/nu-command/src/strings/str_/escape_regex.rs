@@ -119,7 +119,7 @@ fn operate(
 
 fn action(input: &Value, head: Span) -> Value {
     match input {
-        Value::String { val, .. } => Value::string(fancy_regex::escape(&val), head),
+        Value::String { val, .. } => Value::string(fancy_regex::escape(val), head),
         Value::Error { .. } => input.clone(),
         _ => Value::error(
             ShellError::OnlySupportsThisInputType {
