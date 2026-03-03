@@ -166,47 +166,25 @@ If the command is inserting at the end of a list or table, then both of these va
     }
 }
 
-fn upsert(
+fn upsert_recursive(
     engine_state: &EngineState,
     stack: &mut Stack,
-    call: &Call,
+    head_span: Span,
+    replacement: Value,
     input: PipelineData,
+    cell_paths: &[PathMember],
 ) -> Result<PipelineData, ShellError> {
-    let head = call.head;
-    let cell_path: CellPath = call.req(engine_state, stack, 0)?;
-    let replacement: Value = call.req(engine_state, stack, 1)?;
-    let input = match input.try_into_stream(engine_state) {
-        Ok(input) | Err(input) => input,
-    };
-
     match input {
         PipelineData::Value(mut value, metadata) => {
             if let Value::Closure { val, .. } = replacement {
-                match (cell_path.members.first(), &mut value) {
-                    (Some(PathMember::String { .. }), Value::List { vals, .. }) => {
-                        let mut closure = ClosureEval::new(engine_state, stack, *val);
-                        for val in vals {
-                            upsert_value_by_closure(
-                                val,
-                                &mut closure,
-                                head,
-                                &cell_path.members,
-                                false,
-                            )?;
-                        }
-                    }
-                    (first, _) => {
-                        upsert_single_value_by_closure(
-                            &mut value,
-                            ClosureEvalOnce::new(engine_state, stack, *val),
-                            head,
-                            &cell_path.members,
-                            matches!(first, Some(PathMember::Int { .. })),
-                        )?;
-                    }
-                }
+                upsert_single_value_by_closure(
+                    &mut value,
+                    ClosureEvalOnce::new(engine_state, stack, *val),
+                    head_span,
+                    cell_paths,
+                )?;
             } else {
-                value.upsert_data_at_cell_path(&cell_path.members, replacement)?;
+                value.upsert_data_at_cell_path(cell_paths, replacement)?;
             }
             Ok(value.into_pipeline_data_with_metadata(metadata))
         }
@@ -218,7 +196,7 @@ fn upsert(
                     ..
                 },
                 path,
-            )) = cell_path.members.split_first()
+            )) = cell_paths.split_first()
             {
                 let mut stream = stream.into_iter();
                 let mut pre_elems = vec![];
@@ -235,11 +213,11 @@ fn upsert(
                 }
 
                 let value = if path.is_empty() {
-                    let value = stream.next().unwrap_or(Value::nothing(head));
+                    let value = stream.next().unwrap_or(Value::nothing(head_span));
                     if let Value::Closure { val, .. } = replacement {
                         ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value)?
-                            .into_value(head)?
+                            .into_value(head_span)?
                     } else {
                         replacement
                     }
@@ -248,9 +226,8 @@ fn upsert(
                         upsert_single_value_by_closure(
                             &mut value,
                             ClosureEvalOnce::new(engine_state, stack, *val),
-                            head,
+                            head_span,
                             path,
-                            true,
                         )?;
                     } else {
                         value.upsert_data_at_cell_path(path, replacement)?;
@@ -269,23 +246,28 @@ fn upsert(
                     .into_iter()
                     .chain(stream)
                     .into_pipeline_data_with_metadata(
-                        head,
+                        head_span,
                         engine_state.signals().clone(),
                         metadata,
                     ))
+            } else if let Some(new_cell_paths) = Value::try_put_int_path_member_on_top(cell_paths) {
+                upsert_recursive(
+                    engine_state,
+                    stack,
+                    head_span,
+                    replacement,
+                    PipelineData::ListStream(stream, metadata),
+                    &new_cell_paths,
+                )
             } else if let Value::Closure { val, .. } = replacement {
                 let mut closure = ClosureEval::new(engine_state, stack, *val);
+                let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
-                    let err = upsert_value_by_closure(
-                        &mut value,
-                        &mut closure,
-                        head,
-                        &cell_path.members,
-                        false,
-                    );
+                    let err =
+                        upsert_value_by_closure(&mut value, &mut closure, head_span, &cell_paths);
 
                     if let Err(e) = err {
-                        Value::error(e, head)
+                        Value::error(e, head_span)
                     } else {
                         value
                     }
@@ -293,11 +275,11 @@ fn upsert(
 
                 Ok(PipelineData::list_stream(stream, metadata))
             } else {
+                let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
-                    if let Err(e) =
-                        value.upsert_data_at_cell_path(&cell_path.members, replacement.clone())
+                    if let Err(e) = value.upsert_data_at_cell_path(&cell_paths, replacement.clone())
                     {
-                        Value::error(e, head)
+                        Value::error(e, head_span)
                     } else {
                         value
                     }
@@ -308,13 +290,36 @@ fn upsert(
         }
         PipelineData::Empty => Err(ShellError::IncompatiblePathAccess {
             type_name: "empty pipeline".to_string(),
-            span: head,
+            span: head_span,
         }),
         PipelineData::ByteStream(stream, ..) => Err(ShellError::IncompatiblePathAccess {
             type_name: stream.type_().describe().into(),
-            span: head,
+            span: head_span,
         }),
     }
+}
+
+fn upsert(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let head = call.head;
+    let cell_path: CellPath = call.req(engine_state, stack, 0)?;
+    let replacement: Value = call.req(engine_state, stack, 1)?;
+    let input = match input.try_into_stream(engine_state) {
+        Ok(input) | Err(input) => input,
+    };
+
+    upsert_recursive(
+        engine_state,
+        stack,
+        head,
+        replacement,
+        input,
+        &cell_path.members,
+    )
 }
 
 fn upsert_value_by_closure(
@@ -322,18 +327,8 @@ fn upsert_value_by_closure(
     closure: &mut ClosureEval,
     span: Span,
     cell_path: &[PathMember],
-    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path);
-
-    let arg = if first_path_member_int {
-        value_at_path
-            .as_deref()
-            .cloned()
-            .unwrap_or(Value::nothing(span))
-    } else {
-        value.clone()
-    };
 
     let input = value_at_path
         .map(Cow::into_owned)
@@ -341,7 +336,7 @@ fn upsert_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(arg)
+        .add_arg(value.clone())
         .run_with_input(input)?
         .into_value(span)?;
 
@@ -353,18 +348,8 @@ fn upsert_single_value_by_closure(
     closure: ClosureEvalOnce,
     span: Span,
     cell_path: &[PathMember],
-    first_path_member_int: bool,
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path);
-
-    let arg = if first_path_member_int {
-        value_at_path
-            .as_deref()
-            .cloned()
-            .unwrap_or(Value::nothing(span))
-    } else {
-        value.clone()
-    };
 
     let input = value_at_path
         .map(Cow::into_owned)
@@ -372,7 +357,7 @@ fn upsert_single_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(arg)
+        .add_arg(value.clone())
         .run_with_input(input)?
         .into_value(span)?;
 

@@ -205,8 +205,7 @@ fn update_recursive(
                 });
                 Ok(PipelineData::list_stream(stream, metadata))
             } else {
-                let cell_paths = Value::try_put_int_path_member_on_top(cell_paths)
-                    .unwrap_or(cell_paths.to_vec());
+                let cell_paths = cell_paths.to_vec();
                 let stream = stream.map(move |mut value| {
                     if let Err(e) = value.update_data_at_cell_path(&cell_paths, replacement.clone())
                     {
