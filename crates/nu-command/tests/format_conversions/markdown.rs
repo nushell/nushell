@@ -35,7 +35,7 @@ fn md_simple_pretty() -> Result {
 
 #[test]
 fn md_table() -> Result {
-    let code = r#"echo [[name]; [jason]] | to md"#;
+    let code = "echo [[name]; [jason]] | to md";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "| name |\n| --- |\n| jason |");
     Ok(())

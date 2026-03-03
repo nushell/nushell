@@ -19,7 +19,7 @@ fn table_to_json_text_and_from_json_text_back_into_table() -> Result {
 
 #[test]
 fn table_to_json_float_doesnt_become_int() -> Result {
-    let code = r#"[[a]; [1.0]] | to json | from json | get 0.a"#;
+    let code = "[[a]; [1.0]] | to json | from json | get 0.a";
     let outcome: Value = test().run(code)?;
     assert!(matches!(outcome, Value::Float { .. }));
     Ok(())
@@ -286,7 +286,7 @@ fn ranges_to_json_as_array() -> Result {
 
 #[test]
 fn unbounded_from_in_range_fails() -> Result {
-    let code = r#"1.. | to json"#;
+    let code = "1.. | to json";
 
     let err = test().run(code).expect_shell_error()?;
     match err {
@@ -300,11 +300,11 @@ fn unbounded_from_in_range_fails() -> Result {
 
 #[test]
 fn inf_in_range_fails() -> Result {
-    let code = r#"inf..5 | to json"#;
+    let code = "inf..5 | to json";
     let err = test().run(code).expect_shell_error()?;
     assert!(matches!(err, ShellError::CannotCreateRange { .. }));
 
-    let code = r#"5..inf | to json"#;
+    let code = "5..inf | to json";
     let err = test().run(code).expect_shell_error()?;
     let ShellError::GenericError { msg, .. } = err else {
         panic!("unexpected err, {err:?}")
@@ -314,7 +314,7 @@ fn inf_in_range_fails() -> Result {
         "Unbounded ranges are not allowed when converting to this format"
     );
 
-    let code = r#"-inf..inf | to json"#;
+    let code = "-inf..inf | to json";
     let err = test().run(code).expect_shell_error()?;
     assert!(matches!(err, ShellError::CannotCreateRange { .. }));
 

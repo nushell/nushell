@@ -31,9 +31,7 @@ fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
 
 #[test]
 fn convert_dict_to_yaml_with_boolean_key() -> Result {
-    let code = r#"
-        "true: BooleanKey " | from yaml
-    "#;
+    let code = r#""true: BooleanKey " | from yaml"#;
 
     let outcome: Record = test().run(code)?;
     assert!(outcome.columns().any(|col| col == "true"));
@@ -42,9 +40,7 @@ fn convert_dict_to_yaml_with_boolean_key() -> Result {
 
 #[test]
 fn convert_dict_to_yaml_with_integer_key() -> Result {
-    let code = r#"
-        "200: [] " | from yaml
-    "#;
+    let code = r#""200: [] " | from yaml"#;
 
     let outcome: Record = test().run(code)?;
     assert!(outcome.columns().any(|col| col == "200"));
@@ -53,9 +49,7 @@ fn convert_dict_to_yaml_with_integer_key() -> Result {
 
 #[test]
 fn convert_dict_to_yaml_with_integer_floats_key() -> Result {
-    let code = r#"
-        "2.11: "1" " | from yaml
-    "#;
+    let code = r#""2.11: "1" " | from yaml"#;
 
     let outcome: Record = test().run(code)?;
     assert!(outcome.columns().any(|col| col == "2.11"));
@@ -65,9 +59,7 @@ fn convert_dict_to_yaml_with_integer_floats_key() -> Result {
 #[test]
 #[ignore]
 fn convert_bool_to_yaml_in_yaml_spec_1_2() -> Result {
-    let code = r#"
-        [y n no On OFF True true false] | to yaml
-    "#;
+    let code = "[y n no On OFF True true false] | to yaml";
 
     let outcome: String = test().run(code)?;
     assert_eq!(

@@ -16,7 +16,7 @@ fn out_html_simple() -> Result {
 fn out_html_metadata() -> Result {
     let code = "echo 3 | to html | metadata | get content_type";
     let outcome: String = test().run(code)?;
-    assert_eq!(outcome, r#"text/html; charset=utf-8"#);
+    assert_eq!(outcome, "text/html; charset=utf-8");
     Ok(())
 }
 

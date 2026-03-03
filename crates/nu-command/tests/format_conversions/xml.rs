@@ -25,9 +25,7 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() -> Result {
 
 #[test]
 fn to_xml_error_unknown_column() -> Result {
-    let code = r#"
-        {tag: a bad_column: b} | to xml
-    "#;
+    let code = "{tag: a bad_column: b} | to xml";
 
     let err = test()
         .cwd("tests/fixtures/formats")
@@ -45,9 +43,7 @@ fn to_xml_error_unknown_column() -> Result {
 
 #[test]
 fn to_xml_error_no_tag() -> Result {
-    let code = r#"
-        {attributes: {a: b c: d}} | to xml
-    "#;
+    let code = "{attributes: {a: b c: d}} | to xml";
 
     let err = test()
         .cwd("tests/fixtures/formats")
@@ -65,9 +61,7 @@ fn to_xml_error_no_tag() -> Result {
 
 #[test]
 fn to_xml_error_tag_not_string() -> Result {
-    let code = r#"
-        {tag: 1 attributes: {a: b c: d}} | to xml
-    "#;
+    let code = "{tag: 1 attributes: {a: b c: d}} | to xml";
 
     let err = test()
         .cwd("tests/fixtures/formats")

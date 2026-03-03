@@ -182,35 +182,35 @@ fn to_nuon_records() -> Result {
 
 #[test]
 fn to_nuon_range() -> Result {
-    let code = r#"1..42 | to nuon"#;
+    let code = "1..42 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..42");
 
-    let code = r#"1..<42 | to nuon"#;
+    let code = "1..<42 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..<42");
 
-    let code = r#"1..4..42 | to nuon"#;
+    let code = "1..4..42 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..4..42");
 
-    let code = r#"1..4..<42 | to nuon"#;
+    let code = "1..4..<42 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..4..<42");
 
-    let code = r#"1.0..42.0 | to nuon"#;
+    let code = "1.0..42.0 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..42.0");
 
-    let code = r#"1.0..<42.0 | to nuon"#;
+    let code = "1.0..<42.0 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..<42.0");
 
-    let code = r#"1.0..4.0..42.0 | to nuon"#;
+    let code = "1.0..4.0..42.0 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..4.0..42.0");
 
-    let code = r#"1.0..4.0..<42.0 | to nuon"#;
+    let code = "1.0..4.0..<42.0 | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..4.0..<42.0");
     Ok(())
@@ -218,35 +218,35 @@ fn to_nuon_range() -> Result {
 
 #[test]
 fn from_nuon_range() -> Result {
-    let code = r#"'1..42' | from nuon | to nuon"#;
+    let code = "'1..42' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..42");
 
-    let code = r#"'1..<42' | from nuon | to nuon"#;
+    let code = "'1..<42' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..<42");
 
-    let code = r#"'1..4..42' | from nuon | to nuon"#;
+    let code = "'1..4..42' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..4..42");
 
-    let code = r#"'1..4..<42' | from nuon | to nuon"#;
+    let code = "'1..4..<42' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1..4..<42");
 
-    let code = r#"'1.0..42.0' | from nuon | to nuon"#;
+    let code = "'1.0..42.0' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..42.0");
 
-    let code = r#"'1.0..<42.0' | from nuon | to nuon"#;
+    let code = "'1.0..<42.0' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..<42.0");
 
-    let code = r#"'1.0..4.0..42.0' | from nuon | to nuon"#;
+    let code = "'1.0..4.0..42.0' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..4.0..42.0");
 
-    let code = r#"'1.0..4.0..<42.0' | from nuon | to nuon"#;
+    let code = "'1.0..4.0..<42.0' | from nuon | to nuon";
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0..4.0..<42.0");
     Ok(())
@@ -353,9 +353,7 @@ fn to_nuon_closure_coerced_to_quoted_string() -> Result {
 
 #[test]
 fn binary_to() -> Result {
-    let code = r#"
-        0x[ab cd ef] | to nuon
-    "#;
+    let code = "0x[ab cd ef] | to nuon";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "0x[ABCDEF]");
@@ -364,9 +362,7 @@ fn binary_to() -> Result {
 
 #[test]
 fn binary_roundtrip() -> Result {
-    let code = r#"
-        "0x[1f ff]" | from nuon | to nuon
-    "#;
+    let code = r#""0x[1f ff]" | from nuon | to nuon"#;
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "0x[1FFF]");
@@ -375,9 +371,7 @@ fn binary_roundtrip() -> Result {
 
 #[test]
 fn read_binary_data() -> Result {
-    let code = r#"
-        open sample.nuon | get 5.3
-    "#;
+    let code = "open sample.nuon | get 5.3";
 
     let outcome: i64 = test().cwd("tests/fixtures/formats").run(code)?;
     assert_eq!(outcome, 31);
@@ -386,9 +380,7 @@ fn read_binary_data() -> Result {
 
 #[test]
 fn read_record() -> Result {
-    let code = r#"
-        open sample.nuon | get 4.name
-    "#;
+    let code = "open sample.nuon | get 4.name";
 
     let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
     assert_eq!(outcome, "Bobby");
@@ -397,9 +389,7 @@ fn read_record() -> Result {
 
 #[test]
 fn read_bool() -> Result {
-    let code = r#"
-        open sample.nuon | get 3 | $in == true
-    "#;
+    let code = "open sample.nuon | get 3 | $in == true";
 
     let outcome: bool = test().cwd("tests/fixtures/formats").run(code)?;
     assert!(outcome);
@@ -408,9 +398,7 @@ fn read_bool() -> Result {
 
 #[test]
 fn float_doesnt_become_int() -> Result {
-    let code = r#"
-        1.0 | to nuon
-    "#;
+    let code = "1.0 | to nuon";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "1.0");
@@ -419,9 +407,7 @@ fn float_doesnt_become_int() -> Result {
 
 #[test]
 fn float_inf_parsed_properly() -> Result {
-    let code = r#"
-        inf | to nuon
-    "#;
+    let code = "inf | to nuon";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "inf");
@@ -430,9 +416,7 @@ fn float_inf_parsed_properly() -> Result {
 
 #[test]
 fn float_neg_inf_parsed_properly() -> Result {
-    let code = r#"
-        -inf | to nuon
-    "#;
+    let code = "-inf | to nuon";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "-inf");
@@ -441,9 +425,7 @@ fn float_neg_inf_parsed_properly() -> Result {
 
 #[test]
 fn float_nan_parsed_properly() -> Result {
-    let code = r#"
-        NaN | to nuon
-    "#;
+    let code = "NaN | to nuon";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "NaN");
@@ -452,9 +434,7 @@ fn float_nan_parsed_properly() -> Result {
 
 #[test]
 fn to_nuon_converts_columns_with_spaces() -> Result {
-    let code = r#"
-        let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon
-    "#;
+    let code = r#"let test = [[a, b, "c d"]; [1 2 3] [4 5 6]]; $test | to nuon | from nuon"#;
 
     let _: Value = test().run(code)?;
     Ok(())
@@ -462,9 +442,7 @@ fn to_nuon_converts_columns_with_spaces() -> Result {
 
 #[test]
 fn to_nuon_quotes_empty_string() -> Result {
-    let code = r#"
-        let test = ""; $test | to nuon
-    "#;
+    let code = r#"let test = ""; $test | to nuon"#;
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, r#""""#);
@@ -473,9 +451,7 @@ fn to_nuon_quotes_empty_string() -> Result {
 
 #[test]
 fn to_nuon_quotes_empty_string_in_list() -> Result {
-    let code = r#"
-        let test = [""]; $test | to nuon | from nuon | $in == [""]
-    "#;
+    let code = r#"let test = [""]; $test | to nuon | from nuon | $in == [""]"#;
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -484,9 +460,7 @@ fn to_nuon_quotes_empty_string_in_list() -> Result {
 
 #[test]
 fn to_nuon_quotes_empty_string_in_table() -> Result {
-    let code = r#"
-        let test = [[a, b]; ['', la] [le lu]]; $test | to nuon | from nuon
-    "#;
+    let code = "let test = [[a, b]; ['', la] [le lu]]; $test | to nuon | from nuon";
 
     let _: Value = test().run(code)?;
     Ok(())
@@ -494,16 +468,12 @@ fn to_nuon_quotes_empty_string_in_table() -> Result {
 
 #[test]
 fn does_not_quote_strings_unnecessarily() -> Result {
-    let code = r#"
-        let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon
-    "#;
+    let code = r#"let test = [["a", "b", "c d"]; [1 2 3] [4 5 6]]; $test | to nuon"#;
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "[[a, b, \"c d\"]; [1, 2, 3], [4, 5, 6]]");
 
-    let code = r#"
-        let a = {"ro name": "sam" rank: 10}; $a | to nuon
-    "#;
+    let code = r#"let a = {"ro name": "sam" rank: 10}; $a | to nuon"#;
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "{\"ro name\": sam, rank: 10}");

@@ -76,9 +76,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() -> Result {
 
 #[test]
 fn table_to_tsv_float_doesnt_become_int() -> Result {
-    let code = r#"
-        [[a]; [1.0]] | to tsv | from tsv | get 0.a | describe
-    "#;
+    let code = "[[a]; [1.0]] | to tsv | from tsv | get 0.a | describe";
 
     let outcome: String = test().run(code)?;
     assert_eq!(outcome, "float");
