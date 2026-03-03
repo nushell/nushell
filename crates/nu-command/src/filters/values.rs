@@ -134,6 +134,9 @@ fn values(
     head: Span,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
+    let input = match input.try_into_stream(engine_state) {
+        Ok(input) | Err(input) => input,
+    };
     let signals = engine_state.signals().clone();
     let metadata = input.metadata();
     match input {

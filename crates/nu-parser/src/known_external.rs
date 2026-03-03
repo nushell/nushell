@@ -11,6 +11,8 @@ pub struct KnownExternal {
     pub signature: Box<Signature>,
     pub attributes: Vec<(String, Value)>,
     pub examples: Vec<CustomExample>,
+    /// The span of the `extern` declaration, used to look up its source file.
+    pub span: Span,
 }
 
 impl Command for KnownExternal {
@@ -40,6 +42,10 @@ impl Command for KnownExternal {
 
     fn command_type(&self) -> CommandType {
         CommandType::External
+    }
+
+    fn decl_span(&self) -> Option<Span> {
+        Some(self.span)
     }
 
     fn run(

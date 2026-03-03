@@ -834,11 +834,17 @@ fn duration_with_faulty_number() -> TestResult {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+#[env(LANG = "en_US.UTF-8")]
+#[env(LANGUAGE = "en")]
 fn filesize_with_underscores_1() -> TestResult {
     run_test("420_MB", "420.0 MB")
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+#[env(LANG = "en_US.UTF-8")]
+#[env(LANGUAGE = "en")]
 fn filesize_with_underscores_2() -> TestResult {
     run_test("1_000_000B", "1.0 MB")
 }

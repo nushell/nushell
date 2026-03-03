@@ -64,17 +64,62 @@ impl Command for Which {
     }
 }
 
-// Shortcut for creating an entry to the output table
+/// Returns the source file path that covers `span`, if any.
+fn file_for_span(engine_state: &EngineState, span: Span) -> Option<String> {
+    engine_state
+        .files()
+        .find(|f| f.covered_span.contains_span(span))
+        .map(|f| f.name.to_string())
+}
+
+/// Returns the source file path for a declaration, if it can be determined.
+///
+/// - Aliases: resolved via `decl_span()` (the alias expansion span)
+/// - Custom commands: resolved from the block's span via `block_id()`
+/// - Plugins: resolved from the plugin identity's filename
+/// - Known externals (`extern` declarations): resolved via `decl_span()`
+fn file_for_decl(
+    engine_state: &EngineState,
+    decl: &dyn nu_protocol::engine::Command,
+) -> Option<String> {
+    if let Some(block_id) = decl.block_id() {
+        return engine_state
+            .get_block(block_id)
+            .span
+            .and_then(|sp| file_for_span(engine_state, sp));
+    }
+    #[cfg(feature = "plugin")]
+    if decl.is_plugin() {
+        return decl
+            .plugin_identity()
+            .map(|id| id.filename().to_string_lossy().to_string());
+    }
+    if let Some(span) = decl.decl_span() {
+        return file_for_span(engine_state, span);
+    }
+    None
+}
+
+// Shortcut for creating an entry to the output table.
 fn entry(
     arg: impl Into<String>,
     path: impl Into<String>,
     cmd_type: CommandType,
     definition: Option<String>,
+    file: Option<String>,
     span: Span,
 ) -> Value {
+    let arg = arg.into();
+    let path = path.into();
+    let path_value = if path.is_empty() {
+        file.unwrap_or_default()
+    } else {
+        path.clone()
+    };
+
     let mut record = record! {
         "command" => Value::string(arg, span),
-        "path" => Value::string(path, span),
+        "path" => Value::string(path_value, span),
         "type" => Value::string(cmd_type.to_string(), span),
     };
 
@@ -86,20 +131,18 @@ fn entry(
 }
 
 fn get_entry_in_commands(engine_state: &EngineState, name: &str, span: Span) -> Option<Value> {
-    if let Some(decl_id) = engine_state.find_decl(name.as_bytes(), &[]) {
-        let decl = engine_state.get_decl(decl_id);
-        let definition = if decl.command_type() == CommandType::Alias {
-            decl.as_alias().map(|alias| {
-                String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
-                    .to_string()
-            })
-        } else {
-            None
-        };
-        Some(entry(name, "", decl.command_type(), definition, span))
+    let decl_id = engine_state.find_decl(name.as_bytes(), &[])?;
+    let decl = engine_state.get_decl(decl_id);
+    let definition = if decl.command_type() == CommandType::Alias {
+        decl.as_alias().map(|alias| {
+            String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span))
+                .to_string()
+        })
     } else {
         None
-    }
+    };
+    let file = file_for_decl(engine_state, decl);
+    Some(entry(name, "", decl.command_type(), definition, file, span))
 }
 
 fn get_first_entry_in_path(
@@ -110,11 +153,13 @@ fn get_first_entry_in_path(
 ) -> Option<Value> {
     which::which_in(item, Some(paths), cwd)
         .map(|path| {
+            let full_path = path.to_string_lossy().to_string();
             entry(
                 item,
-                path.to_string_lossy(),
+                full_path.clone(),
                 CommandType::External,
                 None,
+                Some(full_path),
                 span,
             )
         })
@@ -127,18 +172,27 @@ fn get_all_entries_in_path(
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Vec<Value> {
-    which::which_in_all(&item, Some(paths), cwd)
+    // `which_in_all` canonicalizes every result path. On systems where PATH
+    // contains both a real directory and a symlink pointing to the same place
+    // (e.g. `/usr/bin` and `/bin -> /usr/bin` on WSL/Debian), the same
+    // canonical path would appear multiple times. The HashSet deduplicates
+    // those before we build the output rows.
+    let mut seen = HashSet::new();
+    which::which_in_all(item, Some(paths), cwd)
         .map(|iter| {
-            iter.map(|path| {
-                entry(
-                    item,
-                    path.to_string_lossy(),
-                    CommandType::External,
-                    None,
-                    span,
-                )
-            })
-            .collect()
+            iter.filter(|path| seen.insert(path.clone()))
+                .map(|path| {
+                    let full_path = path.to_string_lossy().to_string();
+                    entry(
+                        item,
+                        full_path.clone(),
+                        CommandType::External,
+                        None,
+                        Some(full_path),
+                        span,
+                    )
+                })
+                .collect()
         })
         .unwrap_or_default()
 }
@@ -165,11 +219,14 @@ fn list_all_executables(
         } else {
             None
         };
+        let file = file_for_decl(engine_state, decl);
+
         results.push(entry(
             name,
             String::new(),
             decl.command_type(),
             definition,
+            file,
             Span::unknown(),
         ));
     }
@@ -194,9 +251,10 @@ fn list_all_executables(
             let full_path = path.to_string_lossy().to_string();
             Some(entry(
                 filename,
-                full_path,
+                full_path.clone(),
                 CommandType::External,
                 None,
+                Some(full_path),
                 Span::unknown(),
             ))
         });
@@ -218,16 +276,16 @@ fn which_single(
     cwd: impl AsRef<Path>,
     paths: impl AsRef<OsStr>,
 ) -> Vec<Value> {
+    let cwd = cwd.as_ref();
+    let paths = paths.as_ref();
     let (external, prog_name) = if application.item.starts_with('^') {
         (true, application.item[1..].to_string())
     } else {
         (false, application.item.clone())
     };
 
-    //If prog_name is an external command, don't search for nu-specific programs
-    //If all is false, we can save some time by only searching for the first matching
-    //program
-    //This match handles all different cases
+    // If prog_name is an external command, don't search for nu-specific programs.
+    // If all is false, we can save some time by only searching for the first match.
     match (all, external) {
         (true, true) => get_all_entries_in_path(&prog_name, application.span, cwd, paths),
         (true, false) => {
@@ -267,10 +325,14 @@ fn which(
     let mut output = vec![];
 
     let cwd = engine_state.cwd_as_string(Some(stack))?;
-    let paths = env::path_str(engine_state, stack, head)?;
+
+    // PATH may not be set in minimal environments (e.g. plugin test harnesses).
+    // In that case we can still resolve built-ins, aliases, custom commands and
+    // known externals; we just won't find any PATH-based binaries.
+    let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
     if which_args.applications.is_empty() {
-        return Ok(list_all_executables(engine_state, paths, which_args.all)
+        return Ok(list_all_executables(engine_state, &paths, which_args.all)
             .into_iter()
             .into_pipeline_data(head, engine_state.signals().clone()));
     }

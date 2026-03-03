@@ -4,6 +4,7 @@ use crossterm::event::{
 };
 use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
+use std::time::{Duration, Instant};
 
 use nu_protocol::shell_error::io::IoError;
 use num_traits::AsPrimitive;
@@ -34,6 +35,12 @@ impl Command for InputListen {
                 "raw",
                 "Add raw_code field with numeric value of keycode and raw_flags with bit mask flags.",
                 Some('r'),
+            )
+            .named(
+                "timeout",
+                SyntaxShape::Duration,
+                "How long to wait for input before returning.",
+                Some('o')
             )
             .input_output_types(vec![(
                 Type::Nothing,
@@ -81,6 +88,7 @@ There are 4 `key_type` variants:
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let event_type_filter = get_event_type_filter(engine_state, stack, call, head)?;
+        let timeout: Option<Duration> = call.get_flag(engine_state, stack, "timeout")?;
         let add_raw = call.has_flag(engine_state, stack, "raw")?;
         let config = stack.get_config(engine_state);
 
@@ -113,7 +121,28 @@ There are 4 `key_type` variants:
         }
 
         let console_state = event_type_filter.enable_events(head)?;
+        let start = Instant::now();
+        let mut remaining_time = timeout;
+
         loop {
+            if let Some(t) = remaining_time
+                && !crossterm::event::poll(t).map_err(|_| ShellError::GenericError {
+                    error: "Error with user input".into(),
+                    msg: "".into(),
+                    span: Some(head),
+                    help: None,
+                    inner: vec![],
+                })?
+            {
+                terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
+                return Err(ShellError::GenericError {
+                    error: "Timed out while waiting for user input".into(),
+                    msg: "no input was received within the timeout duration".into(),
+                    span: Some(head),
+                    help: None,
+                    inner: vec![],
+                });
+            }
             let event = crossterm::event::read().map_err(|_| ShellError::GenericError {
                 error: "Error with user input".into(),
                 msg: "".into(),
@@ -133,6 +162,11 @@ There are 4 `key_type` variants:
 
                 console_state.restore();
                 return Ok(event.into_pipeline_data());
+            }
+
+            if let Some(t) = remaining_time.as_mut() {
+                let now = Instant::now();
+                *t -= now.duration_since(start);
             }
         }
     }

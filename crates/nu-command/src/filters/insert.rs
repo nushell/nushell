@@ -145,6 +145,9 @@ fn insert(
     let head = call.head;
     let cell_path: CellPath = call.req(engine_state, stack, 0)?;
     let replacement: Value = call.req(engine_state, stack, 1)?;
+    let input = match input.try_into_stream(engine_state) {
+        Ok(input) | Err(input) => input,
+    };
 
     match input {
         // Propagate errors in the pipeline

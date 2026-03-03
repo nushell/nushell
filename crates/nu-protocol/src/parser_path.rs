@@ -154,4 +154,51 @@ impl ParserPath {
             ),
         }
     }
+
+    /// Normalizes a path to use platform-native separators
+    fn normalize_native(path: &str) -> PathBuf {
+        Path::new(&path)
+            .components()
+            .fold(PathBuf::new(), |mut acc, comp| {
+                acc.push(comp);
+                acc
+            })
+    }
+
+    /// Normalizes a path to always use forward slashes (good for display, configs, cross-platform strings)
+    fn normalize_forward(path: impl AsRef<Path>) -> PathBuf {
+        PathBuf::from(
+            path.as_ref()
+                .to_string_lossy()
+                .replace(std::path::MAIN_SEPARATOR, "/"),
+        )
+    }
+
+    pub fn normalize_slashes_forward(self) -> Self {
+        match self {
+            ParserPath::RealPath(p) => ParserPath::RealPath(Self::normalize_forward(p)),
+            ParserPath::VirtualFile(p, file_id) => {
+                ParserPath::VirtualFile(Self::normalize_forward(p), file_id)
+            }
+            ParserPath::VirtualDir(p, entries) => {
+                ParserPath::VirtualDir(Self::normalize_forward(p), entries)
+            }
+        }
+    }
+
+    pub fn normalize_slashes_native(self) -> Self {
+        match self {
+            ParserPath::RealPath(p) => {
+                ParserPath::RealPath(Self::normalize_native(p.to_string_lossy().as_ref()))
+            }
+            ParserPath::VirtualFile(p, file_id) => ParserPath::VirtualFile(
+                Self::normalize_native(p.to_string_lossy().as_ref()),
+                file_id,
+            ),
+            ParserPath::VirtualDir(p, entries) => ParserPath::VirtualDir(
+                Self::normalize_native(p.to_string_lossy().as_ref()),
+                entries,
+            ),
+        }
+    }
 }

@@ -3365,6 +3365,7 @@ fn suggestion_match_indices(
 }
 
 #[test]
+#[ignore = "run this test only when experimental option native-clip is set"]
 fn clip_subcommands_show_before_and_after_use() {
     // Ensure `clip` subcommands (e.g. `clip copy`) appear in completions both before
     // and after `use std/clip`.

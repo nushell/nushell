@@ -1,3 +1,6 @@
+// all tests in here are marked as serial to give your processor some room to breath while
+// executing these tests
+
 use std::{sync::mpsc, time::Duration};
 
 use nu_test_support::nu_with_plugins;
@@ -11,6 +14,7 @@ fn ensure_stress_env_vars_unset() {
 }
 
 #[test]
+#[serial]
 fn test_stdio() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
@@ -23,6 +27,7 @@ fn test_stdio() {
 }
 
 #[test]
+#[serial]
 fn test_local_socket() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
@@ -42,6 +47,7 @@ fn test_local_socket() {
 }
 
 #[test]
+#[serial]
 fn test_failing_local_socket_fallback() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
@@ -78,6 +84,7 @@ fn test_failing_local_socket_fallback() {
 }
 
 #[test]
+#[serial]
 fn test_exit_before_hello_stdio() {
     ensure_stress_env_vars_unset();
     // This can deadlock if not handled properly, so we try several times and timeout
@@ -102,6 +109,7 @@ fn test_exit_before_hello_stdio() {
 }
 
 #[test]
+#[serial]
 fn test_exit_early_stdio() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
@@ -117,6 +125,7 @@ fn test_exit_early_stdio() {
 }
 
 #[test]
+#[serial]
 fn test_exit_early_local_socket() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
@@ -133,6 +142,7 @@ fn test_exit_early_local_socket() {
 }
 
 #[test]
+#[serial]
 fn test_wrong_version() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(

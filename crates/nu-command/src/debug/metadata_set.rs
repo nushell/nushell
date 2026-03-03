@@ -24,7 +24,7 @@ impl Command for MetadataSet {
             )
             .switch(
                 "datasource-ls",
-                "Assign the DataSource::Ls metadata to the input.",
+                "(DEPRECATED) Assign the DataSource::Ls metadata to the input.",
                 Some('l'),
             )
             .named(
@@ -36,7 +36,7 @@ impl Command for MetadataSet {
             .named(
                 "path-columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "Assign path columns metadata to the input.",
+                "A list of columns in the input for which path metadata will be assigned.",
                 Some('p'),
             )
             .named(
@@ -48,7 +48,7 @@ impl Command for MetadataSet {
             .named(
                 "merge",
                 SyntaxShape::Record(vec![]),
-                "Merge arbitrary metadata fields.",
+                "(DEPRECATED) Merge arbitrary metadata fields.",
                 Some('m'),
             )
             .allow_variants_without_examples(true)
@@ -63,7 +63,7 @@ impl Command for MetadataSet {
                 since: Some("0.111.0".into()),
                 expected_removal: Some("0.112.0".into()),
                 help: Some(
-                    "Use the closure parameter instead: `metadata set { merge {key: value} }`"
+                    "Use the closure parameter instead: `metadata set {|| merge {key: value}}`"
                         .into(),
                 ),
             },
@@ -183,8 +183,8 @@ impl Command for MetadataSet {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set the metadata of a table literal.",
-                example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --datasource-ls",
+                description: "Set the metadata of a table literal so the `name` column is treated as a path.",
+                example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --path-columns [name]",
                 result: None,
             },
             Example {
@@ -193,19 +193,14 @@ impl Command for MetadataSet {
                 result: None,
             },
             Example {
-                description: "Set the path columns metadata.",
-                example: "glob * | wrap path | metadata set --path-columns [path]",
-                result: None,
-            },
-            Example {
                 description: "Set the content type metadata.",
                 example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
                 result: Some(Value::test_string("text/plain")),
             },
             Example {
-                description: "Set custom metadata.",
-                example: r#""data" | metadata set --merge {custom_key: "value"} | metadata | get custom_key"#,
-                result: Some(Value::test_string("value")),
+                description: "Merge custom metadata.",
+                example: r#""data" | metadata set {|| merge {custom_key: "value"}} | metadata | get custom_key"#,
+                result: None,
             },
             Example {
                 description: "Set metadata using a closure.",

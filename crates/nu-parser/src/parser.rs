@@ -2427,13 +2427,21 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
             }
         }
         InterpolationMode::Expression => {
-            if token_start < end {
-                let span = Span::new(token_start, end);
+            let span = Span::new(token_start, end);
 
-                if delimiter_stack.is_empty() {
+            if delimiter_stack.is_empty() {
+                if token_start < end {
                     let expr = parse_full_cell_path(working_set, None, span);
                     output.push(expr);
                 }
+            } else {
+                let expected = delimiter_stack
+                    .last()
+                    .copied()
+                    .map(char::from)
+                    .unwrap_or(')')
+                    .to_string();
+                working_set.error(ParseError::Unclosed(expected, Span::new(end, end)));
             }
         }
     }

@@ -7,6 +7,7 @@ use crate::*;
 
 mod enforce_runtime_annotations;
 mod example;
+mod native_clip;
 mod pipefail;
 mod reorder_cell_paths;
 
@@ -60,6 +61,7 @@ pub(crate) trait ExperimentalOptionMarker {
 // The marker structs are not relevant and needlessly clutter the generated docs.
 pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
 pub use example::EXAMPLE;
+pub use native_clip::NATIVE_CLIP;
 pub use pipefail::PIPE_FAIL;
 pub use reorder_cell_paths::REORDER_CELL_PATHS;
 
@@ -75,6 +77,7 @@ pub static ALL: &[&ExperimentalOption] = &[
     &REORDER_CELL_PATHS,
     &PIPE_FAIL,
     &ENFORCE_RUNTIME_ANNOTATIONS,
+    &NATIVE_CLIP,
 ];
 
 #[cfg(test)]

@@ -1,6 +1,10 @@
+// all tests in here are marked as serial to reduce load while testing
+// this improves the stability of these tests
+
 use nu_test_support::nu;
 
 #[test]
+#[serial]
 fn job_send_root_job_works() {
     let actual = nu!(r#"
         job spawn { 'beep' | job send 0 }
@@ -10,6 +14,7 @@ fn job_send_root_job_works() {
 }
 
 #[test]
+#[serial]
 fn job_send_background_job_works() {
     let actual = nu!(r#"
         let job = job spawn { job recv | job send 0 }
@@ -20,6 +25,7 @@ fn job_send_background_job_works() {
 }
 
 #[test]
+#[serial]
 fn job_send_to_self_works() {
     let actual = nu!(r#"
         "meep" | job send 0
@@ -29,6 +35,7 @@ fn job_send_to_self_works() {
 }
 
 #[test]
+#[serial]
 fn job_send_to_self_from_background_works() {
     let actual = nu!(r#"
         job spawn {
@@ -42,6 +49,7 @@ fn job_send_to_self_from_background_works() {
 }
 
 #[test]
+#[serial]
 fn job_id_of_root_job_is_zero() {
     let actual = nu!(r#"job id"#);
 
@@ -49,6 +57,7 @@ fn job_id_of_root_job_is_zero() {
 }
 
 #[test]
+#[serial]
 fn job_id_of_background_jobs_works() {
     let actual = nu!(r#"
         let job1 = job spawn { job id | job send 0 }
@@ -68,6 +77,7 @@ fn job_id_of_background_jobs_works() {
 }
 
 #[test]
+#[serial]
 fn untagged_job_recv_accepts_tagged_messages() {
     let actual = nu!(r#"
         job spawn { "boop" | job send 0 --tag 123 }
@@ -78,6 +88,7 @@ fn untagged_job_recv_accepts_tagged_messages() {
 }
 
 #[test]
+#[serial]
 fn tagged_job_recv_filters_untagged_messages() {
     let actual = nu!(r#"
         job spawn { "boop" | job send 0 }
@@ -89,6 +100,7 @@ fn tagged_job_recv_filters_untagged_messages() {
 }
 
 #[test]
+#[serial]
 fn tagged_job_recv_filters_badly_tagged_messages() {
     let actual = nu!(r#"
         job spawn { "boop" | job send 0 --tag 321 }
@@ -100,6 +112,7 @@ fn tagged_job_recv_filters_badly_tagged_messages() {
 }
 
 #[test]
+#[serial]
 fn tagged_job_recv_accepts_properly_tagged_messages() {
     let actual = nu!(r#"
         job spawn { "boop" | job send 0 --tag 123 }
@@ -110,6 +123,7 @@ fn tagged_job_recv_accepts_properly_tagged_messages() {
 }
 
 #[test]
+#[serial]
 fn filtered_messages_are_not_erased() {
     let actual = nu!(r#"
         "msg1" | job send 0 --tag 123
@@ -128,6 +142,7 @@ fn filtered_messages_are_not_erased() {
 }
 
 #[test]
+#[serial]
 fn job_recv_timeout_works() {
     let actual = nu!(r#"
         job spawn {
@@ -143,6 +158,7 @@ fn job_recv_timeout_works() {
 }
 
 #[test]
+#[serial]
 fn job_recv_timeout_zero_works() {
     let actual = nu!(r#"
         "hi there" | job send 0
@@ -153,6 +169,7 @@ fn job_recv_timeout_zero_works() {
 }
 
 #[test]
+#[serial]
 fn job_flush_clears_messages() {
     let actual = nu!(r#"
         "SALE!!!" | job send 0
@@ -168,6 +185,7 @@ fn job_flush_clears_messages() {
 }
 
 #[test]
+#[serial]
 fn job_flush_clears_filtered_messages() {
     let actual = nu!(r#"
         "msg1" | job send 0 --tag 123
@@ -186,6 +204,7 @@ fn job_flush_clears_filtered_messages() {
 }
 
 #[test]
+#[serial]
 fn job_flush_with_tag() {
     let actual = nu!(r#"
         "spam" | job send 0 --tag 404
@@ -205,6 +224,7 @@ fn job_flush_with_tag() {
 }
 
 #[test]
+#[serial]
 fn first_job_id_is_one() {
     let actual = nu!(r#"job spawn {} | to nuon"#);
 
@@ -212,6 +232,7 @@ fn first_job_id_is_one() {
 }
 
 #[test]
+#[serial]
 fn job_list_adds_jobs_correctly() {
     let actual = nu!(format!(
         r#"
@@ -234,6 +255,7 @@ fn job_list_adds_jobs_correctly() {
 }
 
 #[test]
+#[serial]
 fn jobs_get_removed_from_list_after_termination() {
     let actual = nu!(format!(
         r#"
@@ -258,6 +280,7 @@ fn jobs_get_removed_from_list_after_termination() {
 // TODO: find way to communicate between process in windows
 // so these tests can fail less often
 #[test]
+#[serial] // seems to fail less often with this
 fn job_list_shows_pids() {
     let actual = nu!(format!(
         r#"
@@ -275,6 +298,7 @@ fn job_list_shows_pids() {
 }
 
 #[test]
+#[serial]
 fn killing_job_removes_it_from_table() {
     let actual = nu!(format!(
         r#"
@@ -307,7 +331,7 @@ fn killing_job_removes_it_from_table() {
 // this test is unreliable on the macOS CI, but it worked fine for a couple months.
 // still works on other operating systems.
 #[test]
-#[cfg(not(target_os = "macos"))]
+#[serial]
 fn killing_job_kills_pids() {
     let actual = nu!(format!(
         r#"
@@ -334,6 +358,7 @@ fn killing_job_kills_pids() {
 }
 
 #[test]
+#[serial]
 fn exiting_nushell_kills_jobs() {
     let actual = nu!(r#"
             let result = nu -c "let job = job spawn { nu -c 'sleep 1sec' };
@@ -352,6 +377,7 @@ fn exiting_nushell_kills_jobs() {
 
 #[cfg(unix)]
 #[test]
+#[serial]
 fn jobs_get_group_id_right() {
     let actual = nu!(r#"
             let job1 = job spawn { nu -c "sleep 0.5sec" | nu -c "sleep 0.5sec"; }
@@ -376,6 +402,7 @@ fn jobs_get_group_id_right() {
 }
 
 #[test]
+#[serial]
 fn job_extern_output_is_silent() {
     let actual = nu!(r#" job spawn { nu -c "'hi'" }; sleep 1sec"#);
     assert_eq!(actual.out, "");
@@ -383,6 +410,7 @@ fn job_extern_output_is_silent() {
 }
 
 #[test]
+#[serial]
 fn job_print_is_not_silent() {
     let actual = nu!(r#" job spawn { print "hi" }; sleep 1sec"#);
     assert_eq!(actual.out, "hi");
@@ -390,6 +418,7 @@ fn job_print_is_not_silent() {
 }
 
 #[test]
+#[serial]
 fn job_extern_into_value_is_not_silent() {
     let actual = nu!(r#" job spawn { print (nu -c "'hi'") }; sleep 1sec"#);
     assert_eq!(actual.out, "hi");
@@ -397,6 +426,7 @@ fn job_extern_into_value_is_not_silent() {
 }
 
 #[test]
+#[serial]
 fn job_extern_into_pipe_is_not_silent() {
     let actual = nu!(r#"
         job spawn {
@@ -409,6 +439,7 @@ fn job_extern_into_pipe_is_not_silent() {
 }
 
 #[test]
+#[serial]
 fn job_list_returns_no_tag_when_job_is_untagged() {
     let actual = nu!(r#"
         job spawn { sleep 10sec }
@@ -422,6 +453,7 @@ fn job_list_returns_no_tag_when_job_is_untagged() {
 }
 
 #[test]
+#[serial]
 fn job_list_returns_tag_when_job_is_spawned_with_tag() {
     let actual = nu!(r#"
         job spawn { sleep 10sec } --tag abc
@@ -433,6 +465,7 @@ fn job_list_returns_tag_when_job_is_spawned_with_tag() {
 }
 
 #[test]
+#[serial]
 fn job_tag_modifies_untagged_job_tag() {
     let actual = nu!(r#"
         job spawn { sleep 10sec }
@@ -446,6 +479,7 @@ fn job_tag_modifies_untagged_job_tag() {
 }
 
 #[test]
+#[serial]
 fn job_tag_modifies_tagged_job_tag() {
     let actual = nu!(r#"
         job spawn { sleep 10sec } --tag abc

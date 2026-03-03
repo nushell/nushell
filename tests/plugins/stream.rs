@@ -193,6 +193,7 @@ fn generate_sequence() {
 }
 
 #[rstest]
+#[serial]
 #[timeout(std::time::Duration::from_secs(6))]
 fn echo_interactivity_on_slow_pipelines() {
     // This test works by putting 0 on the upstream immediately, followed by 1 after 10 seconds.

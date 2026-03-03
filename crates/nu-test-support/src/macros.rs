@@ -1,3 +1,5 @@
+use kitest::println;
+
 /// Run a command in nu and get its output
 ///
 /// The `nu!` macro accepts a number of options like the `cwd` in which the

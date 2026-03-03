@@ -12,3 +12,10 @@ pub use nu_style::*;
 pub use shape_color::*;
 pub use style_computer::*;
 pub use text_style::*;
+
+#[cfg(test)]
+#[macro_use]
+extern crate nu_test_support;
+
+#[cfg(test)]
+use nu_test_support::harness::main;

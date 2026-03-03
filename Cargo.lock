@@ -188,11 +188,11 @@ dependencies = [
  "clipboard-win",
  "image",
  "log",
- "objc2 0.6.3",
+ "objc2",
  "objc2-app-kit",
  "objc2-core-foundation",
  "objc2-core-graphics",
- "objc2-foundation 0.3.2",
+ "objc2-foundation",
  "parking_lot",
  "percent-encoding",
  "windows-sys 0.60.2",
@@ -846,20 +846,11 @@ dependencies = [
 
 [[package]]
 name = "block2"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c132eebf10f5cad5289222520a4a058514204aed6d791f1cf4fe8088b82d15f"
-dependencies = [
- "objc2 0.5.2",
-]
-
-[[package]]
-name = "block2"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdeb9d870516001442e364c5220d3574d2da8dc765554b4a617230d33fa58ef5"
 dependencies = [
- "objc2 0.6.3",
+ "objc2",
 ]
 
 [[package]]
@@ -1829,9 +1820,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "89a09f22a6c6069a18470eb92d2298acf25463f14256d24778e1230d789a2aec"
 dependencies = [
  "bitflags 2.10.0",
- "block2 0.6.2",
+ "block2",
  "libc",
- "objc2 0.6.3",
+ "objc2",
 ]
 
 [[package]]
@@ -2031,16 +2022,6 @@ name = "env_home"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7f84e12ccf0a7ddc17a6c41c93326024c42920d7ee630d04950e6926645c0fe"
-
-[[package]]
-name = "env_logger"
-version = "0.8.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a19187fea3ac7e84da7dacf48de0c45d63c6a76f9490dae389aead16c243fce3"
-dependencies = [
- "log",
- "regex",
-]
 
 [[package]]
 name = "env_logger"
@@ -3391,6 +3372,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kitest"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "028d36816392bd513e37226f82e272edab81095e586133ed4d58d5dd9357eb3d"
+dependencies = [
+ "crossbeam-channel",
+]
+
+[[package]]
 name = "kqueue"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3580,6 +3570,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0717cef1bc8b636c6e1c1bbdefc09e6322da8a9321966e8928ef80d20f7f770f"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "linkme"
+version = "0.3.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e3283ed2d0e50c06dd8602e0ab319bb048b6325d0bba739db64ed8205179898"
+dependencies = [
+ "linkme-impl",
+]
+
+[[package]]
+name = "linkme-impl"
+version = "0.3.35"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5cec0ec4228b4853bb129c84dbf093a27e6c7a20526da046defc334a1b017f7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
 ]
 
 [[package]]
@@ -4025,7 +4035,7 @@ dependencies = [
 
 [[package]]
 name = "nu"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "assert_cmd",
  "crossterm 0.29.0",
@@ -4063,7 +4073,6 @@ dependencies = [
  "reedline",
  "rstest",
  "serde_json",
- "serial_test",
  "simplelog",
  "tango-bench",
  "tempfile",
@@ -4082,7 +4091,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cli"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "chrono",
  "crossterm 0.29.0",
@@ -4120,7 +4129,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-base"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "indexmap",
  "miette",
@@ -4132,7 +4141,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-extra"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "fancy-regex",
  "heck",
@@ -4159,7 +4168,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-lang"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "itertools 0.14.0",
  "miette",
@@ -4176,7 +4185,7 @@ dependencies = [
 
 [[package]]
 name = "nu-cmd-plugin"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "itertools 0.14.0",
  "nu-engine",
@@ -4187,7 +4196,7 @@ dependencies = [
 
 [[package]]
 name = "nu-color-config"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-ansi-term",
  "nu-engine",
@@ -4199,7 +4208,7 @@ dependencies = [
 
 [[package]]
 name = "nu-command"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "alphanumeric-sort",
  "arboard",
@@ -4322,7 +4331,7 @@ dependencies = [
 
 [[package]]
 name = "nu-derive-value"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "heck",
  "proc-macro-error2",
@@ -4333,7 +4342,7 @@ dependencies = [
 
 [[package]]
 name = "nu-engine"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "fancy-regex",
  "log",
@@ -4346,7 +4355,7 @@ dependencies = [
 
 [[package]]
 name = "nu-experimental"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "itertools 0.14.0",
  "thiserror 2.0.18",
@@ -4354,7 +4363,7 @@ dependencies = [
 
 [[package]]
 name = "nu-explore"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "ansi-str",
  "anyhow",
@@ -4383,14 +4392,14 @@ dependencies = [
 
 [[package]]
 name = "nu-glob"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "doc-comment",
 ]
 
 [[package]]
 name = "nu-json"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "fancy-regex",
  "linked-hash-map",
@@ -4406,7 +4415,7 @@ dependencies = [
 
 [[package]]
 name = "nu-lsp"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "assert-json-diff",
  "crossbeam-channel",
@@ -4435,7 +4444,7 @@ dependencies = [
 
 [[package]]
 name = "nu-mcp"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "bytes",
  "chrono",
@@ -4461,7 +4470,7 @@ dependencies = [
 
 [[package]]
 name = "nu-parser"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "bytesize",
  "chrono",
@@ -4478,7 +4487,7 @@ dependencies = [
 
 [[package]]
 name = "nu-path"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "dirs",
  "omnipath",
@@ -4488,7 +4497,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "log",
  "nix",
@@ -4504,7 +4513,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-core"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "interprocess",
  "log",
@@ -4518,7 +4527,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-engine"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "log",
  "nu-engine",
@@ -4534,7 +4543,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-protocol"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-protocol",
  "nu-utils",
@@ -4546,7 +4555,7 @@ dependencies = [
 
 [[package]]
 name = "nu-plugin-test-support"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-ansi-term",
  "nu-cmd-lang",
@@ -4564,7 +4573,7 @@ dependencies = [
 
 [[package]]
 name = "nu-pretty-hex"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "heapless",
  "nu-ansi-term",
@@ -4573,7 +4582,7 @@ dependencies = [
 
 [[package]]
 name = "nu-protocol"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "brotli",
  "bytes",
@@ -4615,7 +4624,7 @@ dependencies = [
 
 [[package]]
 name = "nu-std"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "log",
  "miette",
@@ -4626,7 +4635,7 @@ dependencies = [
 
 [[package]]
 name = "nu-system"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "chrono",
  "itertools 0.14.0",
@@ -4645,7 +4654,7 @@ dependencies = [
 
 [[package]]
 name = "nu-table"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "fancy-regex",
  "nu-ansi-term",
@@ -4658,7 +4667,7 @@ dependencies = [
 
 [[package]]
 name = "nu-term-grid"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-utils",
  "unicode-width 0.2.2",
@@ -4666,10 +4675,17 @@ dependencies = [
 
 [[package]]
 name = "nu-test-support"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
+ "itertools 0.14.0",
+ "kitest",
+ "lexopt",
+ "linkme",
+ "nu-ansi-term",
+ "nu-experimental",
  "nu-glob",
  "nu-path",
+ "nu-test-support-macros",
  "nu-utils",
  "num-format",
  "tempfile",
@@ -4677,8 +4693,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-test-support-macros"
+version = "0.111.1"
+dependencies = [
+ "heck",
+ "nu-experimental",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "nu-utils"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "byteyarn",
  "crossterm 0.29.0",
@@ -4710,7 +4738,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_example"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-cmd-lang",
  "nu-plugin",
@@ -4720,7 +4748,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_formats"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "chrono",
  "eml-parser",
@@ -4735,7 +4763,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_gstat"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "git2",
  "nu-plugin",
@@ -4744,7 +4772,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_inc"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "nu-plugin",
  "nu-protocol",
@@ -4753,13 +4781,13 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_polars"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "aws-config",
  "aws-credential-types",
  "chrono",
  "chrono-tz",
- "env_logger 0.11.8",
+ "env_logger",
  "fancy-regex",
  "hashbrown 0.16.1",
  "indexmap",
@@ -4795,7 +4823,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_query"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "gjson",
  "nu-plugin",
@@ -4810,7 +4838,7 @@ dependencies = [
 
 [[package]]
 name = "nu_plugin_stress_internals"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "interprocess",
  "serde",
@@ -4939,29 +4967,13 @@ dependencies = [
 
 [[package]]
 name = "nuon"
-version = "0.110.1"
+version = "0.111.1"
 dependencies = [
  "chrono",
  "nu-engine",
  "nu-parser",
  "nu-protocol",
  "nu-utils",
-]
-
-[[package]]
-name = "objc-sys"
-version = "0.3.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdb91bdd390c7ce1a8607f35f3ca7151b65afc0ff5ff3b34fa350f7d7c7e4310"
-
-[[package]]
-name = "objc2"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46a785d4eeff09c14c487497c162e92766fbb3e4059a71840cecc03d9a50b804"
-dependencies = [
- "objc-sys",
- "objc2-encode",
 ]
 
 [[package]]
@@ -4980,9 +4992,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
 dependencies = [
  "bitflags 2.10.0",
- "objc2 0.6.3",
+ "objc2",
  "objc2-core-graphics",
- "objc2-foundation 0.3.2",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -4993,7 +5005,7 @@ checksum = "2a180dd8642fa45cdb7dd721cd4c11b1cadd4929ce112ebd8b9f5803cc79d536"
 dependencies = [
  "bitflags 2.10.0",
  "dispatch2",
- "objc2 0.6.3",
+ "objc2",
 ]
 
 [[package]]
@@ -5004,7 +5016,7 @@ checksum = "e022c9d066895efa1345f8e33e584b9f958da2fd4cd116792e15e07e4720a807"
 dependencies = [
  "bitflags 2.10.0",
  "dispatch2",
- "objc2 0.6.3",
+ "objc2",
  "objc2-core-foundation",
  "objc2-io-surface",
 ]
@@ -5017,24 +5029,12 @@ checksum = "ef25abbcd74fb2609453eb695bd2f860d389e457f67dc17cafc8b8cbc89d0c33"
 
 [[package]]
 name = "objc2-foundation"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0ee638a5da3799329310ad4cfa62fbf045d5f56e3ef5ba4149e7452dcf89d5a8"
-dependencies = [
- "bitflags 2.10.0",
- "block2 0.5.1",
- "libc",
- "objc2 0.5.2",
-]
-
-[[package]]
-name = "objc2-foundation"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3e0adef53c21f888deb4fa59fc59f7eb17404926ee8a6f59f5df0fd7f9f3272"
 dependencies = [
  "bitflags 2.10.0",
- "objc2 0.6.3",
+ "objc2",
  "objc2-core-foundation",
 ]
 
@@ -5055,7 +5055,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "180788110936d59bab6bd83b6060ffdfffb3b922ba1396b312ae795e1de9d81d"
 dependencies = [
  "bitflags 2.10.0",
- "objc2 0.6.3",
+ "objc2",
  "objc2-core-foundation",
 ]
 
@@ -6369,13 +6369,13 @@ dependencies = [
 
 [[package]]
 name = "quickcheck"
-version = "1.0.3"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "588f6378e4dd99458b60ec275b4477add41ce4fa9f64dcba6f15adccb19b50d6"
+checksum = "95c589f335db0f6aaa168a7cd27b1fc6920f5e1470c804f814d9cd6e62a0f70b"
 dependencies = [
- "env_logger 0.8.4",
+ "env_logger",
  "log",
- "rand 0.8.5",
+ "rand 0.10.0",
 ]
 
 [[package]]
@@ -6700,8 +6700,9 @@ dependencies = [
 
 [[package]]
 name = "reedline"
-version = "0.45.0"
-source = "git+https://github.com/nushell/reedline?branch=main#cefb611285fe1f75f0bc631ed287c987de73c5e7"
+version = "0.46.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe9e7c532bfc2759bc8a28902c04e8b993fc13ebd085ee4292eb1b230fa9beef"
 dependencies = [
  "arboard",
  "chrono",
@@ -7169,15 +7170,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "scc"
-version = "2.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46e6f046b7fef48e2660c57ed794263155d713de679057f2d0c169bfc6e756cc"
-dependencies = [
- "sdd",
-]
-
-[[package]]
 name = "schannel"
 version = "0.1.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7251,12 +7243,6 @@ dependencies = [
  "quote",
  "syn 2.0.114",
 ]
-
-[[package]]
-name = "sdd"
-version = "3.0.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "490dcfcbfef26be6800d11870ff2df8774fa6e86d047e3e8c8a76b25655e41ca"
 
 [[package]]
 name = "security-framework"
@@ -7443,32 +7429,6 @@ dependencies = [
  "ryu",
  "serde",
  "unsafe-libyaml",
-]
-
-[[package]]
-name = "serial_test"
-version = "3.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d0b343e184fc3b7bb44dff0705fffcf4b3756ba6aff420dddd8b24ca145e555"
-dependencies = [
- "futures-executor",
- "futures-util",
- "log",
- "once_cell",
- "parking_lot",
- "scc",
- "serial_test_derive",
-]
-
-[[package]]
-name = "serial_test_derive"
-version = "3.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f50427f258fb77356e4cd4aa0e87e2bd2c66dbcee41dc405282cae2bfc26c83"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]
@@ -8429,15 +8389,15 @@ dependencies = [
 
 [[package]]
 name = "trash"
-version = "5.2.1"
+version = "5.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8e5ca62c20366b4685e3e41fba17bc7c9bbdcb82e65a89d6fda2ceea5fffd2f"
+checksum = "0102cfb632fbe1adefa067036d4f383045091ae8d4fc4c2c14d3c0f92d878972"
 dependencies = [
  "chrono",
  "libc",
  "log",
- "objc2 0.5.2",
- "objc2-foundation 0.2.2",
+ "objc2",
+ "objc2-foundation",
  "once_cell",
  "percent-encoding",
  "scopeguard",
