@@ -67,6 +67,11 @@ impl Command for LoadEnv {
         for (env_var, rhs) in record {
             stack.add_env_var(env_var, rhs);
         }
+
+        if stack.has_env_var(engine_state, nu_experimental::ENV) {
+            nu_engine::sync_experimental_options_from_env(engine_state, stack, call.head)?;
+        }
+
         Ok(PipelineData::empty())
     }
 

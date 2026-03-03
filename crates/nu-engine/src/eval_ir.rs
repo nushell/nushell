@@ -21,6 +21,7 @@ use nu_utils::IgnoreCaseExt;
 
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
+    sync_experimental_options_from_env,
 };
 
 pub fn eval_ir_block<D: DebugContext>(
@@ -450,6 +451,7 @@ fn eval_instruction<D: DebugContext>(
             if !is_automatic_env_var(&key) {
                 let is_config = key == "config";
                 let update_conversions = key == ENV_CONVERSIONS;
+                let update_experimental_options = key == nu_experimental::ENV;
 
                 ctx.stack.add_env_var(key.into_owned(), value.clone());
 
@@ -458,6 +460,9 @@ fn eval_instruction<D: DebugContext>(
                 }
                 if update_conversions {
                     convert_env_vars(ctx.stack, ctx.engine_state, &value)?;
+                }
+                if update_experimental_options {
+                    sync_experimental_options_from_env(ctx.engine_state, ctx.stack, *span)?;
                 }
                 Ok(Continue)
             } else {

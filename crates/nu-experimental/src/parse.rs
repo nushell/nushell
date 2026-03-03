@@ -1,12 +1,14 @@
 use crate::{ALL, ExperimentalOption, Status};
 use itertools::Itertools;
-use std::{borrow::Cow, env, ops::Range, sync::atomic::Ordering};
+use std::{borrow::Cow, env, ops::Range, sync::OnceLock, sync::atomic::Ordering};
 use thiserror::Error;
 
 /// Environment variable used to load experimental options from.
 ///
 /// May be used like this: `NU_EXPERIMENTAL_OPTIONS=example nu`.
 pub const ENV: &str = "NU_EXPERIMENTAL_OPTIONS";
+
+static STARTUP_BASELINE: OnceLock<Vec<bool>> = OnceLock::new();
 
 /// Warnings that can happen while parsing experimental options.
 #[derive(Debug, Clone, Error, Eq, PartialEq)]
@@ -61,8 +63,7 @@ pub fn parse_iter<'i, Ctx: Clone>(
                     continue;
                 }
             };
-            // SAFETY: This is part of the expected parse function to be called at initialization.
-            unsafe { super::set_all(val) };
+            super::set_all(val);
             continue;
         }
 
@@ -113,15 +114,15 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
         return vec![];
     };
 
-    let mut entries = Vec::new();
-    let mut start = 0;
-    for (idx, c) in env.char_indices() {
-        if c == ',' {
-            entries.push((&env[start..idx], start..idx));
-            start = idx + 1;
-        }
-    }
-    entries.push((&env[start..], start..env.len()));
+    parse_value(&env)
+}
+
+/// Parse experimental options from a single string value.
+///
+/// Uses [`parse_iter`] internally. Each warning includes a `Range<usize>` pointing to the
+/// substring that triggered it.
+pub fn parse_value(value: &str) -> Vec<(ParseWarning, Range<usize>)> {
+    let entries = split_entries(value);
 
     parse_iter(entries.into_iter().map(|(entry, span)| {
         entry
@@ -129,6 +130,45 @@ pub fn parse_env() -> Vec<(ParseWarning, Range<usize>)> {
             .map(|(key, val)| (key.into(), Some(val.into()), span.clone()))
             .unwrap_or((entry.into(), None, span))
     }))
+}
+
+/// Apply a runtime value as a full replacement.
+///
+/// This resets all options to default state before parsing the new value, so unspecified options go back to defaults.
+pub fn apply_runtime_value(value: &str) -> Vec<(ParseWarning, Range<usize>)> {
+    crate::reset_all();
+    parse_value(value)
+}
+
+/// Save the current option states as startup baseline.
+///
+/// This should be called once after startup options (env + cli) are fully applied.
+pub fn snapshot_startup_baseline() {
+    let _ = STARTUP_BASELINE.set(crate::snapshot_values());
+}
+
+/// Restore the startup baseline if available, else restore defaults.
+pub fn restore_startup_baseline() {
+    if let Some(values) = STARTUP_BASELINE.get() {
+        crate::restore_values(values);
+    } else {
+        crate::reset_all();
+    }
+}
+
+fn split_entries(value: &str) -> Vec<(&str, Range<usize>)> {
+    let mut entries = Vec::new();
+
+    let mut start = 0;
+    for (idx, c) in value.char_indices() {
+        if c == ',' {
+            entries.push((&value[start..idx], start..idx));
+            start = idx + 1;
+        }
+    }
+    entries.push((&value[start..], start..value.len()));
+
+    entries
 }
 
 impl ParseWarning {

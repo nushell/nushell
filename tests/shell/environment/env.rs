@@ -201,6 +201,30 @@ fn env_conversion_on_assignment() {
 }
 
 #[test]
+fn experimental_options_can_be_set_with_env_assignment() {
+    let actual = nu!("$env.NU_EXPERIMENTAL_OPTIONS = [native-clip]; clip");
+
+    assert!(actual.out.contains("clip copy"));
+}
+
+#[test]
+fn experimental_options_can_be_set_with_load_env() {
+    let actual = nu!("load-env { NU_EXPERIMENTAL_OPTIONS: [native-clip] }; clip paste --help");
+
+    assert!(actual.out.contains("clip paste"));
+}
+
+#[test]
+fn hiding_experimental_options_restores_startup_state() {
+    let actual = nu!(
+        envs: vec![("NU_EXPERIMENTAL_OPTIONS".to_string(), "native-clip".to_string())],
+        "$env.NU_EXPERIMENTAL_OPTIONS = [native-clip=false]; hide-env NU_EXPERIMENTAL_OPTIONS; clip"
+    );
+
+    assert!(actual.out.contains("clip copy"));
+}
+
+#[test]
 fn std_log_env_vars_are_not_overridden() {
     let actual = nu_with_std!(
         envs: vec![

@@ -13,6 +13,72 @@ use std::{
 
 pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
 
+pub fn sync_experimental_options_from_env(
+    engine_state: &EngineState,
+    stack: &Stack,
+    span: Span,
+) -> Result<(), ShellError> {
+    let Some(value) = stack.get_env_var(engine_state, nu_experimental::ENV) else {
+        nu_experimental::restore_startup_baseline();
+        return Ok(());
+    };
+
+    let env_value = match value {
+        Value::String { val, .. } => val.clone(),
+        Value::List { vals, .. } => {
+            let mut entries = Vec::with_capacity(vals.len());
+            for value in vals {
+                let Value::String { val, .. } = value else {
+                    return Err(ShellError::GenericError {
+                        error: format!("Invalid {} value", nu_experimental::ENV),
+                        msg: format!("{} list entries must be strings", nu_experimental::ENV),
+                        span: Some(value.span()),
+                        help: None,
+                        inner: vec![],
+                    });
+                };
+                entries.push(val.clone());
+            }
+            entries.join(",")
+        }
+        Value::Nothing { .. } => {
+            nu_experimental::restore_startup_baseline();
+            return Ok(());
+        }
+        value => {
+            return Err(ShellError::GenericError {
+                error: format!("Invalid {} value", nu_experimental::ENV),
+                msg: format!(
+                    "{} must be a string or list of strings",
+                    nu_experimental::ENV
+                ),
+                span: Some(value.span()),
+                help: None,
+                inner: vec![],
+            });
+        }
+    };
+
+    let warnings = nu_experimental::apply_runtime_value(&env_value);
+    if warnings.is_empty() {
+        return Ok(());
+    }
+
+    let warning = warnings
+        .into_iter()
+        .map(|(warning, _)| warning.to_string())
+        .collect::<Vec<_>>()
+        .join("; ");
+
+    Err(ShellError::GenericError {
+        error: format!("Failed to parse {}", nu_experimental::ENV),
+        msg: warning,
+        span: Some(span),
+        help: None,
+        inner: vec![],
+    })
+}
+
 enum ConversionError {
     ShellError(ShellError),
     CellPathError,

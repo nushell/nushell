@@ -71,6 +71,8 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
             None => report_experimental_option_warning(None, &working_set, &diagnostic),
         }
     }
+
+    nu_experimental::snapshot_startup_baseline();
 }
 
 fn should_disable_experimental_options(has_script: bool, cli_args: &NushellCliArgs) -> bool {

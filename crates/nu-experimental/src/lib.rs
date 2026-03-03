@@ -41,6 +41,9 @@
 //! nu --experimental-options=[example]
 //! ```
 //!
+//! At runtime, setting `$env.NU_EXPERIMENTAL_OPTIONS` also updates active options.
+//! If the variable is removed, options are restored to their startup baseline.
+//!
 //! # For Embedders
 //!
 //! If you're embedding Nushell, prefer using [`parse_env`] or [`parse_iter`] to load options.
@@ -219,19 +222,36 @@ impl Hash for ExperimentalOption {
 
 /// Sets the state of all experimental option that aren't deprecated.
 ///
-/// # Safety
-/// This method is unsafe to emphasize that experimental options are not designed to change
+/// Experimental options are not designed to change
 /// dynamically at runtime.
 /// Changing their state at arbitrary points can lead to inconsistent behavior.
 /// You should set experimental options only during initialization, before the application fully
 /// starts.
-pub unsafe fn set_all(value: bool) {
+pub fn set_all(value: bool) {
     for option in ALL {
         match option.status() {
-            // SAFETY: The safety bounds for `ExperimentalOption.set` are the same as this function.
-            Status::OptIn | Status::OptOut => unsafe { option.set(value) },
+            Status::OptIn | Status::OptOut => option.value.store(value, Ordering::Relaxed),
             Status::DeprecatedDefault | Status::DeprecatedDiscard => {}
         }
+    }
+}
+
+/// Resets all experimental options to their default state.
+pub fn reset_all() {
+    for option in ALL {
+        option.value.store(None, Ordering::Relaxed);
+    }
+}
+
+/// Returns a snapshot of all effective experimental option values.
+pub fn snapshot_values() -> Vec<bool> {
+    ALL.iter().map(|option| option.get()).collect()
+}
+
+/// Sets all experimental options from a value snapshot.
+pub fn restore_values(values: &[bool]) {
+    for (option, value) in ALL.iter().zip(values.iter().copied()) {
+        option.value.store(value, Ordering::Relaxed);
     }
 }
 

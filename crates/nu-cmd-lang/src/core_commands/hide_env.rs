@@ -59,6 +59,10 @@ impl Command for HideEnv {
                     });
                 }
             }
+
+            if name.item.eq_ignore_ascii_case(nu_experimental::ENV) {
+                nu_engine::sync_experimental_options_from_env(engine_state, stack, name.span)?;
+            }
         }
 
         Ok(PipelineData::empty())

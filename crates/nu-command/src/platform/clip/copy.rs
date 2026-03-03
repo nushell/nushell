@@ -2,6 +2,8 @@ use super::clipboard::provider::{Clipboard, create_clipboard};
 use crate::viewers::render_value_as_plain_table_text;
 use nu_engine::command_prelude::*;
 
+use super::ensure_native_clip_enabled;
+
 #[derive(Clone)]
 pub struct ClipCopy;
 
@@ -45,6 +47,8 @@ impl Command for ClipCopy {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        ensure_native_clip_enabled(call.head)?;
+
         let value = input.into_value(call.head)?;
         let config = stack.get_config(engine_state);
 

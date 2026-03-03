@@ -5,6 +5,8 @@ use crate::{
 use nu_engine::command_prelude::*;
 use nu_protocol::Config;
 
+use super::ensure_native_clip_enabled;
+
 #[derive(Clone)]
 pub struct ClipPaste;
 
@@ -36,6 +38,8 @@ impl Command for ClipPaste {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        ensure_native_clip_enabled(call.head)?;
+
         let config = stack.get_config(engine_state);
         let text = create_clipboard(&config, engine_state, stack).get_text()?;
         if text.trim().is_empty() {

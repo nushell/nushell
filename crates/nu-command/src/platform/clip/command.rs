@@ -1,5 +1,7 @@
 use nu_engine::{command_prelude::*, get_full_help};
 
+use super::ensure_native_clip_enabled;
+
 #[derive(Clone)]
 pub struct ClipCommand;
 
@@ -29,6 +31,7 @@ impl Command for ClipCommand {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        ensure_native_clip_enabled(call.head)?;
         Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
     }
 }
