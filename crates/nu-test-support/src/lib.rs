@@ -10,7 +10,7 @@ pub mod macros;
 pub mod playground;
 
 pub mod builder;
-pub use builder::{test, Result, TestError as Error, TestResultExt};
+pub use builder::{Result, TestError as Error, TestResultExt, test};
 
 // Expose macros to be used for the test harness.
 pub use harness::macros::*;

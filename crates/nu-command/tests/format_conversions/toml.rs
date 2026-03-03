@@ -1,5 +1,5 @@
 use nu_protocol::ParseError;
-use nu_test_support::{test, Result, TestResultExt};
+use nu_test_support::{Result, TestResultExt, test};
 
 #[test]
 fn record_map_to_toml() -> Result {

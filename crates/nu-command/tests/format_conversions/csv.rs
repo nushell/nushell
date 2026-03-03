@@ -1,8 +1,7 @@
 use nu_protocol::{ParseError, ShellError, Value};
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::playground::Playground;
-use nu_test_support::{Result, test};
-use nu_test_support::{TestResultExt};
+use nu_test_support::{
+    Result, TestResultExt, fs::Stub::FileWithContentToBeTrimmed, playground::Playground, test,
+};
 
 #[test]
 fn table_to_csv_text_and_from_csv_text_back_into_table() -> Result {
@@ -36,7 +35,10 @@ fn table_to_csv_text() -> Result {
         "#;
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia");
+        assert_eq!(
+            outcome,
+            "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"
+        );
         Ok(())
     })
 }
@@ -63,7 +65,10 @@ fn table_to_csv_text_skipping_headers_after_conversion() -> Result {
         "#;
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia\n");
+        assert_eq!(
+            outcome,
+            "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia\n"
+        );
         Ok(())
     })
 }
@@ -363,12 +368,14 @@ fn from_csv_text_with_wrong_type_separator() -> Result {
 
         let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
         match outcome {
-            ShellError::CantConvert { to_type, from_type, ..} => {
+            ShellError::CantConvert {
+                to_type, from_type, ..
+            } => {
                 assert_eq!(from_type, "int");
                 assert_eq!(to_type, "string");
                 Ok(())
-            },
-            err => Err(err.into())
+            }
+            err => Err(err.into()),
         }
     })
 }
@@ -393,7 +400,7 @@ fn list_not_table_parse_time_error() -> Result {
     "#;
 
     let outcome = test().run(code).expect_parse_error()?;
-    assert!(matches!(outcome, ParseError::InputMismatch {..}));
+    assert!(matches!(outcome, ParseError::InputMismatch { .. }));
     Ok(())
 }
 
@@ -405,7 +412,10 @@ fn list_not_table_runtime_error() -> Result {
     "#;
 
     let outcome = test().run(code).expect_shell_error()?;
-    assert!(matches!(outcome, ShellError::OnlySupportsThisInputType {..}));
+    assert!(matches!(
+        outcome,
+        ShellError::OnlySupportsThisInputType { .. }
+    ));
     Ok(())
 }
 
