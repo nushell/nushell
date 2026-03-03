@@ -868,11 +868,7 @@ mod tests {
     #[test]
     fn test_show_data_positions_window_on_matched_row() {
         // Create a table with 3 columns and 3 data rows
-        let columns = vec![
-            "name".to_string(),
-            "size".to_string(),
-            "type".to_string(),
-        ];
+        let columns = vec!["name".to_string(), "size".to_string(), "type".to_string()];
         let records = vec![
             vec![
                 Value::string("file_a", Span::test_data()),
