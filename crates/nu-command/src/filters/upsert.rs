@@ -353,7 +353,7 @@ fn upsert_single_value_by_closure(
 ) -> Result<(), ShellError> {
     let value_at_path = value.follow_cell_path(cell_path);
 
-    // FIXME: this leads to inconsistent behavior between
+    // FIXME: this leads to inconsistent behaviors between
     // `{a: b} | upsert a {|x| print $x}` and
     // `[{a: b}] | upsert 0.a {|x| print $x}`
     let arg = if cell_value_as_arg {

@@ -297,7 +297,7 @@ fn update_single_value_by_closure(
         return Ok(());
     }
 
-    // FIXME: this leads to inconsistent behavior between
+    // FIXME: this leads to inconsistent behaviors between
     // `{a: b} | update a {|x| print $x}` and
     // `[{a: b}] | update 0.a {|x| print $x}`
     let arg = if cell_value_as_arg {
