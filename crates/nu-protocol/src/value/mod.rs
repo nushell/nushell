@@ -1631,39 +1631,48 @@ impl Value {
                     ..
                 } => match self {
                     Value::List { vals, .. } => {
-                        for val in vals.iter_mut() {
-                            let v_span = val.span();
-                            match val {
-                                Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
-                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
-                                        if path.is_empty() {
-                                            return Err(ShellError::ColumnAlreadyExists {
-                                                col_name: col_name.clone(),
-                                                span: *span,
-                                                src_span: v_span,
-                                            });
+                        if let Some(new_cell_path) = Self::try_put_int_path_member_on_top(cell_path)
+                        {
+                            self.upsert_data_at_cell_path(&new_cell_path, new_val.clone())?;
+                        } else {
+                            for val in vals.iter_mut() {
+                                let v_span = val.span();
+                                match val {
+                                    Value::Record { val: record, .. } => {
+                                        let record = record.to_mut();
+                                        if let Some(val) =
+                                            record.cased_mut(*casing).get_mut(col_name)
+                                        {
+                                            if path.is_empty() {
+                                                return Err(ShellError::ColumnAlreadyExists {
+                                                    col_name: col_name.clone(),
+                                                    span: *span,
+                                                    src_span: v_span,
+                                                });
+                                            } else {
+                                                val.insert_data_at_cell_path(
+                                                    path,
+                                                    new_val.clone(),
+                                                    head_span,
+                                                )?;
+                                            }
                                         } else {
-                                            val.insert_data_at_cell_path(
+                                            let new_col = Value::with_data_at_cell_path(
                                                 path,
                                                 new_val.clone(),
-                                                head_span,
                                             )?;
+                                            record.push(col_name, new_col);
                                         }
-                                    } else {
-                                        let new_col =
-                                            Value::with_data_at_cell_path(path, new_val.clone())?;
-                                        record.push(col_name, new_col);
                                     }
-                                }
-                                Value::Error { error, .. } => return Err(*error.clone()),
-                                _ => {
-                                    return Err(ShellError::UnsupportedInput {
-                                        msg: "expected table or record".into(),
-                                        input: format!("input type: {:?}", val.get_type()),
-                                        msg_span: head_span,
-                                        input_span: *span,
-                                    });
+                                    Value::Error { error, .. } => return Err(*error.clone()),
+                                    _ => {
+                                        return Err(ShellError::UnsupportedInput {
+                                            msg: "expected table or record".into(),
+                                            input: format!("input type: {:?}", val.get_type()),
+                                            msg_span: head_span,
+                                            input_span: *span,
+                                        });
+                                    }
                                 }
                             }
                         }
