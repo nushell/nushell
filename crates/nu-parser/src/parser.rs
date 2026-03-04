@@ -6520,7 +6520,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 garbage(working_set, curr_span)
             } else {
-                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                let field = parse_value(working_set, curr_span, &SyntaxShape::String);
                 if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
                     working_set.error(error);
                     garbage(working_set, field.span)

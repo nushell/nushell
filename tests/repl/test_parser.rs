@@ -1101,6 +1101,19 @@ fn record_missing_value() -> TestResult {
 }
 
 #[test]
+fn record_type_inferred() -> TestResult {
+    fail_test(
+        r#"let foo: string = { 1: 1 }"#,
+        "expected string, found record<1: int>",
+    )
+}
+
+#[test]
+fn record_force_string_key_names() -> TestResult {
+    run_test(r#"{1kb: 1}.1kb"#, "1")
+}
+
+#[test]
 fn def_requires_body_closure() -> TestResult {
     fail_test("def a [] (echo 4)", "expected definition body closure")
 }
