@@ -4046,6 +4046,7 @@ dependencies = [
  "pretty_assertions",
  "reedline",
  "rstest",
+ "same-file",
  "serde_json",
  "simplelog",
  "tango-bench",
