@@ -64,6 +64,17 @@ $env.config.history.sync_on_enter = true
 # Default: false
 $env.config.history.isolation = false
 
+# history.path (string): Path to the history file.
+# If not set, Nushell will use the default location.
+# You can also provide a custom path for your history file.
+# Examples:
+# Use a custom location (e.g., in your home directory):
+$env.config.history.path = "~/custom/my-history.txt"
+# Default behavior:
+# If not set (null), Nushell stores history in the default config directory.
+# If set to a directory, the appropriate file name (e.g., history.txt) is used.
+# If set to a filename only, the file will be stored in $nu.default-config-dir.
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------
