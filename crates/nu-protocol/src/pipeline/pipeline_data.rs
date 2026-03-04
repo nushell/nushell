@@ -69,7 +69,7 @@ impl PipelineData {
     /// Returns a clone of the metadata if it exists.
     ///
     /// Note: This performs a deep clone of heap-allocated structures.
-    /// Use [`Self::metadata_ref`] or [`Self::metadata_mut`] to avoid unnecessary allocations.
+    /// Use [`.metadata_ref()`](Self::metadata_ref) or [`.metadata_mut()`](Self::metadata_mut) to avoid unnecessary allocations.
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         self.metadata_ref().cloned()
     }
