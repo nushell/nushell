@@ -201,9 +201,8 @@ fn helper(
     request = request_add_authorization_header(args.user, args.password, request);
     request = request_add_custom_headers(args.headers, request)?;
 
-    let (response, _request_headers) =
+    let (response, request_headers) =
         send_request_no_body(request, request_span, call.head, signals);
-    let (response, request_headers) = (response, _request_headers);
     let response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
 
