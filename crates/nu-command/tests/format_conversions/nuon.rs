@@ -1,5 +1,27 @@
-use nu_protocol::{ShellError, Value};
+use nu_protocol::{FromValue, IntoValue, ShellError, Value};
 use nu_test_support::{Result, TestResultExt, test};
+
+#[test]
+fn nuon_roundtrip() -> Result {
+    #[derive(IntoValue, FromValue, Debug, Clone, PartialEq)]
+    struct TestData {
+        a: String,
+        b: u32,
+        c: Vec<u8>,
+    }
+
+    let test_data = TestData {
+        a: "something".into(),
+        b: 42,
+        c: vec![1, 2, 3, 4],
+    };
+
+    let code = "to nuon | from nuon";
+    let outcome: TestData = test().run_with_data(code, test_data.clone())?;
+    assert_eq!(outcome, test_data);
+
+    Ok(())
+}
 
 #[test]
 fn to_nuon_correct_compaction() -> Result {
