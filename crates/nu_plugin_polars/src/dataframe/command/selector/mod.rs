@@ -6,6 +6,7 @@ mod selector_first;
 mod selector_last;
 mod selector_matches;
 mod selector_not;
+mod selector_numeric;
 mod selector_starts_with;
 mod selector_stub;
 
@@ -22,6 +23,7 @@ pub(crate) fn selector_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
         Box::new(selector_first::SelectorFirst),
         Box::new(selector_last::SelectorLast),
         Box::new(selector_matches::SelectorMatches),
+        Box::new(selector_numeric::SelectorNumeric),
         Box::new(selector_not::SelectorNot),
         Box::new(selector_starts_with::SelectorStartsWith),
         Box::new(selector_ends_with::SelectorEndsWith),
