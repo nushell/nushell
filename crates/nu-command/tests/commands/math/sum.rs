@@ -34,7 +34,7 @@ fn compute_sum_of_individual_row() -> Result<(), String> {
     ];
     for (column_name, expected_value) in answers_for_columns {
         let actual = nu!(
-            cwd: "tests/fixtures/formats/",
+            cwd: "tests/fixtures/formats",
             format!("open sample-ps-output.json | select {column_name} | math sum | get {column_name}")
         );
         let result =
@@ -55,7 +55,7 @@ fn compute_sum_of_table() -> Result<(), String> {
     ];
     for (column_name, expected_value) in answers_for_columns {
         let actual = nu!(
-            cwd: "tests/fixtures/formats/",
+            cwd: "tests/fixtures/formats",
             format!("open sample-ps-output.json | select cpu mem virtual | math sum | get {column_name}")
         );
         let result =
@@ -68,7 +68,7 @@ fn compute_sum_of_table() -> Result<(), String> {
 #[test]
 fn sum_of_a_row_containing_a_table_is_an_error() {
     let actual = nu!(
-        cwd: "tests/fixtures/formats/",
+        cwd: "tests/fixtures/formats",
         "open sample-sys-output.json | math sum"
     );
     assert!(actual.err.contains("can't convert record"));
