@@ -51,7 +51,7 @@
 //! You can also call [`ExperimentalOption::set`] manually, but be careful with that.
 
 use crate::util::AtomicMaybe;
-use std::{any::TypeId, fmt::Debug, hash::Hash, panic::RefUnwindSafe, sync::atomic::Ordering};
+use std::{any::TypeId, fmt::Debug, hash::Hash, sync::atomic::Ordering};
 
 mod options;
 mod parse;
@@ -97,7 +97,7 @@ pub enum Status {
 /// [plus sign](std::fmt::Formatter::sign_plus), e.g. `format!("{OPTION:+#?}")`.
 pub struct ExperimentalOption {
     value: AtomicMaybe,
-    marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync + RefUnwindSafe),
+    marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync),
 }
 
 impl ExperimentalOption {
@@ -105,7 +105,7 @@ impl ExperimentalOption {
     ///
     /// This should only be used to define a single static for a marker.
     pub(crate) const fn new(
-        marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync + RefUnwindSafe),
+        marker: &'static (dyn DynExperimentalOptionMarker + Send + Sync),
     ) -> Self {
         Self {
             value: AtomicMaybe::new(None),
