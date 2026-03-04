@@ -2280,20 +2280,6 @@ impl<'a> SelectWidget<'a> {
         }
     }
 
-    /// Check if we can do a cursor-only update in fuzzy mode
-    /// (just navigating, no text changes, no toggles)
-    fn can_do_fuzzy_cursor_only_update(&self) -> bool {
-        !self.first_render
-            && !self.width_changed
-            && (self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti)
-            && !self.filter_text_changed
-            && !self.results_changed
-            && self.scroll_offset == self.prev_scroll_offset
-            && self.cursor != self.prev_cursor
-            && self.toggled_item.is_none() // FuzzyMulti: no item was toggled
-            && !self.toggled_all // FuzzyMulti: Alt+A toggled all items
-    }
-
     /// Check if we can do a toggle-only update in multi mode
     /// (just toggled a single visible item, no cursor movement)
     fn can_do_multi_toggle_only_update(&self) -> bool {
@@ -2354,147 +2340,6 @@ impl<'a> SelectWidget<'a> {
             && !self.width_changed
             && self.mode == SelectMode::Multi
             && self.toggled_all
-    }
-
-    /// Check if we can do a cursor-only update in single/multi mode
-    /// (just navigating without scrolling or horizontal scroll changes)
-    fn can_do_cursor_only_update(&self) -> bool {
-        !self.first_render
-            && !self.width_changed
-            && (self.mode == SelectMode::Single || self.mode == SelectMode::Multi)
-            && self.scroll_offset == self.prev_scroll_offset
-            && self.cursor != self.prev_cursor
-            && !self.horizontal_scroll_changed
-            && self.toggled_item.is_none() // Multi mode: no item was toggled
-            && !self.toggled_all // Multi mode: 'a' wasn't pressed
-    }
-
-    /// Single/Multi mode: cursor-only update (just update the selection markers)
-    fn render_cursor_only_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
-        execute!(stderr, BeginSynchronizedUpdate)?;
-
-        // Calculate header lines (prompt + table header + table header separator)
-        let mut header_lines: u16 = if self.prompt.is_some() { 1 } else { 0 };
-        if self.is_table_mode() {
-            header_lines += 2; // table header + header separator line
-        }
-
-        // Display rows are 0-indexed within the visible items area
-        let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
-        let curr_display_row = (self.cursor - self.scroll_offset) as u16;
-
-        // Cursor is at the end of the last rendered content line
-        // rendered_lines includes header + items + footer
-        // We need to go from there to the previous cursor row, then to the new cursor row
-
-        // Calculate how many item lines were rendered
-        let footer_lines: u16 = if self.config.show_footer
-            && (self.is_multi_mode() || self.current_list_len() > self.visible_height as usize)
-        {
-            1
-        } else {
-            0
-        };
-        let items_rendered = self.rendered_lines - header_lines as usize - footer_lines as usize;
-
-        // Current position is at last rendered line. Move up to first item row.
-        let last_item_display_row = (items_rendered as u16).saturating_sub(1);
-
-        // Move from last line to prev cursor row
-        // Last line = header_lines + last_item_display_row + footer_lines
-        // Prev item = header_lines + prev_display_row
-        let lines_up_to_prev = last_item_display_row + footer_lines - prev_display_row;
-        execute!(stderr, MoveUp(lines_up_to_prev), MoveToColumn(0))?;
-
-        // Clear the old marker
-        execute!(stderr, Print("  "))?;
-
-        // Move to new cursor row and draw marker
-        let marker = self.selected_marker();
-        if curr_display_row > prev_display_row {
-            let lines_down = curr_display_row - prev_display_row;
-            execute!(
-                stderr,
-                MoveDown(lines_down),
-                MoveToColumn(0),
-                Print(&marker)
-            )?;
-        } else if curr_display_row < prev_display_row {
-            let lines_up = prev_display_row - curr_display_row;
-            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
-        } else {
-            // Same row (shouldn't happen since cursor != prev_cursor), just redraw
-            execute!(stderr, MoveToColumn(0), Print(&marker))?;
-        }
-
-        // Move back to the last rendered line (where cursor should be at end of render)
-        let lines_down_to_end = last_item_display_row + footer_lines - curr_display_row;
-        execute!(stderr, MoveDown(lines_down_to_end))?;
-
-        // Update state
-        self.prev_cursor = self.cursor;
-
-        execute!(stderr, EndSynchronizedUpdate)?;
-        stderr.flush()
-    }
-
-    /// Fuzzy mode: cursor-only update (just navigating the list)
-    fn render_fuzzy_cursor_update(&mut self, stderr: &mut Stderr) -> io::Result<()> {
-        execute!(stderr, BeginSynchronizedUpdate)?;
-
-        // Calculate header lines (prompt + filter + separator + table header + table header separator)
-        let header_lines = self.fuzzy_header_lines();
-
-        // Display rows are 0-indexed within the visible items area
-        let prev_display_row = (self.prev_cursor - self.scroll_offset) as u16;
-        let curr_display_row = (self.cursor - self.scroll_offset) as u16;
-
-        // Calculate absolute row positions from the top of our render area:
-        // - Row 0: prompt (if present)
-        // - Row 1 (or 0): filter line
-        // - Row 2 (or 1): separator (if enabled)
-        // - Remaining rows: items
-        // header_lines = rows before items (prompt + filter + separator as applicable)
-        let prev_item_row = header_lines + prev_display_row;
-        let curr_item_row = header_lines + curr_display_row;
-
-        // We're at the filter line, which is row 1 if prompt exists, row 0 otherwise
-        let filter_row = self.fuzzy_filter_row();
-
-        // Clear old cursor: move from filter line to prev item row
-        let down_to_prev = prev_item_row.saturating_sub(filter_row);
-        execute!(stderr, MoveDown(down_to_prev), MoveToColumn(0), Print("  "))?;
-
-        // Draw new cursor: move from prev item row to curr item row
-        let marker = self.selected_marker();
-        if curr_item_row > prev_item_row {
-            let lines_down = curr_item_row - prev_item_row;
-            execute!(
-                stderr,
-                MoveDown(lines_down),
-                MoveToColumn(0),
-                Print(&marker)
-            )?;
-        } else if curr_item_row < prev_item_row {
-            let lines_up = prev_item_row - curr_item_row;
-            execute!(stderr, MoveUp(lines_up), MoveToColumn(0), Print(&marker))?;
-        } else {
-            // Same row, just redraw
-            execute!(stderr, MoveToColumn(0), Print(&marker))?;
-        }
-
-        // Move back to filter line
-        let up_to_filter = curr_item_row.saturating_sub(filter_row);
-        execute!(stderr, MoveUp(up_to_filter))?;
-
-        // Position cursor within filter text
-        self.position_fuzzy_cursor(stderr)?;
-
-        // Update state
-        self.prev_cursor = self.cursor;
-
-        execute!(stderr, EndSynchronizedUpdate)?;
-        stderr.flush()
     }
 
     /// FuzzyMulti mode: update toggled row and new cursor row
@@ -2770,15 +2615,10 @@ impl<'a> SelectWidget<'a> {
             return self.render_fuzzy_multi_toggle_update(stderr);
         }
 
-        // Check for fuzzy mode cursor-only update (navigation without typing)
-        if self.can_do_fuzzy_cursor_only_update() {
-            return self.render_fuzzy_cursor_update(stderr);
-        }
-
-        // Check for single/multi mode cursor-only update (navigation without scrolling)
-        if self.can_do_cursor_only_update() {
-            return self.render_cursor_only_update(stderr);
-        }
+        // The old cursor-only navigation optimizations were removed because
+        // they were brittle and caused wrapping bugs.  We now always perform a
+        // full redraw for simple cursor moves; other optimizations (toggle
+        // updates) are still available above.
 
         // If nothing changed (e.g., PageDown at bottom of list), skip render entirely
         if !self.first_render
@@ -3748,6 +3588,92 @@ enum KeyAction {
 #[cfg(test)]
 mod test {
     use super::*;
+
+    fn make_widget(items: &[&str]) -> SelectWidget<'static> {
+        let options: Vec<SelectItem> = items
+            .iter()
+            .map(|s| SelectItem {
+                name: s.to_string(),
+                cells: None,
+                value: nu_protocol::Value::nothing(nu_protocol::Span::unknown()),
+            })
+            .collect();
+        let leaked: &'static [SelectItem] = Box::leak(options.into_boxed_slice());
+
+        SelectWidget::new(
+            SelectMode::Single,
+            None,
+            leaked,
+            InputListConfig::default(),
+            None,
+            false,
+        )
+    }
+
+    #[test]
+    fn wrap_up_and_down_cycles() {
+        let mut w = make_widget(&["A", "B", "C"]);
+        // navigate up three times, expect proper cycling
+        w.navigate_up();
+        assert_eq!(w.cursor, 2);
+        w.navigate_up();
+        assert_eq!(w.cursor, 1);
+        w.navigate_up();
+        assert_eq!(w.cursor, 0);
+
+        // navigate down three times, expect cycling as well
+        w.navigate_down();
+        assert_eq!(w.cursor, 1);
+        w.navigate_down();
+        assert_eq!(w.cursor, 2);
+        w.navigate_down();
+        assert_eq!(w.cursor, 0);
+    }
+
+    #[test]
+    fn down_navigation_cycles_with_full_redraw() -> io::Result<()> {
+        let mut w = make_widget(&["Banana", "Kiwi", "Pear"]);
+        w.first_render = false;
+        w.prev_cursor = 0;
+        w.prev_scroll_offset = 0;
+        w.cursor = 0;
+        w.scroll_offset = 0;
+
+        let mut stderr = io::stderr();
+
+        for _ in 0..7 {
+            w.navigate_down();
+            w.render(&mut stderr)?;
+            assert_eq!(w.scroll_offset, 0);
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn up_arrow_sequence_state_and_render() -> io::Result<()> {
+        let mut w = make_widget(&["Banana", "Kiwi", "Pear"]);
+        w.first_render = false;
+        w.prev_cursor = 0;
+        w.prev_scroll_offset = 0;
+        w.cursor = 0;
+        w.scroll_offset = 0;
+
+        let mut stderr = io::stderr();
+
+        w.render(&mut stderr)?;
+        assert_eq!(w.cursor, 0);
+
+        w.navigate_up();
+        w.render(&mut stderr)?;
+        assert_eq!(w.cursor, 2);
+
+        w.navigate_up();
+        w.render(&mut stderr)?;
+        assert_eq!(w.cursor, 1);
+
+        Ok(())
+    }
 
     #[test]
     fn test_examples() {
