@@ -49,6 +49,37 @@ fn to_nuon_table() {
 }
 
 #[test]
+fn to_nuon_table_as_list_of_records() {
+    let actual = nu!(r#"
+        [[a, b]; [1, 2], [3, 4]]
+        | to nuon --list-of-records
+    "#);
+
+    assert_eq!(actual.out, "[{a: 1, b: 2}, {a: 3, b: 4}]");
+}
+
+#[test]
+fn to_nuon_table_as_list_of_records_indented() {
+    let actual = nu!(r#"
+        [[a, b]; [1, 2], [3, 4]]
+        | to nuon --list-of-records --indent 2
+        | str contains "\n"
+    "#);
+
+    assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn to_nuon_table_as_list_of_records_is_recursive() {
+    let actual = nu!(r#"
+        {outer: [[a, b]; [1, 2], [3, 4]]}
+        | to nuon --list-of-records
+    "#);
+
+    assert_eq!(actual.out, "{outer: [{a: 1, b: 2}, {a: 3, b: 4}]}");
+}
+
+#[test]
 fn from_nuon_illegal_table() {
     let actual = nu!(r#"
         "[[repeated repeated]; [abc, xyz], [def, ijk]]"
