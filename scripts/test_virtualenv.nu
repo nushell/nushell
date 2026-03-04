@@ -30,13 +30,15 @@ let test_lines = [
 ]
 
 def main [] {
+    # Normalize PWD to avoid / vs \ issues on Windows
+    let pwd = $env.PWD | path expand --no-symlink
     let orig_python_interpreter = (python -c 'import sys; print(sys.executable)')
 
     let expected = [
         $orig_python_interpreter                           # 1
         "None"                                             # 2
-        ([$env.PWD $env_name $subdir $exe] | path join)    # 3
-        ([$env.PWD $env_name] | path join)                 # 4
+        ([$pwd $env_name $subdir $exe] | path join)    # 3
+        ([$pwd $env_name] | path join)                 # 4
         $env_name                                          # 5
         $orig_python_interpreter                           # 6
         "None"                                             # 7
