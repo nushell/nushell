@@ -27,25 +27,26 @@ static INITIAL_ENGINE_STATE: LazyLock<EngineState> = LazyLock::new(|| {
     engine_state
 });
 
-pub fn test() -> NuTestBuilder {
-    NuTestBuilder::default()
+pub fn test() -> NuTester {
+    NuTester::default()
 }
 
-pub struct NuTestBuilder(EngineState);
+#[derive(Clone)]
+pub struct NuTester {
+    engine_state: EngineState,
+    stack: Stack,
+}
 
-impl Default for NuTestBuilder {
+impl Default for NuTester {
     fn default() -> Self {
-        Self(INITIAL_ENGINE_STATE.clone())
+        Self {
+            engine_state: INITIAL_ENGINE_STATE.clone(),
+            stack: Stack::new(),
+        }
     }
 }
 
-impl Clone for NuTestBuilder {
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl NuTestBuilder {
+impl NuTester {
     pub fn new() -> Self {
         Self::default()
     }
@@ -61,13 +62,13 @@ impl NuTestBuilder {
                 .expect("could not canonicalize path"),
         };
 
-        self.0
+        self.engine_state
             .add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         self
     }
 
     pub fn locale(mut self, locale: impl Into<String>) -> Self {
-        self.0
+        self.engine_state
             .add_env_var("NU_TEST_LOCALE".into(), Value::test_string(locale.into()));
         self
     }
@@ -77,15 +78,15 @@ impl NuTestBuilder {
     }
 
     pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
-        self.0
+        self.engine_state
             .add_env_var(key.into(), Value::test_string(val.into()));
         self
     }
 
-    pub fn run_raw(mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData, TestError> {
+    pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData, TestError> {
         let code = code.as_ref().as_bytes();
 
-        let mut working_set = StateWorkingSet::new(&self.0);
+        let mut working_set = StateWorkingSet::new(&self.engine_state);
         let block = nu_parser::parse(&mut working_set, None, code, false);
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
@@ -96,13 +97,17 @@ impl NuTestBuilder {
             return Err(err.into());
         }
 
-        self.0.merge_delta(working_set.delta)?;
-        let mut stack = Stack::new();
-        nu_engine::eval_block::<WithoutDebug>(&self.0, &mut stack, &block, PipelineData::empty())
-            .map_err(Into::into)
+        self.engine_state.merge_delta(working_set.delta)?;
+        nu_engine::eval_block::<WithoutDebug>(
+            &self.engine_state,
+            &mut self.stack,
+            &block,
+            PipelineData::empty(),
+        )
+        .map_err(Into::into)
     }
 
-    pub fn run<T: FromValue>(self, code: impl AsRef<str>) -> Result<T, TestError> {
+    pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T, TestError> {
         let pipeline_data = self.run_raw(code)?.body;
         let value = pipeline_data.into_value(Span::test_data())?;
         let value = T::from_value(value)?;
