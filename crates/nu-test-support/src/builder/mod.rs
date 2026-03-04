@@ -1,8 +1,8 @@
 use std::{env, path::PathBuf, sync::LazyLock};
 
 use nu_protocol::{
-    CompileError, FromValue, ParseError, PipelineData, PipelineExecutionData, ShellError, Span,
-    Value,
+    CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
+    ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
 };
@@ -83,7 +83,28 @@ impl NuTester {
         self
     }
 
+    pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T, TestError> {
+        Self::extract_value(self.run_raw(code)?)
+    }
+
+    pub fn run_with_data<T: FromValue>(
+        &mut self,
+        code: impl AsRef<str>,
+        data: impl IntoValue,
+    ) -> Result<T, TestError> {
+        let input = PipelineData::value(data.into_value(Span::test_data()), None);
+        Self::extract_value(self.run_raw_with_data(code, input)?)
+    }
+
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData, TestError> {
+        self.run_raw_with_data(code, PipelineData::empty())
+    }
+
+    pub fn run_raw_with_data(
+        &mut self,
+        code: impl AsRef<str>,
+        data: PipelineData,
+    ) -> Result<PipelineExecutionData, TestError> {
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -98,24 +119,21 @@ impl NuTester {
         }
 
         self.engine_state.merge_delta(working_set.delta)?;
-        nu_engine::eval_block::<WithoutDebug>(
-            &self.engine_state,
-            &mut self.stack,
-            &block,
-            PipelineData::empty(),
-        )
-        .map_err(Into::into)
+        nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
+            .map_err(Into::into)
     }
 
-    pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T, TestError> {
-        let pipeline_data = self.run_raw(code)?.body;
+    fn extract_value<T: FromValue>(
+        pipeline_execution_data: PipelineExecutionData,
+    ) -> Result<T, TestError> {
+        let pipeline_data = pipeline_execution_data.body;
         let value = pipeline_data.into_value(Span::test_data())?;
         let value = T::from_value(value)?;
         Ok(value)
     }
 }
 
-#[non_exhaustive] // motivate test implementors to use provided methods
+#[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum TestError {
     #[error(transparent)]
