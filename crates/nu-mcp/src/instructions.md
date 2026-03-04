@@ -155,8 +155,14 @@ http get --raw https://api.example.com/data | from json  # Manual parsing
 
 **Common flags:**
 - `-H {key: value}` or `--headers {key: value}`: Custom headers as a record
-- `-t json` or `--content-type application/json`: Set Content-Type for request body
+- `-t application/json` or `--content-type application/json`: Set Content-Type for request body. Note: `-t json` does NOT work — the full MIME type is required.
 - `(bytes build)`: Empty body (required for POST/PUT when you have no data to send)
+
+**Pipeline content-type:** Commands like `to json` set content-type metadata that `http` commands use automatically:
+```nu
+# Pipeline approach - content-type is set automatically by `to json`
+{foo: "bar", baz: 123} | to json | http post https://api.example.com/endpoint
+```
 
 ```nu
 # GET request
@@ -165,14 +171,14 @@ http get https://api.example.com/data
 # GET with auth header
 http get -H {Authorization: "Bearer token"} https://api.example.com/data
 
-# POST with JSON body (use -t json for Content-Type)
-http post -t json https://api.example.com/endpoint {foo: "bar", baz: 123}
+# POST with JSON body
+http post -t application/json https://api.example.com/endpoint {foo: "bar", baz: 123}
 
 # POST with headers but empty body (bytes build creates empty body)
 http post -H {X-API-Key: "secret"} https://api.example.com/sync (bytes build)
 
 # POST with both headers and JSON body
-http post -t json -H {Authorization: "Bearer token"} https://api.example.com/data {key: "value"}
+http post -t application/json -H {Authorization: "Bearer token"} https://api.example.com/data {key: "value"}
 ```
 
 **Parallel iteration:** Prefer `par-each` over `each` for better performance. `par-each` runs closures in parallel across multiple threads.
