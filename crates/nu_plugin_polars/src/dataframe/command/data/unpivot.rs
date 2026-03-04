@@ -1,18 +1,13 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
-use polars::{
-    frame::explode::UnpivotArgsIR,
-    prelude::{UnpivotArgsDSL, cols},
-};
-use polars_ops::pivot::UnpivotDF;
+use polars::prelude::{Selector, UnpivotArgsDSL};
 
 use crate::{
     PolarsPlugin,
-    dataframe::values::utils::convert_columns_string,
-    values::{CustomValueSupport, NuLazyFrame, PolarsPluginObject, PolarsPluginType},
+    command::required_flag,
+    values::{CustomValueSupport, NuLazyFrame, NuSelector, PolarsPluginType},
 };
 
 use crate::values::{Column, NuDataFrame};
@@ -197,60 +192,11 @@ impl PluginCommand for Unpivot {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
-            PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
-            PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
-            _ => Err(ShellError::GenericError {
-                error: "Must be a dataframe or lazy dataframe".into(),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }),
-        }
-        .map_err(LabeledError::from)
-        .map(|pd| pd.set_metadata(metadata))
+        let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+        command_lazy(plugin, engine, call, lazy)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
     }
-}
-
-fn command_eager(
-    plugin: &PolarsPlugin,
-    engine: &EngineInterface,
-    call: &EvaluatedCall,
-    df: NuDataFrame,
-) -> Result<PipelineData, ShellError> {
-    let index_col: Vec<Value> = call.get_flag("index")?.expect("required value");
-    let on_col: Vec<Value> = call.get_flag("on")?.expect("required value");
-
-    let value_name: Option<Spanned<String>> = call.get_flag("value-name")?;
-    let variable_name: Option<Spanned<String>> = call.get_flag("variable-name")?;
-
-    let (index_col_string, index_col_span) = convert_columns_string(index_col, call.head)?;
-    let (on_col_string, on_col_span) = convert_columns_string(on_col, call.head)?;
-
-    check_column_datatypes(df.as_ref(), &index_col_string, index_col_span)?;
-    check_column_datatypes(df.as_ref(), &on_col_string, on_col_span)?;
-
-    let args = UnpivotArgsIR {
-        on: on_col_string.iter().map(Into::into).collect(),
-        index: index_col_string.iter().map(Into::into).collect(),
-        variable_name: variable_name.map(|s| s.item.into()),
-        value_name: value_name.map(|s| s.item.into()),
-    };
-
-    let res = df
-        .as_ref()
-        .unpivot2(args)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error calculating unpivot".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
-
-    let res = NuDataFrame::new(false, res);
-    res.to_pipeline_data(plugin, engine, call.head)
 }
 
 fn command_lazy(
@@ -259,17 +205,25 @@ fn command_lazy(
     call: &EvaluatedCall,
     df: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    // todo - allow selectors to be used here
-    let index_col: Vec<String> = call.get_flag("index")?.expect("required value");
-    // todo - allow selectors to be used here
-    let on_col: Vec<String> = call.get_flag("on")?.expect("required value");
+    let index_col: Selector = call
+        .get_flag::<Value>("index")?
+        .map(|ref v| NuSelector::try_from_value(plugin, v))
+        .transpose()?
+        .ok_or(required_flag("index", call.head))?
+        .into_polars();
+
+    let on_col: Option<Selector> = call
+        .get_flag::<Value>("on")?
+        .map(|ref v| NuSelector::try_from_value(plugin, v))
+        .transpose()?
+        .map(|s| s.into_polars());
 
     let value_name: Option<String> = call.get_flag("value-name")?;
     let variable_name: Option<String> = call.get_flag("variable-name")?;
 
     let unpivot_args = UnpivotArgsDSL {
-        on: cols(on_col),
-        index: cols(index_col),
+        on: on_col,
+        index: index_col,
         value_name: value_name.map(Into::into),
         variable_name: variable_name.map(Into::into),
     };
@@ -278,63 +232,6 @@ fn command_lazy(
 
     let res = NuLazyFrame::new(false, polars_df);
     res.to_pipeline_data(plugin, engine, call.head)
-}
-
-fn check_column_datatypes<T: AsRef<str>>(
-    df: &polars::prelude::DataFrame,
-    cols: &[T],
-    col_span: Span,
-) -> Result<(), ShellError> {
-    if cols.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "Merge error".into(),
-            msg: "empty column list".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        });
-    }
-
-    // Checking if they are same type
-    if cols.len() > 1 {
-        for w in cols.windows(2) {
-            let l_series = df
-                .column(w[0].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            let r_series = df
-                .column(w[1].as_ref())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error selecting columns".into(),
-                    msg: e.to_string(),
-                    span: Some(col_span),
-                    help: None,
-                    inner: vec![],
-                })?;
-
-            if l_series.dtype() != r_series.dtype() {
-                return Err(ShellError::GenericError {
-                    error: "Merge error".into(),
-                    msg: "found different column types in list".into(),
-                    span: Some(col_span),
-                    help: Some(format!(
-                        "datatypes {} and {} are incompatible",
-                        l_series.dtype(),
-                        r_series.dtype()
-                    )),
-                    inner: vec![],
-                });
-            }
-        }
-    }
-
-    Ok(())
 }
 
 #[cfg(test)]

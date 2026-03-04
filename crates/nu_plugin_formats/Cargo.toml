@@ -20,7 +20,7 @@ eml-parser = "0.1"
 ical = "0.11"
 rust-ini = "0.21.3"
 plist = "1.8"
-chrono = "0.4"
+chrono = "0.4.41" # polars is requiring <= 0.4.41
 
 [dev-dependencies]
 nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.111.1" }

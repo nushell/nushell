@@ -192,7 +192,7 @@ fn command(
 
     let tail = df
         .as_ref()
-        .iter()
+        .materialized_column_iter()
         .filter(|col| !matches!(col.dtype(), &DataType::Object("object")))
         .map(|col| {
             let count = col.len() as f64;
@@ -233,7 +233,7 @@ fn command(
         .map(PolarsColumn::from)
         .collect::<Vec<PolarsColumn>>();
 
-    let polars_df = DataFrame::new(res).map_err(|e| ShellError::GenericError {
+    let polars_df = DataFrame::new_infer_height(res).map_err(|e| ShellError::GenericError {
         error: "Dataframe Error".into(),
         msg: e.to_string(),
         span: Some(call.head),

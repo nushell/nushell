@@ -154,7 +154,6 @@ fn command(
         .or_else(|| {
             resource
                 .path
-                .as_ref()
                 .extension()
                 .map(|ext| (ext.to_owned(), resource.span))
         });

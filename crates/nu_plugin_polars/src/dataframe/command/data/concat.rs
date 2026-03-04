@@ -146,6 +146,7 @@ fn command_lazy(
             diagonal,
             from_partitioned_ds,
             maintain_order,
+            ..Default::default()
         };
 
         let res: NuLazyFrame = polars::prelude::concat(&dataframes, args)

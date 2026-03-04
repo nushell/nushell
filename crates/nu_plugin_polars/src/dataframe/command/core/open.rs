@@ -161,7 +161,6 @@ fn command(
         .or_else(|| {
             resource
                 .path
-                .as_ref()
                 .extension()
                 .map(|e| (e.to_string(), resource.span))
         });
@@ -251,7 +250,7 @@ fn from_parquet(
     } else {
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
         let file_span = resource.span;
-        let path: PathBuf = resource.try_into()?;
+        let path: PathBuf = resource.as_path_buf();
         let r = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
@@ -294,7 +293,7 @@ fn from_avro(
 
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
     let file_span = resource.span;
-    let path: PathBuf = resource.try_into()?;
+    let path: PathBuf = resource.as_path_buf();
     let r = File::open(&path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -342,7 +341,7 @@ fn from_arrow(
             ..Default::default()
         };
 
-        let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, IpcScanOptions, args)
+        let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, IpcScanOptions::default(), args)
             .map_err(|e| ShellError::GenericError {
                 error: "IPC reader error".into(),
                 msg: format!("{e:?}"),
@@ -357,7 +356,7 @@ fn from_arrow(
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
 
         let file_span = resource.span;
-        let path: PathBuf = resource.try_into()?;
+        let path: PathBuf = resource.as_path_buf();
         let r = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
@@ -398,7 +397,7 @@ fn from_json(
     if resource.cloud_options.is_some() {
         return Err(cloud_not_supported(PolarsFileType::Json, file_span));
     }
-    let path: PathBuf = resource.try_into()?;
+    let path: PathBuf = resource.as_path_buf();
     let file = File::open(&path).map_err(|e| ShellError::GenericError {
         error: "Error opening file".into(),
         msg: e.to_string(),
@@ -470,7 +469,7 @@ fn from_ndjson(
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let file_span = resource.span;
-        let path: PathBuf = resource.try_into()?;
+        let path: PathBuf = resource.as_path_buf();
         let file = File::open(&path).map_err(|e| ShellError::GenericError {
             error: "Error opening file".into(),
             msg: e.to_string(),
@@ -607,7 +606,7 @@ fn from_csv(
                     .with_encoding(CsvEncoding::LossyUtf8)
                     .with_truncate_ragged_lines(truncate_ragged_lines)
             })
-            .try_into_reader_with_file_path(Some(resource.try_into()?))
+            .try_into_reader_with_file_path(Some(resource.as_path_buf()))
             .map_err(|e| ShellError::GenericError {
                 error: "Error creating CSV reader".into(),
                 msg: e.to_string(),
