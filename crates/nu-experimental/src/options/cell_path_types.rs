@@ -1,6 +1,9 @@
 use crate::*;
 
-/// Enable type inferencing on cell paths
+/// Enable type inferencing on "full cell path" expressions which are all typed as `any` if
+/// disabled. Inferred types are stored on internal AST, which are handful for some downstream
+/// tasks such as nu-lsp inlay hints.
+/// As a side effect, some previously allowed operations may get rejected with type-mismatch parsing errors.
 pub static CELL_PATH_TYPES: ExperimentalOption = ExperimentalOption::new(&CellPathTypes);
 
 struct CellPathTypes;
