@@ -12,17 +12,17 @@ use polars::df;
 use polars::prelude::Selector;
 
 #[derive(Clone)]
-pub struct SelectorStartsWith;
+pub struct SelectorEndsWith;
 
-impl PluginCommand for SelectorStartsWith {
+impl PluginCommand for SelectorEndsWith {
     type Plugin = PolarsPlugin;
 
     fn name(&self) -> &str {
-        "polars selector starts-with"
+        "polars selector ends-with"
     }
 
     fn description(&self) -> &str {
-        "Select columns that start with the given substring(s)."
+        "Select columns that end with the given substring(s)."
     }
 
     fn signature(&self) -> Signature {
@@ -30,7 +30,7 @@ impl PluginCommand for SelectorStartsWith {
             .rest(
                 "prefix",
                 SyntaxShape::String,
-                "Select columns that start with the given substring(s).",
+                "Select columns that end with the given substring(s).",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuSelector.into())
             .category(Category::Custom("expression".into()))
@@ -40,21 +40,20 @@ impl PluginCommand for SelectorStartsWith {
         vec![
             Example {
                 example: r#"{
-        "foo": [1.0, 2.0],
-        "bar": [3.0, 4.0],
-        "baz": [5, 6],
-        "zap": [7, 8],
+        "foo": ["x", "y"],
+        "bar": [123, 456],
+        "baz": [2.0, 5.5],
+        "zap": [false, true],
     } |
     polars into-df --as-columns |
-    polars select (polars selector starts-with b) |
-    polars sort-by bar baz |
+    polars select (polars selector ends-with z) |
+    polars sort-by baz |
     polars collect"#,
-                description: "Match columns starting with a 'b'",
+                description: "Match columns ending with a 'z'",
                 result: Some(
                     NuDataFrame::from(
                         df!(
-                            "bar" => [3.0, 4.0],
-                            "baz" => [5, 6],
+                            "baz" => [2.0, 5.5],
                         )
                         .expect("simple df for test should not fail"),
                     )
@@ -63,22 +62,45 @@ impl PluginCommand for SelectorStartsWith {
             },
             Example {
                 example: r#"{
-        "foo": [1.0, 2.0],
-        "bar": [3.0, 4.0],
-        "baz": [5, 6],
-        "zap": [7, 8],
+        "foo": ["x", "y"],
+        "bar": [123, 456],
+        "baz": [2.0, 5.5],
+        "zap": [false, true],
     } |
     polars into-df --as-columns |
-    polars select (polars selector starts-with b z) |
-    polars sort-by bar baz zap |
-    polars collect"#,
-                description: "Match columns starting with *either* the letter 'b' or 'z'",
+    polars select (polars selector ends-with z r) |
+    polars sort-by bar baz |
+    polars collect "#,
+                description: "Match columns ending with *either* the letter 'z' or 'r'",
                 result: Some(
                     NuDataFrame::from(
                         df!(
-                            "bar" => [3.0, 4.0],
-                            "baz" => [5, 6],
-                            "zap" => [7, 8],
+                            "bar" => [123, 456],
+                            "baz" => [2.0, 5.5],
+                        )
+                        .expect("simple df for test should not fail"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                example: r#"{
+        "foo": ["x", "y"],
+        "bar": [123, 456],
+        "baz": [2.0, 5.5],
+        "zap": [false, true],
+    } |
+    polars into-df --as-columns |
+    polars select (polars selector ends-with z | polars selector not) |
+    polars sort-by foo bar zap |
+    polars collect"#,
+                description: "Match columns ending with *except* the letter 'z'",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "foo" => ["x", "y"],
+                            "bar" => [123, 456],
+                            "zap" => [false, true],
                         )
                         .expect("simple df for test should not fail"),
                     )
@@ -89,7 +111,7 @@ impl PluginCommand for SelectorStartsWith {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["columns", "select", "starts-with"]
+        vec!["columns", "select", "ends-with"]
     }
 
     fn run(
@@ -100,16 +122,16 @@ impl PluginCommand for SelectorStartsWith {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.metadata();
-        let prefixes: Result<Vec<String>, ShellError> =
+        let suffixes: Result<Vec<String>, ShellError> =
             call.positional.iter().try_fold(Vec::new(), |mut acc, arg| {
                 let s = arg.as_str()?;
-                let prefix = fancy_regex::escape(s).to_string();
-                acc.push(prefix);
+                let suffix = fancy_regex::escape(s).to_string();
+                acc.push(suffix);
                 Ok(acc)
             });
 
-        let prefixes_joined = prefixes?.join("|");
-        let selector = Selector::Matches(format!("^{prefixes_joined}").into());
+        let suffixes_joined = suffixes?.join("|");
+        let selector = Selector::Matches(format!("({suffixes_joined})$").into());
         let nu_selector = NuSelector::from(selector);
         nu_selector
             .to_pipeline_data(plugin, engine, call.head)
@@ -125,6 +147,6 @@ mod test {
 
     #[test]
     fn test_examples() -> Result<(), nu_protocol::ShellError> {
-        test_polars_plugin_command(&SelectorStartsWith)
+        test_polars_plugin_command(&SelectorEndsWith)
     }
 }
