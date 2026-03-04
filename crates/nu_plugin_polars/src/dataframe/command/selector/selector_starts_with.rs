@@ -39,18 +39,16 @@ impl PluginCommand for SelectorStartsWith {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                example: r#"
-                {
-                    "foo": [1.0, 2.0],
-                    "bar": [3.0, 4.0],
-                    "baz": [5, 6],
-                    "zap": [7, 8],
-                } |
-                polars into-df --as-columns |
-                polars select (polars selector starts-with b) |
-                polars sort-by bar baz |
-                polars collect
-                "#,
+                example: r#"{
+        "foo": [1.0, 2.0],
+        "bar": [3.0, 4.0],
+        "baz": [5, 6],
+        "zap": [7, 8],
+    } |
+    polars into-df --as-columns |
+    polars select (polars selector starts-with b) |
+    polars sort-by bar baz |
+    polars collect"#,
                 description: "Match columns starting with a 'b'",
                 result: Some(
                     NuDataFrame::from(
@@ -64,18 +62,16 @@ impl PluginCommand for SelectorStartsWith {
                 ),
             },
             Example {
-                example: r#"
-                {
-                    "foo": [1.0, 2.0],
-                    "bar": [3.0, 4.0],
-                    "baz": [5, 6],
-                    "zap": [7, 8],
-                } |
-                polars into-df --as-columns |
-                polars select (polars selector starts-with b z) |
-                polars sort-by bar baz zap |
-                polars collect
-                "#,
+                example: r#"{
+        "foo": [1.0, 2.0],
+        "bar": [3.0, 4.0],
+        "baz": [5, 6],
+        "zap": [7, 8],
+    } |
+    polars into-df --as-columns |
+    polars select (polars selector starts-with b z) |
+    polars sort-by bar baz zap |
+    polars collect"#,
                 description: "Match columns starting with *either* the letter 'b' or 'z'",
                 result: Some(
                     NuDataFrame::from(
