@@ -147,7 +147,6 @@ fn objects() -> Result {
 #[test]
 fn max_depth() -> Result {
     let shell_error = msgpack_test("max-depth").expect_error()?;
-    // let inner = shell_error.into_inner()?;
     let msg = shell_error.generic_msg()?;
     assert!(msg.contains("exceeded depth limit"));
     Ok(())
