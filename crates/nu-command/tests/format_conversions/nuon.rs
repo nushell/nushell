@@ -1,5 +1,4 @@
-use nu_protocol::{FromValue, IntoValue, ShellError, Value};
-use nu_test_support::{Result, TestResultExt, test};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
 fn nuon_roundtrip() -> Result {

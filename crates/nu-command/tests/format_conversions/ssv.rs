@@ -1,4 +1,4 @@
-use nu_test_support::{Result, fs::Stub::FileWithContentToBeTrimmed, playground::Playground, test};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
 fn from_ssv_text_to_table() -> Result {

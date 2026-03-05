@@ -1,4 +1,4 @@
-use nu_test_support::{Result, test};
+use nu_test_support::prelude::*;
 use std::collections::HashMap;
 
 #[test]

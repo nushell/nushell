@@ -1,8 +1,7 @@
 use std::{collections::HashMap, fmt::Debug, path::PathBuf, sync::LazyLock};
 
 use chrono::DateTime;
-use nu_protocol::{FromValue, ShellError, Value};
-use nu_test_support::{Result, ShellErrorExt, TestResultExt, playground::Playground, test};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 use pretty_assertions::assert_eq;
 
 static GENERATE: LazyLock<PathBuf> = LazyLock::new(|| {

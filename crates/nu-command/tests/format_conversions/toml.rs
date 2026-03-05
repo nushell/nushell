@@ -1,5 +1,4 @@
-use nu_protocol::ParseError;
-use nu_test_support::{Result, TestResultExt, test};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
 fn record_map_to_toml() -> Result {
