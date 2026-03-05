@@ -1,5 +1,5 @@
 use nu_protocol::Record;
-use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use nu_test_support::prelude::*;
 
 #[test]
 fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
