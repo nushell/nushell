@@ -44,6 +44,12 @@ impl ChainedError {
             span,
         }
     }
+
+    // Abstraction to read the sources from outside of this crate without exposing the actual
+    // implementation.
+    pub fn sources_iter(self) -> impl Iterator<Item = ShellError> {
+        self.sources.into_iter()
+    }
 }
 
 impl miette::Diagnostic for ChainedError {
