@@ -147,6 +147,12 @@ pub enum TestError {
 
     #[error("got no error")]
     None,
+
+    #[error("expected an inner error value but got none")]
+    NoInner,
+
+    #[error("the error is not a generic shell error")]
+    NotGeneric,
 }
 
 impl TestError {
@@ -206,6 +212,51 @@ impl TestResultExt for Result {
             Ok(()) => Err(TestError::None),
             Err(TestError::Compile(err)) => Ok(err),
             Err(err) => Err(err),
+        }
+    }
+}
+
+pub trait ShellErrorExt {
+    /// Tries to convert into an inner value from a [`ShellError`].
+    ///
+    /// Useful if the error is expected to be a generic error that contains an inner error or a
+    /// chained error that chained another error.
+    ///
+    /// However, this function returns [`None`]
+    /// - if `inner` of [`ShellError::GenericError`] is empty
+    /// - if `sources` of [`ShellError::ChainedError`] is empty
+    /// - the error is none of the above types
+    ///
+    /// So make sure that a [`None`] value is not surprise.
+    fn into_inner(self) -> Result<ShellError, TestError>;
+
+    fn generic_error(self) -> Result<String, TestError>;
+
+    fn generic_msg(self) -> Result<String, TestError>;
+}
+
+impl ShellErrorExt for ShellError {
+    fn into_inner(self) -> Result<ShellError, TestError> {
+        match self {
+            ShellError::GenericError { inner, .. } => {
+                inner.into_iter().next().ok_or(TestError::NoInner)
+            }
+            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(TestError::NoInner),
+            _ => Err(TestError::NoInner),
+        }
+    }
+
+    fn generic_error(self) -> Result<String, TestError> {
+        match self {
+            ShellError::GenericError { error, .. } => Ok(error),
+            _ => Err(TestError::NotGeneric),
+        }
+    }
+
+    fn generic_msg(self) -> Result<String, TestError> {
+        match self {
+            ShellError::GenericError { msg, .. } => Ok(msg),
+            _ => Err(TestError::NotGeneric),
         }
     }
 }
