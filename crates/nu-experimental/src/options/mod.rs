@@ -5,6 +5,7 @@
 
 use crate::*;
 
+mod cell_path_types;
 mod enforce_runtime_annotations;
 mod example;
 mod native_clip;
@@ -59,6 +60,7 @@ pub(crate) trait ExperimentalOptionMarker {
 
 // Export only the static values.
 // The marker structs are not relevant and needlessly clutter the generated docs.
+pub use cell_path_types::CELL_PATH_TYPES;
 pub use enforce_runtime_annotations::ENFORCE_RUNTIME_ANNOTATIONS;
 pub use example::EXAMPLE;
 pub use native_clip::NATIVE_CLIP;
@@ -78,6 +80,7 @@ pub static ALL: &[&ExperimentalOption] = &[
     &PIPE_FAIL,
     &ENFORCE_RUNTIME_ANNOTATIONS,
     &NATIVE_CLIP,
+    &CELL_PATH_TYPES,
 ];
 
 #[cfg(test)]

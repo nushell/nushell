@@ -228,7 +228,7 @@ impl Completer for OperatorCompletion<'_> {
             Type::Record(_) | Type::Range => collection_comparison_ops(),
             Type::List(_) | Type::Table(_) => valid_list_ops(),
             // Unknown type, resort to evaluated values
-            Type::Any => match &self.left_hand_side.expr {
+            Type::Any | Type::OneOf(_) => match &self.left_hand_side.expr {
                 Expr::FullCellPath(path) => {
                     // for `$ <tab>`
                     if let Expr::Garbage = path.head.expr {
