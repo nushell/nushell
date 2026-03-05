@@ -1,3 +1,4 @@
+use crate::test_bins;
 use lexopt::prelude::*;
 use nu_experimental as experimental_options;
 use nu_parser::escape_for_script_arg;
@@ -11,6 +12,8 @@ const HELP_SECTION_COLOR: &str = "\x1b[32m";
 const HELP_FLAG_COLOR: &str = "\x1b[36m";
 const HELP_TYPE_COLOR: &str = "\x1b[94m";
 const HELP_DESC_COLOR: &str = "\x1b[2;39m";
+#[allow(dead_code)]
+const HELP_SUBCMD_COLOR: &str = "\x1b[96m"; // bright cyan, lighter than flags
 const DEFAULT_COLOR: &str = "\x1b[39m";
 const RESET_COLOR: &str = "\x1b[0m";
 const TABLE_MODE_VALUES: &[&str] = &[
@@ -295,7 +298,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         "testbin",
         None,
         ValueHint::String,
-        "run internal test binary",
+        "run an internal test binary (see available bins below)",
         CliCategory::Startup,
         "nu --testbin cococo",
     ),
@@ -1273,6 +1276,15 @@ fn cli_help_text() -> String {
                 "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}\n",
                 flag.example
             ));
+
+            // For the --testbin option we augment the static description with a dynamically generated list of the available binaries
+            // and their individual help strings
+            if flag.long == "testbin" {
+                output.push_str(&format!(
+                    "      {HELP_DESC_COLOR}Available test bins:{RESET_COLOR}\n"
+                ));
+                output.push_str(&test_bins::help_list());
+            }
         }
     }
     output
@@ -1347,4 +1359,27 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_port: Option<u16>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_bins;
+
+    #[test]
+    fn cli_help_includes_testbin_list() {
+        let help = cli_help_text();
+        // the description for the testbin flag should be present
+        assert!(help.contains("--testbin"));
+
+        // there should be an entry for at least one known bin
+        assert!(help.contains("echo_env"));
+
+        // ensure the dynamic list from test_bins::help_list is embedded
+        let list = test_bins::help_list();
+        assert!(help.contains(list.trim()));
+
+        // colored subcommand names should use the new bright-cyan code
+        assert!(help.contains(HELP_SUBCMD_COLOR));
+    }
 }
