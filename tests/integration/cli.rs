@@ -1600,6 +1600,107 @@ fn log_target_accepts_all_valid_targets() -> TestResult {
     Ok(())
 }
 
+// Specifying --log-file without setting --log-target file should fail
+#[test]
+fn log_file_without_target_fails() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-file",
+            "some.log",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-file is used without file target"
+    );
+    Ok(())
+}
+
+// The combination of file target and file path requires an explicit log-level
+#[test]
+fn log_file_target_needs_level() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-level is missing"
+    );
+    Ok(())
+}
+
+// File target must be accompanied by a log-file argument
+#[test]
+fn log_target_file_with_log_file_succeeds() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "--log-level",
+            "info",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        output.status.success(),
+        "Expected success with log file path"
+    );
+    Ok(())
+}
+
+#[test]
+fn log_target_file_without_log_file_fails() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when missing --log-file"
+    );
+    Ok(())
+}
+
 // Test that -I sets $env.NU_LIB_DIRS correctly
 #[test]
 fn include_path_sets_env_nu_lib_dirs() -> TestResult {

@@ -264,17 +264,25 @@ const CLI_FLAGS: &[CliFlag] = &[
         "log-target",
         None,
         ValueHint::String,
-        "set the target for the log to output. stdout, stderr(default), mixed or file",
+        "set the target for the log to output. stdout, stderr(default), mixed or file (requires --log-file)",
         CliCategory::Logging,
         "nu --log-target stdout",
+    ),
+    CliFlag::value(
+        "log-file",
+        None,
+        ValueHint::Path,
+        "specify a custom log file path (requires --log-target file and --log-level <level>)",
+        CliCategory::Logging,
+        "nu --log-target file --log-file ~/.local/share/nushell/nu.log --log-level info",
     ),
     CliFlag::value(
         "log-include",
         None,
         ValueHint::ListString,
-        "set the Rust module prefixes to include in the log output. default: [nu]",
+        "set the Rust module prefixes to include from the log output",
         CliCategory::Logging,
-        "nu --log-include warn",
+        "nu --log-include info",
     ),
     CliFlag::value(
         "log-exclude",
@@ -418,6 +426,7 @@ struct CliValues {
     env_file: Option<Spanned<String>>,
     log_level: Option<Spanned<String>>,
     log_target: Option<Spanned<String>>,
+    log_file: Option<Spanned<String>>,
     log_include: Option<Vec<Spanned<String>>>,
     log_exclude: Option<Vec<Spanned<String>>>,
     execute: Option<Spanned<String>>,
@@ -601,6 +610,10 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 )?;
                 cli.log_target = Some(spanned_value(value));
             }
+            Long("log-file") => {
+                let value = parse_string_value(&mut parser, "log-file")?;
+                cli.log_file = Some(spanned_value(value));
+            }
             Long("log-include") => {
                 let values = parse_list_values(&mut parser, "log-include")?;
                 let parsed = parse_log_filters("log-include", values)?;
@@ -745,6 +758,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             env_file: cli.env_file,
             log_level: cli.log_level,
             log_target: cli.log_target,
+            log_file: cli.log_file,
             log_include: cli.log_include,
             log_exclude: cli.log_exclude,
             execute: cli.execute,
@@ -1327,6 +1341,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) env_file: Option<Spanned<String>>,
     pub(crate) log_level: Option<Spanned<String>>,
     pub(crate) log_target: Option<Spanned<String>>,
+    pub(crate) log_file: Option<Spanned<String>>,
     pub(crate) log_include: Option<Vec<Spanned<String>>>,
     pub(crate) log_exclude: Option<Vec<Spanned<String>>>,
     pub(crate) execute: Option<Spanned<String>>,
@@ -1347,4 +1362,43 @@ pub(crate) struct NushellCliArgs {
     pub(crate) mcp_transport: Option<Spanned<String>>,
     #[cfg(feature = "mcp")]
     pub(crate) mcp_port: Option<u16>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::ffi::OsString;
+
+    #[test]
+    fn test_log_file_parsing() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--log-target"),
+            OsString::from("file"),
+            OsString::from("--log-file"),
+            OsString::from("/tmp/test.log"),
+            OsString::from("--log-level"),
+            OsString::from("info"),
+        ];
+
+        let result = parse_cli_args(args);
+        assert!(result.is_ok());
+
+        let parsed = result.unwrap();
+        assert_eq!(parsed.nu.log_target.as_ref().unwrap().item, "file");
+        assert_eq!(parsed.nu.log_file.as_ref().unwrap().item, "/tmp/test.log");
+        assert_eq!(parsed.nu.log_level.as_ref().unwrap().item, "info");
+    }
+
+    #[test]
+    fn test_log_target_validation() {
+        let args = vec![
+            OsString::from("nu"),
+            OsString::from("--log-target"),
+            OsString::from("invalid"),
+        ];
+
+        let result = parse_cli_args(args);
+        assert!(result.is_err());
+    }
 }
