@@ -322,6 +322,31 @@ fn main_script_can_have_subcommands2() {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/17719
+#[test]
+fn script_help_shows_single_subcommand() {
+    Playground::setup("main_subcommands_help", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands_help");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               def "main" [] { help main }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), "nu script.nu --help");
+
+        let out = &actual.out;
+        let count_script = out.matches("script.nu bar").count();
+        let count_main = out.matches("main bar").count();
+        assert_eq!(
+            count_script + count_main,
+            1,
+            "help output should list exactly one of 'script.nu bar' or 'main bar', got:\n{}",
+            out
+        );
+    })
+}
+
 #[test]
 fn source_empty_file() {
     Playground::setup("source_empty_file", |dirs, sandbox| {
