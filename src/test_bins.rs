@@ -507,11 +507,12 @@ pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<dyn TestBin>
 /// The indentation matches the layout used by [`cli_help_text`] in `command.rs`, so callers can simply append it after the `--testbin` description.
 pub fn help_list() -> String {
     let dispatcher = new_testbin_dispatcher();
-    let mut names: Vec<_> = dispatcher.keys().collect();
-    names.sort();
+    let mut pairs: Vec<_> = dispatcher.iter().collect();
+    pairs.sort_by_key(|(name, _)| *name);
+
     let mut out = String::new();
-    for name in names {
-        let help = dispatcher.get(name).unwrap().help();
+    for (name, test_bin) in pairs {
+        let help = test_bin.help();
         // use bright cyan for the subcommand and dark gray for the description,
         // matching the styling used elsewhere in the CLI help output.
         out.push_str(&format!(
