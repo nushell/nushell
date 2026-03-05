@@ -45,39 +45,20 @@ impl Command for MetadataSet {
                 "Assign content type metadata to the input.",
                 Some('c'),
             )
-            .named(
-                "merge",
-                SyntaxShape::Record(vec![]),
-                "(DEPRECATED) Merge arbitrary metadata fields.",
-                Some('m'),
-            )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![
-            DeprecationEntry {
-                ty: DeprecationType::Flag("merge".into()),
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.111.0".into()),
-                expected_removal: Some("0.112.0".into()),
-                help: Some(
-                    "Use the closure parameter instead: `metadata set {|| merge {key: value}}`"
-                        .into(),
-                ),
-            },
-            DeprecationEntry {
-                ty: DeprecationType::Flag("datasource-ls".into()),
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.111.0".into()),
-                expected_removal: Some("0.113.0".into()),
-                help: Some(
-                    "Use the path-columns flag instead: `metadata set --path-columns [name]`"
-                        .into(),
-                ),
-            },
-        ]
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("datasource-ls".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.111.0".into()),
+            expected_removal: Some("0.113.0".into()),
+            help: Some(
+                "Use the path-columns flag instead: `metadata set --path-columns [name]`".into(),
+            ),
+        }]
     }
 
     fn run(
@@ -94,7 +75,6 @@ impl Command for MetadataSet {
         let path_columns: Option<Vec<String>> =
             call.get_flag(engine_state, stack, "path-columns")?;
         let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
-        let merge: Option<Value> = call.get_flag(engine_state, stack, "merge")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -105,12 +85,7 @@ impl Command for MetadataSet {
 
         // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
-            if ds_fp.is_some()
-                || ds_ls
-                || path_columns.is_some()
-                || content_type.is_some()
-                || merge.is_some()
-            {
+            if ds_fp.is_some() || ds_ls || path_columns.is_some() || content_type.is_some() {
                 return Err(ShellError::GenericError {
                     error: "Incompatible parameters".into(),
                     msg: "cannot use closure with other flags".into(),
@@ -146,13 +121,6 @@ impl Command for MetadataSet {
         // Flag-based metadata modification
         if let Some(content_type) = content_type {
             metadata.content_type = Some(content_type);
-        }
-
-        if let Some(merge) = merge {
-            let custom_record = merge.as_record()?;
-            for (key, value) in custom_record {
-                metadata.custom.insert(key.clone(), value.clone());
-            }
         }
 
         match (ds_fp, ds_ls) {
