@@ -1,4 +1,7 @@
-use std::io::{self, Read, Write};
+use std::{
+    fmt::Write as _,
+    io::{self, Read, Write},
+};
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
@@ -199,7 +202,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) ->
         let bytes = v.to_ne_bytes(); // Endianness does not affect `i8`
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{ch:08b} "));
+            let _ = write!(raw_string, "{ch:08b} ");
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i16() {
@@ -210,7 +213,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) ->
         };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{ch:08b} "));
+            let _ = write!(raw_string, "{ch:08b} ");
         }
         Value::string(raw_string.trim(), span)
     } else if let Some(v) = num.to_i32() {
@@ -221,7 +224,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) ->
         };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{ch:08b} "));
+            let _ = write!(raw_string, "{ch:08b} ");
         }
         Value::string(raw_string.trim(), span)
     } else {
@@ -232,7 +235,7 @@ fn convert_to_smallest_number_type(num: i64, span: Span, little_endian: bool) ->
         };
         let mut raw_string = "".to_string();
         for ch in bytes {
-            raw_string.push_str(&format!("{ch:08b} "));
+            let _ = write!(raw_string, "{ch:08b} ");
         }
         Value::string(raw_string.trim(), span)
     }
@@ -243,7 +246,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
         Value::Binary { val, .. } => {
             let mut raw_string = "".to_string();
             for ch in val {
-                raw_string.push_str(&format!("{ch:08b} "));
+                let _ = write!(raw_string, "{ch:08b} ");
             }
             Value::string(raw_string.trim(), span)
         }
@@ -258,7 +261,7 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
             let raw_bytes = val.as_bytes();
             let mut raw_string = "".to_string();
             for ch in raw_bytes {
-                raw_string.push_str(&format!("{ch:08b} "));
+                let _ = write!(raw_string, "{ch:08b} ");
             }
             Value::string(raw_string.trim(), span)
         }

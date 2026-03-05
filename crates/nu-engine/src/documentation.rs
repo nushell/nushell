@@ -13,7 +13,7 @@ use nu_utils::terminal_size;
 use std::{
     borrow::Cow,
     collections::HashMap,
-    fmt::Write,
+    fmt::Write as _,
     sync::{Arc, LazyLock},
 };
 
@@ -237,10 +237,10 @@ fn get_alias_documentation(
 
     let alias_name = &sig.name;
 
-    long_desc.push_str(&format!(
-        "{help_section_name}Alias{RESET}: {help_subcolor_one}{alias_name}{RESET}"
-    ));
-    long_desc.push_str("\n\n");
+    let _ = writeln!(
+        long_desc,
+        "{help_section_name}Alias{RESET}: {help_subcolor_one}{alias_name}{RESET}\n"
+    );
 
     let Some(alias) = command.as_alias() else {
         // this is already checked in `help alias`, but just omit the expansion if this is somehow not actually an alias
@@ -250,10 +250,11 @@ fn get_alias_documentation(
     let alias_expansion =
         String::from_utf8_lossy(engine_state.get_span_contents(alias.wrapped_call.span));
 
-    long_desc.push_str(&format!(
+    let _ = write!(
+        long_desc,
         "{help_section_name}Expansion{RESET}:\n  {}",
         nu_highlight_string(&alias_expansion, engine_state, stack)
-    ));
+    );
 }
 
 fn get_command_documentation(
