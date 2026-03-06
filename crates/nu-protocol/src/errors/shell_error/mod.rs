@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use super::chained_error::ChainedError;
 use crate::{
     ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,

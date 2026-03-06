@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};

@@ -276,17 +276,17 @@ mod test {
         let config = Config::default();
         for tc in tt {
             let actual = from_yaml_string_to_value(tc.input, Span::test_data(), Span::test_data());
-            if actual.is_err() {
+            if let Ok(result) = actual {
+                assert_eq!(
+                    result.to_expanded_string("", &config),
+                    tc.expected.unwrap().to_expanded_string("", &config)
+                );
+            } else {
                 assert!(
                     tc.expected.is_err(),
                     "actual is Err for test:\nTest Description {}\nErr: {:?}",
                     tc.description,
                     actual
-                );
-            } else {
-                assert_eq!(
-                    actual.unwrap().to_expanded_string("", &config),
-                    tc.expected.unwrap().to_expanded_string("", &config)
                 );
             }
         }
