@@ -321,11 +321,19 @@ fn cd_permission_denied_folder() {
 #[cfg(unix)]
 fn pwd_recovery() {
     let nu = nu_test_support::fs::executable_path().display().to_string();
-    let tmpdir = std::env::temp_dir().join("foobar").display().to_string();
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    let tmpdir = std::env::temp_dir()
+        .join(format!("nu_pwd_recovery_{}_{}", std::process::id(), unique))
+        .display()
+        .to_string();
 
     // We `cd` into a temporary directory, then spawn another `nu` process to
     // delete that directory. Then we attempt to recover by running `cd /`.
-    let cmd = format!("mkdir {tmpdir}; cd {tmpdir}; {nu} -c 'cd /; rm -r {tmpdir}'; cd /; pwd");
+    let cmd =
+        format!("mkdir '{tmpdir}'; cd '{tmpdir}'; {nu} -c \"cd /; rm -r '{tmpdir}'\"; cd /; pwd");
     let actual = nu!(cmd);
 
     assert_eq!(actual.out, "/");

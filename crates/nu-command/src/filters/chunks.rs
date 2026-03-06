@@ -95,9 +95,7 @@ impl Command for Chunks {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = match input.try_into_stream(engine_state) {
-            Ok(input) | Err(input) => input,
-        };
+        let input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let chunk_size: Value = call.req(engine_state, stack, 0)?;
 

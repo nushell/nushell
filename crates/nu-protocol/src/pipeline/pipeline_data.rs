@@ -267,6 +267,16 @@ impl PipelineData {
         }
     }
 
+    /// Converts this value into a stream when possible, otherwise returns the original value.
+    ///
+    /// This is a convenience wrapper around [`PipelineData::try_into_stream`] for command code
+    /// paths that can operate on both stream and non-stream input without branching.
+    #[must_use]
+    pub fn into_stream_or_original(self, engine_state: &EngineState) -> PipelineData {
+        self.try_into_stream(engine_state)
+            .unwrap_or_else(|original| original)
+    }
+
     /// Drain and write this [`PipelineData`] to `dest`.
     ///
     /// Values are converted to bytes and separated by newlines if this is a `ListStream`.

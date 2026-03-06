@@ -135,9 +135,7 @@ impl Command for Sort {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = match input.try_into_stream(engine_state) {
-            Ok(input) | Err(input) => input,
-        };
+        let input = input.into_stream_or_original(engine_state);
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;

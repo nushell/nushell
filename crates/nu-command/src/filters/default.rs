@@ -160,9 +160,7 @@ fn default(
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let input = if !columns.is_empty() {
-        match input.try_into_stream(engine_state) {
-            Ok(input) | Err(input) => input,
-        }
+        input.into_stream_or_original(engine_state)
     } else {
         input
     };

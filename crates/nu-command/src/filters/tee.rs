@@ -115,9 +115,7 @@ use it in your pipeline."#
         // through later, so if we treat string/binary/list as a stream instead, it's likely that
         // we can get the error back to the original thread.
         let span = input.span().unwrap_or(head);
-        let input = input
-            .try_into_stream(engine_state)
-            .unwrap_or_else(|original_input| original_input);
+        let input = input.into_stream_or_original(engine_state);
 
         if let PipelineData::ByteStream(stream, metadata) = input {
             let type_ = stream.type_();
