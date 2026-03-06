@@ -5,7 +5,6 @@ use kitest::{
 };
 use nu_experimental::ExperimentalOption;
 use std::{
-    cell::Cell,
     collections::{BTreeMap, HashMap},
     env,
     fmt::Display,
