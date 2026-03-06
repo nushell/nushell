@@ -32,13 +32,55 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     engine_state
 });
 
-/// Test some nushell code snippet.
+/// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
-/// Use this function to generate a [`NuTester`], it can be used to configure an [`EngineState`] that contains all comments
+/// The tester starts from a default [`EngineState`] with the standard library loaded,
+/// and a fresh [`Stack`]. Use the returned value to configure environment variables
+/// or the working directory before running code.
+///
+/// # Environment behavior
+///
+/// - This tester does not inherit process environment variables.
+/// - Any variables you want available to the engine must be added explicitly via
+///   [`NuTester::env`] (or convenience helpers like [`NuTester::locale`]).
+/// - Experimental options and other external environment settings are respected
+///   when constructing the underlying engine state for the current test group.
+///
+/// # Examples
+///
+/// ```rust
+/// use nu_test_support::prelude::*;
+///
+/// let code = "use std/util ellie; ellie | ansi strip";
+/// let value: String = test().run(code)?;
+/// assert_eq!(value, r#"
+///      __  ,
+///  .--()°'.'
+/// '|, . ,'
+///  !_-(_\
+/// "#.trim_matches('\n'));
+/// # Ok::<(), nu_test_support::tester::TestError>(())
+/// ```
+///
+/// ```rust
+/// use nu_test_support::prelude::*;
+///
+/// let mut tester = test()
+///     .env("FOO", "bar")
+///     .cwd("crates/nu-test-support");
+///
+/// let value: String = tester.run("$env.FOO")?;
+/// assert_eq!(value, "bar");
+/// # Ok::<(), nu_test_support::tester::TestError>(())
+/// ```
 pub fn test() -> NuTester {
     NuTester::default()
 }
 
+/// Helper for running Nushell code in tests.
+///
+/// `NuTester` owns an [`EngineState`] and [`Stack`] that are reused across
+/// invocations. Configuration methods update the engine state before execution.
 #[derive(Clone)]
 pub struct NuTester {
     engine_state: EngineState,
@@ -55,10 +97,14 @@ impl Default for NuTester {
 }
 
 impl NuTester {
+    /// Create a default tester with the standard engine state.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Set the working directory used for evaluation.
+    ///
+    /// Relative paths are resolved from the repository root and canonicalized.
     pub fn cwd(mut self, cwd: impl Into<PathBuf>) -> Self {
         let cwd = cwd.into();
 
@@ -75,26 +121,35 @@ impl NuTester {
         self
     }
 
+    /// Set the locale used by tests via `NU_TEST_LOCALE`.
     pub fn locale(mut self, locale: impl Into<String>) -> Self {
         self.engine_state
             .add_env_var("NU_TEST_LOCALE".into(), Value::test_string(locale.into()));
         self
     }
 
+    /// Set the locale to `en_US.utf8`.
     pub fn locale_en(self) -> Self {
         self.locale("en_US.utf8")
     }
 
+    /// Add a custom environment variable to the engine state.
     pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
         self.engine_state
             .add_env_var(key.into(), Value::test_string(val.into()));
         self
     }
 
+    /// Run Nushell code and extract the value into `T`.
+    ///
+    /// Parsing, compilation, or evaluation failures are returned as [`TestError`].
     pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T, TestError> {
         Self::extract_value(self.run_raw(code)?)
     }
 
+    /// Run Nushell code with input data and extract the value into `T`.
+    ///
+    /// The input value is converted into `PipelineData` using [`IntoValue`].
     pub fn run_with_data<T: FromValue>(
         &mut self,
         code: impl AsRef<str>,
@@ -104,10 +159,14 @@ impl NuTester {
         Self::extract_value(self.run_raw_with_data(code, input)?)
     }
 
+    /// Run Nushell code and return the raw [`PipelineExecutionData`].
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData, TestError> {
         self.run_raw_with_data(code, PipelineData::empty())
     }
 
+    /// Run Nushell code with input data and return the raw execution results.
+    ///
+    /// This parses, compiles, and evaluates the code against the current engine state.
     pub fn run_raw_with_data(
         &mut self,
         code: impl AsRef<str>,
@@ -141,6 +200,9 @@ impl NuTester {
     }
 }
 
+/// Errors emitted by `NuTester` when parsing, compiling, or evaluating code.
+///
+/// This enum is marked as non-exhaustive to allow adding new variants.
 #[non_exhaustive]
 #[derive(Debug, Error)]
 pub enum TestError {
@@ -164,6 +226,7 @@ pub enum TestError {
 }
 
 impl TestError {
+    /// Convert this error into a [`ParseError`], if it is one.
     pub fn parse(self) -> Result<ParseError, TestError> {
         match self {
             Self::Parse(err) => Ok(err),
@@ -171,6 +234,7 @@ impl TestError {
         }
     }
 
+    /// Convert this error into a [`CompileError`], if it is one.
     pub fn compile(self) -> Result<CompileError, TestError> {
         match self {
             Self::Compile(err) => Ok(err),
@@ -178,6 +242,7 @@ impl TestError {
         }
     }
 
+    /// Convert this error into a [`ShellError`], if it is one.
     pub fn shell(self) -> Result<ShellError, TestError> {
         match self {
             Self::Shell(err) => Ok(err),
@@ -186,13 +251,19 @@ impl TestError {
     }
 }
 
+/// Convenience result type for test helpers.
 pub type Result<T = (), E = TestError> = std::result::Result<T, E>;
 
+/// Extensions for asserting error kinds from test helpers.
 pub trait TestResultExt: Sized {
+    /// Expect the result to be a [`ShellError`].
     fn expect_shell_error(self) -> Result<ShellError, TestError>;
+    /// Expect the result to be a [`ParseError`].
     fn expect_parse_error(self) -> Result<ParseError, TestError>;
+    /// Expect the result to be a [`CompileError`].
     fn expect_compile_error(self) -> Result<CompileError, TestError>;
 
+    /// Expect the result to be a [`ShellError`].
     fn expect_error(self) -> Result<ShellError, TestError> {
         self.expect_shell_error()
     }
@@ -224,6 +295,7 @@ impl TestResultExt for Result {
     }
 }
 
+/// Extensions for interrogating [`ShellError`] values in tests.
 pub trait ShellErrorExt {
     /// Tries to convert into an inner value from a [`ShellError`].
     ///
@@ -238,8 +310,10 @@ pub trait ShellErrorExt {
     /// So make sure that a [`None`] value is not surprise.
     fn into_inner(self) -> Result<ShellError, TestError>;
 
+    /// Extract the error field from [`ShellError::GenericError`], if it is one.
     fn generic_error(self) -> Result<String, TestError>;
 
+    /// Extract the message field from [`ShellError::GenericError`], if it is one.
     fn generic_msg(self) -> Result<String, TestError>;
 }
 
