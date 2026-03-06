@@ -90,6 +90,9 @@ impl Command for RollRight {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = match input.try_into_stream(engine_state) {
+            Ok(input) | Err(input) => input,
+        };
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let metadata = input.metadata();
 
