@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, path::PathBuf, sync::LazyLock};
+use std::{env, path::PathBuf, sync::LazyLock};
 
 use nu_protocol::{
     CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
@@ -6,6 +6,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
 };
+use nu_utils::sync::KeyedLazyLock;
 use thiserror::Error;
 
 use crate::harness::group::GroupKey;
@@ -17,10 +18,9 @@ static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
         .expect("could not canonicalize root")
 });
 
-// TODO: use a keyed lazy lock here
-// static INITIAL_ENGINE_STATES: LazyLock<HashMap<GroupKey, EngineState>> = LazyLock::new(|| HashMap::new());
-
-static INITIAL_ENGINE_STATE: LazyLock<EngineState> = LazyLock::new(|| {
+// By using different engine states depending on the group key, we can ensure that behavior from
+// experimental options or environment variables take proper effect in the setup of an engine state.
+static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLock::new(|_| {
     let engine_state = nu_cmd_lang::create_default_context();
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let mut engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
@@ -33,7 +33,7 @@ static INITIAL_ENGINE_STATE: LazyLock<EngineState> = LazyLock::new(|| {
 });
 
 /// Test some nushell code snippet.
-/// 
+///
 /// Use this function to generate a [`NuTester`], it can be used to configure an [`EngineState`] that contains all comments
 pub fn test() -> NuTester {
     NuTester::default()
@@ -48,7 +48,7 @@ pub struct NuTester {
 impl Default for NuTester {
     fn default() -> Self {
         Self {
-            engine_state: INITIAL_ENGINE_STATE.clone(),
+            engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
             stack: Stack::new(),
         }
     }
