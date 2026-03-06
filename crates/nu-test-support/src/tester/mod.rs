@@ -1,10 +1,10 @@
 use std::{env, path::PathBuf, sync::LazyLock};
 
 use nu_protocol::{
-    CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
-    ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
+    CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
+    ShellError, Span, Value,
 };
 use nu_utils::sync::KeyedLazyLock;
 use thiserror::Error;
@@ -88,6 +88,9 @@ pub struct NuTester {
 }
 
 impl Default for NuTester {
+    /// Create a default tester.
+    ///
+    /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     fn default() -> Self {
         Self {
             engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
@@ -98,6 +101,8 @@ impl Default for NuTester {
 
 impl NuTester {
     /// Create a default tester with the standard engine state.
+    ///
+    /// Prefer [`test()`] for a shorter entry point that avoids naming [`NuTester`].
     pub fn new() -> Self {
         Self::default()
     }
