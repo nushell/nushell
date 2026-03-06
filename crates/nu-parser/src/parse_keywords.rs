@@ -345,7 +345,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
                 {
                     let block = working_set.get_block_mut(*block_id);
 
-                    block.signature = Box::new(sig);
+                    *block.signature = sig;
                 }
             }
 
@@ -659,7 +659,7 @@ fn parse_def_inner(
                         // 2.  `def` calls in scripts/runnable code don't *run* any code either,
                         //     they are handled completely by the parser.
                         compile_block_with_id(working_set, *block_id);
-                        working_set.get_block_mut(*block_id).signature = Box::new(sig.clone());
+                        *working_set.get_block_mut(*block_id).signature = sig.clone();
                     }
                     _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",

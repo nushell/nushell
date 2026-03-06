@@ -10,7 +10,7 @@ homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.91.1"
+rust-version = "1.92.0"
 version = "0.111.1"
 autotests = false
 
@@ -227,7 +227,7 @@ webpki-roots = "1.0"
 [workspace.lints.clippy]
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
 # todo = "warn"
-unchecked_duration_subtraction = "warn"
+unchecked_time_subtraction = "warn"
 used_underscore_binding = "warn"
 result_large_err = "allow"
 
