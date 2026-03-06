@@ -10,7 +10,7 @@ fn record_map_to_toml() -> Result {
     "#;
 
     let outcome: bool = test().run(code)?;
-    assert_eq!(outcome, true);
+    assert!(outcome);
     Ok(())
 }
 
@@ -24,7 +24,7 @@ fn nested_records_to_toml() -> Result {
     "#;
 
     let outcome: bool = test().run(code)?;
-    assert_eq!(outcome, true);
+    assert!(outcome);
     Ok(())
 }
 
@@ -38,7 +38,7 @@ fn records_with_tables_to_toml() -> Result {
     "#;
 
     let outcome: bool = test().run(code)?;
-    assert_eq!(outcome, true);
+    assert!(outcome);
     Ok(())
 }
 
@@ -52,7 +52,7 @@ fn nested_tables_to_toml() -> Result {
     "#;
 
     let outcome: bool = test().run(code)?;
-    assert_eq!(outcome, true);
+    assert!(outcome);
     Ok(())
 }
 
