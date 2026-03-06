@@ -34,9 +34,18 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
 
 /// Create a [`NuTester`] for running Nushell snippets in tests.
 ///
-/// The tester starts from a default [`EngineState`] with the standard library loaded,
-/// and a fresh [`Stack`]. Use the returned value to configure environment variables
-/// or the working directory before running code.
+/// Prefer this helper over the `nu!` macro for most tests. 
+/// It runs snippets in-process instead of shelling out to a subprocess, which makes tests faster
+/// and lets you pass and read values directly without inferring from stdout or stderr. 
+/// The `nu!` macro executes the `nu` binary, and changes in a single crate might not trigger a 
+/// rebuild of that binary, so tests can run against stale behavior unless you run `cargo build` 
+/// first. 
+/// Using this helper avoids that by executing against the in-process engine components.
+///
+/// The tester starts from a default [`EngineState`] with the standard library loaded, and a fresh 
+/// [`Stack`]. 
+/// Use the returned value to configure environment variables or the working directory before 
+/// running code.
 ///
 /// # Environment behavior
 ///
@@ -79,8 +88,8 @@ pub fn test() -> NuTester {
 
 /// Helper for running Nushell code in tests.
 ///
-/// `NuTester` owns an [`EngineState`] and [`Stack`] that are reused across
-/// invocations. Configuration methods update the engine state before execution.
+/// `NuTester` owns an [`EngineState`] and [`Stack`] that are reused across invocations. 
+/// Configuration methods update the engine state before execution.
 #[derive(Clone)]
 pub struct NuTester {
     engine_state: EngineState,
