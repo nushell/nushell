@@ -355,6 +355,143 @@ fn sqlite_get_table_window_works() {
     assert_eq!(actual.out, "4");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_reverse_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | reverse
+        | last
+        | get z
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_reject_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | reject z
+        | first
+        | columns
+        | length
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_drop_nth_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | drop nth 1
+        | get z.1
+    ");
+
+    assert_eq!(actual.out, "425");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_compact_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | compact z
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_rename_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | rename n
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "n");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_find_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | find --no-highlight hello
+        | get x.1
+    ");
+
+    assert_eq!(actual.out, "hello");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_transpose_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | transpose
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "column0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_zip_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | zip [1 2 3 4 5]
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_enumerate_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | enumerate
+        | first
+        | get index
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_flatten_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | flatten
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(
