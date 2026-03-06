@@ -1,5 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_test_support::{nu, nu_repl_code};
+use rstest::rstest;
 use std::collections::HashMap;
 
 #[test]
@@ -934,6 +935,81 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
     Ok(())
 }
 
+#[rstest]
+#[case::string("a", "list<record<b: int>>")]
+#[case::string_int("a.0", "record<b: int>")]
+#[case::string_int_string("a.0.b", "int")]
+#[case::string_string_int("a.b.0", "int")]
+fn let_assign_record_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = {{a: [{{b: 1}}]}}; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::int("0", "record<a: record<b: list<int>>>")]
+#[case::int("0.a", "record<b: list<int>>")]
+#[case::int("0.a.b", "list<int>")]
+#[case::int("0.a.b.0", "int")]
+#[case::string("a", "list<record<b: list<int>>>")]
+#[case::string_int("a.0", "record<b: list<int>>")]
+#[case::string_int_string("a.0.b", "list<int>")]
+#[case::string_string("a.b", "list<list<int>>")]
+#[case::string_string_int("a.b.0", "list<int>")]
+#[case::string_string_int_int("a.b.0.0", "int")]
+fn let_assign_list_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = [{{a: {{b: [1]}}}}]; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::int("0", "record<a: record<b: list<int>>>")]
+#[case::int_string("0.a", "record<b: list<int>>")]
+#[case::int_string_string("0.a.b", "list<int>")]
+#[case::int_string_string_int("0.a.b.0", "int")]
+#[case::string("a", "list<record<b: list<int>>>")]
+#[case::string_int("a.0", "record<b: list<int>>")]
+#[case::string_int_string("a.0.b", "list<int>")]
+#[case::string_string("a.b", "list<list<int>>")]
+#[case::string_string_int("a.b.0", "list<int>")]
+#[case::string_string_int_int("a.b.0.0", "int")]
+fn let_assign_table_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = [[a]; [{{b: [1]}}]]; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
+    );
+    Ok(())
+}
+
 #[test]
 fn let_variable_disallows_completer() -> TestResult {
     fail_test(
@@ -1098,6 +1174,19 @@ fn record_expected_colon() -> TestResult {
 #[test]
 fn record_missing_value() -> TestResult {
     fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
+}
+
+#[test]
+fn record_type_inferred() -> TestResult {
+    fail_test(
+        r#"let foo: string = { 1: 1 }"#,
+        "expected string, found record<1: int>",
+    )
+}
+
+#[test]
+fn record_force_string_key_names() -> TestResult {
+    run_test(r#"{1kb: 1}.1kb"#, "1")
 }
 
 #[test]

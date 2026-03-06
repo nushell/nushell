@@ -1,8 +1,8 @@
-use crate::values::{Column, NuDataFrame, PolarsPluginType};
+use crate::values::{Column, NuDataFrame, PolarsPluginObject, PolarsPluginType};
 use crate::{
     PolarsPlugin,
     dataframe::values::{NuExpression, NuLazyFrame},
-    values::{CustomValueSupport, PolarsPluginObject},
+    values::CustomValueSupport,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -300,7 +300,7 @@ fn command_eager(
 
         let mut polars_df = df.to_polars();
         polars_df
-            .with_column(series)
+            .with_column(series.into())
             .map_err(|e| ShellError::GenericError {
                 error: "Error adding column to dataframe".into(),
                 msg: e.to_string(),

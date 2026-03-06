@@ -322,6 +322,31 @@ fn main_script_can_have_subcommands2() {
     })
 }
 
+// regression test for https://github.com/nushell/nushell/issues/17719
+#[test]
+fn script_help_shows_single_subcommand() {
+    Playground::setup("main_subcommands_help", |dirs, sandbox| {
+        sandbox.mkdir("main_subcommands_help");
+        sandbox.with_files(&[FileWithContent(
+            "script.nu",
+            r#"def "main bar" [] {}
+               def "main" [] { help main }"#,
+        )]);
+
+        let actual = nu!(cwd: dirs.test(), "nu script.nu --help");
+
+        let out = &actual.out;
+        let count_script = out.matches("script.nu bar").count();
+        let count_main = out.matches("main bar").count();
+        assert_eq!(
+            count_script + count_main,
+            1,
+            "help output should list exactly one of 'script.nu bar' or 'main bar', got:\n{}",
+            out
+        );
+    })
+}
+
 #[test]
 fn source_empty_file() {
     Playground::setup("source_empty_file", |dirs, sandbox| {
@@ -488,4 +513,43 @@ fn builtin_commands_can_be_shadowed_and_extended() {
 
     let copy_help = nu_with_std!(r#"use std/clip; clip copy --help"#);
     assert!(copy_help.out.contains("deprecated"));
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn nu_env_pwd_symlink() {
+    Playground::setup("nu_env_pwd_symlink", |_, sandbox| {
+        // Test that the value of PWD in the environment takes precedence
+        // over the current working directory when they point to the same directory.
+        let pwd = "linked_current_dir";
+        sandbox.symlink("./", pwd);
+
+        let pwd = sandbox.cwd().join(pwd);
+        let current_dir = std::fs::canonicalize(&pwd).unwrap();
+        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+            .args(["-c", "echo $env.PWD"])
+            .current_dir(current_dir)
+            .env("PWD", &pwd)
+            .output()
+            .expect("failed to run nu");
+        let output = String::from_utf8(child_output.stdout).unwrap();
+        assert_eq!(output.trim_end(), pwd.to_str().unwrap());
+
+        // Make sure that the current_dir still takes precedence
+        // if PWD and current_dir point to different directories.
+        let pwd = "linked_current_dir2";
+        sandbox.mkdir("new_current_dir");
+        sandbox.symlink("new_current_dir", pwd);
+
+        let pwd = sandbox.cwd().join(pwd);
+        let current_dir = sandbox.cwd().canonicalize().unwrap();
+        let child_output = std::process::Command::new(nu_test_support::fs::executable_path())
+            .args(["-c", "echo $env.PWD"])
+            .current_dir(&current_dir)
+            .env("PWD", &pwd)
+            .output()
+            .expect("failed to run nu");
+        let output = String::from_utf8(child_output.stdout).unwrap();
+        assert_eq!(output.trim_end(), current_dir.to_str().unwrap());
+    })
 }

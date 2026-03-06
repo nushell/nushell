@@ -181,6 +181,8 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Std(e, _)
             | polars::prelude::AggExpr::Var(e, _)
             | polars::prelude::AggExpr::Item { input: e, .. }
+            | polars::prelude::AggExpr::FirstNonNull(e)
+            | polars::prelude::AggExpr::LastNonNull(e)
             | polars::prelude::AggExpr::Quantile { expr: e, .. } => get_col_name(e.as_ref()),
         },
         Expr::Filter { input: expr, .. }
@@ -196,7 +198,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Function { .. }
         | Expr::Literal(_)
         | Expr::BinaryExpr { .. }
-        | Expr::Window { .. }
+        | Expr::Over { .. }
         | Expr::RenameAlias { .. }
         | Expr::Len
         | Expr::SubPlan(_, _)
@@ -205,6 +207,9 @@ fn get_col_name(expr: &Expr) -> Option<String> {
         | Expr::Alias(_, _)
         | Expr::DataTypeFunction(_)
         | Expr::Element
+        | Expr::Rolling { .. }
+        | Expr::StructEval { .. }
+        | Expr::Display { .. }
         | Expr::Eval { .. } => None,
     }
 }

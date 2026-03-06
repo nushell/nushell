@@ -2782,11 +2782,15 @@ pub fn parse_full_cell_path(
         };
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
-        // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
         let ty = if !tail.is_empty() {
-            // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
-            // such as $a.1 = 2 to work correctly.
-            Type::Any
+            if nu_experimental::CELL_PATH_TYPES.get() {
+                head.ty
+                    .follow_cell_path(&tail)
+                    .map(|ty| ty.into_owned())
+                    .unwrap_or(Type::Any)
+            } else {
+                Type::Any
+            }
         } else {
             head.ty.clone()
         };
@@ -6520,7 +6524,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 garbage(working_set, curr_span)
             } else {
-                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                let field = parse_value(working_set, curr_span, &SyntaxShape::String);
                 if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
                     working_set.error(error);
                     garbage(working_set, field.span)
@@ -7037,7 +7041,7 @@ pub fn discover_captures_in_expr(
                         } else {
                             let result = {
                                 let mut seen = vec![];
-                                seen_blocks.insert(block_id, output.clone());
+                                seen_blocks.insert(block_id, vec![]);
 
                                 let mut result = vec![];
                                 discover_captures_in_closure(

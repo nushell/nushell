@@ -641,7 +641,7 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         df_columns.push(series.into());
     }
 
-    DataFrame::new(df_columns)
+    DataFrame::new_infer_height(df_columns)
         .map(|df| NuDataFrame::new(false, df))
         .map_err(|e| ShellError::GenericError {
             error: "Error creating dataframe".into(),
@@ -652,7 +652,25 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
         })
 }
 
-fn value_to_series(name: PlSmallStr, values: &[Value]) -> Result<Series, ShellError> {
+pub fn value_to_series(name: PlSmallStr, values: &[Value]) -> Result<Series, ShellError> {
+    // try to get the type, if the list is inconsistent, fallback to object type
+    if let Some(data_type) = values.first().and_then(value_to_data_type) {
+        let column = TypedColumn {
+            column: Column::new(name.clone(), values.to_owned()),
+            column_type: Some(data_type.clone()),
+        };
+
+        typed_column_to_series(name.clone(), column)
+            .or_else(|e| {
+                eprintln!("Error converting list to series with type {data_type:?}: {e}. Falling back to object type.");
+                value_to_object_series(name, values)
+            })
+    } else {
+        value_to_object_series(name, values)
+    }
+}
+
+fn value_to_object_series(name: PlSmallStr, values: &[Value]) -> Result<Series, ShellError> {
     let mut builder = ObjectChunkedBuilder::<DataFrameValue>::new(name, values.len());
 
     for v in values {
@@ -1963,6 +1981,24 @@ mod tests {
             result,
             Series::new("name".into(), [Some("barbaz".to_string()), None])
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_list_to_series() -> Result<(), Box<dyn std::error::Error>> {
+        let values = vec![
+            Value::string("bar".to_string(), Span::test_data()),
+            Value::string("baz".to_string(), Span::test_data()),
+        ];
+
+        let series = value_to_series("foo".into(), &values)?;
+        let df = NuDataFrame::try_from_series(series, Span::test_data())?.to_polars();
+        let schema = df.schema();
+        let field = schema
+            .get_field("foo")
+            .expect("Field foo should be present in schema");
+        assert_eq!(field.dtype, DataType::String);
+
         Ok(())
     }
 }

@@ -144,7 +144,7 @@ impl NuDataFrame {
     }
 
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
-        match DataFrame::new(vec![series.into()]) {
+        match DataFrame::new_infer_height(vec![series.into()]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
             Err(e) => Err(ShellError::GenericError {
                 error: "Error creating dataframe".into(),
@@ -202,14 +202,15 @@ impl NuDataFrame {
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
         let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
 
-        let dataframe =
-            DataFrame::new(columns_converted).map_err(|e| ShellError::GenericError {
+        let dataframe = DataFrame::new_infer_height(columns_converted).map_err(|e| {
+            ShellError::GenericError {
                 error: "Error creating dataframe".into(),
                 msg: format!("Unable to create DataFrame: {e}"),
                 span: Some(span),
                 help: None,
                 inner: vec![],
-            })?;
+            }
+        })?;
 
         Ok(Self::new(false, dataframe))
     }
@@ -255,7 +256,7 @@ impl NuDataFrame {
     pub fn columns(&self, span: Span) -> Result<Vec<Column>, ShellError> {
         let height = self.df.height();
         self.df
-            .get_columns()
+            .columns()
             .iter()
             .map(|col| conversion::create_column(col, 0, height, span))
             .collect::<Result<Vec<Column>, ShellError>>()
@@ -277,13 +278,14 @@ impl NuDataFrame {
             }
         })?;
 
-        let df = DataFrame::new(vec![s.clone()]).map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: e.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        let df =
+            DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| ShellError::GenericError {
+                error: "Error creating dataframe".into(),
+                msg: e.to_string(),
+                span: Some(span),
+                help: None,
+                inner: vec![],
+            })?;
 
         Ok(Self::new(false, df))
     }
@@ -305,7 +307,7 @@ impl NuDataFrame {
 
         let series = self
             .df
-            .get_columns()
+            .columns()
             .first()
             .expect("We have already checked that the width is 1")
             .as_materialized_series();
@@ -399,7 +401,7 @@ impl NuDataFrame {
         let mut size: usize = 0;
         let columns = self
             .df
-            .get_columns()
+            .columns()
             .iter()
             .map(
                 |col| match conversion::create_column(col, from_row, upper_row, span) {
@@ -563,5 +565,32 @@ impl CustomValueSupport for NuDataFrame {
 
     fn get_type_static() -> PolarsPluginType {
         PolarsPluginType::NuDataFrame
+    }
+
+    fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
+        match value {
+            Value::Custom { val, .. } => {
+                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                    Self::try_from_custom_value(plugin, cv)
+                } else {
+                    Err(ShellError::CantConvert {
+                        to_type: Self::get_type_static().to_string(),
+                        from_type: value.get_type().to_string(),
+                        span: value.span(),
+                        help: None,
+                    })
+                }
+            }
+            Value::List { vals, .. } => {
+                let series = conversion::value_to_series("".into(), vals)?;
+                NuDataFrame::try_from_series(series, value.span())
+            }
+            _ => Err(ShellError::CantConvert {
+                to_type: Self::get_type_static().to_string(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            }),
+        }
     }
 }

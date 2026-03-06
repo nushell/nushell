@@ -122,9 +122,9 @@ impl NuDataFrame {
 
                 let new_cols = self
                     .df
-                    .get_columns()
+                    .columns()
                     .iter()
-                    .chain(other.df.get_columns())
+                    .chain(other.df.columns())
                     .map(|s| {
                         let name = if columns.contains(&s.name().as_str()) {
                             format!("{}_{}", s.name(), "x")
@@ -139,12 +139,14 @@ impl NuDataFrame {
                     })
                     .collect::<Vec<PolarsColumn>>();
 
-                let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
-                    error: "Error creating dataframe".into(),
-                    msg: e.to_string(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                let df_new = DataFrame::new_infer_height(new_cols).map_err(|e| {
+                    ShellError::GenericError {
+                        error: "Error creating dataframe".into(),
+                        msg: e.to_string(),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }
                 })?;
 
                 Ok(NuDataFrame::new(false, df_new))
@@ -171,7 +173,7 @@ impl NuDataFrame {
 
                 let new_cols = self
                     .df
-                    .get_columns()
+                    .columns()
                     .iter()
                     .map(|s| {
                         let other_col = other
@@ -197,12 +199,14 @@ impl NuDataFrame {
                     })
                     .collect::<Result<Vec<PolarsColumn>, ShellError>>()?;
 
-                let df_new = DataFrame::new(new_cols).map_err(|e| ShellError::GenericError {
-                    error: "Error appending dataframe".into(),
-                    msg: format!("Unable to append dataframes: {e}"),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                let df_new = DataFrame::new_infer_height(new_cols).map_err(|e| {
+                    ShellError::GenericError {
+                        error: "Error appending dataframe".into(),
+                        msg: format!("Unable to append dataframes: {e}"),
+                        span: Some(span),
+                        help: None,
+                        inner: vec![],
+                    }
                 })?;
 
                 Ok(NuDataFrame::new(false, df_new))

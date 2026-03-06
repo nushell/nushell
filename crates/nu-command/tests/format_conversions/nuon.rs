@@ -79,6 +79,43 @@ fn to_nuon_table() -> Result {
 }
 
 #[test]
+fn to_nuon_table_as_list_of_records() -> Result {
+    let code = r#"
+        [[a, b]; [1, 2], [3, 4]]
+        | to nuon --list-of-records
+    "#;
+
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "[{a: 1, b: 2}, {a: 3, b: 4}]");
+    Ok(())
+}
+
+#[test]
+fn to_nuon_table_as_list_of_records_indented() -> Result {
+    let code = r#"
+        [[a, b]; [1, 2], [3, 4]]
+        | to nuon --list-of-records --indent 2
+        | str contains "\n"
+    "#;
+
+    let outcome: bool = test().run(code)?;
+    assert!(outcome);
+    Ok(())
+}
+
+#[test]
+fn to_nuon_table_as_list_of_records_is_recursive() -> Result {
+    let code = r#"
+        {outer: [[a, b]; [1, 2], [3, 4]]}
+        | to nuon --list-of-records
+    "#;
+
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "{outer: [{a: 1, b: 2}, {a: 3, b: 4}]}");
+    Ok(())
+}
+
+#[test]
 fn from_nuon_illegal_table() -> Result {
     let code = r#"
         "[[repeated repeated]; [abc, xyz], [def, ijk]]"
@@ -86,10 +123,8 @@ fn from_nuon_illegal_table() -> Result {
     "#;
 
     let err = test().run(code).expect_shell_error()?;
-    let ShellError::GenericError { inner, .. } = err else {
-        return Err(err.into());
-    };
-    assert!(matches!(inner[0], ShellError::ColumnDefinedTwice { .. }));
+    let inner = err.into_inner()?;
+    assert!(matches!(inner, ShellError::ColumnDefinedTwice { .. }));
     Ok(())
 }
 

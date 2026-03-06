@@ -46,16 +46,29 @@ fn current_exe_directory() -> PathBuf {
 
 /// Get the current working directory from the environment.
 fn current_dir_from_environment() -> PathBuf {
-    if let Ok(cwd) = std::env::current_dir() {
-        return cwd;
+    let cwd = std::env::current_dir();
+    let pwd = std::env::var("PWD");
+    match (cwd, pwd) {
+        // If current_dir and PWD are the same then use PWD
+        // so the path isn't unnecessarily canonicalized on Unix systems.
+        (Ok(cwd), Ok(pwd)) => {
+            if matches!(same_file::is_same_file(&cwd, &pwd), Ok(true)) {
+                pwd.into()
+            } else {
+                cwd
+            }
+        }
+        // Otherwise prefer current_dir in case it has diverged from PWD
+        (Ok(cwd), _) => cwd,
+        (_, Ok(pwd)) => pwd.into(),
+        _ => {
+            if let Some(home) = nu_path::home_dir() {
+                home.into_std_path_buf()
+            } else {
+                current_exe_directory()
+            }
+        }
     }
-    if let Ok(cwd) = std::env::var("PWD") {
-        return cwd.into();
-    }
-    if let Some(home) = nu_path::home_dir() {
-        return home.into_std_path_buf();
-    }
-    current_exe_directory()
 }
 
 fn main() -> Result<()> {
