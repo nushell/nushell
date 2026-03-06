@@ -1,4 +1,4 @@
-use std::{env, path::PathBuf, sync::LazyLock};
+use std::{collections::HashMap, env, path::PathBuf, sync::LazyLock};
 
 use nu_protocol::{
     CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
@@ -8,12 +8,17 @@ use nu_protocol::{
 };
 use thiserror::Error;
 
+use crate::harness::group::GroupKey;
+
 static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .canonicalize()
         .expect("could not canonicalize root")
 });
+
+// TODO: use a keyed lazy lock here
+// static INITIAL_ENGINE_STATES: LazyLock<HashMap<GroupKey, EngineState>> = LazyLock::new(|| HashMap::new());
 
 static INITIAL_ENGINE_STATE: LazyLock<EngineState> = LazyLock::new(|| {
     let engine_state = nu_cmd_lang::create_default_context();
@@ -27,6 +32,9 @@ static INITIAL_ENGINE_STATE: LazyLock<EngineState> = LazyLock::new(|| {
     engine_state
 });
 
+/// Test some nushell code snippet.
+/// 
+/// Use this function to generate a [`NuTester`], it can be used to configure an [`EngineState`] that contains all comments
 pub fn test() -> NuTester {
     NuTester::default()
 }

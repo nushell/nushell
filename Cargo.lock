@@ -4700,6 +4700,7 @@ dependencies = [
  "memchr",
  "nix",
  "num-format",
+ "parking_lot",
  "serde",
  "serde_json",
  "strip-ansi-escapes",
