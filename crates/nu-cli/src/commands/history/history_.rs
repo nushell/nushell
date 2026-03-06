@@ -167,6 +167,9 @@ impl Command for History {
                     );
                 }
                 table = table
+                    // Keep sqlite history output deterministic and append-ordered unless
+                    // the user explicitly requests a different sort.
+                    .with_order_by("rowid ASC".to_string())
                     .with_unix_millis_datetime_column(fields::START_TIMESTAMP.to_string())
                     .with_millis_duration_column(fields::DURATION.to_string());
                 Ok(PipelineData::Value(
