@@ -315,6 +315,46 @@ fn sqlite_get_table_roll_right_works() {
     assert_eq!(actual.out, "y");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_default_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | default 0 z
+        | last
+        | get z
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_chunks_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | chunks 2
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_window_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | window 2
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(
