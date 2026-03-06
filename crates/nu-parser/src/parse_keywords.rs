@@ -358,6 +358,12 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     let iteration_expr = call.positional_nth(1).expect("for call already checked");
     let block = call.positional_nth(2).expect("for call already checked");
 
+    // Check that the loop variable is not a reserved variable name (e.g. $in, $nu, $env, $it)
+    let var_name = String::from_utf8_lossy(working_set.get_span_contents(var_decl.span))
+        .trim_start_matches('$')
+        .to_string();
+    verify_not_reserved_variable_name(working_set, &var_name, var_decl.span);
+
     let iteration_expr_ty = iteration_expr.ty.clone();
 
     // Figure out the type of the variable the `for` uses for iteration
