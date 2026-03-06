@@ -40,6 +40,9 @@ impl Command for DropColumn {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = match input.try_into_stream(engine_state) {
+            Ok(input) | Err(input) => input,
+        };
         // the number of columns to drop
         let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
         let from_left = call.has_flag(engine_state, stack, "left")?;

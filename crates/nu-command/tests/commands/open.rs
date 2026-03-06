@@ -202,6 +202,63 @@ fn sqlite_get_table_generic_filters_work() {
     assert_eq!(actual.out, "2");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_sort_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | sort
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_headers_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | headers
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_move_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | move x --after y
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "y");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_drop_column_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | drop column
+        | first
+        | columns
+        | length
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(
