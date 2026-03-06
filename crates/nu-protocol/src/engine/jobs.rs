@@ -286,26 +286,24 @@ impl Mailbox {
         timeout: Duration,
     ) -> Result<PipelineData, RecvTimeoutError> {
         if let Some(value) = self.ignored_mail.pop(filter_tag) {
-            Ok(value)
-        } else {
-            let mut waited_so_far = Duration::ZERO;
-            let mut before = Instant::now();
+            return Ok(value);
+        }
 
-            while waited_so_far < timeout {
-                let (tag, value) = self.receiver.recv_timeout(timeout - waited_so_far)?;
+        let mut now = Instant::now();
+        let deadline = now + timeout;
 
-                if filter_tag.is_none() || filter_tag == tag {
-                    return Ok(value);
-                } else {
-                    self.ignored_mail.add((tag, value));
-                    let now = Instant::now();
-                    waited_so_far += now - before;
-                    before = now;
-                }
+        while let Some(remaining) = deadline.checked_duration_since(now) {
+            let (tag, value) = self.receiver.recv_timeout(remaining)?;
+
+            if filter_tag.is_none() || filter_tag == tag {
+                return Ok(value);
             }
 
-            Err(RecvTimeoutError::Timeout)
+            self.ignored_mail.add((tag, value));
+            now = Instant::now();
         }
+
+        Err(RecvTimeoutError::Timeout)
     }
 
     #[cfg(not(target_family = "wasm"))]
