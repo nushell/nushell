@@ -7041,7 +7041,7 @@ pub fn discover_captures_in_expr(
                         } else {
                             let result = {
                                 let mut seen = vec![];
-                                seen_blocks.insert(block_id, output.clone());
+                                seen_blocks.insert(block_id, vec![]);
 
                                 let mut result = vec![];
                                 discover_captures_in_closure(
