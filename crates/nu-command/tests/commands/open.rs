@@ -981,6 +981,128 @@ fn sqlite_get_table_items_works() {
     assert_eq!(actual.out, "1");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_chunk_by_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | chunk-by {|row| (($row.z | default 0) mod 2) }
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_join_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get strings
+        | join [[x tag]; [hello a] [nushell b]] x
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_drop_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | drop 1
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_shuffle_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | shuffle
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_split_list_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | split list 2
+        | flatten
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_each_while_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | each while {|row| $row }
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_tee_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | tee {|x| $x | ignore }
+        | flatten
+        | length
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_filter_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | filter {|row| $row.z > 100 }
+        | length
+    ");
+
+    assert_eq!(actual.out, "2");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_lines_errors_with_type_mismatch() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | lines
+    ");
+
+    assert!(
+        actual
+            .err
+            .contains("nu::shell::only_supports_this_input_type")
+    );
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(

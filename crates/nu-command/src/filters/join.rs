@@ -83,6 +83,10 @@ impl Command for Join {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let input = match input.try_into_stream(engine_state) {
+            Ok(input) | Err(input) => input,
+        };
+
         let metadata = input.metadata();
         let table_2: Value = call.req(engine_state, stack, 0)?;
         let l_on: Value = call.req(engine_state, stack, 1)?;
