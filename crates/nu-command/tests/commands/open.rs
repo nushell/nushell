@@ -492,6 +492,495 @@ fn sqlite_get_table_flatten_works() {
     assert_eq!(actual.out, "1");
 }
 
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_append_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | append {z: 99}
+        | last
+        | get z
+    ");
+
+    assert_eq!(actual.out, "99");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_prepend_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | prepend {z: 0}
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_reduce_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | reduce -f 0 {|row, acc| $acc + ($row.z | default 0) }
+    ");
+
+    assert_eq!(actual.out, "4721");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_each_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | each {|row| $row.z }
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_par_each_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | par-each {|row| $row.z }
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_upsert_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | upsert z 0
+        | last
+        | get z
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_update_cells_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | update cells {|v| if $v == null { 0 } else { $v + 1 } }
+        | last
+        | get z
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_every_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | every 2
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_first_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first 2
+        | get z.1
+    ");
+
+    assert_eq!(actual.out, "42");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_last_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | last 2
+        | get z.0
+    ");
+
+    assert_eq!(actual.out, "4253");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_take_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | take 3
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_skip_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | skip 2
+        | get z.0
+    ");
+
+    assert_eq!(actual.out, "425");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_slice_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | slice 1..3
+        | get z.1
+    ");
+
+    assert_eq!(actual.out, "425");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_select_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | select z
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "z");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_where_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | where z > 100
+        | length
+    ");
+
+    assert_eq!(actual.out, "2");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_sort_by_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | sort-by z
+        | get z.1
+    ");
+
+    assert_eq!(actual.out, "42");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_uniq_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | uniq
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_uniq_by_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | uniq-by z
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_is_empty_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | is-empty
+    ");
+
+    assert_eq!(actual.out, "false");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_is_not_empty_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | is-not-empty
+    ");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_all_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | all {|row| $row.z != null }
+    ");
+
+    assert_eq!(actual.out, "false");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_any_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | any {|row| $row.z == null }
+    ");
+
+    assert_eq!(actual.out, "true");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_take_while_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | take while {|row| $row.z < 1000 }
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_skip_while_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | skip while {|row| $row.z < 1000 }
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "4253");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_take_until_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | take until {|row| $row.z > 1000 }
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_skip_until_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | skip until {|row| $row.z > 1000 }
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "4253");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_insert_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | insert n 1
+        | first
+        | get n
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_update_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | update z 0
+        | first
+        | get z
+    ");
+
+    assert_eq!(actual.out, "0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_wrap_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | wrap wrapped
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "wrapped");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_interleave_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | interleave { [{z: 999}] }
+        | length
+    ");
+
+    assert_eq!(actual.out, "6");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_rotate_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | rotate --ccw
+        | columns
+        | first
+    ");
+
+    assert_eq!(actual.out, "column0");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_group_by_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | group-by z
+        | columns
+        | length
+    ");
+
+    assert_eq!(actual.out, "4");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_get_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | get z.0
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_length_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | length
+    ");
+
+    assert_eq!(actual.out, "5");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_merge_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first
+        | merge {n: 1}
+        | get n
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_merge_deep_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first
+        | merge deep {n: {x: 1}}
+        | get n.x
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn sqlite_get_table_items_works() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open sample.db
+        | get ints
+        | first
+        | items {|k, v| $k }
+        | length
+    ");
+
+    assert_eq!(actual.out, "1");
+}
+
 #[test]
 fn parses_toml() {
     let actual = nu!(
