@@ -10,6 +10,7 @@ mod glob;
 mod int;
 mod record;
 mod string;
+mod value;
 
 pub use binary::IntoBinary;
 pub use bool::IntoBool;
@@ -23,3 +24,4 @@ pub use glob::IntoGlob;
 pub use int::IntoInt;
 pub use record::IntoRecord;
 pub use string::IntoString;
+pub use value::IntoValue;
