@@ -863,7 +863,10 @@ fn parse_operation(
     }
 
     let path = nu_path::expand_path_with(&orig, &cwd, true);
-    if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
+    if (engine_state.get_config().auto_cd_always || looks_like_path(&orig))
+        && path.is_dir()
+        && tokens.0.len() == 1
+    {
         Ok(ReplOperation::AutoCd {
             cwd,
             target: path,
