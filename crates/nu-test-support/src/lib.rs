@@ -1,6 +1,6 @@
 #![doc = include_str!("../README.md")]
 
-use std::process::ExitStatus;
+use std::{borrow::Borrow, fmt::Debug, process::ExitStatus};
 
 pub mod commands;
 pub mod fs;
@@ -10,6 +10,7 @@ pub mod macros;
 pub mod playground;
 
 pub mod tester;
+use nu_utils::container::Container;
 pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};
 
 pub mod prelude {
@@ -76,4 +77,36 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     }
 
     original_paths
+}
+
+#[track_caller]
+pub fn assert_contains<C, I>(container: C, item: I)
+where
+    C: Container + Debug,
+    I: Borrow<C::Item>,
+    C::Item: Debug,
+{
+    let item = item.borrow();
+
+    assert!(
+        container.contains(item),
+        "{container:?} does not contain {item:?}"
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::assert_contains;
+
+    #[test]
+    fn test_something() {
+        assert_contains([1, 2, 3], 4);
+        assert_contains(&[1, 2, 3], 2);
+        assert_contains("abc", "a");
+        assert_contains(String::from("abc"), "b");
+        assert_contains(String::from("abc"), String::from("b"));
+        assert_contains(&String::from("abc"), "c");
+        assert_contains(vec![1, 2, 3], 2);
+        assert_contains(&vec![1, 2, 3], 1);
+    }
 }
