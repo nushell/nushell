@@ -320,6 +320,11 @@ impl IoError {
         }
     }
 
+    /// Creates a new [`IoError`] for internal I/O errors with an explicit caller location.
+    ///
+    /// Use this when you already have a [`Location`] (for example, from a helper) and want to
+    /// attach it instead of relying on `#[track_caller]`.
+    /// This is otherwise equivalent to [`new_internal`](Self::new_internal).
     pub fn new_internal_with_location(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
@@ -368,6 +373,11 @@ impl IoError {
         }
     }
 
+    /// Creates a new [`IoError`] for internal I/O errors with a path and explicit location.
+    ///
+    /// Use this variant when the error relates to a specific path and you already have a
+    /// [`Location`] you want to record, rather than relying on `#[track_caller]`.
+    /// This is otherwise equivalent to [`new_internal_with_path`](Self::new_internal_with_path).
     pub fn new_internal_with_path_and_location(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
