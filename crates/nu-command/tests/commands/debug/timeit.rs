@@ -47,7 +47,7 @@ fn timeit_show_stderr() -> Result {
         }}
     "#, echo_env_stdout("FOO"));
     let stdout: String = test().inherit_path().run(stdout_code)?;
-    assert!(stdout.contains("bar"));
+    assert_contains!("bar" in stdout);
 
     let stderr_code = format!(r#"
         with-env {{FOO: bar, FOO2: baz}} {{
@@ -56,7 +56,7 @@ fn timeit_show_stderr() -> Result {
         }}
     "#, echo_env_stderr("FOO2"));
     let stderr: String = test().inherit_path().run(stderr_code)?;
-    assert!(stderr.contains("baz"));
+    assert_contains!("baz" in stderr);
     Ok(())
 }
 
