@@ -442,7 +442,17 @@ impl Display for Type {
 /// Helpful for listing types in errors
 pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
     use std::fmt::Write as _;
-    match types {
+
+    // Deduplicate types to avoid confusing repeated entries like
+    // "binary, binary, binary, or binary" in error messages.
+    let mut seen = Vec::new();
+    for t in types {
+        if !seen.contains(t) {
+            seen.push(t.clone());
+        }
+    }
+
+    match seen.as_slice() {
         [] => None,
         [one] => Some(one.to_string()),
         [one, two] => Some(format!("{one} {join_word} {two}")),
