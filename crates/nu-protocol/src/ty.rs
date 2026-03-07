@@ -277,10 +277,6 @@ impl Type {
                 }
             }
             t => {
-                if oneof.contains(&t) {
-                    return;
-                }
-
                 for one in oneof.iter_mut() {
                     match Self::flat_widen(std::mem::replace(one, Type::Any), t.clone()) {
                         Ok(one_t) => {
