@@ -1,7 +1,7 @@
 use std::{env, path::PathBuf, sync::LazyLock};
 
 use nu_protocol::{
-    CompileError, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
+    CompileError, Config, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
     ShellError, Span, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
@@ -26,7 +26,13 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     let mut engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
 
     engine_state.generate_nu_constant();
-    engine_state.add_env_var("PWD".into(), Value::test_string(ROOT.to_string_lossy()));
+    [
+        ("PWD", Value::test_string(ROOT.to_string_lossy())),
+        ("config", Config::default().into_value(Span::unknown())),
+    ]
+    .into_iter()
+    .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
+    
     nu_std::load_standard_library(&mut engine_state).expect("could not load standard library");
 
     engine_state
