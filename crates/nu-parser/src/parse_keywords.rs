@@ -700,19 +700,6 @@ fn parse_def_inner(
     let mut result = None;
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
-        // for arg_name in &signature.required_positional {
-        //     verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        // }
-        // for arg_name in &signature.optional_positional {
-        //     verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        // }
-        // if let Some(arg_name) = &signature.rest_positional {
-        //     verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        // }
-        // for flag_name in &signature.get_names() {
-        //     verify_not_reserved_variable_name(working_set, flag_name, sig.span);
-        // }
-
         if has_wrapped {
             if let Some(rest) = &signature.rest_positional {
                 if let Some(var_id) = rest.var_id {
