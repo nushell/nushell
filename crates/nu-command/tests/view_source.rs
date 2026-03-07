@@ -1,15 +1,16 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{prelude::*, fs::Stub::FileWithContentToBeTrimmed};
 
 #[test]
-fn view_source_returns_string() {
-    let actual = nu!(r#"def foo [] { echo hi }; view source foo"#);
-    assert_eq!(actual.out, "def foo [] { echo hi }");
+fn view_source_returns_string() -> Result {
+    let source = "def foo [] { echo hi }";
+    let code = format!("{source}; view source foo");
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, source);
+    Ok(())
 }
 
 #[test]
-fn datasource_filepath_metadata() {
+fn datasource_filepath_metadata() -> Result {
     Playground::setup("cd_ds_filepath_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "mdata.nu",
@@ -17,14 +18,15 @@ fn datasource_filepath_metadata() {
                 def foo [] { echo hi }
             "#,
         )]);
-        let actual = nu!(
-            cwd: dirs.test(),
-            r#"
-        source mdata.nu
-        view source foo | metadata | get source
-        "#
-        );
+
+        let code = r#"
+            source mdata.nu
+            view source foo | metadata | get source
+        "#;
+
+        let outcome: String = test().cwd(dirs.test()).run(code)?;
         // expect path printed somehow
-        assert!(actual.out.contains("mdata.nu"));
+        assert!(outcome.contains("mdata.nu"));
+        Ok(())
     })
 }
