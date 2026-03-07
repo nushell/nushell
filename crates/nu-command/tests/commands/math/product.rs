@@ -1,14 +1,16 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn const_product() {
-    let actual = nu!("const PROD = [1 3 5] | math product; $PROD");
-    assert_eq!(actual.out, "15");
+fn const_product() -> Result {
+    let outcome: i64 = test().run("const PROD = [1 3 5] | math product; $PROD")?;
+    assert_eq!(outcome, 15);
+    Ok(())
 }
 
 #[test]
-fn cannot_product_infinite_range() {
-    let actual = nu!("0.. | math product");
+fn cannot_product_infinite_range() -> Result {
+    let outcome = test().run("0.. | math product").expect_shell_error()?;
 
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
 }

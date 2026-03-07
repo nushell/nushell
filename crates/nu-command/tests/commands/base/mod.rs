@@ -3,7 +3,7 @@ use rand::prelude::*;
 use rand::random_range;
 use rand_chacha::ChaCha8Rng;
 
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 mod base32;
 mod base32hex;
@@ -25,21 +25,25 @@ fn random_bytes() -> Vec<String> {
         .collect()
 }
 
-pub fn test_canonical(cmd: &str) {
+pub fn test_canonical(cmd: &str) -> Result {
+    let mut tester = test();
     for value in random_bytes() {
-        let outcome = nu!(format!(
-            "0x[{value}] | encode {cmd} | decode {cmd} | to nuon"
-        ));
+        let code = format!("0x[{value}] | encode {cmd} | decode {cmd} | to nuon");
+        let outcome: String = tester.run(code)?;
         let nuon_value = format!("0x[{value}]");
-        assert_eq!(outcome.out, nuon_value);
+        assert_eq!(outcome, nuon_value);
     }
+    Ok(())
 }
 
-pub fn test_const(cmd: &str) {
+pub fn test_const(cmd: &str) -> Result {
+    let mut tester = test();
     for value in random_bytes() {
-        let outcome = nu!(format!(
+        let code = format!(
             r#"const out = (0x[{value}] | encode {cmd} | decode {cmd} | encode hex); $out"#
-        ));
-        assert_eq!(outcome.out, value);
+        );
+        let outcome: String = tester.run(code)?;
+        assert_eq!(outcome, value);
     }
+    Ok(())
 }
