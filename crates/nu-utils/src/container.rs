@@ -4,6 +4,14 @@ use std::{
     ops::{Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive},
 };
 
+/// A minimal abstraction for membership checks across container-like types.
+///
+/// This trait unifies `contains` behavior for common collections, strings,
+/// ranges, and maps, letting generic code ask "does this container contain
+/// this item?" without caring about the concrete type.
+///
+/// The associated `Item` type represents the element or key being queried.
+/// For maps, this is the key type; for `str`/`String`, it is `str`.
 pub trait Container {
     type Item: ?Sized;
 

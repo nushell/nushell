@@ -79,6 +79,15 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     original_paths
 }
 
+/// Assert that a container contains the given item.
+///
+/// Uses the `Container` abstraction so it works with slices, vectors, sets,
+/// maps (by key), strings, and ranges. The error message includes both the
+/// container and the item for quick debugging.
+///
+/// # Panics
+///
+/// Panics if `container.contains(item)` returns false.
 #[track_caller]
 pub fn assert_contains<C, I>(container: C, item: I)
 where
