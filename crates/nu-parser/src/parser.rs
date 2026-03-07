@@ -1036,7 +1036,6 @@ pub fn parse_internal_call(
     let _ = working_set.add_span(call.head);
 
     let decl = working_set.get_decl(decl_id);
-    let decl_name = decl.name().to_string();
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
 
@@ -1378,12 +1377,6 @@ pub fn parse_internal_call(
     // move missing positional checking into the while loop above with two pointers.
     // Maybe more `CallKind::Invalid` if errors found during argument parsing.
     let call_kind = check_call(working_set, command_span, &signature, &call);
-
-    if decl_name == "let"
-        && let Some(lvalue) = call.positional_nth(0)
-    {
-        ensure_not_reserved_variable_name(working_set, lvalue);
-    }
 
     deprecation
         .into_iter()
@@ -3774,6 +3767,8 @@ pub fn parse_var_with_opt_type(
                 return (garbage(working_set, spans[*spans_idx - 1]), None);
             }
 
+            ensure_not_reserved_variable_name(working_set, &var_name, name_span);
+
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
@@ -3788,6 +3783,8 @@ pub fn parse_var_with_opt_type(
                 ));
                 return (garbage(working_set, spans[*spans_idx]), None);
             }
+
+            ensure_not_reserved_variable_name(working_set, &var_name, name_span);
 
             let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
 
@@ -3808,6 +3805,8 @@ pub fn parse_var_with_opt_type(
             return (garbage(working_set, spans[*spans_idx]), None);
         }
 
+        ensure_not_reserved_variable_name(working_set, &var_name, name_span);
+
         let id = working_set.add_variable(
             var_name,
             Span::concat(&spans[*spans_idx..*spans_idx + 1]),
@@ -3819,6 +3818,23 @@ pub fn parse_var_with_opt_type(
             Expression::new(working_set, Expr::VarDecl(id), spans[*spans_idx], Type::Any),
             None,
         )
+    }
+}
+
+const RESERVED_VARIABLE_NAMES: [&[u8]; 3] = [b"in", b"nu", b"env"];
+
+pub(crate) fn ensure_not_reserved_variable_name(
+    working_set: &mut StateWorkingSet,
+    name: &[u8],
+    span: Span,
+) {
+    let var_name = name.strip_prefix(b"$").unwrap_or(name);
+
+    if RESERVED_VARIABLE_NAMES.contains(&var_name) {
+        working_set.error(ParseError::NameIsBuiltinVar(
+            String::from_utf8_lossy(var_name).to_string(),
+            span,
+        ))
     }
 }
 
@@ -4196,6 +4212,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    &variable_name,
+                                    span,
+                                );
+
                                 let var_id = working_set.add_variable(
                                     variable_name,
                                     span,
@@ -4285,6 +4307,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    &variable_name,
+                                    span,
+                                );
+
                                 let var_id = working_set.add_variable(
                                     variable_name,
                                     span,
@@ -4357,6 +4385,12 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    optional_param,
+                                    span,
+                                );
+
                                 let var_id = working_set.add_variable(
                                     optional_param.to_vec(),
                                     span,
@@ -4390,6 +4424,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(working_set, contents, span);
+
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any, false);
 
@@ -4414,6 +4450,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         span,
                                     ))
                                 }
+
+                                ensure_not_reserved_variable_name(working_set, &contents_vec, span);
 
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any, false);

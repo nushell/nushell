@@ -58,20 +58,6 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"overlay use",
 ];
 
-pub const RESERVED_VARIABLE_NAMES: [&str; 4] = ["in", "nu", "env", "it"];
-
-pub fn ensure_not_reserved_variable_name(working_set: &mut StateWorkingSet, lvalue: &Expression) {
-    if lvalue.as_var().is_none() {
-        return;
-    }
-
-    let var_name = String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-        .trim_start_matches('$')
-        .to_string();
-
-    verify_not_reserved_variable_name(working_set, &var_name, lvalue.span);
-}
-
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"alias",
@@ -387,13 +373,6 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     }
 
     Expression::new(working_set, Expr::Call(call), call_span, Type::Nothing)
-}
-
-/// If `name` is a keyword, emit an error.
-fn verify_not_reserved_variable_name(working_set: &mut StateWorkingSet, name: &str, span: Span) {
-    if RESERVED_VARIABLE_NAMES.contains(&name) {
-        working_set.error(ParseError::NameIsBuiltinVar(name.to_string(), span))
-    }
 }
 
 // This is meant for parsing attribute blocks without an accompanying `def` or `extern`. It's
@@ -721,19 +700,6 @@ fn parse_def_inner(
     let mut result = None;
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
-        for arg_name in &signature.required_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        for arg_name in &signature.optional_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        if let Some(arg_name) = &signature.rest_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        for flag_name in &signature.get_names() {
-            verify_not_reserved_variable_name(working_set, flag_name, sig.span);
-        }
-
         if has_wrapped {
             if let Some(rest) = &signature.rest_positional {
                 if let Some(var_id) = rest.var_id {
@@ -3282,8 +3248,6 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    ensure_not_reserved_variable_name(working_set, &lvalue);
-
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
 
@@ -3397,8 +3361,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
-
-                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
@@ -3560,8 +3522,6 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
-
-                    ensure_not_reserved_variable_name(working_set, &lvalue);
 
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
