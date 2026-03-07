@@ -39,6 +39,7 @@ default = ["os"]
 os = [
   "nu-engine/os",
   "nu-protocol/os",
+  "nu-test-support/os",
   "nu-utils/os",
 ]
 plugin = [

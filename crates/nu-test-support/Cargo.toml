@@ -14,6 +14,15 @@ bench = false
 [lints]
 workspace = true
 
+[features]
+os = [
+  "nu-cmd-lang/os",
+  "nu-command/os",
+  "nu-engine/os",
+  "nu-protocol/os",
+  "nu-utils/os",
+]
+
 [dependencies]
 nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.111.1", default-features = false }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1", default-features = false }
