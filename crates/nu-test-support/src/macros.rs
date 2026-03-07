@@ -1,5 +1,92 @@
 use kitest::println;
 
+/// Asserts that a collection contains a given value.
+///
+/// This macro checks whether `$haystack.contains(&$needle)` returns `true`.
+/// If the value is not found, the assertion fails and prints both the
+/// haystack and the needle for easier debugging.
+///
+/// The needle can be a literal, variable, or arbitrary expression.
+///
+/// # Panics
+///
+/// Panics if the haystack does not contain the needle.
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+/// use nu_test_support::assert_contains;
+///
+/// assert_contains!("a" in "abc");
+/// assert_contains!(3 in [1, 2, 3]);
+/// ```
+///
+/// Using a variable:
+///
+/// ```
+/// use nu_test_support::assert_contains;
+///
+/// let needle = "b";
+/// assert_contains!(needle in "abc");
+/// ```
+///
+/// Using an expression:
+///
+/// ```
+/// use nu_test_support::assert_contains;
+///
+/// assert_contains!((1 + 2) in [1, 2, 3]);
+/// ```
+///
+/// Works with other types that implement `contains`:
+///
+/// ```
+/// use nu_test_support::assert_contains;
+///
+/// let vec = vec![10, 20, 30];
+/// assert_contains!(20 in vec);
+///
+/// let string = String::from("hello");
+/// assert_contains!("ell" in string);
+/// ```
+#[macro_export]
+macro_rules! assert_contains {
+    ($needle:literal in $haystack:expr) => {assert_contains!(($needle) in $haystack)};
+    ($needle:ident in $haystack:expr) => {assert_contains!(($needle) in $haystack)};
+    (($needle:expr) in $haystack:expr) => {
+        assert!($haystack.contains(&$needle), "{:?} does not contain {:?}", &$haystack, &$needle)
+    };
+}
+
+#[test]
+fn test_assert_contains() {
+    assert_contains!("a" in "abc");
+    assert_contains!(3 in [1, 2, 3]);
+
+    // identifier needle
+    let needle = "b";
+    assert_contains!(needle in "abc");
+
+    let n = 2;
+    assert_contains!(n in [1, 2, 3]);
+
+    // expression needle
+    assert_contains!(("ab".to_string()) in "abc".to_string());
+    assert_contains!((1 + 2) in [1, 2, 3]);
+
+    // different container types
+    let vec = vec![10, 20, 30];
+    assert_contains!(20 in vec);
+
+    let string = String::from("hello");
+    assert_contains!("ell" in string);
+
+    // explicit expr form
+    assert_contains!(("b") in "abc");
+}
+
 /// Run a command in nu and get its output
 ///
 /// The `nu!` macro accepts a number of options like the `cwd` in which the
