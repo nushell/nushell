@@ -53,7 +53,7 @@ fn self_path_const() -> Result {
 #[test]
 fn self_path_runtime() -> Result {
     let err = test().run("path self").expect_shell_error()?;
-    assert_contains!("can only run during parse-time" in err.to_string());
+    assert_contains("can only run during parse-time", err.to_string());
     Ok(())
 }
 
@@ -61,6 +61,6 @@ fn self_path_runtime() -> Result {
 fn self_path_repl() -> Result {
     let code = "const foo = path self; $foo";
     let err = test().run(code).expect_parse_error()?;
-    assert_contains!("nu::shell::io::file_not_found" in err.to_string());
+    assert_contains("nu::shell::io::file_not_found", err.to_string());
     Ok(())
 }

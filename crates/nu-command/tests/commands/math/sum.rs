@@ -72,7 +72,7 @@ fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
         .expect_shell_error()?;
     match outcome {
         ShellError::CantConvert { from_type, .. } => {
-            assert_contains!("record" in from_type);
+            assert_contains("record", from_type);
         }
         err => return Err(err.into()),
     }

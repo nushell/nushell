@@ -149,6 +149,6 @@ fn errors_when_closure_returns_non_record() -> Result {
     "#;
 
     let err = test().run(code).expect_error()?;
-    assert_contains!("Closure must return a record" in err.to_string());
+    assert_contains("Closure must return a record", err.to_string());
     Ok(())
 }

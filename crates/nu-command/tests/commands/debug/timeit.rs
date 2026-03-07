@@ -53,7 +53,7 @@ fn timeit_show_stderr() -> Result {
         echo_env_stdout("FOO")
     );
     let stdout: String = test().inherit_path().run(stdout_code)?;
-    assert_contains!("bar" in stdout);
+    assert_contains("bar", stdout);
 
     let stderr_code = format!(
         r#"
@@ -65,7 +65,7 @@ fn timeit_show_stderr() -> Result {
         echo_env_stderr("FOO2")
     );
     let stderr: String = test().inherit_path().run(stderr_code)?;
-    assert_contains!("baz" in stderr);
+    assert_contains("baz", stderr);
     Ok(())
 }
 

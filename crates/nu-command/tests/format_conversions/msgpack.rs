@@ -148,7 +148,7 @@ fn objects() -> Result {
 fn max_depth() -> Result {
     let shell_error = msgpack_test("max-depth").expect_error()?;
     let msg = shell_error.generic_msg()?;
-    assert_contains!("exceeded depth limit" in msg);
+    assert_contains("exceeded depth limit", msg);
     Ok(())
 }
 
@@ -187,7 +187,7 @@ fn after_eof() -> Result {
 fn reserved() -> Result {
     let shell_error = msgpack_test("reserved").expect_error()?;
     let msg = shell_error.generic_msg()?;
-    assert_contains!("Reserved" in msg);
+    assert_contains("Reserved", msg);
     Ok(())
 }
 
@@ -203,7 +203,7 @@ fn u64_too_large() -> Result {
 fn non_string_map_key() -> Result {
     let shell_error = msgpack_test("non-string-map-key").expect_error()?;
     let msg = shell_error.generic_msg()?;
-    assert_contains!("string key" in msg);
+    assert_contains("string key", msg);
     Ok(())
 }
 

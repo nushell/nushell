@@ -252,7 +252,7 @@ fn strict_parsing_fails_on_comment() -> Result {
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::GenericError { msg, .. } => {
-            assert_contains!("error parsing JSON text" in msg);
+            assert_contains("error parsing JSON text", msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -266,7 +266,7 @@ fn strict_parsing_fails_on_trailing_comma() -> Result {
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::GenericError { msg, .. } => {
-            assert_contains!("error parsing JSON text" in msg);
+            assert_contains("error parsing JSON text", msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -288,7 +288,7 @@ fn unbounded_from_in_range_fails() -> Result {
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::GenericError { error, .. } => {
-            assert_contains!("Cannot create range" in error);
+            assert_contains("Cannot create range", error);
             Ok(())
         }
         other => Err(other.into()),
