@@ -361,9 +361,8 @@ impl EngineState {
         }
 
         let cwd = self.cwd(Some(stack))?;
-        std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err, "Could not set current dir")
-        })?;
+        std::env::set_current_dir(cwd)
+            .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.

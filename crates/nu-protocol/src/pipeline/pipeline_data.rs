@@ -285,16 +285,10 @@ impl PipelineData {
             PipelineData::Value(value, ..) => {
                 let bytes = value_to_bytes(value)?;
                 dest.write_all(&bytes).map_err(|err| {
-                    IoError::new_internal(
-                        err,
-                        "Could not write PipelineData to dest",
-                    )
+                    IoError::new_internal(err, "Could not write PipelineData to dest")
                 })?;
                 dest.flush().map_err(|err| {
-                    IoError::new_internal(
-                        err,
-                        "Could not flush PipelineData to dest",
-                    )
+                    IoError::new_internal(err, "Could not flush PipelineData to dest")
                 })?;
                 Ok(())
             }
@@ -302,10 +296,7 @@ impl PipelineData {
                 for value in stream {
                     let bytes = value_to_bytes(value)?;
                     dest.write_all(&bytes).map_err(|err| {
-                        IoError::new_internal(
-                            err,
-                            "Could not write PipelineData to dest",
-                        )
+                        IoError::new_internal(err, "Could not write PipelineData to dest")
                     })?;
                     dest.write_all(b"\n").map_err(|err| {
                         IoError::new_internal(
@@ -315,10 +306,7 @@ impl PipelineData {
                     })?;
                 }
                 dest.flush().map_err(|err| {
-                    IoError::new_internal(
-                        err,
-                        "Could not flush PipelineData to dest",
-                    )
+                    IoError::new_internal(err, "Could not flush PipelineData to dest")
                 })?;
                 Ok(())
             }
@@ -920,7 +908,9 @@ where
         let context = format!("Writing to {destination_name} failed");
         match span {
             None => IoError::new_internal_with_location(err, context, location),
-            Some(span) if span == Span::unknown() => IoError::new_internal_with_location(err, context, location),
+            Some(span) if span == Span::unknown() => {
+                IoError::new_internal_with_location(err, context, location)
+            }
             Some(span) => IoError::new_with_additional_context(err, span, None, context),
         }
     };

@@ -85,10 +85,7 @@ pub(crate) fn spawn_fake_plugin(
             .expect("Plugin runner error")
         })
         .map_err(|err| {
-            IoError::new_internal(
-                err,
-                format!("Could not spawn fake plugin runner ({name})"),
-            )
+            IoError::new_internal(err, format!("Could not spawn fake plugin runner ({name})"))
         })?;
 
     Ok(reg_plugin)

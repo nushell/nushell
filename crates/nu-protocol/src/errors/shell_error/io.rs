@@ -2,7 +2,10 @@
 use super::ShellError;
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
-    error::Error as StdError, fmt::{self, Display, Formatter}, panic::Location, path::{Path, PathBuf}
+    error::Error as StdError,
+    fmt::{self, Display, Formatter},
+    panic::Location,
+    path::{Path, PathBuf},
 };
 use thiserror::Error;
 
@@ -307,10 +310,7 @@ impl IoError {
     /// );
     /// ```
     #[track_caller]
-    pub fn new_internal(
-        kind: impl Into<ErrorKind>,
-        additional_context: impl ToString,
-    ) -> Self {
+    pub fn new_internal(kind: impl Into<ErrorKind>, additional_context: impl ToString) -> Self {
         Self {
             kind: kind.into(),
             span: Span::unknown(),
@@ -323,7 +323,7 @@ impl IoError {
     pub fn new_internal_with_location(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
-        location: &Location<'_>
+        location: &Location<'_>,
     ) -> Self {
         Self {
             kind: kind.into(),

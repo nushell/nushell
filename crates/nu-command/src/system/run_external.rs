@@ -496,12 +496,9 @@ fn write_pipeline_data(
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
-        writer.write_all(&val).map_err(|err| {
-            IoError::new_internal(
-                err,
-                "Could not write pipeline data",
-            )
-        })?;
+        writer
+            .write_all(&val)
+            .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;
     } else {
         stack.start_collect_value();
 
@@ -515,12 +512,9 @@ fn write_pipeline_data(
         // Write the output.
         for value in output {
             let bytes = value.coerce_into_binary()?;
-            writer.write_all(&bytes).map_err(|err| {
-                IoError::new_internal(
-                    err,
-                    "Could not write pipeline data",
-                )
-            })?;
+            writer
+                .write_all(&bytes)
+                .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;
         }
     }
     Ok(())
