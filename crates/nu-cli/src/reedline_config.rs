@@ -1043,6 +1043,8 @@ fn event_from_record(
         "down" => ReedlineEvent::Down,
         "right" => ReedlineEvent::Right,
         "left" => ReedlineEvent::Left,
+        "tostart" => ReedlineEvent::ToStart,
+        "toend" => ReedlineEvent::ToEnd,
         "nexthistory" => ReedlineEvent::NextHistory,
         "searchhistory" => ReedlineEvent::SearchHistory,
         // Handled above in `parse_event`:
