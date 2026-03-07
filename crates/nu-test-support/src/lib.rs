@@ -79,27 +79,27 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     original_paths
 }
 
-/// Assert that a container contains the given item.
+/// Assert that a haystack contains the given needle.
 ///
-/// Uses the `Container` abstraction so it works with slices, vectors, sets,
-/// maps (by key), strings, and ranges. The error message includes both the
-/// container and the item for quick debugging.
+/// Uses the [`Container`] abstraction so it works with slices, vectors, sets,
+/// maps (by key), strings, and ranges. 
+/// The error message includes both the container and the item for quick debugging.
 ///
 /// # Panics
 ///
-/// Panics if `container.contains(item)` returns false.
+/// Panics if `haystack.contains(needle)` returns false.
 #[track_caller]
-pub fn assert_contains<C, I>(container: C, item: I)
+pub fn assert_contains<H, N>(needle: N, haystack: H)
 where
-    C: Container + Debug,
-    I: Borrow<C::Item>,
-    C::Item: Debug,
+    H: Container + Debug,
+    N: Borrow<H::Item>,
+    H::Item: Debug,
 {
-    let item = item.borrow();
+    let item = needle.borrow();
 
     assert!(
-        container.contains(item),
-        "{container:?} does not contain {item:?}"
+        haystack.contains(item),
+        "{haystack:?} does not contain {item:?}"
     );
 }
 
@@ -109,13 +109,13 @@ mod tests {
 
     #[test]
     fn test_something() {
-        assert_contains([1, 2, 3], 4);
-        assert_contains(&[1, 2, 3], 2);
-        assert_contains("abc", "a");
-        assert_contains(String::from("abc"), "b");
-        assert_contains(String::from("abc"), String::from("b"));
-        assert_contains(&String::from("abc"), "c");
-        assert_contains(vec![1, 2, 3], 2);
-        assert_contains(&vec![1, 2, 3], 1);
+        assert_contains(1, [1, 2, 3]);
+        assert_contains(2, &[1, 2, 3]);
+        assert_contains("a", "abc");
+        assert_contains("b", String::from("abc"));
+        assert_contains(String::from("b"), String::from("abc"));
+        assert_contains("c", &String::from("abc"));
+        assert_contains(2, vec![1, 2, 3]);
+        assert_contains(1, &vec![1, 2, 3]);
     }
 }
