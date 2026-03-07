@@ -18,7 +18,7 @@ pub trait Container {
     fn contains(&self, item: &Self::Item) -> bool;
 }
 
-impl<'c, C: Container + ?Sized> Container for &C {
+impl<C: Container + ?Sized> Container for &C {
     type Item = C::Item;
 
     fn contains(&self, item: &Self::Item) -> bool {

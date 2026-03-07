@@ -82,7 +82,7 @@ pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
 /// Assert that a haystack contains the given needle.
 ///
 /// Uses the [`Container`] abstraction so it works with slices, vectors, sets,
-/// maps (by key), strings, and ranges. 
+/// maps (by key), strings, and ranges.
 /// The error message includes both the container and the item for quick debugging.
 ///
 /// # Panics
@@ -108,6 +108,7 @@ mod tests {
     use super::assert_contains;
 
     #[test]
+    #[expect(clippy::needless_borrows_for_generic_args)]
     fn test_something() {
         assert_contains(1, [1, 2, 3]);
         assert_contains(2, &[1, 2, 3]);
