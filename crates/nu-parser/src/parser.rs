@@ -4451,6 +4451,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(working_set, &contents_vec, span);
+
                                 let var_id =
                                     working_set.add_variable(contents_vec, span, Type::Any, false);
 
