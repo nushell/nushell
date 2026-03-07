@@ -1,4 +1,4 @@
-use nu_test_support::{prelude::*, fs::Stub::FileWithContentToBeTrimmed};
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
 fn view_source_returns_string() -> Result {
