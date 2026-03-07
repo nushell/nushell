@@ -32,7 +32,6 @@ pub fn evaluate_file(
             Err(err) => Err(IoError::new_internal_with_path(
                 err,
                 "Invalid path",
-                nu_protocol::location!(),
                 PathBuf::from(&path),
             )),
         }
@@ -68,7 +67,6 @@ pub fn evaluate_file(
         IoError::new_internal_with_path(
             ErrorKind::DirectoryNotFound,
             "The file path does not have a parent",
-            nu_protocol::location!(),
             file_path.clone(),
         )
     })?;

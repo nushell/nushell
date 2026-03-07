@@ -84,7 +84,6 @@ where
             ShellError::Io(IoError::new_internal(
                 err,
                 "PluginWrite could not flush",
-                nu_protocol::location!(),
             ))
         })
     }
@@ -114,7 +113,6 @@ where
             ShellError::Io(IoError::new_internal(
                 err,
                 "PluginWrite could not flush",
-                nu_protocol::location!(),
             ))
         })
     }
@@ -370,7 +368,6 @@ where
                         IoError::new_internal(
                             err,
                             "Could not spawn plugin stream background writer",
-                            nu_protocol::location!(),
                         )
                     })?,
             )),

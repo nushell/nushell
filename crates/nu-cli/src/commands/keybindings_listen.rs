@@ -44,7 +44,6 @@ impl Command for KeybindingsListen {
                     IoError::new_internal(
                         err,
                         "Could not disable raw mode",
-                        nu_protocol::location!(),
                     )
                 })?;
                 Err(ShellError::GenericError {
@@ -69,10 +68,10 @@ impl Command for KeybindingsListen {
 
 pub fn print_events(config: &Config) -> Result<Value, ShellError> {
     stdout().flush().map_err(|err| {
-        IoError::new_internal(err, "Could not flush stdout", nu_protocol::location!())
+        IoError::new_internal(err, "Could not flush stdout")
     })?;
     terminal::enable_raw_mode().map_err(|err| {
-        IoError::new_internal(err, "Could not enable raw mode", nu_protocol::location!())
+        IoError::new_internal(err, "Could not enable raw mode")
     })?;
 
     if config.use_kitty_protocol {
@@ -104,7 +103,7 @@ pub fn print_events(config: &Config) -> Result<Value, ShellError> {
 
     loop {
         let event = crossterm::event::read().map_err(|err| {
-            IoError::new_internal(err, "Could not read event", nu_protocol::location!())
+            IoError::new_internal(err, "Could not read event")
         })?;
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
@@ -128,16 +127,15 @@ pub fn print_events(config: &Config) -> Result<Value, ShellError> {
             IoError::new_internal(
                 err,
                 "Could not print output record",
-                nu_protocol::location!(),
             )
         })?;
         stdout
             .queue(crossterm::style::Print("\r\n"))
             .map_err(|err| {
-                IoError::new_internal(err, "Could not print linebreak", nu_protocol::location!())
+                IoError::new_internal(err, "Could not print linebreak")
             })?;
         stdout.flush().map_err(|err| {
-            IoError::new_internal(err, "Could not flush", nu_protocol::location!())
+            IoError::new_internal(err, "Could not flush")
         })?;
     }
 
@@ -149,7 +147,7 @@ pub fn print_events(config: &Config) -> Result<Value, ShellError> {
     }
 
     terminal::disable_raw_mode().map_err(|err| {
-        IoError::new_internal(err, "Could not disable raw mode", nu_protocol::location!())
+        IoError::new_internal(err, "Could not disable raw mode")
     })?;
 
     Ok(Value::nothing(Span::unknown()))

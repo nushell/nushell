@@ -5,10 +5,9 @@ use crate::{
     Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
-    location,
-    shell_error::{io::IoError, location::Location},
+    shell_error::io::IoError,
 };
-use std::{borrow::Cow, io::Write, ops::Deref};
+use std::{borrow::Cow, io::Write, ops::Deref, panic::Location};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -289,14 +288,12 @@ impl PipelineData {
                     IoError::new_internal(
                         err,
                         "Could not write PipelineData to dest",
-                        crate::location!(),
                     )
                 })?;
                 dest.flush().map_err(|err| {
                     IoError::new_internal(
                         err,
                         "Could not flush PipelineData to dest",
-                        crate::location!(),
                     )
                 })?;
                 Ok(())
@@ -308,14 +305,12 @@ impl PipelineData {
                         IoError::new_internal(
                             err,
                             "Could not write PipelineData to dest",
-                            crate::location!(),
                         )
                     })?;
                     dest.write_all(b"\n").map_err(|err| {
                         IoError::new_internal(
                             err,
                             "Could not write linebreak after PipelineData to dest",
-                            crate::location!(),
                         )
                     })?;
                 }
@@ -323,7 +318,6 @@ impl PipelineData {
                     IoError::new_internal(
                         err,
                         "Could not flush PipelineData to dest",
-                        crate::location!(),
                     )
                 })?;
                 Ok(())
@@ -922,11 +916,11 @@ pub fn write_all_and_flush<T>(
 where
     T: AsRef<[u8]>,
 {
-    let io_error_map = |err: std::io::Error, location: Location| {
+    let io_error_map = |err: std::io::Error, location: &Location<'_>| {
         let context = format!("Writing to {destination_name} failed");
         match span {
-            None => IoError::new_internal(err, context, location),
-            Some(span) if span == Span::unknown() => IoError::new_internal(err, context, location),
+            None => IoError::new_internal_with_location(err, context, location),
+            Some(span) if span == Span::unknown() => IoError::new_internal_with_location(err, context, location),
             Some(span) => IoError::new_with_additional_context(err, span, None, context),
         }
     };
@@ -937,11 +931,11 @@ where
         signals.check(&span)?;
         destination
             .write_all(chunk)
-            .map_err(|err| io_error_map(err, location!()))?;
+            .map_err(|err| io_error_map(err, Location::caller()))?;
     }
     destination
         .flush()
-        .map_err(|err| io_error_map(err, location!()))?;
+        .map_err(|err| io_error_map(err, Location::caller()))?;
     Ok(())
 }
 

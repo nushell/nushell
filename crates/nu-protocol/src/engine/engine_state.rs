@@ -362,7 +362,7 @@ impl EngineState {
 
         let cwd = self.cwd(Some(stack))?;
         std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err, "Could not set current dir", crate::location!())
+            IoError::new_internal(err, "Could not set current dir")
         })?;
 
         if let Some(config) = stack.config.take() {
@@ -549,7 +549,6 @@ impl EngineState {
                     Err(ShellError::Io(IoError::new_internal_with_path(
                         err,
                         "Failed to open plugin file",
-                        crate::location!(),
                         PathBuf::from(plugin_path),
                     )))
                 }
@@ -566,7 +565,6 @@ impl EngineState {
             IoError::new_internal_with_path(
                 err,
                 "Failed to write plugin file",
-                crate::location!(),
                 PathBuf::from(plugin_path),
             )
         })?;

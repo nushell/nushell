@@ -84,7 +84,6 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                         &ShellError::Io(IoError::new_internal_with_path(
                             err,
                             "Could not open plugin registry file",
-                            nu_protocol::location!(),
                             plugin_path,
                         )),
                     );
@@ -360,7 +359,6 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
             IoError::new_internal_with_path(
                 err,
                 "Could not create new plugin file",
-                nu_protocol::location!(),
                 new_plugin_file_path.clone(),
             )
         })

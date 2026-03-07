@@ -68,7 +68,6 @@ pub(crate) fn spawn_fake_plugin(
             IoError::new_internal(
                 err,
                 format!("Could not spawn fake plugin interface reader ({name})"),
-                nu_protocol::location!(),
             )
         })?;
 
@@ -89,7 +88,6 @@ pub(crate) fn spawn_fake_plugin(
             IoError::new_internal(
                 err,
                 format!("Could not spawn fake plugin runner ({name})"),
-                nu_protocol::location!(),
             )
         })?;
 

@@ -292,7 +292,6 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
             return Err(IoError::new_internal(
                 e,
                 "Could not get metadata",
-                nu_protocol::location!(),
             )
             .into());
         }
@@ -302,7 +301,6 @@ fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {
         IoError::new_internal(
             err.not_found_as(NotFound::File),
             "Could not copy backup",
-            nu_protocol::location!(),
         )
     })?;
     Ok(Some(bak_path))
