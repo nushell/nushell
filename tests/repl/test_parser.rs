@@ -1302,3 +1302,8 @@ fn table_literal_column_var_shell_err() -> TestResult {
 fn reserved_variable_name_checking(#[case] code: &str) -> TestResult {
     fail_test(code, "already a builtin variable")
 }
+
+#[test]
+fn allow_it_as_variable_name() -> TestResult {
+    run_test("let it = 3; [1 2 3 4] | where $it > 2 | length", "2")
+}
