@@ -2,15 +2,11 @@
 use super::ShellError;
 use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
-    error::Error as StdError,
-    fmt::{self, Display, Formatter},
-    path::{Path, PathBuf},
+    error::Error as StdError, fmt::{self, Display, Formatter}, panic::Location, path::{Path, PathBuf}
 };
 use thiserror::Error;
 
 use crate::Span;
-
-use super::location::Location;
 
 /// Alias for a `Result` with the error type [`ErrorKind`] by default.
 ///
@@ -61,7 +57,6 @@ pub type Result<T, E = ErrorKind> = std::result::Result<T, E>;
 /// let error = IoError::new_internal(
 ///     ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
 ///     "Failed to read data from buffer",
-///     nu_protocol::location!()
 /// );
 /// println!("Error: {:?}", error);
 /// ```
@@ -301,8 +296,6 @@ impl IoError {
     /// - `location`:
     ///   The location in the Rust code where the error occurred, allowing us to trace and debug
     ///   the issue.
-    ///   Use the [`nu_protocol::location!`](crate::location) macro to generate the location
-    ///   information.
     ///
     /// # Examples
     /// ```rust
@@ -311,13 +304,26 @@ impl IoError {
     /// let error = IoError::new_internal(
     ///     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
     ///     "Failed to read from buffer",
-    ///     nu_protocol::location!(),
     /// );
     /// ```
+    #[track_caller]
     pub fn new_internal(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
-        location: Location,
+    ) -> Self {
+        Self {
+            kind: kind.into(),
+            span: Span::unknown(),
+            path: None,
+            additional_context: Some(additional_context.to_string().into()),
+            location: Some(Location::caller().to_string()),
+        }
+    }
+
+    pub fn new_internal_with_location(
+        kind: impl Into<ErrorKind>,
+        additional_context: impl ToString,
+        location: &Location<'_>
     ) -> Self {
         Self {
             kind: kind.into(),
@@ -347,11 +353,26 @@ impl IoError {
     ///     PathBuf::from("/some/file"),
     /// );
     /// ```
+    #[track_caller]
     pub fn new_internal_with_path(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
-        location: Location,
         path: PathBuf,
+    ) -> Self {
+        Self {
+            kind: kind.into(),
+            span: Span::unknown(),
+            path: path.into(),
+            additional_context: Some(additional_context.to_string().into()),
+            location: Some(Location::caller().to_string()),
+        }
+    }
+
+    pub fn new_internal_with_path_and_location(
+        kind: impl Into<ErrorKind>,
+        additional_context: impl ToString,
+        path: PathBuf,
+        location: &Location<'_>,
     ) -> Self {
         Self {
             kind: kind.into(),
