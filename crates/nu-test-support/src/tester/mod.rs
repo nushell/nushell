@@ -32,7 +32,7 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     ]
     .into_iter()
     .for_each(|(key, val)| engine_state.add_env_var(key.into(), val));
-    
+
     nu_std::load_standard_library(&mut engine_state).expect("could not load standard library");
 
     engine_state
