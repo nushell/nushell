@@ -185,37 +185,69 @@ impl Type {
         }
     }
 
-    /// Returns supertype of arguments without creating a `oneof`, or falling back to `any`
-    /// (unless one or both of the arguments are `any`)
+    /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
     fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
-        Ok(match (lhs.clone(), rhs.clone()) {
-            (lhs, rhs) if lhs == rhs => lhs,
-            (Type::Any, _) | (_, Type::Any) => Type::Any,
-            // (int, int) and (float, float) cases are already handled by the first match arm
+        // Fast-paths that don't require cloning.
+        if lhs == rhs {
+            return Ok(lhs);
+        }
+
+        if matches!(lhs, Type::Any) || matches!(rhs, Type::Any) {
+            return Ok(Type::Any);
+        }
+
+        // Borrow the types for the structural checks below; we'll only clone when we actually need to construct a return value.
+        match (&lhs, &rhs) {
+            // number hierarchy
             (Type::Int | Type::Float | Type::Number, Type::Int | Type::Float | Type::Number) => {
-                Type::Number
+                return Ok(Type::Number);
             }
 
+            // glob/string are not related, let the caller build a oneof for them
             (Type::Glob, Type::String) | (Type::String, Type::Glob) => {
-                return Err((lhs.clone(), rhs.clone()));
+                return Err((lhs, rhs));
             }
+
+            // structural collections; clones are unavoidable because we need owned data for the result, but we only clone
+            // the inner vectors, not the entire `Type` twice.
             (Type::Record(this), Type::Record(that)) => {
-                Type::Record(Self::widen_collection(this, that))
+                let widened = Self::widen_collection(this.clone(), that.clone());
+                return Ok(Type::Record(widened));
             }
             (Type::Table(this), Type::Table(that)) => {
-                Type::Table(Self::widen_collection(this, that))
+                let widened = Self::widen_collection(this.clone(), that.clone());
+                return Ok(Type::Table(widened));
             }
-            (Type::List(list_item), Type::Table(table))
-            | (Type::Table(table), Type::List(list_item)) => {
-                let item = match *list_item {
-                    Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
-                    list_item => Type::one_of([list_item, Type::Record(table)]),
+
+            (Type::List(_list_item), Type::Table(_table))
+            | (Type::Table(_table), Type::List(_list_item)) => {
+                // `lhs` and `rhs` are still owned, so we can match on the original values once again to avoid needless cloning.
+                let item = match (lhs, rhs) {
+                    (Type::List(list_item), Type::Table(table)) => match *list_item {
+                        Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
+                        list_item => Type::one_of([list_item, Type::Record(table)]),
+                    },
+                    (Type::Table(table), Type::List(list_item)) => match *list_item {
+                        Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
+                        list_item => Type::one_of([list_item, Type::Record(table)]),
+                    },
+                    _ => unreachable!(),
                 };
-                Type::List(Box::new(item))
+                return Ok(Type::List(Box::new(item)));
             }
-            (Type::List(lhs), Type::List(rhs)) => Type::list(lhs.widen(*rhs)),
-            (t, u) => return Err((t, u)),
-        })
+
+            (Type::List(lhs), Type::List(rhs)) => {
+                // We have to take ownership of the inner types, so clone here.
+                let lhs_inner = lhs.clone();
+                let rhs_inner = rhs.clone();
+                return Ok(Type::list(lhs_inner.widen(*rhs_inner)));
+            }
+
+            _ => {}
+        }
+
+        // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
+        Err((lhs, rhs))
     }
 
     fn widen_collection(
@@ -225,19 +257,32 @@ impl Type {
         if lhs.is_empty() || rhs.is_empty() {
             return [].into();
         }
-        let (small, big) = match lhs.len() <= rhs.len() {
-            true => (lhs, rhs),
-            false => (rhs, lhs),
+
+        // iterate the shorter list to reduce quadratic behaviour
+        let (small, big) = if lhs.len() <= rhs.len() {
+            (lhs, rhs)
+        } else {
+            (rhs, lhs)
         };
-        small
-            .into_iter()
-            .filter_map(|(col, typ)| {
-                big.iter()
-                    .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
-                    .map(|b_typ| (col, typ, b_typ))
-            })
-            .map(|(col, t, u)| (col, t.widen(u)))
-            .collect()
+
+        const MAP_THRESH: usize = 16;
+        if big.len() > MAP_THRESH {
+            use std::collections::HashMap;
+            let mut big_map: HashMap<String, Type> = big.into_iter().collect();
+            small
+                .into_iter()
+                .filter_map(|(col, typ)| big_map.remove(&col).map(|b_typ| (col, typ.widen(b_typ))))
+                .collect()
+        } else {
+            small
+                .into_iter()
+                .filter_map(|(col, typ)| {
+                    big.iter()
+                        .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
+                        .map(|b_typ| (col, typ.widen(b_typ)))
+                })
+                .collect()
+        }
     }
 
     /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
@@ -269,30 +314,32 @@ impl Type {
     }
 
     /// Adds a type to a OneOf union, flattening nested OneOfs, deduplicating, and attempting to widen existing types.
-    fn oneof_add_widen(oneof: &mut Vec<Type>, t: Type) {
-        match t {
-            Type::OneOf(inner) => {
-                for sub_t in inner.into_vec() {
-                    Self::oneof_add_widen(oneof, sub_t);
-                }
+    fn oneof_add_widen(oneof: &mut Vec<Type>, mut t: Type) {
+        // handle nested unions first
+        if let Type::OneOf(inner) = t {
+            for sub_t in inner.into_vec() {
+                Self::oneof_add_widen(oneof, sub_t);
             }
-            t => {
-                for one in oneof.iter_mut() {
-                    match Self::flat_widen(std::mem::replace(one, Type::Any), t.clone()) {
-                        Ok(one_t) => {
-                            *one = one_t;
-                            return;
-                        }
-                        Err((one_, _)) => {
-                            *one = one_;
-                            // Continue with the same type
-                        }
-                    }
-                }
+            return;
+        }
 
-                oneof.push(t);
+        let mut i = 0;
+        while i < oneof.len() {
+            let one = std::mem::replace(&mut oneof[i], Type::Any);
+            match Self::flat_widen(one, t) {
+                Ok(one_t) => {
+                    oneof[i] = one_t;
+                    return;
+                }
+                Err((one_old, t_old)) => {
+                    oneof[i] = one_old;
+                    t = t_old; // `t` is mutable here
+                    i += 1;
+                }
             }
         }
+
+        oneof.push(t);
     }
 
     /// Adds a type to a OneOf union, flattening nested OneOfs and deduplicating.
