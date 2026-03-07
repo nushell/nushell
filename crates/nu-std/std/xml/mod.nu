@@ -76,9 +76,9 @@ def xupdate-string-step [ step: string rest: list updater: closure ] {
     mut reenumerated_new_values: any = ($to_update.index | zip $new_values | each {|x| {index: $x.0 item: $x.1}})
 
     mut new_content = []
-    for it in ($input.content | enumerate) {
-        let item = $it.item
-        let idx = $it.index
+    for entry in ($input.content | enumerate) {
+        let item = $entry.item
+        let idx = $entry.index
 
         let next = (if (not ($reenumerated_new_values | is-empty)) and $idx == $reenumerated_new_values.0.index {
             let tmp = $reenumerated_new_values.0
@@ -215,3 +215,4 @@ export def xinsert [
         }
     }
 }
+
