@@ -880,6 +880,51 @@ impl SQLiteQueryBuilder {
         self.with_column_adapter(column_name, SQLiteColumnAdapter::MillisToDuration)
     }
 
+    /// Projects a subset of *output* columns from the current SELECT list.
+    ///
+    /// This is used by filter pushdowns (for example, `history | select command`) where
+    /// Nushell refers to post-alias output names, but the underlying SQLite table may have
+    /// different source column names.
+    ///
+    /// Example:
+    /// - current projection: `command_line as command, duration_ms as duration`
+    /// - requested output: `command`
+    /// - rewritten projection: `command_line as command`
+    ///
+    /// If a requested output name cannot be mapped unambiguously to the existing projection,
+    /// this returns `None` so callers can safely fall back to non-pushdown behavior.
+    ///
+    /// This method intentionally does not parse full SQL grammar; it relies on a small,
+    /// conservative parser that is sufficient for projections we generate internally.
+    pub fn project_output_columns(&self, columns: &[String]) -> Option<Self> {
+        if columns.is_empty() {
+            return Some(self.clone());
+        }
+
+        let new_select = if let Some(select) = &self.sql_select {
+            // Parse the current projection into `(output_name, full_expression)` pairs.
+            // We preserve the full expression so aliases and conversions stay intact.
+            let current = parse_sql_select_projection(select)?;
+            let mut projected = Vec::with_capacity(columns.len());
+
+            for requested in columns {
+                // Match by output column name (case-insensitive)
+                let expression = current.iter().find_map(|(output_name, expression)| {
+                    output_name
+                        .eq_ignore_ascii_case(requested)
+                        .then_some(expression)
+                })?;
+                projected.push(expression.clone());
+            }
+
+            projected.join(", ")
+        } else {
+            columns.join(", ")
+        };
+
+        Some(self.clone().with_select(new_select))
+    }
+
     pub fn build_sql(&self) -> String {
         let select = self.sql_select.as_deref().unwrap_or("*");
         let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
@@ -947,6 +992,160 @@ impl SQLiteQueryBuilder {
             })?;
         Ok(count)
     }
+}
+
+/// Parses a SELECT projection list into `(output_name, expression)` entries.
+///
+/// Input is the text after `SELECT` and before `FROM`, for example:
+/// `command_line as command, duration_ms as duration`.
+///
+/// The returned expression is preserved exactly so it can be re-used in a rewritten
+/// projection without dropping aliases.
+///
+/// Returns `None` for malformed/unsupported entries; callers should then skip pushdown.
+fn parse_sql_select_projection(select: &str) -> Option<Vec<(String, String)>> {
+    let projection = split_select_expressions(select)
+        .into_iter()
+        .map(|expr| parse_projection_expression(&expr))
+        .collect::<Option<Vec<_>>>()?;
+
+    (!projection.is_empty()).then_some(projection)
+}
+
+/// Splits a SELECT projection list on top-level commas.
+///
+/// We only split commas that are outside:
+/// - single/double quoted strings
+/// - parenthesized expressions
+///
+/// This is intentionally a lightweight splitter rather than a full SQL parser.
+fn split_select_expressions(select: &str) -> Vec<String> {
+    let mut expressions = Vec::new();
+    let mut current = String::new();
+    let mut depth = 0usize;
+    let mut quote = None;
+
+    for ch in select.chars() {
+        match ch {
+            '\'' | '"' => {
+                // Enter/exit quote mode so commas inside strings are preserved.
+                if quote == Some(ch) {
+                    quote = None;
+                } else if quote.is_none() {
+                    quote = Some(ch);
+                }
+                current.push(ch);
+            }
+            '(' if quote.is_none() => {
+                // Track nesting depth so commas inside function calls do not split.
+                depth = depth.saturating_add(1);
+                current.push(ch);
+            }
+            ')' if quote.is_none() => {
+                depth = depth.saturating_sub(1);
+                current.push(ch);
+            }
+            ',' if quote.is_none() && depth == 0 => {
+                // Top-level separator between projection expressions.
+                let trimmed = current.trim();
+                if !trimmed.is_empty() {
+                    expressions.push(trimmed.to_string());
+                }
+                current.clear();
+            }
+            _ => current.push(ch),
+        }
+    }
+
+    let trimmed = current.trim();
+    if !trimmed.is_empty() {
+        expressions.push(trimmed.to_string());
+    }
+
+    expressions
+}
+
+/// Parses one projection expression into `(output_name, full_expression)`.
+///
+/// Supported forms include:
+/// - `source_col as alias`
+/// - `qualified.name`
+/// - `column`
+///
+/// If no explicit alias is present, the output name is derived from the last
+/// identifier segment (`foo.bar` -> `bar`).
+fn parse_projection_expression(expr: &str) -> Option<(String, String)> {
+    let trimmed = expr.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    if let Some((_lhs, rhs)) = split_alias(trimmed) {
+        // Explicit alias wins and represents the user-visible output column name.
+        let alias = normalize_identifier(rhs.trim());
+        if alias.is_empty() {
+            return None;
+        }
+        return Some((alias, trimmed.to_string()));
+    }
+
+    let output_name = normalize_identifier(last_identifier_segment(trimmed));
+    if output_name.is_empty() {
+        return None;
+    }
+
+    Some((output_name, trimmed.to_string()))
+}
+
+/// Finds an `AS` alias split in a projection expression.
+///
+/// This intentionally requires whitespace around `AS` to avoid false positives in
+/// identifiers or function names containing `as` as a substring.
+///
+/// Returns `(lhs, rhs)` for `lhs AS rhs`.
+fn split_alias(expr: &str) -> Option<(&str, &str)> {
+    let bytes = expr.as_bytes();
+    for idx in 0..bytes.len().saturating_sub(2) {
+        if idx > 0
+            && bytes[idx - 1].is_ascii_whitespace()
+            && bytes[idx + 2].is_ascii_whitespace()
+            && bytes[idx].eq_ignore_ascii_case(&b'a')
+            && bytes[idx + 1].eq_ignore_ascii_case(&b's')
+        {
+            // Keep the original expression parts intact so rewritten SQL maintains
+            // the same semantics and formatting as much as possible.
+            let lhs = expr[..idx].trim_end();
+            let rhs = expr[idx + 2..].trim_start();
+            if !lhs.is_empty() && !rhs.is_empty() {
+                return Some((lhs, rhs));
+            }
+        }
+    }
+
+    None
+}
+
+fn last_identifier_segment(expr: &str) -> &str {
+    expr.rsplit('.').next().unwrap_or(expr)
+}
+
+/// Normalizes an identifier token for matching:
+/// - trims surrounding whitespace
+/// - removes a single layer of common SQL identifier wrappers (`"name"`, `` `name` ``, `[name]`)
+///
+/// The result is used only for name matching, not for SQL generation.
+fn normalize_identifier(identifier: &str) -> String {
+    let trimmed = identifier.trim();
+    if trimmed.len() >= 2 {
+        let first = trimmed.as_bytes()[0] as char;
+        let last = trimmed.as_bytes()[trimmed.len() - 1] as char;
+        let is_wrapped = matches!((first, last), ('"', '"') | ('`', '`') | ('[', ']'));
+        if is_wrapped {
+            return trimmed[1..trimmed.len() - 1].trim().to_string();
+        }
+    }
+
+    trimmed.to_string()
 }
 
 impl CustomValue for SQLiteQueryBuilder {
@@ -1356,5 +1555,43 @@ mod test {
         } else {
             panic!("Expected list");
         }
+    }
+
+    #[test]
+    fn sqlite_table_project_output_columns_preserves_aliases() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "history".to_string(),
+            Signals::empty(),
+        )
+        .with_select(
+            "start_timestamp, command_line as command, cwd, duration_ms as duration, exit_status"
+                .to_string(),
+        );
+
+        let projected = table
+            .project_output_columns(&["command".to_string(), "duration".to_string()])
+            .expect("projection should succeed");
+
+        assert_eq!(
+            projected.build_sql(),
+            "SELECT command_line as command, duration_ms as duration FROM [history]"
+        );
+    }
+
+    #[test]
+    fn sqlite_table_project_output_columns_returns_none_for_missing_column() {
+        let table = SQLiteQueryBuilder::new(
+            PathBuf::from(":memory:"),
+            "history".to_string(),
+            Signals::empty(),
+        )
+        .with_select("command_line as command".to_string());
+
+        assert!(
+            table
+                .project_output_columns(&["missing".to_string()])
+                .is_none()
+        );
     }
 }

@@ -81,6 +81,7 @@ impl Command for Window {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let window_size: Value = call.req(engine_state, stack, 0)?;
         let stride: Option<Value> = call.get_flag(engine_state, stack, "stride")?;
