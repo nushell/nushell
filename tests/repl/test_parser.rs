@@ -1288,3 +1288,17 @@ fn table_literal_column_var_shell_err() -> TestResult {
         "can't convert",
     )
 }
+
+#[rstest]
+#[case::piped_let_assignment("null | let nu: nothing")]
+#[case::piped_let_assignment("null | let $in")]
+#[case::const_assignment("const env: nothing = null")]
+#[case::mut_assignment("mut nu = null")]
+#[case::for_loop("for nu in [] {}")]
+#[case::for_loop_with_type("for $in: int in [] {}")]
+#[case::match_pattern_list("match [1] {[$in] => $in}")]
+#[case::match_pattern_list_rest("match [1] {[..$env] => $in}")]
+#[case::match_pattern_record("{a: {b: 3}} | match $in {{a: { $nu }} => 10 }")]
+fn reserved_variable_name_checking(#[case] code: &str) -> TestResult {
+    fail_test(code, "already a builtin variable")
+}

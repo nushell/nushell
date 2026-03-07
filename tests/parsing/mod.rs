@@ -731,12 +731,6 @@ fn wacky_range_unmatched_paren() {
 }
 
 #[test]
-fn parse_let_pipeline_builtin_var() {
-    let actual = nu!("1 | let $nu | let $in | let $it | let $env");
-    assert!(actual.err.contains("nu::parser::name_is_builtin_var"))
-}
-
-#[test]
 fn issue_16769_recursive_module_command_variable_in_block() {
     Playground::setup(
         "issue_16769_recursive_module_command_variable_in_block",
