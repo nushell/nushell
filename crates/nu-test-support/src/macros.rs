@@ -2,9 +2,15 @@ use kitest::println;
 
 /// Asserts that a collection contains a given value.
 ///
+/// This is a convenience wrapper around `assert!($haystack.contains(&$needle))`,
+/// but with a more readable test syntax and a better panic message.
+///
+/// Compared to writing `assert!($haystack.contains(&$needle))` directly,
+/// this macro:
+/// - makes the assertion read closer to natural language
+/// - prints both the haystack and needle on failure for easier debugging
+///
 /// This macro checks whether `$haystack.contains(&$needle)` returns `true`.
-/// If the value is not found, the assertion fails and prints both the
-/// haystack and the needle for easier debugging.
 ///
 /// The needle can be a literal, variable, or arbitrary expression.
 ///
