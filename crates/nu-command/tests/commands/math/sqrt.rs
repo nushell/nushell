@@ -12,7 +12,7 @@ fn can_sqrt_numbers() -> Result {
 fn can_sqrt_irrational() -> Result {
     let outcome: f64 = test().run("echo 2 | math sqrt")?;
 
-    assert_eq!(outcome, 1.4142135623730951);
+    assert_eq!(outcome, std::f64::consts::SQRT_2);
     Ok(())
 }
 

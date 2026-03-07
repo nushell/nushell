@@ -3,7 +3,7 @@ use nu_test_support::prelude::*;
 #[test]
 fn generates_a_float() -> Result {
     let outcome: f64 = test().run("random float 42..43")?;
-    assert!(outcome >= 42.0 && outcome <= 43.0);
+    assert!((42.0..=43.0).contains(&outcome));
 
     let outcome: String = test().run("random float 42..43 | describe")?;
     assert_eq!(outcome, "float");
@@ -20,7 +20,7 @@ fn generates_55() -> Result {
 #[test]
 fn generates_0() -> Result {
     let outcome: f64 = test().run("random float ..<1")?;
-    assert!(outcome >= 0.0 && outcome < 1.0);
+    assert!((0.0..1.0).contains(&outcome));
     Ok(())
 }
 
