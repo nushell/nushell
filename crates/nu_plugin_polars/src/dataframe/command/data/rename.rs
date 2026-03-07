@@ -30,12 +30,12 @@ impl PluginCommand for RenameDF {
             .required(
                 "columns",
                 SyntaxShape::Any,
-                "Column(s) to be renamed. A string or list of strings",
+                "Column(s) to be renamed. A string or list of strings.",
             )
             .required(
                 "new names",
                 SyntaxShape::Any,
-                "New names for the selected column(s). A string or list of strings",
+                "New names for the selected column(s). A string or list of strings.",
             )
             .input_output_types(vec![
                 (

@@ -66,12 +66,31 @@ impl PipelineData {
         PipelineData::ByteStream(stream, metadata.into())
     }
 
+    /// Returns a clone of the metadata if it exists.
+    ///
+    /// Note: This performs a deep clone of heap-allocated structures.
+    /// Use [`.metadata_ref()`](Self::metadata_ref) or [`.metadata_mut()`](Self::metadata_mut) to avoid unnecessary allocations.
     pub fn metadata(&self) -> Option<PipelineMetadata> {
+        self.metadata_ref().cloned()
+    }
+
+    /// Returns a reference to the metadata if it exists.
+    pub fn metadata_ref(&self) -> Option<&PipelineMetadata> {
         match self {
             PipelineData::Empty => None,
             PipelineData::Value(_, meta)
             | PipelineData::ListStream(_, meta)
-            | PipelineData::ByteStream(_, meta) => meta.clone(),
+            | PipelineData::ByteStream(_, meta) => meta.as_ref(),
+        }
+    }
+
+    /// Returns a mutable reference to the metadata if it exists.
+    pub fn metadata_mut(&mut self) -> Option<&mut PipelineMetadata> {
+        match self {
+            PipelineData::Empty => None,
+            PipelineData::Value(_, meta)
+            | PipelineData::ListStream(_, meta)
+            | PipelineData::ByteStream(_, meta) => meta.as_mut(),
         }
     }
 
@@ -223,8 +242,39 @@ impl PipelineData {
                     metadata,
                 ))
             }
+            PipelineData::Value(Value::Custom { val, internal_span }, metadata) => {
+                match val.to_base_value(internal_span) {
+                    Ok(Value::List { vals, .. }) => Ok(PipelineData::list_stream(
+                        ListStream::new(vals.into_iter(), span, engine_state.signals().clone()),
+                        metadata,
+                    )),
+                    Ok(Value::Range { val, .. }) => Ok(PipelineData::list_stream(
+                        ListStream::new(
+                            val.into_range_iter(span, Signals::empty()),
+                            span,
+                            engine_state.signals().clone(),
+                        ),
+                        metadata,
+                    )),
+                    Ok(other) => Err(PipelineData::value(other, metadata)),
+                    Err(_) => Err(PipelineData::Value(
+                        Value::Custom { val, internal_span },
+                        metadata,
+                    )),
+                }
+            }
             _ => Err(self),
         }
+    }
+
+    /// Converts this value into a stream when possible, otherwise returns the original value.
+    ///
+    /// This is a convenience wrapper around [`PipelineData::try_into_stream`] for command code
+    /// paths that can operate on both stream and non-stream input without branching.
+    #[must_use]
+    pub fn into_stream_or_original(self, engine_state: &EngineState) -> PipelineData {
+        self.try_into_stream(engine_state)
+            .unwrap_or_else(|original| original)
     }
 
     /// Drain and write this [`PipelineData`] to `dest`.
@@ -480,6 +530,22 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => match f(value) {
+                                Value::Error { error, .. } => return Err(*error),
+                                v => v.into_pipeline_data(),
+                            },
+                        }
+                    }
                     value => match f(value) {
                         Value::Error { error, .. } => return Err(*error),
                         v => v.into_pipeline_data(),
@@ -518,6 +584,21 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .flat_map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .flat_map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .flat_map(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => f(value)
+                                .into_iter()
+                                .into_pipeline_data(span, signals.clone()),
+                        }
+                    }
                     value => f(value)
                         .into_iter()
                         .into_pipeline_data(span, signals.clone()),
@@ -565,6 +646,25 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
+                    Value::Custom { ref val, .. } if val.is_iterable() => {
+                        match val.to_base_value(span)? {
+                            Value::List { vals, .. } => vals
+                                .into_iter()
+                                .filter(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            Value::Range { val, .. } => val
+                                .into_range_iter(span, Signals::empty())
+                                .filter(f)
+                                .into_pipeline_data(span, signals.clone()),
+                            value => {
+                                if f(&value) {
+                                    value.into_pipeline_data()
+                                } else {
+                                    Value::nothing(span).into_pipeline_data()
+                                }
+                            }
+                        }
+                    }
                     value => {
                         if f(&value) {
                             value.into_pipeline_data()

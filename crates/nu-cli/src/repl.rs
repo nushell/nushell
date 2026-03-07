@@ -109,7 +109,7 @@ pub fn evaluate_repl(
             engine_state,
             &mut unique_stack,
             s.item.as_bytes(),
-            &format!("entry #{entry_num}"),
+            &format!("repl_entry #{entry_num}"),
             PipelineData::empty(),
             false,
         );
@@ -1004,7 +1004,7 @@ fn do_run_cmd(
         engine_state,
         stack,
         s.as_bytes(),
-        &format!("entry #{entry_num}"),
+        &format!("repl_entry #{entry_num}"),
         PipelineData::empty(),
         false,
     );

@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use crate::{RegId, Span};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};

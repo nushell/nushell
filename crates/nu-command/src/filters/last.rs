@@ -206,7 +206,17 @@ impl Command for Last {
                                     .clone()
                                     .with_order_by("rowid DESC".to_string())
                                     .with_limit(rows as i64);
-                                new_table.execute(head)
+                                let result = new_table.execute(head)?;
+                                let value = result.into_value(head)?;
+
+                                if let Value::List { mut vals, .. } = value {
+                                    // Reverse the results to restore original order
+                                    vals.reverse();
+                                    Ok(Value::list(vals, head)
+                                        .into_pipeline_data_with_metadata(metadata))
+                                } else {
+                                    Ok(value.into_pipeline_data_with_metadata(metadata))
+                                }
                             }
                         } else {
                             Err(ShellError::OnlySupportsThisInputType {

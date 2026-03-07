@@ -37,7 +37,7 @@ impl PluginCommand for ExprDatePart {
             .required(
                 "Datepart name",
                 SyntaxShape::String,
-                "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond",
+                "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond.",
             )
             .input_output_type(
                 PolarsPluginType::NuExpression.into(),

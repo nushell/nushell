@@ -28,7 +28,7 @@ impl PluginCommand for ToLazyGroupBy {
             .rest(
                 "Group-by expressions",
                 SyntaxShape::Any,
-                "Expression(s) that define the lazy group-by",
+                "Expression(s) that define the lazy group-by.",
             )
             .switch(
                 "maintain-order",
@@ -117,7 +117,7 @@ impl PluginCommand for ToLazyGroupBy {
 
         if expressions
             .iter()
-            .any(|expr| matches!(expr, Expr::Agg(..) | Expr::Window { .. }))
+            .any(|expr| matches!(expr, Expr::Agg(..) | Expr::Over { .. }))
         {
             let value: Value = call.req(0)?;
             Err(ShellError::IncompatibleParametersSingle {

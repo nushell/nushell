@@ -51,7 +51,7 @@
 //! You can also call [`ExperimentalOption::set`] manually, but be careful with that.
 
 use crate::util::AtomicMaybe;
-use std::{fmt::Debug, sync::atomic::Ordering};
+use std::{any::TypeId, fmt::Debug, hash::Hash, sync::atomic::Ordering};
 
 mod options;
 mod parse;
@@ -196,6 +196,26 @@ impl PartialEq for ExperimentalOption {
 }
 
 impl Eq for ExperimentalOption {}
+
+impl PartialOrd for ExperimentalOption {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ExperimentalOption {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.identifier().cmp(other.identifier())
+    }
+}
+
+impl Hash for ExperimentalOption {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // this should ensure that we don't have prefixes
+        TypeId::of::<Self>().hash(state);
+        self.identifier().hash(state);
+    }
+}
 
 /// Sets the state of all experimental option that aren't deprecated.
 ///

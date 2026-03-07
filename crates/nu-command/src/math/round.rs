@@ -23,7 +23,7 @@ impl Command for MathRound {
             .named(
                 "precision",
                 SyntaxShape::Number,
-                "digits of precision",
+                "Digits of precision.",
                 Some('p'),
             )
             .category(Category::Math)

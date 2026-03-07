@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use crate::Span;
 use miette::Diagnostic;
 use std::hash::Hash;

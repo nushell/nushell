@@ -31,10 +31,10 @@ impl Command for PathExpand {
             ])
             .switch(
                 "strict",
-                "Throw an error if the path could not be expanded",
+                "Throw an error if the path could not be expanded.",
                 Some('s'),
             )
-            .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
+            .switch("no-symlink", "Do not resolve symbolic links.", Some('n'))
             .category(Category::Path)
     }
 

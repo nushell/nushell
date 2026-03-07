@@ -35,29 +35,38 @@ impl Command for ViewSpan {
         let start_span: Spanned<usize> = call.req(engine_state, stack, 0)?;
         let end_span: Spanned<usize> = call.req(engine_state, stack, 1)?;
 
-        let source = if start_span.item < end_span.item {
-            let bin_contents =
-                engine_state.get_span_contents(Span::new(start_span.item, end_span.item));
-            Ok(
-                Value::string(String::from_utf8_lossy(bin_contents), call.head)
-                    .into_pipeline_data(),
-            )
+        let span = if start_span.item <= end_span.item {
+            Ok(Span::new(start_span.item, end_span.item))
         } else {
             Err(ShellError::GenericError {
+                error: "Invalid span".to_string(),
+                msg: "the start position of this span is later than the end position".to_string(),
+                span: Some(call.head),
+                help: None,
+                inner: vec![],
+            })
+        }?;
+
+        let bin_contents = engine_state
+            .try_get_file_contents(span)
+            .map(String::from_utf8_lossy)
+            .ok_or_else(|| ShellError::GenericError {
                 error: "Cannot view span".to_string(),
                 msg: "this start and end does not correspond to a viewable value".to_string(),
                 span: Some(call.head),
                 help: None,
                 inner: vec![],
-            })
+            })?;
+
+        let metadata = PipelineMetadata {
+            content_type: Some("application/x-nuscript".into()),
+            ..Default::default()
         };
 
-        source.map(|x| {
-            x.set_metadata(Some(PipelineMetadata {
-                content_type: Some("application/x-nuscript".into()),
-                ..Default::default()
-            }))
-        })
+        let value = Value::string(bin_contents, call.head)
+            .into_pipeline_data()
+            .set_metadata(Some(metadata));
+        Ok(value)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

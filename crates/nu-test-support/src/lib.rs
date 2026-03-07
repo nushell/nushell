@@ -1,10 +1,31 @@
 #![doc = include_str!("../README.md")]
+
+use std::process::ExitStatus;
+
 pub mod commands;
 pub mod fs;
+pub mod harness;
 pub mod locale_override;
 pub mod macros;
 pub mod playground;
-use std::process::ExitStatus;
+
+pub mod tester;
+pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};
+
+pub mod prelude {
+    #[doc(no_inline)]
+    pub use super::{
+        Outcome, nu,
+        playground::Playground,
+        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
+    };
+
+    #[doc(no_inline)]
+    pub use nu_protocol::{CompileError, FromValue, IntoValue, ParseError, ShellError, Value};
+}
+
+// Expose macros to be used for the test harness.
+pub use harness::macros::*;
 
 // Needs to be reexported for `nu!` macro
 pub use nu_path;

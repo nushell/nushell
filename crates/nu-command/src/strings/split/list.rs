@@ -23,8 +23,7 @@ impl Command for SubCommand {
             )
             .switch(
                 "regex",
-                "separator is a regular expression, matching values that can be coerced into a \
-                 string",
+                "Separator is a regular expression, matching values that can be coerced into a string.",
                 Some('r'),
             )
             .param(

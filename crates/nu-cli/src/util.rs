@@ -289,7 +289,7 @@ fn evaluate_source(
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
             &mut working_set,
-            Some(fname), // format!("entry #{}", entry_num)
+            Some(fname), // format!("repl_entry #{}", entry_num)
             source,
             false,
         );

@@ -42,22 +42,22 @@ If multiple cell paths are given, this will produce a list of values."#
             .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
                 "optional",
-                "make all cell path members optional (returns `null` for missing values)",
+                "Make all cell path members optional (returns `null` for missing values).",
                 Some('o'),
             )
             .switch(
                 "ignore-case",
-                "make all cell path members case insensitive",
+                "Make all cell path members case insensitive.",
                 None,
             )
             .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional) (deprecated)",
+                "Ignore missing data (make all cell path members optional) (deprecated).",
                 Some('i'),
             )
             .switch(
                 "sensitive",
-                "get path in a case sensitive manner (deprecated)",
+                "Get path in a case sensitive manner (deprecated).",
                 Some('s'),
             )
             .allow_variants_without_examples(true)

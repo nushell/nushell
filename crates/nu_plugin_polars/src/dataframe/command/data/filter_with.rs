@@ -31,7 +31,7 @@ impl PluginCommand for FilterWith {
             .required(
                 "mask or expression",
                 SyntaxShape::Any,
-                "boolean mask used to filter data",
+                "Boolean mask used to filter data.",
             )
             .input_output_types(vec![
                 (

@@ -60,10 +60,10 @@ impl Command for Join {
                 "Suffix columns from the right table with this string (excluding the shared join key).",
                 Some('s'),
             )
-            .switch("inner", "Inner join (default)", Some('i'))
-            .switch("left", "Left-outer join", Some('l'))
-            .switch("right", "Right-outer join", Some('r'))
-            .switch("outer", "Outer join", Some('o'))
+            .switch("inner", "Inner join (default).", Some('i'))
+            .switch("left", "Left-outer join.", Some('l'))
+            .switch("right", "Right-outer join.", Some('r'))
+            .switch("outer", "Outer join.", Some('o'))
             .input_output_types(vec![(Type::table(), Type::table())])
             .category(Category::Filters)
     }
@@ -83,6 +83,8 @@ impl Command for Join {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
+        let input = input.into_stream_or_original(engine_state);
+
         let metadata = input.metadata();
         let table_2: Value = call.req(engine_state, stack, 0)?;
         let l_on: Value = call.req(engine_state, stack, 1)?;

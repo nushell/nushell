@@ -37,12 +37,12 @@ impl Command for StrSubstring {
             .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
-                "count indexes and split using grapheme clusters (all visible chars have length 1)",
+                "Count indexes and split using grapheme clusters (all visible chars have length 1).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+)",
+                "Count indexes and split using UTF-8 bytes (default; non-ASCII chars have length 2+).",
                 Some('b'),
             )
             .required(

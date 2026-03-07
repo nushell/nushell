@@ -57,17 +57,17 @@ impl Command for StrReplace {
             .switch("all", "Replace all occurrences of the pattern.", Some('a'))
             .switch(
                 "no-expand",
-                "do not expand capture groups (like $name) in the replacement string",
+                "Do not expand capture groups (like $name) in the replacement string.",
                 Some('n'),
             )
             .switch(
                 "regex",
-                "match the pattern as a regular expression in the input, instead of a substring",
+                "Match the pattern as a regular expression in the input, instead of a substring.",
                 Some('r'),
             )
             .switch(
                 "multiline",
-                "multi-line regex mode (implies --regex): ^ and $ match begin/end of line; equivalent to (?m)",
+                "Multi-line regex mode (implies --regex): ^ and $ match begin/end of line; equivalent to (?m).",
                 Some('m'),
             )
             .allow_variants_without_examples(true)

@@ -26,39 +26,39 @@ impl Command for Find {
             .named(
                 "regex",
                 SyntaxShape::String,
-                "regex to match with",
+                "Regex to match with.",
                 Some('r'),
             )
             .switch(
                 "ignore-case",
-                "case-insensitive; when in regex mode, this is equivalent to (?i)",
+                "Case-insensitive; when in regex mode, this is equivalent to (?i).",
                 Some('i'),
             )
             .switch(
                 "multiline",
-                "don't split multi-line strings into lists of lines. you should use this option when using the (?m) or (?s) flags in regex mode",
+                "Don't split multi-line strings into lists of lines. you should use this option when using the (?m) or (?s) flags in regex mode.",
                 Some('m'),
             )
             .switch(
                 "dotall",
-                "dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s)",
+                "Dotall regex mode: allow a dot . to match newlines \\n; equivalent to (?s).",
                 Some('s'),
             )
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::String)),
-                "column names to be searched",
+                "Column names to be searched.",
                 Some('c'),
             )
             .switch(
                 "no-highlight",
-                "no-highlight mode: find without marking with ansi code",
+                "No-highlight mode: find without marking with ansi code.",
                 Some('n'),
             )
             .switch("invert", "Invert the match.", Some('v'))
             .switch(
                 "rfind",
-                "search from the end of the string and only return the first match",
+                "Search from the end of the string and only return the first match.",
                 Some('R'),
             )
             .rest("rest", SyntaxShape::Any, "Terms to search.")

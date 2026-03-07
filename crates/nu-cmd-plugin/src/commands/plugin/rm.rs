@@ -17,12 +17,12 @@ impl Command for PluginRm {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`.",
                 None,
             )
             .switch(
                 "force",
-                "Don't cause an error if the plugin name wasn't found in the file",
+                "Don't cause an error if the plugin name wasn't found in the file.",
                 Some('f'),
             )
             .required(

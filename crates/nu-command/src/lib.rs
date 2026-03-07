@@ -12,7 +12,6 @@ mod experimental;
 #[cfg(feature = "os")]
 mod filesystem;
 mod filters;
-mod formats;
 mod generators;
 mod hash;
 mod help;
@@ -34,6 +33,8 @@ mod strings;
 #[cfg(feature = "os")]
 mod system;
 mod viewers;
+
+pub(crate) mod formats;
 
 pub use bytes::*;
 pub use charting::*;
@@ -75,3 +76,10 @@ mod database;
 
 #[cfg(feature = "sqlite")]
 pub use database::*;
+
+#[cfg(test)]
+#[macro_use]
+extern crate nu_test_support;
+
+#[cfg(test)]
+use nu_test_support::harness::main;

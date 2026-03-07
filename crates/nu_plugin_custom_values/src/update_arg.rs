@@ -20,7 +20,7 @@ impl SimplePluginCommand for UpdateArg {
             .required(
                 "custom_value",
                 SyntaxShape::Any,
-                "the custom value to update",
+                "The custom value to update.",
             )
             .category(Category::Experimental)
     }

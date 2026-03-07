@@ -26,7 +26,7 @@ fn map_value_completions<'a>(
         if let Ok(s) = x.coerce_string() {
             return Some(SemanticSuggestion {
                 suggestion: Suggestion {
-                    value: s,
+                    value: strip_ansi_string_unlikely(s),
                     span: reedline::Span {
                         start: span.start - offset,
                         end: span.end - offset,
@@ -55,7 +55,7 @@ fn map_value_completions<'a>(
                     "value" => {
                         value_type = value.get_type();
                         if let Ok(val_str) = value.coerce_string() {
-                            suggestion.value = val_str;
+                            suggestion.value = strip_ansi_string_unlikely(val_str);
                         }
                     }
                     "display_override" => {

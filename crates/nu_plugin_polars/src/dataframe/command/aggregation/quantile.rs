@@ -30,7 +30,7 @@ impl PluginCommand for LazyQuantile {
             .required(
                 "quantile",
                 SyntaxShape::Number,
-                "quantile value for quantile operation",
+                "Quantile value for quantile operation.",
             )
             .input_output_types(vec![
                 (

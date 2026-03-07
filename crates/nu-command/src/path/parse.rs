@@ -26,7 +26,7 @@ impl Command for PathParse {
             .named(
                 "extension",
                 SyntaxShape::String,
-                "Manually supply the extension (without the dot)",
+                "Manually supply the extension (without the dot).",
                 Some('e'),
             )
             .category(Category::Path)

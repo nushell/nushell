@@ -32,7 +32,7 @@ impl Command for Default {
             )
             .switch(
                 "empty",
-                "also replace empty items like \"\", {}, and []",
+                "Also replace empty items like \"\", {}, and [].",
                 Some('e'),
             )
             .category(Category::Filters)
@@ -64,6 +64,7 @@ impl Command for Default {
             DefaultValue::new(engine_state, stack, default_value, default_value_expr);
 
         default(
+            engine_state,
             call,
             input,
             default_value,
@@ -150,6 +151,7 @@ impl Command for Default {
 }
 
 fn default(
+    engine_state: &EngineState,
     call: &Call,
     input: PipelineData,
     mut default_value: DefaultValue,
@@ -157,6 +159,12 @@ fn default(
     columns: Vec<String>,
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
+    let input = if !columns.is_empty() {
+        input.into_stream_or_original(engine_state)
+    } else {
+        input
+    };
+
     let input_span = input.span().unwrap_or(call.head);
     let metadata = input.metadata();
 

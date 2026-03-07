@@ -21,13 +21,13 @@ impl Command for PluginAdd {
             .named(
                 "plugin-config",
                 SyntaxShape::Filepath,
-                "Use a plugin registry file other than the one set in `$nu.plugin-path`",
+                "Use a plugin registry file other than the one set in `$nu.plugin-path`.",
                 None,
             )
             .named(
                 "shell",
                 SyntaxShape::Filepath,
-                "Use an additional shell program (cmd, sh, python, etc.) to run the plugin",
+                "Use an additional shell program (cmd, sh, python, etc.) to run the plugin.",
                 Some('s'),
             )
             .required(

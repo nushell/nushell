@@ -27,7 +27,7 @@ impl PluginCommand for ExprLit {
             .required(
                 "literal",
                 SyntaxShape::Any,
-                "literal to construct the expression",
+                "Literal to construct the expression.",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuExpression.into())
             .category(Category::Custom("expression".into()))

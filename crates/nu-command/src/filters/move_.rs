@@ -32,13 +32,13 @@ impl Command for Move {
             .named(
                 "after",
                 SyntaxShape::String,
-                "the column that will precede the columns moved",
+                "The column that will precede the columns moved.",
                 None,
             )
             .named(
                 "before",
                 SyntaxShape::String,
-                "the column that will be the next after the columns moved",
+                "The column that will be the next after the columns moved.",
                 None,
             )
             .switch("first", "Makes the columns be the first ones.", None)
@@ -109,6 +109,7 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;

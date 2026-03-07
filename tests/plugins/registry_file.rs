@@ -410,9 +410,12 @@ fn warning_on_invalid_plugin_item() {
         assert!(result.status.success());
         // The "example" plugin should be unaffected
         assert_eq!(r#"["example"]"#, out);
-        // The warning should be in there
-        assert!(err.contains("registered plugin data"));
-        assert!(err.contains("badtest"));
+        // The warning should be in there. In some terminals stderr may be unavailable,
+        // in which case diagnostics can be emitted via stdout.
+        let combined_output = format!("{out}\n{err}");
+        assert!(combined_output.contains("registered plugin data"));
+        assert!(combined_output.contains("badtest"));
+        assert!(combined_output.contains("Failed to load 1 plugin entry"));
     })
 }
 

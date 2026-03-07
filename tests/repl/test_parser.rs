@@ -1,5 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_test_support::{nu, nu_repl_code};
+use rstest::rstest;
 use std::collections::HashMap;
 
 #[test]
@@ -834,11 +835,17 @@ fn duration_with_faulty_number() -> TestResult {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+#[env(LANG = "en_US.UTF-8")]
+#[env(LANGUAGE = "en")]
 fn filesize_with_underscores_1() -> TestResult {
     run_test("420_MB", "420.0 MB")
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+#[env(LANG = "en_US.UTF-8")]
+#[env(LANGUAGE = "en")]
 fn filesize_with_underscores_2() -> TestResult {
     run_test("1_000_000B", "1.0 MB")
 }
@@ -924,6 +931,81 @@ fn let_variable_record_runtime_mismatch() -> TestResult {
         outcome
             .err
             .contains("can't convert record<a: int> to record<b: int>")
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::string("a", "list<record<b: int>>")]
+#[case::string_int("a.0", "record<b: int>")]
+#[case::string_int_string("a.0.b", "int")]
+#[case::string_string_int("a.b.0", "int")]
+fn let_assign_record_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = {{a: [{{b: 1}}]}}; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::int("0", "record<a: record<b: list<int>>>")]
+#[case::int("0.a", "record<b: list<int>>")]
+#[case::int("0.a.b", "list<int>")]
+#[case::int("0.a.b.0", "int")]
+#[case::string("a", "list<record<b: list<int>>>")]
+#[case::string_int("a.0", "record<b: list<int>>")]
+#[case::string_int_string("a.0.b", "list<int>")]
+#[case::string_string("a.b", "list<list<int>>")]
+#[case::string_string_int("a.b.0", "list<int>")]
+#[case::string_string_int_int("a.b.0.0", "int")]
+fn let_assign_list_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = [{{a: {{b: [1]}}}}]; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::int("0", "record<a: record<b: list<int>>>")]
+#[case::int_string("0.a", "record<b: list<int>>")]
+#[case::int_string_string("0.a.b", "list<int>")]
+#[case::int_string_string_int("0.a.b.0", "int")]
+#[case::string("a", "list<record<b: list<int>>>")]
+#[case::string_int("a.0", "record<b: list<int>>")]
+#[case::string_int_string("a.0.b", "list<int>")]
+#[case::string_string("a.b", "list<list<int>>")]
+#[case::string_string_int("a.b.0", "list<int>")]
+#[case::string_string_int_int("a.b.0.0", "int")]
+fn let_assign_table_cell_path_to_wrong_type(
+    #[case] cell_path: &str,
+    #[case] inferred_type: &str,
+) -> TestResult {
+    let outcome = nu!(
+        experimental: vec!["cell-path-types".to_string()],
+        format!("let foo = [[a]; [{{b: [1]}}]]; let bar: string = $foo.{cell_path}", ),
+    );
+    assert!(
+        outcome
+            .err
+            .contains(&format!("expected string, found {inferred_type}"))
     );
     Ok(())
 }
@@ -1095,6 +1177,19 @@ fn record_missing_value() -> TestResult {
 }
 
 #[test]
+fn record_type_inferred() -> TestResult {
+    fail_test(
+        r#"let foo: string = { 1: 1 }"#,
+        "expected string, found record<1: int>",
+    )
+}
+
+#[test]
+fn record_force_string_key_names() -> TestResult {
+    run_test(r#"{1kb: 1}.1kb"#, "1")
+}
+
+#[test]
 fn def_requires_body_closure() -> TestResult {
     fail_test("def a [] (echo 4)", "expected definition body closure")
 }
@@ -1192,4 +1287,23 @@ fn table_literal_column_var_shell_err() -> TestResult {
         "#,
         "can't convert",
     )
+}
+
+#[rstest]
+#[case::piped_let_assignment("null | let nu: nothing")]
+#[case::piped_let_assignment("null | let $in")]
+#[case::const_assignment("const env: nothing = null")]
+#[case::mut_assignment("mut nu = null")]
+#[case::for_loop("for nu in [] {}")]
+#[case::for_loop_with_type("for $in: int in [] {}")]
+#[case::match_pattern_list("match [1] {[$in] => $in}")]
+#[case::match_pattern_list_rest("match [1] {[..$env] => $in}")]
+#[case::match_pattern_record("{a: {b: 3}} | match $in {{a: { $nu }} => 10 }")]
+fn reserved_variable_name_checking(#[case] code: &str) -> TestResult {
+    fail_test(code, "already a builtin variable")
+}
+
+#[test]
+fn allow_it_as_variable_name() -> TestResult {
+    run_test("let it = 3; [1 2 3 4] | where $it > 2 | length", "2")
 }

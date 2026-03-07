@@ -40,7 +40,7 @@ export def clippy [
             --
             -D warnings
             -D clippy::unwrap_used
-            -D clippy::unchecked_duration_subtraction
+            -D clippy::unchecked_time_subtraction
     )
 
     if $verbose {
@@ -66,7 +66,7 @@ export def clippy [
             --
             -D warnings
             -D clippy::unwrap_used
-            -D clippy::unchecked_duration_subtraction
+            -D clippy::unchecked_time_subtraction
     )
 
     } catch {

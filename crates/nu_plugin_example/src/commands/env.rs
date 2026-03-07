@@ -26,13 +26,13 @@ impl SimplePluginCommand for Env {
             .optional(
                 "name",
                 SyntaxShape::String,
-                "The name of the environment variable to get",
+                "The name of the environment variable to get.",
             )
-            .switch("cwd", "Get current working directory instead", None)
+            .switch("cwd", "Get current working directory instead.", None)
             .named(
                 "set",
                 SyntaxShape::Any,
-                "Set an environment variable to the value",
+                "Set an environment variable to the value.",
                 None,
             )
             .input_output_type(Type::Nothing, Type::Any)

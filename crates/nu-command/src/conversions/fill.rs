@@ -69,7 +69,7 @@ impl Command for Fill {
             .named(
                 "width",
                 SyntaxShape::Int,
-                "The width of the output. Defaults to 1",
+                "The width of the output. Defaults to 1.",
                 Some('w'),
             )
             .param(
@@ -77,8 +77,7 @@ impl Command for Fill {
                     .short('a')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "The alignment of the output. Defaults to Left (Left(l), Right(r), \
-                         Center(c/m), MiddleRight(cr/mr))",
+                        "The alignment of the output. Defaults to Left (Left(l), Right(r), Center(c/m), MiddleRight(cr/mr)).",
                     )
                     .completion(Completion::new_list(&[
                         "left",
@@ -90,7 +89,7 @@ impl Command for Fill {
             .named(
                 "character",
                 SyntaxShape::String,
-                "The character to fill with. Defaults to ' ' (space)",
+                "The character to fill with. Defaults to ' ' (space).",
                 Some('c'),
             )
             .category(Category::Conversions)

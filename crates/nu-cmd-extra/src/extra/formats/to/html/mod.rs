@@ -33,12 +33,12 @@ impl Command for ToHtml {
             .switch("no-color", "Remove all ansi colors in output.", Some('n'))
             .switch(
                 "dark",
-                "indicate your background color is a darker color",
+                "Indicate your background color is a darker color.",
                 Some('d'),
             )
             .switch(
                 "partial",
-                "only output the html for the content itself",
+                "Only output the html for the content itself.",
                 Some('p'),
             )
             .named(
@@ -49,7 +49,7 @@ impl Command for ToHtml {
             )
             .switch(
                 "list",
-                "produce a color table of all available themes",
+                "Produce a color table of all available themes.",
                 Some('l'),
             )
             .switch("raw", "Do not escape html tags.", Some('r'))

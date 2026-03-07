@@ -1,13 +1,14 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn can_encode_and_decode_urlencoding() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+fn can_encode_and_decode_urlencoding() -> Result {
+    let code = r#"
         open sample.url
         | url build-query
         | from url
         | get cheese
-    "#);
-
-    assert_eq!(actual.out, "comté");
+    "#;
+    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
+    assert_eq!(outcome, "comté");
+    Ok(())
 }

@@ -28,7 +28,7 @@ impl Command for PathExists {
                     Type::List(Box::new(Type::Bool)),
                 ),
             ])
-            .switch("no-symlink", "Do not resolve symbolic links", Some('n'))
+            .switch("no-symlink", "Do not resolve symbolic links.", Some('n'))
             .category(Category::Path)
     }
 

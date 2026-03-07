@@ -6,12 +6,12 @@ use nu_plugin::EngineInterface;
 use nu_protocol::{ShellError, Span, Spanned};
 use polars::{
     io::cloud::CloudOptions,
-    prelude::{PlPath, PlPathRef, SinkTarget},
+    prelude::{PlRefPath, SinkDestination, SinkTarget},
 };
 
 #[derive(Clone)]
 pub(crate) struct Resource {
-    pub(crate) path: PlPath,
+    pub(crate) path: PlRefPath,
     pub(crate) cloud_options: Option<CloudOptions>,
     pub(crate) span: Span,
 }
@@ -34,16 +34,13 @@ impl Resource {
         engine: &EngineInterface,
         spanned_path: &Spanned<String>,
     ) -> Result<Self, ShellError> {
-        let path = PlPath::from_str(&spanned_path.item);
+        let path = PlRefPath::from(spanned_path.item.as_str());
 
-        let (path, cloud_options): (PlPath, Option<CloudOptions>) = if path.is_cloud_url() {
+        let (path, cloud_options): (PlRefPath, Option<CloudOptions>) = if path.has_scheme() {
             let options = build_cloud_options(plugin, &path)?;
             if options.is_none() {
                 return Err(ShellError::GenericError {
-                    error: format!(
-                        "Could not determine a supported cloud type from path: {}",
-                        path.to_str()
-                    ),
+                    error: format!("Could not determine a supported cloud type from path: {path}"),
                     msg: "".into(),
                     span: None,
                     help: None,
@@ -53,7 +50,16 @@ impl Resource {
             (path, options)
         } else {
             let new_path = expand_path_with(&spanned_path.item, engine.get_current_dir()?, true);
-            (PlPathRef::from_local_path(&new_path).into_owned(), None)
+            (
+                PlRefPath::try_from_path(&new_path).map_err(|e| ShellError::GenericError {
+                    error: format!("Could not resolve resource: {new_path:?} : {e}"),
+                    msg: "".into(),
+                    span: Some(spanned_path.span),
+                    help: None,
+                    inner: vec![],
+                })?,
+                None,
+            )
         };
 
         Ok(Self {
@@ -64,29 +70,25 @@ impl Resource {
     }
 
     pub fn as_string(&self) -> String {
-        self.path.to_str().to_owned()
+        self.path.to_string().to_owned()
     }
-}
-impl TryInto<PathBuf> for Resource {
-    type Error = ShellError;
 
-    fn try_into(self) -> Result<PathBuf, Self::Error> {
-        let path_str = self.path.to_str().to_owned();
-        self.path
-            .into_local_path()
-            .ok_or_else(|| ShellError::GenericError {
-                error: format!("Could not convert path to local path: {path_str}",),
-                msg: "".into(),
-                span: Some(self.span),
-                help: None,
-                inner: vec![],
-            })
-            .map(|p| (*p).into())
+    pub fn as_path_buf(&self) -> PathBuf {
+        let path: &std::path::Path = self.path.as_ref();
+        path.to_owned()
     }
 }
 
 impl From<Resource> for SinkTarget {
     fn from(r: Resource) -> SinkTarget {
         SinkTarget::Path(r.path)
+    }
+}
+
+impl From<Resource> for SinkDestination {
+    fn from(val: Resource) -> Self {
+        SinkDestination::File {
+            target: SinkTarget::Path(val.path.clone()),
+        }
     }
 }

@@ -25,7 +25,7 @@ impl PluginCommand for DropDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest("rest", SyntaxShape::Any, "column names to be dropped")
+            .rest("rest", SyntaxShape::Any, "Column names to be dropped.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

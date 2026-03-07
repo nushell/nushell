@@ -24,12 +24,12 @@ impl Command for Reject {
             )
             .switch(
                 "ignore-case",
-                "make all cell path members case insensitive",
+                "Make all cell path members case insensitive.",
                 None,
             )
             .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional) (deprecated)",
+                "Ignore missing data (make all cell path members optional) (deprecated).",
                 Some('i'),
             )
             .rest(
@@ -209,6 +209,7 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
+    let input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
     let metadata = input.metadata();
     let mut new_columns = vec![];

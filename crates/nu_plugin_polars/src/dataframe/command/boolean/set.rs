@@ -27,11 +27,11 @@ impl PluginCommand for SetSeries {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("value", SyntaxShape::Any, "value to be inserted in series")
+            .required("value", SyntaxShape::Any, "Value to be inserted in series.")
             .required_named(
                 "mask",
                 SyntaxShape::Any,
-                "mask indicating insertions",
+                "Mask indicating insertions.",
                 Some('m'),
             )
             .input_output_types(vec![

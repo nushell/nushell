@@ -62,35 +62,35 @@ impl Command for ToMd {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "pretty",
-                "Formats the Markdown table to vertically align items",
+                "Formats the Markdown table to vertically align items.",
                 Some('p'),
             )
             .switch(
                 "per-element",
-                "Treat each row as markdown syntax element",
+                "Treat each row as markdown syntax element.",
                 Some('e'),
             )
             .named(
                 "center",
                 SyntaxShape::List(Box::new(SyntaxShape::CellPath)),
-                "Formats the Markdown table to center given columns",
+                "Formats the Markdown table to center given columns.",
                 Some('c'),
             )
             .switch(
                 "escape-md",
-                "Escapes Markdown special characters",
+                "Escapes Markdown special characters.",
                 Some('m'),
             )
             .switch("escape-html", "Escapes HTML special characters.", Some('t'))
             .switch(
                 "escape-all",
-                "Escapes both Markdown and HTML special characters",
+                "Escapes both Markdown and HTML special characters.",
                 Some('a'),
             )
             .named(
                 "list",
                 SyntaxShape::String,
-                "Format lists as 'ordered' (1. 2. 3.), 'unordered' (* * *), or 'none'. Default: unordered",
+                "Format lists as 'ordered' (1. 2. 3.), 'unordered' (* * *), or 'none'. Default: unordered.",
                 Some('l'),
             )
             .category(Category::Formats)

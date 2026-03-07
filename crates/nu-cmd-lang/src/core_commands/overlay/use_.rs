@@ -34,7 +34,7 @@ impl Command for OverlayUse {
             )
             .switch(
                 "prefix",
-                "Prepend module name to the imported commands and aliases",
+                "Prepend module name to the imported commands and aliases.",
                 Some('p'),
             )
             .switch(

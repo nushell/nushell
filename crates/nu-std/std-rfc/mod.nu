@@ -1,7 +1,6 @@
 export use conversions *
 export use tables *
 export use path *
-export module clip
 export module str
 export module iter
 export module random

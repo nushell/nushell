@@ -52,7 +52,7 @@ fn works_with_merge_arbitrary_metadata() {
         cwd: ".",
         r#"
         echo "foo"
-        | metadata set --merge {custom_key: "custom_value", foo: 42}
+        | metadata set { merge {custom_key: "custom_value", foo: 42} }
         | metadata
         | get custom_key
         "#
@@ -68,7 +68,7 @@ fn merge_preserves_existing_metadata() {
         r#"
         echo "foo"
         | metadata set --content-type "text/plain"
-        | metadata set --merge {custom: "value"}
+        | metadata set { merge {custom: "value"} }
         | metadata
         | get content_type
         "#
@@ -83,7 +83,7 @@ fn custom_metadata_preserved_through_collect() {
         cwd: ".",
         r#"
         echo "foo"
-        | metadata set --merge {custom_key: "custom_value"}
+        | metadata set { merge {custom_key: "custom_value"} }
         | collect
         | metadata
         | get custom_key

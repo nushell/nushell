@@ -21,7 +21,7 @@ impl Command for Every {
             )
             .switch(
                 "skip",
-                "skip the rows that would be returned, instead of selecting them",
+                "Skip the rows that would be returned, instead of selecting them.",
                 Some('s'),
             )
             .category(Category::Filters)

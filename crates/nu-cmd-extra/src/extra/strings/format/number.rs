@@ -18,7 +18,7 @@ impl Command for FormatNumber {
             .input_output_types(vec![(Type::Number, Type::record())])
             .switch(
                 "no-prefix",
-                "don't include the binary, hex or octal prefixes",
+                "Don't include the binary, hex or octal prefixes.",
                 Some('n'),
             )
             .category(Category::Conversions)

@@ -37,12 +37,12 @@ impl Command for Rm {
             .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
             .switch(
                 "trash",
-                "move to the platform's trash instead of permanently deleting. not used on android and ios",
+                "Move to the platform's trash instead of permanently deleting. not used on android and ios.",
                 Some('t'),
             )
             .switch(
                 "permanent",
-                "delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios",
+                "Delete permanently, ignoring the 'always_trash' config option. always enabled on android and ios.",
                 Some('p'),
             )
             .switch("recursive", "Delete subdirectories recursively.", Some('r'))
@@ -51,7 +51,7 @@ impl Command for Rm {
             .switch("interactive", "Ask user to confirm action.", Some('i'))
             .switch(
                 "interactive-once",
-                "ask user to confirm action only once",
+                "Ask user to confirm action only once.",
                 Some('I'),
             )
             .switch("all", "Remove hidden files if '*' is provided.", Some('a'))

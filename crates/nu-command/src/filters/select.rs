@@ -30,17 +30,17 @@ impl Command for Select {
             ])
             .switch(
                 "optional",
-                "make all cell path members optional (returns `null` for missing values)",
+                "Make all cell path members optional (returns `null` for missing values).",
                 Some('o'),
             )
             .switch(
                 "ignore-case",
-                "make all cell path members case insensitive",
+                "Make all cell path members case insensitive.",
                 None,
             )
             .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional) (deprecated)",
+                "Ignore missing data (make all cell path members optional) (deprecated).",
                 Some('i'),
             )
             .rest(
@@ -280,29 +280,19 @@ fn select(
     if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
         && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
     {
-        // Check if all columns are simple string paths
-        let mut select_columns = Vec::new();
-        let mut all_simple = true;
-        for col in &columns {
-            if col.members.len() == 1 {
-                if let PathMember::String { val, .. } = &col.members[0] {
-                    select_columns.push(val.clone());
-                } else {
-                    all_simple = false;
-                    break;
-                }
-            } else {
-                all_simple = false;
-                break;
-            }
-        }
-        if all_simple {
-            let select_str = if select_columns.is_empty() {
-                "*".to_string()
-            } else {
-                select_columns.join(", ")
-            };
-            let new_table = table.clone().with_select(select_str);
+        // Push down only simple single-segment string paths; everything else
+        // falls back to the generic in-memory selection path below.
+        let select_columns: Option<Vec<String>> = columns
+            .iter()
+            .map(|column| match column.members.as_slice() {
+                [PathMember::String { val, .. }] => Some(val.clone()),
+                _ => None,
+            })
+            .collect();
+
+        if let Some(select_columns) = select_columns.filter(|selected| !selected.is_empty())
+            && let Some(new_table) = table.project_output_columns(&select_columns)
+        {
             return Ok(Value::custom(Box::new(new_table), call_span).into_pipeline_data());
         }
     }

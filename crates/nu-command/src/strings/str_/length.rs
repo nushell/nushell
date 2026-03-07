@@ -35,17 +35,17 @@ impl Command for StrLength {
             .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
-                "count length in grapheme clusters (all visible chars have length 1)",
+                "Count length in grapheme clusters (all visible chars have length 1).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count length in UTF-8 bytes (default; all non-ASCII chars have length 2+)",
+                "Count length in UTF-8 bytes (default; all non-ASCII chars have length 2+).",
                 Some('b'),
             )
             .switch(
                 "chars",
-                "count length in chars",
+                "Count length in chars.",
                 Some('c'),
             )
             .rest(

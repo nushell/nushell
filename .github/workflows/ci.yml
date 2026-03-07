@@ -11,7 +11,7 @@ env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
   # If changing these settings also change toolkit.nu
-  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -D clippy::unchecked_duration_subtraction"
+  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
@@ -96,7 +96,7 @@ jobs:
         run: cargo install --path . --locked --force
 
       - name: Upload Nushell build (Ubuntu and macOS)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: runner.os != 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"
@@ -104,7 +104,7 @@ jobs:
           retention-days: 14
 
       - name: Upload Nushell build (Windows)
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: runner.os == 'Windows'
         with:
           name: "nu-${{ github.event.number || github.ref_name }}-${{ matrix.platform }}"

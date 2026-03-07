@@ -55,13 +55,13 @@ impl Command for IntoString {
             )
             .switch(
                 "group-digits",
-                "group digits together by the locale specific thousands separator",
+                "Group digits together by the locale specific thousands separator.",
                 Some('g'),
             )
             .named(
                 "decimals",
                 SyntaxShape::Int,
-                "decimal digits to which to round",
+                "Decimal digits to which to round.",
                 Some('d'),
             )
             .category(Category::Conversions)
@@ -310,6 +310,9 @@ mod test {
     use super::*;
 
     #[test]
+    #[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
+    #[env(LANG = "en_US.UTF-8")]
+    #[env(LANGUAGE = "en")]
     fn test_examples() {
         use crate::test_examples;
 

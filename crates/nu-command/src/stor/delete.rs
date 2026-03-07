@@ -16,13 +16,13 @@ impl Command for StorDelete {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to delete or delete from",
+                "Name of the table you want to delete or delete from.",
                 Some('t'),
             )
             .named(
                 "where-clause",
                 SyntaxShape::String,
-                "a sql string to use as a where clause without the WHERE keyword",
+                "A sql string to use as a where clause without the WHERE keyword.",
                 Some('w'),
             )
             .allow_variants_without_examples(true)

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, PipelineMetadata};
+use nu_protocol::{Config, PipelineMetadata, Span};
 
 use std::fmt::Write;
 
@@ -63,6 +63,11 @@ impl Command for ViewSource {
                 example: r#"alias hello = echo hi; view source hello"#,
                 result: Some(Value::test_string("echo hi")),
             },
+            Example {
+                description: "View the file where a definition lives via metadata.",
+                example: r#"view source some_command | metadata"#,
+                result: None,
+            },
         ]
     }
 
@@ -76,15 +81,16 @@ impl Command for ViewSource {
         let arg: Value = call.req(engine_state, stack, 0)?;
         let arg_span = arg.span();
 
-        let source = match arg {
+        match arg {
             Value::Int { val, .. } => {
                 if let Some(block) =
                     engine_state.try_get_block(nu_protocol::BlockId::new(val as usize))
                 {
                     if let Some(span) = block.span {
                         let contents = engine_state.get_span_contents(span);
-                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                            .into_pipeline_data())
+                        let src = String::from_utf8_lossy(contents).to_string();
+
+                        Ok(make_output(engine_state, src, Some(span), call.head))
                     } else {
                         Err(ShellError::GenericError {
                             error: "Cannot view int value".to_string(),
@@ -121,9 +127,20 @@ impl Command for ViewSource {
                             let contents = String::from_utf8_lossy(
                                 engine_state.get_span_contents(alias.wrapped_call.span),
                             );
-                            Ok(Value::string(contents, call.head).into_pipeline_data())
+
+                            Ok(make_output(
+                                engine_state,
+                                contents.to_string(),
+                                Some(alias.wrapped_call.span),
+                                call.head,
+                            ))
                         } else {
-                            Ok(Value::string("no alias found", call.head).into_pipeline_data())
+                            Ok(make_output(
+                                engine_state,
+                                "no alias found".to_string(),
+                                None,
+                                call.head,
+                            ))
                         }
                     }
                     // gets vector of positionals.
@@ -212,7 +229,13 @@ impl Command for ViewSource {
                             }
                             final_contents.push_str("] ");
                             final_contents.push_str(&String::from_utf8_lossy(contents));
-                            Ok(Value::string(final_contents, call.head).into_pipeline_data())
+
+                            Ok(make_output(
+                                engine_state,
+                                final_contents,
+                                Some(block_span),
+                                call.head,
+                            ))
                         } else {
                             Err(ShellError::GenericError {
                                 error: "Cannot view string value".to_string(),
@@ -236,8 +259,13 @@ impl Command for ViewSource {
                     let module = engine_state.get_module(module_id);
                     if let Some(module_span) = module.span {
                         let contents = engine_state.get_span_contents(module_span);
-                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                            .into_pipeline_data())
+
+                        Ok(make_output(
+                            engine_state,
+                            String::from_utf8_lossy(contents).to_string(),
+                            Some(module_span),
+                            call.head,
+                        ))
                     } else {
                         Err(ShellError::GenericError {
                             error: "Cannot view string module value".to_string(),
@@ -263,10 +291,20 @@ impl Command for ViewSource {
 
                     if let Some(span) = block.span {
                         let contents = engine_state.get_span_contents(span);
-                        Ok(Value::string(String::from_utf8_lossy(contents), call.head)
-                            .into_pipeline_data())
+
+                        Ok(make_output(
+                            engine_state,
+                            String::from_utf8_lossy(contents).to_string(),
+                            Some(span),
+                            call.head,
+                        ))
                     } else {
-                        Ok(Value::string("<internal command>", call.head).into_pipeline_data())
+                        Ok(make_output(
+                            engine_state,
+                            "<internal command>".to_string(),
+                            None,
+                            call.head,
+                        ))
                     }
                 } else {
                     Err(ShellError::GenericError {
@@ -278,12 +316,37 @@ impl Command for ViewSource {
                     })
                 }
             }
-        };
-        source.map(|x| {
-            x.set_metadata(Some(PipelineMetadata {
-                content_type: Some("application/x-nuscript".into()),
-                ..Default::default()
-            }))
-        })
+        }
     }
+}
+
+// Helper function to find the file path associated with a given span, if any.
+fn file_for_span(engine_state: &EngineState, span: Span) -> Option<String> {
+    engine_state
+        .files()
+        .find(|f| f.covered_span.contains_span(span))
+        .map(|f| f.name.to_string())
+}
+
+// Helper function to wrap source text into a string value and record the file path in
+// datasource metadata when available
+fn make_output(
+    engine_state: &EngineState,
+    src: String,
+    span_opt: Option<Span>,
+    call_span: Span,
+) -> PipelineData {
+    let pd = Value::string(src, call_span).into_pipeline_data();
+
+    let mut metadata = PipelineMetadata {
+        content_type: Some("application/x-nuscript".into()),
+        ..Default::default()
+    };
+    if let Some(span) = span_opt
+        && let Some(fname) = file_for_span(engine_state, span)
+    {
+        metadata.data_source = nu_protocol::DataSource::FilePath(std::path::PathBuf::from(fname));
+    }
+
+    pd.set_metadata(Some(metadata))
 }

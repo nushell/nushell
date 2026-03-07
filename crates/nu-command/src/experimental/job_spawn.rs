@@ -33,7 +33,7 @@ impl Command for JobSpawn {
             .named(
                 "tag",
                 SyntaxShape::String,
-                "An optional description tag for this job",
+                "An optional description tag for this job.",
                 Some('t'),
             )
             .required(

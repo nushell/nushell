@@ -167,6 +167,11 @@ impl LanguageServer {
                                 format!("```\n{ty}\n```")
                             }
                         })
+                        .or_else(|| {
+                            var.ty
+                                .follow_cell_path(&cell_path)
+                                .map(|ty| format!("```\n{ty}\n```"))
+                        })
                         .unwrap_or("`unknown`".into()),
                 )
             }
@@ -246,6 +251,9 @@ mod hover_tests {
     #[case::cell_path1("use.nu", (2, 3), "```\nlist<oneof<int, record<bar: int>>>\n```")]
     #[case::cell_path2("use.nu", (2, 7), "```\nrecord<bar: int>\n```")]
     #[case::cell_path3("use.nu", (2, 11), "```\nint\n```\n---\n2")]
+    #[case::cell_path4("use.nu", (4, 5), "```\nlist<record<b: list<int>>>\n```")]
+    #[case::cell_path5("use.nu", (4, 9), "```\nlist<int>\n```")]
+    #[case::cell_path6("use.nu", (4, 11), "```\nint\n```")]
     fn hover_single_request(
         #[case] filename: &str,
         #[case] cursor: (u32, u32),

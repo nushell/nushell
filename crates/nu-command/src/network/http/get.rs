@@ -28,48 +28,48 @@ impl Command for HttpGet {
             .named(
                 "user",
                 SyntaxShape::Any,
-                "the username when authenticating",
+                "The username when authenticating.",
                 Some('u'),
             )
             .named(
                 "password",
                 SyntaxShape::Any,
-                "the password when authenticating",
+                "The password when authenticating.",
                 Some('p'),
             )
             .named(
                 "max-time",
                 SyntaxShape::Duration,
-                "max duration before timeout occurs",
+                "Max duration before timeout occurs.",
                 Some('m'),
             )
             .named(
                 "headers",
                 SyntaxShape::Any,
-                "custom headers you want to add ",
+                "Custom headers you want to add.",
                 Some('H'),
             )
             .switch(
                 "raw",
-                "fetch contents as text rather than a table",
+                "Fetch contents as text rather than a table.",
                 Some('r'),
             )
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
             .switch(
                 "full",
-                "returns the full response instead of only the body",
+                "Returns the full response instead of only the body.",
                 Some('f'),
             )
             .switch(
                 "allow-errors",
-                "do not fail if the server returns an error code",
+                "Do not fail if the server returns an error code.",
                 Some('e'),
             )
-            .switch("pool", "using a global pool as a client", None)
+            .switch("pool", "Using a global pool as a client.", None)
             .param(
                 Flag::new("redirect-mode")
                     .short('R')
@@ -113,37 +113,37 @@ impl Command for HttpGet {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get content from example.com",
+                description: "Get content from example.com.",
                 example: "http get https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with username and password",
+                description: "Get content from example.com, with username and password.",
                 example: "http get --user myuser --password mypass https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom header using a record",
+                description: "Get content from example.com, with custom header using a record.",
                 example: "http get --headers {my-header-key: my-header-value} https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get content from example.com, with custom headers using a list",
+                description: "Get content from example.com, with custom headers using a list.",
                 example: "http get --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
                 result: None,
             },
             Example {
-                description: "Get the response status code",
+                description: "Get the response status code.",
                 example: r#"http get https://www.example.com | metadata | get http_response.status"#,
                 result: None,
             },
             Example {
-                description: "Check response status while streaming",
+                description: "Check response status while streaming.",
                 example: r#"http get --allow-errors https://example.com/file | metadata access {|m| if $m.http_response.status != 200 { error make {msg: "failed"} } else { } } | lines"#,
                 result: None,
             },
             Example {
-                description: "Get from Docker daemon via Unix socket",
+                description: "Get from Docker daemon via Unix socket.",
                 example: "http get --unix-socket /var/run/docker.sock http://localhost/containers/json",
                 result: None,
             },

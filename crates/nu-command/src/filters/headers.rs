@@ -56,6 +56,7 @@ impl Command for Headers {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         let config = &stack.get_config(engine_state);
         let metadata = input.metadata();
         let span = input.span().unwrap_or(call.head);

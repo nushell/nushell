@@ -15,13 +15,13 @@ impl Command for StorCreate {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to create",
+                "Name of the table you want to create.",
                 Some('t'),
             )
             .required_named(
                 "columns",
                 SyntaxShape::Record(vec![]),
-                "a record of column names and datatypes",
+                "A record of column names and datatypes.",
                 Some('c'),
             )
             .allow_variants_without_examples(true)

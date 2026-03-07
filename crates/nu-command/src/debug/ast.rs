@@ -32,7 +32,7 @@ impl Command for Ast {
                 SyntaxShape::String,
                 "The pipeline to print the ast for.",
             )
-            .switch("json", "Serialize to json", Some('j'))
+            .switch("json", "Serialize to json.", Some('j'))
             .switch("minify", "Minify the nuon or json output.", Some('m'))
             .switch(
                 "flatten",

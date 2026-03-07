@@ -110,7 +110,7 @@ pub fn add_unix_socket_flag(sig: Signature) -> Signature {
     sig.named(
         "unix-socket",
         SyntaxShape::Filepath,
-        "Connect to the specified Unix socket instead of using TCP",
+        "Connect to the specified Unix socket instead of using TCP.",
         Some('U'),
     )
 }

@@ -28,19 +28,19 @@ impl PluginCommand for ValueCount {
             .named(
                 "column",
                 SyntaxShape::String,
-                "Provide a custom name for the count column",
+                "Provide a custom name for the count column.",
                 Some('c'),
             )
-            .switch("sort", "Whether or not values should be sorted", Some('s'))
+            .switch("sort", "Whether or not values should be sorted.", Some('s'))
             .switch(
                 "parallel",
-                "Use multiple threads when processing",
+                "Use multiple threads when processing.",
                 Some('p'),
             )
             .named(
                 "normalize",
                 SyntaxShape::String,
-                "Normalize the counts",
+                "Normalize the counts.",
                 Some('n'),
             )
             .input_output_types(vec![

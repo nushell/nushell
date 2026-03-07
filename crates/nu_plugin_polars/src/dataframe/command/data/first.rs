@@ -32,7 +32,7 @@ impl PluginCommand for FirstDF {
             .optional(
                 "rows",
                 SyntaxShape::Int,
-                "starting from the front, the number of rows to return",
+                "Starting from the front, the number of rows to return.",
             )
             .input_output_types(vec![
                 (

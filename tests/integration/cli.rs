@@ -3,6 +3,15 @@ use std::process::Command;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+fn unique_temp_script_path(stem: &str) -> std::path::PathBuf {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+
+    std::env::temp_dir().join(format!("{stem}_{}_{}.nu", std::process::id(), unique))
+}
+
 #[test]
 fn help_shows_usage() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
@@ -1396,8 +1405,7 @@ fn no_newline_only_affects_result_not_print() -> TestResult {
 // Tests for script files with arguments
 #[test]
 fn script_can_receive_arguments() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_args_script.nu");
+    let script_path = unique_temp_script_path("test_args_script");
 
     // Create a script that uses $env.args - note: this might not work if args aren't exposed
     // We'll use a simple script that just works
@@ -1422,8 +1430,7 @@ fn script_can_receive_arguments() -> TestResult {
 
 #[test]
 fn script_path_can_have_args_after_it() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_script_args2.nu");
+    let script_path = unique_temp_script_path("test_script_args2");
 
     std::fs::write(&script_path, "print 'ok'")?;
 
@@ -1448,8 +1455,7 @@ fn script_path_can_have_args_after_it() -> TestResult {
 
 #[test]
 fn script_with_nu_flags_before_script_name() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_flags_before.nu");
+    let script_path = unique_temp_script_path("test_flags_before");
 
     std::fs::write(&script_path, "print 'flags work'")?;
 
@@ -1597,6 +1603,107 @@ fn log_target_accepts_all_valid_targets() -> TestResult {
         assert!(output.status.success(), "Failed for log target: {}", target);
     }
 
+    Ok(())
+}
+
+// Specifying --log-file without setting --log-target file should fail
+#[test]
+fn log_file_without_target_fails() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-file",
+            "some.log",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-file is used without file target"
+    );
+    Ok(())
+}
+
+// The combination of file target and file path requires an explicit log-level
+#[test]
+fn log_file_target_needs_level() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-level is missing"
+    );
+    Ok(())
+}
+
+// File target must be accompanied by a log-file argument
+#[test]
+fn log_target_file_with_log_file_succeeds() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "--log-level",
+            "info",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        output.status.success(),
+        "Expected success with log file path"
+    );
+    Ok(())
+}
+
+#[test]
+fn log_target_file_without_log_file_fails() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when missing --log-file"
+    );
     Ok(())
 }
 

@@ -9,7 +9,7 @@ use super::super::{
 };
 use super::ViewCommand;
 use anyhow::Result;
-use crossterm::event::KeyEvent;
+use crossterm::event::{KeyCode, KeyEvent};
 use nu_engine::get_columns;
 use nu_protocol::{
     PipelineData, Value,
@@ -93,6 +93,7 @@ impl ViewCommand for NuCmd {
             rows: Vec::new(),
             is_record: false,
             stream_done: false,
+            last_error: None,
             last_row_count: 0,
         })
     }
@@ -283,8 +284,6 @@ enum ViewState {
     Preview(Preview),
     /// Command completed with no output
     Empty,
-    /// An error occurred
-    Error(String),
 }
 
 /// A view that runs a command in the background and streams results
@@ -300,6 +299,7 @@ pub struct NuView {
     rows: Vec<Vec<Value>>,
     is_record: bool,
     stream_done: bool,
+    last_error: Option<String>,
     last_row_count: usize,
 }
 
@@ -347,7 +347,10 @@ impl NuView {
                     return;
                 }
                 Ok(StreamMessage::Error(e)) => {
-                    self.state = ViewState::Error(e);
+                    self.last_error = Some(e);
+                    if !matches!(self.state, ViewState::Records(_) | ViewState::Preview(_)) {
+                        self.state = ViewState::Empty;
+                    }
                     self.stream_done = true;
                     // Don't put receiver back - we're done
                     return;
@@ -428,6 +431,13 @@ impl NuView {
     fn is_streaming(&self) -> bool {
         !self.stream_done
     }
+
+    fn non_interactive_transition(key: KeyEvent) -> Transition {
+        match key.code {
+            KeyCode::Char('q') | KeyCode::Esc => Transition::Exit,
+            _ => Transition::None,
+        }
+    }
 }
 
 impl View for NuView {
@@ -456,9 +466,6 @@ impl View for NuView {
             ViewState::Empty => {
                 // Nothing to display
             }
-            ViewState::Error(_) => {
-                // Error is shown in status bar
-            }
         }
     }
 
@@ -473,13 +480,18 @@ impl View for NuView {
         match &mut self.state {
             ViewState::Records(view) => view.handle_input(engine_state, stack, layout, info, key),
             ViewState::Preview(view) => view.handle_input(engine_state, stack, layout, info, key),
-            _ => Transition::None,
+            _ => Self::non_interactive_transition(key),
         }
     }
 
     fn update(&mut self, info: &mut ViewInfo) -> bool {
         // Process any pending messages from the stream
         self.process_messages();
+
+        if let Some(message) = &self.last_error {
+            info.status = Some(Report::error(message.clone()));
+            return false;
+        }
 
         // Update the status bar based on current state
         match &self.state {
@@ -515,10 +527,6 @@ impl View for NuView {
                 info.status = Some(Report::message("No output", Severity::Info));
                 false // Done polling
             }
-            ViewState::Error(msg) => {
-                info.status = Some(Report::error(msg.clone()));
-                false // Done polling
-            }
         }
     }
 
@@ -544,5 +552,93 @@ impl View for NuView {
             ViewState::Preview(view) => view.exit(),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crossterm::event::KeyModifiers;
+
+    #[test]
+    fn non_interactive_states_exit_on_q_or_esc() {
+        let key_q = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE);
+        let key_esc = KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE);
+
+        assert!(matches!(
+            NuView::non_interactive_transition(key_q),
+            Transition::Exit
+        ));
+        assert!(matches!(
+            NuView::non_interactive_transition(key_esc),
+            Transition::Exit
+        ));
+    }
+
+    #[test]
+    fn non_interactive_states_ignore_other_keys() {
+        let key = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+
+        assert!(matches!(
+            NuView::non_interactive_transition(key),
+            Transition::None
+        ));
+    }
+
+    #[test]
+    fn stream_error_is_reported_without_error_view() {
+        let (sender, receiver) = mpsc::channel();
+
+        sender
+            .send(StreamMessage::Error(String::from("Command failed")))
+            .expect("send error message");
+
+        let mut view = NuView {
+            state: ViewState::Loading,
+            receiver: Some(receiver),
+            _handle: None,
+            command_text: String::new(),
+            explore_config: ExploreConfig::default(),
+            frame_count: 0,
+            columns: Vec::new(),
+            rows: Vec::new(),
+            is_record: false,
+            stream_done: false,
+            last_error: None,
+            last_row_count: 0,
+        };
+
+        view.process_messages();
+
+        assert!(matches!(view.state, ViewState::Empty));
+        assert!(view.stream_done);
+        assert_eq!(view.last_error.as_deref(), Some("Command failed"));
+    }
+
+    #[test]
+    fn update_prioritizes_error_status() {
+        let mut view = NuView {
+            state: ViewState::Empty,
+            receiver: None,
+            _handle: None,
+            command_text: String::new(),
+            explore_config: ExploreConfig::default(),
+            frame_count: 0,
+            columns: Vec::new(),
+            rows: Vec::new(),
+            is_record: false,
+            stream_done: true,
+            last_error: Some(String::from("stream failed")),
+            last_row_count: 0,
+        };
+
+        let mut info = ViewInfo::default();
+        let keep_polling = view.update(&mut info);
+
+        assert!(!keep_polling);
+
+        let status = info.status.expect("status to be set");
+        assert!(matches!(status.level, Severity::Err));
+        assert_eq!(status.message, "stream failed");
     }
 }

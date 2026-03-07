@@ -31,8 +31,8 @@ impl PluginCommand for ArgSort {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("reverse", "reverse order", Some('r'))
-            .switch("nulls-last", "nulls ordered last", Some('n'))
+            .switch("reverse", "Reverse order.", Some('r'))
+            .switch("nulls-last", "Nulls ordered last.", Some('n'))
             .named(
                 "limit",
                 SyntaxShape::Int,
@@ -41,7 +41,7 @@ impl PluginCommand for ArgSort {
             )
             .switch(
                 "maintain-order",
-                "maintain order on sorted items",
+                "Maintain order on sorted items.",
                 Some('m'),
             )
             .input_output_types(vec![

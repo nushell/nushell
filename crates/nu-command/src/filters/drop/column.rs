@@ -16,7 +16,7 @@ impl Command for DropColumn {
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
-            .switch("left", "drop columns from the left", Some('l'))
+            .switch("left", "Drop columns from the left.", Some('l'))
             .optional(
                 "columns",
                 SyntaxShape::Int,
@@ -40,6 +40,7 @@ impl Command for DropColumn {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         // the number of columns to drop
         let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
         let from_left = call.has_flag(engine_state, stack, "left")?;

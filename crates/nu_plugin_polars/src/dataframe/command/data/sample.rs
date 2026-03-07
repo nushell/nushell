@@ -29,23 +29,23 @@ impl PluginCommand for SampleDF {
             .named(
                 "n-rows",
                 SyntaxShape::Int,
-                "number of rows to be taken from dataframe",
+                "Number of rows to be taken from dataframe.",
                 Some('n'),
             )
             .named(
                 "fraction",
                 SyntaxShape::Number,
-                "fraction of dataframe to be taken",
+                "Fraction of dataframe to be taken.",
                 Some('f'),
             )
             .named(
                 "seed",
                 SyntaxShape::Number,
-                "seed for the selection",
+                "Seed for the selection.",
                 Some('s'),
             )
-            .switch("replace", "sample with replace", Some('e'))
-            .switch("shuffle", "shuffle sample", Some('u'))
+            .switch("replace", "Sample with replace.", Some('e'))
+            .switch("shuffle", "Shuffle sample.", Some('u'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

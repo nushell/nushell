@@ -26,7 +26,7 @@ impl PluginCommand for ExprAlias {
             .required(
                 "Alias name",
                 SyntaxShape::String,
-                "Alias name for the expression",
+                "Alias name for the expression.",
             )
             .input_output_types(vec![
                 (

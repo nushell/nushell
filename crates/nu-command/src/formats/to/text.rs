@@ -24,12 +24,12 @@ impl Command for ToText {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "no-newline",
-                "Do not append a newline to the end of the text",
+                "Do not append a newline to the end of the text.",
                 Some('n'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)
@@ -172,7 +172,7 @@ fn local_into_string(
             format!(
                 "{} ({})",
                 {
-                    if val.year() >= 0 {
+                    if val.year() >= 0 && val.year() <= 9999 {
                         val.to_rfc2822()
                     } else {
                         val.to_rfc3339()

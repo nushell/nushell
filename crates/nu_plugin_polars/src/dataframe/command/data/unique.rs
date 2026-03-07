@@ -33,17 +33,17 @@ impl PluginCommand for Unique {
             .named(
                 "subset",
                 SyntaxShape::Any,
-                "Subset of column(s) to use to maintain rows (lazy df)",
+                "Subset of column(s) to use to maintain rows (lazy df).",
                 Some('s'),
             )
             .switch(
                 "last",
-                "Keeps last unique value. Default keeps first value (lazy df)",
+                "Keeps last unique value. Default keeps first value (lazy df).",
                 Some('l'),
             )
             .switch(
                 "maintain-order",
-                "Keep the same order as the original DataFrame (lazy df)",
+                "Keep the same order as the original DataFrame (lazy df).",
                 Some('k'),
             )
             .input_output_types(vec![

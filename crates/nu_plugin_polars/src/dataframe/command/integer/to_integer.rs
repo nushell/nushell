@@ -32,16 +32,16 @@ impl PluginCommand for ToInteger {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("strict", "Raises an error as opposed to converting to null", Some('s'))
+            .switch("strict", "Raises an error as opposed to converting to null.", Some('s'))
             .optional(
                 "base",
                 SyntaxShape::Any,
-                "An integer or expression representing the base (radix) of the number system (default is 10)",
+                "An integer or expression representing the base (radix) of the number system (default is 10).",
             )
             .optional(
                 "dtype",
                 SyntaxShape::Any,
-                "Data type to cast to (defaults is i64)",
+                "Data type to cast to (defaults is i64).",
                 )
             .input_output_type(
                 PolarsPluginType::NuExpression.into(),

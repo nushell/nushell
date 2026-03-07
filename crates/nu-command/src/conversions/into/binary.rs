@@ -39,7 +39,7 @@ impl Command for IntoBinary {
             .named(
                 "endian",
                 SyntaxShape::String,
-                "byte encode endian. Does not affect string, date or binary. In containers, only individual elements are affected. Available options: native(default), little, big",
+                "Byte encode endian. Does not affect string, date or binary. In containers, only individual elements are affected. Available options: native(default), little, big.",
                 Some('e'),
             )
             .rest(
