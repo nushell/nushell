@@ -164,10 +164,7 @@ There are 4 `key_type` variants:
                 return Ok(event.into_pipeline_data());
             }
 
-            if let Some(t) = remaining_time.as_mut() {
-                let now = Instant::now();
-                *t -= now.duration_since(start);
-            }
+            remaining_time = timeout.map(|t| t.saturating_sub(start.elapsed()));
         }
     }
 }
