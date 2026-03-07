@@ -153,6 +153,12 @@ impl NuTester {
         self.locale("en_US.utf8")
     }
 
+    /// Inherit the PATH environment variable from the running process.
+    pub fn inherit_path(self) -> Self {
+        let path = env::var("PATH").expect("PATH not available in env");
+        self.env("PATH", path)
+    }
+
     /// Add a custom environment variable to the engine state.
     pub fn env(mut self, key: impl Into<String>, val: impl Into<String>) -> Self {
         self.engine_state
