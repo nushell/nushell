@@ -12,6 +12,6 @@ fn format_duration() -> Result {
 fn format_duration_with_invalid_unit() -> Result {
     let code = "1hr | format duration MB";
     let err = test().run(code).expect_error()?;
-    assert!(matches!(err, ShellError::InvalidUnit {..}));
+    assert!(matches!(err, ShellError::InvalidUnit { .. }));
     Ok(())
 }
