@@ -30,7 +30,7 @@ fn expands_path_without_follow_symlink() -> Result {
             | path expand -n
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
+        let outcome: String = test().inherit_path().cwd(dirs.test()).run(code)?;
         let expected = dirs.test.join("menu").join("spam_link.ln");
         assert_eq!(Path::new(&outcome), expected);
         Ok(())

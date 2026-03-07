@@ -7,7 +7,7 @@ fn echo_stdout(msg: impl Display) -> impl Display {
     return format!(r#"cmd.exe /c "echo {msg}""#);
 
     #[cfg(not(windows))]
-    return format!(r#"sh -c "echo {msg}""#);
+    return format!(r#"sh "-c" "echo {msg}""#);
 }
 
 fn echo_env_stdout(key: impl Display) -> impl Display {
@@ -15,7 +15,7 @@ fn echo_env_stdout(key: impl Display) -> impl Display {
     return format!(r#"cmd.exe /c "echo %{key}%""#);
 
     #[cfg(not(windows))]
-    return format!(r#"sh -c "echo ${key}""#);
+    return format!(r#"sh "-c" "echo ${key}""#);
 }
 
 fn echo_env_stderr(key: impl Display) -> impl Display {
@@ -23,7 +23,7 @@ fn echo_env_stderr(key: impl Display) -> impl Display {
     return format!(r#"cmd.exe /c "echo %{key}% 1>&2""#);
 
     #[cfg(not(windows))]
-    return format!(r#"sh -c "echo ${key} 1>&2""#);
+    return format!(r#"sh "-c" "echo ${key} 1>&2""#);
 }
 
 #[test]
