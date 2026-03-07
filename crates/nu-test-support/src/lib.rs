@@ -15,7 +15,7 @@ pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test}
 pub mod prelude {
     #[doc(no_inline)]
     pub use super::{
-        Outcome, nu, assert_contains,
+        Outcome, assert_contains, nu,
         playground::Playground,
         tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
     };

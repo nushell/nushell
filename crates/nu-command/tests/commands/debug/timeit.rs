@@ -28,11 +28,14 @@ fn echo_env_stderr(key: impl Display) -> impl Display {
 
 #[test]
 fn timeit_show_stdout() -> Result {
-    let code = format!(r#"
+    let code = format!(
+        r#"
         timeit --output {{ do {{ run-external {} }} | complete }}
         | get output.stdout
         | str trim
-    "#, echo_stdout("abcdefg"));
+    "#,
+        echo_stdout("abcdefg")
+    );
     let outcome: String = test().inherit_path().run(code)?;
     assert_eq!(outcome, "abcdefg");
     Ok(())
@@ -40,21 +43,27 @@ fn timeit_show_stdout() -> Result {
 
 #[test]
 fn timeit_show_stderr() -> Result {
-    let stdout_code = format!(r#"
+    let stdout_code = format!(
+        r#"
         with-env {{FOO: bar, FOO2: baz}} {{
             timeit --output {{ do {{ run-external {} }} | complete }}
             | get output.stdout
         }}
-    "#, echo_env_stdout("FOO"));
+    "#,
+        echo_env_stdout("FOO")
+    );
     let stdout: String = test().inherit_path().run(stdout_code)?;
     assert_contains!("bar" in stdout);
 
-    let stderr_code = format!(r#"
+    let stderr_code = format!(
+        r#"
         with-env {{FOO: bar, FOO2: baz}} {{
             timeit --output {{ do {{ run-external {} }} | complete }}
             | get output.stderr
         }}
-    "#, echo_env_stderr("FOO2"));
+    "#,
+        echo_env_stderr("FOO2")
+    );
     let stderr: String = test().inherit_path().run(stderr_code)?;
     assert_contains!("baz" in stderr);
     Ok(())

@@ -22,7 +22,7 @@ fn generates_valid_uuid3_with_namespace_and_name() -> Result {
     let outcome: String = test().run("random uuid -v 3 -n dns -s example.com")?;
     let uuid = Uuid::parse_str(outcome.as_str()).unwrap();
     assert_eq!(uuid.get_version_num(), 3);
-    
+
     let namespace = Uuid::NAMESPACE_DNS;
     let expected = Uuid::new_v3(&namespace, "example.com".as_bytes());
     assert_eq!(uuid, expected);

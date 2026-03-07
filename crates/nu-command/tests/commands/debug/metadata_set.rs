@@ -12,13 +12,15 @@ fn errors_on_conflicting_metadata_flags() -> Result {
     let err = test().run(code).expect_error()?;
     match err {
         ShellError::IncompatibleParameters {
-            left_message, right_message, ..
+            left_message,
+            right_message,
+            ..
         } => {
             assert_eq!(left_message, "cannot use `--datasource-filepath`");
             assert_eq!(right_message, "with `--datasource-ls`");
             Ok(())
-        },
-        _ => Err(err.into())
+        }
+        _ => Err(err.into()),
     }
 }
 
@@ -29,7 +31,7 @@ fn works_with_datasource_filepath() -> Result {
     | metadata set --datasource-filepath foo.txt
     | metadata
     "#;
-    
+
     let outcome: HashMap<String, Value> = test().run(code)?;
     assert_eq!(outcome["source"].as_str()?, "foo.txt");
     Ok(())
