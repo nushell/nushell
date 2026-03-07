@@ -70,7 +70,7 @@ impl Playground<'_> {
         self
     }
 
-    pub fn setup(topic: &str, block: impl FnOnce(Dirs, &mut Playground)) {
+    pub fn setup<R>(topic: &str, block: impl FnOnce(Dirs, &mut Playground) -> R) -> R {
         let temp = tempdir().expect("Could not create a tempdir");
 
         let root = AbsolutePathBuf::try_from(temp.path())
@@ -106,7 +106,7 @@ impl Playground<'_> {
             dirs: &dirs,
         };
 
-        block(dirs.clone(), &mut playground);
+        block(dirs.clone(), &mut playground)
     }
 
     pub fn with_config(&mut self, source_file: AbsolutePathBuf) -> &mut Self {

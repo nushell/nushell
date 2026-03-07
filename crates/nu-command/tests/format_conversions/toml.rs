@@ -1,81 +1,95 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn record_map_to_toml() {
-    let actual = nu!(r#"
+fn record_map_to_toml() -> Result {
+    let code = r#"
         {a: 1 b: 2 c: 'qwe'} 
         | to toml
         | from toml
         | $in == {a: 1 b: 2 c: 'qwe'}
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    let outcome: bool = test().run(code)?;
+    assert!(outcome);
+    Ok(())
 }
 
 #[test]
-fn nested_records_to_toml() {
-    let actual = nu!(r#"
+fn nested_records_to_toml() -> Result {
+    let code = r#"
         {a: {a: a b: b} c: 1} 
         | to toml
         | from toml
         | $in == {a: {a: a b: b} c: 1}
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    let outcome: bool = test().run(code)?;
+    assert!(outcome);
+    Ok(())
 }
 
 #[test]
-fn records_with_tables_to_toml() {
-    let actual = nu!(r#"
+fn records_with_tables_to_toml() -> Result {
+    let code = r#"
         {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
         | to toml
         | from toml
         | $in == {a: [[a b]; [1 2] [3 4]] b: [[c d e]; [1 2 3]]}
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    let outcome: bool = test().run(code)?;
+    assert!(outcome);
+    Ok(())
 }
 
 #[test]
-fn nested_tables_to_toml() {
-    let actual = nu!(r#"
+fn nested_tables_to_toml() -> Result {
+    let code = r#"
         {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
         | to toml
         | from toml
         | $in == {c: [[f g]; [[[h k]; [1 2] [3 4]] 1]]}
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    let outcome: bool = test().run(code)?;
+    assert!(outcome);
+    Ok(())
 }
 
 #[test]
-fn table_to_toml_fails() {
+fn table_to_toml_fails() -> Result {
     // Tables can't be represented in toml
-    let actual = nu!(r#"
-    try { [[a b]; [1 2] [5 6]] | to toml | false } catch { true }
-    "#);
+    let code = r#"
+        try { [[a b]; [1 2] [5 6]] | to toml | false } catch { true }
+    "#;
 
-    assert!(actual.err.contains("command doesn't support"));
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(..)));
+    Ok(())
 }
 
 #[test]
-fn string_to_toml_fails() {
+fn string_to_toml_fails() -> Result {
     // Strings are not a top-level toml structure
-    let actual = nu!(r#"
-    try { 'not a valid toml' | to toml | false } catch { true }
-    "#);
+    let code = r#"
+        try { 'not a valid toml' | to toml | false } catch { true }
+    "#;
 
-    assert!(actual.err.contains("command doesn't support"));
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(..)));
+    Ok(())
 }
 
 #[test]
-fn big_record_to_toml_text_and_from_toml_text_back_into_record() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+fn big_record_to_toml_text_and_from_toml_text_back_into_record() -> Result {
+    let code = r#"
         open cargo_sample.toml
         | to toml
         | from toml
         | get package.name
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "nu");
+    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
+    assert_eq!(outcome, "nu");
+    Ok(())
 }

@@ -28,8 +28,8 @@ pub use linkme;
 pub use kitest::prelude::*;
 
 mod args;
-mod group;
-mod test;
+pub(crate) mod group;
+pub(crate) mod test;
 
 pub use test::Extra;
 

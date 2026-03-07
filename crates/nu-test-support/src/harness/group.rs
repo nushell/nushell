@@ -10,15 +10,24 @@ use std::{
     fmt::Display,
     hash::{DefaultHasher, Hash, Hasher},
     ops::ControlFlow,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use crate::harness::test::Extra;
 
 pub static RUN_TEST_GROUP_IN_SERIAL: AtomicBool = AtomicBool::new(false);
+static CURRENT_GROUP_KEY: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct GroupKey(u64);
+
+impl GroupKey {
+    /// Load the current group key.
+    pub fn current() -> GroupKey {
+        let current_value = CURRENT_GROUP_KEY.load(Ordering::Relaxed);
+        GroupKey(current_value)
+    }
+}
 
 impl From<&Extra> for GroupKey {
     fn from(extra: &Extra) -> Self {
@@ -132,6 +141,8 @@ impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {
     where
         F: FnOnce() -> TestGroupOutcomes<'t>,
     {
+        CURRENT_GROUP_KEY.store(key.0, Ordering::Relaxed);
+
         nu_experimental::ALL
             .iter()
             .for_each(|exp| unsafe { exp.unset() });

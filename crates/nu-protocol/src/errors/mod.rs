@@ -10,6 +10,7 @@ pub mod report_error;
 pub mod shell_error;
 pub mod shell_warning;
 
+pub use chained_error::ChainedError;
 pub use compile_error::CompileError;
 pub use config::{ConfigError, ConfigWarning};
 pub use labeled_error::{ErrorLabel, ErrorSource, LabeledError};

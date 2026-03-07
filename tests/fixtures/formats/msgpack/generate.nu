@@ -2,14 +2,14 @@
 # Shouldn't use any msgpack format commands in here
 # Reference: https://github.com/msgpack/msgpack/blob/master/spec.md
 
-def 'main' [] {
+export def 'main' [] {
   print -e 'Provide a test name to generate the .msgpack file'
   exit 1
 }
 
 # The first is a list that contains basically everything that should parse successfully
 # It should match sample.nuon
-def 'main sample' [] {
+export def 'main sample' [] {
   [
     0x[dc 0020] # array 16, length = 32
     0x[c0] # nil
@@ -66,7 +66,7 @@ def 'main sample' [] {
 }
 
 # This is a stream of a map and a string
-def 'main objects' [] {
+export def 'main objects' [] {
   [
     0x[81]
       0x[a7] "nushell"
@@ -76,7 +76,7 @@ def 'main objects' [] {
 }
 
 # This should break the recursion limit
-def 'main max-depth' [] {
+export def 'main max-depth' [] {
   1..100 |
     each { 0x[91] } |
     append 0x[90] |
@@ -85,46 +85,46 @@ def 'main max-depth' [] {
 }
 
 # Non-UTF8 data in string
-def 'main non-utf8' [] {
+export def 'main non-utf8' [] {
   0x[a3 60ffee] | save --force --raw non-utf8.msgpack
 }
 
 # Empty file
-def 'main empty' [] {
+export def 'main empty' [] {
   0x[] | save --force --raw empty.msgpack
 }
 
 # EOF when data was expected
-def 'main eof' [] {
+export def 'main eof' [] {
   0x[92 92 c0] | save --force --raw eof.msgpack
 }
 
 # Extra data after EOF
-def 'main after-eof' [] {
+export def 'main after-eof' [] {
   0x[c2 c0] | save --force --raw after-eof.msgpack
 }
 
 # Reserved marker
-def 'main reserved' [] {
+export def 'main reserved' [] {
   0x[c1] | save --force --raw reserved.msgpack
 }
 
 # u64 too large
-def 'main u64-too-large' [] {
+export def 'main u64-too-large' [] {
   0x[cf ffff ffff ffff ffff] | save --force --raw u64-too-large.msgpack
 }
 
 # Non-string map key
-def 'main non-string-map-key' [] {
+export def 'main non-string-map-key' [] {
   0x[81 90 90] | save --force --raw non-string-map-key.msgpack
 }
 
 # Timestamp with wrong length
-def 'main timestamp-wrong-length' [] {
+export def 'main timestamp-wrong-length' [] {
   0x[d4 ff 00] | save --force --raw timestamp-wrong-length.msgpack
 }
 
 # Other extension type
-def 'main other-extension-type' [] {
+export def 'main other-extension-type' [] {
   0x[d6 01 deadbeef] | save --force --raw other-extension-type.msgpack
 }

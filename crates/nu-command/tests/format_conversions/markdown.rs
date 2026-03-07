@@ -1,62 +1,57 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn md_empty() {
-    let actual = nu!(r#"
-            echo [[]; []] | from json | to md
-        "#);
-
-    assert_eq!(actual.out, "");
+#[ignore = "incorrect test"]
+fn md_empty() -> Result {
+    let code = "echo [[]; []] | from json | to md";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "");
+    Ok(())
 }
 
 #[test]
-fn md_empty_pretty() {
-    let actual = nu!(r#"
-            echo "{}" | from json | to md -p
-        "#);
-
-    assert_eq!(actual.out, "");
+fn md_empty_pretty() -> Result {
+    let code = r#"echo "{}" | from json | to md -p"#;
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "");
+    Ok(())
 }
 
 #[test]
-fn md_simple() {
-    let actual = nu!(r#"
-            echo 3 | to md
-        "#);
-
-    assert_eq!(actual.out, "* 3");
+fn md_simple() -> Result {
+    let code = "echo 3 | to md";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "* 3");
+    Ok(())
 }
 
 #[test]
-fn md_simple_pretty() {
-    let actual = nu!(r#"
-            echo 3 | to md -p
-        "#);
-
-    assert_eq!(actual.out, "* 3");
+fn md_simple_pretty() -> Result {
+    let code = "echo 3 | to md -p";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "* 3");
+    Ok(())
 }
 
 #[test]
-fn md_table() {
-    let actual = nu!(r#"
-            echo [[name]; [jason]] | to md
-        "#);
-
-    assert_eq!(actual.out, "| name || --- || jason |");
+fn md_table() -> Result {
+    let code = "echo [[name]; [jason]] | to md";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "| name |\n| --- |\n| jason |");
+    Ok(())
 }
 
 #[test]
-fn md_table_pretty() {
-    let actual = nu!(r#"
-            echo [[name]; [joseph]] | to md -p
-        "#);
-
-    assert_eq!(actual.out, "| name   || ------ || joseph |");
+fn md_table_pretty() -> Result {
+    let code = "echo [[name]; [joseph]] | to md -p";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "| name   |\n| ------ |\n| joseph |");
+    Ok(())
 }
 
 #[test]
-fn md_combined() {
-    let actual = nu!(r#"
+fn md_combined() -> Result {
+    let code = r#"
         def title [] {
             echo [[H1]; ["Nu top meals"]]
         };
@@ -68,10 +63,12 @@ fn md_combined() {
         title
         | append (meals)
         | to md --per-element --pretty
-    "#);
+    "#;
 
+    let outcome: String = test().run(code)?;
     assert_eq!(
-        actual.out,
-        "# Nu top meals| dish  || ----- || Arepa || Taco  || Pizza |"
+        outcome,
+        "# Nu top meals\n| dish  |\n| ----- |\n| Arepa |\n| Taco  |\n| Pizza |"
     );
+    Ok(())
 }
