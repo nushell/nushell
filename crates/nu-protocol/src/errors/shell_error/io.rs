@@ -354,7 +354,6 @@ impl IoError {
     /// let error = IoError::new_internal_with_path(
     ///     shell_error::io::ErrorKind::FileNotFound,
     ///     "Could not find special file",
-    ///     nu_protocol::location!(),
     ///     PathBuf::from("/some/file"),
     /// );
     /// ```
