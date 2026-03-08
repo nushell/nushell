@@ -41,8 +41,6 @@ enum KeyAction {
     QuickRefRight,
     QuickRefHome,
     QuickRefInsert,
-    SamplePageUp,
-    SamplePageDown,
     PassToEditor(event::KeyEvent),
     None,
 }
@@ -99,15 +97,6 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
 
     if key.code == KeyCode::Esc {
         return KeyAction::FocusRegex;
-    }
-
-    // Sample pane page navigation
-    if app.input_focus == InputFocus::Sample {
-        match key.code {
-            KeyCode::PageUp => return KeyAction::SamplePageUp,
-            KeyCode::PageDown => return KeyAction::SamplePageDown,
-            _ => {}
-        }
     }
 
     // Prevent newlines in regex input (single-line field)
@@ -172,71 +161,10 @@ fn execute_action(
         KeyAction::QuickRefRight => app.quick_ref_scroll_right(),
         KeyAction::QuickRefHome => app.quick_ref_scroll_home(),
         KeyAction::QuickRefInsert => app.insert_selected_quick_ref(),
-        KeyAction::SamplePageUp | KeyAction::SamplePageDown => {
-            handle_sample_page_navigation(app, matches!(action, KeyAction::SamplePageDown));
-        }
         KeyAction::PassToEditor(key) => handle_editor_input(app, key, event_handler),
         KeyAction::None => {}
     }
     false
-}
-
-/// Handle page up/down navigation in the sample text pane.
-///
-/// Moves the cursor vertically by one page (visible viewport height) while preserving
-/// the horizontal column position. The viewport will automatically scroll to keep the
-/// cursor visible via `calculate_viewport_scroll()` during the next render.
-///
-/// # Arguments
-/// * `app` - Mutable reference to the application state
-/// * `page_down` - `true` for Page Down (move forward), `false` for Page Up (move backward)
-///
-/// # Note
-/// Match count remains unchanged as it depends only on the regex pattern and full text,
-/// not on cursor position. We don't need to update it here.
-/// Handle page up/down navigation in the sample text pane.
-///
-/// Implements proper page-at-a-time scrolling by updating the scroll position
-/// directly and repositioning the cursor to maintain intuitive navigation behavior.
-/// This provides the expected user experience where Page Up/Down scroll through
-/// content rather than just moving the cursor minimally.
-///
-/// # Arguments
-/// * `app` - Mutable reference to the application state
-/// * `page_down` - `true` for Page Down (scroll forward), `false` for Page Up (scroll backward)
-fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
-    let viewport_height = app.sample_view_height.max(1) as usize;
-    let total_lines = app.sample_text.lines.len();
-    let max_scroll = total_lines.saturating_sub(viewport_height);
-
-    // Update vertical scroll position by one viewport height
-    let current_scroll = app.sample_scroll_v as usize;
-    let new_scroll = if page_down {
-        (current_scroll + viewport_height).min(max_scroll)
-    } else {
-        current_scroll.saturating_sub(viewport_height)
-    };
-    app.sample_scroll_v = new_scroll as u16;
-
-    // Reposition cursor to maintain good UX:
-    // - If cursor was within viewport, keep it at same relative position
-    // - If cursor was outside viewport, move it to viewport boundary
-    let cursor_row = app.sample_text.cursor.row;
-
-    if cursor_row < new_scroll {
-        // Cursor above viewport: move to top of viewport
-        app.sample_text.cursor.row = new_scroll;
-    } else if cursor_row >= new_scroll + viewport_height {
-        // Cursor below viewport: move to bottom of viewport
-        app.sample_text.cursor.row = new_scroll + viewport_height.saturating_sub(1);
-    }
-    // Cursor within viewport: keep current position
-
-    // Ensure cursor stays within text bounds
-    let max_cursor_row = total_lines.saturating_sub(1);
-    app.sample_text.cursor.row = app.sample_text.cursor.row.min(max_cursor_row);
-
-    // Preserve column position for consistent navigation experience
 }
 
 /// Pass a key event to the editor and handle side effects.
@@ -454,44 +382,31 @@ fn draw_sample_section(
     let content = block.inner(content_area);
     app.sample_view_height = content.height;
 
+    // Set viewport height for edtui so PageUp/PageDown work correctly
+    app.sample_text.set_viewport_height(content.height as usize);
+
     // Render the block border
     f.render_widget(block, content_area);
 
-    // Update viewport scroll position to keep cursor visible (both vertical and horizontal)
-    let cursor_row = app.sample_text.cursor.row;
-    let cursor_col = app.sample_text.cursor.col;
+    // Get viewport offset from edtui to handles PageUp/PageDown scrolling correctly
+    let (viewport_x, viewport_y) = app.sample_text.viewport_offset();
     let visible_height = content.height as usize;
-    let visible_width = content.width as usize;
-    let total_lines = app.sample_text.lines.len();
-
-    // Update vertical scroll
-    app.sample_scroll_v =
-        calculate_viewport_scroll(cursor_row, app.sample_scroll_v, visible_height, total_lines);
-
-    // Update horizontal scroll to keep cursor visible
-    // For horizontal scrolling, we use an adaptive "max width" based on cursor position.
-    // This allows the viewport to expand as the user types or moves right, providing
-    // a natural scrolling experience without needing to calculate actual line widths.
-    app.sample_scroll_h = calculate_viewport_scroll(
-        cursor_col,
-        app.sample_scroll_h,
-        visible_width,
-        cursor_col + visible_width, // Dynamic max: cursor position + viewport width
-    );
 
     // Render only the visible portion of highlighted text for better performance
     let highlighted_text = app.get_highlighted_text();
     let viewport_text =
-        extract_viewport_text(highlighted_text, app.sample_scroll_v, visible_height);
+        extract_viewport_text(highlighted_text, viewport_y as u16, visible_height);
 
     // Apply horizontal scrolling via Paragraph's scroll method
-    let paragraph = Paragraph::new(viewport_text).scroll((0, app.sample_scroll_h));
+    let paragraph = Paragraph::new(viewport_text).scroll((0, viewport_x as u16));
     f.render_widget(paragraph, content);
 
     // Set terminal cursor position if this section is focused
     if focused {
-        let relative_row = cursor_row.saturating_sub(app.sample_scroll_v as usize);
-        let relative_col = cursor_col.saturating_sub(app.sample_scroll_h as usize);
+        let cursor_row = app.sample_text.cursor.row;
+        let cursor_col = app.sample_text.cursor.col;
+        let relative_row = cursor_row.saturating_sub(viewport_y);
+        let relative_col = cursor_col.saturating_sub(viewport_x);
 
         // Only set cursor if it's within the visible viewport area
         if relative_row < content.height as usize && relative_col < content.width as usize {
@@ -504,57 +419,6 @@ fn draw_sample_section(
 }
 
 // ─── Viewport Management ─────────────────────────────────────────────────────
-
-/// Calculate the optimal viewport scroll position to keep the cursor visible.
-///
-/// This function implements one-dimensional viewport scrolling logic that ensures
-/// the cursor remains visible within the viewing area. It's generic enough to work
-/// for both vertical (row-based) and horizontal (column-based) scrolling.
-///
-/// The scrolling behavior follows these rules:
-/// - If cursor is before viewport: scroll backward to show cursor at start
-/// - If cursor is after viewport: scroll forward to show cursor at end
-/// - If cursor is within viewport: maintain current scroll position
-/// - Never scroll past the maximum valid scroll position
-///
-/// # Arguments
-/// * `cursor_position` - The absolute position of the cursor (0-indexed)
-/// * `current_scroll` - The current scroll offset
-/// * `visible_size` - The size of the visible viewport (lines or columns)
-/// * `total_size` - The total size of the content (lines or columns)
-///
-/// # Returns
-/// The optimal scroll offset to keep the cursor visible
-///
-/// # Examples
-/// ```ignore
-/// // Vertical scrolling: keep cursor row visible
-/// let scroll_v = calculate_viewport_scroll(cursor_row, scroll_v, viewport_height, total_lines);
-///
-/// // Horizontal scrolling: keep cursor column visible
-/// let scroll_h = calculate_viewport_scroll(cursor_col, scroll_h, viewport_width, max_width);
-/// ```
-fn calculate_viewport_scroll(
-    cursor_position: usize,
-    current_scroll: u16,
-    visible_size: usize,
-    total_size: usize,
-) -> u16 {
-    let mut scroll = current_scroll as usize;
-
-    // Scroll backward if cursor is before the viewport
-    if cursor_position < scroll {
-        scroll = cursor_position;
-    }
-    // Scroll forward if cursor is after the viewport
-    else if cursor_position >= scroll + visible_size {
-        scroll = cursor_position.saturating_sub(visible_size - 1);
-    }
-
-    // Clamp scroll to valid range [0, total_size - visible_size]
-    let max_scroll = total_size.saturating_sub(visible_size);
-    scroll.min(max_scroll) as u16
-}
 
 /// Extract a viewport slice from the highlighted text.
 ///

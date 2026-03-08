@@ -30,10 +30,6 @@ pub struct App {
     pub compiled_regex: Option<Regex>,
     /// Error message from regex compilation, if invalid
     pub regex_error: Option<String>,
-    /// Vertical scroll offset for the sample text viewport (in lines)
-    pub sample_scroll_v: u16,
-    /// Horizontal scroll offset for the sample text viewport (in characters)
-    pub sample_scroll_h: u16,
     /// Height of the visible sample text viewport (updated each frame)
     pub sample_view_height: u16,
     /// Number of regex matches found in the sample text
@@ -74,8 +70,6 @@ impl App {
             sample_text,
             compiled_regex: None,
             regex_error: None,
-            sample_scroll_v: 0,
-            sample_scroll_h: 0,
             sample_view_height: 0,
             match_count: 0,
             show_quick_ref: false,
