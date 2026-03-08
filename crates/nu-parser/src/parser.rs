@@ -4121,6 +4121,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
+    // Track variables whose name→VarId mappings have not yet been inserted
+    // into the overlay scope
+    //
+    // We defer all insertions until the entire signature is parsed so that
+    // default value expressions always resolve to outer scope variables,
+    // not to sibling parameters
+    //
+    // See #15306
+    let mut pending_scope_inserts: Vec<(Vec<u8>, VarId)> = vec![];
 
     for (index, token) in output.iter().enumerate() {
         let last_token = index == output.len() - 1;
@@ -4218,12 +4227,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     span,
                                 );
 
-                                let var_id = working_set.add_variable(
-                                    variable_name,
-                                    span,
-                                    Type::Bool,
-                                    false,
-                                );
+                                let var_id =
+                                    working_set.add_variable_without_scope(span, Type::Bool, false);
+                                pending_scope_inserts.push((variable_name, var_id));
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4313,12 +4319,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     span,
                                 );
 
-                                let var_id = working_set.add_variable(
-                                    variable_name,
-                                    span,
-                                    Type::Bool,
-                                    false,
-                                );
+                                let var_id =
+                                    working_set.add_variable_without_scope(span, Type::Bool, false);
+                                pending_scope_inserts.push((variable_name, var_id));
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4391,12 +4394,9 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     span,
                                 );
 
-                                let var_id = working_set.add_variable(
-                                    optional_param.to_vec(),
-                                    span,
-                                    Type::Any,
-                                    false,
-                                );
+                                let var_id =
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((optional_param.to_vec(), var_id));
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
@@ -4427,7 +4427,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 ensure_not_reserved_variable_name(working_set, contents, span);
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((contents_vec, var_id));
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -4454,7 +4455,8 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                 ensure_not_reserved_variable_name(working_set, &contents_vec, span);
 
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((contents_vec, var_id));
 
                                 // Positional arg, required
                                 args.push(Arg::Positional {
@@ -4713,6 +4715,10 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
             }
             _ => {}
         }
+    }
+
+    for (name, var_id) in pending_scope_inserts {
+        working_set.insert_variable_into_scope(name, var_id);
     }
 
     let mut sig = Signature::new(String::new());
