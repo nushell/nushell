@@ -3,18 +3,20 @@ use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 #[test]
 fn table_to_tsv_text_and_from_tsv_text_back_into_table() -> Result {
     let code = "open caco3_plastics.tsv | to tsv | from tsv | first | get origin";
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "SPAIN");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SPAIN")
 }
 
 #[test]
 fn table_to_tsv_text_and_from_tsv_text_back_into_table_using_csv_separator() -> Result {
     let code =
         r#"open caco3_plastics.tsv | to tsv | from csv --separator "\t" | first | get origin"#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "SPAIN");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SPAIN")
 }
 
 #[test]
@@ -75,9 +77,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() -> Result {
 fn table_to_tsv_float_doesnt_become_int() -> Result {
     let code = "[[a]; [1.0]] | to tsv | from tsv | get 0.a | describe";
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "float");
-    Ok(())
+    test().run(code).expect_value_eq("float")
 }
 
 #[test]
@@ -100,9 +100,7 @@ fn from_tsv_text_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -130,9 +128,7 @@ fn from_tsv_text_with_comments_to_table() -> Result {
             | length
         "##;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -156,9 +152,7 @@ fn from_tsv_text_with_custom_quotes_to_table() -> Result {
             | get first_name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "And'rés");
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq("And'rés")
     })
 }
 
@@ -182,9 +176,10 @@ fn from_tsv_text_with_custom_escapes_to_table() -> Result {
             | get first_name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "And\"rés");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("And\"rés")
     })
 }
 
@@ -207,9 +202,7 @@ fn from_tsv_text_skipping_headers_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -234,9 +227,7 @@ fn from_tsv_text_with_missing_columns_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 2);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(2)
     })
 }
 

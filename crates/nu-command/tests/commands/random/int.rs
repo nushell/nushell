@@ -9,14 +9,10 @@ fn generates_an_integer() -> Result {
 
 #[test]
 fn generates_55() -> Result {
-    let outcome: i64 = test().run("random int 55..55")?;
-    assert_eq!(outcome, 55);
-    Ok(())
+    test().run("random int 55..55").expect_value_eq(55)
 }
 
 #[test]
 fn generates_0() -> Result {
-    let outcome: i64 = test().run("random int ..<1")?;
-    assert_eq!(outcome, 0);
-    Ok(())
+    test().run("random int ..<1").expect_value_eq(0)
 }

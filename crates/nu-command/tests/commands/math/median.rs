@@ -6,10 +6,7 @@ fn median_numbers_with_even_rows() -> Result {
          echo [10 6 19 21 4]
          | math median
      "#;
-    let outcome: i64 = test().run(code)?;
-
-    assert_eq!(outcome, 10);
-    Ok(())
+    test().run(code).expect_value_eq(10)
 }
 
 #[test]
@@ -18,10 +15,7 @@ fn median_numbers_with_odd_rows() -> Result {
          echo [3 8 9 12 12 15]
          | math median
      "#;
-    let outcome: f64 = test().run(code)?;
-
-    assert_eq!(outcome, 10.5);
-    Ok(())
+    test().run(code).expect_value_eq(10.5)
 }
 
 #[test]
@@ -30,17 +24,14 @@ fn median_mixed_numbers() -> Result {
          echo [-11.5 -13.5 10]
          | math median
      "#;
-    let outcome: f64 = test().run(code)?;
-
-    assert_eq!(outcome, -11.5);
-    Ok(())
+    test().run(code).expect_value_eq(-11.5)
 }
 
 #[test]
 fn const_median() -> Result {
-    let outcome: i64 = test().run("const MEDIAN = [1 3 5] | math median; $MEDIAN")?;
-    assert_eq!(outcome, 3);
-    Ok(())
+    test()
+        .run("const MEDIAN = [1 3 5] | math median; $MEDIAN")
+        .expect_value_eq(3)
 }
 
 #[test]

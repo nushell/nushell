@@ -20,9 +20,10 @@ fn from_ssv_text_to_table() -> Result {
             | get IP
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "172.30.78.158");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("172.30.78.158")
     })
 }
 
@@ -46,9 +47,10 @@ fn from_ssv_text_to_table_with_separator_specified() -> Result {
             | get IP
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "172.30.78.158");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("172.30.78.158")
     })
 }
 
@@ -78,11 +80,13 @@ fn from_ssv_text_treating_first_line_as_data_with_flag() -> Result {
             | get column0
         "#;
 
-        let aligned_columns: String = test().cwd(dirs.test()).run(aligned_code)?;
-        let separator_based: String = test().cwd(dirs.test()).run(separator_code)?;
-
-        assert_eq!(aligned_columns, separator_based);
-        assert_eq!(separator_based, "docker-registry");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(aligned_code)
+            .expect_value_eq("docker-registry")?;
+        test()
+            .cwd(dirs.test())
+            .run(separator_code)
+            .expect_value_eq("docker-registry")
     })
 }

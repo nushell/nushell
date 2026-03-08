@@ -36,9 +36,7 @@ fn timeit_show_stdout() -> Result {
     "#,
         echo_stdout("abcdefg")
     );
-    let outcome: String = test().inherit_path().run(code)?;
-    assert_eq!(outcome, "abcdefg");
-    Ok(())
+    test().inherit_path().run(code).expect_value_eq("abcdefg")
 }
 
 #[test]
@@ -72,7 +70,5 @@ fn timeit_show_stderr() -> Result {
 #[test]
 fn timeit_show_output() -> Result {
     let code = "timeit --output { 'this is a test' } | get output";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "this is a test");
-    Ok(())
+    test().run(code).expect_value_eq("this is a test")
 }

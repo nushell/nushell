@@ -38,7 +38,5 @@ fn joins_path_on_other_than_windows() {
 #[test]
 fn const_path_relative_to() -> Result {
     let code = "'/home/viking' | path relative-to '/home'";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "viking");
-    Ok(())
+    test().run(code).expect_value_eq("viking")
 }
