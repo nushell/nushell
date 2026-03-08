@@ -119,3 +119,16 @@ fn gets_first_bytes_and_drops_content_type() {
     ));
     assert_eq!(actual.out, "nothing");
 }
+
+#[test]
+fn wrapping_first_with_optional_null_rows() {
+    let actual = nu!("def wraps-first [rows?: int] { [1, 2, 3] | first $rows }; wraps-first");
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn wrapping_first_with_optional_explicit_rows() {
+    let actual =
+        nu!("def wraps-first [rows?: int] { [1, 2, 3] | first $rows }; wraps-first 2 | length");
+    assert_eq!(actual.out, "2");
+}

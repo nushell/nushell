@@ -122,3 +122,16 @@ fn returns_d_on_empty_list_when_no_rows_given_with_default() {
 
     assert_eq!(actual.out, "d");
 }
+
+#[test]
+fn wrapping_last_with_optional_null_rows() {
+    let actual = nu!("def wraps-last [rows?: int] { [1, 2, 3] | last $rows }; wraps-last");
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn wrapping_last_with_optional_explicit_rows() {
+    let actual =
+        nu!("def wraps-last [rows?: int] { [1, 2, 3] | last $rows }; wraps-last 2 | length");
+    assert_eq!(actual.out, "2");
+}

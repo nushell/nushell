@@ -138,7 +138,11 @@ impl CallExt for ast::Call {
         if let Some(expr) = self.positional_nth(pos) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result).map(Some)
+            if result.is_nothing() {
+                Ok(None)
+            } else {
+                FromValue::from_value(result).map(Some)
+            }
         } else {
             Ok(None)
         }
@@ -151,7 +155,11 @@ impl CallExt for ast::Call {
     ) -> Result<Option<T>, ShellError> {
         if let Some(expr) = self.positional_nth(pos) {
             let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result).map(Some)
+            if result.is_nothing() {
+                Ok(None)
+            } else {
+                FromValue::from_value(result).map(Some)
+            }
         } else {
             Ok(None)
         }
@@ -256,6 +264,7 @@ impl CallExt for ir::Call {
     ) -> Result<Option<T>, ShellError> {
         self.positional_iter(stack)
             .nth(pos)
+            .filter(|v| !v.is_nothing())
             .cloned()
             .map(T::from_value)
             .transpose()
