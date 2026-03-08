@@ -138,21 +138,27 @@ impl App {
         }
         byte_to_pos[text.len()] = (row, col);
 
-        regex
-            .captures_iter(&text)
-            .flatten()
-            .flat_map(|cap| cap.iter().enumerate().collect::<Vec<_>>())
-            .filter_map(|(group, m)| {
-                let m = m?;
-                let (sr, sc) = byte_to_pos[m.start()];
-                let (er, ec) = byte_to_pos[m.end().saturating_sub(1)];
-                Some(Highlight::new(
-                    Index2::new(sr, sc),
-                    Index2::new(er, ec),
-                    colors::highlight_style(group),
-                ))
-            })
-            .collect()
+        let mut highlights = Vec::new();
+        for cap in regex.captures_iter(&text).flatten() {
+            for (group, m) in cap.iter().enumerate() {
+                let Some(m) = m else { continue };
+                let start = byte_to_pos[m.start()];
+                let end = byte_to_pos[m.end().saturating_sub(1)];
+                let size = m.end() - m.start();
+                highlights.push((
+                    size,
+                    Highlight::new(
+                        Index2::new(start.0, start.1),
+                        Index2::new(end.0, end.1),
+                        colors::highlight_style(group),
+                    ),
+                ));
+            }
+        }
+
+        // Sort by span size (smallest first) so inner groups render last and take precedence
+        highlights.sort_by_key(|(size, _)| *size);
+        highlights.into_iter().map(|(_, h)| h).collect()
     }
 
     // ─── Quick Reference Panel ───────────────────────────────────────────
@@ -747,6 +753,10 @@ mod tests {
         let highlights = app.get_highlights();
         // Group 0 (full match) + Group 1 (hello) + Group 2 (world)
         assert_eq!(highlights.len(), 3);
+        // Verify styles match expected group colors
+        assert_eq!(highlights[0].style, colors::highlight_style(1));
+        assert_eq!(highlights[1].style, colors::highlight_style(2));
+        assert_eq!(highlights[2].style, colors::highlight_style(0));
     }
 
     #[test]
