@@ -5,7 +5,6 @@ use crate::explore_regex::quick_ref::{QuickRefEntry, get_flattened_entries};
 use edtui::{EditorMode, EditorState, Highlight, Index2, Lines, actions::InsertChar};
 use fancy_regex::Regex;
 
-
 /// Which pane currently has input focus.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
 pub enum InputFocus {
@@ -127,8 +126,8 @@ impl App {
         let mut byte_to_pos: Vec<(usize, usize)> = vec![(0, 0); text.len() + 1];
         let (mut row, mut col) = (0, 0);
         for (i, ch) in text.char_indices() {
-            for j in i..i + ch.len_utf8() {
-                byte_to_pos[j] = (row, col);
+            for pos in byte_to_pos.iter_mut().skip(i).take(ch.len_utf8()) {
+                *pos = (row, col);
             }
             if ch == '\n' {
                 row += 1;

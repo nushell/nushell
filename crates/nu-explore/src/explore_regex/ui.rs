@@ -299,8 +299,6 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .border_style(border_style)
         .padding(Padding::horizontal(1));
 
-    let content = block.inner(input_area);
-
     // Render using EditorView with theme (hide cursor, we'll use terminal cursor)
     let theme = EditorTheme::default()
         .block(block)
@@ -313,12 +311,8 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .render(input_area, f.buffer_mut());
 
     // Set terminal cursor position if focused
-    if focused {
-        let cursor_col = app.regex_input.cursor.col;
-        let cursor_row = app.regex_input.cursor.row;
-        let text = app.regex_input.lines.to_string();
-        let display_col = cursor_display_col(&text, cursor_col);
-        f.set_cursor_position((content.x + display_col as u16, content.y + cursor_row as u16));
+    if focused && let Some(pos) = app.regex_input.cursor_screen_position() {
+        f.set_cursor_position(pos);
     }
 }
 
@@ -358,8 +352,6 @@ fn draw_sample_section(
         })
         .padding(Padding::horizontal(1));
 
-    let content = block.inner(content_area);
-
     // Set highlights for regex matches
     app.sample_text.set_highlights(app.get_highlights());
 
@@ -374,32 +366,10 @@ fn draw_sample_section(
         .wrap(false)
         .render(content_area, f.buffer_mut());
 
-    // Set terminal cursor position if this section is focused
-    if focused {
-        let cursor_row = app.sample_text.cursor.row;
-        let cursor_col = app.sample_text.cursor.col;
-        let (viewport_x, viewport_y) = app.sample_text.viewport_offset();
-        let relative_row = cursor_row.saturating_sub(viewport_y);
-        let text = app.sample_text.lines.to_string();
-        let line = text.lines().nth(cursor_row).unwrap_or("");
-        let display_col = cursor_display_col(line, cursor_col.saturating_sub(viewport_x));
-
-        // Only set cursor if it's within the visible viewport area
-        if relative_row < content.height as usize && display_col < content.width as usize {
-            f.set_cursor_position((
-                content.x + display_col as u16,
-                content.y + relative_row as u16,
-            ));
-        }
+    // Set terminal cursor position if focused
+    if focused && let Some(pos) = app.sample_text.cursor_screen_position() {
+        f.set_cursor_position(pos);
     }
-}
-
-// ─── Cursor Position Helpers ─────────────────────────────────────────────────
-
-/// Calculate display column for cursor, accounting for wide Unicode characters.
-fn cursor_display_col(text: &str, cursor_col: usize) -> usize {
-    let prefix: String = text.chars().take(cursor_col).collect();
-    prefix.width()
 }
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────
