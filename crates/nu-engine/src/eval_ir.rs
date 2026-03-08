@@ -230,6 +230,18 @@ fn eval_ir_block_impl<D: DebugContext>(
                 pc += 1;
             }
             Ok(InstructionResult::Branch(next_pc)) => {
+                // Before jumping to a finally block, we must ensure all active pipelines in registers are drained
+                if let Some(finally_handler) =
+                    ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
+                    && next_pc == finally_handler.handler_index
+                {
+                    for reg in ctx.registers.iter_mut() {
+                        if matches!(reg.body, PipelineData::ByteStream(..)) {
+                            let data = std::mem::replace(&mut reg.body, PipelineData::Empty);
+                            let _ = data.drain();
+                        }
+                    }
+                }
                 pc = next_pc;
             }
             Ok(InstructionResult::Return(reg_id)) => {
