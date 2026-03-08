@@ -1077,9 +1077,9 @@ fn event_from_record(
 }
 
 // This is displayed in `keybindings list` command
-pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> &'static str {
+pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Option<&'static str> {
     use ReedlineEventDiscriminants as RED;
-    match event {
+    Some(match event {
         RED::None => "None",
         RED::HistoryHintComplete => "HistoryHintComplete",
         RED::HistoryHintWordComplete => "HistoryHintWordComplete",
@@ -1091,8 +1091,6 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> &'sta
         RED::Submit => "Submit",
         RED::SubmitOrNewline => "SubmitOrNewline",
         RED::Esc => "Esc",
-        RED::Mouse => "Mouse",
-        RED::Resize => "Resize <int> <int>",
         RED::Edit => "Edit: <EditCommand> or Edit: <EditCommand> value: <string>",
         RED::Repaint => "Repaint",
         RED::PreviousHistory => "PreviousHistory",
@@ -1118,7 +1116,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> &'sta
         RED::ExecuteHostCommand => "ExecuteHostCommand",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
-    }
+        RED::Mouse | RED::Resize => return None,
+    })
 }
 
 fn edit_from_record(
@@ -1412,9 +1411,9 @@ fn edit_from_record(
 }
 
 // This is displayed in `keybindings list` command
-pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> &'static str {
+pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'static str> {
     use EditCommandDiscriminants as ECD;
-    match edit {
+    Some(match edit {
         ECD::MoveToStart => "MoveToStart Optional[select: <bool>]",
         ECD::MoveToLineStart => "MoveToLineStart Optional[select: <bool>]",
         ECD::MoveToLineNonBlankStart => "MoveToLineNonBlankStart Optional[select: <bool>]",
@@ -1436,7 +1435,6 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> &'static s
         ECD::InsertString => "InsertString Value: <string>",
         ECD::InsertNewline => "InsertNewline",
         ECD::ReplaceChar => "ReplaceChar <char>",
-        ECD::ReplaceChars => "ReplaceChars <int> <string>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",
         ECD::CutChar => "CutChar",
@@ -1513,7 +1511,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> &'static s
         ECD::CopyAroundPair => "CopyAroundPair Value: <char> <char>",
         ECD::CutTextObject => "CutTextObject Value: <TextObject>",
         ECD::CopyTextObject => "CopyTextObject Value: <TextObject>",
-    }
+        ECD::ReplaceChars => return None,
+    })
 }
 
 fn extract_char(value: &Value) -> Result<char, ShellError> {

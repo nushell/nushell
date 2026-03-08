@@ -97,14 +97,14 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
 fn get_reedline_edit_commands() -> Vec<String> {
     EditCommandDiscriminants::VARIANTS
         .iter()
-        .map(|edit| display_edit_command(*edit).to_string())
+        .filter_map(|edit| display_edit_command(*edit).map(|s| s.to_string()))
         .collect()
 }
 
 fn get_reedline_reedline_events() -> Vec<String> {
     ReedlineEventDiscriminants::VARIANTS
         .iter()
-        .map(|event| display_reedline_event(*event).to_string())
+        .filter_map(|event| display_reedline_event(*event).map(|s| s.to_string()))
         .collect()
 }
 
