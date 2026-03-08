@@ -63,6 +63,54 @@ pub enum Expr {
 const _: () = assert!(std::mem::size_of::<Expr>() <= 40);
 
 impl Expr {
+    /// Returns a user-friendly description of the expression variant.
+    ///
+    /// This is used in error messages to avoid exposing internal Rust type names
+    /// (e.g. "FullCellPath") to users.
+    pub fn description(&self) -> &str {
+        match self {
+            Expr::AttributeBlock(_) => "an attribute block",
+            Expr::Bool(_) => "a boolean",
+            Expr::Int(_) => "an integer",
+            Expr::Float(_) => "a float",
+            Expr::Binary(_) => "a binary value",
+            Expr::Range(_) => "a range",
+            Expr::Var(_) => "a variable",
+            Expr::VarDecl(_) => "a variable declaration",
+            Expr::Call(_) => "a command call",
+            Expr::ExternalCall(_, _) => "an external command call",
+            Expr::Operator(_) => "an operator",
+            Expr::RowCondition(_) => "a row condition",
+            Expr::UnaryNot(_) => "a negation",
+            Expr::BinaryOp(_, _, _) => "a binary operation",
+            Expr::Collect(_, _) => "a collect expression",
+            Expr::Subexpression(_) => "a subexpression",
+            Expr::Block(_) => "a block",
+            Expr::Closure(_) => "a closure",
+            Expr::MatchBlock(_) => "a match block",
+            Expr::List(_) => "a list",
+            Expr::Table(_) => "a table",
+            Expr::Record(_) => "a record",
+            Expr::Keyword(_) => "a keyword",
+            Expr::ValueWithUnit(_) => "a value with unit",
+            Expr::DateTime(_) => "a datetime",
+            Expr::Filepath(_, _) => "a filepath",
+            Expr::Directory(_, _) => "a directory",
+            Expr::GlobPattern(_, _) => "a glob pattern",
+            Expr::String(_) => "a string",
+            Expr::RawString(_) => "a raw string",
+            Expr::CellPath(_) => "a cell path",
+            Expr::FullCellPath(_) => "a cell path expression",
+            Expr::ImportPattern(_) => "an import pattern",
+            Expr::Overlay(_) => "an overlay",
+            Expr::Signature(_) => "a signature",
+            Expr::StringInterpolation(_) => "a string interpolation",
+            Expr::GlobInterpolation(_, _) => "a glob interpolation",
+            Expr::Nothing => "a nothing",
+            Expr::Garbage => "a garbage expression",
+        }
+    }
+
     pub fn pipe_redirection(
         &self,
         working_set: &StateWorkingSet,

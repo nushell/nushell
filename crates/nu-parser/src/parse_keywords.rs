@@ -1216,16 +1216,12 @@ pub fn parse_alias(
                 && first_bytes != b"match"
                 && is_math_expression_like(working_set, replacement_spans[0])
             {
-                // TODO: Maybe we need to implement a Display trait for Expression?
                 let starting_error_count = working_set.parse_errors.len();
                 let expr = parse_expression(working_set, replacement_spans);
                 working_set.parse_errors.truncate(starting_error_count);
 
-                let msg = format!("{:?}", expr.expr);
-                let msg_parts: Vec<&str> = msg.split('(').collect();
-
                 working_set.error(ParseError::CantAliasExpression(
-                    msg_parts[0].to_string(),
+                    expr.expr.description().to_string(),
                     replacement_spans[0],
                 ));
                 return alias_pipeline;
