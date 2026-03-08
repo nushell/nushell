@@ -106,7 +106,6 @@ fn unfreeze_job(
                     ShellError::Io(IoError::new_internal(
                         err,
                         "job was interrupted; could not kill foreground process",
-                        nu_protocol::location!(),
                     ))
                 })?;
             }
@@ -145,7 +144,6 @@ fn unfreeze_job(
                 Err(err) => Err(ShellError::Io(IoError::new_internal(
                     err,
                     "Failed to unfreeze foreground process",
-                    nu_protocol::location!(),
                 ))),
             }
         }
