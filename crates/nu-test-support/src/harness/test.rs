@@ -8,6 +8,7 @@ use kitest::{
     test::{TestMeta, TestResult},
 };
 use nu_experimental::ExperimentalOption;
+use nu_utils::downcast;
 
 use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
 
@@ -112,17 +113,9 @@ impl<E: Debug + Any> IntoTestResult for Result<(), E> {
             return TestResult(Ok(None));
         };
 
-        // this is some funky way to implement specialization to pull test errors into whatever
-        // making them inspectable
-        let err: Box<dyn Any> = Box::new(err);
-        let err = match err.downcast::<TestError>() {
-            Ok(test_error) => return TestResult(Err(Whatever::from(*test_error))),
-            Err(err) => err,
-        };
-
-        let itself = err
-            .downcast::<E>()
-            .expect("downcasting itself always possible");
-        Err(*itself).into()
+        match downcast::<E, TestError>(err) {
+            Ok(test_error) => TestResult(Err(Whatever::from(test_error))),
+            Err(err) => Err(err).into(),
+        }
     }
 }
