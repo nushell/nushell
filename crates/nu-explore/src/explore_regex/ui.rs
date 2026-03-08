@@ -316,7 +316,9 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
     if focused {
         let cursor_col = app.regex_input.cursor.col;
         let cursor_row = app.regex_input.cursor.row;
-        f.set_cursor_position((content.x + cursor_col as u16, content.y + cursor_row as u16));
+        let text = app.regex_input.lines.to_string();
+        let display_col = cursor_display_col(&text, cursor_col);
+        f.set_cursor_position((content.x + display_col as u16, content.y + cursor_row as u16));
     }
 }
 
@@ -378,16 +380,26 @@ fn draw_sample_section(
         let cursor_col = app.sample_text.cursor.col;
         let (viewport_x, viewport_y) = app.sample_text.viewport_offset();
         let relative_row = cursor_row.saturating_sub(viewport_y);
-        let relative_col = cursor_col.saturating_sub(viewport_x);
+        let text = app.sample_text.lines.to_string();
+        let line = text.lines().nth(cursor_row).unwrap_or("");
+        let display_col = cursor_display_col(line, cursor_col.saturating_sub(viewport_x));
 
         // Only set cursor if it's within the visible viewport area
-        if relative_row < content.height as usize && relative_col < content.width as usize {
+        if relative_row < content.height as usize && display_col < content.width as usize {
             f.set_cursor_position((
-                content.x + relative_col as u16,
+                content.x + display_col as u16,
                 content.y + relative_row as u16,
             ));
         }
     }
+}
+
+// ─── Cursor Position Helpers ─────────────────────────────────────────────────
+
+/// Calculate display column for cursor, accounting for wide Unicode characters.
+fn cursor_display_col(text: &str, cursor_col: usize) -> usize {
+    let prefix: String = text.chars().take(cursor_col).collect();
+    prefix.width()
 }
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────
