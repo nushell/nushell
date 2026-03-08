@@ -5,7 +5,7 @@ use crate::explore_regex::colors::{BG_DARK, FG_PRIMARY, styles};
 use crate::explore_regex::quick_ref::QuickRefEntry;
 use edtui::{
     EditorEventHandler, EditorMode, EditorTheme, EditorView,
-    actions::{DeleteChar, DeleteCharForward, Paste},
+    actions::Paste,
     events::{KeyEventRegister, KeyInput},
 };
 use ratatui::{
@@ -335,36 +335,8 @@ pub fn run_app_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &mut App,
 ) -> io::Result<()> {
-    use ratatui::crossterm::event::KeyCode as CTKeyCode;
-
     // Create event handler for edtui in Emacs mode (modeless editing)
     let mut event_handler = EditorEventHandler::emacs_mode();
-
-    // Fix and customize edtui's Emacs mode keybindings for better UX:
-    //
-    // edtui has several bugs and unconventional defaults in Emacs mode:
-    // 1. Backspace is mapped TWICE - the second mapping (forward delete) overwrites the first,
-    //    causing backspace to delete forward instead of backward
-    // 2. Delete key (forward delete) has no mapping at all
-    // 3. Ctrl+V is mapped to page-down (traditional Emacs), but modern users expect paste
-    //
-    // We override these to provide intuitive behavior:
-
-    use edtui::actions::Action;
-
-    let keybindings: [(CTKeyCode, Action); 2] = [
-        // Fix: Backspace should delete backward (edtui bug causes it to delete forward)
-        (CTKeyCode::Backspace, DeleteChar(1).into()),
-        // Add: Delete key should delete forward (missing in edtui's Emacs mode)
-        (CTKeyCode::Delete, DeleteCharForward(1).into()),
-    ];
-
-    for (key_code, action) in keybindings {
-        event_handler.key_handler.insert(
-            KeyEventRegister::new(vec![KeyInput::new(key_code)], EditorMode::Insert),
-            action,
-        );
-    }
 
     // Override Ctrl+V to paste (edtui maps it to page-down by default)
     // Modern users expect Ctrl+V for paste; Emacs users can still use Ctrl+Y
