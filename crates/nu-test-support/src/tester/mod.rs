@@ -169,7 +169,7 @@ impl NuTester {
     /// Run Nushell code and extract the value into `T`.
     ///
     /// Parsing, compilation, or evaluation failures are returned as [`TestError`].
-    pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T, TestError> {
+    pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
         Self::extract_value(self.run_raw(code)?)
     }
 
@@ -180,13 +180,13 @@ impl NuTester {
         &mut self,
         code: impl AsRef<str>,
         data: impl IntoValue,
-    ) -> Result<T, TestError> {
+    ) -> Result<T> {
         let input = PipelineData::value(data.into_value(Span::test_data()), None);
         Self::extract_value(self.run_raw_with_data(code, input)?)
     }
 
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
-    pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData, TestError> {
+    pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData> {
         self.run_raw_with_data(code, PipelineData::empty())
     }
 
@@ -197,7 +197,7 @@ impl NuTester {
         &mut self,
         code: impl AsRef<str>,
         data: PipelineData,
-    ) -> Result<PipelineExecutionData, TestError> {
+    ) -> Result<PipelineExecutionData> {
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -249,6 +249,9 @@ pub enum TestError {
 
     #[error("the error is not a generic shell error")]
     NotGeneric,
+
+    #[error("unexpected value, expected {expected:?}, got {got:?}")]
+    UnexpectedValue { expected: Value, got: Value },
 }
 
 impl TestError {
@@ -282,39 +285,54 @@ pub type Result<T = (), E = TestError> = std::result::Result<T, E>;
 
 /// Extensions for asserting error kinds from test helpers.
 pub trait TestResultExt: Sized {
-    /// Expect the result to be a [`ShellError`].
-    fn expect_shell_error(self) -> Result<ShellError, TestError>;
-    /// Expect the result to be a [`ParseError`].
-    fn expect_parse_error(self) -> Result<ParseError, TestError>;
-    /// Expect the result to be a [`CompileError`].
-    fn expect_compile_error(self) -> Result<CompileError, TestError>;
+    /// Expect the result to be a `Value` equal to the provided input.
+    fn expect_value_eq<T: IntoValue>(self, value: T) -> Result;
 
     /// Expect the result to be a [`ShellError`].
-    fn expect_error(self) -> Result<ShellError, TestError> {
+    fn expect_shell_error(self) -> Result<ShellError>;
+    /// Expect the result to be a [`ParseError`].
+    fn expect_parse_error(self) -> Result<ParseError>;
+    /// Expect the result to be a [`CompileError`].
+    fn expect_compile_error(self) -> Result<CompileError>;
+
+    /// Expect the result to be a [`ShellError`].
+    fn expect_error(self) -> Result<ShellError> {
         self.expect_shell_error()
     }
 }
 
-impl TestResultExt for Result {
-    fn expect_shell_error(self) -> Result<ShellError, TestError> {
+impl TestResultExt for Result<Value> {
+    fn expect_value_eq<T: IntoValue>(self, expected: T) -> Result {
+        let expected = expected.into_value(Span::test_data());
         match self {
-            Ok(()) => Err(TestError::None),
+            Err(err) => Err(err),
+            Ok(actual) if actual == expected => Ok(()),
+            Ok(actual) => Err(TestError::UnexpectedValue {
+                expected,
+                got: actual,
+            }),
+        }
+    }
+
+    fn expect_shell_error(self) -> Result<ShellError> {
+        match self {
+            Ok(_) => Err(TestError::None),
             Err(TestError::Shell(err)) => Ok(err),
             Err(err) => Err(err),
         }
     }
 
-    fn expect_parse_error(self) -> Result<ParseError, TestError> {
+    fn expect_parse_error(self) -> Result<ParseError> {
         match self {
-            Ok(()) => Err(TestError::None),
+            Ok(_) => Err(TestError::None),
             Err(TestError::Parse(err)) => Ok(err),
             Err(err) => Err(err),
         }
     }
 
-    fn expect_compile_error(self) -> Result<CompileError, TestError> {
+    fn expect_compile_error(self) -> Result<CompileError> {
         match self {
-            Ok(()) => Err(TestError::None),
+            Ok(_) => Err(TestError::None),
             Err(TestError::Compile(err)) => Ok(err),
             Err(err) => Err(err),
         }
@@ -334,17 +352,17 @@ pub trait ShellErrorExt {
     /// - the error is none of the above types
     ///
     /// So make sure that a [`None`] value is not surprise.
-    fn into_inner(self) -> Result<ShellError, TestError>;
+    fn into_inner(self) -> Result<ShellError>;
 
     /// Extract the error field from [`ShellError::GenericError`], if it is one.
-    fn generic_error(self) -> Result<String, TestError>;
+    fn generic_error(self) -> Result<String>;
 
     /// Extract the message field from [`ShellError::GenericError`], if it is one.
-    fn generic_msg(self) -> Result<String, TestError>;
+    fn generic_msg(self) -> Result<String>;
 }
 
 impl ShellErrorExt for ShellError {
-    fn into_inner(self) -> Result<ShellError, TestError> {
+    fn into_inner(self) -> Result<ShellError> {
         match self {
             ShellError::GenericError { inner, .. } => {
                 inner.into_iter().next().ok_or(TestError::NoInner)
@@ -354,14 +372,14 @@ impl ShellErrorExt for ShellError {
         }
     }
 
-    fn generic_error(self) -> Result<String, TestError> {
+    fn generic_error(self) -> Result<String> {
         match self {
             ShellError::GenericError { error, .. } => Ok(error),
             _ => Err(TestError::NotGeneric),
         }
     }
 
-    fn generic_msg(self) -> Result<String, TestError> {
+    fn generic_msg(self) -> Result<String> {
         match self {
             ShellError::GenericError { msg, .. } => Ok(msg),
             _ => Err(TestError::NotGeneric),
