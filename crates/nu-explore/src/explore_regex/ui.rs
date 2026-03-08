@@ -134,78 +134,8 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
         }
     }
 
-    // Handle word navigation: map Ctrl+Left/Right to Emacs Alt+b/f
-    // This leverages edtui's built-in Emacs mode word navigation (Alt+b/f)
-    // since direct word navigation actions aren't available
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
-        match key.code {
-            KeyCode::Left => {
-                let emacs_key = event::KeyEvent::new(KeyCode::Char('b'), KeyModifiers::ALT);
-                return KeyAction::PassToEditor(emacs_key);
-            }
-            KeyCode::Right => {
-                // Special handling for Ctrl+Right on the last word to ensure
-                // cursor lands after the last character, not before it
-                if app.input_focus == InputFocus::Regex {
-                    let text = app.regex_input.lines.to_string();
-                    let cursor_pos = app.regex_input.cursor.col;
-                    if is_at_or_past_last_word_boundary(&text, cursor_pos) {
-                        // Move cursor to end of text
-                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                        return KeyAction::PassToEditor(end_key);
-                    }
-                } else if app.input_focus == InputFocus::Sample {
-                    let text = app.sample_text.lines.to_string();
-                    let cursor_row = app.sample_text.cursor.row;
-                    let cursor_col = app.sample_text.cursor.col;
-                    let lines: Vec<&str> = text.lines().collect();
-                    if cursor_row < lines.len()
-                        && is_at_or_past_last_word_boundary(lines[cursor_row], cursor_col)
-                    {
-                        // Move cursor to end of current line
-                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                        return KeyAction::PassToEditor(end_key);
-                    }
-                }
-                let emacs_key = event::KeyEvent::new(KeyCode::Char('f'), KeyModifiers::ALT);
-                return KeyAction::PassToEditor(emacs_key);
-            }
-            _ => {}
-        }
-    }
-
     // Default: pass to editor
     KeyAction::PassToEditor(*key)
-}
-
-// ─── Helper Functions ─────────────────────────────────────────────────────
-
-/// Check if the cursor is at the boundary of the last word in the text.
-/// Used to fix Ctrl+Right navigation to move past the last character instead of stopping before it.
-fn is_at_or_past_last_word_boundary(text: &str, cursor_pos: usize) -> bool {
-    let mut chars = text.chars();
-    // advance the iterator so that the next char would be at position `cursor_pos`
-    if cursor_pos > 0 {
-        chars.nth(cursor_pos - 1);
-    }
-    let remaining = chars.as_str();
-    let cursor_char = remaining.chars().next();
-    let start_alphanumeric = cursor_char.is_some_and(|c| c.is_ascii_alphanumeric());
-    let start_punctuation = cursor_char.is_some_and(|c| c.is_ascii_punctuation());
-    // Find the next char that is not of the same type
-    for (index, next_char) in remaining.char_indices().skip(1) {
-        let next_alphanumeric = next_char.is_ascii_alphanumeric();
-        let next_punctuation = next_char.is_ascii_punctuation();
-        if next_alphanumeric && !start_alphanumeric
-            || next_punctuation && !start_punctuation
-            || !next_alphanumeric && !next_punctuation
-        {
-            // If there is still some non-whitespace remaining, we didn't reach the end of the line
-            return remaining.chars().skip(index).all(|c| c.is_whitespace());
-        }
-    }
-    // All remaining characters are of the same type
-    true
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
