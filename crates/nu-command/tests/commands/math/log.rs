@@ -1,22 +1,25 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn const_log() {
-    let actual = nu!("const LOG = 16 | math log 2; $LOG");
-    assert_eq!(actual.out, "4.0");
+fn const_log() -> Result {
+    let outcome: f64 = test().run("const LOG = 16 | math log 2; $LOG")?;
+    assert_eq!(outcome, 4.0);
+    Ok(())
 }
 
 #[test]
-fn can_log_range_into_list() {
-    let actual = nu!("1..5 | math log 2");
-    let expected = nu!("[1 2 3 4 5] | math log 2");
+fn can_log_range_into_list() -> Result {
+    let actual: Value = test().run("1..5 | math log 2")?;
+    let expected: Value = test().run("[1 2 3 4 5] | math log 2")?;
 
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[test]
-fn cannot_log_infinite_range() {
-    let actual = nu!("1.. | math log 2");
+fn cannot_log_infinite_range() -> Result {
+    let outcome = test().run("1.. | math log 2").expect_shell_error()?;
 
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
 }

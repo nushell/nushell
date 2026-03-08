@@ -26,7 +26,7 @@ fn datasource_filepath_metadata() -> Result {
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
         // expect path printed somehow
-        assert!(outcome.contains("mdata.nu"));
+        assert_contains("mdata.nu", outcome);
         Ok(())
     })
 }

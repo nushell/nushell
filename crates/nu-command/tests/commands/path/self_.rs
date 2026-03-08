@@ -1,10 +1,10 @@
 use std::path::Path;
 
 use itertools::Itertools;
-use nu_test_support::{fs::Stub, nu, playground::Playground};
+use nu_test_support::{fs::Stub, prelude::*};
 
 #[test]
-fn self_path_const() {
+fn self_path_const() -> Result {
     Playground::setup("path_self_const", |dirs, sandbox| {
         sandbox
             .within("scripts")
@@ -21,10 +21,10 @@ fn self_path_const() {
                 "#,
             )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"use scripts/foo.nu; $foo.paths | values | str join (char nul)"#);
-        let (self_, dir, sibling, parent_dir, cousin) = actual
-            .out
-            .split("\0")
+        let code = r#"use scripts/foo.nu; $foo.paths | values | str join (char nul)"#;
+        let outcome: String = test().cwd(dirs.test()).run(code)?;
+        let (self_, dir, sibling, parent_dir, cousin) = outcome
+            .split('\0')
             .collect_tuple()
             .expect("should have 5 NUL separated paths");
 
@@ -46,19 +46,21 @@ fn self_path_const() {
 
         pathbuf.push("cousin");
         assert_eq!(pathbuf, Path::new(cousin));
+        Ok(())
     })
 }
 
 #[test]
-fn self_path_runtime() {
-    let actual = nu!("path self");
-    assert!(!actual.status.success());
-    assert!(actual.err.contains("can only run during parse-time"));
+fn self_path_runtime() -> Result {
+    let err = test().run("path self").expect_shell_error()?;
+    assert_contains("can only run during parse-time", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn self_path_repl() {
-    let actual = nu!("const foo = path self; $foo");
-    assert!(!actual.status.success());
-    assert!(actual.err.contains("nu::shell::io::file_not_found"));
+fn self_path_repl() -> Result {
+    let code = "const foo = path self; $foo";
+    let err = test().run(code).expect_parse_error()?;
+    assert_contains("nu::shell::io::file_not_found", err.to_string());
+    Ok(())
 }

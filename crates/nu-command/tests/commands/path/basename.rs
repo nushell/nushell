@@ -1,71 +1,85 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 use super::join_path_sep;
 
 #[test]
-fn returns_basename_of_empty_input() {
-    let actual = nu!(cwd: "tests", r#"
+fn returns_basename_of_empty_input() -> Result {
+    let code = r#"
         echo ""
         | path basename
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "");
+    let outcome: String = test().cwd("tests").run(code)?;
+    assert_eq!(outcome, "");
+    Ok(())
 }
 
 #[test]
-fn replaces_basename_of_empty_input() {
-    let actual = nu!(cwd: "tests", r#"
+fn replaces_basename_of_empty_input() -> Result {
+    let code = r#"
         echo ""
         | path basename --replace newname.txt
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "newname.txt");
+    let outcome: String = test().cwd("tests").run(code)?;
+    assert_eq!(outcome, "newname.txt");
+    Ok(())
 }
 
 #[test]
-fn returns_basename_of_path_ending_with_dot() {
-    let actual = nu!(cwd: "tests", r#"
+fn returns_basename_of_path_ending_with_dot() -> Result {
+    let code = r#"
         echo "some/file.txt/."
         | path basename
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "file.txt");
+    let outcome: String = test().cwd("tests").run(code)?;
+    assert_eq!(outcome, "file.txt");
+    Ok(())
 }
 
 #[test]
-fn replaces_basename_of_path_ending_with_dot() {
-    let actual = nu!(cwd: "tests", r#"
+fn replaces_basename_of_path_ending_with_dot() -> Result {
+    let code = r#"
         echo "some/file.txt/."
         | path basename --replace viking.txt
-    "#);
+    "#;
 
+    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["some", "viking.txt"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(outcome, expected);
+    Ok(())
 }
 
 #[test]
-fn returns_basename_of_path_ending_with_double_dot() {
-    let actual = nu!(cwd: "tests", r#"
+fn returns_basename_of_path_ending_with_double_dot() -> Result {
+    let code = r#"
         echo "some/file.txt/.."
         | path basename
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "");
+    let outcome: String = test().cwd("tests").run(code)?;
+    assert_eq!(outcome, "");
+    Ok(())
 }
 
 #[test]
-fn replaces_basename_of_path_ending_with_double_dot() {
-    let actual = nu!(cwd: "tests", r#"
+fn replaces_basename_of_path_ending_with_double_dot() -> Result {
+    let code = r#"
         echo "some/file.txt/.."
         | path basename --replace eggs
-    "#);
+    "#;
 
+    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["some/file.txt/..", "eggs"]);
-    assert_eq!(actual.out, expected);
+    assert_eq!(outcome, expected);
+    Ok(())
 }
 
 #[test]
-fn const_path_basename() {
-    let actual = nu!("const name = ('spam/eggs.txt' | path basename); $name");
-    assert_eq!(actual.out, "eggs.txt");
+fn const_path_basename() -> Result {
+    let code = "const name = ('spam/eggs.txt' | path basename); $name";
+    let outcome: String = test().run(code)?;
+    assert_eq!(outcome, "eggs.txt");
+    Ok(())
 }

@@ -36,7 +36,7 @@ fn to_xml_error_unknown_column() -> Result {
     else {
         return Err(err.into());
     };
-    assert!(help.contains("Invalid column \"bad_column\""));
+    assert_contains("Invalid column \"bad_column\"", help);
     Ok(())
 }
 
@@ -54,7 +54,7 @@ fn to_xml_error_no_tag() -> Result {
     else {
         return Err(err.into());
     };
-    assert!(help.contains("Tag missing"));
+    assert_contains("Tag missing", help);
     Ok(())
 }
 
@@ -72,7 +72,7 @@ fn to_xml_error_tag_not_string() -> Result {
     else {
         return Err(err.into());
     };
-    assert!(help.contains("not a string"));
+    assert_contains("not a string", help);
     Ok(())
 }
 

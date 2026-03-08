@@ -40,7 +40,7 @@ fn table_to_tsv_text() -> Result {
         "#;
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert!(outcome.contains("Colombia"));
+        assert_contains("Colombia", outcome);
         Ok(())
     })
 }
@@ -66,7 +66,7 @@ fn table_to_tsv_text_skipping_headers_after_conversion() -> Result {
         "#;
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert!(outcome.contains("Colombia"));
+        assert_contains("Colombia", outcome);
         Ok(())
     })
 }
@@ -259,7 +259,7 @@ fn from_tsv_text_with_multiple_char_comment() -> Result {
         "#;
 
         let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
-        assert!(err.to_string().contains("single character separator"));
+        assert_contains("single character separator", err.to_string());
         Ok(())
     })
 }

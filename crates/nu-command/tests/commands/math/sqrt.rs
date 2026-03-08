@@ -1,43 +1,49 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn can_sqrt_numbers() {
-    let actual = nu!("echo [0.25 2 4] | math sqrt | math sum");
+fn can_sqrt_numbers() -> Result {
+    let outcome: f64 = test().run("echo [0.25 2 4] | math sqrt | math sum")?;
 
-    assert_eq!(actual.out, "3.914213562373095");
+    assert_eq!(outcome, 3.914213562373095);
+    Ok(())
 }
 
 #[test]
-fn can_sqrt_irrational() {
-    let actual = nu!("echo 2 | math sqrt");
+fn can_sqrt_irrational() -> Result {
+    let outcome: f64 = test().run("echo 2 | math sqrt")?;
 
-    assert_eq!(actual.out, "1.4142135623730951");
+    assert_eq!(outcome, std::f64::consts::SQRT_2);
+    Ok(())
 }
 
 #[test]
-fn can_sqrt_perfect_square() {
-    let actual = nu!("echo 4 | math sqrt");
+fn can_sqrt_perfect_square() -> Result {
+    let outcome: f64 = test().run("echo 4 | math sqrt")?;
 
-    assert_eq!(actual.out, "2.0");
+    assert_eq!(outcome, 2.0);
+    Ok(())
 }
 
 #[test]
-fn const_sqrt() {
-    let actual = nu!("const SQRT = 4 | math sqrt; $SQRT");
-    assert_eq!(actual.out, "2.0");
+fn const_sqrt() -> Result {
+    let outcome: f64 = test().run("const SQRT = 4 | math sqrt; $SQRT")?;
+    assert_eq!(outcome, 2.0);
+    Ok(())
 }
 
 #[test]
-fn can_sqrt_range() {
-    let actual = nu!("0..5 | math sqrt");
-    let expected = nu!("[0 1 2 3 4 5] | math sqrt");
+fn can_sqrt_range() -> Result {
+    let actual: Value = test().run("0..5 | math sqrt")?;
+    let expected: Value = test().run("[0 1 2 3 4 5] | math sqrt")?;
 
-    assert_eq!(actual.out, expected.out);
+    assert_eq!(actual, expected);
+    Ok(())
 }
 
 #[test]
-fn cannot_sqrt_infinite_range() {
-    let actual = nu!("0.. | math sqrt");
+fn cannot_sqrt_infinite_range() -> Result {
+    let outcome = test().run("0.. | math sqrt").expect_shell_error()?;
 
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
 }
