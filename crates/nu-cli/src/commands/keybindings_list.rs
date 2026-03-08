@@ -1,8 +1,11 @@
 use nu_engine::command_prelude::*;
 use reedline::{
-    get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
-    get_reedline_prompt_edit_modes, get_reedline_reedline_events,
+    EditCommandDiscriminants, ReedlineEventDiscriminants, get_reedline_keybinding_modifiers,
+    get_reedline_keycodes, get_reedline_prompt_edit_modes,
 };
+use strum::VariantArray;
+
+use crate::reedline_config::{display_edit_command, display_reedline_event};
 
 #[derive(Clone)]
 pub struct KeybindingsList;
@@ -88,6 +91,20 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         .iter()
         .map(|edit| edit.split('\n'))
         .flat_map(|edit| edit.map(|edit| convert_to_record(edit, entry_type, span)))
+        .collect()
+}
+
+fn get_reedline_edit_commands() -> Vec<String> {
+    EditCommandDiscriminants::VARIANTS
+        .iter()
+        .filter_map(|edit| display_edit_command(*edit).map(|s| s.to_string()))
+        .collect()
+}
+
+fn get_reedline_reedline_events() -> Vec<String> {
+    ReedlineEventDiscriminants::VARIANTS
+        .iter()
+        .filter_map(|event| display_reedline_event(*event).map(|s| s.to_string()))
         .collect()
 }
 
