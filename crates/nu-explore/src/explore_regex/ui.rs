@@ -99,30 +99,6 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
         return KeyAction::FocusRegex;
     }
 
-    // Prevent newlines in regex input (single-line field)
-    // Block Enter, Ctrl+J, and Ctrl+M which all insert newlines in edtui
-    if app.input_focus == InputFocus::Regex {
-        match key.code {
-            KeyCode::Enter => return KeyAction::None,
-            KeyCode::Char('j') | KeyCode::Char('m')
-                if key.modifiers.contains(KeyModifiers::CONTROL) =>
-            {
-                return KeyAction::None;
-            }
-            KeyCode::PageUp => {
-                // Map Page Up to Home for single-line navigation (beginning of line)
-                let home_key = event::KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
-                return KeyAction::PassToEditor(home_key);
-            }
-            KeyCode::PageDown => {
-                // Map Page Down to End for single-line navigation (end of line)
-                let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                return KeyAction::PassToEditor(end_key);
-            }
-            _ => {}
-        }
-    }
-
     // Default: pass to editor
     KeyAction::PassToEditor(*key)
 }
@@ -333,6 +309,7 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .hide_status_line(); // Hide the "Insert" mode indicator
     EditorView::new(&mut app.regex_input)
         .theme(theme)
+        .single_line(true)
         .render(input_area, f.buffer_mut());
 
     // Set terminal cursor position if focused
