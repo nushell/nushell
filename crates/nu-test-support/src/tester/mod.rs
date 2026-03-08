@@ -1,4 +1,11 @@
-use std::{env, path::PathBuf, sync::LazyLock};
+use std::{
+    env,
+    error::Error,
+    fmt::{Debug, Display},
+    panic::Location,
+    path::PathBuf,
+    sync::LazyLock,
+};
 
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
@@ -7,7 +14,6 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::sync::KeyedLazyLock;
-use thiserror::Error;
 
 use crate::harness::group::GroupKey;
 
@@ -169,6 +175,7 @@ impl NuTester {
     /// Run Nushell code and extract the value into `T`.
     ///
     /// Parsing, compilation, or evaluation failures are returned as [`TestError`].
+    #[track_caller]
     pub fn run<T: FromValue>(&mut self, code: impl AsRef<str>) -> Result<T> {
         Self::extract_value(self.run_raw(code)?)
     }
@@ -176,6 +183,7 @@ impl NuTester {
     /// Run Nushell code with input data and extract the value into `T`.
     ///
     /// The input value is converted into `PipelineData` using [`IntoValue`].
+    #[track_caller]
     pub fn run_with_data<T: FromValue>(
         &mut self,
         code: impl AsRef<str>,
@@ -186,6 +194,7 @@ impl NuTester {
     }
 
     /// Run Nushell code and return the raw [`PipelineExecutionData`].
+    #[track_caller]
     pub fn run_raw(&mut self, code: impl AsRef<str>) -> Result<PipelineExecutionData> {
         self.run_raw_with_data(code, PipelineData::empty())
     }
@@ -193,6 +202,7 @@ impl NuTester {
     /// Run Nushell code with input data and return the raw execution results.
     ///
     /// This parses, compiles, and evaluates the code against the current engine state.
+    #[track_caller]
     pub fn run_raw_with_data(
         &mut self,
         code: impl AsRef<str>,
@@ -204,11 +214,17 @@ impl NuTester {
         let block = nu_parser::parse(&mut working_set, None, code, false);
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
-            return Err(err.into());
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::Parse(err),
+            });
         }
 
         if let Some(err) = working_set.compile_errors.into_iter().next() {
-            return Err(err.into());
+            return Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::Compile(err),
+            });
         }
 
         self.engine_state.merge_delta(working_set.delta)?;
@@ -216,6 +232,7 @@ impl NuTester {
             .map_err(Into::into)
     }
 
+    #[track_caller]
     fn extract_value<T: FromValue>(
         pipeline_execution_data: PipelineExecutionData,
     ) -> Result<T, TestError> {
@@ -226,56 +243,76 @@ impl NuTester {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct TestError {
+    location: TestLocation,
+    kind: TestErrorKind,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct TestLocation(&'static Location<'static>);
+
+impl Debug for TestLocation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// Errors emitted by `NuTester` when parsing, compiling, or evaluating code.
 ///
 /// This enum is marked as non-exhaustive to allow adding new variants.
 #[non_exhaustive]
-#[derive(Debug, Error)]
-pub enum TestError {
-    #[error(transparent)]
-    Parse(#[from] ParseError),
-
-    #[error(transparent)]
-    Compile(#[from] CompileError),
-
-    #[error(transparent)]
-    Shell(#[from] ShellError),
-
-    #[error("got no error")]
-    None,
-
-    #[error("expected an inner error value but got none")]
+#[derive(Debug, Clone, PartialEq)]
+pub enum TestErrorKind {
+    Parse(ParseError),
+    Compile(CompileError),
+    Shell(ShellError),
+    GotValue { got: Value },
     NoInner,
-
-    #[error("the error is not a generic shell error")]
-    NotGeneric,
-
-    #[error("unexpected value, expected {expected:?}, got {got:?}")]
+    NotGeneric { got: ShellError },
     UnexpectedValue { expected: Value, got: Value },
+}
+
+impl Display for TestError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:#?}")
+    }
+}
+
+impl Error for TestError {}
+
+impl From<ShellError> for TestError {
+    #[track_caller]
+    fn from(err: ShellError) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Shell(err),
+        }
+    }
 }
 
 impl TestError {
     /// Convert this error into a [`ParseError`], if it is one.
     pub fn parse(self) -> Result<ParseError, TestError> {
-        match self {
-            Self::Parse(err) => Ok(err),
-            err => Err(err),
+        match self.kind {
+            TestErrorKind::Parse(err) => Ok(err),
+            _ => Err(self),
         }
     }
 
     /// Convert this error into a [`CompileError`], if it is one.
     pub fn compile(self) -> Result<CompileError, TestError> {
-        match self {
-            Self::Compile(err) => Ok(err),
-            err => Err(err),
+        match self.kind {
+            TestErrorKind::Compile(err) => Ok(err),
+            _ => Err(self),
         }
     }
 
     /// Convert this error into a [`ShellError`], if it is one.
     pub fn shell(self) -> Result<ShellError, TestError> {
-        match self {
-            Self::Shell(err) => Ok(err),
-            err => Err(err),
+        match self.kind {
+            TestErrorKind::Shell(err) => Ok(err),
+            _ => Err(self),
         }
     }
 }
@@ -302,38 +339,63 @@ pub trait TestResultExt: Sized {
 }
 
 impl TestResultExt for Result<Value> {
+    #[track_caller]
     fn expect_value_eq<T: IntoValue>(self, expected: T) -> Result {
         let expected = expected.into_value(Span::test_data());
         match self {
             Err(err) => Err(err),
             Ok(actual) if actual == expected => Ok(()),
-            Ok(actual) => Err(TestError::UnexpectedValue {
-                expected,
-                got: actual,
+            Ok(actual) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedValue {
+                    expected,
+                    got: actual,
+                },
             }),
         }
     }
 
+    #[track_caller]
     fn expect_shell_error(self) -> Result<ShellError> {
         match self {
-            Ok(_) => Err(TestError::None),
-            Err(TestError::Shell(err)) => Ok(err),
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(err),
+                ..
+            }) => Ok(err),
             Err(err) => Err(err),
         }
     }
 
+    #[track_caller]
     fn expect_parse_error(self) -> Result<ParseError> {
         match self {
-            Ok(_) => Err(TestError::None),
-            Err(TestError::Parse(err)) => Ok(err),
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Parse(err),
+                ..
+            }) => Ok(err),
             Err(err) => Err(err),
         }
     }
 
+    #[track_caller]
     fn expect_compile_error(self) -> Result<CompileError> {
         match self {
-            Ok(_) => Err(TestError::None),
-            Err(TestError::Compile(err)) => Ok(err),
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Compile(err),
+                ..
+            }) => Ok(err),
             Err(err) => Err(err),
         }
     }
@@ -362,27 +424,38 @@ pub trait ShellErrorExt {
 }
 
 impl ShellErrorExt for ShellError {
+    #[track_caller]
     fn into_inner(self) -> Result<ShellError> {
+        let no_inner = TestError {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::NoInner,
+        };
         match self {
-            ShellError::GenericError { inner, .. } => {
-                inner.into_iter().next().ok_or(TestError::NoInner)
-            }
-            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(TestError::NoInner),
-            _ => Err(TestError::NoInner),
+            ShellError::GenericError { inner, .. } => inner.into_iter().next().ok_or(no_inner),
+            ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
+            _ => Err(no_inner),
         }
     }
 
+    #[track_caller]
     fn generic_error(self) -> Result<String> {
         match self {
             ShellError::GenericError { error, .. } => Ok(error),
-            _ => Err(TestError::NotGeneric),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::NotGeneric { got },
+            }),
         }
     }
 
+    #[track_caller]
     fn generic_msg(self) -> Result<String> {
         match self {
             ShellError::GenericError { msg, .. } => Ok(msg),
-            _ => Err(TestError::NotGeneric),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::NotGeneric { got },
+            }),
         }
     }
 }
