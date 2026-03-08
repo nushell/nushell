@@ -19,7 +19,7 @@ pub fn downcast<T: Any, Target: Any>(x: T) -> Result<Target, T> {
         let x = x
             .downcast_mut::<Option<T>>()
             .and_then(Option::take)
-            .unwrap();
+            .expect("downcasting to same type can't fail");
         Err(x)
     }
 }
