@@ -2,10 +2,13 @@ use std::any::Any;
 
 /// On-stack downcasting for specialization in generic functions.
 /// ```
+/// # use std::any::Any;
+/// # use std::fmt::Display;
+/// # use nu_utils::downcast;
 /// fn foo<T: Display + Any>(x: T) {
 ///     match downcast::<T, usize>(x) {
 ///         Ok(x) => println!("usize: {x}"),
-///         Err(x) => println!("other: {x}");
+///         Err(x) => println!("other: {x}"),
 ///     }
 /// }
 /// ```
