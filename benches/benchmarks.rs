@@ -2,7 +2,7 @@ use nu_cli::{eval_source, evaluate_commands};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
-    PipelineData, Signals, Span, Spanned, Value,
+    PipelineData, Signals, Span, Spanned, Type, Value,
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
@@ -461,9 +461,79 @@ fn decode_msgpack(row_cnt: usize, col_cnt: usize) -> impl IntoBenchmarks {
     )]
 }
 
+// Benchmarks specifically for Type widening logic.
+
+fn bench_type_widen_simple() -> impl IntoBenchmarks {
+    let a = Type::Int;
+    let b = Type::Float;
+    [benchmark_fn("type_widen_simple", move |bench| {
+        let a = a.clone();
+        let b = b.clone();
+        bench.iter(move || black_box(a.clone().widen(b.clone())))
+    })]
+}
+
+fn bench_type_widen_large_records() -> impl IntoBenchmarks {
+    let rec1: Type = Type::Record(
+        (0..50)
+            .map(|i| (format!("f{i}"), Type::Int))
+            .collect::<Vec<_>>()
+            .into(),
+    );
+    let rec2: Type = Type::Record(
+        (0..50)
+            .map(|i| (format!("f{i}"), Type::Number))
+            .collect::<Vec<_>>()
+            .into(),
+    );
+    [benchmark_fn("type_widen_large_records", move |bench| {
+        let rec1 = rec1.clone();
+        let rec2 = rec2.clone();
+        bench.iter(move || black_box(rec1.clone().widen(rec2.clone())))
+    })]
+}
+
+fn bench_type_widen_large_oneof() -> impl IntoBenchmarks {
+    let one: Type = Type::one_of(
+        (0..32)
+            .map(|i| Type::Record(vec![(format!("f{i}"), Type::Int)].into()))
+            .collect::<Vec<_>>(),
+    );
+    let two: Type = Type::one_of(
+        (0..32)
+            .map(|i| Type::Record(vec![(format!("f{i}"), Type::Number)].into()))
+            .collect::<Vec<_>>(),
+    );
+    [benchmark_fn("type_widen_large_oneof", move |bench| {
+        let one = one.clone();
+        let two = two.clone();
+        bench.iter(move || black_box(one.clone().widen(two.clone())))
+    })]
+}
+
+fn bench_type_widen_chain() -> impl IntoBenchmarks {
+    let mut t = Type::String;
+    for _ in 0..100 {
+        t = t.widen(Type::Int);
+    }
+    [benchmark_fn("type_widen_chain", move |bench| {
+        let t = t.clone();
+        bench.iter(move || {
+            let mut tmp = t.clone();
+            tmp = tmp.widen(Type::Int);
+            black_box(tmp)
+        })
+    })]
+}
+
 tango_benchmarks!(
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
+    // type-widening microbenchmarks (run on both branch & main to compare)
+    bench_type_widen_simple(),
+    bench_type_widen_large_records(),
+    bench_type_widen_large_oneof(),
+    bench_type_widen_chain(),
     // Data types
     // Record
     bench_record_create(1),
