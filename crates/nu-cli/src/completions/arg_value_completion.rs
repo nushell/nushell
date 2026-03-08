@@ -2,7 +2,7 @@ use crate::{
     FileCompletion, NuCompleter,
     completions::{
         CommandCompletion, Completer, CompletionOptions, DirectoryCompletion, DotNuCompletion,
-        ExportableCompletion, SemanticSuggestion, completer::Context,
+        EnvVarCompletion, ExportableCompletion, SemanticSuggestion, completer::Context,
         completion_options::NuMatcher,
     },
 };
@@ -174,6 +174,11 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                         },
                         _ => vec![],
                     };
+                }
+                "hide-env" => {
+                    return self
+                        .completer
+                        .process_completion(&mut EnvVarCompletion, &ctx);
                 }
                 "which" => {
                     let mut completer = CommandCompletion {

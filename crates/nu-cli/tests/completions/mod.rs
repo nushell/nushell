@@ -687,6 +687,17 @@ fn which_command_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+/// hide-env completes environment variable names
+#[test]
+fn hide_env_completions() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "hide-env T";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected = vec!["TEST"];
+    match_suggestions(&expected, &suggestions);
+}
+
 /// Suppress completions for invalid values
 #[test]
 fn customcompletions_invalid() {
