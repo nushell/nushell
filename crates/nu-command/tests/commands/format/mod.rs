@@ -14,17 +14,16 @@ fn creates_the_resulting_string_from_the_given_fields() -> Result {
         | format pattern "{name} has license {license}"
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "nu has license ISC");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("nu has license ISC")
 }
 
 #[test]
 fn format_input_record_output_string() -> Result {
     let code = r#"{name: Downloads} | format pattern "{name}""#;
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "Downloads");
-    Ok(())
+    test().run(code).expect_value_eq("Downloads")
 }
 
 #[test]
@@ -34,9 +33,10 @@ fn given_fields_can_be_column_paths() -> Result {
         | format pattern "{package.name} is {package.description}"
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "nu is a new type of shell");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("nu is a new type of shell")
 }
 
 #[test]
@@ -91,9 +91,7 @@ fn format_filesize_works() -> Result {
             | first
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "0 kB");
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq("0 kB")
     })
 }
 
@@ -111,15 +109,12 @@ fn format_filesize_works_with_nonempty_files() -> Result {
             )]);
 
             let code = "ls sample.toml | format filesize B size | get size | first";
-            let outcome: String = test().cwd(dirs.test()).run(code)?;
-
             #[cfg(not(windows))]
-            assert_eq!(outcome, "25 B");
-
+            let expected = "25 B";
             #[cfg(windows)]
-            assert_eq!(outcome, "27 B");
+            let expected = "27 B";
 
-            Ok(())
+            test().cwd(dirs.test()).run(code).expect_value_eq(expected)
         },
     )
 }

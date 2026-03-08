@@ -19,9 +19,7 @@ fn splits_correctly_single_path() -> Result {
         | last
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "spam.txt");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("spam.txt")
 }
 
 #[test]
@@ -31,7 +29,5 @@ fn splits_correctly_single_path_const() -> Result {
         $result | last
     "#;
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "spam.txt");
-    Ok(())
+    test().run(code).expect_value_eq("spam.txt")
 }

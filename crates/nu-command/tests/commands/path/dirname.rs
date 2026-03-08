@@ -9,9 +9,7 @@ fn returns_dirname_of_empty_input() -> Result {
         | path dirname
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
@@ -21,9 +19,7 @@ fn replaces_dirname_of_empty_input() -> Result {
         | path dirname --replace newdir
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "newdir");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("newdir")
 }
 
 #[test]
@@ -33,9 +29,7 @@ fn returns_dirname_of_path_ending_with_dot() -> Result {
         | path dirname
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "some");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("some")
 }
 
 #[test]
@@ -45,10 +39,8 @@ fn replaces_dirname_of_path_ending_with_dot() -> Result {
         | path dirname --replace eggs
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["eggs", "dir"]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
@@ -58,9 +50,7 @@ fn returns_dirname_of_path_ending_with_double_dot() -> Result {
         | path dirname
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "some/dir");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("some/dir")
 }
 
 #[test]
@@ -70,10 +60,8 @@ fn replaces_dirname_of_path_with_double_dot() -> Result {
         | path dirname --replace eggs
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["eggs", ".."]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
@@ -83,9 +71,10 @@ fn returns_dirname_of_zero_levels() -> Result {
         | path dirname --num-levels 0
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "some/dir/with/spam.txt");
-    Ok(())
+    test()
+        .cwd("tests")
+        .run(code)
+        .expect_value_eq("some/dir/with/spam.txt")
 }
 
 #[test]
@@ -95,9 +84,7 @@ fn replaces_dirname_of_zero_levels_with_empty_string() -> Result {
         | path dirname --num-levels 0 --replace ""
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
@@ -107,10 +94,8 @@ fn replaces_dirname_of_more_levels() -> Result {
         | path dirname --replace eggs -n 2
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["eggs", "with/spam.txt"]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
@@ -120,16 +105,12 @@ fn replaces_dirname_of_way_too_many_levels() -> Result {
         | path dirname --replace eggs -n 999
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["eggs", "some/dir/with/spam.txt"]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
 fn const_path_dirname() -> Result {
     let code = "const name = ('spam/eggs.txt' | path dirname); $name";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "spam");
-    Ok(())
+    test().run(code).expect_value_eq("spam")
 }

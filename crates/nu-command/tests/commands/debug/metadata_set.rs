@@ -53,17 +53,13 @@ fn works_with_datasource_ls() -> Result {
 #[test]
 fn works_with_path_columns_single() -> Result {
     let code = "[] | metadata set --path-columns [test] | metadata | get path_columns.0";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "test");
-    Ok(())
+    test().run(code).expect_value_eq("test")
 }
 
 #[test]
 fn works_with_path_columns_multiple() -> Result {
     let code = r#"[] | metadata set --path-columns [name path] | metadata | get path_columns | str join " ""#;
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "name path");
-    Ok(())
+    test().run(code).expect_value_eq("name path")
 }
 
 #[test]
@@ -75,9 +71,7 @@ fn works_with_merge_arbitrary_metadata() -> Result {
         | get custom_key
         "#;
 
-    let outcome: String = test().cwd(".").run(code)?;
-    assert_eq!(outcome, "custom_value");
-    Ok(())
+    test().cwd(".").run(code).expect_value_eq("custom_value")
 }
 
 #[test]
@@ -90,9 +84,7 @@ fn merge_preserves_existing_metadata() -> Result {
         | get content_type
         "#;
 
-    let outcome: String = test().cwd(".").run(code)?;
-    assert_eq!(outcome, "text/plain");
-    Ok(())
+    test().cwd(".").run(code).expect_value_eq("text/plain")
 }
 
 #[test]
@@ -105,9 +97,7 @@ fn custom_metadata_preserved_through_collect() -> Result {
         | get custom_key
         "#;
 
-    let outcome: String = test().cwd(".").run(code)?;
-    assert_eq!(outcome, "custom_value");
-    Ok(())
+    test().cwd(".").run(code).expect_value_eq("custom_value")
 }
 
 #[test]

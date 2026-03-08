@@ -31,7 +31,7 @@ mod args;
 pub(crate) mod group;
 pub(crate) mod test;
 
-pub use test::Extra;
+pub use test::{Extra, IntoTestResult};
 
 pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};

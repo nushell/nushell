@@ -10,9 +10,10 @@ fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
         | get environment.global.PROJECT_NAME
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "nushell");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("nushell")
 }
 
 #[test]
@@ -24,9 +25,10 @@ fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
         | get environment.global.PROJECT_NAME
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "nushell");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("nushell")
 }
 
 #[test]
@@ -61,10 +63,7 @@ fn convert_dict_to_yaml_with_integer_floats_key() -> Result {
 fn convert_bool_to_yaml_in_yaml_spec_1_2() -> Result {
     let code = "[y n no On OFF True true false] | to yaml";
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(
-        outcome,
-        "- 'y'- 'n'- 'no'- 'On'- 'OFF'- 'True'- true- false"
-    );
-    Ok(())
+    test()
+        .run(code)
+        .expect_value_eq("- 'y'- 'n'- 'no'- 'On'- 'OFF'- 'True'- true- false")
 }

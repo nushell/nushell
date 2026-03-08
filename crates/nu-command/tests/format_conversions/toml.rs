@@ -89,7 +89,8 @@ fn big_record_to_toml_text_and_from_toml_text_back_into_record() -> Result {
         | get package.name
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "nu");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("nu")
 }

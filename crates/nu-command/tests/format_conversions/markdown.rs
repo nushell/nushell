@@ -4,49 +4,41 @@ use nu_test_support::prelude::*;
 #[ignore = "incorrect test"]
 fn md_empty() -> Result {
     let code = "echo [[]; []] | from json | to md";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
 fn md_empty_pretty() -> Result {
     let code = r#"echo "{}" | from json | to md -p"#;
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
 fn md_simple() -> Result {
     let code = "echo 3 | to md";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "* 3");
-    Ok(())
+    test().run(code).expect_value_eq("* 3")
 }
 
 #[test]
 fn md_simple_pretty() -> Result {
     let code = "echo 3 | to md -p";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "* 3");
-    Ok(())
+    test().run(code).expect_value_eq("* 3")
 }
 
 #[test]
 fn md_table() -> Result {
     let code = "echo [[name]; [jason]] | to md";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "| name |\n| --- |\n| jason |");
-    Ok(())
+    test()
+        .run(code)
+        .expect_value_eq("| name |\n| --- |\n| jason |")
 }
 
 #[test]
 fn md_table_pretty() -> Result {
     let code = "echo [[name]; [joseph]] | to md -p";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "| name   |\n| ------ |\n| joseph |");
-    Ok(())
+    test()
+        .run(code)
+        .expect_value_eq("| name   |\n| ------ |\n| joseph |")
 }
 
 #[test]
@@ -65,10 +57,7 @@ fn md_combined() -> Result {
         | to md --per-element --pretty
     "#;
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(
-        outcome,
-        "# Nu top meals\n| dish  |\n| ----- |\n| Arepa |\n| Taco  |\n| Pizza |"
-    );
-    Ok(())
+    test()
+        .run(code)
+        .expect_value_eq("# Nu top meals\n| dish  |\n| ----- |\n| Arepa |\n| Taco  |\n| Pizza |")
 }
