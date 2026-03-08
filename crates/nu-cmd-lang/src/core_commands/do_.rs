@@ -110,7 +110,6 @@ impl Command for Do {
                                             IoError::new_internal(
                                                 err,
                                                 "Could not read stdout to end",
-                                                nu_protocol::location!(),
                                             )
                                         })?;
                                         Ok::<_, ShellError>(buf)

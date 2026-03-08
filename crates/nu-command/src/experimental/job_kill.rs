@@ -47,7 +47,6 @@ impl Command for JobKill {
             ShellError::Io(IoError::new_internal(
                 err,
                 "Failed to kill the requested job",
-                nu_protocol::location!(),
             ))
         })?;
 

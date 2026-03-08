@@ -507,7 +507,6 @@ fn main() -> Result<()> {
                     nu_protocol::shell_error::io::IoError::new_internal_with_path(
                         err,
                         "Could not resolve plugin path",
-                        nu_protocol::location!(),
                         PathBuf::from(&plugin_filename.item),
                     )
                 })

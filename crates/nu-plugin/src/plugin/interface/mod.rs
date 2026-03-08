@@ -1112,7 +1112,6 @@ impl ForegroundGuard {
                     nu_protocol::shell_error::io::IoError::new_internal(
                         std::io::Error::from(err),
                         "Could not set pgid",
-                        nu_protocol::location!(),
                     )
                 })?;
             }

@@ -290,7 +290,7 @@ If you create a custom command with this name, that will be used instead."#
 
         let mut child = child.map_err(|err| {
             let context = format!("Could not spawn foreground child: {err}");
-            IoError::new_internal(err, context, nu_protocol::location!())
+            IoError::new_internal(err, context)
         })?;
 
         if let Some(thread_job) = engine_state.current_thread_job()
@@ -300,7 +300,6 @@ If you create a custom command with this name, that will be used instead."#
                 ShellError::Io(IoError::new_internal(
                     err,
                     "Could not spawn external stdin worker",
-                    nu_protocol::location!(),
                 ))
             })?;
         }
@@ -497,13 +496,9 @@ fn write_pipeline_data(
     if let PipelineData::ByteStream(stream, ..) = data {
         stream.write_to(writer)?;
     } else if let PipelineData::Value(Value::Binary { val, .. }, ..) = data {
-        writer.write_all(&val).map_err(|err| {
-            IoError::new_internal(
-                err,
-                "Could not write pipeline data",
-                nu_protocol::location!(),
-            )
-        })?;
+        writer
+            .write_all(&val)
+            .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;
     } else {
         stack.start_collect_value();
 
@@ -517,13 +512,9 @@ fn write_pipeline_data(
         // Write the output.
         for value in output {
             let bytes = value.coerce_into_binary()?;
-            writer.write_all(&bytes).map_err(|err| {
-                IoError::new_internal(
-                    err,
-                    "Could not write pipeline data",
-                    nu_protocol::location!(),
-                )
-            })?;
+            writer
+                .write_all(&bytes)
+                .map_err(|err| IoError::new_internal(err, "Could not write pipeline data"))?;
         }
     }
     Ok(())
