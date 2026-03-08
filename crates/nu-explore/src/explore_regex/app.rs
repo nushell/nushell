@@ -2,12 +2,9 @@
 
 use crate::explore_regex::colors;
 use crate::explore_regex::quick_ref::{QuickRefEntry, get_flattened_entries};
-use edtui::{EditorMode, EditorState, Lines, actions::InsertChar};
+use edtui::{EditorMode, EditorState, Highlight, Index2, Lines, actions::InsertChar};
 use fancy_regex::Regex;
-use ratatui::{
-    style::Style,
-    text::{Line, Span, Text},
-};
+
 
 /// Which pane currently has input focus.
 #[derive(Default, Clone, Copy, PartialEq, Eq)]
@@ -30,8 +27,6 @@ pub struct App {
     pub compiled_regex: Option<Regex>,
     /// Error message from regex compilation, if invalid
     pub regex_error: Option<String>,
-    /// Height of the visible sample text viewport (updated each frame)
-    pub sample_view_height: u16,
     /// Number of regex matches found in the sample text
     pub match_count: usize,
     // Quick reference panel state
@@ -70,7 +65,6 @@ impl App {
             sample_text,
             compiled_regex: None,
             regex_error: None,
-            sample_view_height: 0,
             match_count: 0,
             show_quick_ref: false,
             show_help: false,
@@ -122,66 +116,44 @@ impl App {
         }
     }
 
-    /// Generate highlighted text with regex matches styled.
-    pub fn get_highlighted_text(&self) -> Text<'static> {
-        let sample_text = self.get_sample_text();
+    /// Generate edtui Highlights for regex matches.
+    pub fn get_highlights(&self) -> Vec<Highlight> {
+        let text = self.get_sample_text();
         let Some(regex) = &self.compiled_regex else {
-            return Text::from(sample_text);
+            return Vec::new();
         };
 
-        // Collect all match highlights: (start, end, style)
-        let mut highlights: Vec<(usize, usize, Style)> = regex
-            .captures_iter(&sample_text)
-            .flatten()
-            .flat_map(|capture| {
-                capture
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(group, submatch)| {
-                        submatch.map(|m| (m.start(), m.end(), colors::highlight_style(group)))
-                    })
-                    .collect::<Vec<_>>()
-            })
-            .collect();
-
-        // Add fallback style for unhighlighted text (must be last after sort)
-        highlights.push((0, sample_text.len(), Style::new()));
-
-        // Sort by span size (smallest first) so inner groups take precedence
-        highlights.sort_by_key(|(start, end, _)| (*end - *start, *start));
-
-        // Collect all boundary points and deduplicate
-        let mut boundaries: Vec<usize> = highlights.iter().flat_map(|(s, e, _)| [*s, *e]).collect();
-        boundaries.sort();
-        boundaries.dedup();
-
-        // Build styled lines, handling newlines properly
-        let mut lines: Vec<Line> = Vec::new();
-        let mut current_line = Line::from("");
-
-        for window in boundaries.windows(2) {
-            let [start, end] = [window[0], window[1]];
-
-            // Find the first (smallest) highlight that contains this range
-            let Some((_, _, style)) = highlights.iter().find(|(s, e, _)| *s <= start && *e >= end)
-            else {
-                continue;
-            };
-
-            let fragment = &sample_text[start..end];
-            for (idx, part) in fragment.split('\n').enumerate() {
-                if idx > 0 {
-                    lines.push(current_line);
-                    current_line = Line::from("");
-                }
-                if !part.is_empty() {
-                    current_line.push_span(Span::styled(part.to_string(), *style));
-                }
+        // Build byte_offset -> (row, col) mapping for Unicode support
+        let mut byte_to_pos: Vec<(usize, usize)> = vec![(0, 0); text.len() + 1];
+        let (mut row, mut col) = (0, 0);
+        for (i, ch) in text.char_indices() {
+            for j in i..i + ch.len_utf8() {
+                byte_to_pos[j] = (row, col);
+            }
+            if ch == '\n' {
+                row += 1;
+                col = 0;
+            } else {
+                col += 1;
             }
         }
+        byte_to_pos[text.len()] = (row, col);
 
-        lines.push(current_line);
-        Text::from(lines)
+        regex
+            .captures_iter(&text)
+            .flatten()
+            .flat_map(|cap| cap.iter().enumerate().collect::<Vec<_>>())
+            .filter_map(|(group, m)| {
+                let m = m?;
+                let (sr, sc) = byte_to_pos[m.start()];
+                let (er, ec) = byte_to_pos[m.end().saturating_sub(1)];
+                Some(Highlight::new(
+                    Index2::new(sr, sc),
+                    Index2::new(er, ec),
+                    colors::highlight_style(group),
+                ))
+            })
+            .collect()
     }
 
     // ─── Quick Reference Panel ───────────────────────────────────────────
@@ -715,14 +687,90 @@ mod tests {
         assert!(app.regex_error.is_none());
     }
 
+    // ─── get_highlights tests ─────────────────────────────────────────────────
+
+    #[test]
+    fn test_get_highlights_no_regex() {
+        let app = App::new("hello world".to_string());
+        let highlights = app.get_highlights();
+        assert!(highlights.is_empty());
+    }
+
+    #[test]
+    fn test_get_highlights_no_matches() {
+        let mut app = App::new("hello world".to_string());
+        app.regex_input = EditorState::new(Lines::from("xyz"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        assert!(highlights.is_empty());
+    }
+
+    #[test]
+    fn test_get_highlights_single_match() {
+        let mut app = App::new("hello world".to_string());
+        app.regex_input = EditorState::new(Lines::from("world"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].start, Index2::new(0, 6));
+        assert_eq!(highlights[0].end, Index2::new(0, 10));
+    }
+
+    #[test]
+    fn test_get_highlights_multiple_matches() {
+        let mut app = App::new("cat dog cat".to_string());
+        app.regex_input = EditorState::new(Lines::from("cat"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        assert_eq!(highlights.len(), 2);
+        assert_eq!(highlights[0].start, Index2::new(0, 0));
+        assert_eq!(highlights[0].end, Index2::new(0, 2));
+        assert_eq!(highlights[1].start, Index2::new(0, 8));
+        assert_eq!(highlights[1].end, Index2::new(0, 10));
+    }
+
+    #[test]
+    fn test_get_highlights_multiline() {
+        let mut app = App::new("hello\nworld".to_string());
+        app.regex_input = EditorState::new(Lines::from("world"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].start, Index2::new(1, 0));
+        assert_eq!(highlights[0].end, Index2::new(1, 4));
+    }
+
+    #[test]
+    fn test_get_highlights_capture_groups() {
+        let mut app = App::new("hello world".to_string());
+        app.regex_input = EditorState::new(Lines::from("(hello) (world)"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        // Group 0 (full match) + Group 1 (hello) + Group 2 (world)
+        assert_eq!(highlights.len(), 3);
+    }
+
+    #[test]
+    fn test_get_highlights_unicode() {
+        let mut app = App::new("日本語テスト".to_string());
+        app.regex_input = EditorState::new(Lines::from("テスト"));
+        app.compile_regex();
+        let highlights = app.get_highlights();
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].start, Index2::new(0, 3));
+        assert_eq!(highlights[0].end, Index2::new(0, 5));
+    }
+
     #[test]
     fn test_get_highlighted_text_with_unicode_sample() {
         let mut app = App::new("12345abcde項目".to_string());
         app.regex_input = EditorState::new(Lines::from("\\w+"));
         app.compile_regex();
-        let highlighted = app.get_highlighted_text();
-        // Should not panic and should produce some text
-        assert!(!highlighted.lines.is_empty());
+        let highlights = app.get_highlights();
+        // \w+ matches the entire string as one word
+        assert_eq!(highlights.len(), 1);
+        assert_eq!(highlights[0].start, Index2::new(0, 0));
+        assert_eq!(highlights[0].end, Index2::new(0, 11));
     }
 
     // ─── Helper ──────────────────────────────────────────────────────────────

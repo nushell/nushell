@@ -14,7 +14,7 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::Style,
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{
         Block, BorderType, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState, Widget,
@@ -357,31 +357,26 @@ fn draw_sample_section(
         .padding(Padding::horizontal(1));
 
     let content = block.inner(content_area);
-    app.sample_view_height = content.height;
 
-    // Set viewport height for edtui so PageUp/PageDown work correctly
-    app.sample_text.set_viewport_height(content.height as usize);
+    // Set highlights for regex matches
+    app.sample_text.set_highlights(app.get_highlights());
 
-    // Render the block border
-    f.render_widget(block, content_area);
-
-    // Get viewport offset from edtui to handles PageUp/PageDown scrolling correctly
-    let (viewport_x, viewport_y) = app.sample_text.viewport_offset();
-    let visible_height = content.height as usize;
-
-    // Render only the visible portion of highlighted text for better performance
-    let highlighted_text = app.get_highlighted_text();
-    let viewport_text =
-        extract_viewport_text(highlighted_text, viewport_y as u16, visible_height);
-
-    // Apply horizontal scrolling via Paragraph's scroll method
-    let paragraph = Paragraph::new(viewport_text).scroll((0, viewport_x as u16));
-    f.render_widget(paragraph, content);
+    // Render using EditorView
+    let theme = EditorTheme::default()
+        .block(block)
+        .base(Style::default())
+        .hide_cursor()
+        .hide_status_line();
+    EditorView::new(&mut app.sample_text)
+        .theme(theme)
+        .wrap(false)
+        .render(content_area, f.buffer_mut());
 
     // Set terminal cursor position if this section is focused
     if focused {
         let cursor_row = app.sample_text.cursor.row;
         let cursor_col = app.sample_text.cursor.col;
+        let (viewport_x, viewport_y) = app.sample_text.viewport_offset();
         let relative_row = cursor_row.saturating_sub(viewport_y);
         let relative_col = cursor_col.saturating_sub(viewport_x);
 
@@ -393,38 +388,6 @@ fn draw_sample_section(
             ));
         }
     }
-}
-
-// ─── Viewport Management ─────────────────────────────────────────────────────
-
-/// Extract a viewport slice from the highlighted text.
-///
-/// Returns only the visible portion of the text based on scroll offset and viewport height.
-/// This optimization avoids rendering off-screen content and improves performance.
-///
-/// # Arguments
-/// * `highlighted_text` - The full highlighted text with all lines
-/// * `scroll_offset` - The vertical scroll position (number of lines from top)
-/// * `visible_height` - The number of lines that fit in the viewport
-///
-/// # Returns
-/// A `Text` containing only the visible lines, or the full text if no scrolling is needed
-fn extract_viewport_text(
-    highlighted_text: Text<'static>,
-    scroll_offset: u16,
-    visible_height: usize,
-) -> Text<'static> {
-    // Short circuit if no scrolling is needed
-    if scroll_offset == 0 && highlighted_text.lines.len() <= visible_height {
-        return highlighted_text;
-    }
-
-    let start = scroll_offset as usize;
-    let end = start
-        .saturating_add(visible_height)
-        .min(highlighted_text.lines.len());
-
-    Text::from(highlighted_text.lines[start..end].to_vec())
 }
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────
