@@ -2,18 +2,17 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn const_floor() -> Result {
-    let outcome: i64 = test().run("const FLOOR = 15.5 | math floor; $FLOOR")?;
-    assert_eq!(outcome, 15);
-    Ok(())
+    test()
+        .run("const FLOOR = 15.5 | math floor; $FLOOR")
+        .expect_value_eq(15)
 }
 
 #[test]
 fn can_floor_range_into_list() -> Result {
-    let actual: Value = test().run("(1.8)..(3.8) | math floor")?;
     let expected: Value = test().run("[1 2 3]")?;
-
-    assert_eq!(actual, expected);
-    Ok(())
+    test()
+        .run("(1.8)..(3.8) | math floor")
+        .expect_value_eq(expected)
 }
 
 #[test]

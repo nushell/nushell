@@ -9,9 +9,7 @@ fn returns_basename_of_empty_input() -> Result {
         | path basename
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
@@ -21,9 +19,7 @@ fn replaces_basename_of_empty_input() -> Result {
         | path basename --replace newname.txt
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "newname.txt");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("newname.txt")
 }
 
 #[test]
@@ -33,9 +29,7 @@ fn returns_basename_of_path_ending_with_dot() -> Result {
         | path basename
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "file.txt");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("file.txt")
 }
 
 #[test]
@@ -45,10 +39,8 @@ fn replaces_basename_of_path_ending_with_dot() -> Result {
         | path basename --replace viking.txt
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["some", "viking.txt"]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
@@ -58,9 +50,7 @@ fn returns_basename_of_path_ending_with_double_dot() -> Result {
         | path basename
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
@@ -70,16 +60,12 @@ fn replaces_basename_of_path_ending_with_double_dot() -> Result {
         | path basename --replace eggs
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
     let expected = join_path_sep(&["some/file.txt/..", "eggs"]);
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
 fn const_path_basename() -> Result {
     let code = "const name = ('spam/eggs.txt' | path basename); $name";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "eggs.txt");
-    Ok(())
+    test().run(code).expect_value_eq("eggs.txt")
 }

@@ -1,14 +1,15 @@
-use std::{num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
+use std::{any::Any, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
 
 use kitest::{
+    Whatever,
     capture::DefaultPanicHookProvider,
     outcome::TestOutcome,
     runner::{DefaultRunner, SimpleRunner, scope::NoScopeFactory},
-    test::TestMeta,
+    test::{TestMeta, TestResult},
 };
 use nu_experimental::ExperimentalOption;
 
-use crate::harness::group::RUN_TEST_GROUP_IN_SERIAL;
+use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
 
 pub struct Extra {
     pub run_in_serial: bool,
@@ -92,5 +93,36 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
                 tests_count,
             ),
         }
+    }
+}
+
+pub trait IntoTestResult {
+    fn into_test_result(self) -> TestResult;
+}
+
+impl IntoTestResult for () {
+    fn into_test_result(self) -> TestResult {
+        self.into()
+    }
+}
+
+impl<E: Debug + Any> IntoTestResult for Result<(), E> {
+    fn into_test_result(self) -> TestResult {
+        let Err(err) = self else {
+            return TestResult(Ok(None));
+        };
+
+        // this is some funky way to implement specialization to pull test errors into whatever
+        // making them inspectable
+        let err: Box<dyn Any> = Box::new(err);
+        let err = match err.downcast::<TestError>() {
+            Ok(test_error) => return TestResult(Err(Whatever::from(*test_error))),
+            Err(err) => err,
+        };
+
+        let itself = err
+            .downcast::<E>()
+            .expect("downcasting itself always possible");
+        Err(*itself).into()
     }
 }

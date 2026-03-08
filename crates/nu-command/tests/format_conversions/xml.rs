@@ -17,9 +17,10 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() -> Result {
         | get 0.attributes.isPermaLink
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "true");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("true")
 }
 
 #[test]
@@ -86,9 +87,10 @@ fn to_xml_partial_escape() -> Result {
         } | to xml --partial-escape
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, r#"<a a="'a'\">"'"qwe\</a>"#);
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(r#"<a a="'a'\">"'"qwe\</a>"#)
 }
 
 #[test]
@@ -104,9 +106,10 @@ fn to_xml_pi_comment_not_escaped() -> Result {
         } | to xml
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, r#"<a><?qwe "'<>&?><!--"'<>&--></a>"#);
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(r#"<a><?qwe "'<>&?><!--"'<>&--></a>"#)
 }
 
 #[test]
@@ -123,7 +126,8 @@ fn to_xml_self_closed() -> Result {
         } | to xml --self-closed
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, r#"<root><a/><b e="r"/><c t="y"/></root>"#);
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(r#"<root><a/><b e="r"/><c t="y"/></root>"#)
 }

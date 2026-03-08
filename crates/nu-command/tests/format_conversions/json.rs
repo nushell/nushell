@@ -9,9 +9,10 @@ fn table_to_json_text_and_from_json_text_back_into_table() -> Result {
         | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
     "#;
 
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "markup");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("markup")
 }
 
 #[test]
@@ -47,9 +48,7 @@ fn from_json_text_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 4);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
 }
 
@@ -78,9 +77,7 @@ fn from_json_text_to_table_strict() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 4);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
 }
 
@@ -104,9 +101,7 @@ fn from_json_text_recognizing_objects_independently_to_table() -> Result {
             | get rusty_luck.0
         "#;
 
-        let outcome: i64 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -129,9 +124,7 @@ fn from_json_text_objects_is_stream() -> Result {
             | describe -n
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "stream");
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq("stream")
     })
 }
 
@@ -155,9 +148,7 @@ fn from_json_text_recognizing_objects_independently_to_table_strict() -> Result 
             | get rusty_luck.0
         "#;
 
-        let outcome: i64 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -183,9 +174,10 @@ fn table_to_json_text() -> Result {
             | get name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "JonAndrehudaTZ");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("JonAndrehudaTZ")
     })
 }
 
@@ -211,9 +203,10 @@ fn table_to_json_text_strict() -> Result {
             | get name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "JonAndrehudaTZ");
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("JonAndrehudaTZ")
     })
 }
 
@@ -221,12 +214,10 @@ fn table_to_json_text_strict() -> Result {
 fn top_level_values_from_json() -> Result {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
         let code = format!(r#""{value}" | from json | to json"#);
-        let out: String = test().run(&code)?;
-        assert_eq!(out, value);
+        test().run(&code).expect_value_eq(value)?;
 
         let code = format!(r#""{value}" | from json | describe"#);
-        let out: String = test().run(&code)?;
-        assert_eq!(out, type_name);
+        test().run(&code).expect_value_eq(type_name)?;
     }
     Ok(())
 }
@@ -235,12 +226,10 @@ fn top_level_values_from_json() -> Result {
 fn top_level_values_from_json_strict() -> Result {
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
         let code = format!(r#""{value}" | from json -s | to json"#);
-        let out: String = test().run(&code)?;
-        assert_eq!(out, value);
+        test().run(&code).expect_value_eq(value)?;
 
         let code = format!(r#""{value}" | from json -s | describe"#);
-        let out: String = test().run(&code)?;
-        assert_eq!(out, type_name);
+        test().run(&code).expect_value_eq(type_name)?;
     }
     Ok(())
 }
@@ -276,9 +265,7 @@ fn strict_parsing_fails_on_trailing_comma() -> Result {
 #[test]
 fn ranges_to_json_as_array() -> Result {
     let code = "1..3 | to json";
-    let out: String = test().run(code)?;
-    assert_eq!(out, "[\n  1,\n  2,\n  3\n]");
-    Ok(())
+    test().run(code).expect_value_eq("[\n  1,\n  2,\n  3\n]")
 }
 
 #[test]
@@ -326,10 +313,11 @@ fn test_indent_flag() -> Result {
         | to json --indent 3
     "#;
 
-    let out: String = test().cwd("tests/fixtures/formats").run(code)?;
     let expected_output = "{\n   \"a\": 1,\n   \"b\": 2,\n   \"c\": 3\n}";
-    assert_eq!(out, expected_output);
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(expected_output)
 }
 
 #[test]
@@ -340,8 +328,9 @@ fn test_tabs_indent_flag() -> Result {
         | to json --tabs 2
     "#;
 
-    let out: String = test().cwd("tests/fixtures/formats").run(code)?;
     let expected_output = "{\n\t\t\"a\": 1,\n\t\t\"b\": 2,\n\t\t\"c\": 3\n}";
-    assert_eq!(out, expected_output);
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(expected_output)
 }

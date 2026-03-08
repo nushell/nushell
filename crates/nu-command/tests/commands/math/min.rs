@@ -2,9 +2,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn const_min() -> Result {
-    let outcome: i64 = test().run("const MIN = [1 3 5] | math min; $MIN")?;
-    assert_eq!(outcome, 1);
-    Ok(())
+    test()
+        .run("const MIN = [1 3 5] | math min; $MIN")
+        .expect_value_eq(1)
 }
 
 #[test]

@@ -57,7 +57,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
             };
 
             fn wrapper() -> TestResult {
-                #fn_ident().into()
+                ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident())
             }
 
             #[::nu_test_support::collect_test(::nu_test_support::harness::TESTS)]

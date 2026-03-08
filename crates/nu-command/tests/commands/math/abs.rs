@@ -3,18 +3,15 @@ use nu_test_support::prelude::*;
 #[test]
 fn const_abs() -> Result {
     let code = "const ABS = -5.5 | math abs; $ABS";
-    let outcome: f64 = test().run(code)?;
-    assert_eq!(outcome, 5.5);
-    Ok(())
+    test().run(code).expect_value_eq(5.5)
 }
 
 #[test]
 fn can_abs_range_into_list() -> Result {
-    let actual: String = test().run("-1.5..-10.5 | math abs | to text")?;
     let expected: String = test().run("1.5..10.5 | to text")?;
-
-    assert_eq!(actual, expected);
-    Ok(())
+    test()
+        .run("-1.5..-10.5 | math abs | to text")
+        .expect_value_eq(expected)
 }
 
 #[test]
