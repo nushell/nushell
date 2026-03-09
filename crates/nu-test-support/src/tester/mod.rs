@@ -147,7 +147,7 @@ impl NuTester {
         self
     }
 
-    /// Set the locale used by tests via `NU_TEST_LOCALE`.
+    /// Set the locale used by tests via `NU_TEST_LOCALE_OVERRIDE`.
     pub fn locale(mut self, locale: impl Into<String>) -> Self {
         self.engine_state.add_env_var(
             "NU_TEST_LOCALE_OVERRIDE".into(),
