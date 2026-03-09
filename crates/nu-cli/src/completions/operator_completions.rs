@@ -1,8 +1,6 @@
-use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
-};
+use crate::completions::{Completer, SemanticSuggestion, completion_options::NuMatcher};
 use nu_protocol::{
-    ENV_VARIABLE_ID, Span, SuggestionKind, Type, Value,
+    CompletionOptions, ENV_VARIABLE_ID, Span, SuggestionKind, Type, Value,
     ast::{self, Comparison, Expr, Expression},
     engine::{Stack, StateWorkingSet},
 };

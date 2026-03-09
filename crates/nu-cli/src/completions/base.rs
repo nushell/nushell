@@ -1,6 +1,5 @@
-use crate::completions::CompletionOptions;
 use nu_protocol::{
-    DynamicSuggestion, Span, SuggestionKind,
+    CompletionOptions, DynamicSuggestion, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

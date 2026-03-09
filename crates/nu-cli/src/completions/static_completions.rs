@@ -1,6 +1,6 @@
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{Completer, SemanticSuggestion};
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use nu_utils::NuCow;

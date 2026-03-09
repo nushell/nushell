@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::Completer;
 use nu_protocol::{
-    Category, Span, SuggestionKind,
+    Category, CompletionOptions, Span, SuggestionKind,
     engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

@@ -1,14 +1,14 @@
 use crate::{
     FileCompletion, NuCompleter,
     completions::{
-        CommandCompletion, Completer, CompletionOptions, DirectoryCompletion, DotNuCompletion,
-        EnvVarCompletion, ExportableCompletion, SemanticSuggestion, completer::Context,
+        CommandCompletion, Completer, DirectoryCompletion, DotNuCompletion, EnvVarCompletion,
+        ExportableCompletion, SemanticSuggestion, completer::Context,
         completion_options::NuMatcher,
     },
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    DynamicCompletionCallRef, Span,
+    CompletionOptions, DynamicCompletionCallRef, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, Stack, StateWorkingSet},
 };
