@@ -2,11 +2,7 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn test_char_list_outputs_table() -> Result {
-    let code = r#"
-        char --list | length
-    "#;
-
-    test().run(code).expect_value_eq(113)
+    test().run("char --list | length").expect_value_eq(113)
 }
 
 #[test]
