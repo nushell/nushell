@@ -49,6 +49,11 @@ impl SimplePluginCommand for QueryWeb {
                 "Run in inspect mode to provide more information for determining column headers.",
                 Some('i'),
             )
+            .switch(
+                "document",
+                "Parse the input as a full HTML document instead of a fragment",
+                Some('d'),
+            )
             .category(Category::Network)
     }
 
@@ -86,6 +91,11 @@ pub fn web_examples() -> Vec<Example<'static>> {
             result: None,
         },
         Example {
+            example: "http get http://example.com | query web --document --query body",
+            description: "Parse the response as a full document so that the `<body>` element is preserved",
+            result: None,
+        },
+        Example {
             example: "http get https://example.org | query web --query a --attribute href",
             description: "Retrieve a specific html attribute instead of the default text",
             result: None,
@@ -104,6 +114,7 @@ pub struct Selector {
     pub attribute: Value,
     pub as_table: Value,
     pub inspect: Spanned<bool>,
+    pub document: bool,
 }
 
 pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
@@ -119,6 +130,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
 
     let inspect = call.has_flag("inspect")?;
     let inspect_span = call.get_flag_span("inspect").unwrap_or(call.head);
+    let document = call.has_flag("document")?;
 
     let selector = Selector {
         query: query.unwrap_or(Spanned {
@@ -132,6 +144,7 @@ pub fn parse_selector_params(call: &EvaluatedCall, input: &Value) -> Result<Valu
             item: inspect,
             span: inspect_span,
         },
+        document,
     };
 
     let span = input.span();
@@ -160,6 +173,7 @@ fn begin_selector_query(
             selector.query,
             selector.as_html,
             selector.inspect,
+            selector.document,
             span,
         )
     } else if let Value::List { .. } = selector.attribute {
@@ -168,6 +182,7 @@ fn begin_selector_query(
             selector.query,
             &selector.attribute,
             selector.inspect,
+            selector.document,
             span,
         )
     } else {
@@ -176,6 +191,7 @@ fn begin_selector_query(
             selector.query,
             selector.attribute.as_str().unwrap_or(""),
             selector.inspect,
+            selector.document,
             span,
         )
     }
@@ -315,9 +331,10 @@ fn execute_selector_query_with_attribute(
     query_string: Spanned<String>,
     attribute: &str,
     inspect: Spanned<bool>,
+    document: bool,
     span: Span,
 ) -> Result<Value, LabeledError> {
-    let doc = Html::parse_fragment(input_string);
+    let doc = parse_html(input_string, document);
 
     let vals: Vec<Value> = doc
         .select(&fallible_css(query_string, inspect)?)
@@ -336,9 +353,10 @@ fn execute_selector_query_with_attributes(
     query_string: Spanned<String>,
     attributes: &Value,
     inspect: Spanned<bool>,
+    document: bool,
     span: Span,
 ) -> Result<Value, LabeledError> {
-    let doc = Html::parse_fragment(input_string);
+    let doc = parse_html(input_string, document);
 
     let mut attrs: Vec<String> = Vec::new();
     if let Value::List { vals, .. } = &attributes {
@@ -370,9 +388,10 @@ fn execute_selector_query(
     query_string: Spanned<String>,
     as_html: bool,
     inspect: Spanned<bool>,
+    document: bool,
     span: Span,
 ) -> Result<Value, LabeledError> {
-    let doc = Html::parse_fragment(input_string);
+    let doc = parse_html(input_string, document);
 
     let vals: Vec<Value> = match as_html {
         true => doc
@@ -394,6 +413,17 @@ fn execute_selector_query(
     };
 
     Ok(Value::list(vals, span))
+}
+
+/// Parse input HTML either as a fragment or as a full document depending on
+/// the `document` flag.  `scraper` drops `<html>`, `<head>` and `<body>` when
+/// parsing a fragment, which is why we need the option.
+fn parse_html(input: &str, document: bool) -> Html {
+    if document {
+        Html::parse_document(input)
+    } else {
+        Html::parse_fragment(input)
+    }
 }
 
 fn fallible_css(
@@ -458,6 +488,7 @@ mod tests {
                 null_spanned("li:first-child"),
                 false,
                 null_spanned(&false),
+                /* document = */ false,
                 Span::test_data()
             )
             .unwrap()
@@ -472,6 +503,7 @@ mod tests {
             null_spanned("li:first-child"),
             false,
             null_spanned(&false),
+            /* document = */ false,
             Span::test_data(),
         )
         .unwrap();
@@ -487,6 +519,7 @@ mod tests {
             null_spanned("p:first-child"),
             false,
             null_spanned(&false),
+            /* document = */ false,
             Span::test_data(),
         )
         .unwrap();
@@ -511,6 +544,41 @@ mod tests {
     }
 
     #[test]
+    fn test_body_fragment_default() {
+        // under fragment parsing the <body> element is removed, so nothing
+        // should be returned
+        let html = "<html><head><title>x</title></head><body><p>foo</p></body></html>";
+        let result = execute_selector_query(
+            html,
+            null_spanned("body"),
+            false,
+            null_spanned(&false),
+            /* document = */ false,
+            Span::test_data(),
+        )
+        .unwrap();
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_body_with_document_flag() {
+        let html = "<html><head><title>x</title></head><body><p>foo</p></body></html>";
+        let result = execute_selector_query(
+            html,
+            null_spanned("body"),
+            false,
+            null_spanned(&false),
+            /* document = */ true,
+            Span::test_data(),
+        )
+        .unwrap();
+        assert!(!result.is_empty());
+        let config = nu_protocol::Config::default();
+        let out = result.to_expanded_string("\n", &config);
+        assert_eq!("[[foo]]".to_string(), out);
+    }
+
+    #[test]
     fn test_multiple_attributes() {
         let item = execute_selector_query_with_attributes(
             MULTIPLE_ATTRIBUTES,
@@ -523,6 +591,7 @@ mod tests {
                 Span::unknown(),
             ),
             null_spanned(&false),
+            /* document = */ false,
             Span::test_data(),
         )
         .unwrap();
