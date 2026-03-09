@@ -208,6 +208,7 @@ impl NuTester {
         code: impl AsRef<str>,
         data: PipelineData,
     ) -> Result<PipelineExecutionData> {
+        let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -215,21 +216,21 @@ impl NuTester {
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
             return Err(TestError {
-                location: TestLocation(Location::caller()),
+                location,
                 kind: TestErrorKind::Parse(err),
             });
         }
 
         if let Some(err) = working_set.compile_errors.into_iter().next() {
             return Err(TestError {
-                location: TestLocation(Location::caller()),
+                location,
                 kind: TestErrorKind::Compile(err),
             });
         }
 
         self.engine_state.merge_delta(working_set.delta)?;
         nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
-            .map_err(Into::into)
+            .map_err(|err| TestError { location, kind: TestErrorKind::Shell(err) })
     }
 
     #[track_caller]
@@ -315,6 +316,15 @@ impl TestError {
             _ => Err(self),
         }
     }
+
+    /// Update it's inner location with the call site of this function.
+    #[track_caller]
+    pub fn update_location(self) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            ..self
+        }
+    }
 }
 
 /// Convenience result type for test helpers.
@@ -333,6 +343,7 @@ pub trait TestResultExt: Sized {
     fn expect_compile_error(self) -> Result<CompileError>;
 
     /// Expect the result to be a [`ShellError`].
+    #[track_caller]
     fn expect_error(self) -> Result<ShellError> {
         self.expect_shell_error()
     }
@@ -343,7 +354,7 @@ impl TestResultExt for Result<Value> {
     fn expect_value_eq<T: IntoValue>(self, expected: T) -> Result {
         let expected = expected.into_value(Span::test_data());
         match self {
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
             Ok(actual) if actual == expected => Ok(()),
             Ok(actual) => Err(TestError {
                 location: TestLocation(Location::caller()),
@@ -366,7 +377,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Shell(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 
@@ -381,7 +392,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Parse(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 
@@ -396,7 +407,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Compile(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 }
