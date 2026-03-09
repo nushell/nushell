@@ -1,23 +1,9 @@
 use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
-
 use nu_protocol::Signals;
+use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_CHAR};
 use std::collections::HashSet;
 use std::sync::LazyLock;
-
-// Character used to separate directories in a Path Environment variable on windows is ";"
-#[cfg(target_family = "windows")]
-const ENV_PATH_SEPARATOR_CHAR: char = ';';
-// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
-#[cfg(not(target_family = "windows"))]
-const ENV_PATH_SEPARATOR_CHAR: char = ':';
-
-// Character used to separate directories in a Path Environment variable on windows is ";"
-#[cfg(target_family = "windows")]
-const LINE_SEPARATOR_CHAR: &str = "\r\n";
-// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
-#[cfg(not(target_family = "windows"))]
-const LINE_SEPARATOR_CHAR: char = '\n';
 
 #[derive(Clone)]
 pub struct Char;
