@@ -283,12 +283,12 @@ impl CallExt for ir::Call {
 
     fn req<T: FromValue>(
         &self,
-        engine_state: &EngineState,
+        _engine_state: &EngineState,
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(val) = self.opt(engine_state, stack, pos)? {
-            Ok(val)
+        if let Some(val) = self.positional_iter(stack).nth(pos).cloned() {
+            T::from_value(val)
         } else if self.positional_len(stack) == 0 {
             Err(ShellError::AccessEmptyContent { span: self.head })
         } else {
