@@ -1,7 +1,7 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn moves_a_column_before() {
+fn moves_a_column_before() -> Result {
     let sample = r#"[
         [column1 column2 column3 ... column98  column99  column100];
         [------- ------- ------- --- -------- "   A    " ---------],
@@ -12,7 +12,7 @@ fn moves_a_column_before() {
         [------- ------- ------- --- -------- "   S    " ---------]
     ]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {sample}
             | move column99 --before column1
@@ -21,13 +21,15 @@ fn moves_a_column_before() {
             | str trim
             | str join
         "#
-    ));
+    );
 
-    assert!(actual.out.contains("ANDRES"));
+    let actual: String = test().run(code)?;
+    assert_contains("ANDRES", actual);
+    Ok(())
 }
 
 #[test]
-fn moves_columns_before() {
+fn moves_columns_before() -> Result {
     let sample = r#"[
         [column1 column2  column3  ... column98  column99  column100];
         [------- ------- "   A   " --- -------- "   N    " ---------]
@@ -37,7 +39,7 @@ fn moves_columns_before() {
         [------- ------- "   J   " --- -------- "   T    " ---------]
     ]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {sample}
             | move column99 column3 --before column2
@@ -47,13 +49,15 @@ fn moves_columns_before() {
             | get new_col
             | str join
         "#
-    ));
+    );
 
-    assert!(actual.out.contains("ANDRES::JT"));
+    let actual: String = test().run(code)?;
+    assert_contains("ANDRES::JT", actual);
+    Ok(())
 }
 
 #[test]
-fn moves_a_column_after() {
+fn moves_a_column_after() -> Result {
     let sample = r#"[
         [column1 column2  letters  ... column98  and_more  column100];
         [------- ------- "   A   " --- -------- "   N    " ---------]
@@ -63,7 +67,7 @@ fn moves_a_column_after() {
         [------- ------- "   J   " --- -------- "   T    " ---------]
     ]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {sample}
             | move letters --after and_more
@@ -74,13 +78,15 @@ fn moves_a_column_after() {
             | get new_col
             | str join
         "#
-    ));
+    );
 
-    assert!(actual.out.contains("ANDRES::JT"));
+    let actual: String = test().run(code)?;
+    assert_contains("ANDRES::JT", actual);
+    Ok(())
 }
 
 #[test]
-fn moves_columns_after() {
+fn moves_columns_after() -> Result {
     let content = r#"[
         [column1 column2   letters ... column98  and_more  column100];
         [------- ------- "   A   " --- -------- "   N    " ---------]
@@ -90,7 +96,7 @@ fn moves_columns_after() {
         [------- ------- "   J   " --- -------- "   T    " ---------]
     ]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {content}
             | move letters and_more --after column1
@@ -98,7 +104,9 @@ fn moves_columns_after() {
             | select 1 2
             | str join
         "#
-    ));
+    );
 
-    assert!(actual.out.contains("lettersand_more"));
+    let actual: String = test().run(code)?;
+    assert_contains("lettersand_more", actual);
+    Ok(())
 }
