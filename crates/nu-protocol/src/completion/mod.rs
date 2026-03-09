@@ -1,7 +1,7 @@
 use crate::{DeclId, Span, Type, ast, engine::CommandType};
 use serde::{Deserialize, Serialize};
 
-pub mod matcher;
+mod matcher;
 pub use matcher::NuMatcher;
 
 /// A simple semantics suggestion just like nu_cli::SemanticSuggestion, but it
