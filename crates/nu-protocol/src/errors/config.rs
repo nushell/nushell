@@ -1,7 +1,7 @@
-use std::hash::Hash;
-
+#![allow(unused_assignments)]
 use crate::{ShellError, Span, Type};
 use miette::Diagnostic;
+use std::hash::Hash;
 use thiserror::Error;
 
 /// The errors that may occur when updating the config

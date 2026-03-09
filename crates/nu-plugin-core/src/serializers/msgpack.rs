@@ -71,7 +71,6 @@ fn rmp_encode_err(err: rmp_serde::encode::Error) -> ShellError {
                 // TODO: get a better kind here
                 shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
                 "Could not encode with rmp",
-                nu_protocol::location!(),
             ))
         }
         _ => {
@@ -95,7 +94,6 @@ fn rmp_decode_err<T>(err: rmp_serde::decode::Error) -> Result<Option<T>, ShellEr
                     // TODO: get a better kind here
                     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::Other),
                     "Could not decode with rmp",
-                    nu_protocol::location!(),
                 )))
             }
         },

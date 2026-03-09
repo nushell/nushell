@@ -47,8 +47,7 @@ impl UseAnsiColoring {
 
         let env_value = |env_name| {
             engine_state
-                .get_env_var_insensitive(env_name)
-                .map(|(_, v)| v)
+                .get_env_var(env_name)
                 .and_then(|v| v.coerce_bool().ok())
                 .unwrap_or(false)
         };
@@ -61,14 +60,14 @@ impl UseAnsiColoring {
             return false;
         }
 
-        if let Some((_, cli_color)) = engine_state.get_env_var_insensitive("clicolor")
+        if let Some(cli_color) = engine_state.get_env_var("clicolor")
             && let Ok(cli_color) = cli_color.coerce_bool()
         {
             return cli_color;
         }
 
         // If the TERM environment variable is set to "dumb", disable ANSI colors
-        if let Some((_, term)) = engine_state.get_env_var_insensitive("term")
+        if let Some(term) = engine_state.get_env_var("term")
             && term.as_str().ok() == Some("dumb")
         {
             return false;

@@ -16,8 +16,8 @@ impl PluginCommand for AppendDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("other", SyntaxShape::Any, "other dataframe to append")
-            .switch("col", "append as new columns instead of rows", Some('c'))
+            .required("other", SyntaxShape::Any, "Other dataframe to append.")
+            .switch("col", "Append as new columns instead of rows.", Some('c'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

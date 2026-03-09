@@ -10,7 +10,7 @@ impl Command for MathArcSin {
 
     fn signature(&self) -> Signature {
         Signature::build("math arcsin")
-            .switch("degrees", "Return degrees instead of radians", Some('d'))
+            .switch("degrees", "Return degrees instead of radians.", Some('d'))
             .input_output_types(vec![
                 (Type::Number, Type::Float),
                 (

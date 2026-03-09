@@ -81,11 +81,7 @@ where
 
     fn flush(&self) -> Result<(), ShellError> {
         self.0.lock().flush().map_err(|err| {
-            ShellError::Io(IoError::new_internal(
-                err,
-                "PluginWrite could not flush",
-                nu_protocol::location!(),
-            ))
+            ShellError::Io(IoError::new_internal(err, "PluginWrite could not flush"))
         })
     }
 
@@ -111,11 +107,7 @@ where
             msg: "writer mutex poisoned".into(),
         })?;
         lock.flush().map_err(|err| {
-            ShellError::Io(IoError::new_internal(
-                err,
-                "PluginWrite could not flush",
-                nu_protocol::location!(),
-            ))
+            ShellError::Io(IoError::new_internal(err, "PluginWrite could not flush"))
         })
     }
 }
@@ -370,7 +362,6 @@ where
                         IoError::new_internal(
                             err,
                             "Could not spawn plugin stream background writer",
-                            nu_protocol::location!(),
                         )
                     })?,
             )),

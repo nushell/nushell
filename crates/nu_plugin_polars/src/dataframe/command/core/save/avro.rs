@@ -36,7 +36,7 @@ pub(crate) fn command_eager(
 ) -> Result<(), ShellError> {
     let file_span = resource.span;
     let compression = get_compression(call)?;
-    let path: PathBuf = resource.try_into()?;
+    let path: PathBuf = resource.as_path_buf();
     let file = File::create(&path).map_err(|e| ShellError::GenericError {
         error: format!("Error with file name: {e}"),
         msg: "".into(),

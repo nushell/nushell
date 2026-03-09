@@ -16,7 +16,8 @@ use nu_path::form::Absolute;
 use nu_pretty_hex::HexConfig;
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
-    ValueIterator, shell_error::io::IoError,
+    ValueIterator,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use nu_table::{
     CollapsedTable, ExpandedTable, JustTable, NuTable, StringResult, TableOpts, TableOutput,
@@ -26,6 +27,7 @@ use nu_utils::{get_ls_colors, terminal_size};
 
 type ShellResult<T> = Result<T, ShellError>;
 type NuPathBuf = nu_path::PathBuf<Absolute>;
+type NuPath = nu_path::Path<Absolute>;
 
 const DEFAULT_TABLE_WIDTH: usize = 80;
 
@@ -58,52 +60,52 @@ impl Command for Table {
                 Flag::new("theme")
                     .short('t')
                     .arg(SyntaxShape::String)
-                    .desc("set a table mode/theme")
+                    .desc("Set a table mode/theme.")
                     .completion(Completion::new_list(SUPPORTED_TABLE_MODES)),
             )
             .named(
                 "index",
                 SyntaxShape::Any,
-                "enable (true) or disable (false) the #/index column or set the starting index",
+                "Enable (true) or disable (false) the #/index column or set the starting index.",
                 Some('i'),
             )
             .named(
                 "width",
                 SyntaxShape::Int,
-                "number of terminal columns wide (not output columns)",
+                "Number of terminal columns wide (not output columns).",
                 Some('w'),
             )
             .switch(
                 "expand",
-                "expand the table structure in a light mode",
+                "Expand the table structure in a light mode.",
                 Some('e'),
             )
             .named(
                 "expand-deep",
                 SyntaxShape::Int,
-                "an expand limit of recursion which will take place, must be used with --expand",
+                "An expand limit of recursion which will take place, must be used with --expand.",
                 Some('d'),
             )
-            .switch("flatten", "Flatten simple arrays", None)
+            .switch("flatten", "Flatten simple arrays.", None)
             .named(
                 "flatten-separator",
                 SyntaxShape::String,
-                "sets a separator when 'flatten' used",
+                "Sets a separator when 'flatten' is used.",
                 None,
             )
             .switch(
                 "collapse",
-                "expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control",
+                "Expand the table structure in collapse mode.\nBe aware collapse mode currently doesn't support width control.",
                 Some('c'),
             )
             .named(
                 "abbreviated",
                 SyntaxShape::Int,
-                "abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom",
+                "Abbreviate the data in the table by truncating the middle part and only showing amount provided on top and bottom.",
                 Some('a'),
             )
-            .switch("list", "list available table modes/themes", Some('l'))
-            .switch("icons", "adds icons to ls tables", Some('o'),
+            .switch("list", "List available table modes/themes.", Some('l'))
+            .switch("icons", "Add icons to file paths in tables.", Some('o'),
             )
             .category(Category::Viewers)
     }
@@ -210,6 +212,27 @@ impl Command for Table {
             },
         ]
     }
+}
+
+pub(crate) fn render_value_as_plain_table_text(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    value: Value,
+    span: Span,
+) -> ShellResult<String> {
+    let call = Call::new(span);
+    let input = value.into_pipeline_data();
+    let input = CmdInput::parse(engine_state, stack, &call, input)?;
+    let output = handle_table_command(input)?;
+    let output = output.into_value(span)?;
+    let config = stack.get_config(engine_state);
+
+    let text = match output {
+        Value::String { val, .. } => val,
+        other => other.to_expanded_string("", &config),
+    };
+
+    Ok(nu_utils::strip_ansi_string_likely(text))
 }
 
 #[derive(Debug, Clone)]
@@ -458,9 +481,9 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             input.data = PipelineData::empty();
             handle_row_stream(input, stream, metadata)
         }
-        PipelineData::Value(Value::Record { val, .. }, ..) => {
+        PipelineData::Value(Value::Record { val, .. }, metadata) => {
             input.data = PipelineData::empty();
-            handle_record(input, val.into_owned())
+            handle_record(input, val.into_owned(), metadata)
         }
         PipelineData::Value(Value::Error { error, .. }, ..) => {
             // Propagate this error outward, so that it goes to stderr
@@ -529,7 +552,10 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
                 (&mut reader)
                     .take(cfg.width as u64)
                     .read_to_end(&mut read_buf)
-                    .map_err(|err| IoError::new(err, span, None))?;
+                    .map_err(|err| match ShellErrorBridge::try_from(err) {
+                        Ok(ShellErrorBridge(err)) => err,
+                        Err(err) => IoError::new(err, span, None).into(),
+                    })?;
 
                 if !read_buf.is_empty() {
                     nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
@@ -551,7 +577,11 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
     )
 }
 
-fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineData> {
+fn handle_record(
+    input: CmdInput,
+    mut record: Record,
+    metadata: Option<PipelineMetadata>,
+) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
 
     if record.is_empty() {
@@ -571,6 +601,50 @@ fn handle_record(input: CmdInput, mut record: Record) -> ShellResult<PipelineDat
     }
 
     let config = input.get_config();
+
+    if let Some(PipelineMetadata {
+        data_source,
+        mut path_columns,
+        ..
+    }) = metadata
+    {
+        #[allow(deprecated)]
+        if data_source == DataSource::Ls {
+            path_columns.push(String::from("name"));
+        }
+        // Remove duplicates
+        path_columns.sort_unstable();
+        path_columns.dedup();
+
+        let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+            Some(v) => Some(env_to_string(
+                "LS_COLORS",
+                v,
+                input.engine_state,
+                input.stack,
+            )?),
+            None => None,
+        };
+        let ls_colors = get_ls_colors(ls_colors_env_str);
+
+        for column in &path_columns {
+            if let Some(value) = record.get_mut(column) {
+                let span = value.span();
+                if let Value::String { val, .. } = value
+                    && let Some(val) = render_path_name(
+                        val,
+                        &config,
+                        &ls_colors,
+                        input.cwd.as_deref(),
+                        input.cfg.icons,
+                        span,
+                    )
+                {
+                    *value = val;
+                }
+            }
+        }
+    }
     let opts = create_table_opts(
         input.engine_state,
         input.stack,
@@ -682,51 +756,13 @@ fn handle_row_stream(
     metadata: Option<PipelineMetadata>,
 ) -> ShellResult<PipelineData> {
     let cfg = input.get_config();
-    let stream = match metadata.as_ref() {
-        // First, `ls` sources:
-        Some(PipelineMetadata {
-            data_source: DataSource::Ls,
-            ..
-        }) => {
-            let config = cfg.clone();
-            let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
-                Some(v) => Some(env_to_string(
-                    "LS_COLORS",
-                    v,
-                    input.engine_state,
-                    input.stack,
-                )?),
-                None => None,
-            };
-            let ls_colors = get_ls_colors(ls_colors_env_str);
 
-            stream.map(move |mut value| {
-                if let Value::Record { val: record, .. } = &mut value {
-                    // Only the name column gets special colors, for now
-                    if let Some(value) = record.to_mut().get_mut("name") {
-                        let span = value.span();
-                        if let Value::String { val, .. } = value
-                            && let Some(val) = render_path_name(
-                                val,
-                                &config,
-                                &ls_colors,
-                                input.cwd.clone(),
-                                input.cfg.icons,
-                                span,
-                            )
-                        {
-                            *value = val;
-                        }
-                    }
-                }
-                value
-            })
-        }
-        // Next, `to html -l` sources:
-        Some(PipelineMetadata {
+    let stream = if let Some(metadata) = metadata {
+        let stream = if let PipelineMetadata {
             data_source: DataSource::HtmlThemes,
             ..
-        }) => {
+        } = &metadata
+        {
             stream.map(|mut value| {
                 if let Value::Record { val: record, .. } = &mut value {
                     for (rec_col, rec_val) in record.to_mut().iter_mut() {
@@ -757,8 +793,60 @@ fn handle_row_stream(
                 }
                 value
             })
+        } else {
+            stream
+        };
+
+        let PipelineMetadata {
+            data_source,
+            mut path_columns,
+            ..
+        } = metadata;
+
+        #[allow(deprecated)]
+        if data_source == DataSource::Ls {
+            path_columns.push(String::from("name"));
         }
-        _ => stream,
+        // Remove duplicates
+        path_columns.sort_unstable();
+        path_columns.dedup();
+
+        let config = cfg.clone();
+        let ls_colors_env_str = match input.stack.get_env_var(input.engine_state, "LS_COLORS") {
+            Some(v) => Some(env_to_string(
+                "LS_COLORS",
+                v,
+                input.engine_state,
+                input.stack,
+            )?),
+            None => None,
+        };
+        let ls_colors = get_ls_colors(ls_colors_env_str);
+
+        stream.map(move |mut value| {
+            if let Value::Record { val: record, .. } = &mut value {
+                for column in &path_columns {
+                    if let Some(value) = record.to_mut().get_mut(column) {
+                        let span = value.span();
+                        if let Value::String { val, .. } = value
+                            && let Some(val) = render_path_name(
+                                val,
+                                &config,
+                                &ls_colors,
+                                input.cwd.as_deref(),
+                                input.cfg.icons,
+                                span,
+                            )
+                        {
+                            *value = val;
+                        }
+                    }
+                }
+            }
+            value
+        })
+    } else {
+        stream
     };
 
     let paginator = PagingTableCreator::new(
@@ -1049,7 +1137,7 @@ fn render_path_name(
     path: &str,
     config: &Config,
     ls_colors: &LsColors,
-    cwd: Option<NuPathBuf>,
+    cwd: Option<&NuPath>,
     icons: bool,
     span: Span,
 ) -> Option<Value> {

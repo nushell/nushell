@@ -23,19 +23,19 @@ impl Command for StorUpdate {
             .required_named(
                 "table-name",
                 SyntaxShape::String,
-                "name of the table you want to insert into",
+                "Name of the table you want to insert into.",
                 Some('t'),
             )
             .named(
                 "update-record",
                 SyntaxShape::Record(vec![]),
-                "a record of column names and column values to update in the specified table",
+                "A record of column names and column values to update in the specified table.",
                 Some('u'),
             )
             .named(
                 "where-clause",
                 SyntaxShape::String,
-                "a sql string to use as a where clause without the WHERE keyword",
+                "A sql string to use as a where clause without the WHERE keyword.",
                 Some('w'),
             )
             .allow_variants_without_examples(true)

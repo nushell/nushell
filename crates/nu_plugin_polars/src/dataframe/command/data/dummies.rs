@@ -20,9 +20,9 @@ impl PluginCommand for Dummies {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .switch("drop-first", "Drop first row", Some('d'))
-            .switch("drop-nulls", "Drop nulls", Some('n'))
-            .switch("separator", "Optional separator", Some('s'))
+            .switch("drop-first", "Drop first row.", Some('d'))
+            .switch("drop-nulls", "Drop nulls.", Some('n'))
+            .switch("separator", "Optional separator.", Some('s'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

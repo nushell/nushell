@@ -42,22 +42,22 @@ If multiple cell paths are given, this will produce a list of values."#
             .rest("rest", SyntaxShape::CellPath, "Additional cell paths.")
             .switch(
                 "optional",
-                "make all cell path members optional (returns `null` for missing values)",
+                "Make all cell path members optional (returns `null` for missing values).",
                 Some('o'),
             )
             .switch(
                 "ignore-case",
-                "make all cell path members case insensitive",
+                "Make all cell path members case insensitive.",
                 None,
             )
             .switch(
                 "ignore-errors",
-                "ignore missing data (make all cell path members optional) (deprecated)",
+                "Ignore missing data (make all cell path members optional) (deprecated).",
                 Some('i'),
             )
             .switch(
                 "sensitive",
-                "get path in a case sensitive manner (deprecated)",
+                "Get path in a case sensitive manner (deprecated).",
                 Some('s'),
             )
             .allow_variants_without_examples(true)
@@ -67,12 +67,12 @@ If multiple cell paths are given, this will produce a list of values."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Get an item from a list",
+                description: "Get an item from a list.",
                 example: "[0 1 2] | get 1",
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Get a column from a table",
+                description: "Get a column from a table.",
                 example: "[{A: A0}] | get A",
                 result: Some(Value::list(
                     vec![Value::test_string("A0")],
@@ -80,7 +80,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
-                description: "Get a column from a table where some rows don't have that column, using optional cell-path syntax",
+                description: "Get a column from a table where some rows don't have that column, using optional cell-path syntax.",
                 example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get A?",
                 result: Some(Value::list(
                     vec![
@@ -92,7 +92,7 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
-                description: "Get a column from a table where some rows don't have that column, using the optional flag",
+                description: "Get a column from a table where some rows don't have that column, using the optional flag.",
                 example: "[{A: A0, B: B0}, {B: B1}, {A: A2, B: B2}] | get -o A",
                 result: Some(Value::list(
                     vec![
@@ -104,32 +104,32 @@ If multiple cell paths are given, this will produce a list of values."#
                 )),
             },
             Example {
-                description: "Get a cell from a table",
+                description: "Get a cell from a table.",
                 example: "[{A: A0}] | get 0.A",
                 result: Some(Value::test_string("A0")),
             },
             Example {
-                description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`)",
+                description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`).",
                 example: "ls | get name.2",
                 result: None,
             },
             Example {
-                description: "Extract the name of the 3rd record in a list",
+                description: "Extract the name of the 3rd record in a list.",
                 example: "ls | get 2.name",
                 result: None,
             },
             Example {
-                description: "Getting environment variables in a case insensitive way, using case insensitive cell-path syntax",
+                description: "Getting environment variables in a case insensitive way, using case insensitive cell-path syntax.",
                 example: "$env | get home! path!",
                 result: None,
             },
             Example {
-                description: "Getting environment variables in a case insensitive way, using the '--ignore-case' flag",
+                description: "Getting environment variables in a case insensitive way, using the '--ignore-case' flag.",
                 example: "$env | get --ignore-case home path",
                 result: None,
             },
             Example {
-                description: "Getting Path in a case sensitive way, won't work for 'PATH'",
+                description: "Getting Path in a case sensitive way, won't work for 'PATH'.",
                 example: "$env | get Path",
                 result: None,
             },

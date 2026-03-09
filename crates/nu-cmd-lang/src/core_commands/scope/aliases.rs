@@ -34,7 +34,7 @@ impl Command for ScopeAliases {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the aliases in the current scope",
+            description: "Show the aliases in the current scope.",
             example: "scope aliases",
             result: None,
         }]

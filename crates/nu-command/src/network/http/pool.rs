@@ -18,12 +18,12 @@ impl Command for HttpPool {
             .allow_variants_without_examples(true)
             .switch(
                 "insecure",
-                "allow insecure server connections when using SSL",
+                "Allow insecure server connections when using SSL.",
                 Some('k'),
             )
             .switch(
                 "allow-errors",
-                "do not fail if the server returns an error code",
+                "Do not fail if the server returns an error code.",
                 Some('e'),
             )
             .param(
@@ -45,7 +45,7 @@ impl Command for HttpPool {
     }
 
     fn extra_description(&self) -> &str {
-        "All connections inside http connection poll will be closed."
+        "All connections inside http connection pool will be closed."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -24,6 +24,7 @@ pub use menus::NuHelpCompleter;
 pub use nu_highlight::NuHighlight;
 pub use print::Print;
 pub use prompt::NushellPrompt;
+pub use prompt_update::update_prompt;
 pub use repl::evaluate_repl;
 pub use syntax_highlight::NuHighlighter;
 pub use util::{eval_source, gather_parent_env_vars};
@@ -35,3 +36,10 @@ pub use config_files::add_plugin_file;
 pub use config_files::migrate_old_plugin_file;
 #[cfg(feature = "plugin")]
 pub use config_files::read_plugin_file;
+
+#[cfg(test)]
+#[macro_use]
+extern crate nu_test_support;
+
+#[cfg(test)]
+use nu_test_support::harness::main;

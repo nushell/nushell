@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.110.1"
+# version = "0.111.1"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -64,6 +64,17 @@ $env.config.history.sync_on_enter = true
 # Default: false
 $env.config.history.isolation = false
 
+# history.path (string): Path to the history file.
+# If not set, Nushell will use the default location.
+# You can also provide a custom path for your history file.
+# Examples:
+# Use a custom location (e.g., in your home directory):
+$env.config.history.path = "~/custom/my-history.txt"
+# Default behavior:
+# If not set (null), Nushell stores history in the default config directory.
+# If set to a directory, the appropriate file name (e.g., history.txt) is used.
+# If set to a filename only, the file will be stored in $nu.default-config-dir.
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------
@@ -88,6 +99,23 @@ $env.config.rm.always_trash = false
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50
+
+# ------------------
+# Clipboard Settings
+# ------------------
+
+# clip.resident_mode (bool): Use a background process for clipboard operations on Linux.
+# true: Serves clipboard content in a background process for clipboard functionality (Linux-only).
+# false: Just sets the clipboard value and forgets.
+# Default: true (on Linux), false (otherwise)
+$env.config.clip.resident_mode = ($nu.os-info.name == linux)
+
+# clip.default_raw (bool): Controls whether `clip` copies raw content by default.
+# true: `clip` will copy content as raw bytes by default.
+# false: `clip` will attempt to convert content to a string before copying.
+# This can be overridden with the `--raw` flag on the `clip` command.
+# Default: false
+$env.config.clip.default_raw = false
 
 # ---------------------------
 # Commandline Editor Settings
@@ -238,7 +266,7 @@ $env.config.shell_integration.osc9_9 = ($nu.os-info.name == windows)
 
 # shell_integration.osc133 (bool): Enable OSC 133 support for shell semantic zones.
 # Reports prompt location and command exit status to terminal.
-# Enables features like collapsible output, prompt-to-prompt scrolling.
+# Enables features like collapsible output, prompt-to-prompt scrolling, and click-to-cursor.
 # Default: true
 $env.config.shell_integration.osc133 = true
 

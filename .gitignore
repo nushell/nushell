@@ -60,3 +60,6 @@ tarpaulin-report.html
 
 # pre-commit-hooks
 .pre-commit-config.yaml
+
+# skills
+.github/skills/*

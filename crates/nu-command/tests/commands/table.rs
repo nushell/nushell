@@ -512,6 +512,9 @@ fn external_with_too_much_stdout_should_not_hang_nu() {
         ");
 
         assert_eq!(actual.out, large_file_body);
+
+        let actual = nu!(cwd: dirs.test(), "let x = cat a_large_file.txt; $x");
+        assert_eq!(actual.out, large_file_body);
     })
 }
 
@@ -4032,4 +4035,37 @@ fn table_index_column_with_index_flag_false() {
          │     0 │ yes  │\
          ╰───────┴──────╯"
     );
+}
+
+#[test]
+fn metadata_path_columns_single() {
+    let actual = nu!(concat!(
+        "$env.config.use_ansi_coloring = true;",
+        "$env.config.shell_integration.osc8 = false;",
+        r#"[{"name":"src"}] | metadata set --path-columns [name]"#
+    ));
+    let expected = "\u{1b}[39m╭───┬──────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mname\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼──────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m  \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴──────╯\u{1b}[0m";
+    assert_eq!(actual.out, expected);
+}
+
+#[test]
+fn metadata_path_columns_multiple() {
+    let actual = nu!(concat!(
+        "$env.config.use_ansi_coloring = true;",
+        "$env.config.shell_integration.osc8 = false;",
+        r#"[{"dir":"src","file":"main.rs"}] | metadata set --path-columns [dir file]"#
+    ));
+    let expected = "\u{1b}[39m╭───┬─────┬─────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[1;32mdir\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mfile\u{1b}[0m   \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼─────┼─────────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴─────┴─────────╯\u{1b}[0m";
+    assert_eq!(actual.out, expected);
+}
+
+#[test]
+fn metadata_path_columns_multiple_with_icons() {
+    let actual = nu!(concat!(
+        "$env.config.use_ansi_coloring = true;",
+        "$env.config.shell_integration.osc8 = false;",
+        r#"[{"dir":"src","file":"main.rs"}] | metadata set --path-columns [dir file] | table --icons"#
+    ));
+    let expected = "\u{1b}[39m╭───┬────────┬────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mdir\u{1b}[0m   \u{1b}[39m│\u{1b}[0m    \u{1b}[1;32mfile\u{1b}[0m    \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼────────┼────────────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;126;142;168m\u{f115}\u{1b}[0m  \u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;222;165;132m\u{e68b}\u{1b}[0m  \u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴────────┴────────────╯\u{1b}[0m";
+    assert_eq!(actual.out, expected);
 }

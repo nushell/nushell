@@ -1,39 +1,41 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn can_average_numbers() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
-         open sgml_description.json
-         | get glossary.GlossDiv.GlossList.GlossEntry.Sections
-         | math avg
-     "#);
-
-    assert_eq!(actual.out, "101.5")
+fn can_average_numbers() -> Result {
+    let code = r#"
+        open sgml_description.json
+        | get glossary.GlossDiv.GlossList.GlossEntry.Sections
+        | math avg
+     "#;
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(101.5)
 }
 
 #[test]
-fn can_average_bytes() {
-    let actual = nu!("[100kb, 10b, 100mib] | math avg | to json -r");
-
-    assert_eq!(actual.out, "34985870");
+fn can_average_bytes() -> Result {
+    test()
+        .run("[100kb, 10b, 100mib] | math avg | to json -r")
+        .expect_value_eq("34985870")
 }
 
 #[test]
-fn can_average_range() {
-    let actual = nu!("0..5 | math avg");
-
-    assert_eq!(actual.out, "2.5");
+fn can_average_range() -> Result {
+    test().run("0..5 | math avg").expect_value_eq(2.5)
 }
 
 #[test]
-fn cannot_average_infinite_range() {
-    let actual = nu!("0.. | math avg");
+fn cannot_average_infinite_range() -> Result {
+    let outcome = test().run("0.. | math avg").expect_shell_error()?;
 
-    assert!(actual.err.contains("nu::shell::incorrect_value"));
+    assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
 }
 
 #[test]
-fn const_avg() {
-    let actual = nu!("const AVG = [1 3 5] | math avg; $AVG");
-    assert_eq!(actual.out, "3.0");
+fn const_avg() -> Result {
+    test()
+        .run("const AVG = [1 3 5] | math avg; $AVG")
+        .expect_value_eq(3.0)
 }

@@ -25,7 +25,7 @@ impl PluginCommand for GetDF {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .rest("rest", SyntaxShape::Any, "column names to sort dataframe")
+            .rest("rest", SyntaxShape::Any, "Column names to sort dataframe.")
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

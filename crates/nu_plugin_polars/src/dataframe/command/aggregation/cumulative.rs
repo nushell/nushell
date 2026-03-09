@@ -61,9 +61,9 @@ impl PluginCommand for Cumulative {
             .required(
                 "type",
                 SyntaxShape::String,
-                "rolling operation. Values of min, max, and sum are accepted.",
+                "Rolling operation. Values of min, max, and sum are accepted.",
             )
-            .switch("reverse", "Reverse cumulative calculation", Some('r'))
+            .switch("reverse", "Reverse cumulative calculation.", Some('r'))
             .input_output_types(vec![
                 (
                     PolarsPluginType::NuDataFrame.into(),

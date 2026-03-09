@@ -387,6 +387,7 @@ impl fmt::Display for FmtLiteral<'_> {
             Literal::CellPath(p) => write!(f, "cell-path({p})"),
             Literal::Date(dt) => write!(f, "date({dt})"),
             Literal::Nothing => write!(f, "nothing"),
+            Literal::Empty => write!(f, "empty"),
         }
     }
 }

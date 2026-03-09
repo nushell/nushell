@@ -30,11 +30,11 @@ impl PluginCommand for SetWithIndex {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
-            .required("value", SyntaxShape::Any, "value to be inserted in series")
+            .required("value", SyntaxShape::Any, "Value to be inserted in series.")
             .required_named(
                 "indices",
                 SyntaxShape::Any,
-                "list of indices indicating where to set the value",
+                "List of indices indicating where to set the value.",
                 Some('i'),
             )
             .input_output_types(vec![

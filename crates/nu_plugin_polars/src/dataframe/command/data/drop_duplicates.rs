@@ -31,12 +31,12 @@ impl PluginCommand for DropDuplicates {
             .optional(
                 "subset",
                 SyntaxShape::Table(vec![]),
-                "subset of columns to drop duplicates",
+                "Subset of columns to drop duplicates.",
             )
-            .switch("maintain", "maintain order", Some('m'))
+            .switch("maintain", "Maintain order.", Some('m'))
             .switch(
                 "last",
-                "keeps last duplicate value (by default keeps first)",
+                "Keeps last duplicate value (by default keeps first).",
                 Some('l'),
             )
             .input_output_types(vec![

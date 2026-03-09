@@ -49,15 +49,11 @@ pub fn run_nu_command(
 }
 
 pub fn is_ignored_command(command: &str) -> bool {
-    let ignore_list = ["clear", "explore", "exit"];
+    let ignore_list: &[&str] = &["clear", "explore", "exit", "nu"];
 
-    for cmd in ignore_list {
-        if command.starts_with(cmd) {
-            return true;
-        }
-    }
-
-    false
+    command
+        .split_whitespace()
+        .any(|token| ignore_list.contains(&token))
 }
 
 fn eval_source2(
@@ -71,7 +67,7 @@ fn eval_source2(
         let mut working_set = StateWorkingSet::new(engine_state);
         let output = parse(
             &mut working_set,
-            Some(fname), // format!("entry #{}", entry_num)
+            Some(fname), // format!("repl_entry #{}", entry_num)
             source,
             false,
         );
@@ -116,4 +112,36 @@ fn eval_source2(
         Some(Redirection::Pipe(OutDest::PipeSeparate)),
     );
     eval_block::<WithoutDebug>(engine_state, stack, &block, input).map(|p| p.body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn is_ignored_command_cases() {
+        let cases = [
+            ("Simple", "clear", true),
+            ("With flag", "clear -x", true),
+            ("Prepended", "sudo clear", true),
+            ("Appended", "exit now", true),
+            ("Valid", "ls -la", false),
+            ("Starts with ignored", "clearly ok", false),
+            (
+                "Starts with ignored existing command",
+                "nu_highlight",
+                false,
+            ),
+            ("Empty string", "", false),
+            ("Spaces only", "   ", false),
+        ];
+
+        for (name, input, expected) in cases {
+            assert_eq!(
+                is_ignored_command(input),
+                expected,
+                "Case failed for {name}: {input:?}"
+            );
+        }
+    }
 }

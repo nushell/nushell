@@ -31,7 +31,7 @@ impl Command for BitsAnd {
             .named(
                 "endian",
                 SyntaxShape::String,
-                "byte encode endian, available options: native(default), little, big",
+                "Byte encode endian, available options: native(default), little, big.",
                 Some('e'),
             )
             .category(Category::Bits)

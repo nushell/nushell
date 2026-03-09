@@ -25,17 +25,17 @@ impl Command for TermSize {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return the columns (width) and rows (height) of the terminal",
+                description: "Return the columns (width) and rows (height) of the terminal.",
                 example: "term size",
                 result: None,
             },
             Example {
-                description: "Return the columns (width) of the terminal",
+                description: "Return the columns (width) of the terminal.",
                 example: "(term size).columns",
                 result: None,
             },
             Example {
-                description: "Return the rows (height) of the terminal",
+                description: "Return the rows (height) of the terminal.",
                 example: "(term size).rows",
                 result: None,
             },

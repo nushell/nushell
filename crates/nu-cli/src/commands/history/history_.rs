@@ -24,10 +24,10 @@ impl Command for History {
         Signature::build("history")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
-            .switch("clear", "Clears out the history entries", Some('c'))
+            .switch("clear", "Clears out the history entries.", Some('c'))
             .switch(
                 "long",
-                "Show long format with timestamps and additional details",
+                "Show long format with timestamps and additional details.",
                 Some('l'),
             )
             .category(Category::History)
@@ -166,6 +166,12 @@ impl Command for History {
                             .to_string(),
                     );
                 }
+                table = table
+                    // Keep sqlite history output deterministic and append-ordered unless
+                    // the user explicitly requests a different sort.
+                    .with_order_by("rowid ASC".to_string())
+                    .with_unix_millis_datetime_column(fields::START_TIMESTAMP.to_string())
+                    .with_millis_duration_column(fields::DURATION.to_string());
                 Ok(PipelineData::Value(
                     Value::custom(Box::new(table), head),
                     None,

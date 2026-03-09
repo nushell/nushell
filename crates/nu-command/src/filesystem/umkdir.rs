@@ -42,7 +42,7 @@ impl Command for UMkdir {
             )
             .switch(
                 "verbose",
-                "print a message for each created directory.",
+                "Print a message for each created directory.",
                 Some('v'),
             )
             .category(Category::FileSystem)
@@ -78,7 +78,7 @@ impl Command for UMkdir {
             recursive: IS_RECURSIVE,
             mode: get_mode(),
             verbose: is_verbose,
-            set_selinux_context: false,
+            set_security_context: false,
             context: None,
         };
 
@@ -120,12 +120,12 @@ impl Command for UMkdir {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Make a directory named foo",
+                description: "Make a directory named foo.",
                 example: "mkdir foo",
                 result: None,
             },
             Example {
-                description: "Make multiple directories and show the paths created",
+                description: "Make multiple directories and show the paths created.",
                 example: "mkdir -v foo/bar foo2",
                 result: None,
             },

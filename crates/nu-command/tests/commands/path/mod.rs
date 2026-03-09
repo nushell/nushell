@@ -8,7 +8,7 @@ mod self_;
 mod split;
 mod type_;
 
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 use std::path::MAIN_SEPARATOR;
 
 /// Helper function that joins string literals with '/' or '\', based on host OS
@@ -36,7 +36,7 @@ fn joins_path_on_other_than_windows() {
 }
 
 #[test]
-fn const_path_relative_to() {
-    let actual = nu!("'/home/viking' | path relative-to '/home'");
-    assert_eq!(actual.out, "viking");
+fn const_path_relative_to() -> Result {
+    let code = "'/home/viking' | path relative-to '/home'";
+    test().run(code).expect_value_eq("viking")
 }

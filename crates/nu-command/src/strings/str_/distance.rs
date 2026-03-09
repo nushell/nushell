@@ -95,12 +95,12 @@ impl Command for StrDistance {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "get the edit distance between two strings",
+                description: "Get the edit distance between two strings.",
                 example: "'nushell' | str distance 'nutshell'",
                 result: Some(Value::test_int(1)),
             },
             Example {
-                description: "Compute edit distance between strings in table and another string, using cell paths",
+                description: "Compute edit distance between strings in table and another string, using cell paths.",
                 example: "[{a: 'nutshell' b: 'numetal'}] | str distance 'nushell' 'a' 'b'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(1),
@@ -108,7 +108,7 @@ impl Command for StrDistance {
                 })])),
             },
             Example {
-                description: "Compute edit distance between strings in record and another string, using cell paths",
+                description: "Compute edit distance between strings in record and another string, using cell paths.",
                 example: "{a: 'nutshell' b: 'numetal'} | str distance 'nushell' a b",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),

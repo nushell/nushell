@@ -28,7 +28,7 @@ impl PluginCommand for SelectorByDtype {
             .rest(
                 "dtypes",
                 SyntaxShape::String,
-                "Data types to select (e.g., i64, f64, str, bool)",
+                "Data types to select (e.g., i64, f64, str, bool).",
             )
             .input_output_type(Type::Any, PolarsPluginType::NuSelector.into())
             .category(Category::Custom("expression".into()))

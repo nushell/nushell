@@ -902,7 +902,6 @@ impl Iterator for SplitRead {
                 ShellError::Io(IoError::new_internal(
                     err,
                     "Could not get next value for SplitRead",
-                    crate::location!(),
                 ))
             })
         })

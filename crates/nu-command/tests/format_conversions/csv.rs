@@ -1,19 +1,16 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
-fn table_to_csv_text_and_from_csv_text_back_into_table() {
-    let actual = nu!(
-        cwd: "tests/fixtures/formats",
-        "open caco3_plastics.csv | to csv | from csv | first | get origin "
-    );
-
-    assert_eq!(actual.out, "SPAIN");
+fn table_to_csv_text_and_from_csv_text_back_into_table() -> Result {
+    let code = "open caco3_plastics.csv | to csv | from csv | first | get origin";
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SPAIN")
 }
 
 #[test]
-fn table_to_csv_text() {
+fn table_to_csv_text() -> Result {
     Playground::setup("filter_to_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
@@ -24,7 +21,7 @@ fn table_to_csv_text() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open csv_text_sample.txt
             | lines
             | str trim
@@ -33,18 +30,17 @@ fn table_to_csv_text() {
             | to csv
             | lines
             | get 1
-        "#);
+        "#;
 
-        assert!(
-            actual
-                .out
-                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
-        );
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
     })
 }
 
 #[test]
-fn table_to_csv_text_skipping_headers_after_conversion() {
+fn table_to_csv_text_skipping_headers_after_conversion() -> Result {
     Playground::setup("filter_to_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
@@ -55,34 +51,32 @@ fn table_to_csv_text_skipping_headers_after_conversion() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open csv_text_sample.txt
             | lines
             | str trim
             | split column "," a b c d origin
             | last 1
             | to csv --noheaders
-        "#);
+        "#;
 
-        assert!(
-            actual
-                .out
-                .contains("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
-        );
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia\n")
     })
 }
 
 #[test]
-fn table_to_csv_float_doesnt_become_int() {
-    let actual = nu!(r#"
-        [[a]; [1.0]] | to csv | from csv | get 0.a | describe
-    "#);
-
-    assert_eq!(actual.out, "float")
+fn table_to_csv_float_doesnt_become_int() -> Result {
+    let code = "[[a]; [1.0]] | to csv | from csv | get 0.a";
+    let outcome: Value = test().run(code)?;
+    assert!(matches!(outcome, Value::Float { .. }));
+    Ok(())
 }
 
 #[test]
-fn infers_types() {
+fn infers_types() -> Result {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_cuatro_mosqueteros.csv",
@@ -95,18 +89,18 @@ fn infers_types() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_cuatro_mosqueteros.csv
             | where rusty_luck > 0
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "4");
+        test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
 }
 
 #[test]
-fn from_csv_text_to_table() {
+fn from_csv_text_to_table() -> Result {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -118,19 +112,19 @@ fn from_csv_text_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv
             | get rusty_luck
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn from_csv_text_with_separator_to_table() {
+fn from_csv_text_with_separator_to_table() -> Result {
     Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -142,19 +136,19 @@ fn from_csv_text_with_separator_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator ";"
             | get rusty_luck
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn from_csv_text_with_tab_separator_to_table() {
+fn from_csv_text_with_tab_separator_to_table() -> Result {
     Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -166,20 +160,20 @@ fn from_csv_text_with_tab_separator_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator (char tab)
             | get rusty_luck
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
 #[ignore = "csv crate has a bug when the last line is a comment: https://github.com/BurntSushi/rust-csv/issues/363"]
-fn from_csv_text_with_comments_to_table() {
+fn from_csv_text_with_comments_to_table() -> Result {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -194,19 +188,19 @@ fn from_csv_text_with_comments_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r##"
+        let code = r##"
             open los_tres_caballeros.txt
             | from csv --comment "#"
             | get rusty_luck
             | length
-        "##);
+        "##;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn from_csv_text_with_custom_quotes_to_table() {
+fn from_csv_text_with_custom_quotes_to_table() -> Result {
     Playground::setup("filter_from_csv_test_6", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -218,19 +212,19 @@ fn from_csv_text_with_custom_quotes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --quote "'"
             | first
             | get first_name
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "And'rés");
+        test().cwd(dirs.test()).run(code).expect_value_eq("And'rés")
     })
 }
 
 #[test]
-fn from_csv_text_with_custom_escapes_to_table() {
+fn from_csv_text_with_custom_escapes_to_table() -> Result {
     Playground::setup("filter_from_csv_test_7", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -242,19 +236,22 @@ fn from_csv_text_with_custom_escapes_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --escape '\'
             | first
             | get first_name
-        ");
+        "#;
 
-        assert_eq!(actual.out, "And\"rés");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(r#"And"rés"#)
     })
 }
 
 #[test]
-fn from_csv_text_skipping_headers_to_table() {
+fn from_csv_text_skipping_headers_to_table() -> Result {
     Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
@@ -265,19 +262,19 @@ fn from_csv_text_skipping_headers_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_amigos.txt
             | from csv --noheaders
             | get column2
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn from_csv_text_with_missing_columns_to_table() {
+fn from_csv_text_with_missing_columns_to_table() -> Result {
     Playground::setup("filter_from_csv_test_9", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -289,20 +286,20 @@ fn from_csv_text_with_missing_columns_to_table() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --flexible
             | get -o rusty_luck
             | compact
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "2");
+        test().cwd(dirs.test()).run(code).expect_value_eq(2)
     })
 }
 
 #[test]
-fn from_csv_text_with_multiple_char_separator() {
+fn from_csv_text_with_multiple_char_separator() -> Result {
     Playground::setup("filter_from_csv_test_10", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -314,21 +311,24 @@ fn from_csv_text_with_multiple_char_separator() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator "li"
-        "#);
+        "#;
 
-        assert!(
-            actual
-                .err
-                .contains("separator should be a single char or a 4-byte unicode")
-        );
+        let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
+        match outcome {
+            ShellError::NonUtf8Custom { msg, .. } => {
+                assert_eq!(msg, "separator should be a single char or a 4-byte unicode");
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
     })
 }
 
 #[test]
-fn from_csv_text_with_wrong_type_separator() {
+fn from_csv_text_with_wrong_type_separator() -> Result {
     Playground::setup("filter_from_csv_test_11", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -340,56 +340,77 @@ fn from_csv_text_with_wrong_type_separator() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator ('123' | into int)
-        "#);
+        "#;
 
-        assert!(actual.err.contains("can't convert int to string"));
+        let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
+        match outcome {
+            ShellError::CantConvert {
+                to_type, from_type, ..
+            } => {
+                assert_eq!(from_type, "int");
+                assert_eq!(to_type, "string");
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
     })
 }
 
 #[test]
-fn table_with_record_error() {
-    let actual = nu!(r#"
+fn table_with_record_error() -> Result {
+    let code = r#"
         [[a b]; [1 2] [3 {a: 1 b: 2}]]
         | to csv
-    "#);
+    "#;
 
-    assert!(actual.err.contains("can't convert"))
+    let outcome = test().run(code).expect_error()?;
+    assert!(matches!(outcome, ShellError::CantConvert { .. }));
+    Ok(())
 }
 
 #[test]
-fn list_not_table_parse_time_error() {
-    let actual = nu!(r#"
+fn list_not_table_parse_time_error() -> Result {
+    let code = r#"
         [{a: 1 b: 2} {a: 3 b: 4} 1]
         | to csv
-    "#);
+    "#;
 
-    assert!(actual.err.contains("parser::input_type_mismatch"))
+    let outcome = test().run(code).expect_parse_error()?;
+    assert!(matches!(outcome, ParseError::InputMismatch { .. }));
+    Ok(())
 }
 
 #[test]
-fn list_not_table_runtime_error() {
-    let actual = nu!(r#"
+fn list_not_table_runtime_error() -> Result {
+    let code = r#"
         echo [{a: 1 b: 2} {a: 3 b: 4} 1]
         | to csv
-    "#);
+    "#;
 
-    assert!(actual.err.contains("Input type not supported"))
+    let outcome = test().run(code).expect_shell_error()?;
+    assert!(matches!(
+        outcome,
+        ShellError::OnlySupportsThisInputType { .. }
+    ));
+    Ok(())
 }
 
 #[test]
-fn string_to_csv_error() {
-    let actual = nu!(r#"
+fn string_to_csv_error() -> Result {
+    let code = r#"
         'qwe' | to csv
-    "#);
+    "#;
 
-    assert!(actual.err.contains("command doesn't support"))
+    let outcome = test().run(code).expect_parse_error()?;
+    assert!(matches!(outcome, ParseError::InputMismatch(..)));
+    Ok(())
 }
 
 #[test]
-fn parses_csv_with_unicode_sep() {
+fn parses_csv_with_unicode_sep() -> Result {
     Playground::setup("filter_from_csv_unicode_sep_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -401,19 +422,19 @@ fn parses_csv_with_unicode_sep() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator "003B"
             | get rusty_luck
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn parses_csv_with_unicode_x1f_sep() {
+fn parses_csv_with_unicode_x1f_sep() -> Result {
     Playground::setup("filter_from_csv_unicode_sep_x1f_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
@@ -425,29 +446,31 @@ fn parses_csv_with_unicode_x1f_sep() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             open los_tres_caballeros.txt
             | from csv --separator "001F"
             | get rusty_luck
             | length
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "3");
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
 #[test]
-fn from_csv_test_flexible_extra_vals() {
-    let actual = nu!(r#"
+fn from_csv_test_flexible_extra_vals() -> Result {
+    let code = r#"
       echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
-    "#);
-    assert_eq!(actual.out, "[1, 2, 3]");
+    "#;
+
+    test().run(code).expect_value_eq("[1, 2, 3]")
 }
 
 #[test]
-fn from_csv_test_flexible_missing_vals() {
-    let actual = nu!(r#"
+fn from_csv_test_flexible_missing_vals() -> Result {
+    let code = r#"
       echo "a,b\n1" | from csv --flexible | first | values | to nuon
-    "#);
-    assert_eq!(actual.out, "[1]");
+    "#;
+
+    test().run(code).expect_value_eq("[1]")
 }

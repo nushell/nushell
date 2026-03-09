@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use super::chained_error::ChainedError;
 use crate::{
     ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
@@ -14,7 +15,6 @@ use thiserror::Error;
 pub mod bridge;
 pub mod io;
 pub mod job;
-pub mod location;
 pub mod network;
 
 /// The fundamental error type for the evaluation engine. These cases represent different kinds of errors

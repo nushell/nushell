@@ -45,17 +45,17 @@ impl Command for RandomChars {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Generate a string with 25 random chars",
+                description: "Generate a string with 25 random chars.",
                 example: "random chars",
                 result: None,
             },
             Example {
-                description: "Generate random chars with specified length",
+                description: "Generate random chars with specified length.",
                 example: "random chars --length 20",
                 result: None,
             },
             Example {
-                description: "Generate one kilobyte of random chars",
+                description: "Generate one kilobyte of random chars.",
                 example: "random chars --length 1kb",
                 result: None,
             },

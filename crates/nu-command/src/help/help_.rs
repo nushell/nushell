@@ -20,7 +20,7 @@ impl Command for Help {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in command names, descriptions, and search terms",
+                "String to find in command names, descriptions, and search terms.",
                 Some('f'),
             )
             .category(Category::Core)
@@ -107,17 +107,17 @@ You can also learn more at https://www.nushell.sh/book/"#;
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "show help for single command, alias, or module",
+                description: "show help for single command, alias, or module.",
                 example: "help match",
                 result: None,
             },
             Example {
-                description: "show help for single sub-command, alias, or module",
+                description: "show help for single sub-command, alias, or module.",
                 example: "help str join",
                 result: None,
             },
             Example {
-                description: "search for string in command names, descriptions, and search terms",
+                description: "search for string in command names, descriptions, and search terms.",
                 example: "help --find char",
                 result: None,
             },

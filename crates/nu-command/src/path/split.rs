@@ -78,7 +78,7 @@ impl Command for PathSplit {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a path into parts",
+                description: "Split a path into parts.",
                 example: r"'C:\Users\viking\spam.txt' | path split",
                 result: Some(Value::list(
                     vec![
@@ -91,7 +91,7 @@ impl Command for PathSplit {
                 )),
             },
             Example {
-                description: "Split paths in list into parts",
+                description: "Split paths in list into parts.",
                 example: r"[ C:\Users\viking\spam.txt C:\Users\viking\eggs.txt ] | path split",
                 result: Some(Value::list(
                     vec![
@@ -118,7 +118,7 @@ impl Command for PathSplit {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Split a path into parts",
+                description: "Split a path into parts.",
                 example: r"'/home/viking/spam.txt' | path split",
                 result: Some(Value::list(
                     vec![
@@ -131,7 +131,7 @@ impl Command for PathSplit {
                 )),
             },
             Example {
-                description: "Split paths in list into parts",
+                description: "Split paths in list into parts.",
                 example: r"[ /home/viking/spam.txt /home/viking/eggs.txt ] | path split",
                 result: Some(Value::list(
                     vec![

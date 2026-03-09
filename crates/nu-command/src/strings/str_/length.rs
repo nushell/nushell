@@ -35,17 +35,17 @@ impl Command for StrLength {
             .allow_variants_without_examples(true)
             .switch(
                 "grapheme-clusters",
-                "count length in grapheme clusters (all visible chars have length 1)",
+                "Count length in grapheme clusters (all visible chars have length 1).",
                 Some('g'),
             )
             .switch(
                 "utf-8-bytes",
-                "count length in UTF-8 bytes (default; all non-ASCII chars have length 2+)",
+                "Count length in UTF-8 bytes (default; all non-ASCII chars have length 2+).",
                 Some('b'),
             )
             .switch(
                 "chars",
-                "count length in chars",
+                "Count length in chars.",
                 Some('c'),
             )
             .rest(
@@ -108,17 +108,17 @@ impl Command for StrLength {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Return the lengths of a string in bytes",
+                description: "Return the lengths of a string in bytes.",
                 example: "'hello' | str length",
                 result: Some(Value::test_int(5)),
             },
             Example {
-                description: "Count length of a string in grapheme clusters",
+                description: "Count length of a string in grapheme clusters.",
                 example: "'🇯🇵ほげ ふが ぴよ' | str length  --grapheme-clusters",
                 result: Some(Value::test_int(9)),
             },
             Example {
-                description: "Return the lengths of multiple strings in bytes",
+                description: "Return the lengths of multiple strings in bytes.",
                 example: "['hi' 'there'] | str length",
                 result: Some(Value::list(
                     vec![Value::test_int(2), Value::test_int(5)],
@@ -126,7 +126,7 @@ impl Command for StrLength {
                 )),
             },
             Example {
-                description: "Return the lengths of a string in chars",
+                description: "Return the lengths of a string in chars.",
                 example: "'hällo' | str length --chars",
                 result: Some(Value::test_int(5)),
             },

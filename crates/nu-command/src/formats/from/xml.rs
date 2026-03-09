@@ -15,15 +15,15 @@ impl Command for FromXml {
     fn signature(&self) -> Signature {
         Signature::build("from xml")
             .input_output_types(vec![(Type::String, Type::record())])
-            .switch("keep-comments", "add comment nodes to result", None)
+            .switch("keep-comments", "Add comment nodes to result.", None)
             .switch(
                 "allow-dtd",
-                "allow parsing documents with DTDs (may result in exponential entity expansion)",
+                "Allow parsing documents with DTDs (may result in exponential entity expansion).",
                 None,
             )
             .switch(
                 "keep-pi",
-                "add processing instruction nodes to result",
+                "Add processing instruction nodes to result.",
                 None,
             )
             .category(Category::Formats)
@@ -71,7 +71,7 @@ string. This way content of every tag is always a table and is easier to parse"#
 <note>
   <remember>Event</remember>
 </note>' | from xml"#,
-            description: "Converts xml formatted string to record",
+            description: "Converts xml formatted string to record.",
             result: Some(Value::test_record(record! {
                 COLUMN_TAG_NAME =>     Value::test_string("note"),
                 COLUMN_ATTRS_NAME =>   Value::test_record(Record::new()),
@@ -554,14 +554,16 @@ mod tests {
         let cmd = r#"'<?xml version="1.0" encoding="UTF-8"?>
 <note>
   <remember>Event</remember>
-</note>' | metadata set --content-type 'application/xml' --datasource-ls | from xml | metadata | reject span | $in"#;
+</note>' | metadata set --content-type 'application/xml' --path-columns [name] | from xml | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

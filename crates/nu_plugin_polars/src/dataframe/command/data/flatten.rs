@@ -30,7 +30,7 @@ impl PluginCommand for LazyFlatten {
             .rest(
                 "columns",
                 SyntaxShape::String,
-                "columns to flatten, only applicable for dataframes",
+                "Columns to flatten, only applicable for dataframes.",
             )
             .input_output_types(vec![
                 (

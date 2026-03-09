@@ -254,5 +254,5 @@ def 'get-env' [
     key: string           # The key to get it's env value
     default: string = ''  # The default value for an empty env
 ] {
-    $env | get -i $key | default $default
+    $env | get -o $key | default $default
 }

@@ -53,23 +53,22 @@ use it in your pipeline."#
         vec![
             Example {
                 example: "http get http://example.org/ | tee { save example.html }",
-                description: "Save a webpage to a file while also printing it",
+                description: "Save a webpage to a file while also printing it.",
                 result: None,
             },
             Example {
                 example: "nu -c 'print -e error; print ok' | tee --stderr { save error.log } | complete",
-                description: "Save error messages from an external command to a file without \
-                    redirecting them",
+                description: "Save error messages from an external command to a file without redirecting them.",
                 result: None,
             },
             Example {
                 example: "1..100 | tee { each { print } } | math sum | wrap sum",
-                description: "Print numbers and their sum",
+                description: "Print numbers and their sum.",
                 result: None,
             },
             Example {
                 example: "10000 | tee { 1..$in | print } | $in * 5",
-                description: "Do something with a value on another thread, while also passing through the value",
+                description: "Do something with a value on another thread, while also passing through the value.",
                 result: Some(Value::test_int(50000)),
             },
         ]
@@ -116,9 +115,7 @@ use it in your pipeline."#
         // through later, so if we treat string/binary/list as a stream instead, it's likely that
         // we can get the error back to the original thread.
         let span = input.span().unwrap_or(head);
-        let input = input
-            .try_into_stream(engine_state)
-            .unwrap_or_else(|original_input| original_input);
+        let input = input.into_stream_or_original(engine_state);
 
         if let PipelineData::ByteStream(stream, metadata) = input {
             let type_ = stream.type_();

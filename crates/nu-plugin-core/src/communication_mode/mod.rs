@@ -93,7 +93,6 @@ impl CommunicationMode {
                                 "Could not interpret local socket name {:?}",
                                 name.to_string_lossy()
                             ),
-                            nu_protocol::location!(),
                         )
                     })?;
                 Ok(PreparedServerCommunication::LocalSocket { listener })
@@ -123,7 +122,6 @@ impl CommunicationMode {
                                     "Could not interpret local socket name {:?}",
                                     name.to_string_lossy()
                                 ),
-                                nu_protocol::location!(),
                             ))
                         })
                 };
@@ -173,9 +171,8 @@ impl PreparedServerCommunication {
             }
             #[cfg(feature = "local-socket")]
             PreparedServerCommunication::LocalSocket { listener, .. } => {
-                use interprocess::local_socket::traits::{
-                    Listener, ListenerNonblockingMode, Stream,
-                };
+                use interprocess::local_socket::ListenerNonblockingMode;
+                use interprocess::local_socket::traits::{Listener, Stream};
                 use std::time::{Duration, Instant};
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);
@@ -193,7 +190,6 @@ impl PreparedServerCommunication {
                         IoError::new_internal(
                             err,
                             "Could not set non-blocking mode accept for listener",
-                            nu_protocol::location!(),
                         )
                     })?;
                 let mut get_socket = || {
@@ -207,7 +203,6 @@ impl PreparedServerCommunication {
                                     IoError::new_internal(
                                         err,
                                         "Could not disable non-blocking mode for listener",
-                                        nu_protocol::location!(),
                                     )
                                 })?;
                                 result = Some(stream);
@@ -220,7 +215,6 @@ impl PreparedServerCommunication {
                                     return Err(ShellError::Io(IoError::new_internal(
                                         err,
                                         "Accepting new data from listener failed",
-                                        nu_protocol::location!(),
                                     )));
                                 }
                             }

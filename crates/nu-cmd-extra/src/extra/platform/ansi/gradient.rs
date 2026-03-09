@@ -14,25 +14,25 @@ impl Command for SubCommand {
             .named(
                 "fgstart",
                 SyntaxShape::String,
-                "foreground gradient start color in hex (0x123456)",
+                "Foreground gradient start color in hex (0x123456).",
                 Some('a'),
             )
             .named(
                 "fgend",
                 SyntaxShape::String,
-                "foreground gradient end color in hex",
+                "Foreground gradient end color in hex.",
                 Some('b'),
             )
             .named(
                 "bgstart",
                 SyntaxShape::String,
-                "background gradient start color in hex",
+                "Background gradient start color in hex.",
                 Some('c'),
             )
             .named(
                 "bgend",
                 SyntaxShape::String,
-                "background gradient end color in hex",
+                "Background gradient end color in hex.",
                 Some('d'),
             )
             .rest(

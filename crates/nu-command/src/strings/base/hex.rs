@@ -15,7 +15,7 @@ impl Command for DecodeHex {
     }
 
     fn description(&self) -> &str {
-        "Hex decode a value."
+        "Decode a hex-encoded value."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

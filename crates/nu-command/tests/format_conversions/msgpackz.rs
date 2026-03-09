@@ -1,8 +1,8 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
 #[test]
-fn sample_roundtrip() {
+fn sample_roundtrip() -> Result {
     let path_to_sample_nuon = nu_test_support::fs::fixtures()
         .join("formats")
         .join("msgpack")
@@ -11,18 +11,15 @@ fn sample_roundtrip() {
     let sample_nuon =
         std::fs::read_to_string(&path_to_sample_nuon).expect("failed to open sample.nuon");
 
-    let outcome = nu!(
-        collapse_output: false,
-        format!(
-            "open '{}' | to msgpackz | from msgpackz | to nuon --indent 4",
-            path_to_sample_nuon.display()
-        )
+    let code = format!(
+        "open '{}' | to msgpackz | from msgpackz | to nuon --indent 4",
+        path_to_sample_nuon.display()
     );
 
-    assert!(outcome.status.success());
-    assert!(outcome.err.is_empty());
+    let outcome: String = test().run(code)?;
     assert_eq!(
-        sample_nuon.replace("\r\n", "\n"),
-        outcome.out.replace("\r\n", "\n")
+        outcome.replace("\r\n", "\n").trim(),
+        sample_nuon.replace("\r\n", "\n").trim()
     );
+    Ok(())
 }

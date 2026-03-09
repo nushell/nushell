@@ -153,6 +153,8 @@ impl Completer for DotNuCompletion {
                         style: x.style,
                         span: reedline_span,
                         append_whitespace: !x.is_dir,
+                        display_override: x.display_override.clone(),
+                        match_indices: Some(x.match_indices.clone()),
                         ..Suggestion::default()
                     },
                     kind: Some(SuggestionKind::Module),

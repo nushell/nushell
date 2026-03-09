@@ -12,7 +12,7 @@ use nu_protocol::{
 use nu_utils::terminal_size;
 use std::{
     borrow::Cow,
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fmt::Write,
     sync::{Arc, LazyLock},
 };
@@ -175,7 +175,11 @@ fn highlight_capture_group(
         .map(|text| {
             let resets = text.match_indices(RESET).count();
             // replace resets with reset + italic, so the whole string is italicized, excluding the final reset
-            let text = text.replacen(RESET, &format!("{RESET}{DEFAULT_ITALIC}"), resets - 1);
+            let text = text.replacen(
+                RESET,
+                &format!("{RESET}{DEFAULT_ITALIC}"),
+                resets.saturating_sub(1),
+            );
             // start italicized
             format!("{DEFAULT_ITALIC}{text}")
         });
@@ -287,15 +291,38 @@ fn get_command_documentation(
     // - Subcommands are included violating module scoping
     //   - https://github.com/nushell/nushell/issues/11447
     //   - https://github.com/nushell/nushell/issues/11625
+    // - Duplicate entries may appear when a single declaration is visible under multiple names (e.g. script `main` rewritten to filename plus an alias).
+    //   See https://github.com/nushell/nushell/issues/17719.
     let mut subcommands = vec![];
     let signatures = engine_state.get_signatures_and_declids(true);
+    // track which declarations we've already added to `subcommands`
+    let mut seen = HashSet::new();
     for (sig, decl_id) in signatures {
-        let command_type = engine_state.get_decl(decl_id).command_type();
+        // Prefer the overlay-visible declaration name (if any) for display and matching.
+        // Fall back to the signature's name if not present.
+        let display_name = engine_state
+            .find_decl_name(decl_id, &[])
+            .map(|bytes| String::from_utf8_lossy(bytes).to_string())
+            .unwrap_or_else(|| sig.name.clone());
 
-        // Don't display removed/deprecated commands in the Subcommands list
-        if sig.name.starts_with(&format!("{cmd_name} "))
+        // Don't display removed/deprecated commands in the Subcommands list. We consider a signature a subcommand when either the overlay-visible
+        // `display_name` begins with `cmd_name ` *or* the canonical signature name does; the latter covers cases where `display_name` returns the
+        // alias instead of the script-qualified name due to hashmap ordering.
+        if (display_name.starts_with(&format!("{cmd_name} "))
+            || sig.name.starts_with(&format!("{cmd_name} ")))
             && !matches!(sig.category, Category::Removed)
+            && seen.insert(decl_id)
         {
+            let command_type = engine_state.get_decl(decl_id).command_type();
+
+            // choose which name to show: prefer the overlay-visible one if it actually matches the prefix, otherwise fall back to the canonical
+            // signature name (which is usually the script-qualified form).
+            let name_to_print = if display_name.starts_with(&format!("{cmd_name} ")) {
+                display_name.clone()
+            } else {
+                sig.name.clone()
+            };
+
             // If it's a plugin, alias, or custom command, display that information in the help
             if command_type == CommandType::Plugin
                 || command_type == CommandType::Alias
@@ -303,14 +330,14 @@ fn get_command_documentation(
             {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{} {help_section_name}({}){RESET} - {}",
-                    sig.name,
+                    name_to_print,
                     command_type,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             } else {
                 subcommands.push(format!(
                     "  {help_subcolor_one}{}{RESET} - {}",
-                    sig.name,
+                    name_to_print,
                     highlight_code(&sig.description, engine_state, stack)
                 ));
             }
@@ -320,6 +347,8 @@ fn get_command_documentation(
     if !subcommands.is_empty() {
         let _ = write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n");
         subcommands.sort();
+        // sort may not remove duplicates when two different names map to the same description string; dedup to be safe.
+        subcommands.dedup();
         long_desc.push_str(&subcommands.join("\n"));
         long_desc.push('\n');
     }

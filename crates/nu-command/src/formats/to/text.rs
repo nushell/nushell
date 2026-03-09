@@ -24,19 +24,19 @@ impl Command for ToText {
             .input_output_types(vec![(Type::Any, Type::String)])
             .switch(
                 "no-newline",
-                "Do not append a newline to the end of the text",
+                "Do not append a newline to the end of the text.",
                 Some('n'),
             )
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)
     }
 
     fn description(&self) -> &str {
-        "Converts data into simple text."
+        "Convert data into plain text format."
     }
 
     fn run(
@@ -132,22 +132,22 @@ impl Command for ToText {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Outputs data as simple text with a trailing newline",
+                description: "Outputs data as simple text with a trailing newline.",
                 example: "[1] | to text",
                 result: Some(Value::test_string("1".to_string() + LINE_ENDING)),
             },
             Example {
-                description: "Outputs data as simple text without a trailing newline",
+                description: "Outputs data as simple text without a trailing newline.",
                 example: "[1] | to text --no-newline",
                 result: Some(Value::test_string("1")),
             },
             Example {
-                description: "Outputs external data as simple text",
+                description: "Outputs external data as simple text.",
                 example: "git help -a | lines | find -r '^ ' | to text",
                 result: None,
             },
             Example {
-                description: "Outputs records as simple text",
+                description: "Outputs records as simple text.",
                 example: "ls | to text",
                 result: None,
             },
@@ -172,7 +172,7 @@ fn local_into_string(
             format!(
                 "{} ({})",
                 {
-                    if val.year() >= 0 {
+                    if val.year() >= 0 && val.year() <= 9999 {
                         val.to_rfc2822()
                     } else {
                         val.to_rfc3339()

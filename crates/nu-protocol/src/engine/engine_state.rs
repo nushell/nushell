@@ -5,8 +5,8 @@ use crate::{
     ast::Block,
     debugger::{Debugger, NoopDebugger},
     engine::{
-        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvVars, OverlayFrame, ScopeFrame, Stack,
-        StateDelta, Variable, Visibility,
+        CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
+        Stack, StateDelta, Variable, Visibility,
         description::{Doccomments, build_desc},
     },
     eval_const::create_nu_constant,
@@ -16,7 +16,6 @@ use crate::{
 use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
-use nu_utils::IgnoreCaseExt;
 use std::{
     collections::HashMap,
     num::NonZeroUsize,
@@ -362,9 +361,8 @@ impl EngineState {
         }
 
         let cwd = self.cwd(Some(stack))?;
-        std::env::set_current_dir(cwd).map_err(|err| {
-            IoError::new_internal(err, "Could not set current dir", crate::location!())
-        })?;
+        std::env::set_current_dir(cwd)
+            .map_err(|err| IoError::new_internal(err, "Could not set current dir"))?;
 
         if let Some(config) = stack.config.take() {
             // If config was updated in the stack, replace it.
@@ -497,10 +495,12 @@ impl EngineState {
         let overlay_name = String::from_utf8_lossy(self.last_overlay_name(&[])).to_string();
 
         if let Some(env_vars) = Arc::make_mut(&mut self.env_vars).get_mut(&overlay_name) {
-            env_vars.insert(name, val);
+            env_vars.insert(EnvName::from(name), val);
         } else {
-            Arc::make_mut(&mut self.env_vars)
-                .insert(overlay_name, [(name, val)].into_iter().collect());
+            Arc::make_mut(&mut self.env_vars).insert(
+                overlay_name,
+                [(EnvName::from(name), val)].into_iter().collect(),
+            );
         }
     }
 
@@ -508,26 +508,9 @@ impl EngineState {
         for overlay_id in self.scope.active_overlays.iter().rev() {
             let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
             if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(val) = env_vars.get(name)
+                && let Some(val) = env_vars.get(&EnvName::from(name))
             {
                 return Some(val);
-            }
-        }
-
-        None
-    }
-
-    // Returns Some((name, value)) if found, None otherwise.
-    // When updating environment variables, make sure to use
-    // the same case (the returned "name") as the original
-    // environment variable name.
-    pub fn get_env_var_insensitive(&self, name: &str) -> Option<(&String, &Value)> {
-        for overlay_id in self.scope.active_overlays.iter().rev() {
-            let overlay_name = String::from_utf8_lossy(self.get_overlay_name(*overlay_id));
-            if let Some(env_vars) = self.env_vars.get(overlay_name.as_ref())
-                && let Some(v) = env_vars.iter().find(|(k, _)| k.eq_ignore_case(name))
-            {
-                return Some((v.0, v.1));
             }
         }
 
@@ -565,7 +548,6 @@ impl EngineState {
                     Err(ShellError::Io(IoError::new_internal_with_path(
                         err,
                         "Failed to open plugin file",
-                        crate::location!(),
                         PathBuf::from(plugin_path),
                     )))
                 }
@@ -582,7 +564,6 @@ impl EngineState {
             IoError::new_internal_with_path(
                 err,
                 "Failed to write plugin file",
-                crate::location!(),
                 PathBuf::from(plugin_path),
             )
         })?;
@@ -767,13 +748,19 @@ impl EngineState {
     }
 
     pub fn get_span_contents(&self, span: Span) -> &[u8] {
-        for file in &self.files {
+        self.try_get_file_contents(span).unwrap_or(&[0u8; 0])
+    }
+
+    pub fn try_get_file_contents(&self, span: Span) -> Option<&[u8]> {
+        self.files.iter().find_map(|file| {
             if file.covered_span.contains_span(span) {
-                return &file.content
-                    [(span.start - file.covered_span.start)..(span.end - file.covered_span.start)];
+                let start = span.start - file.covered_span.start;
+                let end = span.end - file.covered_span.start;
+                Some(&file.content[start..end])
+            } else {
+                None
             }
-        }
-        &[0u8; 0]
+        })
     }
 
     /// If the span's content starts with the given prefix, return two subspans
@@ -830,7 +817,7 @@ impl EngineState {
 
     /// Returns the configuration settings for command history or `None` if history is disabled
     pub fn history_config(&self) -> Option<HistoryConfig> {
-        self.history_enabled.then(|| self.config.history)
+        self.history_enabled.then(|| self.config.history.clone())
     }
 
     pub fn get_var(&self, var_id: VarId) -> &Variable {

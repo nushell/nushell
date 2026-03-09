@@ -179,3 +179,14 @@ fn list_stream_replacement_closure() {
     let actual = nu!("[[a]; [text]] | every 1 | insert b { $in.a | str upcase } | to nuon");
     assert_eq!(actual.out, "[[a, b]; [text, TEXT]]");
 }
+
+#[test]
+fn insert_new_to_table_cell_mixed_rows() {
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+        let table = [ [foo]; ['a'] ['b'] ];
+        let t = ($table | insert bar.0 'z');
+        $t.0.bar
+    "#);
+
+    assert_eq!(actual.out, "z")
+}

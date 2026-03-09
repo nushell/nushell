@@ -4,13 +4,12 @@ use miette::{Diagnostic, LabeledSpan, SourceSpan};
 use std::{
     error::Error as StdError,
     fmt::{self, Display, Formatter},
+    panic::Location,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
 
 use crate::Span;
-
-use super::location::Location;
 
 /// Alias for a `Result` with the error type [`ErrorKind`] by default.
 ///
@@ -61,7 +60,6 @@ pub type Result<T, E = ErrorKind> = std::result::Result<T, E>;
 /// let error = IoError::new_internal(
 ///     ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
 ///     "Failed to read data from buffer",
-///     nu_protocol::location!()
 /// );
 /// println!("Error: {:?}", error);
 /// ```
@@ -301,8 +299,6 @@ impl IoError {
     /// - `location`:
     ///   The location in the Rust code where the error occurred, allowing us to trace and debug
     ///   the issue.
-    ///   Use the [`nu_protocol::location!`](crate::location) macro to generate the location
-    ///   information.
     ///
     /// # Examples
     /// ```rust
@@ -311,13 +307,28 @@ impl IoError {
     /// let error = IoError::new_internal(
     ///     shell_error::io::ErrorKind::from_std(std::io::ErrorKind::UnexpectedEof),
     ///     "Failed to read from buffer",
-    ///     nu_protocol::location!(),
     /// );
     /// ```
-    pub fn new_internal(
+    #[track_caller]
+    pub fn new_internal(kind: impl Into<ErrorKind>, additional_context: impl ToString) -> Self {
+        Self {
+            kind: kind.into(),
+            span: Span::unknown(),
+            path: None,
+            additional_context: Some(additional_context.to_string().into()),
+            location: Some(Location::caller().to_string()),
+        }
+    }
+
+    /// Creates a new [`IoError`] for internal I/O errors with an explicit caller location.
+    ///
+    /// Use this when you already have a [`Location`] (for example, from a helper) and want to
+    /// attach it instead of relying on `#[track_caller]`.
+    /// This is otherwise equivalent to [`new_internal`](Self::new_internal).
+    pub fn new_internal_with_location(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
-        location: Location,
+        location: &Location<'_>,
     ) -> Self {
         Self {
             kind: kind.into(),
@@ -343,15 +354,34 @@ impl IoError {
     /// let error = IoError::new_internal_with_path(
     ///     shell_error::io::ErrorKind::FileNotFound,
     ///     "Could not find special file",
-    ///     nu_protocol::location!(),
     ///     PathBuf::from("/some/file"),
     /// );
     /// ```
+    #[track_caller]
     pub fn new_internal_with_path(
         kind: impl Into<ErrorKind>,
         additional_context: impl ToString,
-        location: Location,
         path: PathBuf,
+    ) -> Self {
+        Self {
+            kind: kind.into(),
+            span: Span::unknown(),
+            path: path.into(),
+            additional_context: Some(additional_context.to_string().into()),
+            location: Some(Location::caller().to_string()),
+        }
+    }
+
+    /// Creates a new [`IoError`] for internal I/O errors with a path and explicit location.
+    ///
+    /// Use this variant when the error relates to a specific path and you already have a
+    /// [`Location`] you want to record, rather than relying on `#[track_caller]`.
+    /// This is otherwise equivalent to [`new_internal_with_path`](Self::new_internal_with_path).
+    pub fn new_internal_with_path_and_location(
+        kind: impl Into<ErrorKind>,
+        additional_context: impl ToString,
+        path: PathBuf,
+        location: &Location<'_>,
     ) -> Self {
         Self {
             kind: kind.into(),

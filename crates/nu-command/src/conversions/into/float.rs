@@ -55,19 +55,19 @@ impl Command for IntoFloat {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert string to float in table",
+                description: "Convert string to float in table.",
                 example: "[[num]; ['5.01']] | into float num",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "num" => Value::test_float(5.01),
                 })])),
             },
             Example {
-                description: "Convert string to floating point number",
+                description: "Convert string to floating point number.",
                 example: "'1.345' | into float",
                 result: Some(Value::test_float(1.345)),
             },
             Example {
-                description: "Coerce list of ints and floats to float",
+                description: "Coerce list of ints and floats to float.",
                 example: "[4 -5.9] | into float",
                 result: Some(Value::test_list(vec![
                     Value::test_float(4.0),
@@ -75,7 +75,7 @@ impl Command for IntoFloat {
                 ])),
             },
             Example {
-                description: "Convert boolean to float",
+                description: "Convert boolean to float.",
                 example: "true | into float",
                 result: Some(Value::test_float(1.0)),
             },

@@ -1,9 +1,11 @@
-use std::{fs::File, io::BufWriter, path::PathBuf};
+use std::{fs::File, io::BufWriter, path::PathBuf, sync::Arc};
 
 use log::debug;
 use nu_plugin::EvaluatedCall;
 use nu_protocol::ShellError;
-use polars::prelude::{JsonWriter, JsonWriterOptions, SerWriter, SinkOptions};
+use polars::prelude::{
+    FileWriteFormat, JsonWriter, NDJsonWriterOptions, SerWriter, UnifiedSinkArgs,
+};
 
 use crate::{
     command::core::resource::Resource,
@@ -21,11 +23,13 @@ pub(crate) fn command_lazy(
     let file_span = resource.span;
     debug!("Writing ndjson file {file_path}");
     lazy.to_polars()
-        .sink_json(
+        .sink(
             resource.clone().into(),
-            JsonWriterOptions::default(),
-            resource.cloud_options,
-            SinkOptions::default(),
+            FileWriteFormat::NDJson(NDJsonWriterOptions::default()),
+            UnifiedSinkArgs {
+                cloud_options: resource.cloud_options.map(Arc::new),
+                ..Default::default()
+            },
         )
         .and_then(|l| l.collect())
         .map_err(|e| polars_file_save_error(e, file_span))
@@ -36,7 +40,7 @@ pub(crate) fn command_lazy(
 
 pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), ShellError> {
     let file_span = resource.span;
-    let file_path: PathBuf = resource.try_into()?;
+    let file_path: PathBuf = resource.as_path_buf();
     let file = File::create(file_path).map_err(|e| ShellError::GenericError {
         error: format!("Error with file name: {e}"),
         msg: "".into(),

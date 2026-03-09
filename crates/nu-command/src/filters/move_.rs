@@ -32,17 +32,17 @@ impl Command for Move {
             .named(
                 "after",
                 SyntaxShape::String,
-                "the column that will precede the columns moved",
+                "The column that will precede the columns moved.",
                 None,
             )
             .named(
                 "before",
                 SyntaxShape::String,
-                "the column that will be the next after the columns moved",
+                "The column that will be the next after the columns moved.",
                 None,
             )
-            .switch("first", "makes the columns be the first ones", None)
-            .switch("last", "makes the columns be the last ones", None)
+            .switch("first", "Makes the columns be the first ones.", None)
+            .switch("last", "Makes the columns be the last ones.", None)
             .category(Category::Filters)
     }
 
@@ -50,7 +50,7 @@ impl Command for Move {
         vec![
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move index --before name",
-                description: "Move a column before the first column",
+                description: "Move a column before the first column.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "index" => Value::test_int(1),
@@ -71,7 +71,7 @@ impl Command for Move {
             },
             Example {
                 example: "[[name value index]; [foo a 1] [bar b 2] [baz c 3]] | move value name --after index",
-                description: "Move multiple columns after the last column and reorder them",
+                description: "Move multiple columns after the last column and reorder them.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "index" => Value::test_int(1),
@@ -92,7 +92,7 @@ impl Command for Move {
             },
             Example {
                 example: "{ name: foo, value: a, index: 1 } | move name --before index",
-                description: "Move columns of a record",
+                description: "Move columns of a record.",
                 result: Some(Value::test_record(record! {
                     "value" => Value::test_string("a"),
                     "name" => Value::test_string("foo"),
@@ -109,6 +109,7 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;

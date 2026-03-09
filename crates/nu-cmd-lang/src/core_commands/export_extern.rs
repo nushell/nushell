@@ -16,8 +16,16 @@ impl Command for ExportExtern {
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("export extern")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
-            .required("def_name", SyntaxShape::String, "Definition name.")
-            .required("params", SyntaxShape::Signature, "Parameters.")
+            .required(
+                "def_name",
+                SyntaxShape::String,
+                "The name of the external command signature to define and export.",
+            )
+            .required(
+                "params",
+                SyntaxShape::Signature,
+                "The parameters for the external command signature.",
+            )
             .category(Category::Core)
     }
 
@@ -42,7 +50,7 @@ impl Command for ExportExtern {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Export the signature for an external command",
+            description: "Export the signature for an external command.",
             example: r#"export extern echo [text: string]"#,
             result: None,
         }]

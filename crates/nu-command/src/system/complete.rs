@@ -33,7 +33,7 @@ impl Command for Complete {
         let head = call.head;
         match input {
             PipelineData::ByteStream(stream, ..) => {
-                let Ok(child) = stream.into_child() else {
+                let Ok(mut child) = stream.into_child() else {
                     return Err(ShellError::GenericError {
                         error: "Complete only works with external commands".into(),
                         msg: "complete only works on external commands".into(),
@@ -42,6 +42,12 @@ impl Command for Complete {
                         inner: vec![],
                     });
                 };
+
+                // `complete` reports non-zero status via its `exit_code` field.
+                // Mark child status as handled so global `pipefail` does not raise
+                // `non_zero_exit_code` after this command has already captured it.
+                #[cfg(feature = "os")]
+                child.ignore_error(true);
 
                 let output = child.wait_with_output()?;
                 let exit_code = output.exit_status.code();

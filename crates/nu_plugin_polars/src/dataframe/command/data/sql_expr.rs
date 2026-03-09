@@ -4,7 +4,7 @@ use polars::prelude::{DataType, Expr, LiteralValue, PolarsResult as Result, Time
 use sqlparser::ast::{
     ArrayElemTypeDef, BinaryOperator as SQLBinaryOperator, DataType as SQLDataType,
     DuplicateTreatment, Expr as SqlExpr, Function as SQLFunction, FunctionArguments,
-    Value as SqlValue, WindowType,
+    ObjectNamePart, Value as SqlValue, WindowType,
 };
 
 fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
@@ -17,21 +17,21 @@ fn map_sql_polars_datatype(data_type: &SQLDataType) -> Result<DataType> {
         | SQLDataType::String(_) => DataType::String,
         SQLDataType::Float(_) => DataType::Float32,
         SQLDataType::Real => DataType::Float32,
-        SQLDataType::Double => DataType::Float64,
+        SQLDataType::Double(_) => DataType::Float64,
         SQLDataType::TinyInt(_) => DataType::Int8,
-        SQLDataType::UnsignedTinyInt(_) => DataType::UInt8,
+        SQLDataType::TinyIntUnsigned(_) => DataType::UInt8,
         SQLDataType::SmallInt(_) => DataType::Int16,
-        SQLDataType::UnsignedSmallInt(_) => DataType::UInt16,
+        SQLDataType::SmallIntUnsigned(_) => DataType::UInt16,
         SQLDataType::Int(_) => DataType::Int32,
-        SQLDataType::UnsignedInt(_) => DataType::UInt32,
+        SQLDataType::IntUnsigned(_) => DataType::UInt32,
         SQLDataType::BigInt(_) => DataType::Int64,
-        SQLDataType::UnsignedBigInt(_) => DataType::UInt64,
+        SQLDataType::BigIntUnsigned(_) => DataType::UInt64,
 
         SQLDataType::Boolean => DataType::Boolean,
         SQLDataType::Date => DataType::Date,
         SQLDataType::Time(_, _) => DataType::Time,
         SQLDataType::Timestamp(_, _) => DataType::Datetime(TimeUnit::Microseconds, None),
-        SQLDataType::Interval => DataType::Duration(TimeUnit::Microseconds),
+        SQLDataType::Interval { .. } => DataType::Duration(TimeUnit::Microseconds),
         SQLDataType::Array(array_type_def) => match array_type_def {
             ArrayElemTypeDef::AngleBracket(inner_type)
             | ArrayElemTypeDef::SquareBracket(inner_type, _) => {
@@ -124,7 +124,7 @@ pub fn parse_sql_expr(expr: &SqlExpr) -> Result<Expr> {
             expr, data_type, ..
         } => cast_(parse_sql_expr(expr)?, data_type)?,
         SqlExpr::Nested(expr) => parse_sql_expr(expr)?,
-        SqlExpr::Value(value) => literal_expr(value)?,
+        SqlExpr::Value(value) => literal_expr(&value.value)?,
         _ => {
             return Err(PolarsError::ComputeError(
                 format!("Expression: {expr:?} was not supported in polars-sql yet!").into(),
@@ -160,7 +160,13 @@ fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Exp
 fn parse_sql_function(sql_function: &SQLFunction) -> Result<Expr> {
     use sqlparser::ast::{FunctionArg, FunctionArgExpr};
     // Function name mostly do not have name space, so it mostly take the first args
-    let function_name = sql_function.name.0[0].value.to_ascii_lowercase();
+    let function_name = match sql_function.name.0.first() {
+        Some(ObjectNamePart::Identifier(ident)) => Ok(ident.value.clone()),
+        Some(ObjectNamePart::Function(f)) => Ok(f.name.value.clone()),
+        _ => Err(PolarsError::SQLSyntax(
+            "Could not determine sql function name".into(),
+        )),
+    }?;
 
     // One day this should support the additional argument types supported with 0.40
     let (args, distinct) = match &sql_function.args {

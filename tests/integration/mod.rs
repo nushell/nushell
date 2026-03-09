@@ -2,6 +2,7 @@ use nu_test_support::nu;
 use pretty_assertions::assert_str_eq;
 
 mod cli;
+mod shell_integration;
 
 #[test]
 fn multiword_commands_have_their_parent_commands() {

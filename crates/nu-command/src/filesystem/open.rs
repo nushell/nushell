@@ -57,7 +57,7 @@ impl Command for Open {
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]),
                 "The file(s) to open.",
             )
-            .switch("raw", "open file as raw binary", Some('r'))
+            .switch("raw", "Open file as raw binary.", Some('r'))
             .category(Category::FileSystem)
     }
 
@@ -270,32 +270,32 @@ impl Command for Open {
     fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![
             Example {
-                description: "Open a file, with structure (based on file extension or SQLite database header)",
+                description: "Open a file, with structure (based on file extension or SQLite database header).",
                 example: "open myfile.json",
                 result: None,
             },
             Example {
-                description: "Open a file, as raw bytes",
+                description: "Open a file, as raw bytes.",
                 example: "open myfile.json --raw",
                 result: None,
             },
             Example {
-                description: "Open a file, using the input to get filename",
+                description: "Open a file, using the input to get filename.",
                 example: "'myfile.txt' | open",
                 result: None,
             },
             Example {
-                description: "Open a file, and decode it by the specified encoding",
+                description: "Open a file, and decode it by the specified encoding.",
                 example: "open myfile.txt --raw | decode utf-8",
                 result: None,
             },
             Example {
-                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`",
+                description: "Create a custom `from` parser to open newline-delimited JSON files with `open`.",
                 example: r#"def "from ndjson" [] { from json -o }; open myfile.ndjson"#,
                 result: None,
             },
             Example {
-                description: "Show the extensions for which the `open` command will automatically parse",
+                description: "Show the extensions for which the `open` command will automatically parse.",
                 example: r#"scope commands
     | where name starts-with "from "
     | insert extension { get name | str replace -r "^from " "" | $"*.($in)" }

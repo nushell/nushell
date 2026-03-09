@@ -1,3 +1,4 @@
+#![allow(unused_assignments)]
 use crate::{Span, Type, ast::RedirectionSource, did_you_mean};
 use miette::Diagnostic;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,7 @@ use std::{
 };
 use thiserror::Error;
 
-#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize)]
+#[derive(Clone, Debug, Error, Diagnostic, Serialize, Deserialize, PartialEq)]
 pub enum ParseError {
     /// The parser encountered unexpected tokens, when the code should have
     /// finished. You should remove these or finish adding what you intended
@@ -663,7 +664,7 @@ impl ParseError {
     }
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct DidYouMean(Option<String>);
 
 fn did_you_mean_impl(possibilities_bytes: &[&[u8]], input_bytes: &[u8]) -> Option<String> {

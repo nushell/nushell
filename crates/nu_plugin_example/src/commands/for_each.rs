@@ -27,7 +27,7 @@ impl PluginCommand for ForEach {
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "The closure to run for each input value",
+                "The closure to run for each input value.",
             )
             .category(Category::Experimental)
     }

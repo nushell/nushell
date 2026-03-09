@@ -20,19 +20,19 @@ impl Command for AttrDeprecated {
             .named(
                 "flag",
                 SyntaxShape::String,
-                "Mark a flag as deprecated rather than the command",
+                "Mark a flag as deprecated rather than the command.",
                 None,
             )
             .named(
                 "since",
                 SyntaxShape::String,
-                "Denote a version when this item was deprecated",
+                "Denote a version when this item was deprecated.",
                 Some('s'),
             )
             .named(
                 "remove",
                 SyntaxShape::String,
-                "Denote a version when this item will be removed",
+                "Denote a version when this item will be removed.",
                 Some('r'),
             )
             .param(
@@ -88,13 +88,13 @@ impl Command for AttrDeprecated {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Add a deprecation warning to a custom command",
+                description: "Add a deprecation warning to a custom command.",
                 example: r###"@deprecated
     def outdated [] {}"###,
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {
-                description: "Add a deprecation warning with a custom message",
+                description: "Add a deprecation warning with a custom message.",
                 example: r###"@deprecated "Use my-new-command instead."
     @category deprecated
     def my-old-command [] {}"###,

@@ -7,10 +7,7 @@ use notify_debouncer_full::{
     },
 };
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{
-    DeprecationEntry, DeprecationType, ReportMode, Signals, engine::Closure, report_shell_error,
-    shell_error::io::IoError,
-};
+use nu_protocol::{Signals, engine::Closure, report_shell_error, shell_error::io::IoError};
 
 use std::{
     borrow::Cow,
@@ -43,16 +40,6 @@ impl Command for Watch {
         vec!["watcher", "reload", "filesystem"]
     }
 
-    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![DeprecationEntry {
-            ty: DeprecationType::Flag("debounce-ms".into()),
-            report_mode: ReportMode::FirstUse,
-            since: Some("0.107.0".into()),
-            expected_removal: Some("0.109.0".into()),
-            help: Some("`--debounce-ms` will be removed in favour of  `--debounce`".into()),
-        }]
-    }
-
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("watch")
             .input_output_types(vec![
@@ -73,16 +60,10 @@ impl Command for Watch {
                 "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
             )
             .named(
-                "debounce-ms",
-                SyntaxShape::Int,
-                "Debounce changes for this many milliseconds (default: 100). Adjust if you find that single writes are reported as multiple events (deprecated)",
-                Some('d'),
-            )
-            .named(
                 "debounce",
                 SyntaxShape::Duration,
-                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events",
-                None,
+                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events.",
+                Some('d'),
             )
             .named(
                 "glob",
@@ -93,11 +74,11 @@ impl Command for Watch {
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true)",
+                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true).",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false)", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false)", Some('v'))
+            .switch("quiet", "Hide the initial status message (default: false).", Some('q'))
+            .switch("verbose", "Operate in verbose mode (default: false).", Some('v'))
             .category(Category::FileSystem)
     }
 
@@ -127,10 +108,9 @@ impl Command for Watch {
         let closure: Option<Closure> = call.opt(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
-        let debounce_duration: Duration = resolve_duration_arguments(
-            call.get_flag(engine_state, stack, "debounce-ms")?,
-            call.get_flag(engine_state, stack, "debounce")?,
-        )?;
+        let debounce_duration: Duration = call
+            .get_flag(engine_state, stack, "debounce")?
+            .unwrap_or(DEFAULT_WATCH_DEBOUNCE_DURATION);
 
         let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
         let glob_pattern = glob_flag
@@ -250,12 +230,12 @@ impl Command for Watch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Run `cargo test` whenever a Rust file changes",
+                description: "Run `cargo test` whenever a Rust file changes.",
                 example: r#"watch . --glob=**/*.rs {|| cargo test }"#,
                 result: None,
             },
             Example {
-                description: "Watch all changes in the current directory",
+                description: "Watch all changes in the current directory.",
                 example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
                 result: None,
             },
@@ -270,39 +250,16 @@ impl Command for Watch {
                 result: None,
             },
             Example {
-                description: "Print file changes with a debounce time of 5 minutes",
+                description: "Print file changes with a debounce time of 5 minutes.",
                 example: r#"watch /foo/bar --debounce 5min { |op, path| $"Registered ($op) on ($path)" | print }"#,
                 result: None,
             },
             Example {
-                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep",
+                description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep.",
                 example: r#"loop { command; sleep duration }"#,
                 result: None,
             },
         ]
-    }
-}
-
-fn resolve_duration_arguments(
-    debounce_duration_flag_ms: Option<Spanned<i64>>,
-    debounce_duration_flag: Option<Spanned<Duration>>,
-) -> Result<Duration, ShellError> {
-    match (debounce_duration_flag, debounce_duration_flag_ms) {
-        (None, None) => Ok(DEFAULT_WATCH_DEBOUNCE_DURATION),
-        (Some(l), Some(r)) => Err(ShellError::IncompatibleParameters {
-            left_message: "Here".to_string(),
-            left_span: l.span,
-            right_message: "and here".to_string(),
-            right_span: r.span,
-        }),
-        (None, Some(val)) => match u64::try_from(val.item) {
-            Ok(v) => Ok(Duration::from_millis(v)),
-            Err(_) => Err(ShellError::TypeMismatch {
-                err_message: "Debounce duration is invalid".to_string(),
-                span: val.span,
-            }),
-        },
-        (Some(v), None) => Ok(v.item),
     }
 }
 

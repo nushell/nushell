@@ -323,10 +323,9 @@ impl View for RecordView {
             for (data_row, cells) in layer.record_values.iter().enumerate() {
                 if data_pos >= i && data_pos < i + cells.len() {
                     let column = data_pos - i;
-                    let row = data_row + 1; // +1 for header row
                     self.get_top_layer_mut()
                         .cursor
-                        .set_window_start_position(row, column);
+                        .set_window_start_position(data_row, column);
                     return true;
                 }
                 i += cells.len();
@@ -586,6 +585,8 @@ fn push_layer(view: &mut RecordView, mut next_layer: RecordLayer) {
     }
 
     view.layer_stack.push(next_layer);
+    view.auto_tail = false;
+    view.previous_row_count = view.get_top_layer().record_values.len();
 }
 
 fn estimate_page_size(area: Rect, show_head: bool) -> u16 {

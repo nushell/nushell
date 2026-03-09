@@ -48,7 +48,7 @@ impl Command for BytesReverse {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Reverse bytes `0x[1F FF AA AA]`",
+                description: "Reverse bytes `0x[1F FF AA AA]`.",
                 example: "0x[1F FF AA AA] | bytes reverse",
                 result: Some(Value::binary(
                     vec![0xAA, 0xAA, 0xFF, 0x1F],
@@ -56,7 +56,7 @@ impl Command for BytesReverse {
                 )),
             },
             Example {
-                description: "Reverse bytes `0x[FF AA AA]`",
+                description: "Reverse bytes `0x[FF AA AA]`.",
                 example: "0x[FF AA AA] | bytes reverse",
                 result: Some(Value::binary(vec![0xAA, 0xAA, 0xFF], Span::test_data())),
             },

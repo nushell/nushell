@@ -25,29 +25,27 @@ pub(crate) const TRANSIENT_PROMPT_INDICATOR_VI_NORMAL: &str =
 pub(crate) const TRANSIENT_PROMPT_MULTILINE_INDICATOR: &str =
     "TRANSIENT_PROMPT_MULTILINE_INDICATOR";
 
-// Store all these Ansi Escape Markers here so they can be reused easily
-// According to Daniel Imms @Tyriar, we need to do these this way:
-// <133 A><prompt><133 B><command><133 C><command output>
-pub(crate) const PRE_PROMPT_MARKER: &str = "\x1b]133;A\x1b\\";
-pub(crate) const POST_PROMPT_MARKER: &str = "\x1b]133;B\x1b\\";
+// ────────────────────────────────────────────────────────────────────────────────
+// OSC 133 / OSC 633 COMMAND EXECUTION MARKERS
+// ────────────────────────────────────────────────────────────────────────────────
+// These escape sequences are used by the shell to mark command execution boundaries.
+// Note: A/B/P markers for prompts are now handled by reedline.
+
+// Command execution markers (C = pre-exec, D = post-exec with exit code)
 pub(crate) const PRE_EXECUTION_MARKER: &str = "\x1b]133;C\x1b\\";
 pub(crate) const POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]133;D;";
 pub(crate) const POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
 
-// OSC633 is the same as OSC133 but specifically for VSCode
-pub(crate) const VSCODE_PRE_PROMPT_MARKER: &str = "\x1b]633;A\x1b\\";
-pub(crate) const VSCODE_POST_PROMPT_MARKER: &str = "\x1b]633;B\x1b\\";
+// VS Code specific markers (OSC 633)
 pub(crate) const VSCODE_PRE_EXECUTION_MARKER: &str = "\x1b]633;C\x1b\\";
-//"\x1b]633;D;{}\x1b\\"
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_PREFIX: &str = "\x1b]633;D;";
 pub(crate) const VSCODE_POST_EXECUTION_MARKER_SUFFIX: &str = "\x1b\\";
-//"\x1b]633;E;{}\x1b\\"
 pub(crate) const VSCODE_COMMANDLINE_MARKER_PREFIX: &str = "\x1b]633;E;";
 pub(crate) const VSCODE_COMMANDLINE_MARKER_SUFFIX: &str = "\x1b\\";
-// "\x1b]633;P;Cwd={}\x1b\\"
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_PREFIX: &str = "\x1b]633;P;Cwd=";
 pub(crate) const VSCODE_CWD_PROPERTY_MARKER_SUFFIX: &str = "\x1b\\";
 
+// Reset terminal application mode sequence
 pub(crate) const RESET_APPLICATION_MODE: &str = "\x1b[?1l";
 
 fn get_prompt_string(
@@ -97,45 +95,14 @@ fn get_prompt_string(
         })
 }
 
-pub(crate) fn update_prompt(
+pub fn update_prompt(
     config: &Config,
     engine_state: &EngineState,
     stack: &mut Stack,
     nu_prompt: &mut NushellPrompt,
 ) {
-    let configured_left_prompt_string =
-        match get_prompt_string(PROMPT_COMMAND, config, engine_state, stack) {
-            Some(s) => s,
-            None => "".to_string(),
-        };
-
-    // Now that we have the prompt string lets ansify it.
-    // <133 A><prompt><133 B><command><133 C><command output>
-    let left_prompt_string = if config.shell_integration.osc633 {
-        if stack
-            .get_env_var(engine_state, "TERM_PROGRAM")
-            .and_then(|v| v.as_str().ok())
-            == Some("vscode")
-        {
-            // We're in vscode and we have osc633 enabled
-            Some(format!(
-                "{VSCODE_PRE_PROMPT_MARKER}{configured_left_prompt_string}{VSCODE_POST_PROMPT_MARKER}"
-            ))
-        } else if config.shell_integration.osc133 {
-            // If we're in VSCode but we don't find the env var, but we have osc133 set, then use it
-            Some(format!(
-                "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
-            ))
-        } else {
-            configured_left_prompt_string.into()
-        }
-    } else if config.shell_integration.osc133 {
-        Some(format!(
-            "{PRE_PROMPT_MARKER}{configured_left_prompt_string}{POST_PROMPT_MARKER}"
-        ))
-    } else {
-        configured_left_prompt_string.into()
-    };
+    // Get the configured prompts - reedline now handles semantic markers
+    let left_prompt_string = get_prompt_string(PROMPT_COMMAND, config, engine_state, stack);
 
     let right_prompt_string = get_prompt_string(PROMPT_COMMAND_RIGHT, config, engine_state, stack);
 
@@ -163,6 +130,8 @@ pub(crate) fn update_prompt(
 }
 
 /// Construct the transient prompt based on the normal nu_prompt
+/// Note: Transient prompts do NOT emit semantic markers since they replace
+/// the actual prompt after command execution (which already has markers).
 pub(crate) fn make_transient_prompt(
     config: &Config,
     engine_state: &EngineState,
@@ -210,4 +179,29 @@ pub(crate) fn make_transient_prompt(
     }
 
     Box::new(nu_prompt)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::Span;
+
+    #[test]
+    fn update_prompt_does_not_embed_osc_markers() {
+        let mut config = Config::default();
+        config.shell_integration.osc133 = true;
+
+        let engine_state = EngineState::new();
+        let mut stack = Stack::new();
+        stack.add_env_var(
+            PROMPT_COMMAND.into(),
+            Value::string("test", Span::unknown()),
+        );
+
+        let mut nu_prompt = NushellPrompt::new();
+
+        update_prompt(&config, &engine_state, &mut stack, &mut nu_prompt);
+
+        assert_eq!(nu_prompt.render_prompt_left(), "test");
+    }
 }

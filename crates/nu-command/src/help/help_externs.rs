@@ -24,7 +24,7 @@ impl Command for HelpExterns {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in extern names and descriptions",
+                "String to find in extern names and descriptions.",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -34,17 +34,17 @@ impl Command for HelpExterns {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "show all externs",
+                description: "Show all externs.",
                 example: "help externs",
                 result: None,
             },
             Example {
-                description: "show help for single extern",
+                description: "Show help for single extern.",
                 example: "help externs smth",
                 result: None,
             },
             Example {
-                description: "search for string in extern names and descriptions",
+                description: "Search for string in extern names and descriptions.",
                 example: "help externs --find smth",
                 result: None,
             },

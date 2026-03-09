@@ -84,7 +84,6 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                         &ShellError::Io(IoError::new_internal_with_path(
                             err,
                             "Could not open plugin registry file",
-                            nu_protocol::location!(),
                             plugin_path,
                         )),
                     );
@@ -141,7 +140,28 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
-        nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
+        let plugin_load_errors =
+            nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
+
+        if plugin_load_errors > 0 {
+            report_shell_error(
+                None,
+                engine_state,
+                &ShellError::GenericError {
+                    error: format!(
+                        "Failed to load {plugin_load_errors} plugin entr{} from {}",
+                        if plugin_load_errors == 1 { "y" } else { "ies" },
+                        plugin_path.display(),
+                    ),
+                    msg: "plugins with incompatible or invalid registry data were skipped".into(),
+                    span,
+                    help: Some(
+                        "run `plugin list` and re-add outdated plugins with `plugin add`".into(),
+                    ),
+                    inner: vec![],
+                },
+            );
+        }
 
         if let Err(err) = engine_state.merge_delta(working_set.render()) {
             report_shell_error(None, engine_state, &err);
@@ -339,7 +359,6 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
             IoError::new_internal_with_path(
                 err,
                 "Could not create new plugin file",
-                nu_protocol::location!(),
                 new_plugin_file_path.clone(),
             )
         })

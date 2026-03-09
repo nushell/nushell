@@ -349,6 +349,7 @@ mod child_pgroup {
         unistd::{self, Pid},
     };
     use std::{
+        io::Write,
         os::{
             fd::{AsFd, BorrowedFd},
             unix::prelude::CommandExt,
@@ -425,7 +426,13 @@ mod child_pgroup {
     /// Reset the foreground process group to the shell
     pub fn reset() {
         if let Err(e) = unistd::tcsetpgrp(unsafe { stdin_fd() }, unistd::getpgrp()) {
-            eprintln!("ERROR: reset foreground id failed, tcsetpgrp result: {e:?}");
+            // Use write_all instead of eprintln! to avoid panicking (and
+            // subsequently aborting due to a double-panic) when stderr is
+            // unavailable — e.g. the terminal has already been torn down.
+            let _ = writeln!(
+                std::io::stderr(),
+                "ERROR: reset foreground id failed, tcsetpgrp result: {e:?}"
+            );
         }
     }
 }

@@ -634,6 +634,12 @@ fn parse_function_signature(#[case] phrase: &str) {
     assert!(actual.err.is_empty());
 }
 
+#[test]
+fn parse_function_signature_switch_is_bool() {
+    let actual = nu!(r#"def foo [--bar] { let baz: int = $bar }"#);
+    assert!(actual.err.contains("expected int, found bool"))
+}
+
 #[rstest]
 #[case("def test [ in ] {}")]
 #[case("def test [ in: string ] {}")]
@@ -722,4 +728,101 @@ fn wacky_range_parse_comb() {
 fn wacky_range_unmatched_paren() {
     let actual = nu!(r#"') .."#);
     assert!(!actual.err.is_empty());
+}
+
+#[test]
+fn issue_16769_recursive_module_command_variable_in_block() {
+    Playground::setup(
+        "issue_16769_recursive_module_command_variable_in_block",
+        |dirs, sandbox| {
+            sandbox
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "b.nu",
+                    "
+                        export def f [] { each {f} }
+                    ",
+                )])
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "a.nu",
+                    "
+                        use b.nu *
+                        let i = [];
+                        if true { $i | f }
+                    ",
+                )]);
+
+            let actual = nu!(cwd: dirs.test(), "nu a.nu");
+            assert!(actual.err.is_empty(), "unexpected error: {}", actual.err);
+        },
+    )
+}
+
+#[test]
+fn issue_16769_recursive_module_command_direct_recursion_closure() {
+    Playground::setup(
+        "issue_16769_recursive_module_command_direct_recursion_closure",
+        |dirs, sandbox| {
+            sandbox
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "b.nu",
+                    "
+                        export def f [] { f }
+                    ",
+                )])
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "a.nu",
+                    "
+                        use b.nu f
+                        { $in | f }
+                    ",
+                )]);
+
+            let actual = nu!(cwd: dirs.test(), "nu a.nu");
+            assert!(actual.err.is_empty(), "unexpected error: {}", actual.err);
+        },
+    )
+}
+
+#[test]
+fn issue_16769_recursive_module_command_source_def() {
+    Playground::setup(
+        "issue_16769_recursive_module_command_source_def",
+        |dirs, sandbox| {
+            sandbox
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "b.nu",
+                    "
+                    export def f [] { each {f} }
+                ",
+                )])
+                .with_files(&[FileWithContentToBeTrimmed(
+                    "a.nu",
+                    "
+                    use b.nu f
+                    def a [] { $in | f }
+                ",
+                )]);
+
+            let actual = nu!(cwd: dirs.test(), "source a.nu; [] | f");
+            assert!(actual.err.is_empty(), "unexpected error: {}", actual.err);
+        },
+    )
+}
+
+#[test]
+fn issue_16209_mutual_recursion_closure_in_variable() {
+    let actual = nu!(r#"
+        def map [] {
+          return {
+           first: {|| $in | result second | $in + 3 }
+           second: {|| $in + 7 | result third | $in * 3 }
+           third: {|| $in }
+          }
+        }
+        def result [condition: string, ...args] {
+             do (map | get $condition) ...$args
+        }
+        map | describe
+    "#);
+    assert!(actual.err.is_empty(), "unexpected error: {}", actual.err);
 }

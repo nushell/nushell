@@ -56,7 +56,7 @@ impl Command for StrStats {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Count the number of words in a string",
+                description: "Count the number of words in a string.",
                 example: r#""There are seven words in this sentence" | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),
@@ -68,7 +68,7 @@ impl Command for StrStats {
                 })),
             },
             Example {
-                description: "Counts unicode characters",
+                description: "Counts unicode characters.",
                 example: r#"'今天天气真好' | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),
@@ -80,7 +80,7 @@ impl Command for StrStats {
                 })),
             },
             Example {
-                description: "Counts Unicode characters correctly in a string",
+                description: "Counts Unicode characters correctly in a string.",
                 example: r#""Amélie Amelie" | str stats"#,
                 result: Some(Value::test_record(record! {
                         "lines" =>     Value::test_int(1),

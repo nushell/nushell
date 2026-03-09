@@ -32,7 +32,7 @@ impl PluginCommand for Contains {
             .required(
                 "pattern",
                 SyntaxShape::String,
-                "Regex pattern to be searched",
+                "Regex pattern to be searched.",
             )
             .input_output_types(vec![
                 (

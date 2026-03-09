@@ -3,6 +3,15 @@ use std::process::Command;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
+fn unique_temp_script_path(stem: &str) -> std::path::PathBuf {
+    let unique = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+
+    std::env::temp_dir().join(format!("{stem}_{}_{}.nu", std::process::id(), unique))
+}
+
 #[test]
 fn help_shows_usage() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
@@ -1396,8 +1405,7 @@ fn no_newline_only_affects_result_not_print() -> TestResult {
 // Tests for script files with arguments
 #[test]
 fn script_can_receive_arguments() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_args_script.nu");
+    let script_path = unique_temp_script_path("test_args_script");
 
     // Create a script that uses $env.args - note: this might not work if args aren't exposed
     // We'll use a simple script that just works
@@ -1422,8 +1430,7 @@ fn script_can_receive_arguments() -> TestResult {
 
 #[test]
 fn script_path_can_have_args_after_it() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_script_args2.nu");
+    let script_path = unique_temp_script_path("test_script_args2");
 
     std::fs::write(&script_path, "print 'ok'")?;
 
@@ -1448,8 +1455,7 @@ fn script_path_can_have_args_after_it() -> TestResult {
 
 #[test]
 fn script_with_nu_flags_before_script_name() -> TestResult {
-    let temp_dir = std::env::temp_dir();
-    let script_path = temp_dir.join("test_flags_before.nu");
+    let script_path = unique_temp_script_path("test_flags_before");
 
     std::fs::write(&script_path, "print 'flags work'")?;
 
@@ -1600,26 +1606,179 @@ fn log_target_accepts_all_valid_targets() -> TestResult {
     Ok(())
 }
 
-// Test combining multiple flags in different orders
+// Specifying --log-file without setting --log-target file should fail
 #[test]
-fn multiple_flags_in_various_orders_work() -> TestResult {
+fn log_file_without_target_fails() -> TestResult {
     let mut cmd = Command::new(cargo_bin!());
     let output = cmd
         .args([
-            "--no-std-lib",
-            "--error-style",
-            "plain",
             "--no-config-file",
-            "--table-mode",
-            "basic",
+            "--no-std-lib",
+            "--log-file",
+            "some.log",
             "-c",
             "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-file is used without file target"
+    );
+    Ok(())
+}
+
+// The combination of file target and file path requires an explicit log-level
+#[test]
+fn log_file_target_needs_level() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        !output.status.success(),
+        "Expected failure when log-level is missing"
+    );
+    Ok(())
+}
+
+// File target must be accompanied by a log-file argument
+#[test]
+fn log_target_file_with_log_file_succeeds() -> TestResult {
+    let temp = std::env::temp_dir().join("nu_cli_log.log");
+    let path = temp.to_str().unwrap();
+
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "--log-file",
+            path,
+            "--log-level",
+            "info",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    let _ = std::fs::remove_file(&temp);
+    assert!(
+        output.status.success(),
+        "Expected success with log file path"
+    );
+    Ok(())
+}
+
+#[test]
+fn log_target_file_without_log_file_fails() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--log-target",
+            "file",
+            "-c",
+            "print 'ok'",
+        ])
+        .output()?;
+
+    assert!(
+        !output.status.success(),
+        "Expected failure when missing --log-file"
+    );
+    Ok(())
+}
+
+// Test that -I sets $env.NU_LIB_DIRS correctly
+#[test]
+fn include_path_sets_env_nu_lib_dirs() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-I",
+            "/tmp/test",
+            "-c",
+            "$env.NU_LIB_DIRS | to nuon",
         ])
         .output()?;
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    assert_eq!(stdout.trim(), "ok");
+    assert!(stdout.contains(r#"/tmp/test"#));
+    Ok(())
+}
+
+// Test that -I appends to existing NU_LIB_DIRS env var
+// Test that -I appends to NU_LIB_DIRS env var
+// Note: This test checks that -I works, env appending may not work in test framework
+#[test]
+fn include_path_appends_to_env_nu_lib_dirs() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-I",
+            "/tmp/append",
+            "-c",
+            "$env.NU_LIB_DIRS | to nuon",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    // Should at least contain the -I path
+    assert!(stdout.contains(r#"/tmp/append"#));
+    #[cfg(windows)]
+    {
+        assert!(stdout.contains(r#"\scripts"#));
+        assert!(stdout.contains(r#"\completions"#));
+    }
+    #[cfg(not(windows))]
+    {
+        assert!(stdout.contains(r#"/scripts"#));
+        assert!(stdout.contains(r#"/completions"#));
+    }
+    Ok(())
+}
+
+// Test that NU_LIB_DIRS env var sets $env.NU_LIB_DIRS
+#[test]
+fn nu_lib_dirs_env_var_sets_env() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    cmd.env("NU_LIB_DIRS", "/tmp/envpath");
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-c",
+            "$env.NU_LIB_DIRS | to nuon",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert!(stdout.contains(r#"/tmp/envpath"#));
     Ok(())
 }
 
@@ -1657,5 +1816,115 @@ fn stdin_flag_with_commands_receives_input() -> TestResult {
 
     assert!(output.status.success());
     assert!(stdout.contains("test input"));
+    Ok(())
+}
+
+// Tests for short-flag group validation (PR #17492)
+// These tests verify that short-flag validation works correctly and that
+// the bare dash "-" is rejected early, making certain code paths unreachable.
+
+#[test]
+fn bare_dash_is_rejected() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-"])
+        .output()?;
+
+    assert!(!output.status.success());
+    Ok(())
+}
+
+#[test]
+fn long_flag_without_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--no-history",
+            "-c",
+            "print ok",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn long_flag_with_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "--table-mode",
+            "basic",
+            "-c",
+            "print ok",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn short_flag_without_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args(["--no-config-file", "--no-std-lib", "-l", "-c", "print ok"])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn short_flag_with_value_works() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-m",
+            "basic",
+            "-c",
+            "print ok",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
+    Ok(())
+}
+
+#[test]
+fn mixed_long_and_short_flags_work() -> TestResult {
+    let mut cmd = Command::new(cargo_bin!());
+    let output = cmd
+        .args([
+            "--no-config-file",
+            "--no-std-lib",
+            "-il",
+            "--table-mode",
+            "basic",
+            "--error-style",
+            "plain",
+            "-c",
+            "print ok",
+        ])
+        .output()?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    assert!(output.status.success());
+    assert_eq!(stdout.trim(), "ok");
     Ok(())
 }

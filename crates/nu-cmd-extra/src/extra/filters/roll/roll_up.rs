@@ -17,7 +17,7 @@ impl Command for RollUp {
         Signature::build(self.name())
             // TODO: It also operates on List
             .input_output_types(vec![(Type::table(), Type::table())])
-            .named("by", SyntaxShape::Int, "Number of rows to roll", Some('b'))
+            .named("by", SyntaxShape::Int, "Number of rows to roll.", Some('b'))
             .category(Category::Filters)
     }
 
@@ -53,6 +53,7 @@ impl Command for RollUp {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let input = input.into_stream_or_original(engine_state);
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let metadata = input.metadata();
 

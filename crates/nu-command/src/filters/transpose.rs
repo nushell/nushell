@@ -25,27 +25,27 @@ impl Command for Transpose {
             ])
             .switch(
                 "header-row",
-                "use the first input column as the table header-row (or keynames when combined with --as-record)",
+                "Use the first input column as the table header-row (or keynames when combined with --as-record).",
                 Some('r'),
             )
             .switch(
                 "ignore-titles",
-                "don't transpose the column names into values",
+                "Don't transpose the column names into values.",
                 Some('i'),
             )
             .switch(
                 "as-record",
-                "transfer to record if the result is a table and contains only one row",
+                "Transfer to record if the result is a table and contains only one row.",
                 Some('d'),
             )
             .switch(
                 "keep-last",
-                "on repetition of record fields due to `header-row`, keep the last value obtained",
+                "On repetition of record fields due to `header-row`, keep the last value obtained.",
                 Some('l'),
             )
             .switch(
                 "keep-all",
-                "on repetition of record fields due to `header-row`, keep all the values obtained",
+                "On repetition of record fields due to `header-row`, keep all the values obtained.",
                 Some('a'),
             )
             .allow_variants_without_examples(true)
@@ -78,7 +78,7 @@ impl Command for Transpose {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Transposes the table contents with default column names",
+                description: "Transposes the table contents with default column names.",
                 example: "[[c1 c2]; [1 2]] | transpose",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -92,7 +92,7 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description: "Transposes the table contents with specified column names",
+                description: "Transposes the table contents with specified column names.",
                 example: "[[c1 c2]; [1 2]] | transpose key val",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -106,7 +106,7 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description: "Transposes the table without column names and specify a new column name",
+                description: "Transposes the table without column names and specify a new column name.",
                 example: "[[c1 c2]; [1 2]] | transpose --ignore-titles val",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -118,7 +118,7 @@ impl Command for Transpose {
                 ])),
             },
             Example {
-                description: "Transfer back to record with -d flag",
+                description: "Transfer back to record with -d flag.",
                 example: "{c1: 1, c2: 2} | transpose | transpose --ignore-titles -r -d",
                 result: Some(Value::test_record(record! {
                     "c1" =>  Value::test_int(1),

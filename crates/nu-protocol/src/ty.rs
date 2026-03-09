@@ -1,6 +1,6 @@
-use crate::SyntaxShape;
+use crate::{SyntaxShape, ast::PathMember};
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
+use std::{borrow::Cow, fmt::Display};
 #[cfg(test)]
 use strum_macros::EnumIter;
 
@@ -33,6 +33,76 @@ pub enum Type {
     String,
     Glob,
     Table(Box<[(String, Type)]>),
+}
+
+fn follow_cell_path_recursive<'a>(
+    current: Cow<'a, Type>,
+    path_members: &mut dyn Iterator<Item = &'a PathMember>,
+) -> Option<Cow<'a, Type>> {
+    let Some(first) = path_members.next() else {
+        return Some(current);
+    };
+    match (current.as_ref(), first) {
+        (Type::Record(fields), PathMember::String { val, .. }) => {
+            let idx = fields.iter().position(|(name, _)| name == val)?;
+            let next = match current {
+                Cow::Borrowed(Type::Record(f)) => Cow::Borrowed(&f[idx].1),
+                Cow::Owned(Type::Record(f)) => Cow::Owned(f[idx].1.to_owned()),
+                _ => unreachable!(),
+            };
+            follow_cell_path_recursive(next, path_members)
+        }
+
+        // Table to Record (Int)
+        (Type::Table(f), PathMember::Int { .. }) => {
+            follow_cell_path_recursive(Cow::Owned(Type::Record(f.clone())), path_members)
+        }
+
+        // Table to List (String)
+        (Type::Table(fields), PathMember::String { val, .. }) => {
+            let (_, sub_type) = fields.iter().find(|(name, _)| name == val)?;
+            let list_type = Type::List(Box::new(sub_type.clone()));
+            follow_cell_path_recursive(Cow::Owned(list_type), path_members)
+        }
+
+        (Type::List(_), PathMember::Int { .. }) => {
+            let next = match current {
+                Cow::Borrowed(Type::List(i)) => Cow::Borrowed(i.as_ref()),
+                Cow::Owned(Type::List(i)) => Cow::Owned(*i),
+                _ => unreachable!(),
+            };
+            follow_cell_path_recursive(next, path_members)
+        }
+
+        // List of Records indexed by key names
+        (Type::List(_), PathMember::String { .. }) => {
+            let next = match current {
+                Cow::Borrowed(Type::List(i)) => Cow::Borrowed(i.as_ref()),
+                Cow::Owned(Type::List(i)) => Cow::Owned(*i),
+                _ => unreachable!(),
+            };
+
+            let mut found_int_member = false;
+            let mut new_iter = std::iter::once(first).chain(path_members).filter(|pm| {
+                let first_int = !found_int_member && matches!(pm, PathMember::Int { .. });
+                if first_int {
+                    found_int_member = true;
+                }
+                !first_int
+            });
+            let inner_ty = follow_cell_path_recursive(next, &mut new_iter);
+
+            // If there's no int path member, need to wrap in a List type
+            // e.g. [{foo: bar}].foo -> [bar], list<record<foo: string>> -> list<string>
+            if found_int_member {
+                inner_ty
+            } else {
+                inner_ty.map(|inner_ty| Cow::Owned(Type::List(Box::new(inner_ty.into_owned()))))
+            }
+        }
+
+        _ => None,
+    }
 }
 
 impl Type {
@@ -294,6 +364,10 @@ impl Type {
             Type::Glob => String::from("glob"),
         }
     }
+
+    pub fn follow_cell_path<'a>(&'a self, path_members: &'a [PathMember]) -> Option<Cow<'a, Self>> {
+        follow_cell_path_recursive(Cow::Borrowed(self), &mut path_members.iter())
+    }
 }
 
 impl Display for Type {
@@ -368,7 +442,17 @@ impl Display for Type {
 /// Helpful for listing types in errors
 pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
     use std::fmt::Write as _;
-    match types {
+
+    // Deduplicate types to avoid confusing repeated entries like
+    // "binary, binary, binary, or binary" in error messages.
+    let mut seen = Vec::new();
+    for t in types {
+        if !seen.contains(t) {
+            seen.push(t.clone());
+        }
+    }
+
+    match seen.as_slice() {
         [] => None,
         [one] => Some(one.to_string()),
         [one, two] => Some(format!("{one} {join_word} {two}")),

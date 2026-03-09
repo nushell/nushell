@@ -17,7 +17,11 @@ impl Command for Mut {
         Signature::build("mut")
             .input_output_types(vec![(Type::Any, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("var_name", SyntaxShape::VarWithOptType, "Variable name.")
+            .required(
+                "var_name",
+                SyntaxShape::VarWithOptType,
+                "The mutable variable name to create.",
+            )
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
@@ -57,22 +61,22 @@ impl Command for Mut {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Set a mutable variable to a value, then update it",
+                description: "Set a mutable variable to a value, then update it.",
                 example: "mut x = 10; $x = 12",
                 result: None,
             },
             Example {
-                description: "Upsert a value inside a mutable data structure",
+                description: "Upsert a value inside a mutable data structure.",
                 example: "mut a = {b:{c:1}}; $a.b.c = 2",
                 result: None,
             },
             Example {
-                description: "Set a mutable variable to the result of an expression",
+                description: "Set a mutable variable to the result of an expression.",
                 example: "mut x = 10 + 100",
                 result: None,
             },
             Example {
-                description: "Set a mutable variable based on the condition",
+                description: "Set a mutable variable based on the condition.",
                 example: "mut x = if false { -1 } else { 1 }",
                 result: None,
             },

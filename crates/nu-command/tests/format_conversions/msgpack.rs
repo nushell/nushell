@@ -1,66 +1,124 @@
-use nu_test_support::{nu, playground::Playground};
+use std::{collections::HashMap, fmt::Debug, path::PathBuf, sync::LazyLock};
+
+use chrono::DateTime;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
-fn msgpack_test(fixture_name: &str, commands: Option<&str>) -> nu_test_support::Outcome {
-    let path_to_generate_nu = nu_test_support::fs::fixtures()
+static GENERATE: LazyLock<PathBuf> = LazyLock::new(|| {
+    nu_test_support::fs::fixtures()
         .join("formats")
         .join("msgpack")
-        .join("generate.nu");
+        .join("generate.nu")
+        .into()
+});
 
-    let mut outcome = None;
-    Playground::setup(&format!("msgpack test {fixture_name}"), |dirs, _| {
-        assert!(
-            nu!(
-                cwd: dirs.test(),
-                format!(
-                    "nu -n '{}' '{}'",
-                    path_to_generate_nu.display(),
-                    fixture_name
-                ),
-            )
-            .status
-            .success()
-        );
-
-        outcome = Some(nu!(
-            cwd: dirs.test(),
-            collapse_output: false,
-            commands.map(|c| c.to_owned()).unwrap_or_else(|| format!("open {fixture_name}.msgpack"))
-        ));
-    });
-    outcome.expect("failed to get outcome")
+fn msgpack_test<T: FromValue>(fixture_name: impl AsRef<str>) -> Result<T> {
+    msgpack_test_with_opts(fixture_name, "")
 }
 
-fn msgpack_nuon_test(fixture_name: &str, opts: &str) {
-    let path_to_nuon = nu_test_support::fs::fixtures()
-        .join("formats")
-        .join("msgpack")
-        .join(format!("{fixture_name}.nuon"));
+fn msgpack_test_with_opts<T: FromValue>(
+    fixture_name: impl AsRef<str>,
+    opts: impl AsRef<str>,
+) -> Result<T> {
+    let fixture_name = fixture_name.as_ref();
+    let opts = opts.as_ref();
 
-    let sample_nuon = std::fs::read_to_string(path_to_nuon).expect("failed to open nuon file");
+    let topic = format!("msgpack test {fixture_name}");
+    Playground::setup(&topic, |dirs, _| {
+        let mut tester = test().cwd(dirs.test());
 
-    let outcome = msgpack_test(
-        fixture_name,
-        Some(&format!(
-            "open --raw {fixture_name}.msgpack | from msgpack {opts} | to nuon --indent 4"
-        )),
-    );
+        let generate = format!("use {}; generate main {fixture_name}", GENERATE.display());
+        let _: Value = tester
+            .run(&generate)
+            .expect("could not generate msgpack fixture");
 
-    assert!(outcome.status.success());
-    assert!(outcome.err.is_empty());
-    assert_eq!(
-        sample_nuon.replace("\r\n", "\n"),
-        outcome.out.replace("\r\n", "\n")
-    );
+        let open = format!("open {fixture_name}.msgpack --raw | from msgpack {opts}");
+        tester.run(&open)
+    })
 }
 
 #[test]
-fn sample() {
-    msgpack_nuon_test("sample", "");
+fn sample() -> Result {
+    let values: Vec<Value> = msgpack_test("sample")?;
+    let mut values = values.into_iter();
+    let values = &mut values;
+
+    fn assert_next<T: FromValue + Debug + PartialEq>(
+        values: &mut impl Iterator<Item = Value>,
+        comparison: T,
+    ) -> Result {
+        let expect_msg = format!("expected next value to compare against {comparison:?}");
+        let value = T::from_value(values.next().expect(&expect_msg))?;
+        assert_eq!(value, comparison);
+        Ok(())
+    }
+
+    assert_next(values, ())?;
+    assert_next(values, false)?;
+    assert_next(values, true)?;
+    assert_next(values, 17i8)?;
+    assert_next(values, -2i8)?;
+    assert_next(values, 34u16)?; // FromValue is not implemented for u8
+    assert_next(values, 1u16)?;
+    assert_next(values, 1u32)?;
+    assert_next(values, 1u64)?;
+    assert_next(values, -2i8)?;
+    assert_next(values, -2i16)?;
+    assert_next(values, -2i32)?;
+    assert_next(values, -2i64)?;
+    assert_next(values, -1024.125f32)?;
+    assert_next(values, -1024.125f64)?;
+    assert_next(values, String::from(""))?;
+    assert_next(values, String::from("foo"))?;
+    assert_next(values, String::from("hello"))?;
+    assert_next(values, String::from("nushell"))?;
+    assert_next(values, String::from("love you"))?;
+    assert_next(values, Vec::<u8>::from_iter([0xf0, 0xff, 0x00]))?;
+    assert_next(values, Vec::<u8>::from_iter([0xde, 0xad, 0xbe, 0xef]))?;
+    assert_next(values, Vec::<u8>::from_iter([0xc0, 0xff, 0xee, 0xff, 0xee]))?;
+    assert_next(values, (true, -2))?;
+    assert_next(values, (34, 1, ()))?;
+    assert_next(values, (-1024.125, String::from("foo")))?;
+    assert_next(
+        values,
+        HashMap::from_iter([
+            (String::from("foo"), Value::test_int(-2)),
+            (String::from("bar"), Value::test_string("hello")),
+        ]),
+    )?;
+    assert_next(
+        values,
+        HashMap::from_iter([(String::from("hello"), Value::test_bool(true))]),
+    )?;
+    assert_next(
+        values,
+        HashMap::from_iter([
+            (String::from("nushell"), String::from("rocks")),
+            (String::from("foo"), String::from("bar")),
+            (String::from("hello"), String::from("world")),
+        ]),
+    )?;
+    assert_next(
+        values,
+        DateTime::parse_from_rfc3339("1970-01-01T00:00:01+00:00").expect("valid datetime format"),
+    )?;
+    assert_next(
+        values,
+        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
+            .expect("valid datetime format"),
+    )?;
+    assert_next(
+        values,
+        DateTime::parse_from_rfc3339("1970-01-01T00:00:01.100+00:00")
+            .expect("valid datetime format"),
+    )?;
+    assert!(values.next().is_none());
+
+    Ok(())
 }
 
 #[test]
-fn sample_roundtrip() {
+fn sample_roundtrip() -> Result {
     let path_to_sample_nuon = nu_test_support::fs::fixtures()
         .join("formats")
         .join("msgpack")
@@ -69,93 +127,98 @@ fn sample_roundtrip() {
     let sample_nuon =
         std::fs::read_to_string(&path_to_sample_nuon).expect("failed to open sample.nuon");
 
-    let outcome = nu!(
-        collapse_output: false,
-        format!(
-            "open '{}' | to msgpack | from msgpack | to nuon --indent 4",
-            path_to_sample_nuon.display()
-        )
-    );
+    let sample_value =
+        nuon::from_nuon(&sample_nuon, None).expect("failed to deserialize sample.nuon");
 
-    assert!(outcome.status.success());
-    assert!(outcome.err.is_empty());
-    assert_eq!(
-        sample_nuon.replace("\r\n", "\n"),
-        outcome.out.replace("\r\n", "\n")
-    );
+    let outcome: Value = test().run_with_data("to msgpack | from msgpack", sample_value.clone())?;
+    assert_eq!(sample_value, outcome);
+    Ok(())
 }
 
 #[test]
-fn objects() {
-    msgpack_nuon_test("objects", "--objects");
+fn objects() -> Result {
+    let value: (HashMap<String, String>, String) = msgpack_test_with_opts("objects", "--objects")?;
+    assert_eq!(value.0["nushell"], "rocks");
+    assert_eq!(value.0.len(), 1);
+    assert_eq!(value.1, "seriously");
+    Ok(())
 }
 
 #[test]
-fn max_depth() {
-    let outcome = msgpack_test("max-depth", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("exceeded depth limit"));
+fn max_depth() -> Result {
+    let shell_error = msgpack_test("max-depth").expect_error()?;
+    let msg = shell_error.generic_msg()?;
+    assert_contains("exceeded depth limit", msg);
+    Ok(())
 }
 
 #[test]
-fn non_utf8() {
-    let outcome = msgpack_test("non-utf8", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("utf-8"));
+fn non_utf8() -> Result {
+    let shell_error = msgpack_test("non-utf8").expect_error()?;
+    assert!(matches!(shell_error, ShellError::NonUtf8Custom { .. }));
+    Ok(())
 }
 
 #[test]
-fn empty() {
-    let outcome = msgpack_test("empty", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("fill whole buffer"));
+fn empty() -> Result {
+    let shell_error = msgpack_test("empty").expect_error()?;
+    let msg = shell_error.generic_msg()?;
+    assert_eq!(msg, "failed to fill whole buffer");
+    Ok(())
 }
 
 #[test]
-fn eof() {
-    let outcome = msgpack_test("eof", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("fill whole buffer"));
+fn eof() -> Result {
+    let shell_error = msgpack_test("eof").expect_error()?;
+    let msg = shell_error.generic_msg()?;
+    assert_eq!(msg, "failed to fill whole buffer");
+    Ok(())
 }
 
 #[test]
-fn after_eof() {
-    let outcome = msgpack_test("after-eof", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("after end of"));
+fn after_eof() -> Result {
+    let shell_error = msgpack_test("after-eof").expect_error()?;
+    let error = shell_error.generic_error()?;
+    assert_eq!(error, "Additional data after end of MessagePack object");
+    Ok(())
 }
 
 #[test]
-fn reserved() {
-    let outcome = msgpack_test("reserved", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("Reserved"));
+fn reserved() -> Result {
+    let shell_error = msgpack_test("reserved").expect_error()?;
+    let msg = shell_error.generic_msg()?;
+    assert_contains("Reserved", msg);
+    Ok(())
 }
 
 #[test]
-fn u64_too_large() {
-    let outcome = msgpack_test("u64-too-large", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("integer too big"));
+fn u64_too_large() -> Result {
+    let shell_error = msgpack_test("u64-too-large").expect_error()?;
+    let error = shell_error.generic_error()?;
+    assert_eq!(error, "MessagePack integer too big for Nushell");
+    Ok(())
 }
 
 #[test]
-fn non_string_map_key() {
-    let outcome = msgpack_test("non-string-map-key", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("string key"));
+fn non_string_map_key() -> Result {
+    let shell_error = msgpack_test("non-string-map-key").expect_error()?;
+    let msg = shell_error.generic_msg()?;
+    assert_contains("string key", msg);
+    Ok(())
 }
 
 #[test]
-fn timestamp_wrong_length() {
-    let outcome = msgpack_test("timestamp-wrong-length", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("Unknown MessagePack extension"));
+fn timestamp_wrong_length() -> Result {
+    let shell_error = msgpack_test("timestamp-wrong-length").expect_error()?;
+    let error = shell_error.generic_error()?;
+    assert_eq!(error, "Unknown MessagePack extension");
+    Ok(())
 }
 
 #[test]
-fn other_extension_type() {
-    let outcome = msgpack_test("other-extension-type", None);
-    assert!(!outcome.status.success());
-    assert!(outcome.err.contains("Unknown MessagePack extension"));
+fn other_extension_type() -> Result {
+    let shell_error = msgpack_test("other-extension-type").expect_error()?;
+    let error = shell_error.generic_error()?;
+    assert_eq!(error, "Unknown MessagePack extension");
+    Ok(())
 }

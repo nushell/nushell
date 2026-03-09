@@ -73,12 +73,12 @@ impl Command for StrReverse {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Reverse a single string",
+                description: "Reverse a single string.",
                 example: "'Nushell' | str reverse",
                 result: Some(Value::test_string("llehsuN")),
             },
             Example {
-                description: "Reverse multiple strings in a list",
+                description: "Reverse multiple strings in a list.",
                 example: "['Nushell' 'is' 'cool'] | str reverse",
                 result: Some(Value::list(
                     vec![

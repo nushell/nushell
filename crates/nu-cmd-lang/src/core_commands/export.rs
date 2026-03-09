@@ -40,7 +40,7 @@ impl Command for ExportCommand {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Export a definition from a module",
+            description: "Export a definition from a module.",
             example: r#"module utils { export def my-command [] { "hello" } }; use utils my-command; my-command"#,
             result: Some(Value::test_string("hello")),
         }]

@@ -24,7 +24,7 @@ impl Command for ToMsgpack {
             .input_output_type(Type::Any, Type::Binary)
             .switch(
                 "serialize",
-                "serialize nushell types that cannot be deserialized",
+                "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
             .category(Category::Formats)
@@ -51,17 +51,17 @@ MessagePack: https://msgpack.org/
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert a list of values to MessagePack",
+                description: "Convert a list of values to MessagePack.",
                 example: "[foo, 42, false] | to msgpack",
                 result: Some(Value::test_binary(b"\x93\xA3\x66\x6F\x6F\x2A\xC2")),
             },
             Example {
-                description: "Convert a range to a MessagePack array",
+                description: "Convert a range to a MessagePack array.",
                 example: "1..10 | to msgpack",
                 result: Some(Value::test_binary(b"\x9A\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A"))
             },
             Example {
-                description: "Convert a table to MessagePack",
+                description: "Convert a table to MessagePack.",
                 example: "[
         [event_name time];
         ['Apollo 11 Landing' 1969-07-24T16:50:35]

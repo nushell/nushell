@@ -5,33 +5,40 @@ edition = "2024"
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.110.1"
+version = "0.111.1"
+autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 bench = false
+harness = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
 
 [lints]
 workspace = true
 
 [dependencies]
 nu-ansi-term = { workspace = true }
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.110.1" }
-nu-color-config = { path = "../nu-color-config", version = "0.110.1" }
-nu-engine = { path = "../nu-engine", version = "0.110.1", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.110.1" }
-nu-glob = { path = "../nu-glob", version = "0.110.1" }
-nu-json = { path = "../nu-json", version = "0.110.1" }
-nu-parser = { path = "../nu-parser", version = "0.110.1" }
-nu-path = { path = "../nu-path", version = "0.110.1" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.110.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.110.1", default-features = false }
-nu-system = { path = "../nu-system", version = "0.110.1" }
-nu-table = { path = "../nu-table", version = "0.110.1" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.110.1" }
-nu-utils = { path = "../nu-utils", version = "0.110.1", default-features = false }
-nuon = { path = "../nuon", version = "0.110.1" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.111.1" }
+nu-color-config = { path = "../nu-color-config", version = "0.111.1" }
+nu-engine = { path = "../nu-engine", version = "0.111.1", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.111.1" }
+nu-glob = { path = "../nu-glob", version = "0.111.1" }
+nu-json = { path = "../nu-json", version = "0.111.1" }
+nu-parser = { path = "../nu-parser", version = "0.111.1" }
+nu-path = { path = "../nu-path", version = "0.111.1" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.111.1" }
+nu-protocol = { path = "../nu-protocol", version = "0.111.1", default-features = false }
+nu-system = { path = "../nu-system", version = "0.111.1" }
+nu-table = { path = "../nu-table", version = "0.111.1" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.111.1" }
+nu-utils = { path = "../nu-utils", version = "0.111.1", default-features = false }
+nuon = { path = "../nuon", version = "0.111.1" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -51,9 +58,6 @@ chrono-tz = { workspace = true }
 crossterm = { workspace = true, optional = true }
 csv = { workspace = true }
 devicons = { workspace = true }
-dialoguer = { workspace = true, default-features = false, features = [
-	"fuzzy-select",
-] }
 digest = { workspace = true, default-features = false }
 dns-lookup = { workspace = true, optional = true }
 dtparse = { workspace = true }
@@ -146,6 +150,9 @@ webpki-roots = { workspace = true, optional = true }
 win_uds = { workspace = true }
 winreg = { workspace = true }
 
+[target.'cfg(all(not(target_arch = "wasm32"),not(target_os = "android")))'.dependencies]
+arboard = { version = "3.6.0", default-features = false, features = ["wayland-data-control"] }
+
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
 
@@ -236,8 +243,8 @@ sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.110.1" }
-nu-test-support = { path = "../nu-test-support", version = "0.110.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1" }
+nu-test-support = { path = "../nu-test-support", version = "0.111.1" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }

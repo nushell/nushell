@@ -39,13 +39,13 @@ impl Command for BitsNot {
             .allow_variants_without_examples(true)
             .switch(
                 "signed",
-                "always treat input number as a signed number",
+                "Always treat input number as a signed number.",
                 Some('s'),
             )
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "the size of unsigned number in bytes, it can be 1, 2, 4, 8, auto",
+                "The size of unsigned number in bytes, it can be 1, 2, 4, 8, auto.",
                 Some('n'),
             )
             .category(Category::Bits)

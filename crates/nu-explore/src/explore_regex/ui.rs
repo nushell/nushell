@@ -5,7 +5,7 @@ use crate::explore_regex::colors::{BG_DARK, FG_PRIMARY, styles};
 use crate::explore_regex::quick_ref::QuickRefEntry;
 use edtui::{
     EditorEventHandler, EditorMode, EditorTheme, EditorView,
-    actions::{DeleteChar, DeleteCharForward, Paste},
+    actions::Paste,
     events::{KeyEventRegister, KeyInput},
 };
 use ratatui::{
@@ -14,7 +14,7 @@ use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::Style,
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{
         Block, BorderType, Borders, Padding, Paragraph, Scrollbar, ScrollbarOrientation,
         ScrollbarState, Widget,
@@ -41,8 +41,6 @@ enum KeyAction {
     QuickRefRight,
     QuickRefHome,
     QuickRefInsert,
-    SamplePageUp,
-    SamplePageDown,
     PassToEditor(event::KeyEvent),
     None,
 }
@@ -101,111 +99,8 @@ fn determine_action(app: &App, key: &event::KeyEvent) -> KeyAction {
         return KeyAction::FocusRegex;
     }
 
-    // Sample pane page navigation
-    if app.input_focus == InputFocus::Sample {
-        match key.code {
-            KeyCode::PageUp => return KeyAction::SamplePageUp,
-            KeyCode::PageDown => return KeyAction::SamplePageDown,
-            _ => {}
-        }
-    }
-
-    // Prevent newlines in regex input (single-line field)
-    // Block Enter, Ctrl+J, and Ctrl+M which all insert newlines in edtui
-    if app.input_focus == InputFocus::Regex {
-        match key.code {
-            KeyCode::Enter => return KeyAction::None,
-            KeyCode::Char('j') | KeyCode::Char('m')
-                if key.modifiers.contains(KeyModifiers::CONTROL) =>
-            {
-                return KeyAction::None;
-            }
-            KeyCode::PageUp => {
-                // Map Page Up to Home for single-line navigation (beginning of line)
-                let home_key = event::KeyEvent::new(KeyCode::Home, KeyModifiers::empty());
-                return KeyAction::PassToEditor(home_key);
-            }
-            KeyCode::PageDown => {
-                // Map Page Down to End for single-line navigation (end of line)
-                let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                return KeyAction::PassToEditor(end_key);
-            }
-            _ => {}
-        }
-    }
-
-    // Handle word navigation: map Ctrl+Left/Right to Emacs Alt+b/f
-    // This leverages edtui's built-in Emacs mode word navigation (Alt+b/f)
-    // since direct word navigation actions aren't available
-    if key.modifiers.contains(KeyModifiers::CONTROL) {
-        match key.code {
-            KeyCode::Left => {
-                let emacs_key = event::KeyEvent::new(KeyCode::Char('b'), KeyModifiers::ALT);
-                return KeyAction::PassToEditor(emacs_key);
-            }
-            KeyCode::Right => {
-                // Special handling for Ctrl+Right on the last word to ensure
-                // cursor lands after the last character, not before it
-                if app.input_focus == InputFocus::Regex {
-                    let text = app.regex_input.lines.to_string();
-                    let cursor_pos = app.regex_input.cursor.col;
-                    if is_at_or_past_last_word_boundary(&text, cursor_pos) {
-                        // Move cursor to end of text
-                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                        return KeyAction::PassToEditor(end_key);
-                    }
-                } else if app.input_focus == InputFocus::Sample {
-                    let text = app.sample_text.lines.to_string();
-                    let cursor_row = app.sample_text.cursor.row;
-                    let cursor_col = app.sample_text.cursor.col;
-                    let lines: Vec<&str> = text.lines().collect();
-                    if cursor_row < lines.len()
-                        && is_at_or_past_last_word_boundary(lines[cursor_row], cursor_col)
-                    {
-                        // Move cursor to end of current line
-                        let end_key = event::KeyEvent::new(KeyCode::End, KeyModifiers::empty());
-                        return KeyAction::PassToEditor(end_key);
-                    }
-                }
-                let emacs_key = event::KeyEvent::new(KeyCode::Char('f'), KeyModifiers::ALT);
-                return KeyAction::PassToEditor(emacs_key);
-            }
-            _ => {}
-        }
-    }
-
     // Default: pass to editor
     KeyAction::PassToEditor(*key)
-}
-
-// ─── Helper Functions ─────────────────────────────────────────────────────
-
-/// Check if the cursor is at the boundary of the last word in the text.
-/// Used to fix Ctrl+Right navigation to move past the last character instead of stopping before it.
-fn is_at_or_past_last_word_boundary(text: &str, cursor_pos: usize) -> bool {
-    let mut chars = text.chars();
-    // advance the iterator so that the next char would be at position `cursor_pos`
-    if cursor_pos > 0 {
-        chars.nth(cursor_pos - 1);
-    }
-    let remaining = chars.as_str();
-    let cursor_char = remaining.chars().next();
-    let start_alphanumeric = cursor_char.is_some_and(|c| c.is_ascii_alphanumeric());
-    let start_punctuation = cursor_char.is_some_and(|c| c.is_ascii_punctuation());
-    // Find the next char that is not of the same type
-    for (index, next_char) in remaining.char_indices().skip(1) {
-        let next_alphanumeric = next_char.is_ascii_alphanumeric();
-        let next_punctuation = next_char.is_ascii_punctuation();
-        if next_alphanumeric && !start_alphanumeric
-            || next_punctuation && !start_punctuation
-            || !next_alphanumeric && !next_punctuation
-        {
-            // If there is still some non-whitespace remaining, we didn't reach the end of the line
-            return remaining.chars().skip(index).all(|c| c.is_whitespace());
-        }
-    }
-    // All remaining characters are of the same type
-    true
 }
 
 // ─── Main Loop ───────────────────────────────────────────────────────────────
@@ -242,126 +137,10 @@ fn execute_action(
         KeyAction::QuickRefRight => app.quick_ref_scroll_right(),
         KeyAction::QuickRefHome => app.quick_ref_scroll_home(),
         KeyAction::QuickRefInsert => app.insert_selected_quick_ref(),
-        KeyAction::SamplePageUp | KeyAction::SamplePageDown => {
-            handle_sample_page_navigation(app, matches!(action, KeyAction::SamplePageDown));
-        }
         KeyAction::PassToEditor(key) => handle_editor_input(app, key, event_handler),
         KeyAction::None => {}
     }
     false
-}
-
-/// Handle page up/down navigation in the sample text pane.
-///
-/// Moves the cursor vertically by one page (visible viewport height) while preserving
-/// the horizontal column position. The viewport will automatically scroll to keep the
-/// cursor visible via `calculate_viewport_scroll()` during the next render.
-///
-/// # Arguments
-/// * `app` - Mutable reference to the application state
-/// * `page_down` - `true` for Page Down (move forward), `false` for Page Up (move backward)
-///
-/// # Note
-/// Match count remains unchanged as it depends only on the regex pattern and full text,
-/// not on cursor position. We don't need to update it here.
-/// Handle page up/down navigation in the sample text pane.
-///
-/// Implements proper page-at-a-time scrolling by updating the scroll position
-/// directly and repositioning the cursor to maintain intuitive navigation behavior.
-/// This provides the expected user experience where Page Up/Down scroll through
-/// content rather than just moving the cursor minimally.
-///
-/// # Arguments
-/// * `app` - Mutable reference to the application state
-/// * `page_down` - `true` for Page Down (scroll forward), `false` for Page Up (scroll backward)
-fn handle_sample_page_navigation(app: &mut App, page_down: bool) {
-    let viewport_height = app.sample_view_height.max(1) as usize;
-    let total_lines = app.sample_text.lines.len();
-    let max_scroll = total_lines.saturating_sub(viewport_height);
-
-    // Update vertical scroll position by one viewport height
-    let current_scroll = app.sample_scroll_v as usize;
-    let new_scroll = if page_down {
-        (current_scroll + viewport_height).min(max_scroll)
-    } else {
-        current_scroll.saturating_sub(viewport_height)
-    };
-    app.sample_scroll_v = new_scroll as u16;
-
-    // Reposition cursor to maintain good UX:
-    // - If cursor was within viewport, keep it at same relative position
-    // - If cursor was outside viewport, move it to viewport boundary
-    let cursor_row = app.sample_text.cursor.row;
-
-    if cursor_row < new_scroll {
-        // Cursor above viewport: move to top of viewport
-        app.sample_text.cursor.row = new_scroll;
-    } else if cursor_row >= new_scroll + viewport_height {
-        // Cursor below viewport: move to bottom of viewport
-        app.sample_text.cursor.row = new_scroll + viewport_height.saturating_sub(1);
-    }
-    // Cursor within viewport: keep current position
-
-    // Ensure cursor stays within text bounds
-    let max_cursor_row = total_lines.saturating_sub(1);
-    app.sample_text.cursor.row = app.sample_text.cursor.row.min(max_cursor_row);
-
-    // Preserve column position for consistent navigation experience
-}
-
-/// Normalize AltGr key events by stripping Ctrl+Alt modifiers from non-alphabetic character keys.
-///
-/// On many international keyboards (e.g., Swiss German, German), AltGr is used to type
-/// characters like `\`, `{`, `}`, `[`, `]`, `~`, etc. These key events are reported as
-/// `Ctrl+Alt+Char` by crossterm/Windows. However, edtui interprets `Ctrl+Alt`
-/// combinations as control sequences rather than character input.
-///
-/// To distinguish between AltGr character input and intentional keybindings:
-/// - ASCII letters (a-z, A-Z) with Ctrl+Alt or Alt are treated as keybindings
-///   (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head)
-/// - Non-alphabetic characters with Ctrl+Alt or Alt are treated as AltGr input
-///   (e.g., AltGr+[ to type `[`, AltGr+{ to type `{`)
-///
-/// This heuristic works because:
-/// 1. All edtui Alt/Ctrl+Alt keybindings use letters (f, b, h, d, n, p, v, etc.)
-/// 2. AltGr typically produces symbols/punctuation, not letters
-/// 3. edtui only inserts characters in Insert mode if modifiers are NONE or SHIFT
-///
-/// Without this normalization, Swiss-German keyboard users cannot type regex-critical
-/// characters like `[`, `]`, `{`, `}`, `\`, `|`, `@` in the regex input field.
-fn normalize_altgr_key(key: &event::KeyEvent) -> event::KeyEvent {
-    if let KeyCode::Char(c) = key.code {
-        // AltGr is typically reported as Ctrl+Alt on Windows/some terminals
-        // Some terminals may report it as just Alt
-        let has_altgr_modifiers = key
-            .modifiers
-            .contains(KeyModifiers::CONTROL | KeyModifiers::ALT)
-            || key.modifiers == KeyModifiers::ALT;
-
-        if has_altgr_modifiers {
-            // Only treat as AltGr character input if it's NOT an ASCII letter.
-            // ASCII letters with Alt/Ctrl+Alt are likely intentional keybindings
-            // (e.g., Alt+f for word-forward, Ctrl+Alt+b for move-to-head).
-            // Symbols/punctuation with Ctrl+Alt are likely AltGr character input
-            // (e.g., AltGr+ü for [ on Swiss German keyboard).
-            if !c.is_ascii_alphabetic() {
-                // Strip Ctrl+Alt, keep only Shift if present
-                let new_modifiers = key.modifiers & KeyModifiers::SHIFT;
-                return event::KeyEvent::new_with_kind_and_state(
-                    key.code,
-                    new_modifiers,
-                    key.kind,
-                    key.state,
-                );
-            }
-        }
-    }
-
-    // Return the key unchanged for:
-    // - Non-Char keys (Backspace, Delete, arrows, etc.)
-    // - ASCII letters with Alt/Ctrl+Alt (keybindings)
-    // - Characters without Alt modifiers (regular typing)
-    *key
 }
 
 /// Pass a key event to the editor and handle side effects.
@@ -373,20 +152,17 @@ fn handle_editor_input(
     key: event::KeyEvent,
     event_handler: &mut EditorEventHandler,
 ) {
-    // Normalize AltGr keys so international keyboards (Swiss-German, etc.) work correctly
-    let normalized_key = normalize_altgr_key(&key);
-
     match app.input_focus {
         InputFocus::Regex => {
             let old_value = app.regex_input.lines.to_string();
-            event_handler.on_key_event(normalized_key, &mut app.regex_input);
+            event_handler.on_key_event(key, &mut app.regex_input);
             if app.regex_input.lines.to_string() != old_value {
                 app.compile_regex();
             }
         }
         InputFocus::Sample => {
             let old_text = app.get_sample_text();
-            event_handler.on_key_event(normalized_key, &mut app.sample_text);
+            event_handler.on_key_event(key, &mut app.sample_text);
             if app.get_sample_text() != old_text {
                 app.update_match_count();
             }
@@ -405,36 +181,8 @@ pub fn run_app_loop(
     terminal: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &mut App,
 ) -> io::Result<()> {
-    use ratatui::crossterm::event::KeyCode as CTKeyCode;
-
     // Create event handler for edtui in Emacs mode (modeless editing)
     let mut event_handler = EditorEventHandler::emacs_mode();
-
-    // Fix and customize edtui's Emacs mode keybindings for better UX:
-    //
-    // edtui has several bugs and unconventional defaults in Emacs mode:
-    // 1. Backspace is mapped TWICE - the second mapping (forward delete) overwrites the first,
-    //    causing backspace to delete forward instead of backward
-    // 2. Delete key (forward delete) has no mapping at all
-    // 3. Ctrl+V is mapped to page-down (traditional Emacs), but modern users expect paste
-    //
-    // We override these to provide intuitive behavior:
-
-    use edtui::actions::Action;
-
-    let keybindings: [(CTKeyCode, Action); 2] = [
-        // Fix: Backspace should delete backward (edtui bug causes it to delete forward)
-        (CTKeyCode::Backspace, DeleteChar(1).into()),
-        // Add: Delete key should delete forward (missing in edtui's Emacs mode)
-        (CTKeyCode::Delete, DeleteCharForward(1).into()),
-    ];
-
-    for (key_code, action) in keybindings {
-        event_handler.key_handler.insert(
-            KeyEventRegister::new(vec![KeyInput::new(key_code)], EditorMode::Insert),
-            action,
-        );
-    }
 
     // Override Ctrl+V to paste (edtui maps it to page-down by default)
     // Modern users expect Ctrl+V for paste; Emacs users can still use Ctrl+Y
@@ -551,8 +299,6 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .border_style(border_style)
         .padding(Padding::horizontal(1));
 
-    let content = block.inner(input_area);
-
     // Render using EditorView with theme (hide cursor, we'll use terminal cursor)
     let theme = EditorTheme::default()
         .block(block)
@@ -561,13 +307,12 @@ fn draw_regex_section(f: &mut ratatui::Frame, app: &mut App, label_area: Rect, i
         .hide_status_line(); // Hide the "Insert" mode indicator
     EditorView::new(&mut app.regex_input)
         .theme(theme)
+        .single_line(true)
         .render(input_area, f.buffer_mut());
 
     // Set terminal cursor position if focused
-    if focused {
-        let cursor_col = app.regex_input.cursor.col;
-        let cursor_row = app.regex_input.cursor.row;
-        f.set_cursor_position((content.x + cursor_col as u16, content.y + cursor_row as u16));
+    if focused && let Some(pos) = app.regex_input.cursor_screen_position() {
+        f.set_cursor_position(pos);
     }
 }
 
@@ -607,139 +352,24 @@ fn draw_sample_section(
         })
         .padding(Padding::horizontal(1));
 
-    let content = block.inner(content_area);
-    app.sample_view_height = content.height;
+    // Set highlights for regex matches
+    app.sample_text.set_highlights(app.get_highlights());
 
-    // Render the block border
-    f.render_widget(block, content_area);
+    // Render using EditorView
+    let theme = EditorTheme::default()
+        .block(block)
+        .base(Style::default())
+        .hide_cursor()
+        .hide_status_line();
+    EditorView::new(&mut app.sample_text)
+        .theme(theme)
+        .wrap(false)
+        .render(content_area, f.buffer_mut());
 
-    // Update viewport scroll position to keep cursor visible (both vertical and horizontal)
-    let cursor_row = app.sample_text.cursor.row;
-    let cursor_col = app.sample_text.cursor.col;
-    let visible_height = content.height as usize;
-    let visible_width = content.width as usize;
-    let total_lines = app.sample_text.lines.len();
-
-    // Update vertical scroll
-    app.sample_scroll_v =
-        calculate_viewport_scroll(cursor_row, app.sample_scroll_v, visible_height, total_lines);
-
-    // Update horizontal scroll to keep cursor visible
-    // For horizontal scrolling, we use an adaptive "max width" based on cursor position.
-    // This allows the viewport to expand as the user types or moves right, providing
-    // a natural scrolling experience without needing to calculate actual line widths.
-    app.sample_scroll_h = calculate_viewport_scroll(
-        cursor_col,
-        app.sample_scroll_h,
-        visible_width,
-        cursor_col + visible_width, // Dynamic max: cursor position + viewport width
-    );
-
-    // Render only the visible portion of highlighted text for better performance
-    let highlighted_text = app.get_highlighted_text();
-    let viewport_text =
-        extract_viewport_text(highlighted_text, app.sample_scroll_v, visible_height);
-
-    // Apply horizontal scrolling via Paragraph's scroll method
-    let paragraph = Paragraph::new(viewport_text).scroll((0, app.sample_scroll_h));
-    f.render_widget(paragraph, content);
-
-    // Set terminal cursor position if this section is focused
-    if focused {
-        let relative_row = cursor_row.saturating_sub(app.sample_scroll_v as usize);
-        let relative_col = cursor_col.saturating_sub(app.sample_scroll_h as usize);
-
-        // Only set cursor if it's within the visible viewport area
-        if relative_row < content.height as usize && relative_col < content.width as usize {
-            f.set_cursor_position((
-                content.x + relative_col as u16,
-                content.y + relative_row as u16,
-            ));
-        }
+    // Set terminal cursor position if focused
+    if focused && let Some(pos) = app.sample_text.cursor_screen_position() {
+        f.set_cursor_position(pos);
     }
-}
-
-// ─── Viewport Management ─────────────────────────────────────────────────────
-
-/// Calculate the optimal viewport scroll position to keep the cursor visible.
-///
-/// This function implements one-dimensional viewport scrolling logic that ensures
-/// the cursor remains visible within the viewing area. It's generic enough to work
-/// for both vertical (row-based) and horizontal (column-based) scrolling.
-///
-/// The scrolling behavior follows these rules:
-/// - If cursor is before viewport: scroll backward to show cursor at start
-/// - If cursor is after viewport: scroll forward to show cursor at end
-/// - If cursor is within viewport: maintain current scroll position
-/// - Never scroll past the maximum valid scroll position
-///
-/// # Arguments
-/// * `cursor_position` - The absolute position of the cursor (0-indexed)
-/// * `current_scroll` - The current scroll offset
-/// * `visible_size` - The size of the visible viewport (lines or columns)
-/// * `total_size` - The total size of the content (lines or columns)
-///
-/// # Returns
-/// The optimal scroll offset to keep the cursor visible
-///
-/// # Examples
-/// ```ignore
-/// // Vertical scrolling: keep cursor row visible
-/// let scroll_v = calculate_viewport_scroll(cursor_row, scroll_v, viewport_height, total_lines);
-///
-/// // Horizontal scrolling: keep cursor column visible
-/// let scroll_h = calculate_viewport_scroll(cursor_col, scroll_h, viewport_width, max_width);
-/// ```
-fn calculate_viewport_scroll(
-    cursor_position: usize,
-    current_scroll: u16,
-    visible_size: usize,
-    total_size: usize,
-) -> u16 {
-    let mut scroll = current_scroll as usize;
-
-    // Scroll backward if cursor is before the viewport
-    if cursor_position < scroll {
-        scroll = cursor_position;
-    }
-    // Scroll forward if cursor is after the viewport
-    else if cursor_position >= scroll + visible_size {
-        scroll = cursor_position.saturating_sub(visible_size - 1);
-    }
-
-    // Clamp scroll to valid range [0, total_size - visible_size]
-    let max_scroll = total_size.saturating_sub(visible_size);
-    scroll.min(max_scroll) as u16
-}
-
-/// Extract a viewport slice from the highlighted text.
-///
-/// Returns only the visible portion of the text based on scroll offset and viewport height.
-/// This optimization avoids rendering off-screen content and improves performance.
-///
-/// # Arguments
-/// * `highlighted_text` - The full highlighted text with all lines
-/// * `scroll_offset` - The vertical scroll position (number of lines from top)
-/// * `visible_height` - The number of lines that fit in the viewport
-///
-/// # Returns
-/// A `Text` containing only the visible lines, or the full text if no scrolling is needed
-fn extract_viewport_text(
-    highlighted_text: Text<'static>,
-    scroll_offset: u16,
-    visible_height: usize,
-) -> Text<'static> {
-    // Short circuit if no scrolling is needed
-    if scroll_offset == 0 && highlighted_text.lines.len() <= visible_height {
-        return highlighted_text;
-    }
-
-    let start = scroll_offset as usize;
-    let end = start
-        .saturating_add(visible_height)
-        .min(highlighted_text.lines.len());
-
-    Text::from(highlighted_text.lines[start..end].to_vec())
 }
 
 // ─── Label Building Helpers ──────────────────────────────────────────────────

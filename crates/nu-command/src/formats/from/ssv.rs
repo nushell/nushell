@@ -16,14 +16,14 @@ impl Command for FromSsv {
             .input_output_types(vec![(Type::String, Type::table())])
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
-            .switch("aligned-columns", "assume columns are aligned", Some('a'))
+            .switch("aligned-columns", "Assume columns are aligned.", Some('a'))
             .named(
                 "minimum-spaces",
                 SyntaxShape::Int,
-                "the minimum spaces to separate columns",
+                "The minimum spaces to separate columns.",
                 Some('m'),
             )
             .category(Category::Formats)
@@ -38,7 +38,7 @@ impl Command for FromSsv {
             Example {
                 example: r#"'FOO   BAR
 1   2' | from ssv"#,
-                description: "Converts ssv formatted string to table",
+                description: "Converts ssv formatted string to table.",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "FOO" => Value::test_string("1"),
                     "BAR" => Value::test_string("2"),
@@ -47,7 +47,7 @@ impl Command for FromSsv {
             Example {
                 example: r#"'FOO   BAR
 1   2' | from ssv --noheaders"#,
-                description: "Converts ssv formatted string to table but not treating the first row as column names",
+                description: "Converts ssv formatted string to table but not treating the first row as column names.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "column0" => Value::test_string("FOO"),

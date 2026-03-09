@@ -1,5 +1,5 @@
 use nu_protocol::{
-    IntoSpanned, RegId, Type, VarId,
+    IntoSpanned, RegId, Span, Type, VarId,
     ast::{Block, Call, Expr, Expression},
     engine::StateWorkingSet,
     ir::Instruction,
@@ -13,6 +13,7 @@ pub(crate) fn compile_if(
     builder: &mut BlockBuilder,
     call: &Call,
     redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -142,6 +143,7 @@ pub(crate) fn compile_match(
     builder: &mut BlockBuilder,
     call: &Call,
     redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -287,18 +289,43 @@ pub(crate) fn compile_match(
     Ok(())
 }
 
-/// Compile a call to `let` or `mut` (just do store-variable)
+/// Compile a call to `let` or `mut`.
+///
+/// This supports two syntax forms:
+/// 1. `let var = expr` - Evaluates expr and stores result in variable (no output)
+/// 2. `input | let var` - Uses pipeline input as the value (passes value through)
+///
+/// Output behavior:
+/// - `let x = expr`: stores the value and produces **no output** (Empty)
+/// - `input | let x`: stores the value and **passes it through** to the next pipeline element
+///
+/// # Arguments
+/// * `working_set` - The current state working set
+/// * `builder` - The IR block builder
+/// * `call` - The parsed call to `let` or `mut`
+/// * `_redirect_modes` - Output redirection modes (unused)
+/// * `input_reg` - Optional register containing pipeline input (for `input | let var` form)
+/// * `io_reg` - The I/O register for the operation result
 pub(crate) fn compile_let(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
     //
-    // %io_reg <- ...<block>... <- %io_reg  (if block provided)
-    // store-variable $var, %io_reg
+    // Case 1: `let var = expr` (no output)
+    //   %io_reg <- ...<block>...
+    //   store-variable $var, %io_reg
+    //   load-empty %io_reg
+    //
+    // Case 2: `input | let var` (pass through)
+    //   collect %input_reg
+    //   move %io_reg, %input_reg (if different)
+    //   store-variable $var, %io_reg
+    //   load-variable %io_reg, $var
     let invalid = || CompileError::InvalidKeywordCall {
         keyword: "let".into(),
         span: call.head,
@@ -307,33 +334,54 @@ pub(crate) fn compile_let(
     let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
 
-    // Handle the optional initial_value (expression after =)
-    // Two cases:
-    // 1. `let var = expr`: compile the expr block and store its result
-    // 2. `let var` (at end of pipeline): use the pipeline input directly
-    if let Some(block_arg) = call.positional_nth(1) {
+    // Handle the two syntax forms:
+    // 1. `let var = expr`: compile expr and store result
+    // 2. `let var` (no =): use input_reg as the value
+    let has_initial_value = call.positional_nth(1).is_some();
+    if has_initial_value {
+        // Safe to use expect here since we just checked is_some()
+        let block_arg = call.positional_nth(1).expect("checked above");
         let block_id = block_arg.as_block().ok_or_else(invalid)?;
         let block = working_set.get_block(block_id);
 
+        // Pass the input_reg to the block so expressions like `let x = (str length)`
+        // can access the pipeline input from the enclosing context
         compile_block(
             working_set,
             builder,
             block,
             RedirectModes::value(call.head),
-            Some(io_reg),
+            input_reg,
             io_reg,
         )?;
+    } else if let Some(input_reg) = input_reg {
+        // For `let var` without =, assign the input value
+        builder.push(Instruction::Collect { src_dst: input_reg }.into_spanned(call.head))?;
+        if input_reg != io_reg {
+            builder.push(
+                Instruction::Move {
+                    dst: io_reg,
+                    src: input_reg,
+                }
+                .into_spanned(call.head),
+            )?;
+        }
     }
-    // If no initial_value provided, io_reg already contains the pipeline input to assign
+    // If no initial_value and no input_reg, io_reg should already be empty (this shouldn't normally occur)
 
     let variable = working_set.get_variable(var_id);
 
-    // If the variable is a glob type variable, we should cast it with GlobFrom
+    // If the variable is annotated with type `glob`, convert the value to
+    // a `Glob` (expandable) *before* storing.  We use `GlobFrom { no_expand: false }`
+    // so the stored Value::Glob behaves like a glob literal and will expand at
+    // runtime (e.g. `let g: glob = "*.toml"; ls $g` should expand).  This
+    // mirrors the `into glob` conversion and matches interpreter coercion in
+    // `nu-cmd-lang::let` (see tests in `nu-command`).
     if variable.ty == Type::Glob {
         builder.push(
             Instruction::GlobFrom {
                 src_dst: io_reg,
-                no_expand: true,
+                no_expand: false,
             }
             .into_spanned(call.head),
         )?;
@@ -348,8 +396,19 @@ pub(crate) fn compile_let(
     )?;
     builder.add_comment("let");
 
-    // Don't forget to set io_reg to Empty afterward, as that's the result of an assignment
-    builder.load_empty(io_reg)?;
+    if has_initial_value {
+        // `let var = expr`: suppress output (traditional assignment, no display)
+        builder.load_empty(io_reg)?;
+    } else {
+        // `input | let var`: pass through the assigned value to the next pipeline element
+        builder.push(
+            Instruction::LoadVariable {
+                dst: io_reg,
+                var_id,
+            }
+            .into_spanned(call.head),
+        )?;
+    }
 
     Ok(())
 }
@@ -360,6 +419,7 @@ pub(crate) fn compile_try(
     builder: &mut BlockBuilder,
     call: &Call,
     redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode (literal block):
@@ -593,38 +653,7 @@ pub(crate) fn compile_try(
             )?;
         }
         Some(CatchType::Closure { closure_reg }) => {
-            // We should call `do`. Error will be in io_reg
-            let do_decl_id = working_set.find_decl(b"do").ok_or_else(|| {
-                CompileError::MissingRequiredDeclaration {
-                    decl_name: "do".into(),
-                    span: call.head,
-                }
-            })?;
-
-            // Take a copy of io_reg, because we pass it both as an argument and input
-            builder.mark_register(io_reg)?;
-            let err_reg = builder.next_register()?;
-            builder.push(
-                Instruction::Clone {
-                    dst: err_reg,
-                    src: io_reg,
-                }
-                .into_spanned(catch_span),
-            )?;
-
-            // Push the closure and the error
-            builder
-                .push(Instruction::PushPositional { src: closure_reg }.into_spanned(catch_span))?;
-            builder.push(Instruction::PushPositional { src: err_reg }.into_spanned(catch_span))?;
-
-            // Call `$err | do $closure $err`
-            builder.push(
-                Instruction::Call {
-                    decl_id: do_decl_id,
-                    src_dst: io_reg,
-                }
-                .into_spanned(catch_span),
-            )?;
+            compile_closure_call(working_set, builder, call, io_reg, closure_reg, catch_span)?
         }
         None => {
             // Just set out to empty.
@@ -669,12 +698,57 @@ pub(crate) fn compile_try(
     Ok(())
 }
 
+fn compile_closure_call(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    io_reg: RegId,
+    closure_reg: RegId,
+    span: Span,
+) -> Result<(), CompileError> {
+    // We should call `do`. Error will be in io_reg
+    let do_decl_id =
+        working_set
+            .find_decl(b"do")
+            .ok_or_else(|| CompileError::MissingRequiredDeclaration {
+                decl_name: "do".into(),
+                span: call.head,
+            })?;
+
+    // Take a copy of io_reg, because we pass it both as an argument and input
+    builder.mark_register(io_reg)?;
+    let arg_reg = builder.next_register()?;
+    builder.push(
+        Instruction::Clone {
+            dst: arg_reg,
+            src: io_reg,
+        }
+        .into_spanned(span),
+    )?;
+
+    // Push the closure and the argument
+    builder.push(Instruction::PushPositional { src: closure_reg }.into_spanned(span))?;
+    builder.push(Instruction::PushPositional { src: arg_reg }.into_spanned(span))?;
+
+    // Call `$err | do $closure $arg`
+    builder.push(
+        Instruction::Call {
+            decl_id: do_decl_id,
+            src_dst: io_reg,
+        }
+        .into_spanned(span),
+    )?;
+
+    Ok(())
+}
+
 /// Compile a call to `loop` (via `jump`)
 pub(crate) fn compile_loop(
     working_set: &StateWorkingSet,
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -730,6 +804,7 @@ pub(crate) fn compile_while(
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -806,6 +881,7 @@ pub(crate) fn compile_for(
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -913,6 +989,7 @@ pub(crate) fn compile_break(
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     if !builder.is_in_loop() {
@@ -936,6 +1013,7 @@ pub(crate) fn compile_continue(
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     if !builder.is_in_loop() {
@@ -961,6 +1039,7 @@ pub(crate) fn compile_return(
     builder: &mut BlockBuilder,
     call: &Call,
     _redirect_modes: RedirectModes,
+    _input_reg: Option<RegId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // Pseudocode:
@@ -986,6 +1065,57 @@ pub(crate) fn compile_return(
 
     // io_reg is supposed to remain allocated
     builder.load_empty(io_reg)?;
+
+    Ok(())
+}
+
+/// Compile a call to `collect` as a `Collect` instruction.
+///
+/// This makes it possible to check pipefail exit status when calling the
+/// `collect` command.
+pub(crate) fn compile_collect(
+    working_set: &StateWorkingSet,
+    builder: &mut BlockBuilder,
+    call: &Call,
+    _redirect_modes: RedirectModes,
+    io_reg: RegId,
+) -> Result<(), CompileError> {
+    // Pseudocode (no closure argument):
+    //
+    // collect %io_reg
+    //
+    // With closure argument:
+    //
+    // collect %io_reg
+    // %closure_reg <- <arg expr>
+    // clone %arg_reg, %io_reg
+    // push-positional %closure_reg
+    // push-positional %arg_reg
+    // call "do", %io_reg
+
+    builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
+
+    if let Some(arg_expr) = call.positional_nth(0) {
+        // We have to compile the expression into a closure,
+        // then compile a closure call
+        let closure_reg = builder.next_register()?;
+        compile_expression(
+            working_set,
+            builder,
+            arg_expr,
+            RedirectModes::value(arg_expr.span),
+            None,
+            closure_reg,
+        )?;
+        compile_closure_call(
+            working_set,
+            builder,
+            call,
+            io_reg,
+            closure_reg,
+            arg_expr.span,
+        )?;
+    }
 
     Ok(())
 }

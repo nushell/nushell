@@ -12,14 +12,18 @@ impl Command for FromJson {
     }
 
     fn description(&self) -> &str {
-        "Convert from json to structured data."
+        "Convert JSON text into structured data."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("from json")
             .input_output_types(vec![(Type::String, Type::Any)])
-            .switch("objects", "treat each line as a separate value", Some('o'))
-            .switch("strict", "follow the json specification exactly", Some('s'))
+            .switch("objects", "Treat each line as a separate value.", Some('o'))
+            .switch(
+                "strict",
+                "Follow the json specification exactly.",
+                Some('s'),
+            )
             .category(Category::Formats)
     }
 
@@ -27,14 +31,14 @@ impl Command for FromJson {
         vec![
             Example {
                 example: r#"'{ "a": 1 }' | from json"#,
-                description: "Converts json formatted string to table",
+                description: "Converts json formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                 })),
             },
             Example {
                 example: r#"'{ "a": 1, "b": [1, 2] }' | from json"#,
-                description: "Converts json formatted string to table",
+                description: "Converts json formatted string to table.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
@@ -42,7 +46,7 @@ impl Command for FromJson {
             },
             Example {
                 example: r#"'{ "a": 1, "b": 2 }' | from json -s"#,
-                description: "Parse json strictly which will error on comments and trailing commas",
+                description: "Parse json strictly which will error on comments and trailing commas.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "b" => Value::test_int(2),
@@ -51,7 +55,7 @@ impl Command for FromJson {
             Example {
                 example: r#"'{ "a": 1 }
 { "b": 2 }' | from json --objects"#,
-                description: "Parse a stream of line-delimited JSON values",
+                description: "Parse a stream of line-delimited JSON values.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {"a" => Value::test_int(1)}),
                     Value::test_record(record! {"b" => Value::test_int(2)}),
@@ -186,7 +190,7 @@ fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
     }
 }
 
-pub(crate) fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
+pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str(string_input) {
         Ok(value) => Ok(convert_nujson_to_value(value, span)),
 
@@ -280,14 +284,16 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --datasource-ls | from json | metadata | reject span | $in"#;
+        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --path-columns [name] | from json | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

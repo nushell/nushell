@@ -58,12 +58,12 @@ impl Command for MathProduct {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Compute the product of a list of numbers",
+                description: "Compute the product of a list of numbers.",
                 example: "[2 3 3 4] | math product",
                 result: Some(Value::test_int(72)),
             },
             Example {
-                description: "Compute the product of each column in a table",
+                description: "Compute the product of each column in a table.",
                 example: "[[a b]; [1 2] [3 4]] | math product",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(3),

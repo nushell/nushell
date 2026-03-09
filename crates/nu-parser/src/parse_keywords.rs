@@ -58,8 +58,6 @@ pub const ALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"overlay use",
 ];
 
-pub const RESERVED_VARIABLE_NAMES: [&str; 4] = ["in", "nu", "env", "it"];
-
 /// These parser keywords cannot be aliased (either not possible, or support not yet added)
 pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"alias",
@@ -333,7 +331,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
                 {
                     let block = working_set.get_block_mut(*block_id);
 
-                    block.signature = Box::new(sig);
+                    *block.signature = sig;
                 }
             }
 
@@ -375,13 +373,6 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     }
 
     Expression::new(working_set, Expr::Call(call), call_span, Type::Nothing)
-}
-
-/// If `name` is a keyword, emit an error.
-fn verify_not_reserved_variable_name(working_set: &mut StateWorkingSet, name: &str, span: Span) {
-    if RESERVED_VARIABLE_NAMES.contains(&name) {
-        working_set.error(ParseError::NameIsBuiltinVar(name.to_string(), span))
-    }
 }
 
 // This is meant for parsing attribute blocks without an accompanying `def` or `extern`. It's
@@ -647,7 +638,7 @@ fn parse_def_inner(
                         // 2.  `def` calls in scripts/runnable code don't *run* any code either,
                         //     they are handled completely by the parser.
                         compile_block_with_id(working_set, *block_id);
-                        working_set.get_block_mut(*block_id).signature = Box::new(sig.clone());
+                        *working_set.get_block_mut(*block_id).signature = sig.clone();
                     }
                     _ => working_set.error(ParseError::Expected(
                         "definition body closure { ... }",
@@ -709,19 +700,6 @@ fn parse_def_inner(
     let mut result = None;
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
-        for arg_name in &signature.required_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        for arg_name in &signature.optional_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        if let Some(arg_name) = &signature.rest_positional {
-            verify_not_reserved_variable_name(working_set, &arg_name.name, sig.span);
-        }
-        for flag_name in &signature.get_names() {
-            verify_not_reserved_variable_name(working_set, flag_name, sig.span);
-        }
-
         if has_wrapped {
             if let Some(rest) = &signature.rest_positional {
                 if let Some(var_id) = rest.var_id {
@@ -942,7 +920,7 @@ fn parse_extern_inner(
                         *signature = signature.rest(
                             "args",
                             SyntaxShape::ExternalArgument,
-                            "all other arguments to the command",
+                            "All other arguments to the command.",
                         );
                     }
 
@@ -950,6 +928,7 @@ fn parse_extern_inner(
                         signature,
                         attributes: attribute_vals,
                         examples,
+                        span: call_span,
                     };
 
                     *declaration = Box::new(decl);
@@ -2198,7 +2177,10 @@ pub fn parse_module_file_or_dir(
             return None;
         };
 
-        let mod_nu_path = module_path.clone().join("mod.nu");
+        let mod_nu_path = module_path
+            .clone()
+            .join("mod.nu")
+            .normalize_slashes_forward();
 
         if !(mod_nu_path.exists() && mod_nu_path.is_file()) {
             working_set.error(ParseError::ModuleMissingModNuFile(
@@ -3266,15 +3248,6 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
 
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
-                    }
-
                     let var_id = lvalue.as_var();
                     let rhs_type = rvalue.ty.clone();
 
@@ -3387,15 +3360,6 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
                     // check for extra tokens after the identifier
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
-                    }
-
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
 
                     let var_id = lvalue.as_var();
@@ -3557,15 +3521,6 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     // check for extra tokens after the identifier
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
-                    }
-
-                    let var_name =
-                        String::from_utf8_lossy(working_set.get_span_contents(lvalue.span))
-                            .trim_start_matches('$')
-                            .to_string();
-
-                    if RESERVED_VARIABLE_NAMES.contains(&var_name.as_str()) {
-                        working_set.error(ParseError::NameIsBuiltinVar(var_name, lvalue.span))
                     }
 
                     let var_id = lvalue.as_var();

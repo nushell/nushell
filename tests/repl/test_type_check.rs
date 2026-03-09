@@ -170,6 +170,10 @@ fn record_subtyping_works() -> TestResult {
 )]
 // disjoint table values: oneof
 #[case("let foo = [ [bar]; [1], [true] ];", "table<bar: oneof<int, bool>>")]
+#[case(
+    "let a: any = 1; let b: int = 2; let foo = [ [bar]; [$a], [$b] ];",
+    "table<bar: any>"
+)]
 #[test]
 fn collection_supertype_inference(
     #[case] assignment: &str,
@@ -301,6 +305,6 @@ fn pipeline_multiple_types_propagate_error() -> TestResult {
 fn array_of_wrong_types() -> TestResult {
     fail_test(
         "0..128 | each {} | into string | bytes collect",
-        "command doesn't support list<string>, record, string, or table input",
+        "nu::shell::only_supports_this_input_type",
     )
 }

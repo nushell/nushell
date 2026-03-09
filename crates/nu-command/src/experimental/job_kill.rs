@@ -47,7 +47,6 @@ impl Command for JobKill {
             ShellError::Io(IoError::new_internal(
                 err,
                 "Failed to kill the requested job",
-                nu_protocol::location!(),
             ))
         })?;
 
@@ -57,7 +56,7 @@ impl Command for JobKill {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             example: "let id = job spawn { sleep 10sec }; job kill $id",
-            description: "Kill a newly spawned job",
+            description: "Kill a newly spawned job.",
             result: None,
         }]
     }

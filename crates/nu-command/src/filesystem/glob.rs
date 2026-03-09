@@ -17,27 +17,27 @@ impl Command for Glob {
             .named(
                 "depth",
                 SyntaxShape::Int,
-                "directory depth to search",
+                "Directory depth to search.",
                 Some('d'),
             )
             .switch(
                 "no-dir",
-                "Whether to filter out directories from the returned paths",
+                "Whether to filter out directories from the returned paths.",
                 Some('D'),
             )
             .switch(
                 "no-file",
-                "Whether to filter out files from the returned paths",
+                "Whether to filter out files from the returned paths.",
                 Some('F'),
             )
             .switch(
                 "no-symlink",
-                "Whether to filter out symlinks from the returned paths",
+                "Whether to filter out symlinks from the returned paths.",
                 Some('S'),
             )
             .switch(
                 "follow-symlinks",
-                "Whether to follow symbolic links to their targets",
+                "Whether to follow symbolic links to their targets.",
                 Some('l'),
             )
             .named(
@@ -60,62 +60,62 @@ impl Command for Glob {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Search for *.rs files",
+                description: "Search for *.rs files.",
                 example: "glob *.rs",
                 result: None,
             },
             Example {
-                description: "Search for *.rs and *.toml files recursively up to 2 folders deep",
+                description: "Search for *.rs and *.toml files recursively up to 2 folders deep.",
                 example: "glob **/*.{rs,toml} --depth 2",
                 result: None,
             },
             Example {
-                description: "Search for files and folders that begin with uppercase C or lowercase c",
+                description: "Search for files and folders that begin with uppercase C or lowercase c.",
                 example: r#"glob "[Cc]*""#,
                 result: None,
             },
             Example {
-                description: "Search for files and folders like abc or xyz substituting a character for ?",
+                description: "Search for files and folders like abc or xyz substituting a character for ?.",
                 example: r#"glob "{a?c,x?z}""#,
                 result: None,
             },
             Example {
-                description: "A case-insensitive search for files and folders that begin with c",
+                description: "A case-insensitive search for files and folders that begin with c.",
                 example: r#"glob "(?i)c*""#,
                 result: None,
             },
             Example {
-                description: "Search for files or folders that do not begin with c, C, b, M, or s",
+                description: "Search for files or folders that do not begin with c, C, b, M, or s.",
                 example: r#"glob "[!cCbMs]*""#,
                 result: None,
             },
             Example {
-                description: "Search for files or folders with 3 a's in a row in the name",
+                description: "Search for files or folders with 3 a's in a row in the name.",
                 example: "glob <a*:3>",
                 result: None,
             },
             Example {
-                description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times",
+                description: "Search for files or folders with only a, b, c, or d in the file name between 1 and 10 times.",
                 example: "glob <[a-d]:1,10>",
                 result: None,
             },
             Example {
-                description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks",
+                description: "Search for folders that begin with an uppercase ASCII letter, ignoring files and symlinks.",
                 example: r#"glob "[A-Z]*" --no-file --no-symlink"#,
                 result: None,
             },
             Example {
-                description: "Search for files named tsconfig.json that are not in node_modules directories",
+                description: "Search for files named tsconfig.json that are not in node_modules directories.",
                 example: r#"glob **/tsconfig.json --exclude [**/node_modules/**]"#,
                 result: None,
             },
             Example {
-                description: "Search for all files that are not in the target nor .git directories",
+                description: "Search for all files that are not in the target nor .git directories.",
                 example: r#"glob **/* --exclude [**/target/** **/.git/** */]"#,
                 result: None,
             },
             Example {
-                description: "Search for files following symbolic links to their targets",
+                description: "Search for files following symbolic links to their targets.",
                 example: r#"glob "**/*.txt" --follow-symlinks"#,
                 result: None,
             },

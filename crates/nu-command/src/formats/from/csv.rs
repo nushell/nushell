@@ -17,38 +17,38 @@ impl Command for FromCsv {
             .named(
                 "separator",
                 SyntaxShape::String,
-                "a character to separate columns (either single char or 4 byte unicode sequence), defaults to ','",
+                "A character to separate columns (either single char or 4 byte unicode sequence), defaults to ','.",
                 Some('s'),
             )
             .named(
                 "comment",
                 SyntaxShape::String,
-                "a comment character to ignore lines starting with it",
+                "A comment character to ignore lines starting with it.",
                 Some('c'),
             )
             .named(
                 "quote",
                 SyntaxShape::String,
-                "a quote character to ignore separators in strings, defaults to '\"'",
+                "A quote character to ignore separators in strings, defaults to '\"'.",
                 Some('q'),
             )
             .named(
                 "escape",
                 SyntaxShape::String,
-                "an escape character for strings containing the quote character",
+                "An escape character for strings containing the quote character.",
                 Some('e'),
             )
             .switch(
                 "noheaders",
-                "don't treat the first row as column names",
+                "Don't treat the first row as column names.",
                 Some('n'),
             )
             .switch(
                 "flexible",
-                "allow the number of fields in records to be variable",
+                "Allow the number of fields in records to be variable.",
                 None,
             )
-            .switch("no-infer", "no field type inferencing", None)
+            .switch("no-infer", "No field type inferencing.", None)
             .param(
                 Flag::new("trim")
                     .short('t')
@@ -79,7 +79,7 @@ impl Command for FromCsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Convert comma-separated data to a table",
+                description: "Convert comma-separated data to a table.",
                 example: "\"ColA,ColB\n1,2\" | from csv",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_int(1),
@@ -87,7 +87,7 @@ impl Command for FromCsv {
                 })])),
             },
             Example {
-                description: "Convert comma-separated data to a table, allowing variable number of columns per row",
+                description: "Convert comma-separated data to a table, allowing variable number of columns per row.",
                 example: "\"ColA,ColB\n1,2\n3,4,5\n6\" | from csv --flexible",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -105,32 +105,32 @@ impl Command for FromCsv {
                 ])),
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring headers",
+                description: "Convert comma-separated data to a table, ignoring headers.",
                 example: "open data.txt | from csv --noheaders",
                 result: None,
             },
             Example {
-                description: "Convert semicolon-separated data to a table",
+                description: "Convert semicolon-separated data to a table.",
                 example: "open data.txt | from csv --separator ';'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, ignoring lines starting with '#'",
+                description: "Convert comma-separated data to a table, ignoring lines starting with '#'.",
                 example: "open data.txt | from csv --comment '#'",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names and field values.",
                 example: "open data.txt | from csv --trim all",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around header names.",
                 example: "open data.txt | from csv --trim headers",
                 result: None,
             },
             Example {
-                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values",
+                description: "Convert comma-separated data to a table, dropping all possible whitespaces around field values.",
                 example: "open data.txt | from csv --trim fields",
                 result: None,
             },
@@ -235,14 +235,16 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --datasource-ls | from csv | metadata | reject span | $in"#;
+        let cmd = r#""a,b\n1,2" | metadata set --content-type 'text/csv' --path-columns [name] | from csv | metadata | reject span | $in"#;
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),
             &mut engine_state,
         );
         assert_eq!(
-            Value::test_record(record!("source" => Value::test_string("ls"))),
+            Value::test_record(
+                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
+            ),
             result.expect("There should be a result")
         )
     }

@@ -1,8 +1,11 @@
 use nu_engine::command_prelude::*;
 use reedline::{
-    get_reedline_edit_commands, get_reedline_keybinding_modifiers, get_reedline_keycodes,
-    get_reedline_prompt_edit_modes, get_reedline_reedline_events,
+    EditCommandDiscriminants, ReedlineEventDiscriminants, get_reedline_keybinding_modifiers,
+    get_reedline_keycodes, get_reedline_prompt_edit_modes,
 };
+use strum::VariantArray;
+
+use crate::reedline_config::{display_edit_command, display_reedline_event};
 
 #[derive(Clone)]
 pub struct KeybindingsList;
@@ -15,11 +18,11 @@ impl Command for KeybindingsList {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .input_output_types(vec![(Type::Nothing, Type::table())])
-            .switch("modifiers", "list of modifiers", Some('m'))
-            .switch("keycodes", "list of keycodes", Some('k'))
-            .switch("modes", "list of edit modes", Some('o'))
-            .switch("events", "list of reedline event", Some('e'))
-            .switch("edits", "list of edit commands", Some('d'))
+            .switch("modifiers", "List of modifiers.", Some('m'))
+            .switch("keycodes", "List of keycodes.", Some('k'))
+            .switch("modes", "List of edit modes.", Some('o'))
+            .switch("events", "List of reedline event.", Some('e'))
+            .switch("edits", "List of edit commands.", Some('d'))
             .category(Category::Platform)
     }
 
@@ -88,6 +91,20 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         .iter()
         .map(|edit| edit.split('\n'))
         .flat_map(|edit| edit.map(|edit| convert_to_record(edit, entry_type, span)))
+        .collect()
+}
+
+fn get_reedline_edit_commands() -> Vec<String> {
+    EditCommandDiscriminants::VARIANTS
+        .iter()
+        .filter_map(|edit| display_edit_command(*edit).map(|s| s.to_string()))
+        .collect()
+}
+
+fn get_reedline_reedline_events() -> Vec<String> {
+    ReedlineEventDiscriminants::VARIANTS
+        .iter()
+        .filter_map(|event| display_reedline_event(*event).map(|s| s.to_string()))
         .collect()
 }
 

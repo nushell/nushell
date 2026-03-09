@@ -5,7 +5,7 @@ repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
 edition = "2024"
 license = "MIT"
 name = "nu-path"
-version = "0.110.1"
+version = "0.111.1"
 exclude = ["/fuzz"]
 
 [lib]
@@ -13,7 +13,7 @@ bench = false
 
 [dependencies]
 dirs = { workspace = true }
-ref-cast = "1.0.23"
+ref-cast = "1.0.25"
 
 [target.'cfg(windows)'.dependencies]
 omnipath = { workspace = true }

@@ -32,7 +32,7 @@ impl Command for Slice {
         vec![
             Example {
                 example: "[0,1,2,3,4,5] | slice 4..5",
-                description: "Get the last 2 items",
+                description: "Get the last 2 items.",
                 result: Some(Value::list(
                     vec![Value::test_int(4), Value::test_int(5)],
                     Span::test_data(),
@@ -40,7 +40,7 @@ impl Command for Slice {
             },
             Example {
                 example: "[0,1,2,3,4,5] | slice (-2)..",
-                description: "Get the last 2 items",
+                description: "Get the last 2 items.",
                 result: Some(Value::list(
                     vec![Value::test_int(4), Value::test_int(5)],
                     Span::test_data(),
@@ -48,7 +48,7 @@ impl Command for Slice {
             },
             Example {
                 example: "[0,1,2,3,4,5] | slice (-3)..-2",
-                description: "Get the next to last 2 items",
+                description: "Get the next to last 2 items.",
                 result: Some(Value::list(
                     vec![Value::test_int(3), Value::test_int(4)],
                     Span::test_data(),

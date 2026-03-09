@@ -1,109 +1,110 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[cfg(windows)]
 #[test]
-fn parses_single_path_prefix() {
-    let actual = nu!(cwd: "tests", r"
+fn parses_single_path_prefix() -> Result {
+    let code = r#"
         echo 'C:\users\viking\spam.txt'
         | path parse
         | get prefix
-    ");
+    "#;
 
-    assert_eq!(actual.out, "C:");
+    test().cwd("tests").run(code).expect_value_eq("C:")
 }
 
 #[test]
-fn parses_single_path_parent() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_single_path_parent() -> Result {
+    let code = r#"
         echo 'home/viking/spam.txt'
         | path parse
         | get parent
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "home/viking");
+    test().cwd("tests").run(code).expect_value_eq("home/viking")
 }
 
 #[test]
-fn parses_single_path_stem() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_single_path_stem() -> Result {
+    let code = r#"
         echo 'home/viking/spam.txt'
         | path parse
         | get stem
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "spam");
+    test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn parses_custom_extension_gets_extension() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_custom_extension_gets_extension() -> Result {
+    let code = r#"
         echo 'home/viking/spam.tar.gz'
         | path parse --extension tar.gz
         | get extension
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "tar.gz");
+    test().cwd("tests").run(code).expect_value_eq("tar.gz")
 }
 
 #[test]
-fn parses_custom_extension_gets_stem() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_custom_extension_gets_stem() -> Result {
+    let code = r#"
         echo 'home/viking/spam.tar.gz'
         | path parse --extension tar.gz
         | get stem
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "spam");
+    test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
-fn parses_ignoring_extension_gets_extension() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_ignoring_extension_gets_extension() -> Result {
+    let code = r#"
         echo 'home/viking/spam.tar.gz'
         | path parse --extension ''
         | get extension
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "");
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
-fn parses_ignoring_extension_gets_stem() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_ignoring_extension_gets_stem() -> Result {
+    let code = r#"
         echo 'home/viking/spam.tar.gz'
         | path parse --extension ""
         | get stem
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "spam.tar.gz");
+    test().cwd("tests").run(code).expect_value_eq("spam.tar.gz")
 }
 
 #[test]
-fn parses_into_correct_number_of_columns() {
-    let actual = nu!(cwd: "tests", r#"
+fn parses_into_correct_number_of_columns() -> Result {
+    let code = r#"
         echo 'home/viking/spam.txt'
         | path parse
         | transpose
         | get column0
         | length
-    "#);
+    "#;
 
     #[cfg(windows)]
-    let expected = "4";
+    let expected = 4;
     #[cfg(not(windows))]
-    let expected = "3";
+    let expected = 3;
 
-    assert_eq!(actual.out, expected);
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
-fn const_path_parse() {
-    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.parent");
-    assert_eq!(actual.out, "spam");
+fn const_path_parse() -> Result {
+    let code = "const name = ('spam/eggs.txt' | path parse); $name.parent";
+    test().run(code).expect_value_eq("spam")?;
 
-    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.stem");
-    assert_eq!(actual.out, "eggs");
+    let code = "const name = ('spam/eggs.txt' | path parse); $name.stem";
+    test().run(code).expect_value_eq("eggs")?;
 
-    let actual = nu!("const name = ('spam/eggs.txt' | path parse); $name.extension");
-    assert_eq!(actual.out, "txt");
+    let code = "const name = ('spam/eggs.txt' | path parse); $name.extension";
+    test().run(code).expect_value_eq("txt")?;
+    Ok(())
 }

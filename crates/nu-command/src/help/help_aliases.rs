@@ -24,7 +24,7 @@ impl Command for HelpAliases {
             .named(
                 "find",
                 SyntaxShape::String,
-                "string to find in alias names and descriptions",
+                "String to find in alias names and descriptions.",
                 Some('f'),
             )
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -34,17 +34,17 @@ impl Command for HelpAliases {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "show all aliases",
+                description: "Show all aliases.",
                 example: "help aliases",
                 result: None,
             },
             Example {
-                description: "show help for single alias",
+                description: "Show help for single alias.",
                 example: "help aliases my-alias",
                 result: None,
             },
             Example {
-                description: "search for string in alias names and descriptions",
+                description: "Search for string in alias names and descriptions.",
                 example: "help aliases --find my-alias",
                 result: None,
             },

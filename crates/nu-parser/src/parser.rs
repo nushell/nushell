@@ -2420,13 +2420,21 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
             }
         }
         InterpolationMode::Expression => {
-            if token_start < end {
-                let span = Span::new(token_start, end);
+            let span = Span::new(token_start, end);
 
-                if delimiter_stack.is_empty() {
+            if delimiter_stack.is_empty() {
+                if token_start < end {
                     let expr = parse_full_cell_path(working_set, None, span);
                     output.push(expr);
                 }
+            } else {
+                let expected = delimiter_stack
+                    .last()
+                    .copied()
+                    .map(char::from)
+                    .unwrap_or(')')
+                    .to_string();
+                working_set.error(ParseError::Unclosed(expected, Span::new(end, end)));
             }
         }
     }
@@ -2767,11 +2775,15 @@ pub fn parse_full_cell_path(
         };
 
         let tail = parse_cell_path(working_set, tokens, expect_dot);
-        // FIXME: Get the type of the data at the tail using follow_cell_path() (or something)
         let ty = if !tail.is_empty() {
-            // Until the aforementioned fix is implemented, this is necessary to allow mutable list upserts
-            // such as $a.1 = 2 to work correctly.
-            Type::Any
+            if nu_experimental::CELL_PATH_TYPES.get() {
+                head.ty
+                    .follow_cell_path(&tail)
+                    .map(|ty| ty.into_owned())
+                    .unwrap_or(Type::Any)
+            } else {
+                Type::Any
+            }
         } else {
             head.ty.clone()
         };
@@ -3204,8 +3216,31 @@ fn modf(x: f64) -> (f64, f64) {
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
     trace!("parsing: glob pattern");
+
+    // Check for bare word interpolation
+    if !bytes.is_empty()
+        && bytes[0] != b'\''
+        && bytes[0] != b'"'
+        && bytes[0] != b'`'
+        && bytes.contains(&b'(')
+    {
+        let interpolation_expr = parse_string_interpolation(working_set, span);
+
+        // Convert StringInterpolation to GlobInterpolation
+        if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
+            return Expression::new(
+                working_set,
+                Expr::GlobInterpolation(exprs, quoted),
+                span,
+                Type::Glob,
+            );
+        }
+
+        return interpolation_expr;
+    }
+
+    let (token, err) = unescape_unquote_string(bytes, span);
 
     if err.is_none() {
         trace!("-- found {token}");
@@ -3732,6 +3767,8 @@ pub fn parse_var_with_opt_type(
                 return (garbage(working_set, spans[*spans_idx - 1]), None);
             }
 
+            ensure_not_reserved_variable_name(working_set, &var_name, name_span);
+
             let id = working_set.add_variable(var_name, spans[*spans_idx - 1], ty.clone(), mutable);
 
             (
@@ -3746,6 +3783,8 @@ pub fn parse_var_with_opt_type(
                 ));
                 return (garbage(working_set, spans[*spans_idx]), None);
             }
+
+            ensure_not_reserved_variable_name(working_set, &var_name, name_span);
 
             let id = working_set.add_variable(var_name, spans[*spans_idx], Type::Any, mutable);
 
@@ -3766,6 +3805,8 @@ pub fn parse_var_with_opt_type(
             return (garbage(working_set, spans[*spans_idx]), None);
         }
 
+        ensure_not_reserved_variable_name(working_set, &var_name, name_span);
+
         let id = working_set.add_variable(
             var_name,
             Span::concat(&spans[*spans_idx..*spans_idx + 1]),
@@ -3777,6 +3818,23 @@ pub fn parse_var_with_opt_type(
             Expression::new(working_set, Expr::VarDecl(id), spans[*spans_idx], Type::Any),
             None,
         )
+    }
+}
+
+const RESERVED_VARIABLE_NAMES: [&[u8]; 3] = [b"in", b"nu", b"env"];
+
+pub(crate) fn ensure_not_reserved_variable_name(
+    working_set: &mut StateWorkingSet,
+    name: &[u8],
+    span: Span,
+) {
+    let var_name = name.strip_prefix(b"$").unwrap_or(name);
+
+    if RESERVED_VARIABLE_NAMES.contains(&var_name) {
+        working_set.error(ParseError::NameIsBuiltinVar(
+            String::from_utf8_lossy(var_name).to_string(),
+            span,
+        ))
     }
 }
 
@@ -4063,6 +4121,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
 
     let mut args: Vec<Arg> = vec![];
     let mut parse_mode = ParseMode::Arg;
+    // Track variables whose name→VarId mappings have not yet been inserted
+    // into the overlay scope
+    //
+    // We defer all insertions until the entire signature is parsed so that
+    // default value expressions always resolve to outer scope variables,
+    // not to sibling parameters
+    //
+    // See #15306
+    let mut pending_scope_inserts: Vec<(Vec<u8>, VarId)> = vec![];
 
     for (index, token) in output.iter().enumerate() {
         let last_token = index == output.len() - 1;
@@ -4154,8 +4221,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    &variable_name,
+                                    span,
+                                );
+
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Bool, false);
+                                pending_scope_inserts.push((variable_name, var_id));
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4239,8 +4313,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    &variable_name,
+                                    span,
+                                );
+
                                 let var_id =
-                                    working_set.add_variable(variable_name, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Bool, false);
+                                pending_scope_inserts.push((variable_name, var_id));
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4307,12 +4388,15 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
-                                let var_id = working_set.add_variable(
-                                    optional_param.to_vec(),
+                                ensure_not_reserved_variable_name(
+                                    working_set,
+                                    optional_param,
                                     span,
-                                    Type::Any,
-                                    false,
                                 );
+
+                                let var_id =
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((optional_param.to_vec(), var_id));
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
@@ -4340,8 +4424,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(working_set, contents, span);
+
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((contents_vec, var_id));
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -4365,8 +4452,11 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                     ))
                                 }
 
+                                ensure_not_reserved_variable_name(working_set, &contents_vec, span);
+
                                 let var_id =
-                                    working_set.add_variable(contents_vec, span, Type::Any, false);
+                                    working_set.add_variable_without_scope(span, Type::Any, false);
+                                pending_scope_inserts.push((contents_vec, var_id));
 
                                 // Positional arg, required
                                 args.push(Arg::Positional {
@@ -4565,30 +4655,21 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
                                         let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
-                                        // Flags with no TypeMode are just present/not-present switches
-                                        // in the case, `var_type` is any.
-                                        match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    *arg = Some(expression_ty.to_shape());
-                                                    working_set
-                                                        .set_variable_type(var_id, expression_ty);
-                                                }
-                                            }
-                                            t => {
-                                                if !type_compatible(t, &expression_ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value is the wrong type"
-                                                                .into(),
-                                                            format!(
-                                                                "expected default value to be `{t}`"
-                                                            ),
-                                                            expression_span,
-                                                        ),
-                                                    )
-                                                }
-                                            }
+                                        // Flags without type annotations are present/not-present
+                                        // switches *except* when they have a default value
+                                        // assigned. In that case they are regular flags and take
+                                        // on the type of their default value.
+                                        if !*type_annotated {
+                                            *arg = Some(expression_ty.to_shape());
+                                            working_set.set_variable_type(var_id, expression_ty);
+                                        } else if !type_compatible(var_type, &expression_ty) {
+                                            working_set.error(ParseError::AssignmentMismatch(
+                                                "Default value is the wrong type".into(),
+                                                format!(
+                                                    "expected default value to be `{var_type}`"
+                                                ),
+                                                expression_span,
+                                            ))
                                         }
                                     }
                                 }
@@ -4634,6 +4715,10 @@ pub fn parse_signature_helper(working_set: &mut StateWorkingSet, span: Span) -> 
             }
             _ => {}
         }
+    }
+
+    for (name, var_id) in pending_scope_inserts {
+        working_set.insert_variable_into_scope(name, var_id);
     }
 
     let mut sig = Signature::new(String::new());
@@ -4926,13 +5011,15 @@ fn parse_table_expression(
 
 fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<ParseError>) {
     let mut errors = vec![];
-    let mut rows = rows.to_vec();
-    let mut mk_ty = || -> Type {
-        let types = rows
+    let mut rows: Vec<_> = rows.iter().map(|row| row.iter()).collect();
+
+    let column_types = std::iter::from_fn(move || {
+        let column = rows
             .iter_mut()
-            .map(|row| row.pop().map(|x| x.ty).unwrap_or_default());
-        Type::supertype_of(types).unwrap_or_default()
-    };
+            .filter_map(|row| row.next())
+            .map(|col| col.ty.clone());
+        Some(Type::supertype_of(column).unwrap_or(Type::Any))
+    });
 
     let mk_error = |span| ParseError::LabeledErrorWithHelp {
         error: "Table column name not string".into(),
@@ -4941,24 +5028,20 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         span,
     };
 
-    let mut ty = head
+    let ty: Box<[(String, Type)]> = head
         .iter()
-        .rev()
-        // Include only known column names in type
-        .filter_map(|expr| {
+        .zip(column_types)
+        .filter_map(|(expr, col_ty)| {
             if !Type::String.is_subtype_of(&expr.ty) {
                 errors.push(mk_error(expr.span));
                 None
             } else {
-                expr.as_string()
+                expr.as_string().zip(Some(col_ty))
             }
         })
-        .map(|title| (title, mk_ty()))
-        .collect_vec();
+        .collect();
 
-    ty.reverse();
-
-    (Type::Table(ty.into()), errors)
+    (Type::Table(ty), errors)
 }
 
 pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -6485,7 +6568,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
                 ));
                 garbage(working_set, curr_span)
             } else {
-                let field = parse_value(working_set, curr_span, &SyntaxShape::Any);
+                let field = parse_value(working_set, curr_span, &SyntaxShape::String);
                 if let Some(error) = check_record_key_or_value(working_set, &field, "key") {
                     working_set.error(error);
                     garbage(working_set, field.span)
@@ -7002,7 +7085,7 @@ pub fn discover_captures_in_expr(
                         } else {
                             let result = {
                                 let mut seen = vec![];
-                                seen_blocks.insert(block_id, output.clone());
+                                seen_blocks.insert(block_id, vec![]);
 
                                 let mut result = vec![];
                                 discover_captures_in_closure(

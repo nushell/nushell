@@ -28,12 +28,12 @@ impl PluginCommand for ExprWhen {
             .required(
                 "when expression",
                 SyntaxShape::Any,
-                "when expression used for matching",
+                "When expression used for matching.",
             )
             .required(
                 "then expression",
                 SyntaxShape::Any,
-                "expression that will be applied when predicate is true",
+                "Expression that will be applied when predicate is true.",
             )
             .input_output_types(vec![
                 (Type::Nothing, PolarsPluginType::NuExpression.into()),

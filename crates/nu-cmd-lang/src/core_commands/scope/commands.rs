@@ -34,7 +34,7 @@ impl Command for ScopeCommands {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Show the commands in the current scope",
+            description: "Show the commands in the current scope.",
             example: "scope commands",
             result: None,
         }]

@@ -90,12 +90,12 @@ If the path does not exist, null will be returned."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Show type of a filepath",
+                description: "Show type of a filepath.",
                 example: "'.' | path type",
                 result: Some(Value::test_string("dir")),
             },
             Example {
-                description: "Show type of a filepaths in a list",
+                description: "Show type of filepaths in a list.",
                 example: "ls | get name | path type",
                 result: None,
             },

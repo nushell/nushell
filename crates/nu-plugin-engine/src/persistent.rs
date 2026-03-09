@@ -189,9 +189,8 @@ impl PersistentPlugin {
         })?;
 
         // Start the plugin garbage collector
-        let gc = PluginGc::new(mutable.gc_config.clone(), &self).map_err(|err| {
-            IoError::new_internal(err, "Could not start plugin gc", nu_protocol::location!())
-        })?;
+        let gc = PluginGc::new(mutable.gc_config.clone(), &self)
+            .map_err(|err| IoError::new_internal(err, "Could not start plugin gc"))?;
 
         let pid = child.id();
         let interface = make_plugin_interface(

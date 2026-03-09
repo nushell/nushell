@@ -41,7 +41,7 @@ impl Command for FormatBits {
             .named(
                 "endian",
                 SyntaxShape::String,
-                "Byte encode endian. Only applies to int, filesize, duration and bool, as well as tables and records of those. Available options: native, little, big(default)",
+                "Byte encode endian. Only applies to int, filesize, duration and bool, as well as tables and records of those. Available options: native, little, big(default).",
                 Some('e'),
             )
             .rest(

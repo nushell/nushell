@@ -46,7 +46,7 @@ impl Command for Explain {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Explain a command within a closure",
+            description: "Explain a command within a closure.",
             example: "explain {|| ls | sort-by name type --ignore-case | get name } | table --expand",
             result: None,
         }]

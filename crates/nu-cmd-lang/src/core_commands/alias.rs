@@ -50,7 +50,7 @@ impl Command for Alias {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Alias ll to ls -l",
+            description: "Alias ll to ls -l.",
             example: "alias ll = ls -l",
             result: Some(Value::nothing(Span::test_data())),
         }]

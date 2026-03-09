@@ -30,7 +30,7 @@ The "row condition" syntax is not supported."#
             .required(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "Predicate closure.",
+                "The closure to use as a filter predicate.",
             )
             .category(Category::Filters)
     }
@@ -65,26 +65,26 @@ The "row condition" syntax is not supported."#
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Filter items of a list according to a condition",
+                description: "Filter items of a list according to a condition.",
                 example: "[1 2] | filter {|x| $x > 1}",
                 result: Some(Value::test_list(vec![Value::test_int(2)])),
             },
             Example {
-                description: "Filter rows of a table according to a condition",
+                description: "Filter rows of a table according to a condition.",
                 example: "[{a: 1} {a: 2}] | filter {|x| $x.a > 1}",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
-                description: "Filter rows of a table according to a stored condition",
+                description: "Filter rows of a table according to a stored condition.",
                 example: "let cond = {|x| $x.a > 1}; [{a: 1} {a: 2}] | filter $cond",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "a" => Value::test_int(2),
                 })])),
             },
             Example {
-                description: "Filter items of a range according to a condition",
+                description: "Filter items of a range according to a condition.",
                 example: "9..13 | filter {|el| $el mod 2 != 0}",
                 result: Some(Value::test_list(vec![
                     Value::test_int(9),
@@ -93,7 +93,7 @@ The "row condition" syntax is not supported."#
                 ])),
             },
             Example {
-                description: "List all numbers above 3, using an existing closure condition",
+                description: "List all numbers above 3, using an existing closure condition.",
                 example: "let a = {$in > 3}; [1, 2, 5, 6] | filter $a",
                 result: None, // TODO: This should work
                               // result: Some(Value::test_list(

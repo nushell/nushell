@@ -17,7 +17,11 @@ impl Command for Const {
         Signature::build("const")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .allow_variants_without_examples(true)
-            .required("const_name", SyntaxShape::VarWithOptType, "Constant name.")
+            .required(
+                "const_name",
+                SyntaxShape::VarWithOptType,
+                "The constant name to create.",
+            )
             .required(
                 "initial_value",
                 SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
@@ -75,7 +79,7 @@ impl Command for Const {
                 result: None,
             },
             Example {
-                description: "Create a composite constant value",
+                description: "Create a composite constant value.",
                 example: "const x = { a: 10, b: 20 }",
                 result: None,
             },

@@ -167,6 +167,11 @@ impl LanguageServer {
                                 format!("```\n{ty}\n```")
                             }
                         })
+                        .or_else(|| {
+                            var.ty
+                                .follow_cell_path(&cell_path)
+                                .map(|ty| format!("```\n{ty}\n```"))
+                        })
                         .unwrap_or("`unknown`".into()),
                 )
             }
@@ -241,11 +246,14 @@ mod hover_tests {
     )]
     #[case::str_join(
         "command.nu", (5, 8),
-        "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} (separator)\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator`: `<string>` - Optional separator to use when creating string. (optional)\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
+        "Concatenate multiple strings into a single string, with an optional separator between each.\n---\n### Usage \n```nu\n  str join {flags} (separator)\n```\n\n### Flags\n\n  `-h`, `--help` - Display the help message for this command\n\n\n### Parameters\n\n  `separator`: `<string>` - Optional separator to use when creating string. (optional)\n\n\n### Input/output types\n\n```nu\n list<any> | string\n string | string\n\n```\n### Example(s)\n  Create a string from input.\n```nu\n  ['nu', 'shell'] | str join\n```\n  Create a string from input with a separator.\n```nu\n  ['nu', 'shell'] | str join '-'\n```\n"
     )]
     #[case::cell_path1("use.nu", (2, 3), "```\nlist<oneof<int, record<bar: int>>>\n```")]
     #[case::cell_path2("use.nu", (2, 7), "```\nrecord<bar: int>\n```")]
     #[case::cell_path3("use.nu", (2, 11), "```\nint\n```\n---\n2")]
+    #[case::cell_path4("use.nu", (4, 5), "```\nlist<record<b: list<int>>>\n```")]
+    #[case::cell_path5("use.nu", (4, 9), "```\nlist<int>\n```")]
+    #[case::cell_path6("use.nu", (4, 11), "```\nint\n```")]
     fn hover_single_request(
         #[case] filename: &str,
         #[case] cursor: (u32, u32),

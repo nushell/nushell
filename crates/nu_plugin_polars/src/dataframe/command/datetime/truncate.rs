@@ -45,7 +45,7 @@ impl PluginCommand for Truncate {
             .required(
                 "every",
                 SyntaxShape::OneOf(vec![SyntaxShape::Duration, SyntaxShape::String]),
-                "Period length for every interval (can be duration or str)",
+                "Period length for every interval (can be duration or str).",
             )
             .category(Category::Custom("expression".into()))
     }

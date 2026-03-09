@@ -1,5 +1,5 @@
 use super::utils::chain_error_with_input;
-use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{Signals, engine::Closure};
 use rayon::prelude::*;
 
@@ -28,12 +28,12 @@ impl Command for ParEach {
             .named(
                 "threads",
                 SyntaxShape::Int,
-                "the number of threads to use",
+                "The number of threads to use.",
                 Some('t'),
             )
             .switch(
                 "keep-order",
-                "keep sequence of output same as the order of input",
+                "Keep sequence of output same as the order of input.",
                 Some('k'),
             )
             .required(
@@ -54,7 +54,7 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"[1 2 3] | par-each --keep-order {|e| $e * 2 }"#,
-                description: "Multiplies each number, keeping an original order",
+                description: "Multiplies each number, keeping an original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
                     Value::test_int(4),
@@ -63,7 +63,7 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
-                description: "Enumerate and sort-by can be used to reconstruct the original order",
+                description: "Enumerate and sort-by can be used to reconstruct the original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
                     Value::test_int(4),
@@ -72,7 +72,7 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
-                description: "Output can still be sorted afterward",
+                description: "Output can still be sorted afterward.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("bar!"),
                     Value::test_string("baz!"),
@@ -81,7 +81,7 @@ impl Command for ParEach {
             },
             Example {
                 example: r#"[1 2 3] | enumerate | par-each { |e| if $e.item == 2 { $"found 2 at ($e.index)!"} }"#,
-                description: "Iterate over each element, producing a list showing indexes of any 2s",
+                description: "Iterate over each element, producing a list showing indexes of any 2s.",
                 result: Some(Value::test_list(vec![Value::test_string("found 2 at 1!")])),
             },
         ]
@@ -94,7 +94,7 @@ impl Command for ParEach {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, ShellError> {
+        fn create_pool(num_threads: usize, head: Span) -> Result<rayon::ThreadPool, ShellError> {
             match rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
@@ -102,7 +102,7 @@ impl Command for ParEach {
                 Err(e) => Err(e).map_err(|e| ShellError::GenericError {
                     error: "Error creating thread pool".into(),
                     msg: e.to_string(),
-                    span: Some(Span::unknown()),
+                    span: Some(head),
                     help: None,
                     inner: vec![],
                 }),
@@ -116,6 +116,7 @@ impl Command for ParEach {
         let max_threads = threads.unwrap_or(0);
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
 
+        let input = input.into_stream_or_original(engine_state);
         let metadata = input.metadata();
 
         // A helper function sorts the output if needed
@@ -134,54 +135,20 @@ impl Command for ParEach {
             PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
-                    Value::List { vals, .. } => Ok(create_pool(max_threads)?.install(|| {
-                        let vec = vals
-                            .into_par_iter()
-                            .enumerate()
-                            .map(move |(index, value)| {
-                                let span = value.span();
-                                let is_error = value.is_error();
-                                let value =
-                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                                        .run_with_value(value)
-                                        .and_then(|data| data.into_value(span))
-                                        .unwrap_or_else(|err| {
-                                            Value::error(
-                                                chain_error_with_input(err, is_error, span),
-                                                span,
-                                            )
-                                        });
-
-                                (index, value)
-                            })
-                            .collect::<Vec<_>>();
-
-                        apply_order(vec).into_pipeline_data(span, engine_state.signals().clone())
+                    Value::List { vals, .. } => Ok(create_pool(max_threads, head)?.install(|| {
+                        let par_iter = vals.into_par_iter().enumerate();
+                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
+                        apply_order(mapped.collect())
+                            .into_pipeline_data(span, engine_state.signals().clone())
                     })),
-                    Value::Range { val, .. } => Ok(create_pool(max_threads)?.install(|| {
-                        let vec = val
+                    Value::Range { val, .. } => Ok(create_pool(max_threads, head)?.install(|| {
+                        let par_iter = val
                             .into_range_iter(span, Signals::empty())
                             .enumerate()
-                            .par_bridge()
-                            .map(move |(index, value)| {
-                                let span = value.span();
-                                let is_error = value.is_error();
-                                let value =
-                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                                        .run_with_value(value)
-                                        .and_then(|data| data.into_value(span))
-                                        .unwrap_or_else(|err| {
-                                            Value::error(
-                                                chain_error_with_input(err, is_error, span),
-                                                span,
-                                            )
-                                        });
-
-                                (index, value)
-                            })
-                            .collect::<Vec<_>>();
-
-                        apply_order(vec).into_pipeline_data(span, engine_state.signals().clone())
+                            .par_bridge();
+                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
+                        apply_order(mapped.collect())
+                            .into_pipeline_data(span, engine_state.signals().clone())
                     })),
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
@@ -190,50 +157,27 @@ impl Command for ParEach {
                     }
                 }
             }
-            PipelineData::ListStream(stream, ..) => Ok(create_pool(max_threads)?.install(|| {
-                let vec = stream
-                    .into_iter()
-                    .enumerate()
-                    .par_bridge()
-                    .map(move |(index, value)| {
-                        let span = value.span();
-                        let is_error = value.is_error();
-                        let value = ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                            .run_with_value(value)
-                            .and_then(|data| data.into_value(head))
-                            .unwrap_or_else(|err| {
-                                Value::error(chain_error_with_input(err, is_error, span), span)
-                            });
+            PipelineData::ListStream(stream, ..) => {
+                Ok(create_pool(max_threads, head)?.install(|| {
+                    let par_iter = stream.into_iter().enumerate().par_bridge();
+                    let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
 
-                        (index, value)
-                    })
-                    .collect::<Vec<_>>();
-
-                apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
-            })),
+                    apply_order(mapped.collect())
+                        .into_pipeline_data(head, engine_state.signals().clone())
+                }))
+            }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
-                    Ok(create_pool(max_threads)?.install(|| {
-                        let vec = chunks
+                    Ok(create_pool(max_threads, head)?.install(|| {
+                        let par_iter = chunks
                             .enumerate()
-                            .par_bridge()
-                            .map(move |(index, value)| {
-                                let value = match value {
-                                    Ok(value) => value,
-                                    Err(err) => return (index, Value::error(err, head)),
-                                };
-
-                                let value =
-                                    ClosureEvalOnce::new(engine_state, stack, closure.clone())
-                                        .run_with_value(value)
-                                        .and_then(|data| data.into_value(head))
-                                        .unwrap_or_else(|err| Value::error(err, head));
-
-                                (index, value)
+                            .map(move |(idx, val)| {
+                                (idx, val.unwrap_or_else(|err| Value::error(err, head)))
                             })
-                            .collect::<Vec<_>>();
-
-                        apply_order(vec).into_pipeline_data(head, engine_state.signals().clone())
+                            .par_bridge();
+                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
+                        apply_order(mapped.collect())
+                            .into_pipeline_data(head, engine_state.signals().clone())
                     }))
                 } else {
                     Ok(PipelineData::empty())
@@ -243,6 +187,29 @@ impl Command for ParEach {
         .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         .map(|data| data.set_metadata(metadata))
     }
+}
+
+fn parallel_closure_map(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    closure: &Closure,
+    input: impl ParallelIterator<Item = (usize, Value)>,
+) -> impl ParallelIterator<Item = (usize, Value)> {
+    input.map_init(
+        move || ClosureEval::new(engine_state, stack, closure.clone()),
+        |closure_eval, (index, value)| {
+            let span = value.span();
+            let is_error = value.is_error();
+            let value = closure_eval
+                .run_with_value(value)
+                .and_then(|data| data.into_value(span))
+                .unwrap_or_else(|err| {
+                    Value::error(chain_error_with_input(err, is_error, span), span)
+                });
+
+            (index, value)
+        },
+    )
 }
 
 #[cfg(test)]

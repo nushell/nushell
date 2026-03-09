@@ -27,7 +27,7 @@ impl PluginCommand for LazyFillNA {
             .required(
                 "fill",
                 SyntaxShape::Any,
-                "Expression to use to fill the NAN values",
+                "Expression to use to fill the NAN values.",
             )
             .input_output_types(vec![
                 (

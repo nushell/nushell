@@ -51,7 +51,7 @@ impl Command for DecodeBase64 {
     }
 
     fn description(&self) -> &str {
-        "Decode a Base64 value."
+        "Decode a Base64-encoded value."
     }
 
     fn extra_description(&self) -> &str {

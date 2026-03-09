@@ -60,17 +60,17 @@ impl Command for MathSum {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Sum a list of numbers",
+                description: "Sum a list of numbers.",
                 example: "[1 2 3] | math sum",
                 result: Some(Value::test_int(6)),
             },
             Example {
-                description: "Get the disk usage for the current directory",
+                description: "Get the disk usage for the current directory.",
                 example: "ls | get size | math sum",
                 result: None,
             },
             Example {
-                description: "Compute the sum of each column in a table",
+                description: "Compute the sum of each column in a table.",
                 example: "[[a b]; [1 2] [3 4]] | math sum",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(4),

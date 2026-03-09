@@ -25,7 +25,7 @@ impl Command for FormatDate {
                 (Type::Any, Type::table()),
             ])
             .allow_variants_without_examples(true) // https://github.com/nushell/nushell/issues/7032
-            .switch("list", "lists strftime cheatsheet", Some('l'))
+            .switch("list", "Lists strftime cheatsheet.", Some('l'))
             .optional(
                 "format string",
                 SyntaxShape::String,
@@ -251,10 +251,19 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
     match value {
         Value::Date { val, .. } => Value::string(
             {
-                if val.year() >= 0 {
+                if val.year() >= 0 && val.year() <= 9999 {
                     val.to_rfc2822()
                 } else {
-                    val.to_rfc3339()
+                    return Value::error(
+                        ShellError::GenericError {
+                            error: "Can't convert date to RFC 2822 format.".into(),
+                            msg: "the RFC 2822 format only supports years 0 through 9999".into(),
+                            span: Some(val_span),
+                            help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
+                            inner: vec![],
+                        },
+                        span,
+                    );
                 }
             },
             span,
@@ -264,10 +273,20 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
             match dt {
                 Ok(x) => Value::string(
                     {
-                        if x.year() >= 0 {
+                        if x.year() >= 0 && x.year() <= 9999 {
                             x.to_rfc2822()
                         } else {
-                            x.to_rfc3339()
+                            return Value::error(
+                                ShellError::GenericError {
+                                    error: "Can't convert date to RFC 2822 format.".into(),
+                                    msg: "the RFC 2822 format only supports years 0 through 9999"
+                                        .into(),
+                                    span: Some(val_span),
+                                    help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
+                                    inner: vec![],
+                                },
+                                span,
+                            );
                         }
                     },
                     span,

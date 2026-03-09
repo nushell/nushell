@@ -614,24 +614,29 @@ impl<'a> StateWorkingSet<'a> {
         None
     }
 
-    pub fn add_variable(
-        &mut self,
-        mut name: Vec<u8>,
-        span: Span,
-        ty: Type,
-        mutable: bool,
-    ) -> VarId {
+    pub fn add_variable(&mut self, name: Vec<u8>, span: Span, ty: Type, mutable: bool) -> VarId {
+        let var_id = self.add_variable_without_scope(span, ty, mutable);
+        self.insert_variable_into_scope(name, var_id);
+        var_id
+    }
+
+    /// Like [`add_variable`](Self::add_variable) but does **not** insert the
+    /// name→VarId mapping into the current overlay scope. The caller must
+    /// later call [`insert_variable_into_scope`](Self::insert_variable_into_scope)
+    /// to make the variable visible by name.
+    pub fn add_variable_without_scope(&mut self, span: Span, ty: Type, mutable: bool) -> VarId {
         let next_id = self.next_var_id();
-        // correct name if necessary
+        self.delta.vars.push(Variable::new(span, ty, mutable));
+        next_id
+    }
+
+    /// Insert a previously created variable into the current overlay's scope.
+    /// The `name` will have a `$` prefix prepended if it doesn't already have one.
+    pub fn insert_variable_into_scope(&mut self, mut name: Vec<u8>, var_id: VarId) {
         if !name.starts_with(b"$") {
             name.insert(0, b'$');
         }
-
-        self.last_overlay_mut().insert_variable(name, next_id);
-
-        self.delta.vars.push(Variable::new(span, ty, mutable));
-
-        next_id
+        self.last_overlay_mut().insert_variable(name, var_id);
     }
 
     /// Returns the current working directory as a String, which is guaranteed to be canonicalized.

@@ -26,7 +26,7 @@ If a message is received while this command is executing, it may also be discard
             .named(
                 "tag",
                 SyntaxShape::Int,
-                "Clear messages with this tag",
+                "Clear messages with this tag.",
                 None,
             )
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])

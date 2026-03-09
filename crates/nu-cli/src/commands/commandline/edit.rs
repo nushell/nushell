@@ -13,22 +13,22 @@ impl Command for CommandlineEdit {
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch(
                 "append",
-                "appends the string to the end of the buffer",
+                "Appends the string to the end of the buffer.",
                 Some('a'),
             )
             .switch(
                 "insert",
-                "inserts the string into the buffer at the cursor position",
+                "Inserts the string into the buffer at the cursor position.",
                 Some('i'),
             )
             .switch(
                 "replace",
-                "replaces the current contents of the buffer (default)",
+                "Replaces the current contents of the buffer (default).",
                 Some('r'),
             )
             .switch(
                 "accept",
-                "immediately executes the result after edit",
+                "Immediately executes the result after edit.",
                 Some('A'),
             )
             .required(

@@ -1,73 +1,71 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
-fn returns_type_of_missing_file() {
-    let actual = nu!(cwd: "tests", r#"
-        echo "spam.txt"
-        | path type
-    "#);
-
-    assert_eq!(actual.out, "");
+fn returns_type_of_missing_file() -> Result {
+    let code = r#"echo "spam.txt" | path type"#;
+    test()
+        .cwd("tests")
+        .run(code)
+        .expect_value_eq(Value::test_nothing())
 }
 
 #[test]
-fn returns_type_of_existing_file() {
+fn returns_type_of_existing_file() -> Result {
     Playground::setup("path_expand_1", |dirs, sandbox| {
         sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             echo "menu"
             | path type
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "dir");
+        test().cwd(dirs.test()).run(code).expect_value_eq("dir")
     })
 }
 
 #[test]
-fn returns_type_of_existing_directory() {
+fn returns_type_of_existing_directory() -> Result {
     Playground::setup("path_expand_1", |dirs, sandbox| {
         sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             echo "menu/spam.txt"
             | path type
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "file");
+        test().cwd(dirs.test()).run(code).expect_value_eq("file")?;
 
-        let actual = nu!(r#"
+        let code = r#"
             echo "~"
             | path type
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "dir");
+        test().run(code).expect_value_eq("dir")
     })
 }
 
 #[test]
-fn returns_type_of_existing_file_const() {
+fn returns_type_of_existing_file_const() -> Result {
     Playground::setup("path_type_const", |dirs, sandbox| {
         sandbox.within("menu").with_files(&[EmptyFile("spam.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
             const ty = ("menu" | path type);
             $ty
-        "#);
+        "#;
 
-        assert_eq!(actual.out, "dir");
+        test().cwd(dirs.test()).run(code).expect_value_eq("dir")
     })
 }
 
 #[test]
-fn respects_cwd() {
+fn respects_cwd() -> Result {
     Playground::setup("path_type_respects_cwd", |dirs, sandbox| {
         sandbox.within("foo").with_files(&[EmptyFile("bar.txt")]);
 
-        let actual = nu!(cwd: dirs.test(), "cd foo; 'bar.txt' | path type");
-
-        assert_eq!(actual.out, "file");
+        test()
+            .cwd(dirs.test())
+            .run("cd foo; 'bar.txt' | path type")
+            .expect_value_eq("file")
     })
 }

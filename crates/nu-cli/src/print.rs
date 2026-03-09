@@ -16,16 +16,16 @@ impl Command for Print {
                 (Type::Any, Type::Nothing),
             ])
             .allow_variants_without_examples(true)
-            .rest("rest", SyntaxShape::Any, "the values to print")
+            .rest("rest", SyntaxShape::Any, "The values to print.")
             .switch(
                 "no-newline",
-                "print without inserting a newline for the line ending",
+                "Print without inserting a newline for the line ending.",
                 Some('n'),
             )
-            .switch("stderr", "print to stderr instead of stdout", Some('e'))
+            .switch("stderr", "Print to stderr instead of stdout.", Some('e'))
             .switch(
                 "raw",
-                "print without formatting (including binary data)",
+                "Print without formatting (including binary data).",
                 Some('r'),
             )
             .category(Category::Strings)

@@ -57,12 +57,12 @@ impl Command for JobDescribe {
         vec![
             Example {
                 example: "let id = job spawn { sleep 10sec }; job describe $id abc ",
-                description: "Describe a newly spawned job",
+                description: "Describe a newly spawned job.",
                 result: None,
             },
             Example {
                 example: "let id = job spawn { sleep 10sec }; job describe $id abc; job describe $id null",
-                description: "Remove the description of a job",
+                description: "Remove the description of a job.",
                 result: None,
             },
         ]

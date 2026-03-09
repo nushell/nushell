@@ -1,6 +1,8 @@
 #![doc = include_str!("../README.md")]
 mod casing;
+pub mod container;
 mod deansi;
+mod downcast;
 pub mod emoji;
 pub mod filesystem;
 pub mod flatten_json;
@@ -12,6 +14,7 @@ mod quoting;
 mod shared_cow;
 mod split_read;
 pub mod strings;
+pub mod sync;
 pub mod utils;
 
 pub use locale::get_system_locale;
@@ -24,6 +27,7 @@ pub use casing::IgnoreCaseExt;
 pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
+pub use downcast::downcast;
 pub use emoji::contains_emoji;
 pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;

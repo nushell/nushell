@@ -96,12 +96,12 @@ impl PluginCommand for ExprMath {
             .required(
                 "type",
                 SyntaxShape::String,
-                "Function name. See extra description for full list of accepted values",
+                "Function name. See extra description for full list of accepted values.",
             )
             .rest(
                 "args",
                 SyntaxShape::Any,
-                "Extra arguments required by some functions",
+                "Extra arguments required by some functions.",
             )
             .input_output_types(vec![
                 (
