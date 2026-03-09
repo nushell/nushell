@@ -248,7 +248,10 @@ impl NuTester {
 
         self.engine_state.merge_delta(working_set.delta)?;
         nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
-            .map_err(|err| TestError { location, kind: TestErrorKind::Shell(err) })
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
     }
 
     #[track_caller]
