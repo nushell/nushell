@@ -270,6 +270,14 @@ pub fn load_plugin_registry_item(
 
             // Create the declarations from the commands
             for signature in commands {
+                // Create alias declarations before creating the main one
+                for alias in &signature.sig.aliases {
+                    let mut alias_sig = signature.clone();
+                    alias_sig.sig.name = alias.clone();
+                    alias_sig.sig.aliases.clear();
+                    let alias_decl = PluginDeclaration::new(plugin.clone(), alias_sig);
+                    working_set.add_decl(Box::new(alias_decl));
+                }
                 let decl = PluginDeclaration::new(plugin.clone(), signature.clone());
                 working_set.add_decl(Box::new(decl));
             }

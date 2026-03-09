@@ -17,6 +17,14 @@ pub fn fake_register(
 
     for command in plugin.commands() {
         let signature = create_plugin_signature(command.deref());
+        // Create alias declarations
+        for alias in &signature.sig.aliases {
+            let mut alias_sig = signature.clone();
+            alias_sig.sig.name = alias.clone();
+            alias_sig.sig.aliases.clear();
+            let alias_decl = PluginDeclaration::new(reg_plugin.clone(), alias_sig);
+            working_set.add_decl(Box::new(alias_decl));
+        }
         let decl = PluginDeclaration::new(reg_plugin.clone(), signature);
         working_set.add_decl(Box::new(decl));
     }

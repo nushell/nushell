@@ -115,6 +115,14 @@ pub trait PluginCommand: Sync {
         vec![]
     }
 
+    /// Aliases for the command.
+    ///
+    /// These are alternative names that will resolve to the same command. For example, a command
+    /// named `from yaml` might define `from yml` as an alias.
+    fn aliases(&self) -> Vec<&str> {
+        vec![]
+    }
+
     /// Examples, in Nu, of how the command might be used.
     ///
     /// The examples are not restricted to only including this command, and may demonstrate
@@ -275,6 +283,14 @@ pub trait SimplePluginCommand: Sync {
         vec![]
     }
 
+    /// Aliases for the command.
+    ///
+    /// These are alternative names that will resolve to the same command. For example, a command
+    /// named `from yaml` might define `from yml` as an alias.
+    fn aliases(&self) -> Vec<&str> {
+        vec![]
+    }
+
     /// Examples, in Nu, of how the command might be used.
     ///
     /// The examples are not restricted to only including this command, and may demonstrate
@@ -373,6 +389,10 @@ where
         <Self as SimplePluginCommand>::search_terms(self)
     }
 
+    fn aliases(&self) -> Vec<&str> {
+        <Self as SimplePluginCommand>::aliases(self)
+    }
+
     fn signature(&self) -> Signature {
         <Self as SimplePluginCommand>::signature(self)
     }
@@ -418,6 +438,13 @@ pub fn create_plugin_signature(command: &(impl PluginCommand + ?Sized)) -> Plugi
             .search_terms(
                 command
                     .search_terms()
+                    .into_iter()
+                    .map(String::from)
+                    .collect(),
+            )
+            .aliases(
+                command
+                    .aliases()
                     .into_iter()
                     .map(String::from)
                     .collect(),

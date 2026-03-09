@@ -470,9 +470,15 @@ where
 
     // Build commands map, to make running a command easier
     let mut commands: HashMap<String, _> = HashMap::new();
+    // Map alias names to their primary command name
+    let mut alias_map: HashMap<String, String> = HashMap::new();
 
     for command in plugin.commands() {
-        if let Some(previous) = commands.insert(command.name().into(), command) {
+        let primary_name: String = command.name().into();
+        for alias in command.aliases() {
+            alias_map.insert(alias.to_string(), primary_name.clone());
+        }
+        if let Some(previous) = commands.insert(primary_name, command) {
             eprintln!(
                 "Plugin `{plugin_name}` warning: command `{}` shadowed by another command with the \
                     same name. Check your commands' `name()` methods",
@@ -514,7 +520,8 @@ where
             // of the references after we catch the unwind, and immediately exit.
             let unwind_result = std::panic::catch_unwind(AssertUnwindSafe(|| {
                 let CallInfo { name, call, input } = call_info;
-                let result = if let Some(command) = commands.get(&name) {
+                let resolved_name = alias_map.get(&name).unwrap_or(&name);
+                let result = if let Some(command) = commands.get(resolved_name) {
                     command.run(plugin, &engine, &call, input)
                 } else {
                     Err(
@@ -548,7 +555,8 @@ where
                     arg_type,
                     call,
                 } = get_dynamic_completion_info;
-                let items = if let Some(command) = commands.get(&name) {
+                let resolved_name = alias_map.get(&name).unwrap_or(&name);
+                let items = if let Some(command) = commands.get(resolved_name) {
                     let arg_type = arg_type.into();
                     command.get_dynamic_completion(
                         plugin,
@@ -751,7 +759,15 @@ fn print_help(plugin: &impl Plugin, encoder: impl PluginEncoder) {
 
     plugin.commands().into_iter().for_each(|command| {
         let signature = command.signature();
+        let aliases = command.aliases();
         let res = write!(help, "\nCommand: {}", command.name())
+            .and_then(|_| {
+                if !aliases.is_empty() {
+                    writeln!(help, "\nAliases: {}", aliases.join(", "))
+                } else {
+                    Ok(())
+                }
+            })
             .and_then(|_| writeln!(help, "\nDescription:\n > {}", command.description()))
             .and_then(|_| {
                 if !command.extra_description().is_empty() {

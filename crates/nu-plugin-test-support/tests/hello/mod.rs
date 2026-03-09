@@ -28,6 +28,10 @@ impl SimplePluginCommand for Hello {
         "Print a friendly greeting"
     }
 
+    fn aliases(&self) -> Vec<&str> {
+        vec!["hi"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build(PluginCommand::name(self)).input_output_type(Type::Nothing, Type::String)
     }
@@ -84,6 +88,19 @@ fn test_requiring_nu_cmd_lang_commands() -> Result<(), ShellError> {
 
     let result = PluginTest::new("hello", HelloPlugin.into())?
         .eval("do { let greeting = hello; $greeting }")?
+        .into_value(Span::test_data())?;
+
+    assert_eq!(Value::test_string("Hello, World!"), result);
+
+    Ok(())
+}
+
+#[test]
+fn test_alias_resolves_to_command() -> Result<(), ShellError> {
+    use nu_protocol::Span;
+
+    let result = PluginTest::new("hello", HelloPlugin.into())?
+        .eval("hi")?
         .into_value(Span::test_data())?;
 
     assert_eq!(Value::test_string("Hello, World!"), result);

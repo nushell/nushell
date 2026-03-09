@@ -316,6 +316,8 @@ pub struct Signature {
     pub description: String,
     pub extra_description: String,
     pub search_terms: Vec<String>,
+    #[serde(default)]
+    pub aliases: Vec<String>,
     pub required_positional: Vec<PositionalArg>,
     pub optional_positional: Vec<PositionalArg>,
     pub rest_positional: Option<PositionalArg>,
@@ -351,6 +353,7 @@ impl Signature {
             description: String::new(),
             extra_description: String::new(),
             search_terms: vec![],
+            aliases: vec![],
             required_positional: vec![],
             optional_positional: vec![],
             rest_positional: None,
@@ -459,6 +462,12 @@ impl Signature {
     /// Add search terms to the signature
     pub fn search_terms(mut self, terms: Vec<String>) -> Signature {
         self.search_terms = terms;
+        self
+    }
+
+    /// Set aliases for the command
+    pub fn aliases(mut self, aliases: Vec<String>) -> Signature {
+        self.aliases = aliases;
         self
     }
 
