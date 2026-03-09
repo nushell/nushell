@@ -8,9 +8,10 @@ fn from_ods_file_to_table() -> Result {
         | get 4
         | get column2
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "Gill");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("Gill")
 }
 
 #[test]
@@ -21,9 +22,10 @@ fn from_ods_file_to_table_select_sheet() -> Result {
         | columns
         | get 0
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "SalesOrders");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SalesOrders")
 }
 
 #[test]
@@ -37,7 +39,8 @@ fn from_ods_file_to_table_select_sheet_with_annotations() -> Result {
     "#;
 
     // The Units column in the sheet SalesOrders has an annotation and should be ignored.
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "Units");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("Units")
 }

@@ -19,9 +19,7 @@ fn all() -> Result {
         "#
     );
 
-    let outcome: i64 = test().run(&code)?;
-    assert_eq!(outcome, 448);
-    Ok(())
+    test().run(&code).expect_value_eq(448)
 }
 
 #[test]
@@ -38,8 +36,7 @@ fn compute_sum_of_individual_row() -> Result {
         let code = format!(
             "open sample-ps-output.json | select {column_name} | math sum | get {column_name}"
         );
-        let result: f64 = tester.run(&code)?;
-        assert_eq!(result, expected_value);
+        tester.run(&code).expect_value_eq(expected_value)?;
     }
     Ok(())
 }
@@ -58,8 +55,7 @@ fn compute_sum_of_table() -> Result {
         let code = format!(
             "open sample-ps-output.json | select cpu mem virtual | math sum | get {column_name}"
         );
-        let result: f64 = tester.run(&code)?;
-        assert_eq!(result, expected_value);
+        tester.run(&code).expect_value_eq(expected_value)?;
     }
     Ok(())
 }
@@ -81,9 +77,9 @@ fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
 
 #[test]
 fn const_sum() -> Result {
-    let outcome: i64 = test().run("const SUM = [1 3] | math sum; $SUM")?;
-    assert_eq!(outcome, 4);
-    Ok(())
+    test()
+        .run("const SUM = [1 3] | math sum; $SUM")
+        .expect_value_eq(4)
 }
 
 #[test]

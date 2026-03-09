@@ -3,9 +3,10 @@ use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 #[test]
 fn table_to_csv_text_and_from_csv_text_back_into_table() -> Result {
     let code = "open caco3_plastics.csv | to csv | from csv | first | get origin";
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "SPAIN");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SPAIN")
 }
 
 #[test]
@@ -31,12 +32,10 @@ fn table_to_csv_text() -> Result {
             | get 1
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(
-            outcome,
-            "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia"
-        );
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia")
     })
 }
 
@@ -61,12 +60,10 @@ fn table_to_csv_text_skipping_headers_after_conversion() -> Result {
             | to csv --noheaders
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(
-            outcome,
-            "Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia\n"
-        );
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia\n")
     })
 }
 
@@ -98,9 +95,7 @@ fn infers_types() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 4);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
 }
 
@@ -124,9 +119,7 @@ fn from_csv_text_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -150,9 +143,7 @@ fn from_csv_text_with_separator_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -176,9 +167,7 @@ fn from_csv_text_with_tab_separator_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -206,9 +195,7 @@ fn from_csv_text_with_comments_to_table() -> Result {
             | length
         "##;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -232,9 +219,7 @@ fn from_csv_text_with_custom_quotes_to_table() -> Result {
             | get first_name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, "And'rés");
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq("And'rés")
     })
 }
 
@@ -258,9 +243,10 @@ fn from_csv_text_with_custom_escapes_to_table() -> Result {
             | get first_name
         "#;
 
-        let outcome: String = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, r#"And"rés"#);
-        Ok(())
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq(r#"And"rés"#)
     })
 }
 
@@ -283,9 +269,7 @@ fn from_csv_text_skipping_headers_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -310,9 +294,7 @@ fn from_csv_text_with_missing_columns_to_table() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 2);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(2)
     })
 }
 
@@ -447,9 +429,7 @@ fn parses_csv_with_unicode_sep() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -473,9 +453,7 @@ fn parses_csv_with_unicode_x1f_sep() -> Result {
             | length
         "#;
 
-        let outcome: u32 = test().cwd(dirs.test()).run(code)?;
-        assert_eq!(outcome, 3);
-        Ok(())
+        test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
 }
 
@@ -485,9 +463,7 @@ fn from_csv_test_flexible_extra_vals() -> Result {
       echo "a,b\n1,2,3" | from csv --flexible | first | values | to nuon
     "#;
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "[1, 2, 3]");
-    Ok(())
+    test().run(code).expect_value_eq("[1, 2, 3]")
 }
 
 #[test]
@@ -496,7 +472,5 @@ fn from_csv_test_flexible_missing_vals() -> Result {
       echo "a,b\n1" | from csv --flexible | first | values | to nuon
     "#;
 
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "[1]");
-    Ok(())
+    test().run(code).expect_value_eq("[1]")
 }

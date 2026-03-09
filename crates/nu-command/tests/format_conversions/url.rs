@@ -8,7 +8,8 @@ fn can_encode_and_decode_urlencoding() -> Result {
         | from url
         | get cheese
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "comté");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("comté")
 }

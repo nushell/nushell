@@ -3,9 +3,7 @@ use nu_test_support::prelude::*;
 #[test]
 fn format_duration() -> Result {
     let code = "1hr | format duration sec";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "3600 sec");
-    Ok(())
+    test().run(code).expect_value_eq("3600 sec")
 }
 
 #[test]

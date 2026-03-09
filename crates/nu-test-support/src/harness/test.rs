@@ -1,14 +1,16 @@
-use std::{num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
+use std::{any::Any, fmt::Debug, num::NonZeroUsize, sync::atomic::Ordering, thread::Scope};
 
 use kitest::{
+    Whatever,
     capture::DefaultPanicHookProvider,
     outcome::TestOutcome,
     runner::{DefaultRunner, SimpleRunner, scope::NoScopeFactory},
-    test::TestMeta,
+    test::{TestMeta, TestResult},
 };
 use nu_experimental::ExperimentalOption;
+use nu_utils::downcast;
 
-use crate::harness::group::RUN_TEST_GROUP_IN_SERIAL;
+use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
 
 pub struct Extra {
     pub run_in_serial: bool,
@@ -91,6 +93,29 @@ impl<'t> kitest::runner::TestRunner<'t, Extra> for TestRunner {
                 &self.parallel,
                 tests_count,
             ),
+        }
+    }
+}
+
+pub trait IntoTestResult {
+    fn into_test_result(self) -> TestResult;
+}
+
+impl IntoTestResult for () {
+    fn into_test_result(self) -> TestResult {
+        self.into()
+    }
+}
+
+impl<E: Debug + Any> IntoTestResult for Result<(), E> {
+    fn into_test_result(self) -> TestResult {
+        let Err(err) = self else {
+            return TestResult(Ok(None));
+        };
+
+        match downcast::<E, TestError>(err) {
+            Ok(test_error) => TestResult(Err(Whatever::from(test_error))),
+            Err(err) => Err(err).into(),
         }
     }
 }

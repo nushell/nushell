@@ -2,6 +2,7 @@
 mod casing;
 pub mod container;
 mod deansi;
+mod downcast;
 pub mod emoji;
 pub mod filesystem;
 pub mod flatten_json;
@@ -26,6 +27,7 @@ pub use casing::IgnoreCaseExt;
 pub use deansi::{
     strip_ansi_likely, strip_ansi_string_likely, strip_ansi_string_unlikely, strip_ansi_unlikely,
 };
+pub use downcast::downcast;
 pub use emoji::contains_emoji;
 pub use flatten_json::JsonFlattener;
 pub use float::ObviousFloat;

@@ -9,9 +9,7 @@ fn parses_single_path_prefix() -> Result {
         | get prefix
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "C:");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("C:")
 }
 
 #[test]
@@ -22,9 +20,7 @@ fn parses_single_path_parent() -> Result {
         | get parent
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "home/viking");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("home/viking")
 }
 
 #[test]
@@ -35,9 +31,7 @@ fn parses_single_path_stem() -> Result {
         | get stem
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "spam");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -48,9 +42,7 @@ fn parses_custom_extension_gets_extension() -> Result {
         | get extension
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "tar.gz");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("tar.gz")
 }
 
 #[test]
@@ -61,9 +53,7 @@ fn parses_custom_extension_gets_stem() -> Result {
         | get stem
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "spam");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
@@ -74,9 +64,7 @@ fn parses_ignoring_extension_gets_extension() -> Result {
         | get extension
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("")
 }
 
 #[test]
@@ -87,9 +75,7 @@ fn parses_ignoring_extension_gets_stem() -> Result {
         | get stem
     "#;
 
-    let outcome: String = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, "spam.tar.gz");
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq("spam.tar.gz")
 }
 
 #[test]
@@ -107,23 +93,18 @@ fn parses_into_correct_number_of_columns() -> Result {
     #[cfg(not(windows))]
     let expected = 3;
 
-    let outcome: i64 = test().cwd("tests").run(code)?;
-    assert_eq!(outcome, expected);
-    Ok(())
+    test().cwd("tests").run(code).expect_value_eq(expected)
 }
 
 #[test]
 fn const_path_parse() -> Result {
     let code = "const name = ('spam/eggs.txt' | path parse); $name.parent";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "spam");
+    test().run(code).expect_value_eq("spam")?;
 
     let code = "const name = ('spam/eggs.txt' | path parse); $name.stem";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "eggs");
+    test().run(code).expect_value_eq("eggs")?;
 
     let code = "const name = ('spam/eggs.txt' | path parse); $name.extension";
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, "txt");
+    test().run(code).expect_value_eq("txt")?;
     Ok(())
 }

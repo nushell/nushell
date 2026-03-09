@@ -4,9 +4,7 @@ use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 fn view_source_returns_string() -> Result {
     let source = "def foo [] { echo hi }";
     let code = format!("{source}; view source foo");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, source);
-    Ok(())
+    test().run(code).expect_value_eq(source)
 }
 
 #[test]

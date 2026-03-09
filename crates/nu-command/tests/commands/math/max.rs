@@ -2,9 +2,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn const_max() -> Result {
-    let outcome: i64 = test().run("const MAX = [1 3 5] | math max; $MAX")?;
-    assert_eq!(outcome, 5);
-    Ok(())
+    test()
+        .run("const MAX = [1 3 5] | math max; $MAX")
+        .expect_value_eq(5)
 }
 
 #[test]

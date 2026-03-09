@@ -24,9 +24,7 @@ fn encode() -> Result {
     let encoded = "U8yCzI/MpsyXzZlvzZfMjM2KzLLMssyXbcyKzJPMgc2CzJ1lzYTMjM2EzIDMpsyhzJ7MpCDMjsy/zYXMpcydzKpmzZfNhMyNzIbMqsy7zKfNiXXNjM2EzK7Mnc2Fbs2EzIrMucyea82YzILMrs2HzJ/NjnnMvsyVzIbNhcyyzKfMoCDMgsyQzJnNlsytzZR0zIHNmMyBzJ5lzL3Mos2VzKh4zYvMpXTMkcyUzZ3NjQ==";
 
     let code = format!("'{text}' | encode base64");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, encoded);
-    Ok(())
+    test().run(code).expect_value_eq(encoded)
 }
 
 #[test]
@@ -35,9 +33,7 @@ fn decode_string() -> Result {
     let encoded = "VmVyeSBpbXBvcnRhbnQgZGF0YQ==";
 
     let code = format!("'{encoded}' | decode base64 | decode");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, text);
-    Ok(())
+    test().run(code).expect_value_eq(text)
 }
 
 #[test]
@@ -47,13 +43,10 @@ fn decode_pad_nopad() -> Result {
     let encoded_nopad = "4oCdwqUuw6RAwrBiWsO2wqI";
 
     let code = format!("'{encoded_pad}' | decode base64 | decode");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, text);
+    test().run(code).expect_value_eq(text)?;
 
     let code = format!("'{encoded_nopad}' | decode base64 --nopad | decode");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, text);
-    Ok(())
+    test().run(code).expect_value_eq(text)
 }
 
 #[test]
@@ -63,13 +56,10 @@ fn decode_url() -> Result {
     let encoded_url = "cDpn15jdvt-rdCs_";
 
     let code = format!("'{encoded}' | decode base64 | decode");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, text);
+    test().run(code).expect_value_eq(text)?;
 
     let code = format!("'{encoded_url}' | decode base64 --url | decode");
-    let outcome: String = test().run(code)?;
-    assert_eq!(outcome, text);
-    Ok(())
+    test().run(code).expect_value_eq(text)
 }
 
 #[test]

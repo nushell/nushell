@@ -2,9 +2,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn const_product() -> Result {
-    let outcome: i64 = test().run("const PROD = [1 3 5] | math product; $PROD")?;
-    assert_eq!(outcome, 15);
-    Ok(())
+    test()
+        .run("const PROD = [1 3 5] | math product; $PROD")
+        .expect_value_eq(15)
 }
 
 #[test]

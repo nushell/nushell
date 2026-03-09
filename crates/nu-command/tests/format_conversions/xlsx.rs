@@ -8,9 +8,10 @@ fn from_excel_file_to_table() -> Result {
         | get 4
         | get column2
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "Gill");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("Gill")
 }
 
 #[test]
@@ -21,9 +22,10 @@ fn from_excel_file_to_table_select_sheet() -> Result {
         | columns
         | get 0
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "SalesOrders");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("SalesOrders")
 }
 
 #[test]
@@ -33,7 +35,8 @@ fn from_excel_file_to_date() -> Result {
         | get SalesOrders.4.column0
         | format date "%Y-%m-%d"
     "#;
-    let outcome: String = test().cwd("tests/fixtures/formats").run(code)?;
-    assert_eq!(outcome, "2018-02-26");
-    Ok(())
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq("2018-02-26")
 }
