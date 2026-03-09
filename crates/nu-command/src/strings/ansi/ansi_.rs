@@ -1,5 +1,6 @@
 use nu_ansi_term::*;
 use nu_engine::command_prelude::*;
+use nu_protocol::Parameter;
 use nu_protocol::{Signals, engine::StateWorkingSet};
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -525,6 +526,19 @@ static CODE_LIST: LazyLock<Vec<AnsiCode>> = LazyLock::new(|| { vec![
 static CODE_MAP: LazyLock<HashMap<&'static str, &'static str>> =
     LazyLock::new(|| build_ansi_hashmap(&CODE_LIST));
 
+static KNOWN_NAMES: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
+    CODE_LIST
+        .iter()
+        .flat_map(|code| {
+            let mut names = vec![code.long_name];
+            if let Some(short) = code.short_name {
+                names.push(short);
+            }
+            names
+        })
+        .collect()
+});
+
 impl Command for Ansi {
     fn name(&self) -> &str {
         "ansi"
@@ -533,11 +547,11 @@ impl Command for Ansi {
     fn signature(&self) -> Signature {
         Signature::build("ansi")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional(
-                "code",
-                SyntaxShape::Any,
-                "The name of the code to use (from `ansi -l`).",
-            )
+            .param(Parameter::Optional(
+                PositionalArg::new("code", SyntaxShape::Any)
+                    .completion(Completion::new_list(&KNOWN_NAMES))
+                    .desc("The name of the code to use (from `ansi -l`).")
+            ))
             .switch(
                 "escape", // \x1b[
                 r"escape sequence without the escape character(s) ('\x1b[' is not required)",
