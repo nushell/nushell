@@ -13,7 +13,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use nu_utils::sync::KeyedLazyLock;
+use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
 use crate::harness::group::GroupKey;
 
@@ -162,6 +162,24 @@ impl NuTester {
     /// Inherit the PATH environment variable from the running process.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
+        self.env("PATH", path)
+    }
+
+    /// Adds the "nu" binary for testing to the path.
+    ///
+    /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
+    pub fn add_nu_to_path(self) -> Self {
+        let nu_home = crate::fs::binaries();
+        let path = self.engine_state.get_env_var("PATH");
+        let path = match path {
+            None => nu_home.display().to_string(),
+            Some(path) => format!(
+                "{nu}{sep}{prev}",
+                nu = nu_home.display(),
+                sep = ENV_PATH_SEPARATOR_CHAR,
+                prev = path.as_str().expect("PATH should always be a string")
+            ),
+        };
         self.env("PATH", path)
     }
 
