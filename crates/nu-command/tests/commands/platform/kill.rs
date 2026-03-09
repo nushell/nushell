@@ -1,9 +1,10 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn test_kill_invalid_pid() {
+fn test_kill_invalid_pid() -> Result {
     let pid = i32::MAX;
-    let actual = nu!(format!("kill {pid}"));
+    let err = test().run(format!("kill {pid}")).expect_shell_error()?;
 
-    assert!(actual.err.contains("process didn't terminate successfully"));
+    assert_contains("process didn't terminate successfully", err.to_string());
+    Ok(())
 }
