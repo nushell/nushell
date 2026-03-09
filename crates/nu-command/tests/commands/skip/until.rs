@@ -39,6 +39,6 @@ fn condition_is_met() -> Result {
 fn fail_on_non_iterator() -> Result {
     let code = "1 | skip until {|row| $row == 2}";
     let err = test().run(code).expect_parse_error()?;
-    assert!(matches!(err, ParseError::InputMismatch {..}));
+    assert!(matches!(err, ParseError::InputMismatch { .. }));
     Ok(())
 }

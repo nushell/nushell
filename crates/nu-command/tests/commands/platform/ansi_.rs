@@ -4,8 +4,12 @@ use nu_test_support::prelude::*;
 fn test_ansi_shows_error_on_escape() -> Result {
     let err = test().run(r"ansi --escape \").expect_shell_error()?;
     match err {
-        ShellError::TypeMismatch {err_message, ..} if err_message == "no need for escape characters" => Ok(()),
-        err => Err(err.into())
+        ShellError::TypeMismatch { err_message, .. }
+            if err_message == "no need for escape characters" =>
+        {
+            Ok(())
+        }
+        err => Err(err.into()),
     }
 }
 
