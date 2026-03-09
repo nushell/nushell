@@ -1,9 +1,6 @@
-use crate::completions::{
-    Completer, SemanticSuggestion, completion_common::surround_remove,
-    completion_options::NuMatcher,
-};
+use crate::completions::{Completer, SemanticSuggestion, completion_common::surround_remove};
 use nu_protocol::{
-    CompletionOptions, ModuleId, Span, SuggestionKind,
+    CompletionOptions, ModuleId, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

@@ -40,6 +40,7 @@ heck = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
+nucleo-matcher = { workspace = true }
 num-format = { workspace = true }
 rmp-serde = { workspace = true, optional = true }
 serde = { workspace = true }
@@ -48,6 +49,7 @@ strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
 typetag = "0.2"
+unicode-segmentation = { workspace = true }
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
 web-time = { workspace = true }

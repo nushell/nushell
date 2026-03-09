@@ -1,10 +1,9 @@
-use super::completion_options::NuMatcher;
 use nu_ansi_term::Style;
 use nu_engine::env_to_string;
 use nu_path::dots::expand_ndots;
 use nu_path::{expand_to_real_path, home_dir};
 use nu_protocol::{
-    CompletionAlgorithm, CompletionOptions, Span,
+    CompletionAlgorithm, CompletionOptions, NuMatcher, Span,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::IgnoreCaseExt;

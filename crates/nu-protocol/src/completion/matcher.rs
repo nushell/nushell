@@ -1,4 +1,4 @@
-use nu_protocol::{CompletionAlgorithm, CompletionOptions, CompletionSort};
+use crate::{CompletionAlgorithm, CompletionOptions, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
     Config, Matcher, Utf32Str,
@@ -6,8 +6,6 @@ use nucleo_matcher::{
 };
 use std::borrow::Cow;
 use unicode_segmentation::UnicodeSegmentation;
-
-use super::SemanticSuggestion;
 
 pub struct NuMatcher<'a, T> {
     options: &'a CompletionOptions,
@@ -226,28 +224,9 @@ impl<T> NuMatcher<'_, T> {
     }
 }
 
-impl NuMatcher<'_, SemanticSuggestion> {
-    pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
-        let value = sugg.suggestion.display_value().to_string();
-        self.add(value, sugg)
-    }
-
-    /// Get all the items that matched (sorted)
-    pub fn suggestion_results(self) -> Vec<SemanticSuggestion> {
-        self.results()
-            .into_iter()
-            .map(|(mut sugg, indices)| {
-                sugg.suggestion.match_indices = Some(indices);
-                sugg
-            })
-            .collect()
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::{CompletionAlgorithm, NuMatcher};
-    use nu_protocol::CompletionOptions;
+    use super::{CompletionAlgorithm, CompletionOptions, NuMatcher};
     use rstest::rstest;
 
     #[rstest]
