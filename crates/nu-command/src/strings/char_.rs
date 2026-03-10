@@ -1,7 +1,7 @@
 use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
-use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_CHAR};
 use nu_protocol::{Parameter, Signals};
+use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_CHAR};
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
