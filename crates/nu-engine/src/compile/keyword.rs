@@ -427,7 +427,7 @@ pub(crate) fn compile_try(
     //       on-error-into ERR, %io_reg           // or without
     //       finally-into  FINALLY, $io_reg       // or without
     //       %io_reg <- <...block...> <- %io_reg
-    //       write-to-out-dests %io_reg
+    //       collect %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -442,7 +442,7 @@ pub(crate) fn compile_try(
     //       on-error-into ERR, %io_reg
     //       finally-into  FINALLY, $io_reg
     //       %io_reg <- <...block...> <- %io_reg
-    //       write-to-out-dests %io_reg
+    //       collect %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -601,7 +601,9 @@ pub(crate) fn compile_try(
         builder.push(mode.map(|mode| Instruction::RedirectErr { mode }))?;
     }
 
-    if finally_type.is_none() {
+    if finally_type.is_some() || catch_type.is_some() {
+        builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
+    } else {
         builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     }
     if catch_expr.is_some() {
@@ -660,12 +662,12 @@ pub(crate) fn compile_try(
             builder.load_empty(io_reg)?;
         }
     }
+    // This is the end - whatever we succeeded or not, should jump here for finally clause.
+    builder.set_label(end_label, builder.here())?;
     if finally_type.is_some() {
         builder.push(Instruction::PopFinallyRun.into_spanned(call.head))?;
     }
 
-    // This is the end - whatever we succeeded or not, should jump here for finally clause.
-    builder.set_label(end_label, builder.here())?;
     // This is the finally part.
     if let Some(finally_part) = finally_type {
         if let Some(var_id) = finally_part.var_id {
