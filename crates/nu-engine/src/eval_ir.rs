@@ -4,9 +4,9 @@ use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    ByteStreamSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError,
+    Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -170,17 +170,25 @@ impl<'a> EvalContext<'a> {
     }
 
     /// Take and implicitly collect a register to a value
+    ///
+    /// It doesn't check exit status when collecting.
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        // NOTE: in collect, it maybe good to pick the inner PipelineData
-        // directly, and drop the ExitStatus queue.
-        let data = self.take_reg(reg_id);
-        let body = data.body;
+        // NOTE: collect_reg is used to collect the reg to a variable.
+        // So it's good to pick the inner PipelineData directly, and drop the ExitStatus queue.
+        let mut data = self.take_reg(reg_id);
+        let mut body = data.body;
+        data.exit.clear();
         let span = body.span().unwrap_or(fallback_span);
-        let result = body.into_value(span);
+
         #[cfg(feature = "os")]
-        if nu_experimental::PIPE_FAIL.get() {
-            check_exit_status_future(data.exit)?
+        if let PipelineData::ByteStream(stream, ..) = &mut body {
+            // Need to set `ignore_error` on the child stream during collecting
+            // so `body.into_value` doesn't lead to error.
+            if let ByteStreamSource::Child(c) = stream.source_mut() {
+                c.ignore_error(true);
+            }
         }
+        let result = body.into_value(span);
         result
     }
 
@@ -366,7 +374,13 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
-            let value = collect(data, *span)?;
+            let value = collect(data, *span, true)?;
+            ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
+            Ok(Continue)
+        }
+        Instruction::CollectFailuable { src_dst } => {
+            let data = ctx.take_reg(*src_dst);
+            let value = collect(data, *span, false)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
@@ -1598,15 +1612,29 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
-fn collect(pipe: PipelineExecutionData, fallback_span: Span) -> Result<PipelineData, ShellError> {
-    let data = pipe.body;
+///
+/// It doesn't check pipefail when collecting.
+fn collect(
+    pipe: PipelineExecutionData,
+    fallback_span: Span,
+    ignore_error: bool,
+) -> Result<PipelineData, ShellError> {
+    let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
     let metadata = data.metadata().and_then(|m| m.for_collect());
-    let value = data.into_value(span)?;
     #[cfg(feature = "os")]
-    if nu_experimental::PIPE_FAIL.get() {
-        check_exit_status_future(pipe.exit)?
+    if let PipelineData::ByteStream(stream, ..) = &mut data {
+        // Need to set `ignore_error` on the child stream during collecting
+        // so `data.into_value` doesn't lead to error.
+        if let ByteStreamSource::Child(c) = stream.source_mut() {
+            c.ignore_error(ignore_error);
+        }
     }
+    #[cfg(feature = "os")]
+    if nu_experimental::PIPE_FAIL.get() && !ignore_error {
+        check_exit_status_future(pipe.exit)?;
+    }
+    let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
 }
 

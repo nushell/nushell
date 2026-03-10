@@ -228,11 +228,22 @@ fn get_json_error() {
 
 #[test]
 fn pipefail_works() {
+    // the print 'bbb' should not run because the previous command failed
+    // So no output should be printed
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "nu --testbin fail | lines | length; print 'bbb'"
+    );
+    assert_eq!(actual.out, "")
+}
+
+#[test]
+fn let_ignores_pipefail() {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
         "try { let x = nu --testbin fail | lines | length; print $x } catch {|e| print $e.exit_code}"
     );
-    assert_eq!(actual.out, "1")
+    assert_eq!(actual.out, "0")
 }
 
 #[test]

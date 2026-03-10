@@ -204,6 +204,7 @@ impl BlockBuilder {
             Instruction::Move { dst, src } => allocate(&[*src], &[*dst]),
             Instruction::Clone { dst, src } => allocate(&[*src], &[*dst, *src]),
             Instruction::Collect { src_dst } => allocate(&[*src_dst], &[*src_dst]),
+            Instruction::CollectFailuable { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Span { src_dst } => allocate(&[*src_dst], &[*src_dst]),
             Instruction::Drop { src } => allocate(&[*src], &[]),
             Instruction::Drain { src } => allocate(&[*src], &[]),
