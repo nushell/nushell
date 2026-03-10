@@ -179,7 +179,7 @@ pub fn get_examples(name: &str) -> Vec<Example<'_>> {
             example: match name {
                 "from yaml" => "'a: 1' | from yaml",
                 "from yml" => "'a: 1' | from yml",
-                _ => unreachable!("only implemented for `yaml` and `yml`")
+                _ => unreachable!("only implemented for `yaml` and `yml`"),
             },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_record(record! {
@@ -190,7 +190,7 @@ pub fn get_examples(name: &str) -> Vec<Example<'_>> {
             example: match name {
                 "from yaml" => "'[ a: 1, b: [1, 2] ]' | from yaml",
                 "from yml" => "'[ a: 1, b: [1, 2] ]' | from yml",
-                _ => unreachable!("only implemented for `yaml` and `yml`")
+                _ => unreachable!("only implemented for `yaml` and `yml`"),
             },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_list(vec![
