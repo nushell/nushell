@@ -665,6 +665,10 @@ pub(crate) fn compile_try(
             builder.load_empty(io_reg)?;
         }
     }
+    if finally_type.is_some() {
+        builder.push(Instruction::CollectFailuable { src_dst: io_reg }.into_spanned(call.head))?;
+    }
+
     // This is the end - whatever we succeeded or not, should jump here for finally clause.
     builder.set_label(end_label, builder.here())?;
     if finally_type.is_some() {

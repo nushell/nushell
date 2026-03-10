@@ -353,3 +353,54 @@ fn catch_finally_with_variable() {
     );
     assert_eq!(actual.out, "true");
 }
+
+#[test]
+fn finally_should_not_run_before_try_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        with-env { FOO: 'bar' } {
+            try { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "#
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_before_catch_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        with-env { FOO: 'bar' } {
+            try { 1 / 0 } catch { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "#
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_twice_when_error_in_finally() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        try {
+            ^true
+        } finally {
+            print "inside finally"
+            error make -u "oh no"
+        }
+        "#
+    );
+    assert_eq!(actual.out, "inside finally")
+}
+
+#[test]
+fn try_wont_generate_extra_output() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "try { nu --testbin fail | is-empty } catch { 'here' }"
+    );
+    assert_eq!(actual.out, "here")
+}

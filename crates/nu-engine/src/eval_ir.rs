@@ -4,9 +4,9 @@ use nu_path::{expand_path, expand_path_with};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    ByteStreamSource, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream,
-    OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError,
-    Signals, Signature, Span, Spanned, Type, Value, VarId,
+    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
+    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
+    Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -175,21 +175,16 @@ impl<'a> EvalContext<'a> {
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
         // NOTE: collect_reg is used to collect the reg to a variable.
         // So it's good to pick the inner PipelineData directly, and drop the ExitStatus queue.
-        let mut data = self.take_reg(reg_id);
-        let mut body = data.body;
-        data.exit.clear();
-        let span = body.span().unwrap_or(fallback_span);
-
         #[cfg(feature = "os")]
-        if let PipelineData::ByteStream(stream, ..) = &mut body {
-            // Need to set `ignore_error` on the child stream during collecting
-            // so `body.into_value` doesn't lead to error.
-            if let ByteStreamSource::Child(c) = stream.source_mut() {
-                c.ignore_error(true);
-            }
-        }
-        let result = body.into_value(span);
-        result
+        let body = {
+            let mut data = self.take_reg(reg_id);
+            data.exit.clear();
+            data.body
+        };
+        #[cfg(not(feature = "os"))]
+        let body = self.take_reg(reg_id).body;
+        let span = body.span().unwrap_or(fallback_span);
+        body.into_value(span)
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -374,13 +369,19 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
+            #[cfg(feature = "os")]
             let value = collect(data, *span, true)?;
+            #[cfg(not(feature = "os"))]
+            let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
         Instruction::CollectFailuable { src_dst } => {
             let data = ctx.take_reg(*src_dst);
+            #[cfg(feature = "os")]
             let value = collect(data, *span, false)?;
+            #[cfg(not(feature = "os"))]
+            let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
@@ -1613,23 +1614,15 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
 ///
-/// It doesn't check pipefail when collecting.
+/// It doesn't check pipefail if `ignore_error` is true.
 fn collect(
     pipe: PipelineExecutionData,
     fallback_span: Span,
-    ignore_error: bool,
+    #[cfg(feature = "os")] ignore_error: bool,
 ) -> Result<PipelineData, ShellError> {
-    let mut data = pipe.body;
+    let data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
     let metadata = data.metadata().and_then(|m| m.for_collect());
-    #[cfg(feature = "os")]
-    if let PipelineData::ByteStream(stream, ..) = &mut data {
-        // Need to set `ignore_error` on the child stream during collecting
-        // so `data.into_value` doesn't lead to error.
-        if let ByteStreamSource::Child(c) = stream.source_mut() {
-            c.ignore_error(ignore_error);
-        }
-    }
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
