@@ -134,6 +134,7 @@ fn converts_to_float() -> Result {
         | math sum
     "#;
 
+    #[expect(clippy::approx_constant)]
     test().run(code).expect_value_eq(3.1415)
 }
 
