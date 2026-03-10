@@ -24,7 +24,7 @@ impl Command for FromYamlLike {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        get_examples()
+        get_examples(self.name())
     }
 
     fn run(
@@ -173,17 +173,25 @@ pub fn from_yaml_string_to_value(s: &str, span: Span, val_span: Span) -> Result<
     }
 }
 
-pub fn get_examples() -> Vec<Example<'static>> {
+pub fn get_examples(name: &str) -> Vec<Example<'_>> {
     vec![
         Example {
-            example: "'a: 1' | from yaml",
+            example: match name {
+                "from yaml" => "'a: 1' | from yaml",
+                "from yml" => "'a: 1' | from yml",
+                _ => unreachable!("only implemented for `yaml` and `yml`")
+            },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_record(record! {
                 "a" => Value::test_int(1),
             })),
         },
         Example {
-            example: "'[ a: 1, b: [1, 2] ]' | from yaml",
+            example: match name {
+                "from yaml" => "'[ a: 1, b: [1, 2] ]' | from yaml",
+                "from yml" => "'[ a: 1, b: [1, 2] ]' | from yml",
+                _ => unreachable!("only implemented for `yaml` and `yml`")
+            },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {
@@ -264,7 +272,8 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(FROM_YAML)
+        test_examples(FROM_YAML);
+        test_examples(FROM_YML);
     }
 
     #[test]
