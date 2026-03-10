@@ -1,7 +1,7 @@
 use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
 use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_CHAR};
+use nu_protocol::{Parameter, Signals};
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
@@ -146,6 +146,9 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
     }
 });
 
+static CHAR_NAMES: LazyLock<Vec<&'static str>> =
+    LazyLock::new(|| CHAR_MAP.keys().copied().collect());
+
 static NO_OUTPUT_CHARS: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
     [
         // If the character is in the this set, we don't output it to prevent
@@ -178,11 +181,11 @@ impl Command for Char {
     fn signature(&self) -> Signature {
         Signature::build("char")
             .input_output_types(vec![(Type::Nothing, Type::Any)])
-            .optional(
-                "character",
-                SyntaxShape::Any,
-                "The name of the character to output.",
-            )
+            .param(Parameter::Optional(
+                PositionalArg::new("character", SyntaxShape::Any)
+                    .desc("The name of the character to output.")
+                    .completion(Completion::new_list(&CHAR_NAMES)),
+            ))
             .rest("rest", SyntaxShape::Any, "Multiple Unicode bytes.")
             .switch("list", "List all supported character names.", Some('l'))
             .switch("unicode", "Unicode string i.e. 1f378.", Some('u'))

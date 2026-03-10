@@ -1,6 +1,4 @@
-use nu_test_support::fs::Stub::EmptyFile;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
 fn gets_first_rows_by_amount() {
@@ -118,4 +116,16 @@ fn gets_first_bytes_and_drops_content_type() {
         file!(),
     ));
     assert_eq!(actual.out, "nothing");
+}
+
+#[test]
+fn wrapping_first_with_optional_null_rows() -> Result {
+    let code = "def wraps-first [rows?: int] { [1, 2, 3] | first $rows }; wraps-first";
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn wrapping_first_with_optional_explicit_rows() -> Result {
+    let code = "def wraps-first [rows?: int] { [1, 2, 3] | first $rows }; wraps-first 2 | length";
+    test().run(code).expect_value_eq(2)
 }
