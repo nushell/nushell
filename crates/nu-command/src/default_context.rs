@@ -331,8 +331,8 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Upsert,
             Where,
             ToXml,
-            ToYaml,
-            ToYml,
+            TO_YAML,
+            TO_YML,
         };
 
         // Viewers
