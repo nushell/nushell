@@ -1,8 +1,8 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn url_parse_simple() {
-    let actual = nu!(r#"
+fn url_parse_simple() -> Result {
+    let code = r#"
         (
             "https://www.abc.com" | url parse
         ) == {
@@ -16,13 +16,13 @@ fn url_parse_simple() {
             fragment: '',
             params: []
         }
-    "#);
-    assert_eq!(actual.out, "true");
+    "#;
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_port() {
-    let actual = nu!(r#"
+fn url_parse_with_port() -> Result {
+    let code = r#"
         (
             "https://www.abc.com:8011" | url parse
         ) == {
@@ -36,14 +36,14 @@ fn url_parse_with_port() {
             fragment: '',
             params: []
         }
-        "#);
+        "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_path() {
-    let actual = nu!(r#"
+fn url_parse_with_path() -> Result {
+    let code = r#"
         (
             "http://www.abc.com:8811/def/ghj" | url parse
         ) == {
@@ -57,14 +57,14 @@ fn url_parse_with_path() {
             fragment: '',
             params: []
         }
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_params() {
-    let actual = nu!(r#"
+fn url_parse_with_params() -> Result {
+    let code = r#"
         (
             "http://www.abc.com:8811/def/ghj?param1=11&param2=" | url parse
         ) == {
@@ -78,14 +78,14 @@ fn url_parse_with_params() {
             fragment: '',
             params: [[key, value]; ["param1", "11"], ["param2", ""]]
         }
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_duplicate_params() {
-    let actual = nu!(r#"
+fn url_parse_with_duplicate_params() -> Result {
+    let code = r#"
         (
             "http://www.abc.com:8811/def/ghj?param1=11&param2=&param1=22" | url parse
         ) == {
@@ -99,14 +99,14 @@ fn url_parse_with_duplicate_params() {
             fragment: '',
             params: [[key, value]; ["param1", "11"], ["param2", ""], ["param1", "22"]]
         }
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_fragment() {
-    let actual = nu!(r#"
+fn url_parse_with_fragment() -> Result {
+    let code = r#"
         (
             "http://www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment" | url parse
         ) == {
@@ -120,14 +120,14 @@ fn url_parse_with_fragment() {
             fragment: 'hello-fragment',
             params: [[key, value]; ["param1", "11"], ["param2", ""]]
         }
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_with_username_and_password() {
-    let actual = nu!(r#"
+fn url_parse_with_username_and_password() -> Result {
+    let code = r#"
         (
             "http://user123:password567@www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment" | url parse
         ) == {
@@ -141,16 +141,23 @@ fn url_parse_with_username_and_password() {
             fragment: 'hello-fragment',
             params: [[key, value]; ["param1", "11"], ["param2", ""]]
         }
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn url_parse_error_empty_url() {
-    let actual = nu!(r#""" | url parse"#);
+fn url_parse_error_empty_url() -> Result {
+    let err = test().run(r#""" | url parse"#).expect_shell_error()?;
 
-    assert!(actual.err.contains(
-        "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
-    ));
+    match err {
+        ShellError::UnsupportedInput { msg, .. } => {
+            assert_eq!(
+                msg,
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
