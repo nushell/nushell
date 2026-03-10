@@ -134,7 +134,7 @@ fn converts_to_float() -> Result {
         | math sum
     "#;
 
-    test().run(code).expect_value_eq(std::f64::consts::PI)
+    test().run(code).expect_value_eq(3.1415)
 }
 
 #[test]
