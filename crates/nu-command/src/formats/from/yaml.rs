@@ -4,15 +4,17 @@ use nu_engine::command_prelude::*;
 use serde::de::Deserialize;
 
 #[derive(Clone)]
-pub struct FromYaml;
+pub struct FromYamlLike(&'static str);
+pub const FROM_YAML: FromYamlLike = FromYamlLike("from yaml");
+pub const FROM_YML: FromYamlLike = FromYamlLike("from yml");
 
-impl Command for FromYaml {
+impl Command for FromYamlLike {
     fn name(&self) -> &str {
-        "from yaml"
+        self.0
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("from yaml")
+        Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Any)])
             .category(Category::Formats)
     }
@@ -22,7 +24,7 @@ impl Command for FromYaml {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        get_examples()
+        get_examples(self.name())
     }
 
     fn run(
@@ -34,40 +36,6 @@ impl Command for FromYaml {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         from_yaml(input, head)
-    }
-}
-
-#[derive(Clone)]
-pub struct FromYml;
-
-impl Command for FromYml {
-    fn name(&self) -> &str {
-        "from yml"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("from yml")
-            .input_output_types(vec![(Type::String, Type::Any)])
-            .category(Category::Formats)
-    }
-
-    fn description(&self) -> &str {
-        "Parse text as .yaml/.yml and create table."
-    }
-
-    fn run(
-        &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        from_yaml(input, head)
-    }
-
-    fn examples(&self) -> Vec<Example<'_>> {
-        get_examples()
     }
 }
 
@@ -205,17 +173,25 @@ pub fn from_yaml_string_to_value(s: &str, span: Span, val_span: Span) -> Result<
     }
 }
 
-pub fn get_examples() -> Vec<Example<'static>> {
+pub fn get_examples(name: &str) -> Vec<Example<'_>> {
     vec![
         Example {
-            example: "'a: 1' | from yaml",
+            example: match name {
+                "from yaml" => "'a: 1' | from yaml",
+                "from yml" => "'a: 1' | from yml",
+                _ => unreachable!("only implemented for `yaml` and `yml`"),
+            },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_record(record! {
                 "a" => Value::test_int(1),
             })),
         },
         Example {
-            example: "'[ a: 1, b: [1, 2] ]' | from yaml",
+            example: match name {
+                "from yaml" => "'[ a: 1, b: [1, 2] ]' | from yaml",
+                "from yml" => "'[ a: 1, b: [1, 2] ]' | from yml",
+                _ => unreachable!("only implemented for `yaml` and `yml`"),
+            },
             description: "Converts yaml formatted string to table.",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {
@@ -296,7 +272,8 @@ mod test {
     fn test_examples() {
         use crate::test_examples;
 
-        test_examples(FromYaml {})
+        test_examples(FROM_YAML);
+        test_examples(FROM_YML);
     }
 
     #[test]
@@ -407,7 +384,7 @@ mod test {
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            working_set.add_decl(Box::new(FromYaml {}));
+            working_set.add_decl(Box::new(FROM_YAML));
             working_set.add_decl(Box::new(Metadata {}));
             working_set.add_decl(Box::new(MetadataSet {}));
             working_set.add_decl(Box::new(Reject {}));

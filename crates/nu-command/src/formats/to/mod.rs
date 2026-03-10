@@ -23,6 +23,6 @@ pub use nuon::ToNuon;
 pub use text::ToText;
 pub use tsv::ToTsv;
 pub use xml::ToXml;
-pub use yaml::{ToYaml, ToYml};
+pub use yaml::{TO_YAML, TO_YML, ToYamlLike};
 
 pub(crate) use json::value_to_json_value;

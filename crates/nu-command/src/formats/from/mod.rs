@@ -25,7 +25,6 @@ pub use ssv::FromSsv;
 pub use tsv::FromTsv;
 pub use xlsx::FromXlsx;
 pub use xml::FromXml;
-pub use yaml::FromYaml;
-pub use yaml::FromYml;
+pub use yaml::{FROM_YAML, FROM_YML, FromYamlLike};
 
 pub(crate) use json::convert_string_to_value as convert_json_string_to_value;
