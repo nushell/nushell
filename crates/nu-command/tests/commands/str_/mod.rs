@@ -1,12 +1,10 @@
 mod into_string;
 mod join;
 
-use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub::FileWithContent, prelude::*};
 
 #[test]
-fn trims() {
+fn trims() -> Result {
     Playground::setup("str_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -16,26 +14,24 @@ fn trims() {
                 "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "open sample.toml | str trim dependency.name | get dependency.name"
-        );
-
-        assert_eq!(actual.out, "nu");
+        let code = "open sample.toml | str trim dependency.name | get dependency.name";
+        test().cwd(dirs.test()).run(code).expect_value_eq("nu")
     })
 }
 
 #[test]
-fn error_trim_multiple_chars() {
-    let actual = nu!(r#"
+fn error_trim_multiple_chars() -> Result {
+    let code = r#"
     echo "does it work now?!" | str trim --char "?!"
-    "#);
+    "#;
 
-    assert!(actual.err.contains("char"));
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("char", err.to_string());
+    Ok(())
 }
 
 #[test]
-fn capitalizes() {
+fn capitalizes() -> Result {
     Playground::setup("str_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -45,17 +41,13 @@ fn capitalizes() {
                 "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "open sample.toml | str capitalize dependency.name | get dependency.name"
-        );
-
-        assert_eq!(actual.out, "Nu");
+        let code = "open sample.toml | str capitalize dependency.name | get dependency.name";
+        test().cwd(dirs.test()).run(code).expect_value_eq("Nu")
     })
 }
 
 #[test]
-fn downcases() {
+fn downcases() -> Result {
     Playground::setup("str_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -65,24 +57,19 @@ fn downcases() {
                 "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "open sample.toml | str downcase dependency.name | get dependency.name"
-        );
-
-        assert_eq!(actual.out, "light");
+        let code = "open sample.toml | str downcase dependency.name | get dependency.name";
+        test().cwd(dirs.test()).run(code).expect_value_eq("light")
     })
 }
 
 #[test]
-fn non_ascii_downcase() {
-    let actual = nu!("'ὈΔΥΣΣΕΎΣ' | str downcase");
-
-    assert_eq!(actual.out, "ὀδυσσεύς");
+fn non_ascii_downcase() -> Result {
+    let code = "'ὈΔΥΣΣΕΎΣ' | str downcase";
+    test().run(code).expect_value_eq("ὀδυσσεύς")
 }
 
 #[test]
-fn upcases() {
+fn upcases() -> Result {
     Playground::setup("str_test_4", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -92,72 +79,67 @@ fn upcases() {
                 "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "open sample.toml | str upcase package.name | get package.name"
-        );
-
-        assert_eq!(actual.out, "NUSHELL");
+        let code = "open sample.toml | str upcase package.name | get package.name";
+        test().cwd(dirs.test()).run(code).expect_value_eq("NUSHELL")
     })
 }
 
 #[test]
-fn non_ascii_upcase() {
-    let actual = nu!("'ὀδυσσεύς' | str upcase");
-
-    assert_eq!(actual.out, "ὈΔΥΣΣΕΎΣ");
+fn non_ascii_upcase() -> Result {
+    let code = "'ὀδυσσεύς' | str upcase";
+    test().run(code).expect_value_eq("ὈΔΥΣΣΕΎΣ")
 }
 
 #[test]
-#[ignore = "Playgrounds are not supported in nu-cmd-extra"]
-fn camelcases() {
+// #[ignore = "Playgrounds are not supported in nu-cmd-extra"]
+fn camelcases() -> Result {
     Playground::setup("str_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
             r#"
-                    [dependency]
-                    name = "THIS_IS_A_TEST"
-                "#,
+                [dependency]
+                name = "THIS_IS_A_TEST"
+            "#,
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "open sample.toml | str camel-case dependency.name | get dependency.name"
-        );
-
-        assert_eq!(actual.out, "thisIsATest");
+        let code = "open sample.toml | str camel-case dependency.name | get dependency.name";
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("thisIsATest")
     })
 }
 
 #[test]
-fn converts_to_int() {
-    let actual = nu!(r#"
+fn converts_to_int() -> Result {
+    let code = r#"
         echo '[{number_as_string: "1"}]'
         | from json
         | into int number_as_string
         | rename number
         | where number == 1
         | get number.0
-    
-    "#);
 
-    assert_eq!(actual.out, "1");
+    "#;
+
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn converts_to_float() {
-    let actual = nu!(r#"
+fn converts_to_float() -> Result {
+    let code = r#"
         echo "3.1, 0.0415"
         | split row ","
         | into float
         | math sum
-    "#);
+    "#;
 
-    assert_eq!(actual.out, "3.1415");
+    #[expect(clippy::approx_constant)]
+    test().run(code).expect_value_eq(3.1415)
 }
 
 #[test]
-fn find_and_replaces() {
+fn find_and_replaces() -> Result {
     Playground::setup("str_test_6", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -167,18 +149,21 @@ fn find_and_replaces() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str replace KATZ "5289" fortune.teller.phone
              | get fortune.teller.phone
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "1-800-5289");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("1-800-5289")
     })
 }
 
 #[test]
-fn find_and_replaces_without_passing_field() {
+fn find_and_replaces_without_passing_field() -> Result {
     Playground::setup("str_test_7", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -188,117 +173,105 @@ fn find_and_replaces_without_passing_field() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | get fortune.teller.phone
              | str replace KATZ "5289"
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "1-800-5289");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("1-800-5289")
     })
 }
 
 #[test]
-fn regex_error_in_pattern() {
+fn regex_error_in_pattern() -> Result {
     Playground::setup("str_test_8", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              'source string'
              | str replace -r 'source \Ufoo' "destination"
-         "#);
+         "#;
 
-        let err = actual.err;
-        let expecting_str = "Incorrect value";
-        assert!(
-            err.contains(expecting_str),
-            "Error should contain '{expecting_str}', but was: {err}"
-        );
+        let err = test().cwd(dirs.test()).run(code).expect_shell_error()?;
+        assert_contains("Incorrect value", err.to_string());
+        Ok(())
     })
 }
 
 #[test]
-fn find_and_replaces_with_closure() {
-    let actual = nu!(r#"
+fn find_and_replaces_with_closure() -> Result {
+    let code = r#"
          'source string'
          | str replace 'str' { str upcase }
-     "#);
+     "#;
 
-    assert_eq!(actual.out, "source STRing");
+    test().run(code).expect_value_eq("source STRing")
 }
 
 #[test]
-fn find_and_replaces_regex_with_closure() {
-    let actual = nu!(r#"
+fn find_and_replaces_regex_with_closure() -> Result {
+    let code = r#"
          'source string'
          | str replace -r 's(..)ing' {|capture|
            $"($capture) from ($in)"
          }
-     "#);
+     "#;
 
-    assert_eq!(actual.out, "source tr from string");
+    test().run(code).expect_value_eq("source tr from string")
 }
 
 #[test]
-fn find_and_replaces_closure_error() {
-    let actual = nu!(r#"
+fn find_and_replaces_closure_error() -> Result {
+    let code = r#"
          'source string'
          | str replace 'str' { 1 / 0 }
-     "#);
+     "#;
 
-    let err = actual.err;
-    let expecting_str = "division by zero";
-    assert!(
-        err.contains(expecting_str),
-        "Error should contain '{expecting_str}', but was: {err}"
-    );
+    let err = test().run(code).expect_shell_error()?;
+    assert!(matches!(err, ShellError::DivisionByZero { .. }));
+    Ok(())
 }
 
 #[test]
-fn find_and_replaces_regex_closure_error() {
-    let actual = nu!(r#"
+fn find_and_replaces_regex_closure_error() -> Result {
+    let code = r#"
          'source string'
          | str replace -r 'str' { 1 / 0 }
-     "#);
+     "#;
 
-    let err = actual.err;
-    let expecting_str = "division by zero";
-    assert!(
-        err.contains(expecting_str),
-        "Error should contain '{expecting_str}', but was: {err}"
-    );
+    let err = test().run(code).expect_shell_error()?;
+    assert!(matches!(err, ShellError::DivisionByZero { .. }));
+    Ok(())
 }
 
 #[test]
-fn find_and_replaces_closure_type_mismatch() {
-    let actual = nu!(r#"
+fn find_and_replaces_closure_type_mismatch() -> Result {
+    let code = r#"
          'source string'
          | str replace 'str' { 42 }
-     "#);
+     "#;
 
-    let err = actual.err;
-    let expecting_str = "nu::shell::type_mismatch";
-    assert!(
-        err.contains(expecting_str),
-        "Error should contain '{expecting_str}', but was: {err}"
-    );
+    let err = test().run(code).expect_shell_error()?;
+    assert!(matches!(err, ShellError::RuntimeTypeMismatch { .. }));
+    Ok(())
 }
 
 #[test]
-fn find_and_replaces_regex_closure_type_mismatch() {
-    let actual = nu!(r#"
+fn find_and_replaces_regex_closure_type_mismatch() -> Result {
+    let code = r#"
          'source string'
          | str replace -r 'str' { 42 }
-     "#);
+     "#;
 
-    let err = actual.err;
-    let expecting_str = "nu::shell::type_mismatch";
-    assert!(
-        err.contains(expecting_str),
-        "Error should contain '{expecting_str}', but was: {err}"
-    );
+    let err = test().run(code).expect_shell_error()?;
+    assert!(matches!(err, ShellError::RuntimeTypeMismatch { .. }));
+    Ok(())
 }
 
 #[test]
-fn substrings_the_input() {
+fn substrings_the_input() -> Result {
     Playground::setup("str_test_8", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -308,18 +281,21 @@ fn substrings_the_input() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring 6..14 fortune.teller.phone
              | get fortune.teller.phone
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "ROBALINO");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("ROBALINO")
     })
 }
 
 #[test]
-fn substring_empty_if_start_index_is_greater_than_end_index() {
+fn substring_empty_if_start_index_is_greater_than_end_index() -> Result {
     Playground::setup("str_test_9", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -329,17 +305,18 @@ fn substring_empty_if_start_index_is_greater_than_end_index() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring 6..4 fortune.teller.phone
              | get fortune.teller.phone
-         "#);
-        assert_eq!(actual.out, "")
+         "#;
+
+        test().cwd(dirs.test()).run(code).expect_value_eq("")
     })
 }
 
 #[test]
-fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
+fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() -> Result {
     Playground::setup("str_test_10", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -349,18 +326,21 @@ fn substrings_the_input_and_returns_the_string_if_end_index_exceeds_length() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring 0..999 package.name
              | get package.name
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "nu-arepas");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("nu-arepas")
     })
 }
 
 #[test]
-fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
+fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() -> Result {
     Playground::setup("str_test_11", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -370,18 +350,18 @@ fn substrings_the_input_and_returns_blank_if_start_index_exceeds_length() {
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring 50..999 package.name
              | get package.name
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "");
+        test().cwd(dirs.test()).run(code).expect_value_eq("")
     })
 }
 
 #[test]
-fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_given() {
+fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_given() -> Result {
     Playground::setup("str_test_12", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -391,18 +371,18 @@ fn substrings_the_input_and_treats_start_index_as_zero_if_blank_start_index_give
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring ..1 package.name
              | get package.name
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "nu");
+        test().cwd(dirs.test()).run(code).expect_value_eq("nu")
     })
 }
 
 #[test]
-fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given() {
+fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given() -> Result {
     Playground::setup("str_test_13", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "sample.toml",
@@ -412,61 +392,60 @@ fn substrings_the_input_and_treats_end_index_as_length_if_blank_end_index_given(
                  "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let code = r#"
              open sample.toml
              | str substring 3.. package.name
              | get package.name
-         "#);
+         "#;
 
-        assert_eq!(actual.out, "arepas");
+        test().cwd(dirs.test()).run(code).expect_value_eq("arepas")
     })
 }
 
 #[test]
-fn substring_by_negative_index() {
+fn substring_by_negative_index() -> Result {
     Playground::setup("str_test_13", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(), "'apples' | str substring 0..-1",
-        );
-        assert_eq!(actual.out, "apples");
-
-        let actual = nu!(
-            cwd: dirs.test(), "'apples' | str substring 0..<-1",
-        );
-        assert_eq!(actual.out, "apple");
+        let mut tester = test().cwd(dirs.test());
+        tester
+            .run("'apples' | str substring 0..-1")
+            .expect_value_eq("apples")?;
+        tester
+            .run("'apples' | str substring 0..<-1")
+            .expect_value_eq("apple")
     })
 }
 
 #[test]
-fn substring_of_empty_string() {
-    let actual = nu!("'' | str substring ..0");
-    assert_eq!(actual.err, "");
-    assert_eq!(actual.out, "");
+fn substring_of_empty_string() -> Result {
+    let code = "'' | str substring ..0";
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn substring_drops_content_type() {
-    let actual = nu!(format!(
+fn substring_drops_content_type() -> Result {
+    let code = format!(
         "open {} | str substring 0..2 | metadata | get content_type? | describe",
         file!(),
-    ));
-    assert_eq!(actual.out, "nothing");
+    );
+    test().run(code).expect_value_eq("nothing")
 }
 
 #[test]
-fn str_reverse() {
-    let actual = nu!(r#"
+fn str_reverse() -> Result {
+    let code = r#"
         echo "nushell" | str reverse
-        "#);
+        "#;
 
-    assert!(actual.out.contains("llehsun"));
+    let outcome: String = test().run(code)?;
+    assert_contains("llehsun", outcome);
+    Ok(())
 }
 
 #[test]
-fn test_redirection_trim() {
-    let actual = nu!(r#"
+fn test_redirection_trim() -> Result {
+    let code = r#"
         let x = (nu --testbin cococo niceone); $x | str trim | str length
-        "#);
+        "#;
 
-    assert_eq!(actual.out, "7");
+    test().add_nu_to_path().run(code).expect_value_eq(7)
 }

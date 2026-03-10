@@ -1,7 +1,7 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn rows() {
+fn rows() -> Result {
     let sample = r#"
         [[name,   lucky_code];
          [Andrés, 1],
@@ -9,62 +9,62 @@ fn rows() {
          [Jason , 2],
          [Yehuda, 1]]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {sample}
             | take 3
             | get lucky_code
             | math sum
         "#
-    ));
+    );
 
-    assert_eq!(actual.out, "4");
+    test().run(code).expect_value_eq(4)
 }
 
 #[test]
-fn rows_with_no_arguments_should_lead_to_error() {
-    let actual = nu!("[1 2 3] | take");
-
-    assert!(actual.err.contains("missing_positional"));
+fn rows_with_no_arguments_should_lead_to_error() -> Result {
+    let code = "[1 2 3] | take";
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::MissingPositional(..)));
+    Ok(())
 }
 
 #[test]
-fn fails_on_string() {
-    let actual = nu!(r#""foo bar" | take 2"#);
-
-    assert!(actual.err.contains("command doesn't support"));
+fn fails_on_string() -> Result {
+    let code = r#""foo bar" | take 2"#;
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(..)));
+    Ok(())
 }
 
 #[test]
-fn takes_bytes() {
-    let actual = nu!("(0x[aa bb cc] | take 2) == 0x[aa bb]");
-
-    assert_eq!(actual.out, "true");
+fn takes_bytes() -> Result {
+    let code = "(0x[aa bb cc] | take 2) == 0x[aa bb]";
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn takes_bytes_from_stream() {
-    let actual = nu!("(1.. | each { 0x[aa bb cc] } | bytes collect | take 2) == 0x[aa bb]");
-
-    assert_eq!(actual.out, "true");
+fn takes_bytes_from_stream() -> Result {
+    let code = "(1.. | each { 0x[aa bb cc] } | bytes collect | take 2) == 0x[aa bb]";
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
 // covers a situation where `take` used to behave strangely on list<binary> input
-fn works_with_binary_list() {
-    let actual = nu!(r#"
+fn works_with_binary_list() -> Result {
+    let code = r#"
             ([0x[01 11]] | take 1 | get 0) == 0x[01 11]
-        "#);
+        "#;
 
-    assert_eq!(actual.out, "true");
+    test().run(code).expect_value_eq(true)
 }
 
 #[test]
-fn takes_bytes_and_drops_content_type() {
-    let actual = nu!(format!(
+fn takes_bytes_and_drops_content_type() -> Result {
+    let code = format!(
         "open {} | take 3 | metadata | get content_type? | describe",
         file!(),
-    ));
+    );
 
-    assert_eq!(actual.out, "nothing");
+    test().run(code).expect_value_eq("nothing")
 }

@@ -13,7 +13,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use nu_utils::sync::KeyedLazyLock;
+use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
 use crate::harness::group::GroupKey;
 
@@ -147,10 +147,12 @@ impl NuTester {
         self
     }
 
-    /// Set the locale used by tests via `NU_TEST_LOCALE`.
+    /// Set the locale used by tests via `NU_TEST_LOCALE_OVERRIDE`.
     pub fn locale(mut self, locale: impl Into<String>) -> Self {
-        self.engine_state
-            .add_env_var("NU_TEST_LOCALE".into(), Value::test_string(locale.into()));
+        self.engine_state.add_env_var(
+            "NU_TEST_LOCALE_OVERRIDE".into(),
+            Value::test_string(locale.into()),
+        );
         self
     }
 
@@ -162,6 +164,24 @@ impl NuTester {
     /// Inherit the PATH environment variable from the running process.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
+        self.env("PATH", path)
+    }
+
+    /// Adds the "nu" binary for testing to the path.
+    ///
+    /// Calling [`inherit_path`](Self::inherit_path) after this methods removes the path entry.
+    pub fn add_nu_to_path(self) -> Self {
+        let nu_home = crate::fs::binaries();
+        let path = self.engine_state.get_env_var("PATH");
+        let path = match path {
+            None => nu_home.display().to_string(),
+            Some(path) => format!(
+                "{nu}{sep}{prev}",
+                nu = nu_home.display(),
+                sep = ENV_PATH_SEPARATOR_CHAR,
+                prev = path.as_str().expect("PATH should always be a string")
+            ),
+        };
         self.env("PATH", path)
     }
 
@@ -208,6 +228,7 @@ impl NuTester {
         code: impl AsRef<str>,
         data: PipelineData,
     ) -> Result<PipelineExecutionData> {
+        let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -215,21 +236,24 @@ impl NuTester {
 
         if let Some(err) = working_set.parse_errors.into_iter().next() {
             return Err(TestError {
-                location: TestLocation(Location::caller()),
+                location,
                 kind: TestErrorKind::Parse(err),
             });
         }
 
         if let Some(err) = working_set.compile_errors.into_iter().next() {
             return Err(TestError {
-                location: TestLocation(Location::caller()),
+                location,
                 kind: TestErrorKind::Compile(err),
             });
         }
 
         self.engine_state.merge_delta(working_set.delta)?;
         nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
-            .map_err(Into::into)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
     }
 
     #[track_caller]
@@ -315,6 +339,15 @@ impl TestError {
             _ => Err(self),
         }
     }
+
+    /// Update it's inner location with the call site of this function.
+    #[track_caller]
+    pub fn update_location(self) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            ..self
+        }
+    }
 }
 
 /// Convenience result type for test helpers.
@@ -333,6 +366,7 @@ pub trait TestResultExt: Sized {
     fn expect_compile_error(self) -> Result<CompileError>;
 
     /// Expect the result to be a [`ShellError`].
+    #[track_caller]
     fn expect_error(self) -> Result<ShellError> {
         self.expect_shell_error()
     }
@@ -343,7 +377,7 @@ impl TestResultExt for Result<Value> {
     fn expect_value_eq<T: IntoValue>(self, expected: T) -> Result {
         let expected = expected.into_value(Span::test_data());
         match self {
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
             Ok(actual) if actual == expected => Ok(()),
             Ok(actual) => Err(TestError {
                 location: TestLocation(Location::caller()),
@@ -366,7 +400,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Shell(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 
@@ -381,7 +415,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Parse(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 
@@ -396,7 +430,7 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Compile(err),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 }
