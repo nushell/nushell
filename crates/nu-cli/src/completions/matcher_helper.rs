@@ -10,7 +10,7 @@ pub(crate) fn add_semantic_suggestion(
     matcher.add(value, sugg)
 }
 
-/// Get all the items that matched (sorted)
+/// Get all the suggestions that matched (sorted), with `match_indices` set
 pub(crate) fn suggestion_results(
     matcher: NuMatcher<SemanticSuggestion>,
 ) -> Vec<SemanticSuggestion> {
