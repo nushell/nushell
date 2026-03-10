@@ -192,24 +192,29 @@ impl Type {
             return Ok(lhs);
         }
 
+        // Any value yields the top type.
         if matches!(lhs, Type::Any) || matches!(rhs, Type::Any) {
             return Ok(Type::Any);
         }
 
-        // Borrow the types for the structural checks below; we'll only clone when we actually need to construct a return value.
+        // primitive number hierarchy is extremely common; handle it before any more expensive logic (including subtype checks) to keep
+        // `type_widen_simple` fast.
+        if matches!(lhs, Type::Int | Type::Float | Type::Number)
+            && matches!(rhs, Type::Int | Type::Float | Type::Number)
+        {
+            return Ok(Type::Number);
+        }
+
+        // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
+        if (matches!(lhs, Type::Glob) && matches!(rhs, Type::String))
+            || (matches!(lhs, Type::String) && matches!(rhs, Type::Glob))
+        {
+            return Err((lhs, rhs));
+        }
+
+        // structural collections; clones are unavoidable because we need owned data for the result, but we only clone
+        // the inner vectors, not the entire `Type` twice.
         match (&lhs, &rhs) {
-            // number hierarchy
-            (Type::Int | Type::Float | Type::Number, Type::Int | Type::Float | Type::Number) => {
-                return Ok(Type::Number);
-            }
-
-            // glob/string are not related, let the caller build a oneof for them
-            (Type::Glob, Type::String) | (Type::String, Type::Glob) => {
-                return Err((lhs, rhs));
-            }
-
-            // structural collections; clones are unavoidable because we need owned data for the result, but we only clone
-            // the inner vectors, not the entire `Type` twice.
             (Type::Record(this), Type::Record(that)) => {
                 let widened = Self::widen_collection(this.clone(), that.clone());
                 return Ok(Type::Record(widened));
@@ -244,6 +249,14 @@ impl Type {
             }
 
             _ => {}
+        }
+
+        // If one type is already a subtype of the other, we can skip all of the heavier logic below.
+        if lhs.is_subtype_of(&rhs) {
+            return Ok(rhs);
+        }
+        if rhs.is_subtype_of(&lhs) {
+            return Ok(lhs);
         }
 
         // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
@@ -287,6 +300,25 @@ impl Type {
 
     /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
     pub fn widen(self, other: Type) -> Type {
+        // defensive fast-path: if one value is already a subtype of the other, return the supertype immediately.
+        //
+        // A subtle exception: a list-of-records is considered a subtype of a table with matching columns.
+        fn shortcut_allowed(lhs: &Type, rhs: &Type) -> bool {
+            !matches!(
+                (lhs, rhs),
+                (Type::List(_), Type::Table(_)) | (Type::Table(_), Type::List(_))
+            )
+        }
+
+        // only shortcut when the relationship is one-way; for pairs like glob/string `is_subtype_of` returns true both ways,
+        // and we must not collapse them to a single type.
+        if self.is_subtype_of(&other)
+            && !other.is_subtype_of(&self)
+            && shortcut_allowed(&self, &other)
+        {
+            return other;
+        }
+
         let tu = match Self::flat_widen(self, other) {
             Ok(t) => return t,
             Err(tu) => tu,
@@ -627,6 +659,66 @@ mod tests {
             } else {
                 panic!("Expected OneOf");
             }
+        }
+    }
+
+    // regressions and performance tests for the subtype shortcut added above
+    mod widen_shortcuts {
+        use super::*;
+
+        #[test]
+        fn test_widen_subtype_shortcut() {
+            // widening a union that already covers the new type should return the original union unchanged.
+            let union = Type::one_of([Type::String, Type::Number]);
+            let result = union.clone().widen(Type::Int);
+            assert_eq!(result, union);
+
+            // symmetric case where the left side is the subtype
+            let union2 = Type::one_of([Type::Int, Type::String]);
+            let result2 = Type::Int.widen(union2.clone());
+            assert_eq!(result2, union2);
+        }
+
+        #[test]
+        fn test_chain_shortcut() {
+            // repeatedly widen the same type pair
+            let mut t = Type::String;
+            for _ in 0..100 {
+                t = t.widen(Type::Int);
+            }
+            let expected = Type::one_of([Type::String, Type::Int]);
+            assert_eq!(t, expected);
+        }
+
+        #[test]
+        fn test_list_table_widen_preserves_list() {
+            // verify that list<record> widened with table does not drop the list wrapper.
+            let list_record = Type::List(Box::new(Type::Record(
+                vec![("a".to_string(), Type::Int)].into(),
+            )));
+            let table = Type::Table(vec![("a".to_string(), Type::Int)].into());
+
+            let widened = list_record.clone().widen(table.clone());
+            let expected = Type::List(Box::new(Type::Record(
+                vec![("a".to_string(), Type::Int)].into(),
+            )));
+            assert_eq!(widened, expected);
+
+            // and the other way around
+            let widened2 = table.widen(list_record.clone());
+            assert_eq!(widened2, expected);
+        }
+
+        #[test]
+        fn test_glob_string_union() {
+            let g = Type::Glob;
+            let s = Type::String;
+            let w1 = g.clone().widen(s.clone());
+            let w2 = s.clone().widen(g.clone());
+            let expected1 = Type::one_of([Type::Glob, Type::String]);
+            let expected2 = Type::one_of([Type::String, Type::Glob]);
+            assert_eq!(w1, expected1);
+            assert_eq!(w2, expected2);
         }
     }
 }
