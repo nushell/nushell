@@ -273,7 +273,7 @@ fn reject(
                 })
                 .into_pipeline_data(span, engine_state.signals().clone());
 
-            Ok(result)
+            Ok(result.set_metadata(metadata))
         }
 
         input => {
