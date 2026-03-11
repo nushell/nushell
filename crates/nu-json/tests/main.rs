@@ -20,13 +20,24 @@ fn txt(text: String) -> String {
 }
 
 // This test will fail if/when `nu_test_support::fs::assets()`'s return value changes.
+// The rstest `files` macro used to accept a bare directory, but newer versions
+// require a wildcard pattern.  We match any file in the directory and then
+// canonicalize its parent so that the comparison still exercises the same
+// contract: the assets folder returned by `nu_test_support` must be the same
+// location that rstest finds.
 #[rstest]
-fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json")] rstest_supplied: PathBuf) {
+fn assert_rstest_finds_assets(#[files("../../tests/assets/nu_json/*")] rstest_supplied: PathBuf) {
     // rstest::files runs paths through `fs::canonicalize`, which:
     // > On Windows, this converts the path to use extended length path syntax
-    // So we make sure to canonicalize both paths.
+    // So we make sure to canonicalize both paths.  Use the parent of the
+    // supplied file so that we compare directories rather than individual
+    // files.
+    let supplied_dir = rstest_supplied
+        .parent()
+        .expect("file should have a parent directory");
+
     assert_eq!(
-        fs::canonicalize(rstest_supplied).unwrap(),
+        fs::canonicalize(supplied_dir).unwrap(),
         fs::canonicalize(nu_test_support::fs::assets().join("nu_json")).unwrap()
     );
 }

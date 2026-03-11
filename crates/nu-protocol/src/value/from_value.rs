@@ -10,6 +10,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
+    ffi::OsString,
     fmt,
     num::{
         NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
@@ -511,6 +512,27 @@ impl FromValue for PathBuf {
     }
 }
 
+// `OsString` is used in flags and other uutils
+impl FromValue for OsString {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String { val, .. } => Ok(OsString::from(val)),
+            Value::CellPath { val, .. } => Ok(OsString::from(val.to_string())),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        // Using `String` here because the underlying representation is text.
+        Type::String
+    }
+}
+
 impl FromValue for String {
     fn from_value(v: Value) -> Result<Self, ShellError> {
         // FIXME: we may want to fail a little nicer here
@@ -888,7 +910,13 @@ fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Spa
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
+    use crate::{
+        FromValue, IntoValue, Record, Span, Type, Value,
+        ast::{CellPath, PathMember},
+        casing::Casing,
+        engine::Closure,
+    };
+    use std::ffi::OsString;
     use std::ops::Deref;
 
     #[test]
@@ -932,5 +960,32 @@ mod tests {
 
         assert!(Vec::<u8>::from_value(vec![u8::MIN as i32 - 1].into_value(span)).is_err());
         assert!(Vec::<u8>::from_value(vec![u8::MAX as i32 + 1].into_value(span)).is_err());
+    }
+
+    #[test]
+    fn from_value_os_string() {
+        let span = Span::test_data();
+        let expected = OsString::from("hello");
+
+        // simple string
+        assert_eq!(
+            OsString::from_value(Value::test_string("hello".to_string())).unwrap(),
+            expected
+        );
+
+        // cell path is treated as a string via `CellPath::to_string` which includes
+        // the leading `$.`.  This matches the behaviour of `String::from_value`.
+        let cp_val = Value::test_cell_path(CellPath {
+            members: vec![PathMember::String {
+                val: "hello".into(),
+                span,
+                optional: false,
+                casing: Casing::Sensitive,
+            }],
+        });
+        assert_eq!(
+            OsString::from_value(cp_val).unwrap(),
+            OsString::from("$.hello")
+        );
     }
 }
