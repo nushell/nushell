@@ -116,7 +116,7 @@ pub enum Instruction {
     /// Collect a stream in a register to a value.
     /// But it's different from `Collect` in that if there is an error in the stream, it will be
     /// returned as an error instead of being ignored.
-    CollectFailuable { src_dst: RegId },
+    TryCollect { src_dst: RegId },
     /// Change the span of the contents of a register to the span of this instruction.
     Span { src_dst: RegId },
     /// Drop the value/stream in a register, without draining
@@ -298,7 +298,7 @@ impl Instruction {
             Instruction::Move { dst, .. } => Some(dst),
             Instruction::Clone { dst, .. } => Some(dst),
             Instruction::Collect { src_dst } => Some(src_dst),
-            Instruction::CollectFailuable { src_dst } => Some(src_dst),
+            Instruction::TryCollect { src_dst } => Some(src_dst),
             Instruction::Span { src_dst } => Some(src_dst),
             Instruction::Drop { .. } => None,
             Instruction::Drain { .. } => None,

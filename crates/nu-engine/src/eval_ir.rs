@@ -376,7 +376,7 @@ fn eval_instruction<D: DebugContext>(
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
-        Instruction::CollectFailuable { src_dst } => {
+        Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
             let value = collect(data, *span, false)?;

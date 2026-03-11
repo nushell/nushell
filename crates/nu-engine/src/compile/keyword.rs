@@ -427,7 +427,7 @@ pub(crate) fn compile_try(
     //       on-error-into ERR, %io_reg           // or without
     //       finally-into  FINALLY, $io_reg       // or without
     //       %io_reg <- <...block...> <- %io_reg
-    //       collect-failuable %io_reg
+    //       try-collect %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -442,7 +442,7 @@ pub(crate) fn compile_try(
     //       on-error-into ERR, %io_reg
     //       finally-into  FINALLY, $io_reg
     //       %io_reg <- <...block...> <- %io_reg
-    //       collect-failuable %io_reg
+    //       try-collect %io_reg
     //       pop-error-handler
     //       jump END
     // ERR:  clone %err_reg, %io_reg
@@ -605,7 +605,7 @@ pub(crate) fn compile_try(
         // For `catch` clause and `finally` clause, we need to know if the `try` block
         // runs successfully first, so we need to collect the output first to check if there
         // is an error.
-        builder.push(Instruction::CollectFailuable { src_dst: io_reg }.into_spanned(call.head))?;
+        builder.push(Instruction::TryCollect { src_dst: io_reg }.into_spanned(call.head))?;
     } else {
         builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     }
@@ -666,7 +666,7 @@ pub(crate) fn compile_try(
         }
     }
     if finally_type.is_some() {
-        builder.push(Instruction::CollectFailuable { src_dst: io_reg }.into_spanned(call.head))?;
+        builder.push(Instruction::TryCollect { src_dst: io_reg }.into_spanned(call.head))?;
     }
 
     // This is the end - whatever we succeeded or not, should jump here for finally clause.
