@@ -136,10 +136,23 @@ impl<T> IntoSpanned for T {
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const TEST_DATA: Span = Span::test_data();
+        const UNKNOWN: Span = Span::unknown();
+
+        match *self {
+            TEST_DATA => write!(f, "Span(TEST)"),
+            UNKNOWN => write!(f, "Span(UNKNOWN)"),
+            Span { start, end } => write!(f, "Span[{start}..{end}]"),
+        }
+    }
 }
 
 impl Span {
