@@ -225,7 +225,6 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     Ok(duration_ns)
 }
 
-
 // Try to parse a string formatted as `hh:mm:ss`. If the supplied string contains a colon we interpret it as a clock-style value
 fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> {
     if !s.contains(':') {
@@ -235,7 +234,9 @@ fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
     // helper for consistent error messaging
     fn clock_format_error(span: Span) -> ShellError {
         ShellError::IncorrectValue {
-            msg: "invalid clock-style duration; please use hh:mm:ss (mm & ss must be < 60 and >= 0)".to_string(),
+            msg:
+                "invalid clock-style duration; please use hh:mm:ss (mm & ss must be < 60 and >= 0)"
+                    .to_string(),
             val_span: span,
             call_span: span,
         }
@@ -245,7 +246,10 @@ fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
 
     // if it's not three segments we *only* want to reject the input when all pieces are integers
     if parts.len() != 3 {
-        if parts.iter().all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())) {
+        if parts
+            .iter()
+            .all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit()))
+        {
             return Err(clock_format_error(span));
         } else {
             return Ok(None);
@@ -259,9 +263,7 @@ fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
             return Err(clock_format_error(span));
         }
         // parsing succeeds because we know they are digits; handle any unexpected failure defensively.
-        nums[i] = part
-            .parse::<i64>()
-            .map_err(|_| clock_format_error(span))?;
+        nums[i] = part.parse::<i64>().map_err(|_| clock_format_error(span))?;
     }
 
     let hours = nums[0];
