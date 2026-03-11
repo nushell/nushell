@@ -1,4 +1,5 @@
 mod selector_all;
+mod selector_alpha;
 mod selector_by_dtype;
 mod selector_by_name;
 mod selector_ends_with;
@@ -22,6 +23,7 @@ pub(crate) fn selector_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPl
     vec![
         Box::new(selector_stub::SelectorCmd),
         Box::new(selector_all::SelectorAll),
+        Box::new(selector_alpha::SelectorAlpha),
         Box::new(selector_by_dtype::SelectorByDtype),
         Box::new(selector_by_name::SelectorByName),
         Box::new(selector_first::SelectorFirst),
