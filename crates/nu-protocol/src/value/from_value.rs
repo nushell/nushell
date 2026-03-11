@@ -973,7 +973,8 @@ mod tests {
             expected
         );
 
-        // Use `test_cell_path` helper to get a value without having to build members
+        // cell path is treated as a string via `CellPath::to_string` which includes
+        // the leading `$.`.  This matches the behaviour of `String::from_value`.
         let cp_val = Value::test_cell_path(CellPath {
             members: vec![PathMember::String {
                 val: "hello".into(),
@@ -982,6 +983,9 @@ mod tests {
                 casing: Casing::Sensitive,
             }],
         });
-        assert_eq!(OsString::from_value(cp_val).unwrap(), expected);
+        assert_eq!(
+            OsString::from_value(cp_val).unwrap(),
+            OsString::from("$.hello")
+        );
     }
 }
