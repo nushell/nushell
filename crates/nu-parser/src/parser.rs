@@ -3501,34 +3501,14 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
         return parse_string_interpolation(working_set, span);
     }
-    // Check for unbalanced quotes:
-    {
-        if bytes.starts_with(b"\"")
-            && (bytes.iter().filter(|ch| **ch == b'"').count() > 1 && !bytes.ends_with(b"\""))
-        {
-            let close_delimiter_index = bytes
-                .iter()
-                .skip(1)
-                .position(|ch| *ch == b'"')
-                .expect("Already check input bytes contains at least two double quotes");
-            // needs `+2` rather than `+1`, because we have skip 1 to find close_delimiter_index before.
-            let span = Span::new(span.start + close_delimiter_index + 2, span.end);
-            working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(span));
-            return garbage(working_set, span);
-        }
 
-        if bytes.starts_with(b"\'")
-            && (bytes.iter().filter(|ch| **ch == b'\'').count() > 1 && !bytes.ends_with(b"\'"))
-        {
-            let close_delimiter_index = bytes
-                .iter()
-                .skip(1)
-                .position(|ch| *ch == b'\'')
-                .expect("Already check input bytes contains at least two double quotes");
-            // needs `+2` rather than `+1`, because we have skip 1 to find close_delimiter_index before.
-            let span = Span::new(span.start + close_delimiter_index + 2, span.end);
-            working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(span));
-            return garbage(working_set, span);
+    // Check for unbalanced quotes:
+    for quote in [b'\"', b'\''] {
+        if bytes[0] == quote {
+            if let Err(err) = check_string_closed(bytes, span, 0, quote) {
+                working_set.error(err);
+                return garbage(working_set, span);
+            }
         }
     }
 
