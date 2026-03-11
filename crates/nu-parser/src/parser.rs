@@ -2283,7 +2283,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
     let (start, end) = if contents.starts_with(b"$\"") {
         double_quote = true;
 
-        if let Err(err) = check_string_closed(contents, span, 1, b'\"') {
+        if let Err(err) = check_string_no_trailing_tokens(contents, span, 1, b'\"') {
             working_set.error(err);
             return garbage(working_set, span);
         }
@@ -2295,7 +2295,7 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         };
         (span.start + 2, end)
     } else if contents.starts_with(b"$'") {
-        if let Err(err) = check_string_closed(contents, span, 1, b'\'') {
+        if let Err(err) = check_string_no_trailing_tokens(contents, span, 1, b'\'') {
             working_set.error(err);
             return garbage(working_set, span);
         }
@@ -3464,7 +3464,7 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
     }
 }
 
-fn check_string_closed(
+fn check_string_no_trailing_tokens(
     bytes: &[u8],
     span: Span,
     opening_quote_pos: usize,
@@ -3505,7 +3505,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     // Check for unbalanced quotes:
     for quote in [b'\"', b'\''] {
         if bytes[0] == quote
-            && let Err(err) = check_string_closed(bytes, span, 0, quote)
+            && let Err(err) = check_string_no_trailing_tokens(bytes, span, 0, quote)
         {
             working_set.error(err);
             return garbage(working_set, span);
