@@ -3453,6 +3453,29 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
     }
 }
 
+fn check_string_closed(
+    bytes: &[u8],
+    span: Span,
+    opening_quote_pos: usize,
+    quote: u8,
+) -> Result<(), ParseError> {
+    let pos = bytes
+        .iter()
+        .rposition(|ch| *ch == quote)
+        .expect("string begins with quote");
+    if pos == bytes.len() - 1 {
+        Ok(())
+    } else if pos == opening_quote_pos {
+        // shouldn't get here as this was already checked
+        let span = Span::new(span.end, span.end);
+        let quote = String::from(char::from(quote));
+        Err(ParseError::Unclosed(quote, span))
+    } else {
+        let span = Span::new(span.start + pos + 1, span.end);
+        Err(ParseError::ExtraTokensAfterClosingDelimiter(span))
+    }
+}
+
 pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: string");
 
