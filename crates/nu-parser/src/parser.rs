@@ -3477,10 +3477,10 @@ fn check_string_closed(
     if pos == bytes.len() - 1 {
         Ok(())
     } else if pos == opening_quote_pos {
-        // shouldn't get here as this was already checked
-        let span = Span::new(span.end, span.end);
-        let quote = String::from(char::from(quote));
-        Err(ParseError::Unclosed(quote, span))
+        // this may look like an error, but it's not:
+        // some code, like completions, requires allowing
+        // unterminated strings at this stage.
+        Ok(())
     } else {
         let span = Span::new(span.start + pos + 1, span.end);
         Err(ParseError::ExtraTokensAfterClosingDelimiter(span))
