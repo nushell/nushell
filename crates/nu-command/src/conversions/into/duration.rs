@@ -235,7 +235,7 @@ fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
     // helper for consistent error messaging
     fn clock_format_error(span: Span) -> ShellError {
         ShellError::IncorrectValue {
-            msg: "invalid clock-style duration; please use hh:mm:ss".to_string(),
+            msg: "invalid clock-style duration; please use hh:mm:ss (mm & ss must be < 60 and >= 0)".to_string(),
             val_span: span,
             call_span: span,
         }
@@ -268,7 +268,7 @@ fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
     let minutes = nums[1];
     let seconds = nums[2];
 
-    if minutes >= 60 || seconds >= 60 {
+    if minutes >= 60 || seconds >= 60 || minutes < 0 || seconds < 0 {
         return Err(clock_format_error(span));
     }
 
