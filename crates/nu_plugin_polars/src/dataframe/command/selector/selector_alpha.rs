@@ -21,7 +21,7 @@ impl PluginCommand for SelectorAlpha {
     }
 
     fn description(&self) -> &str {
-        r#"Select all columns with alphabetic names (eg: only letters). Matching column names cannot contain *any* non-alphabetic characters. Note that the definition of "alphabetic" consists of all valid Unicode alphabetic characters by default; this can be changed by setting `ascii_only=true`."#
+        r#"Select all columns with alphabetic names (eg: only letters). Matching column names cannot contain *any* non-alphabetic characters. Note that the definition of "alphabetic" consists of all valid Unicode alphabetic characters by default; this can be changed by setting `--ascii-only`."#
     }
 
     fn signature(&self) -> Signature {
