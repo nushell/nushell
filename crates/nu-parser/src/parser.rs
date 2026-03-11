@@ -2282,6 +2282,12 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
     let (start, end) = if contents.starts_with(b"$\"") {
         double_quote = true;
+
+        if let Err(err) = check_string_closed(contents, span, 1, b'\"') {
+            working_set.error(err);
+            return garbage(working_set, span);
+        }
+
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
             span.end - 1
         } else {
@@ -2289,6 +2295,11 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         };
         (span.start + 2, end)
     } else if contents.starts_with(b"$'") {
+        if let Err(err) = check_string_closed(contents, span, 1, b'\'') {
+            working_set.error(err);
+            return garbage(working_set, span);
+        }
+
         let end = if contents.ends_with(b"'") && contents.len() > 2 {
             span.end - 1
         } else {
