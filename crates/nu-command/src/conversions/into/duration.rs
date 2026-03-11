@@ -165,6 +165,11 @@ impl Command for IntoDuration {
                 result: Some(Value::test_duration(7 * 60 * NS_PER_SEC)),
             },
             Example {
+                description: "Convert `hh:mm:ss`-style string to duration",
+                example: "'3:34:00' | into duration",
+                result: Some(Value::test_duration(3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)),
+            },
+            Example {
                 description: "Convert a number of ns to duration.",
                 example: "1_234_567 | into duration",
                 result: Some(Value::test_duration(1_234_567)),
@@ -220,7 +225,64 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     Ok(duration_ns)
 }
 
+
+// Try to parse a string formatted as `hh:mm:ss`. If the supplied string contains a colon we interpret it as a clock-style value
+fn parse_colon_dot_time(s: &str, span: Span) -> Result<Option<i64>, ShellError> {
+    if !s.contains(':') {
+        return Ok(None);
+    }
+
+    // helper for consistent error messaging
+    fn clock_format_error(span: Span) -> ShellError {
+        ShellError::IncorrectValue {
+            msg: "invalid clock-style duration; please use hh:mm:ss".to_string(),
+            val_span: span,
+            call_span: span,
+        }
+    }
+
+    let parts: Vec<&str> = s.split(':').collect();
+
+    // if it's not three segments we *only* want to reject the input when all pieces are integers
+    if parts.len() != 3 {
+        if parts.iter().all(|part| !part.is_empty() && part.chars().all(|c| c.is_ascii_digit())) {
+            return Err(clock_format_error(span));
+        } else {
+            return Ok(None);
+        }
+    }
+
+    let mut nums = [0i64; 3];
+    for (i, part) in parts.iter().enumerate() {
+        // reject empty segments (e.g. "1::2")
+        if part.is_empty() {
+            return Err(clock_format_error(span));
+        }
+        // parsing succeeds because we know they are digits; handle any unexpected failure defensively.
+        nums[i] = part
+            .parse::<i64>()
+            .map_err(|_| clock_format_error(span))?;
+    }
+
+    let hours = nums[0];
+    let minutes = nums[1];
+    let seconds = nums[2];
+
+    if minutes >= 60 || seconds >= 60 {
+        return Err(clock_format_error(span));
+    }
+
+    Ok(Some(
+        hours * NS_PER_HOUR + minutes * NS_PER_MINUTE + seconds * NS_PER_SEC,
+    ))
+}
+
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+    // first try the newly added clock-style parser
+    if let Some(parsed) = parse_colon_dot_time(s, span)? {
+        return Ok(parsed);
+    }
+
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -454,6 +516,14 @@ mod test {
     #[case("3wk", 3 * NS_PER_WEEK)]
     #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
     #[case("14ns 3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
+    #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    // decimal with unit should bypass clock parser and succeed
+    #[case("78.797877879789789sec",
+        1 * NS_PER_MINUTE
+        + 18 * NS_PER_SEC
+        + 797 * NS_PER_MS
+        + 877 * NS_PER_US
+        + 879)]
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
@@ -474,5 +544,59 @@ mod test {
                 panic!("Expected Value::Duration, observed {other:?}");
             }
         }
+    }
+
+    #[test]
+    fn invalid_clock_string() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        // two‑field string must fail with helpful message
+        let actual = action(&Value::test_string("1:02"), &args, Span::test_data());
+        match actual {
+            Value::Error { error, .. } => {
+                if let ShellError::IncorrectValue { msg, .. } = *error {
+                    assert!(msg.contains("hh:mm:ss"), "msg was {msg}");
+                } else {
+                    panic!("wrong error variant: {error:?}");
+                }
+            }
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn invalid_clock_string_with_out_of_range_fields() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(&Value::test_string("3:99:00"), &args, Span::test_data());
+        match actual {
+            Value::Error { error, .. } => {
+                if let ShellError::IncorrectValue { msg, .. } = *error {
+                    assert!(msg.contains("hh:mm:ss"), "msg was {msg}");
+                } else {
+                    panic!("wrong error variant: {error:?}");
+                }
+            }
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn clock_parser_nonclock_decimal() {
+        let span = Span::test_data();
+        let parsed = parse_colon_dot_time("78.797877879789789sec", span).unwrap();
+        assert!(parsed.is_none());
     }
 }

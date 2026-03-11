@@ -66,6 +66,18 @@ fn into_duration_table_column() {
     assert_eq!(actual.out, expected.out);
 }
 
+#[test]
+fn into_duration_colon_string() {
+    let actual = nu!(r#"'3:34:00' | into duration"#);
+    assert_eq!("3hr 34min", actual.out);
+}
+
+#[test]
+fn into_duration_clock_error_two() {
+    let actual = nu!(r#"'3:34' | into duration"#);
+    assert!(actual.err.contains("hh:mm:ss"), "error was: {}", actual.err);
+}
+
 // Tests error paths
 
 #[test]
