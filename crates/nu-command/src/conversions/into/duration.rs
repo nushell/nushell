@@ -521,7 +521,7 @@ mod test {
     #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
     // decimal with unit should bypass clock parser and succeed
     #[case("78.797877879789789sec",
-        1 * NS_PER_MINUTE
+        NS_PER_MINUTE // 1 * NS_PER_MINUTE
         + 18 * NS_PER_SEC
         + 797 * NS_PER_MS
         + 877 * NS_PER_US
