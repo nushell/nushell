@@ -39,7 +39,9 @@ fn non_string_in_record() -> TestResult {
 #[test]
 fn unbalance_string() -> TestResult {
     fail_test(r#""aaaab"cc"#, "invalid characters")?;
-    fail_test(r#"'aaaab'cc"#, "invalid characters")
+    fail_test(r#"'aaaab'cc"#, "invalid characters")?;
+    fail_test(r#"$"aaaab"cc"#, "invalid characters")?;
+    fail_test(r#"$'aaaab'cc"#, "invalid characters")
 }
 
 #[test]
