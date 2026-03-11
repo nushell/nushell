@@ -3504,11 +3504,11 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
 
     // Check for unbalanced quotes:
     for quote in [b'\"', b'\''] {
-        if bytes[0] == quote {
-            if let Err(err) = check_string_closed(bytes, span, 0, quote) {
-                working_set.error(err);
-                return garbage(working_set, span);
-            }
+        if bytes[0] == quote
+            && let Err(err) = check_string_closed(bytes, span, 0, quote)
+        {
+            working_set.error(err);
+            return garbage(working_set, span);
         }
     }
 
