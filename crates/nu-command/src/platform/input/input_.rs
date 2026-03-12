@@ -198,8 +198,8 @@ impl Command for Input {
                 // Do nothing on ctrl-d
                 return Ok(Value::nothing(call.head).into_pipeline_data());
             }
-            // TODO: handle other signals
-            Ok(_) => (),
+            // TODO: handle other signals like Signal::ExternalBreak
+            Ok(_) => {}
             Err(event_error) => {
                 let from_io_error = IoError::factory(call.head, None);
                 return Err(from_io_error(event_error).into());

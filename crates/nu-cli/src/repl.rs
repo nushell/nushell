@@ -737,8 +737,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // if cleanup_exit didn't exit, we should keep running
             return (true, stack, line_editor);
         }
-        // TODO: handle other signals
-        Ok(_) => (),
+        // TODO: handle other signals like Signal::ExternalBreak
+        Ok(_) => {}
         Err(err) => {
             let message = err.to_string();
             if !message.contains("duration") {
