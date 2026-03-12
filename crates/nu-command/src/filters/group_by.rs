@@ -18,6 +18,11 @@ impl Command for GroupBy {
                 "Return a table with \"groups\" and \"items\" columns.",
                 None,
             )
+            .switch(
+                "prune",
+                "Remove a column after grouping, if applicable.",
+                None,
+            )
             .rest(
                 "grouper",
                 SyntaxShape::OneOf(vec![
@@ -222,7 +227,7 @@ impl Command for GroupBy {
         [jt, rs, "2019"],
         [storm, rs, "2021"]
     ]
-    | group-by lang | update cells { reject lang }"#,
+    | group-by lang --prune"#,
                 #[cfg(test)] // Cannot test this example, it requires the nu-cmd-extra crate.
                 result: None,
                 #[cfg(not(test))]
