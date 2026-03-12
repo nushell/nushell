@@ -102,20 +102,31 @@ pub fn test() -> NuTester {
 #[track_caller]
 pub fn test_examples(command: impl Command + 'static) -> Result {
     let tester = test();
+    let location = TestLocation(Location::caller());
     for example in command.examples() {
         match example.result {
-            None => tester.parse_and_compile(example.example).map(|_| ())?,
+            None => tester
+                .parse_and_compile(example.example)
+                .map(|_| ())
+                .map_err(|err| TestError {
+                    location,
+                    kind: TestErrorKind::ExampleFailed {
+                        command: command.name().to_string(),
+                        description: example.description.to_string(),
+                        code: example.example.to_string(),
+                        err: Box::new(err.kind),
+                    },
+                })?,
             Some(expected) => {
                 let got = tester.clone().run(example.example)?;
                 if got != expected {
                     return Err(TestError {
-                        location: TestLocation(Location::caller()),
+                        location,
                         kind: TestErrorKind::ExampleFailed {
                             command: command.name().to_string(),
                             description: example.description.to_string(),
                             code: example.example.to_string(),
-                            expected,
-                            got,
+                            err: Box::new(TestErrorKind::UnexpectedValue { expected, got }),
                         },
                     });
                 }
@@ -308,7 +319,7 @@ pub struct TestError {
     kind: TestErrorKind,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct TestLocation(&'static Location<'static>);
 
 impl Debug for TestLocation {
@@ -341,8 +352,7 @@ pub enum TestErrorKind {
         command: String,
         description: String,
         code: String,
-        expected: Value,
-        got: Value,
+        err: Box<TestErrorKind>,
     },
 }
 
