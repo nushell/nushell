@@ -228,11 +228,22 @@ fn get_json_error() {
 
 #[test]
 fn pipefail_works() {
+    // the print 'bbb' should not run because the previous command failed
+    // So no output should be printed
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "nu --testbin fail | lines | length; print 'bbb'"
+    );
+    assert_eq!(actual.out, "")
+}
+
+#[test]
+fn let_ignores_pipefail() {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
         "try { let x = nu --testbin fail | lines | length; print $x } catch {|e| print $e.exit_code}"
     );
-    assert_eq!(actual.out, "1")
+    assert_eq!(actual.out, "0")
 }
 
 #[test]
@@ -341,4 +352,55 @@ fn catch_finally_with_variable() {
         "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}"
     );
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn finally_should_not_run_before_try_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        with-env { FOO: 'bar' } {
+            try { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "#
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_before_catch_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        with-env { FOO: 'bar' } {
+            try { 1 / 0 } catch { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "#
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_twice_when_error_in_finally() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        try {
+            ^true
+        } finally {
+            print "inside finally"
+            error make -u "oh no"
+        }
+        "#
+    );
+    assert_eq!(actual.out, "inside finally")
+}
+
+#[test]
+fn try_wont_generate_extra_output() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "try { nu --testbin fail | is-empty } catch { 'here' }"
+    );
+    assert_eq!(actual.out, "here")
 }
