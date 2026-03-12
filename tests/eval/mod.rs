@@ -400,6 +400,14 @@ fn early_return_from_for() {
 }
 
 #[test]
+fn early_return_from_pipeline() {
+    test_eval(
+        r#"do { return "something" | str replace "some" "no"; "ignored" }"#,
+        Eq("nothing"),
+    )
+}
+
+#[test]
 fn try_no_catch() {
     test_eval("try { error make { msg: foo } }; 'pass'", Eq("pass"))
 }

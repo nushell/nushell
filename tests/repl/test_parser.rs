@@ -1225,6 +1225,13 @@ fn not_panic_with_recursive_call() {
     ]));
     assert_eq!(result.out, "false");
 
+    let result = nu!(nu_repl_code(&[
+        "def px [n=0] { let l = $in; if $n == 0 { return $l | describe } else { $l | px ($n - 1) } }",
+        "let x = 1",
+        "$x | px"
+    ]));
+    assert_eq!(result.out, "int");
+
     let result = nu!(
         cwd: "tests/parsing/samples",
         "nu recursive_func_with_alias.nu"
