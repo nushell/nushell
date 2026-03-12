@@ -66,6 +66,54 @@ fn into_duration_table_column() {
     assert_eq!(actual.out, expected.out);
 }
 
+#[test]
+fn into_duration_colon_string() {
+    let actual = nu!(r#"'3:34:00' | into duration"#);
+    assert_eq!("3hr 34min", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_millis() {
+    let actual = nu!(r#"'16:59:58.235' | into duration"#);
+    assert_eq!("16hr 59min 58sec 235ms", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_tenths() {
+    let actual = nu!(r#"'2:45:31.2' | into duration"#);
+    assert_eq!("2hr 45min 31sec 200ms", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_hundredths() {
+    let actual = nu!(r#"'2:45:31.23' | into duration"#);
+    assert_eq!("2hr 45min 31sec 230ms", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_four_fraction_digits() {
+    let actual = nu!(r#"'2:45:31.2345' | into duration"#);
+    assert_eq!("2hr 45min 31sec 234ms 500µs", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_micros() {
+    let actual = nu!(r#"'16:59:58.235123' | into duration"#);
+    assert_eq!("16hr 59min 58sec 235ms 123µs", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_nanos() {
+    let actual = nu!(r#"'16:59:58.235123456' | into duration"#);
+    assert_eq!("16hr 59min 58sec 235ms 123µs 456ns", actual.out);
+}
+
+#[test]
+fn into_duration_clock_error_two() {
+    let actual = nu!(r#"'3:34' | into duration"#);
+    assert!(actual.err.contains("hh:mm:ss"), "error was: {}", actual.err);
+}
+
 // Tests error paths
 
 #[test]
