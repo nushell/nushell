@@ -198,6 +198,7 @@ impl Command for Input {
                 // Do nothing on ctrl-d
                 return Ok(Value::nothing(call.head).into_pipeline_data());
             }
+            Ok(_) => todo!(),
             Err(event_error) => {
                 let from_io_error = IoError::factory(call.head, None);
                 return Err(from_io_error(event_error).into());

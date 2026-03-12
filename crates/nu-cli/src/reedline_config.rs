@@ -1153,6 +1153,16 @@ fn edit_from_record(
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
         },
+        Ok(ECD::MoveLineUp) => EditCommand::MoveLineUp {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        Ok(ECD::MoveLineDown) => EditCommand::MoveLineDown {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
         Ok(ECD::MoveLeft) => EditCommand::MoveLeft {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
@@ -1419,6 +1429,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::MoveToLineNonBlankStart => "MoveToLineNonBlankStart Optional[select: <bool>]",
         ECD::MoveToEnd => "MoveToEnd Optional[select: <bool>]",
         ECD::MoveToLineEnd => "MoveToLineEnd Optional[select: <bool>]",
+        ECD::MoveLineUp => "MoveLineUp Optional[select: <bool>]",
+        ECD::MoveLineDown => "MoveLineDown Optional[select: <bool>]",
         ECD::MoveLeft => "MoveLeft Optional[select: <bool>]",
         ECD::MoveRight => "MoveRight Optional[select: <bool>]",
         ECD::MoveWordLeft => "MoveWordLeft Optional[select: <bool>]",
