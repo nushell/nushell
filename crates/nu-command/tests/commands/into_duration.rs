@@ -79,6 +79,24 @@ fn into_duration_colon_string_with_millis() {
 }
 
 #[test]
+fn into_duration_colon_string_with_tenths() {
+    let actual = nu!(r#"'2:45:31.2' | into duration"#);
+    assert_eq!("2hr 45min 31sec 200ms", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_hundredths() {
+    let actual = nu!(r#"'2:45:31.23' | into duration"#);
+    assert_eq!("2hr 45min 31sec 230ms", actual.out);
+}
+
+#[test]
+fn into_duration_colon_string_with_four_fraction_digits() {
+    let actual = nu!(r#"'2:45:31.2345' | into duration"#);
+    assert_eq!("2hr 45min 31sec 234ms 500µs", actual.out);
+}
+
+#[test]
 fn into_duration_colon_string_with_micros() {
     let actual = nu!(r#"'16:59:58.235123' | into duration"#);
     assert_eq!("16hr 59min 58sec 235ms 123µs", actual.out);

@@ -170,10 +170,10 @@ impl Command for IntoDuration {
                 result: Some(Value::test_duration(3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)),
             },
             Example {
-                description: "Convert `hh:mm:ss.mmm`-style string to duration",
-                example: "'16:59:58.235' | into duration",
+                description: "Convert `hh:mm:ss.f`-style string to duration",
+                example: "'2:45:31.2' | into duration",
                 result: Some(Value::test_duration(
-                    16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS,
+                    2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS,
                 )),
             },
             Example {
@@ -233,7 +233,7 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
 }
 
 // Try to parse a string formatted as `hh:mm:ss` with an optional fractional
-// seconds component using milli-, micro-, or nanosecond precision.
+// seconds component using 1 to 9 digits of sub-second precision.
 fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> {
     if !s.contains(':') {
         return Ok(None);
@@ -242,7 +242,7 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
     // helper for consistent error messaging
     fn clock_format_error(span: Span) -> ShellError {
         ShellError::IncorrectValue {
-            msg: "invalid clock-style duration; please use hh:mm:ss with optional .mmm, .mmmmmm, or .mmmmmmmmm"
+            msg: "invalid clock-style duration; please use hh:mm:ss with optional .f up to .fffffffff"
                 .to_string(),
             val_span: span,
             call_span: span,
@@ -282,20 +282,15 @@ fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> 
 
     let fractional_ns = match fractional_part {
         Some(fractional) if fractional.chars().all(|c| c.is_ascii_digit()) => {
-            match fractional.len() {
-                3 => fractional
-                    .parse::<i64>()
-                    .map(|value| value * NS_PER_MS)
-                    .map_err(|_| clock_format_error(span))?,
-                6 => fractional
-                    .parse::<i64>()
-                    .map(|value| value * NS_PER_US)
-                    .map_err(|_| clock_format_error(span))?,
-                9 => fractional
-                    .parse::<i64>()
-                    .map_err(|_| clock_format_error(span))?,
-                _ => return Err(clock_format_error(span)),
+            if fractional.is_empty() || fractional.len() > 9 {
+                return Err(clock_format_error(span));
             }
+
+            let scale = 10_i64.pow((9 - fractional.len()) as u32);
+            fractional
+                .parse::<i64>()
+                .map(|value| value * scale)
+                .map_err(|_| clock_format_error(span))?
         }
         Some(_) => return Err(clock_format_error(span)),
         None => 0,
@@ -550,6 +545,9 @@ mod test {
     #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
     #[case("14ns 3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
     #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    #[case("2:45:31.2", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS)]
+    #[case("2:45:31.23", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 230 * NS_PER_MS)]
+    #[case("2:45:31.2345", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 234 * NS_PER_MS + 500 * NS_PER_US)]
     #[case("16:59:58.235", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
     #[case("16:59:58.235123", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US)]
     #[case("16:59:58.235123456", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US + 456)]
@@ -646,7 +644,11 @@ mod test {
             cell_paths: None,
         };
 
-        let actual = action(&Value::test_string("16:59:58.23"), &args, Span::test_data());
+        let actual = action(
+            &Value::test_string("16:59:58.1234567890"),
+            &args,
+            Span::test_data(),
+        );
         match actual {
             Value::Error { error, .. } => {
                 if let ShellError::IncorrectValue { msg, .. } = *error {
