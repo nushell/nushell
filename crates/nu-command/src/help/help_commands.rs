@@ -270,9 +270,8 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpCommands;
-        use crate::test_examples;
-        test_examples(HelpCommands {})
+        nu_test_support::test_examples(HelpCommands {})
     }
 }

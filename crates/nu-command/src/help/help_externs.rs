@@ -116,9 +116,8 @@ fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> 
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpExterns;
-        use crate::test_examples;
-        test_examples(HelpExterns {})
+        nu_test_support::test_examples(HelpExterns {})
     }
 }

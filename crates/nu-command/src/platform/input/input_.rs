@@ -264,9 +264,8 @@ mod tests {
     use reedline::Reedline;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(Input {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test_examples(Input {})
     }
 
     #[test]

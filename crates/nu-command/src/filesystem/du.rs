@@ -252,8 +252,7 @@ mod tests {
     use super::Du;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(Du {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test_examples(Du {})
     }
 }

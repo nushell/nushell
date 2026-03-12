@@ -92,17 +92,17 @@ mod tests {
     use super::Sleep;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
+    fn examples_work_as_expected() -> nu_test_support::Result {
         use std::time::Instant;
 
         let start = Instant::now();
-        test_examples(Sleep {});
+        nu_test_support::test_examples(Sleep {})?;
 
         let elapsed = start.elapsed();
 
         // only examples with actual output are run
         assert!(elapsed >= std::time::Duration::from_secs(1));
         assert!(elapsed < std::time::Duration::from_secs(2));
+        Ok(())
     }
 }

@@ -523,10 +523,8 @@ mod test {
     #[env(NU_TEST_LOCALE_OVERRIDE = "en_US.utf8")]
     #[env(LANG = "en_US.UTF-8")]
     #[env(LANGUAGE = "en")]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(IntoInt {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(IntoInt {})
     }
 
     #[test]

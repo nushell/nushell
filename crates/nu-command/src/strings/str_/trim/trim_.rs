@@ -269,10 +269,8 @@ mod tests {
     use nu_protocol::{Span, Value};
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrTrim {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(StrTrim {})
     }
 
     fn make_record(cols: Vec<&str>, vals: Vec<&str>) -> Value {

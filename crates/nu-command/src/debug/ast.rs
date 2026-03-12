@@ -94,7 +94,7 @@ impl Command for Ast {
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "content" => Value::test_string("ls"),
-                        "shape" => Value::test_string("shape_external"),
+                        "shape" => Value::test_string("shape_internalcall"),
                         "span" => Value::test_record(record! {
                             "start" => Value::test_int(0),
                             "end" => Value::test_int(2),}),
@@ -401,9 +401,8 @@ fn extract_span_from_json(obj: &serde_json::Map<String, serde_json::Value>) -> O
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Ast;
-        use crate::test_examples;
-        test_examples(Ast {})
+        nu_test_support::test_examples(Ast {})
     }
 }

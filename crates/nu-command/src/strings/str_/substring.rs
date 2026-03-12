@@ -199,10 +199,8 @@ mod tests {
     use super::{Arguments, Span, StrSubstring, Value, action};
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrSubstring {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(StrSubstring {})
     }
 
     #[derive(Clone, Copy, Debug)]

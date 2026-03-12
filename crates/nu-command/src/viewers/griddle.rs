@@ -349,9 +349,8 @@ fn convert_to_list(
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Griddle;
-        use crate::test_examples;
-        test_examples(Griddle {})
+        nu_test_support::test_examples(Griddle {})
     }
 }

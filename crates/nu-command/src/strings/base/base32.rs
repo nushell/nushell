@@ -169,12 +169,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples_decode() {
-        crate::test_examples(DecodeBase32)
+    fn test_examples_decode() -> nu_test_support::Result {
+        nu_test_support::test_examples(DecodeBase32)
     }
 
     #[test]
-    fn test_examples_encode() {
-        crate::test_examples(EncodeBase32)
+    fn test_examples_encode() -> nu_test_support::Result {
+        nu_test_support::test_examples(EncodeBase32)
     }
 }

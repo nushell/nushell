@@ -416,10 +416,8 @@ mod test {
     }
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SplitWords {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(SplitWords {})
     }
     #[test]
     fn mixed_letter_number() {
