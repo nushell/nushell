@@ -11,14 +11,14 @@ pub mod playground;
 
 pub mod tester;
 use nu_utils::container::Container;
-pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test};
+pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test, test_examples};
 
 pub mod prelude {
     #[doc(no_inline)]
     pub use super::{
         Outcome, assert_contains, nu,
         playground::Playground,
-        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
+        tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test, test_examples},
     };
 
     #[doc(no_inline)]
