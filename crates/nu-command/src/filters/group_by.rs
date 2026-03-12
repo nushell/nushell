@@ -377,6 +377,16 @@ fn group_cell_path(
         if prune {
             // it's okay if this fails since pruning is best-effort
             let _ = value.remove_data_at_cell_path(&column_name.members);
+
+            // also try pruning parent, if it has now become empty
+            let parent = column_name.members.split_last().map(|(_, head)| head);
+
+            if let Some(parent) = parent
+                && let Ok(parent_value) = value.follow_cell_path(parent)
+                && parent_value.is_empty()
+            {
+                let _ = value.remove_data_at_cell_path(parent);
+            }
         }
 
         groups.entry(key).or_default().push(value);
