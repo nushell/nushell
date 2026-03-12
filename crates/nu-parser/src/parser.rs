@@ -2282,6 +2282,12 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
 
     let (start, end) = if contents.starts_with(b"$\"") {
         double_quote = true;
+
+        if let Err(err) = check_string_no_trailing_tokens(contents, span, 1, b'\"') {
+            working_set.error(err);
+            return garbage(working_set, span);
+        }
+
         let end = if contents.ends_with(b"\"") && contents.len() > 2 {
             span.end - 1
         } else {
@@ -2289,6 +2295,11 @@ pub fn parse_string_interpolation(working_set: &mut StateWorkingSet, span: Span)
         };
         (span.start + 2, end)
     } else if contents.starts_with(b"$'") {
+        if let Err(err) = check_string_no_trailing_tokens(contents, span, 1, b'\'') {
+            working_set.error(err);
+            return garbage(working_set, span);
+        }
+
         let end = if contents.ends_with(b"'") && contents.len() > 2 {
             span.end - 1
         } else {
@@ -3453,6 +3464,29 @@ pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<Pars
     }
 }
 
+fn check_string_no_trailing_tokens(
+    bytes: &[u8],
+    span: Span,
+    opening_quote_pos: usize,
+    quote: u8,
+) -> Result<(), ParseError> {
+    let pos = bytes
+        .iter()
+        .rposition(|ch| *ch == quote)
+        .expect("string begins with quote");
+    if pos == bytes.len() - 1 {
+        Ok(())
+    } else if pos == opening_quote_pos {
+        // this may look like an error, but it's not:
+        // some code, like completions, requires allowing
+        // unterminated strings at this stage.
+        Ok(())
+    } else {
+        let span = Span::new(span.start + pos + 1, span.end);
+        Err(ParseError::ExtraTokensAfterClosingDelimiter(span))
+    }
+}
+
 pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     trace!("parsing: string");
 
@@ -3467,33 +3501,13 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
         return parse_string_interpolation(working_set, span);
     }
-    // Check for unbalanced quotes:
-    {
-        if bytes.starts_with(b"\"")
-            && (bytes.iter().filter(|ch| **ch == b'"').count() > 1 && !bytes.ends_with(b"\""))
-        {
-            let close_delimiter_index = bytes
-                .iter()
-                .skip(1)
-                .position(|ch| *ch == b'"')
-                .expect("Already check input bytes contains at least two double quotes");
-            // needs `+2` rather than `+1`, because we have skip 1 to find close_delimiter_index before.
-            let span = Span::new(span.start + close_delimiter_index + 2, span.end);
-            working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(span));
-            return garbage(working_set, span);
-        }
 
-        if bytes.starts_with(b"\'")
-            && (bytes.iter().filter(|ch| **ch == b'\'').count() > 1 && !bytes.ends_with(b"\'"))
+    // Check for unbalanced quotes:
+    for quote in [b'\"', b'\''] {
+        if bytes[0] == quote
+            && let Err(err) = check_string_no_trailing_tokens(bytes, span, 0, quote)
         {
-            let close_delimiter_index = bytes
-                .iter()
-                .skip(1)
-                .position(|ch| *ch == b'\'')
-                .expect("Already check input bytes contains at least two double quotes");
-            // needs `+2` rather than `+1`, because we have skip 1 to find close_delimiter_index before.
-            let span = Span::new(span.start + close_delimiter_index + 2, span.end);
-            working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(span));
+            working_set.error(err);
             return garbage(working_set, span);
         }
     }
