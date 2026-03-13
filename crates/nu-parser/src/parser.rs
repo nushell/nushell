@@ -2264,6 +2264,9 @@ pub fn parse_brace_expr(
                 {
                     parse_record(working_set, span)
                 }
+                SyntaxShape::OneOf(shapes) if has_closure_shape(shapes) => {
+                    parse_closure_expression(working_set, shape, span)
+                }
                 SyntaxShape::Any => parse_closure_expression(working_set, shape, span),
                 _ => {
                     working_set.error(ParseError::ExpectedWithStringMsg(
