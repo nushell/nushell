@@ -154,3 +154,13 @@ fn add_peek_metadata(
 
     metadata
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Peek)
+    }
+}
