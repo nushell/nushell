@@ -340,8 +340,8 @@ fn http_get_with_socks5_proxy(#[case] proxy_env: &str) {
     assert_eq!(proxy.forwarded_request_count(), 0);
 
     let actual = nu!(format!(
-        "{proxy_env}=socks5://{proxy_url} http get --raw {server_url}",
-        proxy_url = proxy.addr(),
+        "{proxy_env}=socks5://localhost:{proxy_port} http get --raw {server_url}",
+        proxy_port = proxy.addr().port(),
         server_url = server.url(),
     ));
 
