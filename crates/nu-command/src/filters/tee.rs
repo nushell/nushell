@@ -299,29 +299,41 @@ fn panic_error() -> ShellError {
 /// it is embedded in the resulting iterator as an `Err` as soon as possible. When the iterator
 /// finishes, it waits for the other thread to finish, also handling any error produced at that
 /// point.
-fn tee<T>(
-    input: impl Iterator<Item = T>,
+fn tee<T, I: Iterator<Item = T>>(
+    input: I,
     with_cloned_stream: impl FnOnce(mpsc::Receiver<T>) -> Result<(), ShellError> + Send + 'static,
-) -> Result<impl Iterator<Item = Result<T, ShellError>>, std::io::Error>
+) -> Result<TeeIterator<T, I>, std::io::Error>
 where
     T: Clone + Send + 'static,
 {
     // For sending the values to the other thread
     let (tx, rx) = mpsc::channel();
 
-    let mut thread = Some(
-        thread::Builder::new()
-            .name("tee".into())
-            .spawn(move || with_cloned_stream(rx))?,
-    );
+    Ok(TeeIterator {
+        thread: Some(
+            thread::Builder::new()
+                .name("tee".into())
+                .spawn(move || with_cloned_stream(rx))?,
+        ),
+        iter: input.into_iter(),
+        tx: Some(tx),
+    })
+}
 
-    let mut iter = input.into_iter();
-    let mut tx = Some(tx);
+struct TeeIterator<T, I: Iterator<Item = T>> {
+    thread: Option<JoinHandle<Result<(), ShellError>>>,
+    iter: I,
+    tx: Option<Sender<T>>,
+}
 
-    Ok(std::iter::from_fn(move || {
-        if thread.as_ref().is_some_and(|t| t.is_finished()) {
+impl<T: Clone + Send + 'static, I: Iterator<Item = T>> Iterator for TeeIterator<T, I> {
+    type Item = Result<T, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.thread.as_ref().is_some_and(|t| t.is_finished()) {
             // Check for an error from the other thread
-            let result = thread
+            let result = self
+                .thread
                 .take()
                 .expect("thread was taken early")
                 .join()
@@ -333,22 +345,38 @@ where
         }
 
         // Get a value from the iterator
-        if let Some(value) = iter.next() {
+        if let Some(value) = self.iter.next() {
             // Send a copy, ignoring any error if the channel is closed
-            let _ = tx.as_ref().map(|tx| tx.send(value.clone()));
+            let _ = self.tx.as_ref().map(|tx| tx.send(value.clone()));
             Some(Ok(value))
         } else {
             // Close the channel so the stream ends for the other thread
-            drop(tx.take());
+            drop(self.tx.take());
             // Wait for the other thread, and embed any error produced
-            thread.take().and_then(|t| {
+            self.thread.take().and_then(|t| {
                 t.join()
                     .unwrap_or_else(|_| Err(panic_error()))
                     .err()
                     .map(Err)
             })
         }
-    }))
+    }
+}
+
+impl<T, I: Iterator<Item = T>> Drop for TeeIterator<T, I> {
+    fn drop(&mut self) {
+        // in case the iterator is dropped without consuming all the input,
+        // and the channel is still alive we need to force consume all the input
+        // otherwise the data will be truncated
+        if let Some(tx) = &mut self.tx {
+            for value in &mut self.iter {
+                // Send the input, if the channel is closed, just stop
+                if tx.send(value).is_err() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// "tee" for a single value. No stream handling, just spawns a thread, printing any resulting error
