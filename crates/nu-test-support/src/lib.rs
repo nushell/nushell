@@ -7,6 +7,7 @@ pub mod fs;
 pub mod harness;
 pub mod locale_override;
 pub mod macros;
+pub mod network;
 pub mod playground;
 
 pub mod tester;

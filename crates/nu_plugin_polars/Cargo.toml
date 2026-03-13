@@ -51,7 +51,7 @@ hashbrown = { version = "0.16", features = ["rayon", "serde"] }
 # Cloud support
 aws-config = { version = "1.8", features = ["sso"] }
 aws-credential-types = "1.2"
-tokio = { version = "1.49", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 object_store = { version = "0.13.1", features = ["aws", "azure", "gcp"], default-features = false }
 url.workspace = true
 

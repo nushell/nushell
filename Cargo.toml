@@ -105,6 +105,7 @@ dns-lookup = "3.0.1"
 dtparse = "2.0"
 encoding_rs = "0.8"
 fancy-regex = "0.17"
+fast-socks5 = "1.0"
 filesize = "0.2"
 filetime = "0.2.27"
 fuzzy-matcher = { version = "^0.3.7" }
@@ -198,6 +199,7 @@ tabled = { version = "0.20", default-features = false }
 tempfile = "3.24"
 thiserror = "2.0.18"
 titlecase = "3.6"
+tokio = { version = "1.50.0" }
 toml = "0.9.8"
 trash = "=5.2.4"
 update-informer = { version = "1.3.0", default-features = false, features = ["github", "ureq"] }
