@@ -154,3 +154,16 @@ fn add_peek_metadata(
 
     metadata
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    #[ignore = "These examples can't be run as tests as they require additional commands to be available."]
+    fn test_examples() {
+        use crate::test_examples;
+
+        test_examples(Peek)
+    }
+}

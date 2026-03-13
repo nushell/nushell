@@ -78,6 +78,7 @@ mod open;
 mod par_each;
 mod parse;
 mod path;
+mod peek;
 mod platform;
 mod prepend;
 mod print;
