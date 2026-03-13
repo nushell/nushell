@@ -602,3 +602,58 @@ fn tee_waits_for_the_other_thread() {
         "failed to return error from wait"
     );
 }
+
+// avoid regression for bug https://github.com/nushell/nushell/issues/17792
+#[test]
+fn tee_output_is_ignored_but_other_thread_get_values() {
+    let (tx, rx) = mpsc::channel();
+
+    let input = 0u32..100u32;
+    let expected_values: Vec<_> = input.clone().collect();
+
+    let my_result = tee(input, move |rx| {
+        for val in rx {
+            let _ = tx.send(val);
+        }
+        Ok(())
+    })
+    .expect("io error")
+    // don't take all values, just the first 2
+    .take(2)
+    .collect::<Result<Vec<_>, ShellError>>()
+    .expect("should not produce error");
+
+    // tee was only able to output 2 entries, the others where ignored by us
+    assert_eq!(expected_values[0..my_result.len()], my_result);
+
+    let other_threads_result = rx.into_iter().collect::<Vec<_>>();
+
+    // although tee only was able to output 2 values, the inner closure should
+    // receive all the values from the input
+    assert_eq!(expected_values, other_threads_result);
+}
+
+#[test]
+fn tee_other_thread_ignore_values_but_output_all_others() {
+    let (tx, rx) = mpsc::channel();
+
+    let input = 0u32..100u32;
+    let expected_values: Vec<_> = input.clone().collect();
+
+    let my_result = tee(input, move |rx| {
+        for val in rx {
+            let _ = tx.send(val);
+        }
+        Ok(())
+    })
+    .expect("io error")
+    .collect::<Result<Vec<_>, ShellError>>()
+    .expect("should not produce error");
+
+    // tee is expect to output all values
+    assert_eq!(expected_values, my_result);
+
+    // the other thread will consume only two values
+    let other_threads_result = rx.into_iter().take(2).collect::<Vec<_>>();
+    assert_eq!(expected_values[0..2], other_threads_result);
+}
