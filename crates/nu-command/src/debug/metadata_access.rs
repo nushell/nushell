@@ -66,14 +66,10 @@ impl Command for MetadataAccess {
 
 #[cfg(test)]
 mod test {
-    use crate::ToJson;
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(MetadataAccess {}, &[&ToJson])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MetadataAccess)
     }
 }

@@ -152,10 +152,9 @@ mod test {
     use crate::{Get, Metadata};
 
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::ToNuon;
-        use crate::test_examples;
-        test_examples(ToNuon {})
+        nu_test_support::test().examples(ToNuon)
     }
 
     #[test]

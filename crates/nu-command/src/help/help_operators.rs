@@ -180,9 +180,8 @@ fn description(operator: &Operator) -> &'static str {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpOperators;
-        use crate::test_examples;
-        test_examples(HelpOperators {})
+        nu_test_support::test().examples(HelpOperators)
     }
 }

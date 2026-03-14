@@ -117,15 +117,11 @@ stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {fro
 
 #[cfg(test)]
 mod test {
-    use crate::{StorCreate, StorInsert, StorOpen};
-
     use super::*;
 
     #[ignore = "stor db does not persist changes between pipelines"]
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(QueryDb {}, &[&StorOpen, &StorCreate, &StorInsert])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(QueryDb)
     }
 }

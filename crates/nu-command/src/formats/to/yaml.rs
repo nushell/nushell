@@ -168,11 +168,9 @@ mod test {
     use nu_cmd_lang::eval_pipeline_without_terminal_expression;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(TO_YAML);
-        test_examples(TO_YML);
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(TO_YAML)?;
+        nu_test_support::test().examples(TO_YML)
     }
 
     #[test]

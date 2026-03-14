@@ -171,11 +171,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples_decode() {
-        crate::test_examples(DecodeBase32Hex)
+    fn test_examples_decode() -> nu_test_support::Result {
+        nu_test_support::test().examples(DecodeBase32Hex)
     }
     #[test]
-    fn test_examples_encode() {
-        crate::test_examples(EncodeBase32Hex)
+    fn test_examples_encode() -> nu_test_support::Result {
+        nu_test_support::test().examples(EncodeBase32Hex)
     }
 }

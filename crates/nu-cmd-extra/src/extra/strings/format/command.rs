@@ -312,9 +312,8 @@ fn format_record(
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::FormatPattern;
-        use crate::test_examples;
-        test_examples(FormatPattern {})
+        nu_test_support::test().examples(FormatPattern)
     }
 }

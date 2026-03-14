@@ -25,4 +25,5 @@ pub use tsv::ToTsv;
 pub use xml::ToXml;
 pub use yaml::{TO_YAML, TO_YML, ToYamlLike};
 
+#[cfg_attr(not(feature = "network"), expect(unused))]
 pub(crate) use json::value_to_json_value;

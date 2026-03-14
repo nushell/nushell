@@ -83,9 +83,8 @@ fn echo_impl(mut args: Vec<Value>, head: Span) -> Result<PipelineData, ShellErro
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Echo;
-        use crate::test_examples;
-        test_examples(Echo {})
+        nu_test_support::test().examples(Echo)
     }
 }

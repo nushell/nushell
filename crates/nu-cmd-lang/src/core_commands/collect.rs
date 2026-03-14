@@ -74,12 +74,9 @@ is particularly large, this can cause high memory usage."#
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Do;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(Collect {}, &[&Do {}])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Collect)
     }
 }

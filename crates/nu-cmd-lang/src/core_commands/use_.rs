@@ -205,9 +205,8 @@ This command is a parser keyword. For details, check:
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Use;
-        use crate::test_examples;
-        test_examples(Use {})
+        nu_test_support::test().examples(Use)
     }
 }

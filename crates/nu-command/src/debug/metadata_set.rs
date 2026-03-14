@@ -181,12 +181,10 @@ impl Command for MetadataSet {
 
 #[cfg(test)]
 mod test {
-    use crate::{Metadata, test_examples_with_commands};
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        test_examples_with_commands(MetadataSet {}, &[&Metadata {}])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MetadataSet)
     }
 }

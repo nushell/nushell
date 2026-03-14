@@ -637,11 +637,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-        use nu_command::ToXml;
-
-        test_examples_with_commands(ToHtml {}, &[&ToXml])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ToHtml)
     }
 
     #[test]

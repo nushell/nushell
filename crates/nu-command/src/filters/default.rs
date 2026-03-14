@@ -370,14 +370,10 @@ In a future release, closures passed by variable will also be lazily evaluated."
 
 #[cfg(test)]
 mod test {
-    use crate::Upsert;
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(Default {}, &[&Upsert]);
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Default)
     }
 }

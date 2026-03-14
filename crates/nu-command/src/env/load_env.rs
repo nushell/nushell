@@ -91,9 +91,7 @@ mod tests {
     use super::LoadEnv;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-
-        test_examples(LoadEnv {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test().examples(LoadEnv)
     }
 }

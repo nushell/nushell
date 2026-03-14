@@ -4,14 +4,15 @@ use std::{
     fmt::{Debug, Display},
     panic::Location,
     path::PathBuf,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
 };
 
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
     ShellError, Span, Value,
+    ast::Block,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
@@ -229,6 +230,18 @@ impl NuTester {
         data: PipelineData,
     ) -> Result<PipelineExecutionData> {
         let location = TestLocation(Location::caller());
+        let (delta, block) = self.parse_and_compile(code)?;
+        self.engine_state.merge_delta(delta)?;
+        nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+    }
+
+    #[track_caller]
+    pub fn parse_and_compile(&self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
+        let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -248,12 +261,7 @@ impl NuTester {
             });
         }
 
-        self.engine_state.merge_delta(working_set.delta)?;
-        nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
-            .map_err(|err| TestError {
-                location,
-                kind: TestErrorKind::Shell(err),
-            })
+        Ok((working_set.delta, block))
     }
 
     #[track_caller]
@@ -265,6 +273,44 @@ impl NuTester {
         let value = T::from_value(value)?;
         Ok(value)
     }
+
+    /// Test examples of a command.
+    #[track_caller]
+    pub fn examples(&self, command: impl Command + 'static) -> Result {
+        let location = TestLocation(Location::caller());
+        for example in command.examples() {
+            match example.result {
+                None => self
+                    .parse_and_compile(example.example)
+                    .map(|_| ())
+                    .map_err(|err| TestError {
+                        location,
+                        kind: TestErrorKind::ExampleFailed {
+                            command: command.name().to_string(),
+                            description: example.description.to_string(),
+                            code: example.example.to_string(),
+                            err: Box::new(err.kind),
+                        },
+                    })?,
+                Some(expected) => {
+                    let got = self.clone().run(example.example)?;
+                    if got != expected {
+                        return Err(TestError {
+                            location,
+                            kind: TestErrorKind::ExampleFailed {
+                                command: command.name().to_string(),
+                                description: example.description.to_string(),
+                                code: example.example.to_string(),
+                                err: Box::new(TestErrorKind::UnexpectedValue { expected, got }),
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -273,7 +319,7 @@ pub struct TestError {
     kind: TestErrorKind,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct TestLocation(&'static Location<'static>);
 
 impl Debug for TestLocation {
@@ -291,10 +337,23 @@ pub enum TestErrorKind {
     Parse(ParseError),
     Compile(CompileError),
     Shell(ShellError),
-    GotValue { got: Value },
+    GotValue {
+        got: Value,
+    },
     NoInner,
-    NotGeneric { got: ShellError },
-    UnexpectedValue { expected: Value, got: Value },
+    NotGeneric {
+        got: ShellError,
+    },
+    UnexpectedValue {
+        expected: Value,
+        got: Value,
+    },
+    ExampleFailed {
+        command: String,
+        description: String,
+        code: String,
+        err: Box<TestErrorKind>,
+    },
 }
 
 impl Display for TestError {
