@@ -1,7 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ByteStreamSource, Category, PipelineMetadata, Signature,
-    engine::StateWorkingSet,
+    ByteStreamSource, Category, PipelineMetadata, Signature, engine::StateWorkingSet,
 };
 use std::any::type_name;
 #[derive(Clone)]
