@@ -47,4 +47,6 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["full"] } # TODO: reduce features here
 which = { workspace = true }
-fast-socks5 = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+gatekeeper = { workspace = true }

@@ -1,7 +1,10 @@
 use mockito::Server;
-use nu_test_support::{network::proxy::Socks5Proxy, nu};
+use nu_test_support::nu;
 use rstest::rstest;
-use std::{thread, time::Duration};
+use std::{collections::HashMap, net::SocketAddr, thread, time::Duration};
+
+#[cfg(unix)]
+use nu_test_support::network::proxy::Socks5Proxy;
 
 #[test]
 fn http_get_is_success() {
@@ -328,6 +331,7 @@ fn http_get_response_metadata() {
     assert_eq!(actual.out, "200");
 }
 
+#[cfg(unix)]
 #[rstest]
 #[case::all_proxy("ALL_PROXY")]
 #[case::http_proxy("HTTP_PROXY")]
@@ -336,20 +340,17 @@ fn http_get_with_socks5_proxy(#[case] proxy_env: &str) {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_body("🦆").create();
 
-    let proxy = Socks5Proxy::spawn("localhost:0").unwrap();
-    assert_eq!(proxy.forwarded_request_count(), 0);
+    let redirect_url = SocketAddr::parse("does-not-exist.test:80").unwrap();
+    let proxy = Socks5Proxy::builder()
+        .add_redirect(redirect_url.into(), server.socket_address().into())
+        .spawn()
+        .unwrap();
 
     let actual = nu!(format!(
-        "{proxy_env}=socks5://localhost:{proxy_port} http get --raw {server_url}",
-        proxy_port = proxy.addr().port(),
-        server_url = server.url(),
+        "{proxy_env}={proxy_uri} http get --raw {redirect_url}",
+        proxy_uri = proxy.uri(),
     ));
 
-    assert_eq!(proxy.forwarded_request_count(), 1);
-    assert_eq!(
-        proxy.forwarded_requests()[0].target,
-        server.socket_address().to_string()
-    );
     assert_eq!(actual.out, "🦆");
     assert!(actual.err.is_empty());
 }
