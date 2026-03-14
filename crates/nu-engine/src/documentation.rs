@@ -366,6 +366,12 @@ fn get_command_documentation(
         }))
     }
 
+    let _ = write!(
+        long_desc,
+        "\n{help_section_name}Command Type{RESET}:\n  > {}\n",
+        command.command_type()
+    );
+
     if !sig.required_positional.is_empty()
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
