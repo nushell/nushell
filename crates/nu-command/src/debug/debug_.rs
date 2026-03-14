@@ -162,6 +162,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Debug;
-        nu_test_support::test_examples(Debug)
+        nu_test_support::test().examples(Debug)
     }
 }

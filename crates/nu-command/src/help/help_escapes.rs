@@ -143,6 +143,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::HelpEscapes;
-        nu_test_support::test_examples(HelpEscapes)
+        nu_test_support::test().examples(HelpEscapes)
     }
 }

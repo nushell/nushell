@@ -183,11 +183,11 @@ mod tests {
 
     #[test]
     fn test_examples_decode() -> nu_test_support::Result {
-        nu_test_support::test_examples(DecodeBase64)
+        nu_test_support::test().examples(DecodeBase64)
     }
 
     #[test]
     fn test_examples_encode() -> nu_test_support::Result {
-        nu_test_support::test_examples(EncodeBase64)
+        nu_test_support::test().examples(EncodeBase64)
     }
 }

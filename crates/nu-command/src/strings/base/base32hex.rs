@@ -172,10 +172,10 @@ mod tests {
 
     #[test]
     fn test_examples_decode() -> nu_test_support::Result {
-        nu_test_support::test_examples(DecodeBase32Hex)
+        nu_test_support::test().examples(DecodeBase32Hex)
     }
     #[test]
     fn test_examples_encode() -> nu_test_support::Result {
-        nu_test_support::test_examples(EncodeBase32Hex)
+        nu_test_support::test().examples(EncodeBase32Hex)
     }
 }

@@ -118,6 +118,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::HelpExterns;
-        nu_test_support::test_examples(HelpExterns)
+        nu_test_support::test().examples(HelpExterns)
     }
 }

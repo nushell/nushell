@@ -141,11 +141,11 @@ mod tests {
 
     #[test]
     fn test_examples_decode() -> nu_test_support::Result {
-        nu_test_support::test_examples(DecodeHex)
+        nu_test_support::test().examples(DecodeHex)
     }
 
     #[test]
     fn test_examples_encode() -> nu_test_support::Result {
-        nu_test_support::test_examples(EncodeHex)
+        nu_test_support::test().examples(EncodeHex)
     }
 }

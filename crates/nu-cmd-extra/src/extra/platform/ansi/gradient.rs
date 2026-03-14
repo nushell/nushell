@@ -302,7 +302,7 @@ mod tests {
 
     #[test]
     fn examples_work_as_expected() -> nu_test_support::Result {
-        nu_test_support::test_examples(SubCommand)
+        nu_test_support::test().examples(SubCommand)
     }
 
     #[test]

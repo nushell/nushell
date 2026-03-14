@@ -47,7 +47,7 @@ mod tests {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(HashSha256::default())
+        nu_test_support::test().examples(HashSha256::default())
     }
 
     #[test]

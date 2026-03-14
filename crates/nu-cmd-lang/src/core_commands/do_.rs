@@ -312,6 +312,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Do;
-        nu_test_support::test_examples(Do)
+        nu_test_support::test().examples(Do)
     }
 }

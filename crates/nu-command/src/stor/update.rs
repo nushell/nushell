@@ -212,6 +212,6 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(StorUpdate)
+        nu_test_support::test().examples(StorUpdate)
     }
 }

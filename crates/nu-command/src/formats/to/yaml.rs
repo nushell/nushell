@@ -169,8 +169,8 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(TO_YAML)?;
-        nu_test_support::test_examples(TO_YML)
+        nu_test_support::test().examples(TO_YAML)?;
+        nu_test_support::test().examples(TO_YML)
     }
 
     #[test]

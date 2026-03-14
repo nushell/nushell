@@ -96,7 +96,7 @@ mod tests {
         use std::time::Instant;
 
         let start = Instant::now();
-        nu_test_support::test_examples(Sleep)?;
+        nu_test_support::test().examples(Sleep)?;
 
         let elapsed = start.elapsed();
 
