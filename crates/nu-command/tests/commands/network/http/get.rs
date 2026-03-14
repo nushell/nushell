@@ -1,10 +1,7 @@
 use mockito::Server;
 use nu_test_support::nu;
 use rstest::rstest;
-use std::{collections::HashMap, net::SocketAddr, thread, time::Duration};
-
-#[cfg(unix)]
-use nu_test_support::network::proxy::Socks5Proxy;
+use std::{thread, time::Duration};
 
 #[test]
 fn http_get_is_success() {
@@ -336,18 +333,25 @@ fn http_get_response_metadata() {
 #[case::all_proxy("ALL_PROXY")]
 #[case::http_proxy("HTTP_PROXY")]
 #[case::https_proxy("HTTPS_PROXY")]
+#[timeout(std::time::Duration::from_secs(5))]
 fn http_get_with_socks5_proxy(#[case] proxy_env: &str) {
+    use nu_test_support::network::{Address, proxy::Socks5Proxy};
+    use std::net::Ipv4Addr;
+
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_body("🦆").create();
 
-    let redirect_url = SocketAddr::parse("does-not-exist.test:80").unwrap();
+    let redirect_port = nu_utils::net::reserve_local_addr().unwrap().port();
+    let redirect_addr = Address::IpAddr(Ipv4Addr::LOCALHOST.into(), redirect_port);
+
     let proxy = Socks5Proxy::builder()
-        .add_redirect(redirect_url.into(), server.socket_address().into())
+        .unwrap()
+        .add_redirect(redirect_addr.clone(), server.socket_address().into())
         .spawn()
         .unwrap();
 
     let actual = nu!(format!(
-        "{proxy_env}={proxy_uri} http get --raw {redirect_url}",
+        "{proxy_env}={proxy_uri} http get --raw {redirect_addr}",
         proxy_uri = proxy.uri(),
     ));
 

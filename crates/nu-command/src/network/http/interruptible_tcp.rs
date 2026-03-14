@@ -35,7 +35,7 @@ use std::os::windows::io::AsRawSocket;
 use nu_protocol::HandlerGuard;
 use ureq::Error;
 use ureq::unversioned::transport::{
-    Buffers, ConnectionDetails, Connector, Either, LazyBuffers, NextTimeout, Transport
+    Buffers, ConnectionDetails, Connector, Either, LazyBuffers, NextTimeout, Transport,
 };
 
 /// Callback invoked when a connection is established.
@@ -72,7 +72,7 @@ impl<In: Transport> Connector<In> for InterruptibleTcpConnector {
         chained: Option<In>,
     ) -> Result<Option<Self::Out>, Error> {
         if chained.is_some() {
-            // Like the `TcpConnector` of `ureq`, we check for chained and use that connection 
+            // Like the `TcpConnector` of `ureq`, we check for chained and use that connection
             // instead.
             // This allows SOCKS proxy connections.
             return Ok(chained.map(Either::A));

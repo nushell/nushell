@@ -38,7 +38,7 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector, TcpConnector},
+    unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector},
 };
 use url::Url;
 

@@ -1,28 +1,39 @@
 use std::{
-    collections::HashMap, io, net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream}, sync::mpsc, thread::{self, JoinHandle}
+    collections::HashMap,
+    hash::Hash,
+    io, mem,
+    net::{SocketAddr, TcpStream},
+    sync::{Arc, Mutex, mpsc},
+    thread::{self, JoinHandle},
 };
 
-use gatekeeper::{Address, ServerConfig, acceptor::TcpBinder, connector::{Connector, TcpUdpConnector}};
+use gatekeeper::{
+    Address, ServerConfig,
+    connector::{Connector, TcpUdpConnector},
+};
 
 pub struct Socks5Proxy {
     addr: SocketAddr,
-    th: JoinHandle<Result<(), gatekeeper::error::Error>>,
+    th: Option<JoinHandle<Result<(), gatekeeper::error::Error>>>,
     tx: mpsc::Sender<gatekeeper::ServerCommand<TcpStream>>,
 }
 
 impl Socks5Proxy {
-    pub fn builder() -> Socks5ProxyBuilder {
-        let addr = reserve_local_addr()?;
+    pub fn builder() -> io::Result<Socks5ProxyBuilder> {
+        let addr = nu_utils::net::reserve_local_addr()?;
         let config = ServerConfig {
             server_ip: addr.ip(),
             server_port: addr.port(),
             ..Default::default()
         };
-        Socks5ProxyBuilder { config, redirects: HashMap::new() }
+        Ok(Socks5ProxyBuilder {
+            config,
+            redirects: HashMap::new(),
+        })
     }
-    
+
     pub fn spawn() -> io::Result<Self> {
-        Self::builder().spawn()
+        Self::builder()?.spawn()
     }
 
     fn spawn_from_builder(builder: Socks5ProxyBuilder) -> io::Result<Self> {
@@ -43,7 +54,11 @@ impl Socks5Proxy {
         let th = thread::spawn(move || server.serve());
 
         let addr = SocketAddr::new(config.server_ip, config.server_port);
-        Ok(Self { addr, th, tx })
+        Ok(Self {
+            addr,
+            th: Some(th),
+            tx,
+        })
     }
 
     pub fn addr(&self) -> SocketAddr {
@@ -51,25 +66,46 @@ impl Socks5Proxy {
     }
 
     pub fn uri(&self) -> String {
-        format!("sock5://{}", self.addr)
+        format!("socks5://{}", self.addr)
     }
 }
 
 impl Drop for Socks5Proxy {
     fn drop(&mut self) {
         let _ = self.tx.send(gatekeeper::ServerCommand::Terminate);
-        let _ = self.th.join();
+        let _ = self.th.take().map(|th| th.join());
     }
 }
 
-struct Socks5ProxyBuilder {
+#[derive(Debug, Clone)]
+pub struct Socks5ProxyBuilder {
     config: ServerConfig,
-    redirects: HashMap<Address, Address>,
+    redirects: HashMap<HashableAddress, Address>,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct HashableAddress(Address);
+
+impl Hash for HashableAddress {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match &self.0 {
+            addr @ Address::IpAddr(ip_addr, port) => {
+                mem::discriminant(addr).hash(state);
+                ip_addr.hash(state);
+                port.hash(state);
+            }
+            addr @ Address::Domain(domain, port) => {
+                mem::discriminant(addr).hash(state);
+                domain.hash(state);
+                port.hash(state);
+            }
+        }
+    }
 }
 
 impl Socks5ProxyBuilder {
     pub fn add_redirect(mut self, from: Address, to: Address) -> Self {
-        self.redirects.insert(from, to);
+        self.redirects.insert(HashableAddress(from), to);
         self
     }
 
@@ -78,39 +114,40 @@ impl Socks5ProxyBuilder {
     }
 }
 
+#[derive(Debug, Clone)]
 struct RedirectingTcpConnector {
-    redirects: HashMap<Address, Address>,
+    redirects: HashMap<HashableAddress, Address>,
     connector: TcpUdpConnector,
 }
 
 impl RedirectingTcpConnector {
-    pub fn new(redirect: HashMap<Address, Address>) -> Self {
+    pub fn new(redirects: HashMap<HashableAddress, Address>) -> Self {
         Self {
             redirects,
-            connector: TcpUdpConnector::new(None)
+            connector: TcpUdpConnector::new(None),
         }
     }
 }
 
 impl Connector for RedirectingTcpConnector {
-    type B = TcpStream;
-    type P = (); // unused
-    
-    fn connect_byte_stream(&self, addr: Address) -> Result<(Self::B, SocketAddr), gatekeeper::model::Error> {
-        match self.redirects.get(addr) {
-            Some(addr) => self.connector.connect_byte_stream(addr),
-            None => self.connector.connect_byte_stream(addr)
+    type B = <TcpUdpConnector as Connector>::B;
+    type P = <TcpUdpConnector as Connector>::P;
+
+    fn connect_byte_stream(
+        &self,
+        addr: Address,
+    ) -> Result<(Self::B, SocketAddr), gatekeeper::model::Error> {
+        let addr = HashableAddress(addr);
+        match self.redirects.get(&addr) {
+            Some(addr) => self.connector.connect_byte_stream(addr.clone()),
+            None => self.connector.connect_byte_stream(addr.0),
         }
     }
-    
-    fn connect_pkt_stream(&self, addr: Address) -> Result<(Self::P, SocketAddr), gatekeeper::model::Error> {
+
+    fn connect_pkt_stream(
+        &self,
+        _addr: Address,
+    ) -> Result<(Self::P, SocketAddr), gatekeeper::model::Error> {
         unimplemented!("only supports tcp")
     }
-}
-
-fn reserve_local_addr() -> io::Result<SocketAddr> {
-    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
-    let addr = listener.local_addr()?;
-    drop(listener);
-    Ok(addr)
 }
