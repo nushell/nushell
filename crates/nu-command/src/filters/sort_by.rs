@@ -177,12 +177,10 @@ impl Command for SortBy {
 
 #[cfg(test)]
 mod test {
-    use crate::{Last, test_examples_with_commands};
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        test_examples_with_commands(SortBy {}, &[&Last]);
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(SortBy)
     }
 }

@@ -136,9 +136,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::{Merge, test_examples_with_commands};
-
-        test_examples_with_commands(Reduce {}, &[&Merge])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(Reduce)
     }
 }
