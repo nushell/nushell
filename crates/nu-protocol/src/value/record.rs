@@ -921,3 +921,37 @@ macro_rules! record {
         $crate::Record::new()
     };
 }
+
+/// Helper for constructing [Value::Record] instances for use in tests and
+/// [Example](crate::Example)s
+/// ```
+/// # use nu_protocol::{Value, test_record, record};
+/// let test = test_record! {
+///     "a" => "foo",
+///     "b" => 42,
+///     "c" => [1, 2, 3],
+/// };
+///
+/// let expected = Value::test_record(record! {
+///     "a" => Value::test_string("foo"),
+///     "b" => Value::test_int(42),
+///     "c" => Value::test_list(vec![
+///         Value::test_int(1),
+///         Value::test_int(2),
+///         Value::test_int(3),
+///     ]),
+/// });
+///
+/// assert_eq!(test, expected);
+/// ```
+#[macro_export]
+macro_rules! test_record {
+    {$($col:expr => $val:expr),+ $(,)?} => {
+        $crate::Value::test_record(record! {
+            $($col => $crate::IntoValue::into_value($val, $crate::Span::test_data())),+
+        })
+    };
+    {} => {
+        record! {}
+    };
+}
