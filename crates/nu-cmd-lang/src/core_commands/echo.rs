@@ -63,7 +63,8 @@ little reason to use this over just writing the values as-is."#
                 )),
             },
             Example {
-                description: "Returns the piped-in value, by using the special $in variable to obtain it.",
+                description:
+                    "Returns the piped-in value, by using the special $in variable to obtain it.",
                 example: "echo $in",
                 result: None,
             },
@@ -83,9 +84,8 @@ fn echo_impl(mut args: Vec<Value>, head: Span) -> Result<PipelineData, ShellErro
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Echo;
-        use crate::test_examples;
-        test_examples(Echo {})
+        nu_test_support::test_examples(Echo {})
     }
 }

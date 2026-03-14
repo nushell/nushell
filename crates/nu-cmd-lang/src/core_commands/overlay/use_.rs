@@ -2,7 +2,7 @@ use nu_engine::{
     command_prelude::*, find_in_dirs_env, get_dirs_var_from_call, get_eval_block, redirect_env,
 };
 use nu_parser::trim_quotes_str;
-use nu_protocol::{ModuleId, ast::Expr, engine::CommandType};
+use nu_protocol::{ast::Expr, engine::CommandType, ModuleId};
 
 use std::path::Path;
 
@@ -223,9 +223,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(OverlayUse {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(OverlayUse {})
     }
 }

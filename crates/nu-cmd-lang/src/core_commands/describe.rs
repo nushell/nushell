@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
     engine::{Closure, StateWorkingSet},
+    BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
 };
 use std::any::type_name;
 #[derive(Clone)]
@@ -498,9 +498,8 @@ fn metadata_to_value(metadata: Option<PipelineMetadata>, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Describe;
-        use crate::test_examples;
-        test_examples(Describe {})
+        nu_test_support::test_examples(Describe {})
     }
 }

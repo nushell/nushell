@@ -2,7 +2,7 @@ use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_e
 #[cfg(feature = "os")]
 use nu_protocol::process::{ChildPipe, ChildProcess};
 use nu_protocol::{
-    ByteStream, ByteStreamSource, OutDest, engine::Closure, shell_error::io::IoError,
+    engine::Closure, shell_error::io::IoError, ByteStream, ByteStreamSource, OutDest,
 };
 
 use std::{
@@ -310,9 +310,8 @@ fn bind_args_to(
 
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Do;
-        use crate::test_examples;
-        test_examples(Do {})
+        nu_test_support::test_examples(Do {})
     }
 }

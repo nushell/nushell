@@ -58,7 +58,8 @@ impl Command for Match {
             },
             Example {
                 description: "Match against alternative values.",
-                example: "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => '---' }",
+                example:
+                    "match 'three' { 1 | 'one' => '-', 2 | 'two' => '--', 3 | 'three' => '---' }",
                 result: Some(Value::test_string("---")),
             },
             Example {
@@ -104,9 +105,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Match {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(Match {})
     }
 }
