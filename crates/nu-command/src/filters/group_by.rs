@@ -18,6 +18,11 @@ impl Command for GroupBy {
                 "Return a table with \"groups\" and \"items\" columns.",
                 None,
             )
+            .switch(
+                "prune",
+                "Remove a column after grouping, if applicable.",
+                None,
+            )
             .rest(
                 "grouper",
                 SyntaxShape::OneOf(vec![
@@ -222,7 +227,7 @@ impl Command for GroupBy {
         [jt, rs, "2019"],
         [storm, rs, "2021"]
     ]
-    | group-by lang | update cells { reject lang }"#,
+    | group-by lang --prune"#,
                 #[cfg(test)] // Cannot test this example, it requires the nu-cmd-extra crate.
                 result: None,
                 #[cfg(not(test))]
@@ -258,6 +263,7 @@ pub fn group_by(
     let head = call.head;
     let groupers: Vec<Spanned<Grouper>> = call.rest(engine_state, stack, 0)?;
     let to_table = call.has_flag(engine_state, stack, "to-table")?;
+    let prune = call.has_flag(engine_state, stack, "prune")?;
     let config = &stack.get_config(engine_state);
 
     let values: Vec<Value> = input.into_iter().collect();
@@ -272,9 +278,10 @@ pub fn group_by(
 
     let grouped = match &groupers[..] {
         [first, rest @ ..] => {
-            let mut grouped = Grouped::new(first.as_ref(), values, config, engine_state, stack)?;
+            let mut grouped =
+                Grouped::new(first.as_ref(), prune, values, config, engine_state, stack)?;
             for grouper in rest {
-                grouped.subgroup(grouper.as_ref(), config, engine_state, stack)?;
+                grouped.subgroup(grouper.as_ref(), prune, config, engine_state, stack)?;
             }
             grouped
         }
@@ -352,12 +359,13 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 
 fn group_cell_path(
     column_name: &CellPath,
+    prune: bool,
     values: Vec<Value>,
     config: &nu_protocol::Config,
 ) -> Result<IndexMap<String, Vec<Value>>, ShellError> {
     let mut groups = IndexMap::<_, Vec<_>>::new();
 
-    for value in values.into_iter() {
+    for mut value in values.into_iter() {
         let key = value.follow_cell_path(&column_name.members)?;
 
         if key.is_nothing() {
@@ -365,6 +373,22 @@ fn group_cell_path(
         }
 
         let key = key.to_abbreviated_string(config);
+
+        if prune {
+            // it's okay if this fails since pruning is best-effort
+            let _ = value.remove_data_at_cell_path(&column_name.members);
+
+            // also try pruning parent, if it has now become empty
+            let parent = column_name.members.split_last().map(|(_, head)| head);
+
+            if let Some(parent) = parent
+                && let Ok(parent_value) = value.follow_cell_path(parent)
+                && parent_value.is_empty()
+            {
+                let _ = value.remove_data_at_cell_path(parent);
+            }
+        }
+
         groups.entry(key).or_default().push(value);
     }
 
@@ -437,13 +461,14 @@ impl Grouped {
 
     fn new(
         grouper: Spanned<&Grouper>,
+        prune: bool,
         values: Vec<Value>,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
         let groups = match grouper.item {
-            Grouper::CellPath { val } => group_cell_path(val, values, config)?,
+            Grouper::CellPath { val } => group_cell_path(val, prune, values, config)?,
             Grouper::Closure { val } => group_closure(
                 values,
                 grouper.span,
@@ -460,6 +485,7 @@ impl Grouped {
     fn subgroup(
         &mut self,
         grouper: Spanned<&Grouper>,
+        prune: bool,
         config: &nu_protocol::Config,
         engine_state: &EngineState,
         stack: &mut Stack,
@@ -468,14 +494,14 @@ impl Grouped {
             Tree::Leaf(groups) => std::mem::take(groups)
                 .into_iter()
                 .map(|(key, values)| -> Result<_, ShellError> {
-                    let leaf = Self::new(grouper, values, config, engine_state, stack)?;
+                    let leaf = Self::new(grouper, prune, values, config, engine_state, stack)?;
                     Ok((key, leaf))
                 })
                 .collect::<Result<IndexMap<_, _>, ShellError>>()?,
             Tree::Branch(nested_groups) => {
                 let mut nested_groups = std::mem::take(nested_groups);
                 for v in nested_groups.values_mut() {
-                    v.subgroup(grouper, config, engine_state, stack)?;
+                    v.subgroup(grouper, prune, config, engine_state, stack)?;
                 }
                 nested_groups
             }
