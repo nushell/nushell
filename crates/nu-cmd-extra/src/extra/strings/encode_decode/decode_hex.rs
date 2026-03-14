@@ -1,4 +1,4 @@
-use super::hex::{ActionType, operate};
+use super::hex::{operate, ActionType};
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -70,7 +70,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        crate::test_examples(DecodeHex)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test_examples(DecodeHex)
     }
 }
