@@ -193,8 +193,9 @@ fn generate_sequence() {
 }
 
 #[rstest]
-// #[serial] # serial doesn't seem to work with rstest and timeout
 #[timeout(std::time::Duration::from_secs(6))]
+#[nu_test_support::test]
+#[serial]
 fn echo_interactivity_on_slow_pipelines() {
     // This test works by putting 0 on the upstream immediately, followed by 1 after 10 seconds.
     // If values aren't streamed to the plugin as they become available, `example echo` won't emit
