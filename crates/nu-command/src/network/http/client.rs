@@ -38,7 +38,7 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector},
+    unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector, TcpConnector},
 };
 use url::Url;
 
@@ -228,6 +228,12 @@ pub fn http_client(
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
+    // let connector =
+    //     ().chain(SocksConnector::default())
+    //         .chain(ConnectProxyConnector::default())
+    //         .chain(TcpConnector::default())
+    //         .chain(RustlsConnector::default());
+
     // Like the DefaultConnector, we chain a SocksConnector, then a ConnextProxyConnector, then
     // some tcp connector and finally some tls connector.
     let connector = ().chain(SocksConnector::default()).chain(ConnectProxyConnector::default());
@@ -239,6 +245,8 @@ pub fn http_client(
     let connector = connector.chain(RustlsConnector::default());
     #[cfg(feature = "native-tls")]
     let connector = connector.chain(NativeTlsConnector::default());
+
+    // let connector = ureq::unversioned::transport::DefaultConnector::default();
 
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
