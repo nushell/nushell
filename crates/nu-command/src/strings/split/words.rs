@@ -417,7 +417,7 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(SplitWords {})
+        nu_test_support::test_examples(SplitWords)
     }
     #[test]
     fn mixed_letter_number() {

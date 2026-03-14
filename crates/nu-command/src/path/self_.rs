@@ -128,6 +128,6 @@ mod tests {
     #[test]
     #[ignore = "`path self` fails at parse time already"]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(PathSelf {})
+        nu_test_support::test_examples(PathSelf)
     }
 }

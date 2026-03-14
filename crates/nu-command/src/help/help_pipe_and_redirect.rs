@@ -137,6 +137,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::HelpPipeAndRedirect;
-        nu_test_support::test_examples(HelpPipeAndRedirect {})
+        nu_test_support::test_examples(HelpPipeAndRedirect)
     }
 }

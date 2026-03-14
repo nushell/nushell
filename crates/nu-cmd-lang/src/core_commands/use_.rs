@@ -207,6 +207,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Use;
-        nu_test_support::test_examples(Use {})
+        nu_test_support::test_examples(Use)
     }
 }

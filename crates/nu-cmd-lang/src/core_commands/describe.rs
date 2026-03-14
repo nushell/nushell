@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    engine::{Closure, StateWorkingSet},
     BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
+    engine::{Closure, StateWorkingSet},
 };
 use std::any::type_name;
 #[derive(Clone)]
@@ -500,6 +500,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Describe;
-        nu_test_support::test_examples(Describe {})
+        nu_test_support::test_examples(Describe)
     }
 }

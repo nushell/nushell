@@ -314,6 +314,6 @@ mod test {
     #[env(LANG = "en_US.UTF-8")]
     #[env(LANGUAGE = "en")]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(IntoString {})
+        nu_test_support::test_examples(IntoString)
     }
 }

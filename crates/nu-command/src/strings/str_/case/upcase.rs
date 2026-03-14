@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(StrUpcase {})
+        nu_test_support::test_examples(StrUpcase)
     }
 
     #[test]

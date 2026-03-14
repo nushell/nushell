@@ -100,6 +100,6 @@ mod test {
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test_examples(MathArcTan {})
+        nu_test_support::test_examples(MathArcTan)
     }
 }

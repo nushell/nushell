@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{engine::StateWorkingSet, ByteStreamSource, OutDest};
+use nu_protocol::{ByteStreamSource, OutDest, engine::StateWorkingSet};
 
 #[derive(Clone)]
 pub struct Ignore;
@@ -72,6 +72,6 @@ mod test {
     #[test]
     fn test_examples() -> nu_test_support::Result {
         use super::Ignore;
-        nu_test_support::test_examples(Ignore {})
+        nu_test_support::test_examples(Ignore)
     }
 }
