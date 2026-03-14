@@ -223,6 +223,7 @@ mod test {
     use super::*;
 
     #[test]
+    #[ignore = "examples do not run every line separately in test"]
     fn test_examples() -> nu_test_support::Result {
         nu_test_support::test_examples(OverlayUse)
     }
