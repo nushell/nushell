@@ -1,6 +1,5 @@
 use mockito::Server;
 use nu_test_support::nu;
-use rstest::rstest;
 use std::{thread, time::Duration};
 
 #[test]
@@ -329,7 +328,7 @@ fn http_get_response_metadata() {
 }
 
 #[cfg(unix)]
-#[rstest]
+#[rstest::rstest]
 #[case::all_proxy("ALL_PROXY")]
 #[case::http_proxy("HTTP_PROXY")]
 #[case::https_proxy("HTTPS_PROXY")]
