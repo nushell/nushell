@@ -334,7 +334,7 @@ fn http_get_response_metadata() {
 #[case::https_proxy("HTTPS_PROXY")]
 #[timeout(std::time::Duration::from_secs(5))]
 fn http_get_with_socks5_proxy(#[case] proxy_env: &str) {
-    use nu_test_support::network::{Address, proxy::Socks5Proxy};
+    use nu_test_support::net::{Address, proxy::Socks5Proxy};
     use std::net::Ipv4Addr;
 
     let mut server = Server::new();
