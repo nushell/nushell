@@ -4697,7 +4697,6 @@ dependencies = [
  "num-format",
  "tempfile",
  "thiserror 2.0.18",
- "tokio",
  "which 8.0.2",
 ]
 

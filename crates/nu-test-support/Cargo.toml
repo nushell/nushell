@@ -45,7 +45,6 @@ nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["full"] } # TODO: reduce features here
 which = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
