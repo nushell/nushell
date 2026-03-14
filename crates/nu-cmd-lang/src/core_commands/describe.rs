@@ -498,6 +498,7 @@ fn metadata_to_value(metadata: Option<PipelineMetadata>, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     #[test]
+    #[ignore = "find a way to run examples without loading standard library"]
     fn test_examples() -> nu_test_support::Result {
         use super::Describe;
         nu_test_support::test_examples(Describe)
