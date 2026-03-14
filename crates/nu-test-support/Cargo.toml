@@ -46,3 +46,6 @@ num-format = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 which = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+gatekeeper = { workspace = true }

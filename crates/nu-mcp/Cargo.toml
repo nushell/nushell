@@ -23,7 +23,7 @@ hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
 schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
-tokio = { version = "1.49.0", features = ["full"] }
+tokio = { workspace = true, features = ["full"] }
 tokio-util = "0.7"
 tracing = { version = "0.1.44", features = ["log"] }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }

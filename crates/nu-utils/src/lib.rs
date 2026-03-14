@@ -10,6 +10,7 @@ pub mod flatten_json;
 pub mod float;
 pub mod locale;
 mod multilife;
+pub mod net;
 mod nu_cow;
 mod quoting;
 mod shared_cow;

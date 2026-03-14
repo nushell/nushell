@@ -38,7 +38,7 @@ use std::{
 use ureq::{
     Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
-    unversioned::transport::Connector,
+    unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector},
 };
 use url::Url;
 
@@ -149,13 +149,17 @@ pub fn http_client_pool(
     // are secure. Users must explicitly use `http pool --insecure` to disable.
     config_builder = config_builder.tls_config(tls_config(false)?);
 
+    // Like the DefaultConnector, we chain a SocksConnector, then a ConnextProxyConnector, then
+    // some tcp connector and finally some tls connector.
+    let connector = ().chain(SocksConnector::default()).chain(ConnectProxyConnector::default());
+
     let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
-    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+    let connector = connector.chain(InterruptibleTcpConnector::new(on_connect));
 
     #[cfg(feature = "rustls-tls")]
-    let connector = tcp_connector.chain(RustlsConnector::default());
+    let connector = connector.chain(RustlsConnector::default());
     #[cfg(feature = "native-tls")]
-    let connector = tcp_connector.chain(NativeTlsConnector::default());
+    let connector = connector.chain(NativeTlsConnector::default());
 
     let resolver = DnsLookupResolver;
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
@@ -224,13 +228,17 @@ pub fn http_client(
         return Ok(ureq::Agent::with_parts(config, connector, resolver));
     }
 
+    // Like the DefaultConnector, we chain a SocksConnector, then a ConnextProxyConnector, then
+    // some tcp connector and finally some tls connector.
+    let connector = ().chain(SocksConnector::default()).chain(ConnectProxyConnector::default());
+
     let on_connect = engine_state.signal_handlers.as_ref().map(make_on_connect);
-    let tcp_connector = InterruptibleTcpConnector::new(on_connect);
+    let connector = connector.chain(InterruptibleTcpConnector::new(on_connect));
 
     #[cfg(feature = "rustls-tls")]
-    let connector = tcp_connector.chain(RustlsConnector::default());
+    let connector = connector.chain(RustlsConnector::default());
     #[cfg(feature = "native-tls")]
-    let connector = tcp_connector.chain(NativeTlsConnector::default());
+    let connector = connector.chain(NativeTlsConnector::default());
 
     let resolver = DnsLookupResolver;
     Ok(ureq::Agent::with_parts(config, connector, resolver))
