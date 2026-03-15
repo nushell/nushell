@@ -299,29 +299,41 @@ fn panic_error() -> ShellError {
 /// it is embedded in the resulting iterator as an `Err` as soon as possible. When the iterator
 /// finishes, it waits for the other thread to finish, also handling any error produced at that
 /// point.
-fn tee<T>(
-    input: impl Iterator<Item = T>,
+fn tee<T, I: Iterator<Item = T>>(
+    input: I,
     with_cloned_stream: impl FnOnce(mpsc::Receiver<T>) -> Result<(), ShellError> + Send + 'static,
-) -> Result<impl Iterator<Item = Result<T, ShellError>>, std::io::Error>
+) -> Result<TeeIterator<T, I>, std::io::Error>
 where
     T: Clone + Send + 'static,
 {
     // For sending the values to the other thread
     let (tx, rx) = mpsc::channel();
 
-    let mut thread = Some(
-        thread::Builder::new()
-            .name("tee".into())
-            .spawn(move || with_cloned_stream(rx))?,
-    );
+    Ok(TeeIterator {
+        thread: Some(
+            thread::Builder::new()
+                .name("tee".into())
+                .spawn(move || with_cloned_stream(rx))?,
+        ),
+        iter: input.into_iter(),
+        tx: Some(tx),
+    })
+}
 
-    let mut iter = input.into_iter();
-    let mut tx = Some(tx);
+struct TeeIterator<T, I: Iterator<Item = T>> {
+    thread: Option<JoinHandle<Result<(), ShellError>>>,
+    iter: I,
+    tx: Option<Sender<T>>,
+}
 
-    Ok(std::iter::from_fn(move || {
-        if thread.as_ref().is_some_and(|t| t.is_finished()) {
+impl<T: Clone + Send + 'static, I: Iterator<Item = T>> Iterator for TeeIterator<T, I> {
+    type Item = Result<T, ShellError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.thread.as_ref().is_some_and(|t| t.is_finished()) {
             // Check for an error from the other thread
-            let result = thread
+            let result = self
+                .thread
                 .take()
                 .expect("thread was taken early")
                 .join()
@@ -333,22 +345,38 @@ where
         }
 
         // Get a value from the iterator
-        if let Some(value) = iter.next() {
+        if let Some(value) = self.iter.next() {
             // Send a copy, ignoring any error if the channel is closed
-            let _ = tx.as_ref().map(|tx| tx.send(value.clone()));
+            let _ = self.tx.as_ref().map(|tx| tx.send(value.clone()));
             Some(Ok(value))
         } else {
             // Close the channel so the stream ends for the other thread
-            drop(tx.take());
+            drop(self.tx.take());
             // Wait for the other thread, and embed any error produced
-            thread.take().and_then(|t| {
+            self.thread.take().and_then(|t| {
                 t.join()
                     .unwrap_or_else(|_| Err(panic_error()))
                     .err()
                     .map(Err)
             })
         }
-    }))
+    }
+}
+
+impl<T, I: Iterator<Item = T>> Drop for TeeIterator<T, I> {
+    fn drop(&mut self) {
+        // in case the iterator is dropped without consuming all the input,
+        // and the channel is still alive we need to force consume all the input
+        // otherwise the data will be truncated
+        if let Some(tx) = &mut self.tx {
+            for value in &mut self.iter {
+                // Send the input, if the channel is closed, just stop
+                if tx.send(value).is_err() {
+                    break;
+                }
+            }
+        }
+    }
 }
 
 /// "tee" for a single value. No stream handling, just spawns a thread, printing any resulting error
@@ -573,4 +601,59 @@ fn tee_waits_for_the_other_thread() {
         last.is_some_and(|res| res.is_err()),
         "failed to return error from wait"
     );
+}
+
+// avoid regression for bug https://github.com/nushell/nushell/issues/17792
+#[test]
+fn tee_output_is_ignored_but_other_thread_get_values() {
+    let (tx, rx) = mpsc::channel();
+
+    let input = 0u32..100u32;
+    let expected_values: Vec<_> = input.clone().collect();
+
+    let my_result = tee(input, move |rx| {
+        for val in rx {
+            let _ = tx.send(val);
+        }
+        Ok(())
+    })
+    .expect("io error")
+    // don't take all values, just the first 2
+    .take(2)
+    .collect::<Result<Vec<_>, ShellError>>()
+    .expect("should not produce error");
+
+    // tee was only able to output 2 entries, the others where ignored by us
+    assert_eq!(expected_values[0..my_result.len()], my_result);
+
+    let other_threads_result = rx.into_iter().collect::<Vec<_>>();
+
+    // although tee only was able to output 2 values, the inner closure should
+    // receive all the values from the input
+    assert_eq!(expected_values, other_threads_result);
+}
+
+#[test]
+fn tee_other_thread_ignore_values_but_output_all_others() {
+    let (tx, rx) = mpsc::channel();
+
+    let input = 0u32..100u32;
+    let expected_values: Vec<_> = input.clone().collect();
+
+    let my_result = tee(input, move |rx| {
+        for val in rx {
+            let _ = tx.send(val);
+        }
+        Ok(())
+    })
+    .expect("io error")
+    .collect::<Result<Vec<_>, ShellError>>()
+    .expect("should not produce error");
+
+    // tee is expect to output all values
+    assert_eq!(expected_values, my_result);
+
+    // the other thread will consume only two values
+    let other_threads_result = rx.into_iter().take(2).collect::<Vec<_>>();
+    assert_eq!(expected_values[0..2], other_threads_result);
 }
