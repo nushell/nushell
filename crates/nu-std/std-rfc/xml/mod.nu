@@ -15,12 +15,19 @@ def descendant-or-self []: list<record<content: list<record>>> -> list<record>  
     | flatten
 }
 
+def make-list []: any -> list {
+	match $in {
+		[..$xs] => $xs
+		$x => [$x]
+	}
+}
+
 def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> -> closure {
     let steps = each {|e|
         if ($e | describe) == "cell-path" {
             $e | split cell-path | get value
         } else {
-            $e | prepend null  # make sure it's a list so `flatten` behaves in a predictable manner
+            $e | make-list  # make sure it's a list so `flatten` behaves in a predictable manner
         }
     }
     | flatten
@@ -62,6 +69,12 @@ def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> 
 }
 
 export def xaccess [...rest: oneof<cell-path, closure, list>] {
-    [{content: ($in | prepend null)}]
-    | do ($rest | pipeline (metadata $rest))
+    let doc = $in | make-list
+    let filter = $rest | pipeline (metadata $rest)
+
+    [
+        [tag, attributes, content];
+        [null, null, $doc]
+    ]
+    | do $filter
 }
