@@ -6751,8 +6751,98 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
+/// Checks whether a pipeline that starts with `return` and has more than one command should be
+/// re-parsed as a single `return` call whose argument is the rest of the pipeline wrapped in a
+/// subexpression.
+///
+/// For example, `return $x | str upcase` is re-interpreted as `return ($x | str upcase)`. This
+/// mirrors how `return` in Nushell should capture the full pipeline value, not just the first
+/// segment.
+fn parse_return_pipeline(
+    working_set: &mut StateWorkingSet,
+    pipeline: &LitePipeline,
+) -> Option<Pipeline> {
+    let first_command = pipeline.commands.first()?;
+
+    // Need at least two parts (the `return` keyword and its argument) and no redirection on the
+    // first command (e.g. `return foo o> file` is handled by the normal pipeline path).
+    if first_command.command_parts().len() < 2 || first_command.redirection.is_some() {
+        return None;
+    }
+
+    let first_element = parse_pipeline_element(working_set, first_command);
+    let Expression {
+        expr: Expr::Call(mut call),
+        ty,
+        ..
+    } = first_element.expr
+    else {
+        return None;
+    };
+
+    if working_set.get_decl(call.decl_id).name() != "return" {
+        return None;
+    }
+
+    // Collect spans for everything after the `return` keyword: the argument tokens on the first command (skipping the `return`
+    // keyword itself) followed by all subsequent pipeline commands (including their pipe connectors, inline comments, and any redirection spans).
+    let tail_span = first_command
+        .command_parts()
+        .iter()
+        .copied()
+        .skip(1)
+        .chain(pipeline.commands.iter().skip(1).flat_map(|command| {
+            command
+                .comments
+                .iter()
+                .copied()
+                .chain(command.pipe)
+                .chain(command.parts_including_redirection())
+        }))
+        .reduce(Span::merge)?;
+
+    let (tail_tokens, tail_error) = lex(
+        working_set.get_span_contents(tail_span),
+        tail_span.start,
+        &[],
+        &[],
+        false,
+    );
+    working_set.parse_errors.extend(tail_error);
+
+    trace!("parsing: return pipeline subexpression");
+    let tail_block = parse_block(working_set, &tail_tokens, tail_span, false, true);
+    let tail_ty = tail_block.output_type();
+    let tail_block_id = working_set.add_block(Arc::new(tail_block));
+    let tail_expr = Expression::new(
+        working_set,
+        Expr::Subexpression(tail_block_id),
+        tail_span,
+        tail_ty,
+    );
+
+    call.arguments = vec![Argument::Positional(tail_expr)];
+
+    let return_span = Span {
+        start: first_command.command_parts().first()?.start,
+        end: tail_span.end,
+    };
+
+    Some(Pipeline {
+        elements: vec![PipelineElement {
+            pipe: first_command.pipe,
+            expr: Expression::new(working_set, Expr::Call(call), return_span, ty),
+            redirection: None,
+        }],
+    })
+}
+
 pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
     if pipeline.commands.len() > 1 {
+        if let Some(return_pipeline) = parse_return_pipeline(working_set, pipeline) {
+            return return_pipeline;
+        }
+
         // Parse a normal multi command pipeline
         let elements: Vec<_> = pipeline
             .commands

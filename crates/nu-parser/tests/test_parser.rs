@@ -2203,7 +2203,8 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        engine::{Call, CommandType},
     };
 
     #[derive(Clone)]
@@ -2271,6 +2272,44 @@ mod mock {
                     SyntaxShape::Keyword(b"=".to_vec(), Box::new(SyntaxShape::MathExpression)),
                     "Equals sign followed by value.",
                 )
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct Return;
+
+    impl Command for Return {
+        fn name(&self) -> &str {
+            "return"
+        }
+
+        fn description(&self) -> &str {
+            "Mock return command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("return")
+                .input_output_types(vec![(Type::Nothing, Type::Any)])
+                .optional(
+                    "return_value",
+                    SyntaxShape::Any,
+                    "Optional value to return.",
+                )
+                .category(Category::Core)
+        }
+
+        fn command_type(&self) -> CommandType {
+            CommandType::Keyword
         }
 
         fn run(
@@ -3237,4 +3276,62 @@ fn parse_let_in_pipeline() {
         pipeline.elements[1].expr.expr,
         Expr::ExternalCall(_, _)
     ));
+}
+
+#[test]
+fn parse_return_pipeline_as_subexpression() {
+    // Register only the commands needed for this scenario so the parser resolves
+    // `return` and `ls` as internal commands instead of treating them as externals.
+    let mut engine_state = EngineState::new();
+    let delta = {
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(mock::Return));
+        working_set.add_decl(Box::new(mock::LsTest));
+        working_set.render()
+    };
+    engine_state
+        .merge_delta(delta)
+        .expect("Error merging delta");
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"return ls | first", true);
+
+    // The input is expected to be valid. Any parse error here would mean the test
+    // cannot make reliable assertions about the produced AST shape.
+    assert!(
+        working_set.parse_errors.is_empty(),
+        "Parse errors: {:?}",
+        working_set.parse_errors
+    );
+
+    // `return ...` should produce one top-level pipeline with a single element: the `return` call itself.
+    assert_eq!(block.pipelines.len(), 1);
+    let pipeline = &block.pipelines[0];
+    assert_eq!(pipeline.elements.len(), 1);
+
+    // The only top-level expression should be a command call, and specifically the `return` declaration we registered above.
+    let return_expr = &pipeline.elements[0].expr.expr;
+    let Expr::Call(call) = return_expr else {
+        panic!("Expected return call, found {return_expr:?}");
+    };
+    assert_eq!(working_set.get_decl(call.decl_id).name(), "return");
+
+    // `return` should receive exactly one argument: the expression `ls | first`.
+    assert_eq!(call.arguments.len(), 1);
+
+    // That argument must be positional and represented as a subexpression block. This is the key behavior being tested:
+    // the parser should group the pipeline as a single argument to `return` rather than parsing it as a top-level pipe.
+    let arg = call.arguments[0]
+        .expr()
+        .expect("return argument should be positional");
+    let arg_expr = &arg.expr;
+    let Expr::Subexpression(block_id) = arg_expr else {
+        panic!("Expected subexpression argument, found {arg_expr:?}");
+    };
+
+    // Validate the nested subexpression structure: one pipeline containing two elements (`ls` piped to `first`). This
+    // confirms the right-hand pipeline was captured inside `return`'s argument.
+    let subexpression = working_set.get_block(*block_id);
+    assert_eq!(subexpression.pipelines.len(), 1);
+    assert_eq!(subexpression.pipelines[0].elements.len(), 2);
 }
