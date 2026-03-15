@@ -49,7 +49,9 @@ where
             .category(Category::Hash)
             .input_output_types(vec![
                 (Type::String, Type::String),
+                (Type::String, Type::Binary),
                 (Type::Binary, Type::String),
+                (Type::Binary, Type::Binary),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
