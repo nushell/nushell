@@ -1,19 +1,17 @@
-use crate::completions::{Completer, CompletionOptions, MatchAlgorithm, SemanticSuggestion};
+use crate::completions::{Completer, SemanticSuggestion, matcher_helper::suggestion_results};
 use nu_color_config::{color_record_to_nustyle, lookup_ansi_color_style};
 use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
 use nu_protocol::{
-    BlockId, DeclId, GetSpan, IntoSpanned, PipelineData, Record, ShellError, Span, Spanned,
-    SuggestionKind, Type, Value, VarId,
+    BlockId, CompletionAlgorithm, CompletionOptions, DeclId, GetSpan, IntoSpanned, NuMatcher,
+    PipelineData, Record, ShellError, Span, Spanned, SuggestionKind, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
 };
 use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
-use std::{collections::HashMap, sync::Arc};
-
-use super::completion_options::NuMatcher;
+use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 fn map_value_completions<'a>(
     list: impl Iterator<Item = &'a Value>,
@@ -238,14 +236,14 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                         }
                         if let Some(algorithm) = options
                             .get("completion_algorithm")
-                            .and_then(|option| option.coerce_string().ok())
-                            .and_then(|option| option.try_into().ok())
+                            .and_then(|option| option.coerce_str().ok())
+                            .and_then(|option| CompletionAlgorithm::from_str(&option).ok())
                         {
                             completion_options.match_algorithm = algorithm;
                             if let Some(false) = positional
-                                && completion_options.match_algorithm == MatchAlgorithm::Prefix
+                                && completion_options.match_algorithm == CompletionAlgorithm::Prefix
                             {
-                                completion_options.match_algorithm = MatchAlgorithm::Substring
+                                completion_options.match_algorithm = CompletionAlgorithm::Substring
                             }
                         }
                     }
@@ -294,7 +292,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                 sugg,
             );
         }
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }
 

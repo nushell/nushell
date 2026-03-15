@@ -1,6 +1,9 @@
 use crate::{DeclId, Span, Type, ast, engine::CommandType};
 use serde::{Deserialize, Serialize};
 
+mod matcher;
+pub use matcher::NuMatcher;
+
 /// A simple semantics suggestion just like nu_cli::SemanticSuggestion, but it
 /// derives `Serialize` and `Deserialize`, so plugins are allowed to use it
 /// to provide dynamic completion items.

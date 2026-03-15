@@ -1,11 +1,12 @@
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
-
-use super::completion_options::NuMatcher;
 
 pub struct EnvVarCompletion;
 
@@ -26,17 +27,20 @@ impl Completer for EnvVarCompletion {
         };
 
         for name in stack.get_env_var_names(working_set.permanent_state) {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: name,
-                    span: current_span,
-                    description: None,
-                    ..Suggestion::default()
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: name,
+                        span: current_span,
+                        description: None,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Value(nu_protocol::Type::String)),
                 },
-                kind: Some(SuggestionKind::Value(nu_protocol::Type::String)),
-            });
+            );
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

@@ -1,16 +1,17 @@
 use std::borrow::Cow;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_engine::{column::get_columns, eval_variable};
 use nu_protocol::{
-    ShellError, Span, SuggestionKind, Type, Value,
+    CompletionOptions, NuMatcher, ShellError, Span, SuggestionKind, Type, Value,
     ast::{Expr, Expression, FullCellPath, PathMember},
     engine::{Stack, StateWorkingSet},
     eval_const::eval_constant,
 };
 use reedline::Suggestion;
-
-use super::completion_options::NuMatcher;
 
 pub struct CellPathCompletion<'a> {
     pub full_cell_path: &'a FullCellPath,
@@ -70,15 +71,15 @@ impl Completer for CellPathCompletion<'_> {
 
         if let Ok(value) = value {
             for suggestion in get_suggestions_by_value(&value, current_span) {
-                matcher.add_semantic_suggestion(suggestion);
+                add_semantic_suggestion(&mut matcher, suggestion);
             }
         } else if let Some(ty) = self.full_cell_path.head.ty.follow_cell_path(path_members) {
             for suggestion in get_suggestions_by_type(&ty, current_span) {
-                matcher.add_semantic_suggestion(suggestion);
+                add_semantic_suggestion(&mut matcher, suggestion);
             }
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }
 

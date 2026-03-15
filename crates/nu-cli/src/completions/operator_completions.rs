@@ -1,8 +1,9 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
 };
 use nu_protocol::{
-    ENV_VARIABLE_ID, Span, SuggestionKind, Type, Value,
+    CompletionOptions, ENV_VARIABLE_ID, NuMatcher, Span, SuggestionKind, Type, Value,
     ast::{self, Comparison, Expr, Expression},
     engine::{Stack, StateWorkingSet},
 };
@@ -263,17 +264,20 @@ impl Completer for OperatorCompletion<'_> {
             description,
         } in possible_operations
         {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: symbols.to_owned(),
-                    description: Some(description.to_owned()),
-                    span: reedline::Span::new(span.start - offset, span.end - offset),
-                    append_whitespace: true,
-                    ..Suggestion::default()
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: symbols.to_owned(),
+                        description: Some(description.to_owned()),
+                        span: reedline::Span::new(span.start - offset, span.end - offset),
+                        append_whitespace: true,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Operator),
                 },
-                kind: Some(SuggestionKind::Operator),
-            });
+            );
         }
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

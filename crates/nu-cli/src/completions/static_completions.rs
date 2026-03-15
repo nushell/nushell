@@ -1,12 +1,13 @@
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use nu_utils::NuCow;
 use reedline::Suggestion;
-
-use super::completion_options::NuMatcher;
 
 pub struct StaticCompletion {
     options: NuCow<&'static [&'static str], Vec<String>>,
@@ -35,15 +36,18 @@ impl Completer for StaticCompletion {
         };
 
         let mut add_suggestion = |option: &str| {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: option.to_owned(),
-                    span: current_span,
-                    description: None,
-                    ..Suggestion::default()
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: option.to_owned(),
+                        span: current_span,
+                        description: None,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Value(nu_protocol::Type::String)),
                 },
-                kind: Some(SuggestionKind::Value(nu_protocol::Type::String)),
-            });
+            );
         };
 
         match self.options {
@@ -59,6 +63,6 @@ impl Completer for StaticCompletion {
             }
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

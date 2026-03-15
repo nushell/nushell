@@ -1,11 +1,11 @@
 use crate::completions::{
     ArgValueCompletion, AttributableCompletion, AttributeCompletion, CellPathCompletion,
-    CommandCompletion, Completer, CompletionOptions, CustomCompletion, FileCompletion,
-    FlagCompletion, OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
+    CommandCompletion, Completer, CustomCompletion, FileCompletion, FlagCompletion,
+    OperatorCompletion, VariableCompletion, base::SemanticSuggestion,
 };
 use nu_parser::parse;
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Signature, Span,
+    CommandWideCompleter, Completion, CompletionOptions, GetSpan, Signature, Span,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
         Traverse,
@@ -741,7 +741,7 @@ impl NuCompleter {
 
         let options = CompletionOptions {
             case_sensitive: config.completions.case_sensitive,
-            match_algorithm: config.completions.algorithm.into(),
+            match_algorithm: config.completions.algorithm,
             sort: config.completions.sort,
         };
 

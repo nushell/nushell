@@ -1,8 +1,9 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_options::NuMatcher,
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
 };
 use nu_protocol::{
-    DeclId, Span, SuggestionKind,
+    CompletionOptions, DeclId, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -24,19 +25,22 @@ impl Completer for FlagCompletion {
     ) -> Vec<SemanticSuggestion> {
         let mut matcher = NuMatcher::new(prefix, options, true);
         let mut add_suggestion = |value: String, description: String| {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value,
-                    description: Some(description),
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value,
+                        description: Some(description),
+                        span: reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        append_whitespace: true,
+                        ..Suggestion::default()
                     },
-                    append_whitespace: true,
-                    ..Suggestion::default()
+                    kind: Some(SuggestionKind::Flag),
                 },
-                kind: Some(SuggestionKind::Flag),
-            });
+            );
         };
 
         let decl = working_set.get_decl(self.decl_id);
@@ -53,6 +57,6 @@ impl Completer for FlagCompletion {
             }
             add_suggestion(format!("--{}", named.long), named.desc.clone());
         }
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

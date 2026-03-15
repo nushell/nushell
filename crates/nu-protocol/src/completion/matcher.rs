@@ -1,35 +1,11 @@
-use nu_protocol::{CompletionAlgorithm, CompletionSort};
+use crate::{CompletionAlgorithm, CompletionOptions, CompletionSort};
 use nu_utils::IgnoreCaseExt;
 use nucleo_matcher::{
     Config, Matcher, Utf32Str,
     pattern::{Atom, AtomKind, CaseMatching, Normalization},
 };
-use std::{borrow::Cow, fmt::Display};
+use std::borrow::Cow;
 use unicode_segmentation::UnicodeSegmentation;
-
-use super::SemanticSuggestion;
-
-/// Describes how suggestions should be matched.
-#[derive(Copy, Clone, Debug, PartialEq)]
-pub enum MatchAlgorithm {
-    /// Only show suggestions which begin with the given input
-    ///
-    /// Example:
-    /// "git switch" is matched by "git sw"
-    Prefix,
-
-    /// Only show suggestions which have a substring matching with the given input
-    ///
-    /// Example:
-    /// "git checkout" is matched by "checkout"
-    Substring,
-
-    /// Only show suggestions which contain the input chars at any place
-    ///
-    /// Example:
-    /// "git checkout" is matched by "gco"
-    Fuzzy,
-}
 
 pub struct NuMatcher<'a, T> {
     options: &'a CompletionOptions,
@@ -77,7 +53,7 @@ impl<T> NuMatcher<'_, T> {
         // https://github.com/nushell/nushell/issues/16860#issuecomment-3402016955
         let needle = needle.as_ref().trim_matches(QUOTES);
         match options.match_algorithm {
-            MatchAlgorithm::Prefix | MatchAlgorithm::Substring => {
+            CompletionAlgorithm::Prefix | CompletionAlgorithm::Substring => {
                 let lowercase_needle = if options.case_sensitive {
                     needle.to_owned()
                 } else {
@@ -90,7 +66,7 @@ impl<T> NuMatcher<'_, T> {
                     state: State::Unscored(Vec::new()),
                 }
             }
-            MatchAlgorithm::Fuzzy => {
+            CompletionAlgorithm::Fuzzy => {
                 let atom = Atom::new(
                     needle,
                     if options.case_sensitive {
@@ -136,14 +112,14 @@ impl<T> NuMatcher<'_, T> {
                     Cow::Owned(haystack.to_folded_case())
                 };
                 let match_start = match self.options.match_algorithm {
-                    MatchAlgorithm::Prefix => {
+                    CompletionAlgorithm::Prefix => {
                         if haystack_folded.starts_with(self.needle.as_str()) {
                             Some(0)
                         } else {
                             None
                         }
                     }
-                    MatchAlgorithm::Substring => haystack_folded.find(self.needle.as_str()),
+                    CompletionAlgorithm::Substring => haystack_folded.find(self.needle.as_str()),
                     _ => unreachable!("Only prefix and substring algorithms don't use score"),
                 };
                 match_start.map(|byte_start| {
@@ -248,99 +224,25 @@ impl<T> NuMatcher<'_, T> {
     }
 }
 
-impl NuMatcher<'_, SemanticSuggestion> {
-    pub fn add_semantic_suggestion(&mut self, sugg: SemanticSuggestion) -> bool {
-        let value = sugg.suggestion.display_value().to_string();
-        self.add(value, sugg)
-    }
-
-    /// Get all the items that matched (sorted)
-    pub fn suggestion_results(self) -> Vec<SemanticSuggestion> {
-        self.results()
-            .into_iter()
-            .map(|(mut sugg, indices)| {
-                sugg.suggestion.match_indices = Some(indices);
-                sugg
-            })
-            .collect()
-    }
-}
-
-impl From<CompletionAlgorithm> for MatchAlgorithm {
-    fn from(value: CompletionAlgorithm) -> Self {
-        match value {
-            CompletionAlgorithm::Prefix => MatchAlgorithm::Prefix,
-            CompletionAlgorithm::Substring => MatchAlgorithm::Substring,
-            CompletionAlgorithm::Fuzzy => MatchAlgorithm::Fuzzy,
-        }
-    }
-}
-
-impl TryFrom<String> for MatchAlgorithm {
-    type Error = InvalidMatchAlgorithm;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "prefix" => Ok(Self::Prefix),
-            "substring" => Ok(Self::Substring),
-            "fuzzy" => Ok(Self::Fuzzy),
-            _ => Err(InvalidMatchAlgorithm::Unknown),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum InvalidMatchAlgorithm {
-    Unknown,
-}
-
-impl Display for InvalidMatchAlgorithm {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            InvalidMatchAlgorithm::Unknown => write!(f, "unknown match algorithm"),
-        }
-    }
-}
-
-impl std::error::Error for InvalidMatchAlgorithm {}
-
-#[derive(Clone)]
-pub struct CompletionOptions {
-    pub case_sensitive: bool,
-    pub match_algorithm: MatchAlgorithm,
-    pub sort: CompletionSort,
-}
-
-impl Default for CompletionOptions {
-    fn default() -> Self {
-        Self {
-            case_sensitive: true,
-            match_algorithm: MatchAlgorithm::Prefix,
-            sort: Default::default(),
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
+    use super::{CompletionAlgorithm, CompletionOptions, NuMatcher};
     use rstest::rstest;
 
-    use super::{CompletionOptions, MatchAlgorithm, NuMatcher};
-
     #[rstest]
-    #[case(MatchAlgorithm::Prefix, "example text", "", true)]
-    #[case(MatchAlgorithm::Prefix, "example text", "examp", true)]
-    #[case(MatchAlgorithm::Prefix, "example text", "text", false)]
-    #[case(MatchAlgorithm::Substring, "example text", "", true)]
-    #[case(MatchAlgorithm::Substring, "example text", "text", true)]
-    #[case(MatchAlgorithm::Substring, "example text", "mplxt", false)]
-    #[case(MatchAlgorithm::Fuzzy, "example text", "", true)]
-    #[case(MatchAlgorithm::Fuzzy, "example text", "examp", true)]
-    #[case(MatchAlgorithm::Fuzzy, "example text", "ext", true)]
-    #[case(MatchAlgorithm::Fuzzy, "example text", "mplxt", true)]
-    #[case(MatchAlgorithm::Fuzzy, "example text", "mpp", false)]
+    #[case(CompletionAlgorithm::Prefix, "example text", "", true)]
+    #[case(CompletionAlgorithm::Prefix, "example text", "examp", true)]
+    #[case(CompletionAlgorithm::Prefix, "example text", "text", false)]
+    #[case(CompletionAlgorithm::Substring, "example text", "", true)]
+    #[case(CompletionAlgorithm::Substring, "example text", "text", true)]
+    #[case(CompletionAlgorithm::Substring, "example text", "mplxt", false)]
+    #[case(CompletionAlgorithm::Fuzzy, "example text", "", true)]
+    #[case(CompletionAlgorithm::Fuzzy, "example text", "examp", true)]
+    #[case(CompletionAlgorithm::Fuzzy, "example text", "ext", true)]
+    #[case(CompletionAlgorithm::Fuzzy, "example text", "mplxt", true)]
+    #[case(CompletionAlgorithm::Fuzzy, "example text", "mpp", false)]
     fn match_algorithm_simple(
-        #[case] match_algorithm: MatchAlgorithm,
+        #[case] match_algorithm: CompletionAlgorithm,
         #[case] haystack: &str,
         #[case] needle: &str,
         #[case] should_match: bool,
@@ -362,7 +264,7 @@ mod test {
     #[test]
     fn match_algorithm_fuzzy_sort_score() {
         let options = CompletionOptions {
-            match_algorithm: MatchAlgorithm::Fuzzy,
+            match_algorithm: CompletionAlgorithm::Fuzzy,
             ..Default::default()
         };
         let mut matcher = NuMatcher::new("fob", &options, true);
@@ -383,7 +285,7 @@ mod test {
     #[test]
     fn match_algorithm_fuzzy_sort_strip() {
         let options = CompletionOptions {
-            match_algorithm: MatchAlgorithm::Fuzzy,
+            match_algorithm: CompletionAlgorithm::Fuzzy,
             ..Default::default()
         };
         let mut matcher = NuMatcher::new("'love spaces' ", &options, true);

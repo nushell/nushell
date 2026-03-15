@@ -1,14 +1,15 @@
 use crate::{
     FileCompletion, NuCompleter,
     completions::{
-        CommandCompletion, Completer, CompletionOptions, DirectoryCompletion, DotNuCompletion,
-        EnvVarCompletion, ExportableCompletion, SemanticSuggestion, completer::Context,
-        completion_options::NuMatcher,
+        CommandCompletion, Completer, DirectoryCompletion, DotNuCompletion, EnvVarCompletion,
+        ExportableCompletion, SemanticSuggestion,
+        completer::Context,
+        matcher_helper::{add_semantic_suggestion, suggestion_results},
     },
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    DynamicCompletionCallRef, Span,
+    CompletionOptions, DynamicCompletionCallRef, NuMatcher, Span,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, Stack, StateWorkingSet},
 };
@@ -63,9 +64,9 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                         },
                         None,
                     );
-                    matcher.add_semantic_suggestion(suggestion);
+                    add_semantic_suggestion(&mut matcher, suggestion);
                 }
-                return matcher.suggestion_results();
+                return suggestion_results(matcher);
             }
             Err(e) => {
                 log::error!(
