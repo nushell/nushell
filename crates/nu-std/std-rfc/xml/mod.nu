@@ -45,9 +45,9 @@ def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> 
 
     if ($steps | is-empty) {
         error make {
-            msg: 'Empty path provided'
+            msg: 'Missing query'
             label: {
-                text: 'Use a non-empty list of path steps'
+                text: 'Requires a query'
                 span: $meta.span
             }
         }
@@ -68,9 +68,10 @@ def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> 
             $type => {
                 let step_span = (metadata $step).span
                 error make {
-                    msg: $'Incorrect path step type ($type)'
+                    code: "nu::shell::type_mismatch"
+                    msg: 'Incorrect query component type'
                     label: {
-                        text: 'Use a string or int as a step'
+                        text: $'expected string, int or closure; got ($type)'
                         span: $step_span
                     }
                 }
