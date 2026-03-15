@@ -98,3 +98,21 @@ fn count_with_normalize_percentage() {
 
     assert_eq!(actual.out, bit_json);
 }
+
+#[test]
+fn column_name_conflicting_with_reserved_maps_to_value() {
+    let actual = nu!(r#"
+        1..100
+        | each { {count: ($in mod 11) } }
+        | histogram count
+        | columns
+        | sort
+        | to json
+    "#);
+
+    // "count" is a reserved column name, so the value column should fall back to "value"
+    assert_eq!(
+        actual.out,
+        r#"[  "count",  "frequency",  "percentage",  "quantile",  "value"]"#
+    );
+}

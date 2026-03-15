@@ -221,9 +221,18 @@ fn run_histogram(
         }
     }
 
+    let forbidden_colun_names = ["count", "quantile", "percentage", freq_column.as_str()];
     let value_column_name = column_name
         .map(|x| x.item)
+        .map(|name| {
+            if forbidden_colun_names.contains(&name.as_str()) {
+                "value".to_string()
+            } else {
+                name
+            }
+        })
         .unwrap_or_else(|| "value".to_string());
+
     Ok(histogram_impl(
         inputs,
         &value_column_name,
