@@ -2,6 +2,7 @@ use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rusqlite::params_from_iter;
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct StorUpdate;
@@ -186,7 +187,8 @@ fn process(
         // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
         // and other sql syntax. So, for now, just type a sql where clause as a string.
         if let Some(where_clause) = where_clause_opt {
-            update_stmt.push_str(&format!(" WHERE {}", where_clause.item));
+            write!(update_stmt, " WHERE {}", where_clause.item)
+                .expect("writing to a String is infallibe");
         }
         // dbg!(&update_stmt);
 

@@ -12,6 +12,7 @@ use rusqlite::{
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
+    fmt::Write,
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -930,15 +931,15 @@ impl SQLiteQueryBuilder {
         let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
 
         if let Some(where_clause) = &self.sql_where {
-            sql.push_str(&format!(" WHERE {}", where_clause));
+            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallibe");
         }
 
         if let Some(order_by) = &self.sql_order_by {
-            sql.push_str(&format!(" ORDER BY {}", order_by));
+            write!(sql, " ORDER BY {}", order_by).expect("writing to a String is infallibe");
         }
 
         if let Some(limit) = self.sql_limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
+            write!(sql, " LIMIT {}", limit).expect("writing to a String is infallibe");
         }
 
         sql
@@ -967,7 +968,7 @@ impl SQLiteQueryBuilder {
         let conn = open_sqlite_db(&self.db_path, call_span)?;
         let mut sql = format!("SELECT COUNT(*) FROM [{}]", self.table_name);
         if let Some(where_clause) = &self.sql_where {
-            sql.push_str(&format!(" WHERE {}", where_clause));
+            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallibe");
         }
         let mut stmt = conn.prepare(&sql).map_err(|e| ShellError::GenericError {
             error: "Failed to prepare count query".into(),

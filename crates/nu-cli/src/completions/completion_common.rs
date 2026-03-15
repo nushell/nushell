@@ -10,6 +10,7 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 use nu_utils::get_ls_colors;
+use std::fmt::Write;
 use std::path::{Component, MAIN_SEPARATOR as SEP, Path, PathBuf, is_separator};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -221,7 +222,7 @@ pub fn complete_item(
 
     // Handle the trailing dot case
     if cleaned_partial.ends_with(&format!("{path_separator}.")) {
-        partial.push_str(&format!("{path_separator}."));
+        write!(partial, "{path_separator}.").expect("writing to a String is infallibe");
     }
 
     let cwd_pathbufs: Vec<_> = cwds

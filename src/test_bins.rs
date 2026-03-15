@@ -10,7 +10,8 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use std::{
     collections::HashMap,
-    io::{self, BufRead, Read, Write},
+    fmt::Write,
+    io::{self, BufRead, Read, Write as IoWrite},
     sync::Arc,
 };
 
@@ -515,9 +516,11 @@ pub fn help_list() -> String {
         let help = test_bin.help();
         // use bright cyan for the subcommand and dark gray for the description,
         // matching the styling used elsewhere in the CLI help output.
-        out.push_str(&format!(
-            "      {HELP_SUBCMD_COLOR}{name}{RESET_COLOR} -> {HELP_DESC_COLOR}{help}{RESET_COLOR}\n",
-        ));
+        writeln!(
+            out,
+            "      {HELP_SUBCMD_COLOR}{name}{RESET_COLOR} -> {HELP_DESC_COLOR}{help}{RESET_COLOR}",
+        )
+        .expect("writing to a String is infallibe");
     }
     out
 }

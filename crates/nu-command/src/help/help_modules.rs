@@ -1,6 +1,7 @@
 use crate::filters::find_internal;
 use nu_engine::{command_prelude::*, scope::ScopeData};
 use nu_protocol::DeclId;
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct HelpModules;
@@ -131,7 +132,8 @@ pub fn help_modules(
             }
         }
 
-        long_desc.push_str(&format!("{G}Module{RESET}: {C}{name}{RESET}"));
+        write!(long_desc, "{G}Module{RESET}: {C}{name}{RESET}")
+            .expect("writing to a String is infallibe");
         long_desc.push_str("\n\n");
 
         if !module.decls.is_empty() || module.main.is_some() {
@@ -168,7 +170,8 @@ pub fn help_modules(
                 .collect::<Vec<String>>()
                 .join(", ");
 
-            long_desc.push_str(&format!("{G}Exported commands{RESET}:\n  {commands_str}"));
+            write!(long_desc, "{G}Exported commands{RESET}:\n  {commands_str}")
+                .expect("writing to a String is infallibe");
             long_desc.push_str("\n\n");
         }
 
@@ -206,16 +209,20 @@ pub fn help_modules(
                 .collect::<Vec<String>>()
                 .join(", ");
 
-            long_desc.push_str(&format!("{G}Exported aliases{RESET}:\n  {aliases_str}"));
+            write!(long_desc, "{G}Exported aliases{RESET}:\n  {aliases_str}")
+                .expect("writing to a String is infallibe");
             long_desc.push_str("\n\n");
         }
 
         if module.env_block.is_some() {
-            long_desc.push_str(&format!("This module {C}exports{RESET} environment."));
+            write!(long_desc, "This module {C}exports{RESET} environment.")
+                .expect("writing to a String is infallibe");
         } else {
-            long_desc.push_str(&format!(
+            write!(
+                long_desc,
                 "This module {C}does not export{RESET} environment."
-            ));
+            )
+            .expect("writing to a String is infallibe");
         }
 
         let config = stack.get_config(engine_state);

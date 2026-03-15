@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct StorDelete;
@@ -102,7 +103,8 @@ impl Command for StorDelete {
                     // Yup, this is a bit janky, but I'm not sure a better way to do this without having
                     // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
                     // and other sql syntax. So, for now, just type a sql where clause as a string.
-                    delete_stmt.push_str(&format!("WHERE {where_clause}"));
+                    write!(delete_stmt, "WHERE {where_clause}")
+                        .expect("writing to a String is infallibe");
                     delete_stmt
                 }
             };

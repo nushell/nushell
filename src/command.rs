@@ -6,7 +6,11 @@ use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
 use nu_utils::stdout_write_all_and_flush;
-use std::{ffi::OsString, fmt, path::Path};
+use std::{
+    ffi::OsString,
+    fmt::{self, Write},
+    path::Path,
+};
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
 const HELP_FLAG_COLOR: &str = "\x1b[36m";
@@ -1261,42 +1265,55 @@ fn cli_help_text() -> String {
         if flags.clone().next().is_none() {
             continue;
         }
-        output.push_str(&format!(
+        write!(
+            output,
             "\n{HELP_SECTION_COLOR}{}:{RESET_COLOR}\n",
             category_name(category)
-        ));
+        )
+        .expect("writing to a String is infallibe");
         for flag in flags {
             output.push_str("  ");
             if let Some(short) = flag.short {
-                output.push_str(&format!("{HELP_FLAG_COLOR}-{short}{RESET_COLOR}"));
+                write!(output, "{HELP_FLAG_COLOR}-{short}{RESET_COLOR}")
+                    .expect("writing to a String is infallibe");
                 if !flag.long.is_empty() {
-                    output.push_str(&format!("{DEFAULT_COLOR},{RESET_COLOR} "));
+                    write!(output, "{DEFAULT_COLOR},{RESET_COLOR} ")
+                        .expect("writing to a String is infallibe");
                 }
             }
             if !flag.long.is_empty() {
-                output.push_str(&format!("{HELP_FLAG_COLOR}--{}{RESET_COLOR}", flag.long));
+                write!(output, "{HELP_FLAG_COLOR}--{}{RESET_COLOR}", flag.long)
+                    .expect("writing to a String is infallibe");
             }
             if flag.value != ValueHint::None {
-                output.push_str(&format!(
+                write!(
+                    output,
                     " <{HELP_TYPE_COLOR}{}{RESET_COLOR}>",
                     value_hint(flag.value)
-                ));
+                )
+                .expect("writing to a String is infallibe");
             }
-            output.push_str(&format!(
+            write!(
+                output,
                 "\n      {HELP_DESC_COLOR}{}{RESET_COLOR}\n",
                 flag.description
-            ));
-            output.push_str(&format!(
-                "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}\n",
+            )
+            .expect("writing to a String is infallibe");
+            writeln!(
+                output,
+                "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}",
                 flag.example
-            ));
+            )
+            .expect("writing to a String is infallibe");
 
             // For the --testbin option we augment the static description with a dynamically generated list of the available binaries
             // and their individual help strings
             if flag.long == "testbin" {
-                output.push_str(&format!(
-                    "      {HELP_DESC_COLOR}Available test bins:{RESET_COLOR}\n"
-                ));
+                writeln!(
+                    output,
+                    "      {HELP_DESC_COLOR}Available test bins:{RESET_COLOR}"
+                )
+                .expect("writing to a String is infallibe");
                 output.push_str(&test_bins::help_list());
             }
         }
