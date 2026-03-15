@@ -100,6 +100,14 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
+# auto_cd_always (bool): Always tries to auto-cd.
+# Regardless of this option, typing a directory path as a command will
+# automatically change directories to that directory.
+# true: Always auto-cd if command string is an existing directory path.
+# false: Only auto-cd if command string 'looks like' a directory path, eg. begins
+# with `./`.
+$env.config.auto_cd_always = false
+
 # ------------------
 # Clipboard Settings
 # ------------------
