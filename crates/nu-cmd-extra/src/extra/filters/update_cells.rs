@@ -1,5 +1,7 @@
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{PipelineIterator, engine::Closure};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, engine::Closure,
+};
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -21,10 +23,15 @@ impl Command for UpdateCells {
                 SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
                 "The closure to run an update for each cell.",
             )
+            .rest(
+                "rest",
+                SyntaxShape::String,
+                "The columns to update. If not provided, all cells are updated.",
+            )
             .named(
                 "columns",
                 SyntaxShape::List(Box::new(SyntaxShape::Any)),
-                "List of columns to update.",
+                "List of columns to update (deprecated, use rest arguments instead).",
                 Some('c'),
             )
             .category(Category::Filters)
@@ -63,13 +70,13 @@ impl Command for UpdateCells {
                 example: r#"[
         ["2021-04-16", "2021-06-10", "2021-09-18", "2021-10-15", "2021-11-16", "2021-11-17", "2021-11-18"];
         [          37,            0,            0,            0,           37,            0,            0]
-    ] | update cells -c ["2021-11-18", "2021-11-17"] { |value|
+    ] | update cells { |value|
             if $value == 0 {
               ""
             } else {
               $value
             }
-    }"#,
+    } "2021-11-18" "2021-11-17""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "2021-04-16" => Value::test_int(37),
                     "2021-06-10" => Value::test_int(0),
@@ -89,7 +96,28 @@ impl Command for UpdateCells {
                     "c" => Value::test_int(13),
                 })),
             },
+            Example {
+                example: r#"{a: 1, b: 2, c: 3} | update cells { $in + 10 } a c"#,
+                description: "Update only specific columns in a record.",
+                result: Some(Value::test_record(record! {
+                    "a" => Value::test_int(11),
+                    "b" => Value::test_int(2),
+                    "c" => Value::test_int(13),
+                })),
+            },
         ]
+    }
+
+    fn deprecation_info(&self) -> Vec<DeprecationEntry> {
+        vec![DeprecationEntry {
+            ty: DeprecationType::Flag("columns".into()),
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.112.0".into()),
+            expected_removal: None,
+            help: Some(
+                "Use rest arguments instead: `update cells { closure } column1 column2`".into(),
+            ),
+        }]
     }
 
     fn run(
@@ -101,15 +129,21 @@ impl Command for UpdateCells {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
-        let columns: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
-        let columns: Option<HashSet<String>> = match columns {
-            Some(val) => Some(
-                val.into_list()?
-                    .into_iter()
-                    .map(Value::coerce_into_string)
-                    .collect::<Result<HashSet<String>, ShellError>>()?,
-            ),
-            None => None,
+        let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
+        let columns_flag: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
+
+        let columns: Option<HashSet<String>> = if !rest.is_empty() {
+            Some(rest.into_iter().collect())
+        } else {
+            match columns_flag {
+                Some(val) => Some(
+                    val.into_list()?
+                        .into_iter()
+                        .map(Value::coerce_into_string)
+                        .collect::<Result<HashSet<String>, ShellError>>()?,
+                ),
+                None => None,
+            }
         };
 
         let metadata = input.metadata();
