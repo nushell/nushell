@@ -57,3 +57,16 @@ fn lines_on_error() {
 
     assert!(actual.err.contains("Is a directory"));
 }
+
+#[test]
+fn lines_handles_non_utf8_bytes() {
+    // Create a file with invalid UTF-8 bytes and verify `lines` doesn't error
+    let actual = nu!(r#"
+        0x[68 65 6C 6C 6F 0A 77 6F 72 6C 64 FF FE 0A 66 6F 6F]
+        | save --force /tmp/nu_test_non_utf8.txt
+        ; open --raw /tmp/nu_test_non_utf8.txt | lines | length
+    "#);
+
+    assert_eq!(actual.out, "3");
+    assert!(actual.err.is_empty() || !actual.err.contains("Non-UTF8"));
+}
