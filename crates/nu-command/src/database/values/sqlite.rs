@@ -931,15 +931,15 @@ impl SQLiteQueryBuilder {
         let mut sql = format!("SELECT {} FROM [{}]", select, self.table_name);
 
         if let Some(where_clause) = &self.sql_where {
-            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallibe");
+            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallible");
         }
 
         if let Some(order_by) = &self.sql_order_by {
-            write!(sql, " ORDER BY {}", order_by).expect("writing to a String is infallibe");
+            write!(sql, " ORDER BY {}", order_by).expect("writing to a String is infallible");
         }
 
         if let Some(limit) = self.sql_limit {
-            write!(sql, " LIMIT {}", limit).expect("writing to a String is infallibe");
+            write!(sql, " LIMIT {}", limit).expect("writing to a String is infallible");
         }
 
         sql
@@ -968,7 +968,7 @@ impl SQLiteQueryBuilder {
         let conn = open_sqlite_db(&self.db_path, call_span)?;
         let mut sql = format!("SELECT COUNT(*) FROM [{}]", self.table_name);
         if let Some(where_clause) = &self.sql_where {
-            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallibe");
+            write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallible");
         }
         let mut stmt = conn.prepare(&sql).map_err(|e| ShellError::GenericError {
             error: "Failed to prepare count query".into(),

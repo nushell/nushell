@@ -1270,20 +1270,20 @@ fn cli_help_text() -> String {
             "\n{HELP_SECTION_COLOR}{}:{RESET_COLOR}\n",
             category_name(category)
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
         for flag in flags {
             output.push_str("  ");
             if let Some(short) = flag.short {
                 write!(output, "{HELP_FLAG_COLOR}-{short}{RESET_COLOR}")
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
                 if !flag.long.is_empty() {
                     write!(output, "{DEFAULT_COLOR},{RESET_COLOR} ")
-                        .expect("writing to a String is infallibe");
+                        .expect("writing to a String is infallible");
                 }
             }
             if !flag.long.is_empty() {
                 write!(output, "{HELP_FLAG_COLOR}--{}{RESET_COLOR}", flag.long)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
             if flag.value != ValueHint::None {
                 write!(
@@ -1291,20 +1291,20 @@ fn cli_help_text() -> String {
                     " <{HELP_TYPE_COLOR}{}{RESET_COLOR}>",
                     value_hint(flag.value)
                 )
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             }
             write!(
                 output,
                 "\n      {HELP_DESC_COLOR}{}{RESET_COLOR}\n",
                 flag.description
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
             writeln!(
                 output,
                 "      {HELP_DESC_COLOR}Example: {RESET_COLOR}{}",
                 flag.example
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
 
             // For the --testbin option we augment the static description with a dynamically generated list of the available binaries
             // and their individual help strings
@@ -1313,7 +1313,7 @@ fn cli_help_text() -> String {
                     output,
                     "      {HELP_DESC_COLOR}Available test bins:{RESET_COLOR}"
                 )
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
                 output.push_str(&test_bins::help_list());
             }
         }

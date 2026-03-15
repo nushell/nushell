@@ -209,32 +209,32 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
 
             // first description
             writeln!(description, "{}", decl.description())
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
 
             // additional description
             if !decl.extra_description().is_empty() {
                 write!(description, "\n{}\n", decl.extra_description())
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
 
             // Usage
             description.push_str("### Usage\n```\n");
             let signature = decl.signature();
-            write!(description, "  {}", signature.name).expect("writing to a String is infallibe");
+            write!(description, "  {}", signature.name).expect("writing to a String is infallible");
             if !signature.named.is_empty() {
                 description.push_str(" {flags}")
             }
             for required_arg in &signature.required_positional {
                 write!(description, " <{}>", required_arg.name)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
             for optional_arg in &signature.optional_positional {
                 write!(description, " <{}?>", optional_arg.name)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
             if let Some(arg) = &signature.rest_positional {
                 write!(description, " <...{}>", arg.name)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
 
             description.push_str("\n```\n");
@@ -253,7 +253,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     description.push_str("  ");
                     if let Some(short_flag) = &named.short {
                         write!(description, "`-{short_flag}`")
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
 
                     if !named.long.is_empty() {
@@ -261,17 +261,17 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                             description.push_str(", ")
                         }
                         write!(description, "`--{}`", named.long)
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
 
                     if let Some(arg) = &named.arg {
                         write!(description, " `<{}>`", arg.to_type())
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
 
                     if !named.desc.is_empty() {
                         write!(description, " - {}", named.desc)
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
                 }
                 description.push('\n');
@@ -297,10 +297,10 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         required_arg.name,
                         required_arg.shape.to_type()
                     )
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
                     if !required_arg.desc.is_empty() {
                         write!(description, " - {}", required_arg.desc)
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -317,10 +317,10 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         optional_arg.name,
                         optional_arg.shape.to_type()
                     )
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
                     if !optional_arg.desc.is_empty() {
                         write!(description, " - {}", optional_arg.desc)
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -330,10 +330,10 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
 
                     write!(description, " `...{}: {}`", arg.name, arg.shape.to_type())
-                        .expect("writing to a String is infallibe");
+                        .expect("writing to a String is infallible");
                     if !arg.desc.is_empty() {
                         write!(description, " - {}", arg.desc)
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -348,7 +348,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                 description.push_str("\n```\n");
                 for input_output in &signature.input_output_types {
                     writeln!(description, "  {} | {}", input_output.0, input_output.1)
-                        .expect("writing to a String is infallibe");
+                        .expect("writing to a String is infallible");
                 }
                 description.push_str("\n```\n");
             }
@@ -363,7 +363,7 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         "```\n  {}\n```\n  {}\n\n",
                         example.description, example.example
                     )
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
                 }
             }
 

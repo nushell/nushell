@@ -41,14 +41,14 @@ pub(crate) fn display_flag(flag: &Flag, verbitam: bool) -> String {
     let mut text = String::new();
     if let Some(short_flag) = flag.short {
         write!(text, "{md_backtick}-{short_flag}{md_backtick}")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     if !flag.long.is_empty() {
         if flag.short.is_some() {
             text.push_str(", ");
         }
         write!(text, "{md_backtick}--{}{md_backtick}", flag.long)
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     text
 }
@@ -64,13 +64,13 @@ pub(crate) fn doc_for_arg(
         if let SyntaxShape::Keyword(_, inner_shape) = shape {
             shape = *inner_shape;
         }
-        write!(text, ": `<{shape}>`").expect("writing to a String is infallibe");
+        write!(text, ": `<{shape}>`").expect("writing to a String is infallible");
     }
     if !(desc.is_empty() && default_value.is_none()) || optional {
         text.push_str(" -")
     };
     if !desc.is_empty() {
-        write!(text, " {desc}").expect("writing to a String is infallibe");
+        write!(text, " {desc}").expect("writing to a String is infallible");
     };
     if let Some(value) = default_value.as_ref().and_then(|v| v.coerce_str().ok()) {
         write!(
@@ -78,7 +78,7 @@ pub(crate) fn doc_for_arg(
             " ({}default: `{value}`)",
             if optional { "optional, " } else { "" }
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     } else if optional {
         text.push_str(" (optional)");
     }
@@ -108,14 +108,14 @@ pub(crate) fn get_signature_label(signature: &Signature, indent: bool) -> String
     }
     for required_arg in &signature.required_positional {
         write!(label, " {}", expand_keyword(required_arg, false))
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     for optional_arg in &signature.optional_positional {
         write!(label, " ({})", expand_keyword(optional_arg, true))
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     if let Some(arg) = &signature.rest_positional {
-        write!(label, " ...({})", arg.name).expect("writing to a String is infallibe");
+        write!(label, " ...({})", arg.name).expect("writing to a String is infallible");
     }
     label
 }

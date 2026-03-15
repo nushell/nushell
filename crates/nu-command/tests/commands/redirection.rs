@@ -140,7 +140,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         // not hangs in append mode either.
         let cloned_body = large_file_body.clone();
-        write!(large_file_body, "\n{cloned_body}").expect("writing to a String is infallibe");
+        write!(large_file_body, "\n{cloned_body}").expect("writing to a String is infallible");
         nu!(cwd: dirs.test(), "
         $env.LARGE = (open --raw a_large_file.txt);
         nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt

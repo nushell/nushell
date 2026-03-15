@@ -222,7 +222,7 @@ pub fn complete_item(
 
     // Handle the trailing dot case
     if cleaned_partial.ends_with(&format!("{path_separator}.")) {
-        write!(partial, "{path_separator}.").expect("writing to a String is infallibe");
+        write!(partial, "{path_separator}.").expect("writing to a String is infallible");
     }
 
     let cwd_pathbufs: Vec<_> = cwds

@@ -520,7 +520,7 @@ pub fn help_list() -> String {
             out,
             "      {HELP_SUBCMD_COLOR}{name}{RESET_COLOR} -> {HELP_DESC_COLOR}{help}{RESET_COLOR}",
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     }
     out
 }

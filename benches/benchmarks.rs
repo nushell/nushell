@@ -188,7 +188,7 @@ fn create_nested_record_string(depth: usize) -> String {
 fn create_example_table_nrows(n: usize) -> String {
     let mut s = String::from("let table = [[foo bar baz]; ");
     for i in 0..n {
-        write!(s, "[0, 1, {i}]").expect("writing to a String is infallibe");
+        write!(s, "[0, 1, {i}]").expect("writing to a String is infallible");
         if i < n - 1 {
             s.push_str(", ");
         }

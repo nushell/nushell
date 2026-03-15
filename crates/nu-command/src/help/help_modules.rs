@@ -133,7 +133,7 @@ pub fn help_modules(
         }
 
         write!(long_desc, "{G}Module{RESET}: {C}{name}{RESET}")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         long_desc.push_str("\n\n");
 
         if !module.decls.is_empty() || module.main.is_some() {
@@ -171,7 +171,7 @@ pub fn help_modules(
                 .join(", ");
 
             write!(long_desc, "{G}Exported commands{RESET}:\n  {commands_str}")
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             long_desc.push_str("\n\n");
         }
 
@@ -210,19 +210,19 @@ pub fn help_modules(
                 .join(", ");
 
             write!(long_desc, "{G}Exported aliases{RESET}:\n  {aliases_str}")
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             long_desc.push_str("\n\n");
         }
 
         if module.env_block.is_some() {
             write!(long_desc, "This module {C}exports{RESET} environment.")
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
         } else {
             write!(
                 long_desc,
                 "This module {C}does not export{RESET} environment."
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         }
 
         let config = stack.get_config(engine_state);

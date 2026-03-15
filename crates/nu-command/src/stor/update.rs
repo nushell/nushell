@@ -188,7 +188,7 @@ fn process(
         // and other sql syntax. So, for now, just type a sql where clause as a string.
         if let Some(where_clause) = where_clause_opt {
             write!(update_stmt, " WHERE {}", where_clause.item)
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
         }
         // dbg!(&update_stmt);
 

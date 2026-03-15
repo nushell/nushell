@@ -104,7 +104,7 @@ impl Command for StorDelete {
                     // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
                     // and other sql syntax. So, for now, just type a sql where clause as a string.
                     write!(delete_stmt, "WHERE {where_clause}")
-                        .expect("writing to a String is infallibe");
+                        .expect("writing to a String is infallible");
                     delete_stmt
                 }
             };

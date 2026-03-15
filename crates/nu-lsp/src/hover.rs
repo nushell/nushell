@@ -14,12 +14,12 @@ impl LanguageServer {
         if !skip_description {
             // First description
             writeln!(description, "{}", decl.description().replace('\r', ""))
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
 
             // Additional description
             if !decl.extra_description().is_empty() {
                 write!(description, "\n{}\n", decl.extra_description())
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
         }
         // Usage
@@ -64,7 +64,7 @@ impl LanguageServer {
                 } else {
                     description.push('\n');
                 }
-                write!(description, "  `{}`", arg.name).expect("writing to a String is infallibe");
+                write!(description, "  `{}`", arg.name).expect("writing to a String is infallible");
                 description.push_str(&doc_for_arg(
                     Some(arg.shape),
                     arg.desc,
@@ -84,7 +84,7 @@ impl LanguageServer {
                     description.push('\n');
                 }
                 write!(description, " `...{}`", arg.name)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
                 description.push_str(&doc_for_arg(
                     Some(arg.shape),
                     arg.desc,
@@ -102,7 +102,7 @@ impl LanguageServer {
             description.push_str("\n```nu\n");
             for input_output in &signature.input_output_types {
                 writeln!(description, " {} | {}", input_output.0, input_output.1)
-                    .expect("writing to a String is infallibe");
+                    .expect("writing to a String is infallible");
             }
             description.push_str("\n```\n");
         }
@@ -116,7 +116,7 @@ impl LanguageServer {
                     "  {}\n```nu\n  {}\n```\n",
                     example.description, example.example
                 )
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             }
         }
         description

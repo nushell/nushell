@@ -94,35 +94,35 @@ fn process(
                     match column_datatype.coerce_str()?.to_lowercase().as_ref() {
                         "int" => {
                             write!(create_stmt, "{column_name} INTEGER, ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
                         "float" => {
                             write!(create_stmt, "{column_name} REAL, ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
                         "str" => {
                             write!(create_stmt, "{column_name} VARCHAR(255), ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
 
                         "bool" => {
                             write!(create_stmt, "{column_name} BOOLEAN, ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
                         "datetime" => {
                             write!(
                                 create_stmt,
                                 "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
                             )
-                            .expect("writing to a String is infallibe");
+                            .expect("writing to a String is infallible");
                         }
                         "json" => {
                             write!(create_stmt, "{column_name} JSON, ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
                         "jsonb" => {
                             write!(create_stmt, "{column_name} JSONB, ")
-                                .expect("writing to a String is infallibe");
+                                .expect("writing to a String is infallible");
                         }
 
                         _ => {

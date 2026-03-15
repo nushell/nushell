@@ -241,7 +241,7 @@ fn get_alias_documentation(
         long_desc,
         "{help_section_name}Alias{RESET}: {help_subcolor_one}{alias_name}{RESET}"
     )
-    .expect("writing to a String is infallibe");
+    .expect("writing to a String is infallible");
     long_desc.push_str("\n\n");
 
     let Some(alias) = command.as_alias() else {
@@ -257,7 +257,7 @@ fn get_alias_documentation(
         "{help_section_name}Expansion{RESET}:\n  {}",
         nu_highlight_string(&alias_expansion, engine_state, stack)
     )
-    .expect("writing to a String is infallibe");
+    .expect("writing to a String is infallible");
 }
 
 fn get_command_documentation(
@@ -280,7 +280,7 @@ fn get_command_documentation(
             "{help_section_name}Search terms{RESET}: {help_subcolor_one}{}{RESET}\n\n",
             sig.search_terms.join(", "),
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     }
 
     write!(
@@ -288,7 +288,7 @@ fn get_command_documentation(
         "{help_section_name}Usage{RESET}:\n  > {}\n",
         sig.call_signature()
     )
-    .expect("writing to a String is infallibe");
+    .expect("writing to a String is infallible");
 
     // TODO: improve the subcommand name resolution
     // issues:
@@ -352,7 +352,7 @@ fn get_command_documentation(
 
     if !subcommands.is_empty() {
         write!(long_desc, "\n{help_section_name}Subcommands{RESET}:\n")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         subcommands.sort();
         // sort may not remove duplicates when two different names map to the same description string; dedup to be safe.
         subcommands.dedup();
@@ -378,14 +378,14 @@ fn get_command_documentation(
         "\n{help_section_name}Command Type{RESET}:\n  > {}\n",
         command.command_type()
     )
-    .expect("writing to a String is infallibe");
+    .expect("writing to a String is infallible");
 
     if !sig.required_positional.is_empty()
         || !sig.optional_positional.is_empty()
         || sig.rest_positional.is_some()
     {
         write!(long_desc, "\n{help_section_name}Parameters{RESET}:\n")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         for positional in &sig.required_positional {
             write_positional(
                 long_desc,
@@ -472,9 +472,9 @@ fn get_command_documentation(
         ) && let Ok((str, ..)) = result.collect_string_strict(span)
         {
             writeln!(long_desc, "\n{help_section_name}Input/output types{RESET}:")
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             for line in str.lines() {
-                writeln!(long_desc, "  {line}").expect("writing to a String is infallibe");
+                writeln!(long_desc, "  {line}").expect("writing to a String is infallible");
             }
         }
     }
@@ -483,7 +483,7 @@ fn get_command_documentation(
 
     if !examples.is_empty() {
         write!(long_desc, "\n{help_section_name}Examples{RESET}:")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
 
     for example in examples {
@@ -493,10 +493,10 @@ fn get_command_documentation(
 
         if !nu_config.use_ansi_coloring.get(engine_state) {
             write!(long_desc, "\n  > {}\n", example.example)
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
         } else {
             let code_string = nu_highlight_string(example.example, engine_state, stack);
-            write!(long_desc, "\n  > {code_string}\n").expect("writing to a String is infallibe");
+            write!(long_desc, "\n  > {code_string}\n").expect("writing to a String is infallible");
         };
 
         if let Some(result) = &example.result {
@@ -558,7 +558,7 @@ fn get_command_documentation(
                         .trim_start_matches(|c: char| c.is_whitespace() && c != ' ')
                         .replace('\n', "\n  ")
                 )
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
             }
         }
     }
@@ -737,7 +737,7 @@ fn write_positional(
                 String::from_utf8_lossy(kw),
                 shape,
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         }
         _ => {
             write!(
@@ -745,7 +745,7 @@ fn write_positional(
                 "{help_subcolor_one}{}{RESET} <{help_subcolor_two}{}{RESET}>",
                 positional.name, &positional.shape,
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         }
     };
     if !positional.desc.is_empty() || arg_kind == PositionalKind::Optional {
@@ -754,7 +754,7 @@ fn write_positional(
             ": {}",
             highlight_code(&positional.desc, engine_state, stack)
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     }
     if arg_kind == PositionalKind::Optional {
         if let Some(value) = &positional.default_value {
@@ -767,7 +767,7 @@ fn write_positional(
                     stack
                 )
             )
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         } else {
             long_desc.push_str(" (optional)");
         };
@@ -801,15 +801,15 @@ fn write_flag_to_long_desc<F>(
     // Short flag shown before long flag
     if let Some(short) = flag.short {
         write!(long_desc, "{help_subcolor_one}-{short}{RESET}")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
         if !flag.long.is_empty() {
             write!(long_desc, "{DEFAULT_COLOR},{RESET} ")
-                .expect("writing to a String is infallibe");
+                .expect("writing to a String is infallible");
         }
     }
     if !flag.long.is_empty() {
         write!(long_desc, "{help_subcolor_one}--{}{RESET}", flag.long)
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     if flag.required {
         long_desc.push_str(" (required parameter)")
@@ -817,7 +817,7 @@ fn write_flag_to_long_desc<F>(
     // Type/Syntax shape info
     if let Some(arg) = &flag.arg {
         write!(long_desc, " <{help_subcolor_two}{arg}{RESET}>")
-            .expect("writing to a String is infallibe");
+            .expect("writing to a String is infallible");
     }
     if !flag.desc.is_empty() {
         write!(
@@ -825,7 +825,7 @@ fn write_flag_to_long_desc<F>(
             ": {}",
             &formatter(FormatterValue::CodeString(&flag.desc))
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     }
     if let Some(value) = &flag.default_value {
         write!(
@@ -833,7 +833,7 @@ fn write_flag_to_long_desc<F>(
             " (default: {})",
             &formatter(FormatterValue::DefaultValue(value))
         )
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
     }
     long_desc.push('\n');
 }
@@ -852,7 +852,7 @@ where
 
     let mut long_desc = String::new();
     write!(long_desc, "\n{help_section_name}Flags{RESET}:\n")
-        .expect("writing to a String is infallibe");
+        .expect("writing to a String is infallible");
 
     let help = signature.named.iter().find(|flag| flag.long == "help");
     let required = signature.named.iter().filter(|flag| flag.required);
