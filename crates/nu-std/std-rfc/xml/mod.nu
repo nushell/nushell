@@ -2,17 +2,17 @@
 
 use std-rfc/iter [ recurse ]
 
-def children []: list<record> -> list<record> {
+def __children_0 []: list<record> -> list<list<record>> {
     where ($it.content | describe --detailed).type == list
     | get content
-    | flatten
+}
+
+def children []: list<record> -> list<record> {
+    __children_0 | flatten
 }
 
 def descendant-or-self []: list<record<content: list<record>>> -> list<record>  {
-    recurse {
-        where ($it.content | describe --detailed).type == list
-        | get content
-    }
+    recurse { __children_0 }
     | get item
     | flatten
 }
