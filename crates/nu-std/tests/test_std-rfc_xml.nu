@@ -104,3 +104,26 @@ def "xaccess cell-path arguments work" [] {
         ]
     )
 }
+
+@test
+def "xaccess descendant selector works" [] {
+    let sample_xml = $in.sample_xml
+
+    (
+        assert equal
+        ($sample_xml | xaccess **.e)
+        [
+            [tag, attributes, content];
+            [e, {}, [[tag, attributes, content]; [null, null, z]]]
+            [e, {}, [[tag, attributes, content]; [null, null, x]]]
+        ]
+    )
+    (
+        assert equal
+        ($sample_xml | xaccess ** {|e| $e.attributes | is-not-empty })
+        [
+            [tag, attributes, content];
+            [c, {a: b}, []]
+        ]
+    )
+}
