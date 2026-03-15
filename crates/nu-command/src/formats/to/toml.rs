@@ -216,8 +216,8 @@ fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
         // methods return values less than 65'000
         hour: datetime.hour() as u8,
         minute: datetime.minute() as u8,
-        second: datetime.second() as u8,
-        nanosecond: datetime.nanosecond(),
+        second: Some(datetime.second() as u8),
+        nanosecond: Some(datetime.nanosecond()),
     };
 
     let offset = toml::value::Offset::Custom {
@@ -265,8 +265,8 @@ mod tests {
             time: Some(toml::value::Time {
                 hour: 10,
                 minute: 12,
-                second: 44,
-                nanosecond: 0,
+                second: Some(44),
+                nanosecond: Some(0),
             }),
             offset: Some(toml::value::Offset::Custom { minutes: 120 }),
         });
