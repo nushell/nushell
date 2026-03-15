@@ -1201,6 +1201,29 @@ fn truncate_columns_by_head(
         return WidthEstimation::new(widths_original, widths, width, true, true);
     }
 
+    // NOTE: we must check if some columns are bigger than head_width
+    //       and cut width from them first.
+    //       rather than removing last column.
+    //
+    //       We intentionally check only last column.
+    //       Allthough space could be given from any column.
+    let last_column_width = widths[truncate_pos - 1];
+    let last_column_width_min = NuRecordsValue::width(&data[0][truncate_pos - 1]) + pad;
+    let last_column_width_free = last_column_width - last_column_width_min;
+    if available + last_column_width_free >= trailing_column_width + vertical {
+        let use_width = trailing_column_width + vertical - available;
+        widths[truncate_pos - 1] -= use_width;
+        width -= use_width;
+
+        truncate_rows(data, truncate_pos);
+
+        push_empty_column(data);
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, true, true);
+    }
+
     truncate_rows(data, truncate_pos - 1);
     let w = widths.pop().expect("ok");
     width -= w;
