@@ -18,7 +18,6 @@ fn ensure_stress_env_vars_unset() {
 fn test_stdio() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_stress_internals"),
         "stress_internals"
     );
@@ -31,7 +30,6 @@ fn test_stdio() {
 fn test_local_socket() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         envs: vec![
             ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
         ],
@@ -51,7 +49,6 @@ fn test_local_socket() {
 fn test_failing_local_socket_fallback() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         envs: vec![
             ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
             ("STRESS_REFUSE_LOCAL_SOCKET", "1"),
@@ -113,7 +110,6 @@ fn test_exit_before_hello_stdio() {
 fn test_exit_early_stdio() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         envs: vec![
             ("STRESS_EXIT_EARLY", "1"),
         ],
@@ -129,7 +125,6 @@ fn test_exit_early_stdio() {
 fn test_exit_early_local_socket() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         envs: vec![
             ("STRESS_ADVERTISE_LOCAL_SOCKET", "1"),
             ("STRESS_EXIT_EARLY", "1"),
@@ -146,7 +141,6 @@ fn test_exit_early_local_socket() {
 fn test_wrong_version() {
     ensure_stress_env_vars_unset();
     let result = nu_with_plugins!(
-        cwd: ".",
         envs: vec![
             ("STRESS_WRONG_VERSION", "1"),
         ],

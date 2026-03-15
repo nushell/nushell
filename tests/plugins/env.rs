@@ -3,7 +3,6 @@ use nu_test_support::nu_with_plugins;
 #[test]
 fn get_env_by_name() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
             $env.FOO = 'bar'
@@ -19,7 +18,6 @@ fn get_env_by_name() {
 #[test]
 fn get_envs() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         "$env.BAZ = 'foo'; example env | get BAZ"
     );
@@ -35,7 +33,6 @@ fn get_current_dir() {
         .to_string_lossy()
         .into_owned();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         "cd tests; example env --cwd"
     );
@@ -56,7 +53,6 @@ fn get_current_dir() {
 #[test]
 fn set_env() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         "example env NUSHELL_OPINION --set=rocks; $env.NUSHELL_OPINION"
     );

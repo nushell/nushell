@@ -3,7 +3,6 @@ use nu_test_support::nu_with_plugins;
 #[test]
 fn call_to_json() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
             [42] | example call-decl 'to json' {indent: 4}
@@ -17,7 +16,6 @@ fn call_to_json() {
 #[test]
 fn call_reduce() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
             [1 2 3] | example call-decl 'reduce' {fold: 10} { |it, acc| $it + $acc }
@@ -30,7 +28,6 @@ fn call_reduce() {
 #[test]
 fn call_scope_variables() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         r#"
             let test_var = 10
