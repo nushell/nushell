@@ -1206,7 +1206,7 @@ fn truncate_columns_by_head(
     //       rather than removing last column.
     //
     //       We intentionally check only last column.
-    //       Allthough space could be given from any column.
+    //       Although space could be given from any column.
     let last_column_width = widths[truncate_pos - 1];
     let last_column_width_min = NuRecordsValue::width(&data[0][truncate_pos - 1]) + pad;
     let last_column_width_free = last_column_width - last_column_width_min;
