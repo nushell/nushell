@@ -63,3 +63,44 @@ def "xaccess is backwards compatible" [] {
         ]
     )
 }
+
+@test
+def "xaccess cell-path arguments work" [] {
+    let sample_xml = $in.sample_xml
+
+    (
+        assert equal
+        ($sample_xml | xaccess a)
+        [$sample_xml]
+    )
+    (
+        assert equal
+        ($sample_xml | xaccess *)
+        [$sample_xml]
+    )
+    (
+        assert equal
+        ($sample_xml | xaccess *.d.e)
+        [
+            [tag, attributes, content];
+            [e, {}, [[tag, attributes, content]; [null, null, z]]]
+            [e, {}, [[tag, attributes, content]; [null, null, x]]]
+        ]
+    )
+    (
+        assert equal
+        ($sample_xml | xaccess *.d.e.1)
+        [
+            [tag, attributes, content];
+            [e, {}, [[tag, attributes, content]; [null, null, x]]]
+        ]
+    )
+    (
+        assert equal
+        ($sample_xml | xaccess *.*.* {|e| $e.attributes != {} })
+        [
+            [tag, attributes, content];
+            [c, {a: b}, []]
+        ]
+    )
+}
