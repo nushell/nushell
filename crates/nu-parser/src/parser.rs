@@ -2217,6 +2217,12 @@ pub fn parse_brace_expr(
         return Expression::garbage(working_set, span);
     }
 
+    let has_closure_shape = |shapes: &[SyntaxShape]| {
+        shapes
+            .iter()
+            .any(|shape| matches!(shape, SyntaxShape::Closure(_)))
+    };
+
     let bytes = working_set.get_span_contents(Span::new(span.start + 1, span.end - 1));
     let (tokens, _) = lex(bytes, span.start + 1, &[b'\r', b'\n', b'\t'], &[b':'], true);
 
@@ -2226,6 +2232,9 @@ pub fn parse_brace_expr(
             SyntaxShape::Closure(_) => parse_closure_expression(working_set, shape, span),
             SyntaxShape::Block => parse_block_expression(working_set, span),
             SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
+            SyntaxShape::OneOf(shapes) if has_closure_shape(shapes) => {
+                parse_closure_expression(working_set, shape, span)
+            }
             _ => parse_record(working_set, span),
         },
         [
@@ -2254,6 +2263,9 @@ pub fn parse_brace_expr(
                     && second_bytes.get(3).is_some_and(|c| b"${(".contains(c)) =>
                 {
                     parse_record(working_set, span)
+                }
+                SyntaxShape::OneOf(shapes) if has_closure_shape(shapes) => {
+                    parse_closure_expression(working_set, shape, span)
                 }
                 SyntaxShape::Any => parse_closure_expression(working_set, shape, span),
                 _ => {
