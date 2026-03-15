@@ -333,23 +333,9 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
 
         Ok(attributes)
     } else {
-        // By default preseerve only mode
-        Ok(uu_cp::Attributes {
-            mode: ATTR_SET,
-            #[cfg(any(
-                target_os = "linux",
-                target_os = "freebsd",
-                target_os = "android",
-                target_os = "macos",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            ))]
-            ownership: ATTR_UNSET,
-            timestamps: ATTR_UNSET,
-            context: ATTR_UNSET,
-            links: ATTR_UNSET,
-            xattr: ATTR_UNSET,
-        })
+        // By default don't preserve anything as per
+        // https://docs.rs/uu_cp/latest/uu_cp/struct.Attributes.html
+        Ok(uu_cp::Attributes::NONE)
     }
 }
 
