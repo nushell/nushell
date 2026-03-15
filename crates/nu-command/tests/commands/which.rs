@@ -162,7 +162,6 @@ fn which_plugin_reports_executable() {
     // `which example` should resolve via plugin_identity to the plugin binary path,
     // which contains "nu_plugin_example" in its filename.
     let actual = nu_with_plugins!(
-        cwd: ".",
         plugin: ("nu_plugin_example"),
         "which example | to json"
     );

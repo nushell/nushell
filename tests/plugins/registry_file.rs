@@ -28,7 +28,6 @@ fn valid_plugin_item_data() -> PluginRegistryItemData {
 #[test]
 fn plugin_add_then_restart_nu() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!("
             plugin add '{}'
@@ -57,7 +56,6 @@ fn plugin_add_in_nu_plugin_dirs_const() {
         .expect("not utf-8");
 
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(
             r#"
@@ -92,7 +90,6 @@ fn plugin_add_in_nu_plugin_dirs_env() {
         .expect("not utf-8");
 
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(
             r#"
@@ -242,7 +239,6 @@ fn plugin_rm_then_restart_nu() {
 #[test]
 fn plugin_rm_not_found() {
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         r#"
             plugin rm example
@@ -451,7 +447,6 @@ fn plugin_use_error_not_found() {
 fn plugin_shows_up_in_default_plugin_list_after_add() {
     let example_plugin_path = example_plugin_path();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(r#"
             plugin add '{}'
@@ -466,7 +461,6 @@ fn plugin_shows_up_in_default_plugin_list_after_add() {
 fn plugin_shows_removed_after_removing() {
     let example_plugin_path = example_plugin_path();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(r#"
             plugin add '{}'
@@ -488,7 +482,6 @@ fn plugin_shows_removed_after_removing() {
 fn plugin_add_and_then_use() {
     let example_plugin_path = example_plugin_path();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(r#"
             plugin add '{}'
@@ -509,7 +502,6 @@ fn plugin_add_and_then_use() {
 fn plugin_add_and_then_use_by_filename() {
     let example_plugin_path = example_plugin_path();
     let result = nu_with_plugins!(
-        cwd: ".",
         plugins: [],
         &format!(r#"
             plugin add '{0}'
