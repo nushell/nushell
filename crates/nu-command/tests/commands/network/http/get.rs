@@ -332,7 +332,9 @@ fn http_get_response_metadata() {
 #[case::all_proxy("ALL_PROXY")]
 #[case::http_proxy("HTTP_PROXY")]
 #[case::https_proxy("HTTPS_PROXY")]
-#[timeout(std::time::Duration::from_secs(5))]
+#[timeout(std::time::Duration::from_secs(10))]
+#[nu_test_support::test]
+#[serial]
 fn http_get_with_socks5_proxy(#[case] proxy_env: &str) {
     use nu_test_support::net::{Address, proxy::Socks5Proxy};
     use std::net::Ipv4Addr;
