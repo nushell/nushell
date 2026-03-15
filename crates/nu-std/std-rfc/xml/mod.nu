@@ -1,4 +1,6 @@
-use std-rfc/iter recurse
+# Custom commands to read, change and create XML data in format supported by the `to xml` and `from xml` commands
+
+use std-rfc/iter [ recurse ]
 
 def children []: list<record> -> list<record> {
     where ($it.content | describe --detailed).type == list
@@ -68,9 +70,23 @@ def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> 
     }
 }
 
-export def xaccess [...rest: oneof<cell-path, closure, list>] {
+# Get all xml entries matching simple xpath-inspired query
+# 
+# The query can include:
+#
+# - cell-path:
+#   -  `*`: Get all children. (`child::node()`)
+#   - `**`: Get all descendants. (`descendant-or-self::node()`)
+#   - string: Get all children with specified name. (`A` == `child::A`)
+#   - int: Select n-th among nodes selected by previous path. (0-indexed)
+#
+#   Example: `A.**.B.*.0` == `A//B/*[1]`
+#
+# - closure:
+#   Predicate. Select all entries for which predicate returns true.
+export def xaccess [...query: oneof<cell-path, closure, list<oneof<int, string, closure>>>] {
     let doc = $in | make-list
-    let filter = $rest | pipeline (metadata $rest)
+    let filter = $query | pipeline (metadata $query)
 
     [
         [tag, attributes, content];
