@@ -2,17 +2,26 @@
 
 use std-rfc/iter [ recurse ]
 
-def __children_0 []: list<record> -> list<list<record>> {
-    where ($it.content | describe --detailed).type == list
-    | get content
+# def __children_0 []: list<record> -> list<list<record>> {
+#     where ($it.content | describe --detailed).type == list
+#     | get content
+# }
+
+# 12x faster than `__children_0` in a benchmark
+def __children_1 []: list<record> -> list<list<record>> {
+    each {
+        match $in.content {
+            [..$children] => $children
+        }
+    }
 }
 
 def children []: list<record> -> list<record> {
-    __children_0 | flatten
+    __children_1 | flatten
 }
 
 def descendant-or-self []: list<record<content: list<record>>> -> list<record>  {
-    recurse { __children_0 }
+    recurse { __children_1 }
     | get item
     | flatten
 }
