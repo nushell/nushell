@@ -408,7 +408,7 @@ fn main() -> Result<()> {
             b"$NU_LIB_DIRS".into(),
             Span::unknown(),
             Type::List(Box::new(Type::String)),
-            false, // is_const
+            false, // is_mutable
         );
         working_set
             .set_variable_const_val(var_id, Value::list(all_lib_dir_values, Span::unknown()));
