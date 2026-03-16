@@ -232,6 +232,7 @@ webpki-roots = "1.0.6"
 # Warning: workspace lints affect library code as well as tests, so don't enable lints that would be too noisy in tests like that.
 # todo = "warn"
 format_push_string = "warn"
+needless_raw_strings = "warn"
 result_large_err = "allow"
 unchecked_time_subtraction = "warn"
 used_underscore_binding = "warn"
