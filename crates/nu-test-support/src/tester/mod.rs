@@ -117,7 +117,7 @@ impl Default for NuTester {
     fn default() -> Self {
         Self {
             engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
-            stack: Stack::new(),
+            stack: Stack::new().collect_value(),
         }
     }
 }
