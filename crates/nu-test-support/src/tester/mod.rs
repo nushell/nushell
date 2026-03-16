@@ -13,6 +13,7 @@ use nu_protocol::{
     ast::Block,
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
+    shell_error::io::IoError,
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
@@ -424,6 +425,9 @@ pub trait TestResultExt: Sized {
     /// Expect the result to be a [`CompileError`].
     fn expect_compile_error(self) -> Result<CompileError>;
 
+    /// Expect the result to be a [`ShellError::Io`].
+    fn expect_io_error(self) -> Result<IoError>;
+
     /// Expect the result to be a [`ShellError`].
     #[track_caller]
     fn expect_error(self) -> Result<ShellError> {
@@ -490,6 +494,21 @@ impl TestResultExt for Result<Value> {
                 ..
             }) => Ok(err),
             Err(err) => Err(err.update_location()),
+        }
+    }
+
+    #[track_caller]
+    fn expect_io_error(self) -> Result<IoError> {
+        match self {
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(ShellError::Io(err)),
+                ..
+            }) => Ok(err),
+            Err(err) => Err(err.update_location())
         }
     }
 }
