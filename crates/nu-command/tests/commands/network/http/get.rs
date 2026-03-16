@@ -1,31 +1,32 @@
 use mockito::Server;
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 use std::{thread, time::Duration};
 
 #[test]
-fn http_get_is_success() {
+fn http_get_is_success() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("GET", "/").with_body("foo").create();
-
-    let actual = nu!(format!(r#"http get {url}"#, url = server.url()));
-
-    assert_eq!(actual.out, "foo")
+    let code = format!(r#"http get {url}"#, url = server.url());
+    test().run(code).expect_value_eq("foo")
 }
 
 #[test]
-fn http_get_failed_due_to_server_error() {
+fn http_get_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("GET", "/").with_status(400).create();
-
-    let actual = nu!(format!(r#"http get {url}"#, url = server.url()));
-
-    assert!(actual.err.contains("Bad request (400)"))
+    let code = format!(r#"http get {url}"#, url = server.url());
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::NetworkFailure {msg, ..} => {
+            assert_contains("Bad request (400)", msg);
+            Ok(())
+        },
+        err => Err(err.into())
+    }
 }
 
 #[test]
-fn http_get_with_accept_errors() {
+fn http_get_with_accept_errors() -> Result {
     let mut server = Server::new();
 
     let _mock = server
@@ -34,9 +35,8 @@ fn http_get_with_accept_errors() {
         .with_body("error body")
         .create();
 
-    let actual = nu!(format!(r#"http get -e {url}"#, url = server.url()));
-
-    assert!(actual.out.contains("error body"))
+    let code = format!(r#"http get -e {url}"#, url = server.url());
+    test().run(code).expect_value_eq("error body")
 }
 
 #[test]
