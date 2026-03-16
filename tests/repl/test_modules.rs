@@ -115,10 +115,7 @@ fn export_alias() -> TestResult {
 
 #[test]
 fn export_consts() -> TestResult {
-    run_test(
-        "module spam { export const b = 3; }; use spam b; $b",
-        "3",
-    )?;
+    run_test("module spam { export const b = 3; }; use spam b; $b", "3")?;
     run_test(
         "module spam { export const b: int = 3; }; use spam b; $b",
         "3",

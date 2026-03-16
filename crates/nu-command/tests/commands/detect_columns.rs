@@ -196,7 +196,8 @@ val1 val2 val3""#;
 // The command should complete successfully and provide the expected field.
 #[test]
 fn detect_columns_no_panic_with_multibyte_data() {
-    let input = "Name                   Id                                 Version      Match     Source
+    let input =
+        "Name                   Id                                 Version      Match     Source
 katharsis              arghena.katharsis                  1.0.0-canar… Tag: rust winget";
 
     let out = nu!(format!(

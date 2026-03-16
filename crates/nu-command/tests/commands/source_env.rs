@@ -181,11 +181,7 @@ fn source_env_eval_export_env_hide() {
             ",
         )]);
 
-        let inp = &[
-            "$env.FOO = 'foo'",
-            "source-env spam.nu",
-            "$env.FOO",
-        ];
+        let inp = &["$env.FOO = 'foo'", "source-env spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -205,10 +201,7 @@ fn source_env_do_cd() {
                 ",
             )]);
 
-        let inp = &[
-            "source-env test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -228,10 +221,7 @@ fn source_env_do_cd_file_relative() {
                 ",
             )]);
 
-        let inp = &[
-            "source-env test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -253,10 +243,7 @@ fn source_env_dont_cd_overlay() {
                 ",
             )]);
 
-        let inp = &[
-            "source-env test1/test2/spam.nu",
-            "$env.PWD | path basename",
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -307,11 +294,7 @@ fn source_env_const_file() {
             ",
         )]);
 
-        let inp = &[
-            "const file = 'spam.nu'",
-            "source-env $file",
-            "$env.FOO",
-        ];
+        let inp = &["const file = 'spam.nu'", "source-env $file", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 

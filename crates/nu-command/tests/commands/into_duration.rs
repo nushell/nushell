@@ -59,8 +59,7 @@ fn into_duration_from_record_round_trip() {
 
 #[test]
 fn into_duration_table_column() {
-    let actual =
-        nu!("[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value");
+    let actual = nu!("[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value");
     let expected = nu!("[[value]; [1sec] [2min] [3hr] [4day] [5wk]]");
 
     assert_eq!(actual.out, expected.out);

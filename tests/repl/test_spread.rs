@@ -19,10 +19,7 @@ fn spread_in_list() -> TestResult {
         "[1, 2, [3], [1, 2, [3]]]",
     )
     .unwrap();
-    run_test(
-        "[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon",
-        "[a, b, c, d]",
-    )
+    run_test("[ ...[ ...[ ...[ a ] b ] c ] d ] | to nuon", "[a, b, c, d]")
 }
 
 #[test]
@@ -88,11 +85,7 @@ fn bad_spread_on_non_record() -> TestResult {
 
 #[test]
 fn spread_type_record() -> TestResult {
-    run_test(
-        "def f [a: record<x: int>] { $a.x }; f { ...{x: 0} }",
-        "0",
-    )
-    .unwrap();
+    run_test("def f [a: record<x: int>] { $a.x }; f { ...{x: 0} }", "0").unwrap();
     fail_test(
         r#"def f [a: record<x: int>] {}; f { ...{x: "not an int"} }"#,
         "type_mismatch",

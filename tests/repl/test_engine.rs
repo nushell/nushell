@@ -75,10 +75,7 @@ fn in_variable_6() -> TestResult {
 
 #[test]
 fn in_and_if_else() -> TestResult {
-    run_test(
-        "[1, 2, 3] | if false {} else if true { $in | length }",
-        "3",
-    )
+    run_test("[1, 2, 3] | if false {} else if true { $in | length }", "3")
 }
 
 #[test]
@@ -434,10 +431,7 @@ fn default_value_not_constant2() -> TestResult {
 
 #[test]
 fn loose_each() -> TestResult {
-    run_test(
-        "[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum",
-        "7",
-    )
+    run_test("[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum", "7")
 }
 
 #[test]
@@ -455,10 +449,7 @@ fn in_iteration() -> TestResult {
 
 #[test]
 fn reusable_in() -> TestResult {
-    run_test(
-        "[1, 2, 3, 4] | take (($in | length) - 1) | math sum",
-        "6",
-    )
+    run_test("[1, 2, 3, 4] | take (($in | length) - 1) | math sum", "6")
 }
 
 #[test]

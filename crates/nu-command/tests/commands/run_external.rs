@@ -255,9 +255,7 @@ fn external_command_ndots_args(nu_bin: &str, prefix: &str) {
 #[apply(run_external_prefixes)]
 fn external_command_ndots_leading_dot_slash(nu_bin: &str, prefix: &str) {
     // Don't expand ndots with a leading `./`
-    let actual = nu!(format!(
-        "{prefix}{nu_bin} `--testbin` cococo ./... ./...."
-    ));
+    let actual = nu!(format!("{prefix}{nu_bin} `--testbin` cococo ./... ./...."));
 
     assert_eq!(actual.out, "./... ./....");
 }

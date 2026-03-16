@@ -43,9 +43,8 @@ fn into_datetime_from_record_defaults() {
 
 #[test]
 fn into_datetime_from_record_round_trip() {
-    let actual = nu!(
-        "(1743348798 | into datetime | into record | into datetime | into int) == 1743348798"
-    );
+    let actual =
+        nu!("(1743348798 | into datetime | into record | into datetime | into int) == 1743348798");
 
     assert!(actual.out.contains("true"));
 }

@@ -1137,11 +1137,7 @@ pub fn test_external_call_head_interpolated_string(
     "--flag=value",
     "flag value with double quote"
 )]
-#[case(
-    "^foo --flag='value'",
-    "--flag=value",
-    "flag value with single quote"
-)]
+#[case("^foo --flag='value'", "--flag=value", "flag value with single quote")]
 #[case(
     "^foo {a:1,b:'c',c:'d'}",
     "{a:1,b:c,c:d}",

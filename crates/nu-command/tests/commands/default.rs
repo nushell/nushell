@@ -161,9 +161,7 @@ fn column_closure_eval_is_lazy() -> Result {
 
 #[test]
 fn closure_eval_replace_empty_string() -> Result {
-    test()
-        .run("'' | default --empty { 1 }")
-        .expect_value_eq(1)
+    test().run("'' | default --empty { 1 }").expect_value_eq(1)
 }
 
 #[test]
@@ -173,23 +171,17 @@ fn closure_eval_do_not_replace_empty_string() -> Result {
 
 #[test]
 fn closure_eval_replace_empty_list() -> Result {
-    test()
-        .run("[] | default --empty { 1 }")
-        .expect_value_eq(1)
+    test().run("[] | default --empty { 1 }").expect_value_eq(1)
 }
 
 #[test]
 fn closure_eval_do_not_replace_empty_list() -> Result {
-    test()
-        .run("[] | default { 1 } | length")
-        .expect_value_eq(0)
+    test().run("[] | default { 1 } | length").expect_value_eq(0)
 }
 
 #[test]
 fn closure_eval_replace_empty_record() -> Result {
-    test()
-        .run("{} | default --empty { 1 }")
-        .expect_value_eq(1)
+    test().run("{} | default --empty { 1 }").expect_value_eq(1)
 }
 
 #[test]

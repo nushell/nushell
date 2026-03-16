@@ -204,10 +204,7 @@ fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult
 
 #[test]
 fn still_string_if_hashtag_is_middle_of_string_inside_each() -> TestResult {
-    run_test(
-        "1..1 | each {echo test#testing } | get 0",
-        "test#testing",
-    )
+    run_test("1..1 | each {echo test#testing } | get 0", "test#testing")
 }
 
 #[test]
@@ -1012,10 +1009,7 @@ fn let_assign_table_cell_path_to_wrong_type(
 
 #[test]
 fn let_variable_disallows_completer() -> TestResult {
-    fail_test(
-        "let x: int@completer = 42",
-        "Unexpected custom completer",
-    )
+    fail_test("let x: int@completer = 42", "Unexpected custom completer")
 }
 
 #[test]
@@ -1046,10 +1040,7 @@ fn def_with_multi_input_output_with_line_breaks() -> TestResult {
 
 #[test]
 fn def_with_multi_input_output_without_commas() -> TestResult {
-    run_test(
-        "def foo []: [nothing -> int string -> int] { 3 }; foo",
-        "3",
-    )
+    run_test("def foo []: [nothing -> int string -> int] { 3 }; foo", "3")
 }
 
 #[test]

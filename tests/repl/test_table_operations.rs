@@ -170,10 +170,7 @@ fn index_on_list() -> TestResult {
 
 #[test]
 fn update_cell_path_1() -> TestResult {
-    run_test(
-        "[[name, size]; [a, 1.1]] | into int size | get size.0",
-        "1",
-    )
+    run_test("[[name, size]; [a, 1.1]] | into int size | get size.0", "1")
 }
 
 #[test]
@@ -239,10 +236,7 @@ fn wrap() -> TestResult {
 
 #[test]
 fn get() -> TestResult {
-    run_test(
-        "[[name, grade]; [Alice, A], [Betty, B]] | get grade.1",
-        "B",
-    )
+    run_test("[[name, grade]; [Alice, A], [Betty, B]] | get grade.1", "B")
 }
 
 #[test]
