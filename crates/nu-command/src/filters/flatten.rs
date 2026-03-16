@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct Flatten;
@@ -154,6 +155,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
         Value::Record { val, .. } => {
             let mut out = IndexMap::<String, Value>::new();
             let mut inner_table = None;
+            // Collect all parent column names upfront so we can detect
+            // conflicts with inner columns regardless of column order.
+            let all_parent_columns: HashSet<String> = val.columns().cloned().collect();
 
             for (column_index, (column, value)) in val.into_owned().into_iter().enumerate() {
                 let column_requested = columns.iter().find(|c| c.to_column_name() == column);
@@ -164,7 +168,9 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                     Value::Record { ref val, .. } => {
                         if need_flatten {
                             for (col, val) in val.clone().into_owned() {
-                                if out.contains_key(&col) {
+                                // Check against all parent columns except the one
+                                // being flattened (which is being replaced by its contents).
+                                if col != column && all_parent_columns.contains(&col) {
                                     out.insert(format!("{column}_{col}"), val);
                                 } else {
                                     out.insert(col, val);
@@ -268,7 +274,10 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                             // this can avoid output column order changed.
                             if index == parent_column_index {
                                 for (col, val) in &inner_record {
-                                    if record.contains(col) {
+                                    // Check against all parent columns, not just
+                                    // already-inserted ones, to handle conflicts
+                                    // regardless of column order.
+                                    if all_parent_columns.contains(col) {
                                         record.push(
                                             format!("{parent_column_name}_{col}"),
                                             val.clone(),
@@ -286,7 +295,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
                         // the flattened column may be the last column in the original table.
                         if index == parent_column_index {
                             for (col, val) in inner_record {
-                                if record.contains(&col) {
+                                if all_parent_columns.contains(&col) {
                                     record.push(format!("{parent_column_name}_{col}"), val);
                                 } else {
                                     record.push(col, val);

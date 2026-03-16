@@ -140,6 +140,35 @@ fn flatten_table_columns_explicitly() {
 }
 
 #[test]
+fn flatten_renames_conflicting_column_when_parent_column_appears_after() {
+    // Regression test for issue #13271: flatten should rename conflicting
+    // columns regardless of whether the parent's conflicting column appears
+    // before or after the flattened column.
+    let actual = nu!("[[b, a]; [[[a]; [9]], 1]] | flatten -a b | columns | str join ','");
+    assert_eq!(actual.out, "b_a,a");
+
+    let actual = nu!("[[b, a]; [[[a]; [9]], 1]] | flatten -a b | get b_a | first");
+    assert_eq!(actual.out, "9");
+
+    let actual = nu!("[[b, a]; [[[a]; [9]], 1]] | flatten -a b | get a | first");
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
+fn flatten_renames_conflicting_column_in_record_regardless_of_order() {
+    // Record case: inner record column conflicts with a parent column
+    // that appears after the flattened column.
+    let actual = nu!("{b: {a: 9}, a: 1} | flatten b | columns | str join ','");
+    assert_eq!(actual.out, "b_a,a");
+
+    let actual = nu!("{b: {a: 9}, a: 1} | flatten b | get b_a | first");
+    assert_eq!(actual.out, "9");
+
+    let actual = nu!("{b: {a: 9}, a: 1} | flatten b | get a | first");
+    assert_eq!(actual.out, "1");
+}
+
+#[test]
 fn flatten_more_than_one_column_that_are_subtables_not_supported() {
     let sample = r#"
                 [
