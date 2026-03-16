@@ -388,7 +388,7 @@ fn main() -> Result<()> {
                 .to_string_lossy()
                 .to_string(),
         ];
-        let all_lib_dirs: Vec<String> = default_paths.into_iter().chain(user_lib_dirs).collect();
+        let all_lib_dirs: Vec<String> = user_lib_dirs.into_iter().chain(default_paths).collect();
 
         // Convert to Value list for setting env vars and constants
         let all_lib_dir_values: Vec<Value> = all_lib_dirs
@@ -408,7 +408,7 @@ fn main() -> Result<()> {
             b"$NU_LIB_DIRS".into(),
             Span::unknown(),
             Type::List(Box::new(Type::String)),
-            true, // is_const
+            false, // is_const
         );
         working_set
             .set_variable_const_val(var_id, Value::list(all_lib_dir_values, Span::unknown()));
