@@ -137,7 +137,7 @@ fn err_pipe_redirection() -> Result {
 #[rstest]
 #[case::complete_parenthesized(r#"let result = (nu -n -c "exit 1" | complete)"#)]
 #[case::complete(r#"let result = nu -n -c "exit 1" | complete"#)]
-#[case::into_let(r#"nu -n --c "exit 1" | complete | let result"#)]
+#[case::into_let(r#"nu -n -c "exit 1" | complete | let result"#)]
 #[nu_test_support::test]
 #[exp(PIPE_FAIL)]
 fn pipefail_let(#[case] assignment: &str) -> Result {
