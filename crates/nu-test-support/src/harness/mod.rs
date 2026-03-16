@@ -71,6 +71,9 @@ pub fn main() -> ExitCode {
         kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
     }
 
+    #[cfg(all(feature = "rustls-tls", feature = "network"))]
+    nu_command::tls::CRYPTO_PROVIDER.default();
+
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact);

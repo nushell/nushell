@@ -220,6 +220,7 @@ js = ["getrandom", "getrandom/js", "rand", "uuid"]
 network = [
 	"dns-lookup",
 	"multipart-rs",
+	"nu-test-support/network",
 	"update-informer",
 	"ureq",
 	"uuid",
@@ -231,9 +232,10 @@ native-tls = [
 	"ureq/native-tls",
 ]
 rustls-tls = [
-	"dep:rustls",
 	"dep:rustls-native-certs",
+	"dep:rustls",
 	"dep:webpki-roots",
+	"nu-test-support/rustls-tls",
 	"update-informer/rustls-tls",
 	"ureq/rustls",
 ]

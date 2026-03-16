@@ -22,6 +22,8 @@ os = [
   "nu-protocol/os",
   "nu-utils/os",
 ]
+network = ["nu-command/network"]
+rustls-tls = ["nu-command/rustls-tls"]
 
 [dependencies]
 nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.111.1", default-features = false }
