@@ -8,7 +8,12 @@ use std::{
 };
 
 use nu_protocol::{
-    CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData, PipelineExecutionData, ShellError, Span, Value, ast::Block, debugger::WithoutDebug, engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet}, shell_error::{io::IoError, network::NetworkError}
+    CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
+    PipelineExecutionData, ShellError, Span, Value,
+    ast::Block,
+    debugger::WithoutDebug,
+    engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
+    shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
@@ -588,7 +593,10 @@ impl ShellErrorExt for ShellError {
             ShellError::LabeledError(err) => Ok(*err),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
-                kind: TestErrorKind::UnexpectedErrorKind { expected: "Labeled", got },
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Labeled",
+                    got,
+                },
             }),
         }
     }
@@ -599,7 +607,10 @@ impl ShellErrorExt for ShellError {
             ShellError::GenericError { error, .. } => Ok(error),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
-                kind: TestErrorKind::UnexpectedErrorKind { expected: "Generic", got },
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Generic",
+                    got,
+                },
             }),
         }
     }
@@ -610,7 +621,10 @@ impl ShellErrorExt for ShellError {
             ShellError::GenericError { msg, .. } => Ok(msg),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
-                kind: TestErrorKind::UnexpectedErrorKind { expected: "Generic", got },
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Generic",
+                    got,
+                },
             }),
         }
     }

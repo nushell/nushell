@@ -29,7 +29,9 @@ fn adds_row_data_if_column_missing() -> Result {
         | length
     ";
 
-    test().run_with_data(code, AMIGOS.clone()).expect_value_eq(2)
+    test()
+        .run_with_data(code, AMIGOS.clone())
+        .expect_value_eq(2)
 }
 
 #[test]
@@ -60,7 +62,9 @@ fn adds_row_data_if_column_missing_or_empty() -> Result {
         | length
     ";
 
-    test().run_with_data(code, AMIGOS.clone()).expect_value_eq(5)
+    test()
+        .run_with_data(code, AMIGOS.clone())
+        .expect_value_eq(5)
 }
 
 #[test]
@@ -206,7 +210,7 @@ fn closure_eval_add_missing_column_record() -> Result {
 fn closure_eval_add_missing_column_table() -> Result {
     test()
         .run(r#"[{a: 1, b: 2}, {b: 4}] | default { 3 } a | get a"#)
-        .expect_value_eq([1,3])
+        .expect_value_eq([1, 3])
 }
 
 #[test]
@@ -220,13 +224,13 @@ fn closure_eval_replace_empty_column() -> Result {
 fn replace_multiple_columns() -> Result {
     test()
         .run(r#"{a: ''} | default -e 1 a b | values"#)
-        .expect_value_eq([1,1])
+        .expect_value_eq([1, 1])
 }
 
 #[test]
 fn return_closure_value() -> Result {
     let outcome: Value = test().run(r#"null | default { {||} }"#)?;
-    assert!(matches!(outcome, Value::Closure {..}));
+    assert!(matches!(outcome, Value::Closure { .. }));
     Ok(())
 }
 

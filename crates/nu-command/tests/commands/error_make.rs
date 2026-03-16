@@ -6,11 +6,11 @@ use nu_test_support::prelude::*;
 fn error_make_empty() -> Result {
     let err = test().run("error make {}").expect_shell_error()?;
     match err {
-        ShellError::CantFindColumn {col_name, ..} => {
+        ShellError::CantFindColumn { col_name, .. } => {
             assert_eq!(col_name, "msg");
             Ok(())
-        },
-        err => Err(err.into())
+        }
+        err => Err(err.into()),
     }
 }
 
@@ -28,9 +28,7 @@ fn error_make_no_label_text() -> Result {
         }
     ";
 
-    let err = test()
-        .run(code)
-        .expect_labeled_error()?;
+    let err = test().run(code).expect_labeled_error()?;
 
     assert_eq!(err.msg, "no_label_text");
     assert_eq!(err.labels[0].span, Span::new(1, 1));
@@ -191,7 +189,7 @@ fn error_bad_label() -> Result {
     ";
 
     let err = test().run(code).expect_shell_error()?;
-    assert!(matches!(err, ShellError::CantConvert {..}));
+    assert!(matches!(err, ShellError::CantConvert { .. }));
     Ok(())
 }
 
