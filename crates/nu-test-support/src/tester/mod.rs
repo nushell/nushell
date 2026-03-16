@@ -376,6 +376,16 @@ impl From<ShellError> for TestError {
     }
 }
 
+impl From<ParseError> for TestError {
+    #[track_caller]
+    fn from(err: ParseError) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Parse(err),
+        }
+    }
+}
+
 impl TestError {
     /// Convert this error into a [`ParseError`], if it is one.
     pub fn parse(self) -> Result<ParseError, TestError> {
