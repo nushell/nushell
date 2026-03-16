@@ -17,7 +17,7 @@ pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
 pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
-pub use line_editor::{ExternalHinterConfig, ExternalLineEditorConfig, LineEditorConfig};
+pub use line_editor::HinterConfig;
 pub use ls::LsConfig;
 pub use output::{BannerKind, ErrorStyle};
 pub use plugin_gc::{PluginGcConfig, PluginGcConfigs};
@@ -60,7 +60,7 @@ pub struct Config {
     pub completions: CompletionConfig,
     pub edit_mode: EditBindings,
     pub show_hints: bool,
-    pub line_editor: LineEditorConfig,
+    pub hinter: HinterConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -122,7 +122,7 @@ impl Default for Config {
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
             show_hints: true,
-            line_editor: LineEditorConfig::default(),
+            hinter: HinterConfig::default(),
 
             shell_integration: ShellIntegrationConfig::default(),
 
@@ -177,7 +177,7 @@ impl UpdateFromValue for Config {
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
                 "edit_mode" => self.edit_mode.update(val, path, errors),
                 "show_hints" => self.show_hints.update(val, path, errors),
-                "line_editor" => self.line_editor.update(val, path, errors),
+                "hinter" => self.hinter.update(val, path, errors),
                 "shell_integration" => self.shell_integration.update(val, path, errors),
                 "buffer_editor" => match val {
                     Value::Nothing { .. } | Value::String { .. } => {

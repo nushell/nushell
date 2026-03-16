@@ -9,12 +9,26 @@ use reedline::{Hinter, History};
 use std::sync::Arc;
 use unicode_segmentation::UnicodeSegmentation;
 
+/// The result of evaluating the external hinter closure.
+///
+/// Closures may return a plain string (just the hint) or a record
+/// `{hint: string, next_token?: string}` when the default whitespace-based
+/// token splitting is not appropriate for the hint text.
+struct HintResult {
+    /// The hint suffix to display after the cursor.
+    hint: String,
+    /// Optional override for the next token returned by `next_hint_token`.
+    /// When `None`, the default `first_hint_token` splitter is used.
+    next_token: Option<String>,
+}
+
 pub(crate) struct ExternalHinter {
     engine_state: Arc<EngineState>,
     stack: Arc<Stack>,
     closure: Closure,
     style: Style,
     current_hint: String,
+    current_next_token: Option<String>,
 }
 
 impl ExternalHinter {
@@ -30,6 +44,7 @@ impl ExternalHinter {
             closure,
             style,
             current_hint: String::new(),
+            current_next_token: None,
         }
     }
 
@@ -38,7 +53,7 @@ impl ExternalHinter {
         line: &str,
         pos: usize,
         cwd: &str,
-    ) -> Result<Option<String>, String> {
+    ) -> Result<Option<HintResult>, String> {
         let span = Span::unknown();
         let context = Record::from_raw_cols_vals(
             vec!["line".to_string(), "pos".to_string(), "cwd".to_string()],
@@ -59,7 +74,27 @@ impl ExternalHinter {
             .and_then(|data| data.into_value(span));
 
         match result {
-            Ok(Value::String { val, .. }) => Ok(Some(val)),
+            Ok(Value::String { val, .. }) => Ok(Some(HintResult {
+                hint: val,
+                next_token: None,
+            })),
+            Ok(Value::Record { val, .. }) => {
+                let hint = val
+                    .get("hint")
+                    .and_then(|v| v.as_str().ok())
+                    .map(|s| s.to_string());
+                let next_token = val
+                    .get("next_token")
+                    .and_then(|v| v.as_str().ok())
+                    .map(|s| s.to_string());
+                match hint {
+                    Some(hint) => Ok(Some(HintResult { hint, next_token })),
+                    None => {
+                        error!("external_hinter: record return must contain a 'hint' string field");
+                        Ok(None)
+                    }
+                }
+            }
             Ok(Value::Nothing { .. }) => Ok(None),
             Ok(value) => {
                 error!(
@@ -82,12 +117,19 @@ impl Hinter for ExternalHinter {
         use_ansi_coloring: bool,
         cwd: &str,
     ) -> String {
-        self.current_hint = match self.evaluate_external_hint(line, pos, cwd) {
-            Ok(Some(hint)) => hint,
-            Ok(None) => String::new(),
+        match self.evaluate_external_hint(line, pos, cwd) {
+            Ok(Some(result)) => {
+                self.current_next_token = result.next_token;
+                self.current_hint = result.hint;
+            }
+            Ok(None) => {
+                self.current_next_token = None;
+                self.current_hint = String::new();
+            }
             Err(err) => {
                 error!("external_hinter: {err}");
-                String::new()
+                self.current_next_token = None;
+                self.current_hint = String::new();
             }
         };
 
@@ -103,7 +145,11 @@ impl Hinter for ExternalHinter {
     }
 
     fn next_hint_token(&self) -> String {
-        first_hint_token(&self.current_hint)
+        if let Some(ref next_token) = self.current_next_token {
+            next_token.clone()
+        } else {
+            first_hint_token(&self.current_hint)
+        }
     }
 }
 
@@ -182,6 +228,45 @@ mod tests {
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
         assert_eq!(hint, "hello there");
         assert_eq!(hinter.complete_hint(), "hello there");
+        assert_eq!(hinter.next_hint_token(), "hello");
+    }
+
+    #[test]
+    fn record_return_with_hint_and_next_token() {
+        let (engine_state, closure) =
+            parse_test_closure("{|ctx| {hint: 'hello there', next_token: 'hello'}}");
+        let mut hinter =
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
+
+        let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
+        assert_eq!(hint, "hello there");
+        assert_eq!(hinter.complete_hint(), "hello there");
+        assert_eq!(hinter.next_hint_token(), "hello");
+    }
+
+    #[test]
+    fn record_return_with_custom_next_token() {
+        let (engine_state, closure) =
+            parse_test_closure("{|ctx| {hint: 'hello there friend', next_token: 'hello there'}}");
+        let mut hinter =
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
+
+        let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
+        assert_eq!(hint, "hello there friend");
+        assert_eq!(hinter.next_hint_token(), "hello there");
+    }
+
+    #[test]
+    fn record_return_hint_only_uses_default_next_token() {
+        let (engine_state, closure) = parse_test_closure("{|ctx| {hint: 'hello there'}}");
+        let mut hinter =
+            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let history = history();
+
+        let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
+        assert_eq!(hint, "hello there");
         assert_eq!(hinter.next_hint_token(), "hello");
     }
 

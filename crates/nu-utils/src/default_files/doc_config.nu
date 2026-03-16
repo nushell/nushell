@@ -163,29 +163,23 @@ $env.config.cursor_shape.vi_normal = "inherit"
 # Default: true
 $env.config.show_hints = true
 
-# line_editor.external.hinter.enable (bool): Enable custom script-based hints.
-# true: Evaluate the custom hinter closure when configured.
-# false: Skip custom hinter and always use built-in history hints.
-# Default: true
-$env.config.line_editor.external.hinter.enable = true
-
-# line_editor.external.hinter.closure (closure|null): Custom hint closure.
+# hinter.closure (closure|null): Custom hint closure.
 # Closure input: one record argument {|ctx| ... } where
 #   $ctx.line (string): current line buffer
 #   $ctx.pos (int): current cursor position
 #   $ctx.cwd (string): current working directory
 # Return:
 #   string -> hint suffix to render and accept
+#   record -> {hint: string, next_token?: string} for custom token splitting
 #   null   -> no hint (equivalent to "")
 # Any closure error or unsupported return type yields no hint.
-# To use the built-in hinter instead, disable external hintering or set
-# line_editor.external.hinter.closure = null in config.
+# To use the built-in hinter instead, set hinter.closure = null in config.
 # This closure runs frequently while typing, so keep it lightweight.
 # Default: null
-$env.config.line_editor.external.hinter.closure = null
+$env.config.hinter.closure = null
 
 # Example:
-# $env.config.line_editor.external.hinter.closure = {|ctx|
+# $env.config.hinter.closure = {|ctx|
 #   let last = (history | last 1 | get command_line? | get 0?)
 #   if $last == null or not ($last | str starts-with $ctx.line) {
 #     null
