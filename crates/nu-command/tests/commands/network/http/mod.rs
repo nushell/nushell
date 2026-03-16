@@ -1,4 +1,5 @@
-use nu_test_support::nu;
+use nu_protocol::shell_error::network::NetworkError;
+use nu_test_support::prelude::*;
 use rstest::*;
 
 mod delete;
@@ -24,19 +25,26 @@ mod put;
 #[case::patch_uppercase("PATCH")]
 #[case::post_uppercase("POST")]
 #[case::put_uppercase("PUT")]
-fn disallow_dynamic_http_methods(#[case] method: &str) {
-    assert!(
-        nu!(format!("let method = '{method}'; http $method example.com"))
-            .err
-            .contains(&format!(
-                "Prefer to use `http {}` directly",
-                method.to_lowercase()
-            ))
-    );
+fn disallow_dynamic_http_methods(#[case] method: &str) -> Result {
+    let code = format!("let method = '{method}'; http $method example.com");
+    let err = test().run(code).expect_error()?;
+    match err {
+        ShellError::GenericError {
+            help: Some(help), ..
+        } => {
+            assert_contains(
+                format!("Prefer to use `http {}` directly", method.to_lowercase()),
+                help,
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn helpful_dns_error_for_unknown_domain() {
-    let outcome = nu!("http get gibberish");
-    assert!(outcome.err.contains("nu::shell::network::dns"));
+fn helpful_dns_error_for_unknown_domain() -> Result {
+    let err = test().run("http get gibberish").expect_network_error()?;
+    assert!(matches!(err, NetworkError::Dns { .. }));
+    Ok(())
 }

@@ -13,7 +13,7 @@ use nu_protocol::{
     ast::Block,
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
-    shell_error::io::IoError,
+    shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
@@ -427,6 +427,8 @@ pub trait TestResultExt: Sized {
 
     /// Expect the result to be a [`ShellError::Io`].
     fn expect_io_error(self) -> Result<IoError>;
+    /// Expect the result to be a [`ShellError::Network`].
+    fn expect_network_error(self) -> Result<NetworkError>;
 
     /// Expect the result to be a [`ShellError`].
     #[track_caller]
@@ -508,7 +510,22 @@ impl TestResultExt for Result<Value> {
                 kind: TestErrorKind::Shell(ShellError::Io(err)),
                 ..
             }) => Ok(err),
-            Err(err) => Err(err.update_location())
+            Err(err) => Err(err.update_location()),
+        }
+    }
+
+    #[track_caller]
+    fn expect_network_error(self) -> Result<NetworkError> {
+        match self {
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(ShellError::Network(err)),
+                ..
+            }) => Ok(err),
+            Err(err) => Err(err.update_location()),
         }
     }
 }
