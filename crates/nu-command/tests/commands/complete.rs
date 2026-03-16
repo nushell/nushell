@@ -1,14 +1,7 @@
 use nu_experimental::PIPE_FAIL;
-use nu_test_support::{prelude::*, tester::NuTester};
+use nu_test_support::prelude::*;
+use rstest::rstest;
 use std::collections::HashMap;
-
-fn built_nu_path() -> String {
-    nu_test_support::fs::executable_path().display().to_string()
-}
-
-fn tester_with_path() -> NuTester {
-    test().inherit_path().add_nu_to_path()
-}
 
 #[test]
 fn basic_stdout() -> Result {
@@ -135,58 +128,37 @@ fn combined_pipe_redirection() -> Result {
 
 #[test]
 fn err_pipe_redirection() -> Result {
-    tester_with_path()
+    test()
+        .add_nu_to_path()
         .run("$env.FOO = 'hello'; nu --testbin echo_env_stderr FOO e>| complete | get stdout")
         .expect_value_eq("hello\n")
 }
 
-#[test]
+#[rstest]
+#[case::complete_parenthesized(r#"let result = (nu -n -c "exit 1" | complete)"#)]
+#[case::complete(r#"let result = nu -n -c "exit 1" | complete"#)]
+#[case::into_let(r#"nu -n --c "exit 1" | complete | let result"#)]
+#[nu_test_support::test]
 #[exp(PIPE_FAIL)]
-fn pipefail_let_with_parenthesized_complete_assignment() -> Result {
-    let command = r#"
-        let result = (nu --no-config-file --commands "exit 1" | complete); 
-        $result
-    "#;
-
-    let outcome: HashMap<String, Value> = test().add_nu_to_path().run(command)?;
-    outcome["stdout"].assert_value_eq("");
-    outcome["stderr"].assert_value_eq("");
-    outcome["exit_code"].assert_value_eq(1);
+fn pipefail_let(#[case] assignment: &str) -> Result {
+    let mut tester = test().add_nu_to_path();
+    let _: Value = tester.run(assignment)?;
+    let outcome: HashMap<String, Value> = tester.run("$result")?;
+    outcome["stdout"].assert_eq("");
+    outcome["stderr"].assert_eq("");
+    outcome["exit_code"].assert_eq(1);
     Ok(())
 }
 
 #[test]
-fn pipefail_let_with_complete_assignment() {
-    let nu_path = built_nu_path();
-    let command = format!(
-        "let result = ^{nu_path} --no-config-file --commands \"exit 1\" | complete; print $result"
-    );
-    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
+#[exp(PIPE_FAIL)]
+fn pipefail_parenthesized_pipeline_let_keeps_scope() -> Result {
+    let code = r#"
+        (nu --no-config-file --commands "exit 1" | complete | let result);
+        $result
+    "#;
 
-    assert!(actual.out.contains("exit_code"));
-    assert!(!actual.err.contains("non_zero_exit_code"));
-}
-
-#[test]
-fn pipefail_pipeline_complete_into_let() {
-    let nu_path = built_nu_path();
-    let command = format!(
-        "^{nu_path} --no-config-file --commands \"exit 1\" | complete | let result; print $result"
-    );
-    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
-
-    assert!(actual.out.contains("exit_code"));
-    assert!(!actual.err.contains("non_zero_exit_code"));
-}
-
-#[test]
-fn pipefail_parenthesized_pipeline_let_keeps_scope() {
-    let nu_path = built_nu_path();
-    let command = format!(
-        "(^{nu_path} --no-config-file --commands \"exit 1\" | complete | let result); print $result"
-    );
-    let actual = nu!(experimental: vec!["pipefail".to_string()], command);
-
-    assert!(actual.err.contains("nu::parser::variable_not_found"));
-    assert!(!actual.err.contains("nu::shell::non_zero_exit_code"));
+    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::VariableNotFound { .. }));
+    Ok(())
 }
