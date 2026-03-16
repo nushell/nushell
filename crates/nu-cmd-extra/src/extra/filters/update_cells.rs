@@ -130,12 +130,11 @@ impl Command for UpdateCells {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let rest: Vec<String> = call.rest(engine_state, stack, 1)?;
-        let columns_flag: Option<Value> = call.get_flag(engine_state, stack, "columns")?;
 
         let columns: Option<HashSet<String>> = if !rest.is_empty() {
             Some(rest.into_iter().collect())
         } else {
-            match columns_flag {
+            match call.get_flag::<Value>(engine_state, stack, "columns")? {
                 Some(val) => Some(
                     val.into_list()?
                         .into_iter()
