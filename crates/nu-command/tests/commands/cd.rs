@@ -231,7 +231,11 @@ fn cd_permission_denied_folder() -> Result {
             chmod -x banned
             cd banned
         ";
-        let err = test().cwd(dirs.test()).run(code).expect_io_error()?;
+        let err = test()
+            .inherit_path()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_io_error()?;
         assert!(matches!(
             err.kind,
             nu_protocol::shell_error::io::ErrorKind::Std(std::io::ErrorKind::PermissionDenied, ..)
@@ -240,7 +244,7 @@ fn cd_permission_denied_folder() -> Result {
             chmod +x banned
             rm banned
         ";
-        let _: () = test().cwd(dirs.test()).run(cleanup)?;
+        let _: () = test().inherit_path().cwd(dirs.test()).run(cleanup)?;
         Ok(())
     })
 }
