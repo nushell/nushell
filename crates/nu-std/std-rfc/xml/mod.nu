@@ -27,10 +27,10 @@ def descendant-or-self []: list<record<content: list<record>>> -> list<record>  
 }
 
 def make-list []: any -> list {
-	match $in {
-		[..$xs] => $xs
-		$x => [$x]
-	}
+    match $in {
+        [..$xs] => $xs
+        $x => [$x]
+    }
 }
 
 def pipeline [meta: record]: list<oneof<cell-path, string, int, closure, list>> -> closure {
