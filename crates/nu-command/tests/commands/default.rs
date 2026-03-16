@@ -10,7 +10,7 @@ struct Amigo {
 }
 
 #[rustfmt::skip]
-const AMIGOS: LazyLock<[Amigo; 7]> = LazyLock::new(|| [
+static AMIGOS: LazyLock<[Amigo; 7]> = LazyLock::new(|| [
     Amigo { name: "Yehuda",    rusty_luck: None },
     Amigo { name: "Jt",        rusty_luck: Some(Value::test_int(0)) },
     Amigo { name: "Andres",    rusty_luck: Some(Value::test_int(0)) },
