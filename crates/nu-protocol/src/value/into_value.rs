@@ -1,5 +1,6 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
+use nu_path::form::PathForm;
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
@@ -261,6 +262,18 @@ impl IntoValue for std::time::Duration {
     }
 }
 
+impl IntoValue for &std::path::Path {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
+impl IntoValue for std::path::PathBuf {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
 // Nu Types
 
 impl IntoValue for Range {
@@ -296,6 +309,18 @@ impl IntoValue for CellPath {
 impl IntoValue for Value {
     fn into_value(self, span: Span) -> Value {
         self.with_span(span)
+    }
+}
+
+impl<Form: PathForm> IntoValue for &nu_path::Path<Form> {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
+impl<Form: PathForm> IntoValue for nu_path::PathBuf<Form> {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
     }
 }
 
