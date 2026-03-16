@@ -139,12 +139,12 @@ impl Command for Table {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",
-                example: r#"ls | table --index 1"#,
+                example: "ls | table --index 1",
                 result: None,
             },
             Example {
                 description: "Render data in table view",
-                example: r#"[[a b]; [1 2] [3 4]] | table"#,
+                example: "[[a b]; [1 2] [3 4]] | table",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -158,7 +158,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --expand",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -175,7 +175,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --collapse",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -192,22 +192,22 @@ impl Command for Table {
             },
             Example {
                 description: "Change the table theme to the specified theme for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --theme basic",
                 result: None,
             },
             Example {
                 description: "Force showing of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i true",
                 result: None,
             },
             Example {
                 description: "Set the starting number of the #/index column to 100 for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i 100",
                 result: None,
             },
             Example {
                 description: "Force hiding of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i false",
                 result: None,
             },
         ]

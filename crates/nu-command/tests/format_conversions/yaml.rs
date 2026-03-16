@@ -3,12 +3,12 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open appveyor.yml
         | to yaml
         | from yaml
         | get environment.global.PROJECT_NAME
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -18,12 +18,12 @@ fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
 
 #[test]
 fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open appveyor.yml
         | to yml
         | from yml
         | get environment.global.PROJECT_NAME
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")

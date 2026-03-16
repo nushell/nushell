@@ -38,8 +38,8 @@ impl Command for PathJoin {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Optionally, append an additional path to the result. It is designed to accept
-the output of 'path parse' and 'path split' subcommands."#
+        "Optionally, append an additional path to the result. It is designed to accept
+the output of 'path parse' and 'path split' subcommands."
     }
 
     fn is_const(&self) -> bool {
@@ -94,7 +94,7 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Use absolute paths, e.g. '/' will bring you to the top level directory.",
                 example: r"'C:\Users\viking' | path join / folder",
-                result: Some(Value::test_string(r"C:/folder")),
+                result: Some(Value::test_string("C:/folder")),
             },
             Example {
                 description: "Join a list of parts into a path.",

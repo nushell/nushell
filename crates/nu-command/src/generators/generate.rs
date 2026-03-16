@@ -32,7 +32,7 @@ impl Command for Generate {
     }
 
     fn extra_description(&self) -> &str {
-        r#"The generator closure accepts a single argument and returns a record
+        "The generator closure accepts a single argument and returns a record
 containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
 value, if present, is added to the stream. If a 'next' key is present, it is
 used as the next argument to the closure, otherwise generation stops.
@@ -40,7 +40,7 @@ used as the next argument to the closure, otherwise generation stops.
 Additionally, if an input stream is provided, the generator closure accepts two
 arguments. On each invocation an element of the input stream is provided as the
 first argument. The second argument is the `next` value from the last invocation.
-In this case, generation also stops when the input stream stops."#
+In this case, generation also stops when the input stream stops."
     }
 
     fn search_terms(&self) -> Vec<&str> {

@@ -153,10 +153,10 @@ fn test_osc133_config_toggle() {
     let result = nu!("$env.config.shell_integration.osc133");
     assert_eq!(result.out, "true");
 
-    let result = nu!(r#"
+    let result = nu!("
         $env.config.shell_integration.osc133 = false
         $env.config.shell_integration.osc133
-    "#);
+    ");
     assert_eq!(result.out, "false");
 }
 
@@ -166,9 +166,9 @@ fn test_osc633_config_toggle() {
     let result = nu!("$env.config.shell_integration.osc633");
     assert_eq!(result.out, "true");
 
-    let result = nu!(r#"
+    let result = nu!("
         $env.config.shell_integration.osc633 = false
         $env.config.shell_integration.osc633
-    "#);
+    ");
     assert_eq!(result.out, "false");
 }

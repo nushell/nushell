@@ -146,7 +146,7 @@ fn source_path_with_nested_parens() {
         // Nested parentheses in interpolation
         let actual = nu!(
             cwd: dirs.test(),
-            r#"source test_($nu.os-info | get name)_nested.nu"#
+            "source test_($nu.os-info | get name)_nested.nu"
         );
 
         assert_eq!(actual.out, "nested parens");
@@ -166,7 +166,7 @@ fn source_path_single_quote_no_interpolation() {
         // Single quotes should prevent interpolation
         let actual = nu!(
             cwd: dirs.test(),
-            r#"source 'file($nu.os-info.name).nu'"#
+            "source 'file($nu.os-info.name).nu'"
         );
 
         assert_eq!(actual.out, "no interpolation");
@@ -186,7 +186,7 @@ fn source_path_backtick_no_interpolation() {
         // Backticks should also prevent interpolation
         let actual = nu!(
             cwd: dirs.test(),
-            r#"source `file($nu.os-info.name).nu`"#
+            "source `file($nu.os-info.name).nu`"
         );
 
         assert_eq!(actual.out, "backtick no interp");
@@ -241,7 +241,7 @@ fn source_path_mixed_parens_and_quotes() {
         // Interpolation in bare word with constant
         let actual2 = nu!(
             cwd: dirs.test(),
-            r#"source test_($nu.os-info.name).nu"#
+            "source test_($nu.os-info.name).nu"
         );
         assert_eq!(actual2.out, "test interpolated");
     });
@@ -312,7 +312,7 @@ fn source_path_multiple_interpolations() {
         // Multiple interpolations in one path using constants
         let actual = nu!(
             cwd: dirs.test(),
-            r#"source ($nu.os-info.name)_($nu.os-info.arch).nu"#
+            "source ($nu.os-info.name)_($nu.os-info.arch).nu"
         );
         assert_eq!(actual.out, "multiple interpolations");
     });
@@ -350,7 +350,7 @@ fn source_path_raw_string_no_interpolation() {
         // Raw strings should not interpolate
         let actual = nu!(
             cwd: dirs.test(),
-            r#"source r#'file($nu.os-info.name).nu'#"#
+            "source r#'file($nu.os-info.name).nu'#"
         );
 
         assert_eq!(actual.out, "raw string");
@@ -636,7 +636,7 @@ fn parse_function_signature(#[case] phrase: &str) {
 
 #[test]
 fn parse_function_signature_switch_is_bool() {
-    let actual = nu!(r#"def foo [--bar] { let baz: int = $bar }"#);
+    let actual = nu!("def foo [--bar] { let baz: int = $bar }");
     assert!(actual.err.contains("expected int, found bool"))
 }
 
@@ -689,44 +689,44 @@ fn parse_const_signature_missing_colon() {
 /// https://github.com/nushell/nushell/issues/16969
 #[test]
 fn wacky_range_parse() {
-    let actual = nu!(r#"0..(1..2 | first)"#);
+    let actual = nu!("0..(1..2 | first)");
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn wacky_range_parse_lt() {
-    let actual = nu!(r#"0..<(1..2 | first)"#);
+    let actual = nu!("0..<(1..2 | first)");
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn wacky_range_parse_eq() {
-    let actual = nu!(r#"0..=(1..2 | first)"#);
+    let actual = nu!("0..=(1..2 | first)");
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn wacky_range_parse_no_end() {
-    let actual = nu!(r#"..(1..2 | first)"#);
+    let actual = nu!("..(1..2 | first)");
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn wacky_range_parse_regression() {
-    let actual = nu!(r#"1..(5)..10"#);
+    let actual = nu!("1..(5)..10");
     assert!(actual.err.is_empty());
 }
 
 #[test]
 fn wacky_range_parse_comb() {
-    let actual = nu!(r#"1..(5..10 | first)..10"#);
+    let actual = nu!("1..(5..10 | first)..10");
     assert!(actual.err.is_empty());
 }
 
 // Regression test https://github.com/nushell/nushell/issues/17146
 #[test]
 fn wacky_range_unmatched_paren() {
-    let actual = nu!(r#"') .."#);
+    let actual = nu!("') ..");
     assert!(!actual.err.is_empty());
 }
 
@@ -811,7 +811,7 @@ fn issue_16769_recursive_module_command_source_def() {
 
 #[test]
 fn issue_16209_mutual_recursion_closure_in_variable() {
-    let actual = nu!(r#"
+    let actual = nu!("
         def map [] {
           return {
            first: {|| $in | result second | $in + 3 }
@@ -823,6 +823,6 @@ fn issue_16209_mutual_recursion_closure_in_variable() {
              do (map | get $condition) ...$args
         }
         map | describe
-    "#);
+    ");
     assert!(actual.err.is_empty(), "unexpected error: {}", actual.err);
 }

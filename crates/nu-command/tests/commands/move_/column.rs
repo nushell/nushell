@@ -13,14 +13,14 @@ fn moves_a_column_before() -> Result {
     ]"#;
 
     let code = format!(
-        r#"
+        "
             {sample}
             | move column99 --before column1
             | rename chars
             | get chars
             | str trim
             | str join
-        "#
+        "
     );
 
     let actual: String = test().run(code)?;
@@ -40,7 +40,7 @@ fn moves_columns_before() -> Result {
     ]"#;
 
     let code = format!(
-        r#"
+        "
             {sample}
             | move column99 column3 --before column2
             | rename _ chars_1 chars_2
@@ -48,7 +48,7 @@ fn moves_columns_before() -> Result {
             | upsert new_col {{|f| $f | transpose | get column1 | str trim | str join}}
             | get new_col
             | str join
-        "#
+        "
     );
 
     let actual: String = test().run(code)?;
@@ -68,7 +68,7 @@ fn moves_a_column_after() -> Result {
     ]"#;
 
     let code = format!(
-        r#"
+        "
             {sample}
             | move letters --after and_more
             | move letters and_more --before column2
@@ -77,7 +77,7 @@ fn moves_a_column_after() -> Result {
             | upsert new_col {{|f| $f | transpose | get column1 | str trim | str join}}
             | get new_col
             | str join
-        "#
+        "
     );
 
     let actual: String = test().run(code)?;
@@ -97,13 +97,13 @@ fn moves_columns_after() -> Result {
     ]"#;
 
     let code = format!(
-        r#"
+        "
             {content}
             | move letters and_more --after column1
             | columns
             | select 1 2
             | str join
-        "#
+        "
     );
 
     let actual: String = test().run(code)?;

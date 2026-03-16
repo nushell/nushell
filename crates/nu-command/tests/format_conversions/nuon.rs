@@ -23,12 +23,12 @@ fn nuon_roundtrip() -> Result {
 
 #[test]
 fn to_nuon_correct_compaction() -> Result {
-    let code = r#"
+    let code = "
         open appveyor.yml
         | to nuon
         | str length
         | $in > 500
-    "#;
+    ";
 
     let outcome: bool = test().cwd("tests/fixtures/formats").run(code)?;
     assert!(outcome);
@@ -37,12 +37,12 @@ fn to_nuon_correct_compaction() -> Result {
 
 #[test]
 fn to_nuon_list_of_numbers() -> Result {
-    let code = r#"
+    let code = "
         [1, 2, 3, 4]
         | to nuon
         | from nuon
         | $in == [1, 2, 3, 4]
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -51,12 +51,12 @@ fn to_nuon_list_of_numbers() -> Result {
 
 #[test]
 fn to_nuon_list_of_strings() -> Result {
-    let code = r#"
+    let code = "
         [abc, xyz, def]
         | to nuon
         | from nuon
         | $in == [abc, xyz, def]
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -65,12 +65,12 @@ fn to_nuon_list_of_strings() -> Result {
 
 #[test]
 fn to_nuon_table() -> Result {
-    let code = r#"
+    let code = "
         [[my, columns]; [abc, xyz], [def, ijk]]
         | to nuon
         | from nuon
         | $in == [[my, columns]; [abc, xyz], [def, ijk]]
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(outcome);
@@ -79,10 +79,10 @@ fn to_nuon_table() -> Result {
 
 #[test]
 fn to_nuon_table_as_list_of_records() -> Result {
-    let code = r#"
+    let code = "
         [[a, b]; [1, 2], [3, 4]]
         | to nuon --list-of-records
-    "#;
+    ";
 
     test()
         .run(code)
@@ -104,10 +104,10 @@ fn to_nuon_table_as_list_of_records_indented() -> Result {
 
 #[test]
 fn to_nuon_table_as_list_of_records_is_recursive() -> Result {
-    let code = r#"
+    let code = "
         {outer: [[a, b]; [1, 2], [3, 4]]}
         | to nuon --list-of-records
-    "#;
+    ";
 
     test()
         .run(code)
@@ -129,11 +129,11 @@ fn from_nuon_illegal_table() -> Result {
 
 #[test]
 fn to_nuon_bool() -> Result {
-    let code = r#"
+    let code = "
         false
         | to nuon
         | from nuon
-    "#;
+    ";
 
     let outcome: bool = test().run(code)?;
     assert!(!outcome);
@@ -206,11 +206,11 @@ fn to_nuon_escaping5() -> Result {
 
 #[test]
 fn to_nuon_negative_int() -> Result {
-    let code = r#"
+    let code = "
         -1
         | to nuon
         | from nuon
-    "#;
+    ";
 
     test().run(code).expect_value_eq(-1)
 }
@@ -285,10 +285,10 @@ fn from_nuon_range() -> Result {
 
 #[test]
 fn to_nuon_filesize() -> Result {
-    let code = r#"
+    let code = "
         1kib
         | to nuon
-    "#;
+    ";
 
     test().run(code).expect_value_eq("1024b")
 }
@@ -306,10 +306,10 @@ fn from_nuon_filesize() -> Result {
 
 #[test]
 fn to_nuon_duration() -> Result {
-    let code = r#"
+    let code = "
         1min
         | to nuon
-    "#;
+    ";
 
     test().run(code).expect_value_eq("60000000000ns")
 }
@@ -327,10 +327,10 @@ fn from_nuon_duration() -> Result {
 
 #[test]
 fn to_nuon_datetime() -> Result {
-    let code = r#"
+    let code = "
         2019-05-10
         | to nuon
-    "#;
+    ";
 
     test()
         .run(code)
@@ -350,10 +350,10 @@ fn from_nuon_datetime() -> Result {
 
 #[test]
 fn to_nuon_errs_on_closure() -> Result {
-    let code = r#"
+    let code = "
         {|| to nuon}
         | to nuon
-    "#;
+    ";
 
     // the error is wrapped inside a value
     let err: ShellError = test().run(code)?;
@@ -363,10 +363,10 @@ fn to_nuon_errs_on_closure() -> Result {
 
 #[test]
 fn to_nuon_closure_coerced_to_quoted_string() -> Result {
-    let code = r#"
+    let code = "
         {|| to nuon}
         | to nuon --serialize
-    "#;
+    ";
 
     test().run(code).expect_value_eq("\"{|| to nuon}\"")
 }
@@ -491,7 +491,7 @@ fn does_not_quote_strings_unnecessarily() -> Result {
 
 #[test]
 fn quotes_some_strings_necessarily() -> Result {
-    let code = r#"
+    let code = "
         ['true','false','null',
         'NaN','NAN','nan','+nan','-nan',
         'inf','+inf','-inf','INF',
@@ -507,18 +507,18 @@ fn quotes_some_strings_necessarily() -> Result {
         ',',''
         '&&'
         ] | to nuon | from nuon | describe
-    "#;
+    ";
 
     test().run(code).expect_value_eq("list<string>")
 }
 
 #[test]
 fn quotes_some_strings_necessarily_in_record_keys() -> Result {
-    let code = r#"
+    let code = "
         ['=', 'a=', '=a'] | each {
            {$in : 42}
         } | reduce {|elt, acc| $acc | merge $elt} | to nuon | from nuon | columns | describe
-    "#;
+    ";
 
     test().run(code).expect_value_eq("list<string>")
 }

@@ -62,7 +62,7 @@ impl Command for ExploreConfigCommand {
     }
 
     fn extra_description(&self) -> &str {
-        r#"By default, opens the current nushell configuration ($env.config) in the TUI.
+        "By default, opens the current nushell configuration ($env.config) in the TUI.
 Changes made in config mode are applied to the running session when you quit.
 
 You can also pipe JSON data to explore arbitrary data structures, or use
@@ -79,7 +79,7 @@ TUI Keybindings:
   Alt+Enter     Apply edit (alternative)
   Esc           Cancel edit
   q             Quit (applies config changes if modified)
-  Ctrl+C        Force quit without saving"#
+  Ctrl+C        Force quit without saving"
     }
 
     fn run(
@@ -208,17 +208,17 @@ TUI Keybindings:
         vec![
             Example {
                 description: "Open the nushell configuration in an interactive TUI editor",
-                example: r#"explore config"#,
+                example: "explore config",
                 result: None,
             },
             Example {
                 description: "Explore JSON data interactively",
-                example: r#"open --raw data.json | explore config"#,
+                example: "open --raw data.json | explore config",
                 result: None,
             },
             Example {
                 description: "Explore with example data to see TUI features",
-                example: r#"explore config --use-example-data"#,
+                example: "explore config --use-example-data",
                 result: None,
             },
         ]

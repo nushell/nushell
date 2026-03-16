@@ -159,7 +159,7 @@ impl Command for HttpPost {
             },
             Example {
                 description: "Get the response status code.",
-                example: r#"http post https://www.example.com 'body' | metadata | get http_response.status"#,
+                example: "http post https://www.example.com 'body' | metadata | get http_response.status",
                 result: None,
             },
             Example {

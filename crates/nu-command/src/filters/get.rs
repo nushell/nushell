@@ -16,9 +16,9 @@ impl Command for Get {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
+        "This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
-If multiple cell paths are given, this will produce a list of values."#
+If multiple cell paths are given, this will produce a list of values."
     }
 
     fn signature(&self) -> nu_protocol::Signature {

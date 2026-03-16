@@ -711,11 +711,11 @@ pub fn parse_attribute_block_check_spans() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let source = br#"
+    let source = b"
     @foo a 1 2
     @bar b 3 4
     echo baz
-    "#;
+    ";
     let block = parse(&mut working_set, None, source, true);
 
     // There SHOULD be errors here, we're using nonexistent commands
@@ -1004,12 +1004,12 @@ pub fn test_external_call_head_glob(
 
 #[rstest]
 #[case(
-    r##"^r#'foo-external-call'#"##,
+    "^r#'foo-external-call'#",
     "foo-external-call",
     "raw string with caret"
 )]
 #[case(
-    r##"^r#'foo/external-call'#"##,
+    "^r#'foo/external-call'#",
     "foo/external-call",
     "raw string with forward slash and caret"
 )]
@@ -1050,12 +1050,12 @@ pub fn test_external_call_head_raw_string(
 )]
 #[case(
     r#"^"foo external call""#,
-    r#"foo external call"#,
+    "foo external call",
     "double quote with caret"
 )]
 #[case(
     r#"^"foo/external call""#,
-    r#"foo/external call"#,
+    "foo/external call",
     "double quote with forward slash and caret"
 )]
 #[case(
@@ -1082,14 +1082,14 @@ pub fn test_external_call_head_string(
 }
 
 #[rstest]
-#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case("~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(
     r"~\.foo(2)\(1)",
     4,
     false,
     "unquoted interpolated string with backslash"
 )]
-#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
+#[case("^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
 #[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
 pub fn test_external_call_head_interpolated_string(
     #[case] input: &str,
@@ -1134,32 +1134,32 @@ pub fn test_external_call_head_interpolated_string(
 )]
 #[case(
     r#"^foo --flag="value""#,
-    r#"--flag=value"#,
+    "--flag=value",
     "flag value with double quote"
 )]
 #[case(
-    r#"^foo --flag='value'"#,
-    r#"--flag=value"#,
+    "^foo --flag='value'",
+    "--flag=value",
     "flag value with single quote"
 )]
 #[case(
-    r#"^foo {a:1,b:'c',c:'d'}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "^foo {a:1,b:'c',c:'d'}",
+    "{a:1,b:c,c:d}",
     "value with many inner single quotes"
 )]
 #[case(
     r#"^foo {a:1,b:"c",c:"d"}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "{a:1,b:c,c:d}",
     "value with many double quotes"
 )]
 #[case(
     r#"^foo {a:1,b:'c',c:"d"}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "{a:1,b:c,c:d}",
     "value with single quote and double quote"
 )]
 #[case(
-    r#"^foo `hello world`"#,
-    r#"hello world"#,
+    "^foo `hello world`",
+    "hello world",
     "value is surrounded by backtick quote"
 )]
 #[case(
@@ -1168,7 +1168,7 @@ pub fn test_external_call_head_interpolated_string(
     "value is surrounded by backtick quote, with inner double quote"
 )]
 #[case(
-    r#"^foo `'hello world'`"#,
+    "^foo `'hello world'`",
     "'hello world'",
     "value is surrounded by backtick quote, with inner single quote"
 )]
@@ -1201,9 +1201,9 @@ pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, 
 }
 
 #[rstest]
-#[case(r##"^foo r#'foo-external-call'#"##, "foo-external-call", "raw string")]
+#[case("^foo r#'foo-external-call'#", "foo-external-call", "raw string")]
 #[case(
-    r##"^foo r#'foo/external-call'#"##,
+    "^foo r#'foo/external-call'#",
     "foo/external-call",
     "raw string with forward slash"
 )]
@@ -1255,10 +1255,10 @@ pub fn test_external_call_arg_raw_string(
     r"foo\external call",
     "single quote with backslash"
 )]
-#[case(r#"^foo "foo external call""#, r#"foo external call"#, "double quote")]
+#[case(r#"^foo "foo external call""#, "foo external call", "double quote")]
 #[case(
     r#"^foo "foo/external call""#,
-    r#"foo/external call"#,
+    "foo/external call",
     "double quote with forward slash"
 )]
 #[case(
@@ -1300,7 +1300,7 @@ pub fn test_external_call_arg_string(
 }
 
 #[rstest]
-#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case("^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
 pub fn test_external_call_arg_interpolated_string(
     #[case] input: &str,
@@ -1333,7 +1333,7 @@ pub fn test_external_call_arg_interpolated_string(
 
 #[test]
 fn test_external_call_argument_spread() {
-    let input = r"^foo ...[a b c]";
+    let input = "^foo ...[a b c]";
     let tag = "spread";
 
     test_external_call(input, tag, |name, args| {
@@ -2760,7 +2760,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"ls | group-by name"#;
+        let input = "ls | group-by name";
 
         let block = parse(&mut working_set, None, input.as_bytes(), true);
 
@@ -2885,9 +2885,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{prefix}foo = 1 |
+                "{prefix}foo = 1 |
                 # comment
-                dummy"#
+                dummy"
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2917,11 +2917,11 @@ mod input_types {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let inputs = vec![
-            r#"let a = 'b'; ($a == 'b') or ($a == 'b')"#,
-            r#"let a = 'b'; ($a == 'b') or ($a == 'b') and ($a == 'b')"#,
-            r#"let a = 1; ($a == 1) or ($a == 2) and ($a == 3)"#,
-            r#"let a = 'b'; if ($a == 'b') or ($a == 'b') { true } else { false }"#,
-            r#"let a = 1; if ($a == 1) or ($a > 0) { true } else { false }"#,
+            "let a = 'b'; ($a == 'b') or ($a == 'b')",
+            "let a = 'b'; ($a == 'b') or ($a == 'b') and ($a == 'b')",
+            "let a = 1; ($a == 1) or ($a == 2) and ($a == 3)",
+            "let a = 'b'; if ($a == 'b') or ($a == 'b') { true } else { false }",
+            "let a = 1; if ($a == 1) or ($a > 0) { true } else { false }",
         ];
 
         for input in inputs {
@@ -2938,7 +2938,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let inputs = [r#"if true { || print hi }"#, r#"if true { |x| $x }"#];
+        let inputs = ["if true { || print hi }", "if true { |x| $x }"];
 
         for input in inputs {
             parse(&mut working_set, None, input.as_bytes(), true);

@@ -55,11 +55,11 @@ impl Command for Decode {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Multiple encodings are supported; here are a few:
+        "Multiple encodings are supported; here are a few:
 big5, euc-jp, euc-kr, gbk, iso-8859-1, utf-16, cp1252, latin5
 
 For a more complete list of encodings please refer to the encoding_rs
-documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
+documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -71,7 +71,7 @@ documentation link at https://docs.rs/encoding_rs/latest/encoding_rs/#statics"#
             },
             Example {
                 description: "Decode an UTF-16 string into nushell UTF-8 string",
-                example: r#"0x[00 53 00 6F 00 6D 00 65 00 20 00 44 00 61 00 74 00 61] | decode utf-16be"#,
+                example: "0x[00 53 00 6F 00 6D 00 65 00 20 00 44 00 61 00 74 00 61] | decode utf-16be",
                 result: Some(Value::string("Some Data".to_owned(), Span::test_data())),
             },
         ]

@@ -770,7 +770,7 @@ fn module_main_not_found() {
 
 #[test]
 fn nested_list_export_works() {
-    let module = r#"
+    let module = "
         module spam {
             export module eggs {
                 export def bacon [] { 'bacon' }
@@ -778,7 +778,7 @@ fn nested_list_export_works() {
 
             export def sausage [] { 'sausage' }
         }
-    "#;
+    ";
 
     let inp = &[module, "use spam [sausage eggs]", "eggs bacon"];
     let actual = nu!(&inp.join("; "));
@@ -789,7 +789,7 @@ fn nested_list_export_works() {
 fn reload_submodules() {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("voice.nu", "export module animals.nu"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
@@ -814,7 +814,7 @@ fn reload_submodules() {
 
         // should also works if we use members directly.
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export module animals.nu"#),
+            FileWithContent("voice.nu", "export module animals.nu"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -832,7 +832,7 @@ fn reload_submodules() {
 fn use_submodules() {
     Playground::setup("use_submodules", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu"#),
+            FileWithContent("voice.nu", "export use animals.nu"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
@@ -857,7 +857,7 @@ fn use_submodules() {
 
         // also verify something is changed when using members.
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu cat"#),
+            FileWithContent("voice.nu", "export use animals.nu cat"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -870,7 +870,7 @@ fn use_submodules() {
         assert_eq!(actual.out, "true");
 
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu *"#),
+            FileWithContent("voice.nu", "export use animals.nu *"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -883,7 +883,7 @@ fn use_submodules() {
         assert_eq!(actual.out, "true");
 
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu [cat]"#),
+            FileWithContent("voice.nu", "export use animals.nu [cat]"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -901,8 +901,8 @@ fn use_submodules() {
 fn use_nested_submodules() {
     Playground::setup("use_submodules", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu"#),
-            FileWithContent("animals.nu", r#"export use nested_animals.nu"#),
+            FileWithContent("voice.nu", "export use animals.nu"),
+            FileWithContent("animals.nu", "export use nested_animals.nu"),
             FileWithContent("nested_animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -915,8 +915,8 @@ fn use_nested_submodules() {
         assert_eq!(actual.out, "true");
 
         sandbox.with_files(&[
-            FileWithContent("voice.nu", r#"export use animals.nu"#),
-            FileWithContent("animals.nu", r#"export use nested_animals.nu cat"#),
+            FileWithContent("voice.nu", "export use animals.nu"),
+            FileWithContent("animals.nu", "export use nested_animals.nu cat"),
             FileWithContent("nested_animals.nu", "export def cat [] { 'meow'}"),
         ]);
         let inp = [
@@ -929,7 +929,7 @@ fn use_nested_submodules() {
         assert_eq!(actual.out, "true");
 
         sandbox.with_files(&[
-            FileWithContent("animals.nu", r#"export use nested_animals.nu cat"#),
+            FileWithContent("animals.nu", "export use nested_animals.nu cat"),
             FileWithContent("nested_animals.nu", "export def cat [] { 'meow' }"),
         ]);
         let inp = [

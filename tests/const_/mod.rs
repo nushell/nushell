@@ -2,7 +2,7 @@ use nu_test_support::nu;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
-const MODULE_SETUP: &str = r#"
+const MODULE_SETUP: &str = "
     module spam {
         export const X = 'x'
         export module eggs {
@@ -13,7 +13,7 @@ const MODULE_SETUP: &str = r#"
             }
         }
     }
-"#;
+";
 
 #[test]
 fn const_bool() {
@@ -152,8 +152,8 @@ fn const_unary_operator(#[case] inp: &[&str], #[case] expect: &str) {
 #[case(&["const x = 5.0 / 2.0", "$x"], "2.5")]
 #[case(&[r#"const x = "a" + "b" "#, "$x"], "ab")]
 #[case(&[r#"const x = "a" ++ "b" "#, "$x"], "ab")]
-#[case(&[r#"const x = [1,2] ++ [3]"#, "$x | describe"], "list<int>")]
-#[case(&[r#"const x = 0x[1,2] ++ 0x[3]"#, "$x | describe"], "binary")]
+#[case(&["const x = [1,2] ++ [3]", "$x | describe"], "list<int>")]
+#[case(&["const x = 0x[1,2] ++ 0x[3]", "$x | describe"], "binary")]
 #[case(&["const x = 1 < 2", "$x"], "true")]
 #[case(&["const x = (3 * 200) > (2 * 100)", "$x"], "true")]
 #[case(&["const x = (3 * 200) < (2 * 100)", "$x"], "false")]
@@ -244,7 +244,7 @@ fn complex_const_export() {
 
 #[test]
 fn only_nested_module_have_const() {
-    let setup = r#"
+    let setup = "
         module spam {
             export module eggs {
                 export module bacon {
@@ -253,7 +253,7 @@ fn only_nested_module_have_const() {
                 }
             }
         }
-    "#;
+    ";
     let inp = &[setup, "use spam", "$spam.eggs.bacon.viking"];
     let actual = nu!(&inp.join("; "));
     assert_eq!(actual.out, "eats");
@@ -436,13 +436,13 @@ fn const_raw_string() {
     let actual = nu!(r#"const x = r###'abcde""fghi"'''##'#jkl'###; $x"#);
     assert_eq!(actual.out, r#"abcde""fghi"'''##'#jkl"#);
 
-    let actual = nu!(r#"const x = r#'abc'#; $x"#);
+    let actual = nu!("const x = r#'abc'#; $x");
     assert_eq!(actual.out, "abc");
 }
 
 #[test]
 fn const_takes_pipeline() {
-    let actual = nu!(r#"const list = 'bar_baz_quux' | split row '_'; $list | length"#);
+    let actual = nu!("const list = 'bar_baz_quux' | split row '_'; $list | length");
     assert_eq!(actual.out, "3");
 }
 

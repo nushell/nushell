@@ -2,11 +2,11 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn break_for_loop() -> Result {
-    let code = r#"
+    let code = "
         mut vals = []
         for i in 1..10 { if $i == 3 { break }; $vals ++= [$i] }
         $vals
-    "#;
+    ";
 
     test().run(code).expect_value_eq([1, 2])
 }

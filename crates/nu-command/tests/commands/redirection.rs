@@ -63,12 +63,12 @@ fn two_lines_redirection() {
     Playground::setup("redirections with two lines commands", |dirs, _| {
         nu!(
                 cwd: dirs.test(),
-                r#"
+                "
 def foobar [] {
     'hello' out> output1.txt
     'world' out> output2.txt
 }
-foobar"#);
+foobar");
         let file_out1 = dirs.test().join("output1.txt");
         let actual = file_contents(file_out1);
         assert!(actual.contains("hello"));
@@ -209,7 +209,7 @@ fn redirection_with_pipeline_works() {
     Playground::setup(
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
-            let script_body = r"echo message";
+            let script_body = "echo message";
             let expect_body = "message";
 
             sandbox.with_files(&[FileWithContent("test.sh", script_body)]);

@@ -366,7 +366,7 @@ fn oneof_type_checking(
     #[case] expect: &str,
 ) {
     let _ = testfn(
-        &format!(r#"def run [p: record<a: oneof<int, nothing>>] {{ }}; run {argument}"#),
+        &format!("def run [p: record<a: oneof<int, nothing>>] {{ }}; run {argument}"),
         expect,
     );
 }

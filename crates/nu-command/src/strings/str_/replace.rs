@@ -79,13 +79,13 @@ impl Command for StrReplace {
     }
 
     fn extra_description(&self) -> &str {
-        r#"The pattern to find can be a substring (default) or a regular expression (with `--regex`).
+        "The pattern to find can be a substring (default) or a regular expression (with `--regex`).
 
 The replacement can be a a string, possibly containing references to numbered (`$1` etc) or
 named capture groups (`$name`), or it can be closure that is invoked for each match.
 In the latter case, the closure is invoked with the entire match as its input and any capture
 groups as its argument. It must return a string that will be used as a replacement for the match.
-"#
+"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -181,7 +181,7 @@ groups as its argument. It must return a string that will be used as a replaceme
             },
             Example {
                 description: "Find and replace all occurrences of a substring.",
-                example: r#"'abc abc abc' | str replace --all 'b' 'z'"#,
+                example: "'abc abc abc' | str replace --all 'b' 'z'",
                 result: Some(Value::test_string("azc azc azc")),
             },
             Example {
@@ -234,7 +234,7 @@ groups as its argument. It must return a string that will be used as a replaceme
             },
             Example {
                 description: "Find and replace with fancy-regex using regular expression.",
-                example: r#"'GHIKK-9+*' | str replace -r '[*[:xdigit:]+]' 'z'"#,
+                example: "'GHIKK-9+*' | str replace -r '[*[:xdigit:]+]' 'z'",
                 result: Some(Value::test_string("GHIKK-z+*")),
             },
             Example {

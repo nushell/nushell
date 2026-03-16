@@ -226,9 +226,9 @@ fn parse_module_success_with_raw_stream() {
 #[test]
 fn parse_string_as_script_success() {
     Playground::setup("nu_check_test_13", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), r#"
+        let actual = nu!(cwd: dirs.test(), "
             echo $'two(char nl)lines' | nu-check
-        "#);
+        ");
 
         assert!(actual.err.is_empty());
     })
@@ -237,9 +237,9 @@ fn parse_string_as_script_success() {
 #[test]
 fn parse_string_as_script() {
     Playground::setup("nu_check_test_14", |dirs, _sandbox| {
-        let actual = nu!(cwd: dirs.test(), r#"
+        let actual = nu!(cwd: dirs.test(), "
             echo $'two(char nl)lines' | nu-check --debug --as-module
-        "#);
+        ");
 
         println!("the output is {}", actual.err);
         assert!(actual.err.contains("Failed to parse content"));
@@ -601,11 +601,11 @@ fn parse_script_with_nested_scripts_success() {
             .mkdir("lol")
             .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
-                r#"
+                "
                     source-env ../foo.nu
                     use lol_shell.nu
                     overlay use ../lol/lol_shell.nu
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol_shell.nu",
@@ -615,9 +615,9 @@ fn parse_script_with_nested_scripts_success() {
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
+                "
                     $env.FOO = 'foo'
-                "#,
+                ",
             )]);
 
         let actual = nu!(cwd: dirs.test(), "
@@ -635,15 +635,15 @@ fn nu_check_respects_file_pwd() {
             .mkdir("lol")
             .with_files(&[FileWithContentToBeTrimmed(
                 "lol/lol.nu",
-                r#"
+                "
                     $env.RETURN = (nu-check ../foo.nu)
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
+                "
                     echo 'foo'
-                "#,
+                ",
             )]);
 
         let actual = nu!(cwd: dirs.test(), "
@@ -661,16 +661,16 @@ fn nu_check_module_dir() {
             .mkdir("lol")
             .with_files(&[FileWithContentToBeTrimmed(
                 "lol/mod.nu",
-                r#"
+                "
                     export module foo.nu
                     export def main [] { 'lol' }
-                "#,
+                ",
             )])
             .with_files(&[FileWithContentToBeTrimmed(
                 "lol/foo.nu",
-                r#"
+                "
                     export def main [] { 'lol foo' }
-                "#,
+                ",
             )]);
 
         let actual = nu!(cwd: dirs.test(), "nu-check lol");

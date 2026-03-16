@@ -2,12 +2,12 @@ use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
 fn table_to_json_text_and_from_json_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open sgml_description.json
         | to json
         | from json
         | get glossary.GlossDiv.GlossList.GlossEntry.GlossSee
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -40,13 +40,13 @@ fn from_json_text_to_table() -> Result {
             "#,
         )]);
 
-        let code = r#"
+        let code = "
             open katz.txt
             | from json
             | get katz
             | get rusty_luck
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
@@ -69,13 +69,13 @@ fn from_json_text_to_table_strict() -> Result {
             "#,
         )]);
 
-        let code = r#"
+        let code = "
             open katz.txt
             | from json -s
             | get katz
             | get rusty_luck
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
@@ -118,11 +118,11 @@ fn from_json_text_objects_is_stream() -> Result {
             "#,
         )]);
 
-        let code = r#"
+        let code = "
             open katz.txt
             | from json -o
             | describe -n
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq("stream")
     })
@@ -157,10 +157,10 @@ fn table_to_json_text() -> Result {
     Playground::setup("filter_to_json_test", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
-            r#"
+            "
                 JonAndrehudaTZ,3
                 GorbyPuff,100
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -186,10 +186,10 @@ fn table_to_json_text_strict() -> Result {
     Playground::setup("filter_to_json_test_strict", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "sample.txt",
-            r#"
+            "
                 JonAndrehudaTZ,3
                 GorbyPuff,100
-            "#,
+            ",
         )]);
 
         let code = r#"

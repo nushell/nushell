@@ -173,7 +173,7 @@ fn table() -> Result {
 
 #[test]
 fn table_with_ignore_case() -> Result {
-    let code = r#"
+    let code = "
         [
             [origin, people];
             [World, ([
@@ -189,9 +189,9 @@ fn table_with_ignore_case() -> Result {
                 ['Geremias', {plate: 'Bitoque', carbs: 100}]
             ])],
         ] | uniq --ignore-case
-    "#;
+    ";
 
-    let expected = r#"
+    let expected = "
         [
             [origin, people];
             [World, ([
@@ -203,7 +203,7 @@ fn table_with_ignore_case() -> Result {
                 ['Martin', {plate: 'bitoque', carbs: 100}]
             ])],
         ]
-    "#;
+    ";
 
     let actual: Value = test().run(code)?;
     let expected: Value = test().run(expected)?;

@@ -16,9 +16,9 @@ impl Command for HelpModules {
     }
 
     fn extra_description(&self) -> &str {
-        r#"When requesting help for a single module, its commands and aliases will be highlighted if they
+        "When requesting help for a single module, its commands and aliases will be highlighted if they
 are also available in the current scope. Commands/aliases that were imported under a different name
-(such as with a prefix after `use some-module`) will be highlighted in parentheses."#
+(such as with a prefix after `use some-module`) will be highlighted in parentheses."
     }
 
     fn signature(&self) -> Signature {

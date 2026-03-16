@@ -2,7 +2,7 @@ use data_encoding::Encoding;
 
 use nu_engine::command_prelude::*;
 
-const EXTRA_USAGE: &str = r"The default alphabet is taken from RFC 4648, section 4.  A URL-safe version is available.
+const EXTRA_USAGE: &str = "The default alphabet is taken from RFC 4648, section 4.  A URL-safe version is available.
 
 Note this command will collect stream input.";
 
@@ -140,12 +140,12 @@ impl Command for EncodeBase64 {
             },
             Example {
                 description: "Encode arbitrary data",
-                example: r#"0x[BE EE FF] | encode base64"#,
+                example: "0x[BE EE FF] | encode base64",
                 result: Some(Value::test_string("vu7/")),
             },
             Example {
                 description: "Use a URL-safe alphabet",
-                example: r#"0x[BE EE FF] | encode base64 --url"#,
+                example: "0x[BE EE FF] | encode base64 --url",
                 result: Some(Value::test_string("vu7_")),
             },
         ]

@@ -47,7 +47,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm src/*/*/*.rs"#
+            "rm src/*/*/*.rs"
         );
 
         assert!(!files_exist_at(
@@ -303,7 +303,7 @@ fn rm_wildcard_keeps_dotfiles() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm *"#
+            "rm *"
         );
 
         assert!(!files_exist_at(&["foo"], dirs.test()));

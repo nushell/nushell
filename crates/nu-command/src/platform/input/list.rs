@@ -541,32 +541,32 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         vec![
             Example {
                 description: "Return a single value from a list.",
-                example: r#"[1 2 3 4 5] | input list 'Rate it'"#,
+                example: "[1 2 3 4 5] | input list 'Rate it'",
                 result: None,
             },
             Example {
                 description: "Return multiple values from a list.",
-                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --multi 'Add fruits to the basket'"#,
+                example: "[Banana Kiwi Pear Peach Strawberry] | input list --multi 'Add fruits to the basket'",
                 result: None,
             },
             Example {
                 description: "Return a single record from a table with fuzzy search.",
-                example: r#"ls | input list --fuzzy 'Select the target'"#,
+                example: "ls | input list --fuzzy 'Select the target'",
                 result: None,
             },
             Example {
                 description: "Choose an item from a range.",
-                example: r#"1..10 | input list"#,
+                example: "1..10 | input list",
                 result: None,
             },
             Example {
                 description: "Return the index of a selected item.",
-                example: r#"[Banana Kiwi Pear Peach Strawberry] | input list --index"#,
+                example: "[Banana Kiwi Pear Peach Strawberry] | input list --index",
                 result: None,
             },
             Example {
                 description: "Choose an item from a table using a column as display value.",
-                example: r#"[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name"#,
+                example: "[[name price]; [Banana 12] [Kiwi 4] [Pear 7]] | input list -d name",
                 result: None,
             },
             Example {
@@ -576,17 +576,17 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             },
             Example {
                 description: "Fuzzy search with case-sensitive matching",
-                example: r#"[abc ABC aBc] | input list --fuzzy --case-sensitive true"#,
+                example: "[abc ABC aBc] | input list --fuzzy --case-sensitive true",
                 result: None,
             },
             Example {
                 description: "Fuzzy search without the footer showing item count",
-                example: r#"ls | input list --fuzzy --no-footer"#,
+                example: "ls | input list --fuzzy --no-footer",
                 result: None,
             },
             Example {
                 description: "Fuzzy search without the separator line",
-                example: r#"ls | input list --fuzzy --no-separator"#,
+                example: "ls | input list --fuzzy --no-separator",
                 result: None,
             },
             Example {
@@ -601,12 +601,12 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             },
             Example {
                 description: "Display a table as single lines (no table rendering)",
-                example: r#"ls | input list --no-table"#,
+                example: "ls | input list --no-table",
                 result: None,
             },
             Example {
                 description: "Fuzzy search with multiple selection (use Tab to toggle)",
-                example: r#"ls | input list --fuzzy --multi"#,
+                example: "ls | input list --fuzzy --multi",
                 result: None,
             },
         ]

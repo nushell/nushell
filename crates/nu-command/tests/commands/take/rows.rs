@@ -2,20 +2,20 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn rows() -> Result {
-    let sample = r#"
+    let sample = "
         [[name,   lucky_code];
          [Andrés, 1],
          [JT    , 1],
          [Jason , 2],
-         [Yehuda, 1]]"#;
+         [Yehuda, 1]]";
 
     let code = format!(
-        r#"
+        "
             {sample}
             | take 3
             | get lucky_code
             | math sum
-        "#
+        "
     );
 
     test().run(code).expect_value_eq(4)
@@ -52,9 +52,9 @@ fn takes_bytes_from_stream() -> Result {
 #[test]
 // covers a situation where `take` used to behave strangely on list<binary> input
 fn works_with_binary_list() -> Result {
-    let code = r#"
+    let code = "
             ([0x[01 11]] | take 1 | get 0) == 0x[01 11]
-        "#;
+        ";
 
     test().run(code).expect_value_eq(true)
 }

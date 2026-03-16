@@ -649,31 +649,31 @@ Operating system commands:
         vec![
             Example {
                 description: "Change color to green (see how the next example text will be green!)",
-                example: r#"ansi green"#,
+                example: "ansi green",
                 result: Some(Value::test_string("\u{1b}[32m")),
             },
             Example {
                 description: "Reset all styles and colors",
-                example: r#"ansi reset"#,
+                example: "ansi reset",
                 result: Some(Value::test_string("\u{1b}[0m")),
             },
             Example {
                 description: "Use different colors and styles in the same text",
-                example: r#"$'(ansi red_bold)Hello(ansi reset) (ansi green_dimmed)Nu(ansi reset) (ansi purple_italic)World(ansi reset)'"#,
+                example: "$'(ansi red_bold)Hello(ansi reset) (ansi green_dimmed)Nu(ansi reset) (ansi purple_italic)World(ansi reset)'",
                 result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
                 description: "The same example as above with short names",
-                example: r#"$'(ansi rb)Hello(ansi rst) (ansi gd)Nu(ansi rst) (ansi pi)World(ansi rst)'"#,
+                example: "$'(ansi rb)Hello(ansi rst) (ansi gd)Nu(ansi rst) (ansi pi)World(ansi rst)'",
                 result: Some(Value::test_string(
                     "\u{1b}[1;31mHello\u{1b}[0m \u{1b}[2;32mNu\u{1b}[0m \u{1b}[3;35mWorld\u{1b}[0m",
                 )),
             },
             Example {
                 description: "Avoid resetting color when setting/resetting different style codes",
-                example: r#"$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi rst_bo) or (ansi d)DIMMED(ansi rst_d) or (ansi i)ITALICS(ansi rst_i) or (ansi u)UNDERLINE(ansi rst_u) or (ansi re)REVERSE(ansi rst_re) or (ansi h)HIDDEN(ansi rst_h) or (ansi s)STRIKE(ansi rst_s) then (ansi rst)reset everything'"#,
+                example: "$'Set color to (ansi g)GREEN then style to (ansi bo)BOLD(ansi rst_bo) or (ansi d)DIMMED(ansi rst_d) or (ansi i)ITALICS(ansi rst_i) or (ansi u)UNDERLINE(ansi rst_u) or (ansi re)REVERSE(ansi rst_re) or (ansi h)HIDDEN(ansi rst_h) or (ansi s)STRIKE(ansi rst_s) then (ansi rst)reset everything'",
                 result: Some(Value::test_string(
                     "Set color to \u{1b}[32mGREEN then style to \u{1b}[1mBOLD\u{1b}[22m or \u{1b}[2mDIMMED\u{1b}[22m or \u{1b}[3mITALICS\u{1b}[23m or \u{1b}[4mUNDERLINE\u{1b}[24m or \u{1b}[7mREVERSE\u{1b}[27m or \u{1b}[8mHIDDEN\u{1b}[28m or \u{1b}[9mSTRIKE\u{1b}[29m then \u{1b}[0mreset everything",
                 )),

@@ -7,7 +7,7 @@ use std::{thread, time::Duration};
 fn http_get_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_body("foo").create();
-    let code = format!(r#"http get {url}"#, url = server.url());
+    let code = format!("http get {url}", url = server.url());
     test().run(code).expect_value_eq("foo")
 }
 
@@ -15,7 +15,7 @@ fn http_get_is_success() -> Result {
 fn http_get_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_status(400).create();
-    let code = format!(r#"http get {url}"#, url = server.url());
+    let code = format!("http get {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -36,7 +36,7 @@ fn http_get_with_accept_errors() -> Result {
         .with_body("error body")
         .create();
 
-    let code = format!(r#"http get -e {url}"#, url = server.url());
+    let code = format!("http get -e {url}", url = server.url());
     test().run(code).expect_value_eq("error body")
 }
 
@@ -331,7 +331,7 @@ fn http_get_response_metadata() -> Result {
         .create();
 
     let code = format!(
-        r#"http get --raw {url} | metadata | get http_response | get status"#,
+        "http get --raw {url} | metadata | get http_response | get status",
         url = server.url()
     );
 

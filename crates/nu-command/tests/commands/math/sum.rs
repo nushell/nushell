@@ -11,12 +11,12 @@ fn all() -> Result {
     }"#;
 
     let code = format!(
-        r#"
+        "
             {sample}
             | get meals
             | get calories
             | math sum
-        "#
+        "
     );
 
     test().run(&code).expect_value_eq(448)

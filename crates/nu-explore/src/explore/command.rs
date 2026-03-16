@@ -48,7 +48,7 @@ impl Command for Explore {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `:` then `h` to get a help menu."#
+        "Press `:` then `h` to get a help menu."
     }
 
     fn run(
@@ -115,22 +115,22 @@ impl Command for Explore {
         vec![
             Example {
                 description: "Explore the system host information record",
-                example: r#"sys host | explore"#,
+                example: "sys host | explore",
                 result: None,
             },
             Example {
                 description: "Explore the output of `ls` without column names",
-                example: r#"ls | explore --head false"#,
+                example: "ls | explore --head false",
                 result: None,
             },
             Example {
                 description: "Explore a list of Markdown files' contents, with row indexes",
-                example: r#"glob *.md | each {|| open } | explore --index"#,
+                example: "glob *.md | each {|| open } | explore --index",
                 result: None,
             },
             Example {
                 description: "Explore a JSON file, then save the last visited sub-structure to a file",
-                example: r#"open file.json | explore --peek | to json | save part.json"#,
+                example: "open file.json | explore --peek | to json | save part.json",
                 result: None,
             },
         ]

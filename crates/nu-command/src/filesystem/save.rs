@@ -263,27 +263,27 @@ impl Command for Save {
         vec![
             Example {
                 description: "Save a string to foo.txt in the current directory.",
-                example: r#"'save me' | save foo.txt"#,
+                example: "'save me' | save foo.txt",
                 result: None,
             },
             Example {
                 description: "Append a string to the end of foo.txt.",
-                example: r#"'append me' | save --append foo.txt"#,
+                example: "'append me' | save --append foo.txt",
                 result: None,
             },
             Example {
                 description: "Save a record to foo.json in the current directory.",
-                example: r#"{ a: 1, b: 2 } | save foo.json"#,
+                example: "{ a: 1, b: 2 } | save foo.json",
                 result: None,
             },
             Example {
                 description: "Save a running program's stderr to foo.txt.",
-                example: r#"do -i {} | save foo.txt --stderr foo.txt"#,
+                example: "do -i {} | save foo.txt --stderr foo.txt",
                 result: None,
             },
             Example {
                 description: "Save a running program's stderr to separate file.",
-                example: r#"do -i {} | save foo.txt --stderr bar.txt"#,
+                example: "do -i {} | save foo.txt --stderr bar.txt",
                 result: None,
             },
             Example {

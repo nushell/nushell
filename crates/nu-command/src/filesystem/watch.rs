@@ -231,7 +231,7 @@ impl Command for Watch {
         vec![
             Example {
                 description: "Run `cargo test` whenever a Rust file changes.",
-                example: r#"watch . --glob=**/*.rs {|| cargo test }"#,
+                example: "watch . --glob=**/*.rs {|| cargo test }",
                 result: None,
             },
             Example {
@@ -256,7 +256,7 @@ impl Command for Watch {
             },
             Example {
                 description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep.",
-                example: r#"loop { command; sleep duration }"#,
+                example: "loop { command; sleep duration }",
                 result: None,
             },
         ]

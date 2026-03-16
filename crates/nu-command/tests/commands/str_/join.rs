@@ -2,9 +2,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn test_1() -> Result {
-    let code = r#"
+    let code = "
     echo 1..5 | into string | str join
-    "#;
+    ";
 
     test().run(code).expect_value_eq("12345")
 }

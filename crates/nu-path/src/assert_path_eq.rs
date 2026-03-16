@@ -44,7 +44,7 @@ mod test {
         assert_path_ne!(PathBuf::from("/foo/bar/."), "/foo/bar");
         assert_path_ne!(Path::new("/foo/./bar"), String::from("/foo/bar"));
         assert_path_ne!(Path::new("/foo/./bar"), "/foo/bar");
-        assert_path_ne!(Path::new(r"\foo\bar"), r"/foo/bar");
-        assert_path_ne!(Path::new(r"/foo/bar"), r"\foo\bar");
+        assert_path_ne!(Path::new(r"\foo\bar"), "/foo/bar");
+        assert_path_ne!(Path::new("/foo/bar"), r"\foo\bar");
     }
 }

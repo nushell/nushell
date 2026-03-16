@@ -134,7 +134,7 @@ impl Command for HttpGet {
             },
             Example {
                 description: "Get the response status code.",
-                example: r#"http get https://www.example.com | metadata | get http_response.status"#,
+                example: "http get https://www.example.com | metadata | get http_response.status",
                 result: None,
             },
             Example {

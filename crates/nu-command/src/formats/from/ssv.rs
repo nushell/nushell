@@ -36,8 +36,8 @@ impl Command for FromSsv {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                example: r#"'FOO   BAR
-1   2' | from ssv"#,
+                example: "'FOO   BAR
+1   2' | from ssv",
                 description: "Converts ssv formatted string to table.",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "FOO" => Value::test_string("1"),
@@ -45,8 +45,8 @@ impl Command for FromSsv {
                 })])),
             },
             Example {
-                example: r#"'FOO   BAR
-1   2' | from ssv --noheaders"#,
+                example: "'FOO   BAR
+1   2' | from ssv --noheaders",
                 description: "Converts ssv formatted string to table but not treating the first row as column names.",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
@@ -309,12 +309,12 @@ mod tests {
 
     #[test]
     fn it_filters_comment_lines() {
-        let input = r#"
+        let input = "
             a       b
             1       2
             3       4
             #comment       line
-        "#;
+        ";
         let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
@@ -327,14 +327,14 @@ mod tests {
 
     #[test]
     fn it_trims_empty_and_whitespace_only_lines() {
-        let input = r#"
+        let input = "
 
             a       b
 
             1       2
 
             3       4
-        "#;
+        ";
         let result = string_to_table(input, false, true, 1);
         assert_eq!(
             result,
@@ -347,22 +347,22 @@ mod tests {
 
     #[test]
     fn it_deals_with_single_column_input() {
-        let input = r#"
+        let input = "
             a
             1
             2
-        "#;
+        ";
         let result = string_to_table(input, false, true, 1);
         assert_eq!(result, vec![vec![owned("a", "1")], vec![owned("a", "2")]]);
     }
 
     #[test]
     fn it_uses_first_row_as_data_when_noheaders() {
-        let input = r#"
+        let input = "
             a b
             1 2
             3 4
-        "#;
+        ";
         let result = string_to_table(input, true, true, 1);
         assert_eq!(
             result,
@@ -376,11 +376,11 @@ mod tests {
 
     #[test]
     fn it_allows_a_predefined_number_of_spaces() {
-        let input = r#"
+        let input = "
             column a   column b
             entry 1    entry number  2
             3          four
-        "#;
+        ";
 
         let result = string_to_table(input, false, true, 3);
         assert_eq!(
@@ -397,10 +397,10 @@ mod tests {
 
     #[test]
     fn it_trims_remaining_separator_space() {
-        let input = r#"
+        let input = "
             colA   colB     colC
             val1   val2     val3
-        "#;
+        ";
 
         let trimmed = |s: &str| s.trim() == s;
 
@@ -414,12 +414,12 @@ mod tests {
 
     #[test]
     fn it_keeps_empty_columns() {
-        let input = r#"
+        let input = "
             colA   col B     col C
                    val2      val3
             val4   val 5     val 6
             val7             val8
-        "#;
+        ";
 
         let result = string_to_table(input, false, true, 2);
         assert_eq!(
@@ -455,10 +455,10 @@ mod tests {
 
     #[test]
     fn it_uses_the_full_final_column() {
-        let input = r#"
+        let input = "
             colA   col B
             val1   val2   trailing value that should be included
-        "#;
+        ";
 
         let result = string_to_table(input, false, true, 2);
         assert_eq!(
@@ -472,11 +472,11 @@ mod tests {
 
     #[test]
     fn it_handles_empty_values_when_noheaders_and_aligned_columns() {
-        let input = r#"
+        let input = "
             a multi-word value  b           d
             1                        3-3    4
                                                        last
-        "#;
+        ";
 
         let result = string_to_table(input, true, true, 2);
         assert_eq!(
@@ -509,11 +509,11 @@ mod tests {
 
     #[test]
     fn input_is_parsed_correctly_if_either_option_works() {
-        let input = r#"
+        let input = "
                 docker-registry   docker-registry=default                   docker-registry=default   172.30.78.158   5000/TCP
                 kubernetes        component=apiserver,provider=kubernetes   <none>                    172.30.0.2      443/TCP
                 kubernetes-ro     component=apiserver,provider=kubernetes   <none>                    172.30.0.1      80/TCP
-            "#;
+            ";
 
         let aligned_columns_noheaders = string_to_table(input, true, true, 2);
         let separator_noheaders = string_to_table(input, true, false, 2);

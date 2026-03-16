@@ -60,12 +60,12 @@ fn use_eval_export_env() {
     Playground::setup("use_eval_export_env", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 export-env { $env.FOO = 'foo' }
-            "#,
+            ",
         )]);
 
-        let inp = &[r#"use spam.nu"#, r#"$env.FOO"#];
+        let inp = &["use spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
@@ -78,12 +78,12 @@ fn use_eval_export_env_hide() {
     Playground::setup("use_eval_export_env", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 export-env { hide-env FOO }
-            "#,
+            ",
         )]);
 
-        let inp = &[r#"$env.FOO = 'foo'"#, r#"use spam.nu"#, r#"$env.FOO"#];
+        let inp = &["$env.FOO = 'foo'", "use spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
@@ -98,12 +98,12 @@ fn use_do_cd() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     export-env { cd test1/test2 }
-                "#,
+                ",
             )]);
 
-        let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
+        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
@@ -118,12 +118,12 @@ fn use_do_cd_file_relative() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     export-env { cd ($env.FILE_PWD | path join '..') }
-                "#,
+                ",
             )]);
 
-        let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
+        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
@@ -138,16 +138,16 @@ fn use_dont_cd_overlay() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     export-env {
                         overlay new spam
                         cd test1/test2
                         overlay hide spam
                     }
-                "#,
+                ",
             )]);
 
-        let inp = &[r#"use test1/test2/spam.nu"#, r#"$env.PWD | path basename"#];
+        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
 
@@ -160,14 +160,14 @@ fn use_export_env_combined() {
     Playground::setup("use_is_scoped", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 def foo [] { 'foo' }
                 alias bar = foo
                 export-env { $env.FOO = (bar) }
-            "#,
+            ",
         )]);
 
-        let inp = &[r#"use spam.nu"#, r#"$env.FOO"#];
+        let inp = &["use spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), inp.join("; "));
         assert_eq!(actual.out, "foo");
@@ -198,8 +198,8 @@ fn use_module_creates_accurate_did_you_mean_2() {
 fn use_main_1() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam"#,
-        r#"spam"#,
+        "use spam",
+        "spam",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -211,8 +211,8 @@ fn use_main_1() {
 fn use_main_2() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam main"#,
-        r#"spam"#,
+        "use spam main",
+        "spam",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -224,8 +224,8 @@ fn use_main_2() {
 fn use_main_3() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam [ main ]"#,
-        r#"spam"#,
+        "use spam [ main ]",
+        "spam",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -237,8 +237,8 @@ fn use_main_3() {
 fn use_main_4() {
     let inp = &[
         r#"module spam { export def main [] { "spam" } }"#,
-        r#"use spam *"#,
-        r#"spam"#,
+        "use spam *",
+        "spam",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -250,9 +250,9 @@ fn use_main_4() {
 fn use_main_def_env() {
     let inp = &[
         r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
-        r#"use spam"#,
-        r#"spam"#,
-        r#"$env.SPAM"#,
+        "use spam",
+        "spam",
+        "$env.SPAM",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -264,9 +264,9 @@ fn use_main_def_env() {
 fn use_main_def_known_external() {
     // note: requires installed cargo
     let inp = &[
-        r#"module cargo { export extern main [] }"#,
-        r#"use cargo"#,
-        r#"cargo --version"#,
+        "module cargo { export extern main [] }",
+        "use cargo",
+        "cargo --version",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -278,8 +278,8 @@ fn use_main_def_known_external() {
 fn use_main_not_exported() {
     let inp = &[
         r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
-        r#"use my-super-cool-and-unique-module-name"#,
-        r#"my-super-cool-and-unique-module-name"#,
+        "use my-super-cool-and-unique-module-name",
+        "my-super-cool-and-unique-module-name",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -289,7 +289,7 @@ fn use_main_not_exported() {
 
 #[test]
 fn use_sub_subname_error_if_not_from_submodule() {
-    let inp = r#"module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar"#;
+    let inp = "module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar";
     let actual = nu!(inp);
     assert!(actual.err.contains("try `use <module> [<name1>, <name2>]`"))
 }
@@ -308,11 +308,11 @@ fn test_use_with_printing_file_pwd() {
         let file = dirs.test().join("mod.nu");
         nu.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.FILE_PWD
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(
@@ -330,11 +330,11 @@ fn test_use_with_printing_current_file() {
         let file = dirs.test().join("mod.nu");
         nu.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.CURRENT_FILE
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(

@@ -36,7 +36,7 @@ impl Command for FromMsgpack {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 Not all values are representable as MessagePack.
 
 The datetime extension type is read as dates. MessagePack binary values are
@@ -45,7 +45,7 @@ read to their Nu equivalent. Most other types are read in an analogous way to
 used originally to create the data.
 
 MessagePack: https://msgpack.org/
-"#
+"
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -543,7 +543,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"{a: 1 b: 2} | to msgpack | metadata set --path-columns [name] | from msgpack | metadata | reject span | $in"#;
+        let cmd = "{a: 1 b: 2} | to msgpack | metadata set --path-columns [name] | from msgpack | metadata | reject span | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

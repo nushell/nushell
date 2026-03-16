@@ -57,9 +57,9 @@ impl Command for Select {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This differs from `get` in that, rather than accessing the given value in the data structure,
+        "This differs from `get` in that, rather than accessing the given value in the data structure,
 it removes all non-selected values from the structure. Hence, using `select` on a table will
-produce a table, a list will produce a list, and a record will produce a record."#
+produce a table, a list will produce a list, and a record will produce a record."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -207,7 +207,7 @@ produce a table, a list will produce a list, and a record will produce a record.
             },
             Example {
                 description: "Select multiple columns by spreading a list.",
-                example: r#"let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols"#,
+                example: "let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.toml"),

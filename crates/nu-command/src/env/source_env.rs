@@ -34,8 +34,8 @@ impl Command for SourceEnv {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -112,12 +112,12 @@ impl Command for SourceEnv {
         vec![
             Example {
                 description: "Sources the environment from foo.nu in the current context.",
-                example: r#"source-env foo.nu"#,
+                example: "source-env foo.nu",
                 result: None,
             },
             Example {
                 description: "Sourcing `null` is a no-op.",
-                example: r#"source-env null"#,
+                example: "source-env null",
                 result: None,
             },
         ]

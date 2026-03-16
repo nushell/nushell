@@ -2,14 +2,14 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn columns() -> Result {
-    let code = r#"
+    let code = "
         echo [
             [arepas, color];
             [3,  white]
             [8, yellow]
             [4,  white]
         ] | drop column | columns | length
-    "#;
+    ";
 
     test().run(code).expect_value_eq(1)
 }
@@ -25,21 +25,21 @@ fn drop_columns_positive_value() -> Result {
 
 #[test]
 fn more_columns_than_table_has() -> Result {
-    let code = r#"
+    let code = "
         echo [
             [arepas, color];
             [3,  white]
             [8, yellow]
             [4,  white]
         ] | drop column 3 | columns | is-empty
-    "#;
+    ";
 
     test().run(code).expect_value_eq(true)
 }
 
 #[test]
 fn rows() -> Result {
-    let code = r#"
+    let code = "
         echo [
             [arepas];
             [3]
@@ -49,7 +49,7 @@ fn rows() -> Result {
         | drop 2
         | get arepas
         | math sum
-    "#;
+    ";
 
     test().run(code).expect_value_eq(3)
 }
@@ -96,24 +96,24 @@ fn fail_on_non_iterator() -> Result {
 
 #[test]
 fn disjoint_columns_first_row_becomes_empty() -> Result {
-    let code = r#"
+    let code = "
         [{a: 1}, {b: 2, c: 3}]
         | drop column
         | columns
         | to nuon
-    "#;
+    ";
 
     test().run(code).expect_value_eq("[b, c]")
 }
 
 #[test]
 fn disjoint_columns() -> Result {
-    let code = r#"
+    let code = "
         [{a: 1, b: 2}, {c: 3}]
         | drop column
         | columns
         | to nuon
-    "#;
+    ";
 
     test().run(code).expect_value_eq("[a, c]")
 }
@@ -169,10 +169,10 @@ fn drop_unbounded_range() -> Result {
 
 #[test]
 fn drop_multiple_ranges_including_unbounded() -> Result {
-    let code = r#"
+    let code = "
     0..30
     | drop nth 0..10 20..
-    "#;
+    ";
 
     test()
         .run(code)
@@ -181,10 +181,10 @@ fn drop_multiple_ranges_including_unbounded() -> Result {
 
 #[test]
 fn drop_combination_of_unbounded_range_and_single_index() -> Result {
-    let code = r#"
+    let code = "
         echo 0..15
         | drop nth 10.. 5
-        "#;
+        ";
 
     test()
         .run(code)
@@ -193,10 +193,10 @@ fn drop_combination_of_unbounded_range_and_single_index() -> Result {
 
 #[test]
 fn drop_combination_of_two_unbounded_ranges() -> Result {
-    let code = r#"
+    let code = "
         echo 0..150
         | drop nth 0..100 999..
-        "#;
+        ";
 
     let expected: Vec<u32> = (101..=150).collect();
     let actual: Vec<u32> = test().run(code)?;

@@ -125,44 +125,44 @@ fn upserts_all_rows_in_table_in_record() {
 
 #[test]
 fn upsert_table_cell_respects_reorder_option() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let a = [[foo]; [bar]];
         let b = ($a | upsert foo.0 'baz');
         $b.0.foo
-    "#);
+    ");
 
     assert_eq!(actual.out, "baz")
 }
 
 #[test]
 fn upsert_table_cell_multiple_ints_reorder() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let a = [ [[foo]; [bar]] ];
         let b = ($a | upsert 0.0.foo 'hi');
         $b.0.0.foo
-    "#);
+    ");
 
     assert_eq!(actual.out, "hi")
 }
 
 #[test]
 fn upsert_table_cell_mixed_rows() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let table = [ [foo]; ['a'] ['b'] ];
         let t = ($table | upsert foo.0 'z');
         $t.foo.0
-    "#);
+    ");
 
     assert_eq!(actual.out, "z")
 }
 
 #[test]
 fn upsert_new_to_table_cell_mixed_rows() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let table = [ [foo]; ['a'] ['b'] ];
         let t = ($table | upsert bar.0 'z');
         $t.0.bar
-    "#);
+    ");
 
     assert_eq!(actual.out, "z")
 }

@@ -2,11 +2,11 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn can_average_numbers() -> Result {
-    let code = r#"
+    let code = "
         open sgml_description.json
         | get glossary.GlossDiv.GlossList.GlossEntry.Sections
         | math avg
-     "#;
+     ";
     test()
         .cwd("tests/fixtures/formats")
         .run(code)

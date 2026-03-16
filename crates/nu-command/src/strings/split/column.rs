@@ -98,7 +98,7 @@ impl Command for SplitColumn {
             },
             Example {
                 description: "Split into columns, last column may contain the delimiter.",
-                example: r"['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
+                example: "['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "key" => Value::test_string("author"),

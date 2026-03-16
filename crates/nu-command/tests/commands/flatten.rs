@@ -2,7 +2,7 @@ use nu_test_support::nu;
 
 #[test]
 fn flatten_nested_tables_with_columns() {
-    let actual = nu!(r#"
+    let actual = nu!("
         [
             [[origin, people]; [Ecuador, ('Andres' | wrap name)]]
             [[origin, people]; [Nu, ('nuno' | wrap name)]]
@@ -11,14 +11,14 @@ fn flatten_nested_tables_with_columns() {
         | flatten --all
         | get name
         | str join ','
-    "#);
+    ");
 
     assert_eq!(actual.out, "Andres,nuno");
 }
 
 #[test]
 fn flatten_nested_tables_that_have_many_columns() {
-    let actual = nu!(r#"
+    let actual = nu!("
         (
             echo [
                 [origin, people];
@@ -45,7 +45,7 @@ fn flatten_nested_tables_that_have_many_columns() {
         | flatten --all
         | get meal
         | str join ','
-    "#);
+    ");
 
     assert_eq!(actual.out, "arepa,nurepa");
 }

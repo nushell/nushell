@@ -55,7 +55,7 @@ pub fn encode(
     // Check if the encoding is one of them and return an error
     if ["UTF-16BE", "UTF-16LE"].contains(&encoding.name()) {
         return Err(ShellError::GenericError {
-            error: format!(r#"{} encoding is not supported"#, &encoding_name.item),
+            error: format!("{} encoding is not supported", &encoding_name.item),
             msg: "invalid encoding".into(),
             span: Some(encoding_name.span),
             help: Some("refer to https://docs.rs/encoding_rs/latest/encoding_rs/index.html#statics for a valid list of encodings".into()),
@@ -90,7 +90,7 @@ fn parse_encoding(span: Span, label: &str) -> Result<&'static Encoding, ShellErr
     match Encoding::for_label_no_replacement(label.as_bytes()) {
         None => Err(ShellError::GenericError{
             error: format!(
-                r#"{label} is not a valid encoding"#
+                "{label} is not a valid encoding"
             ),
             msg: "invalid encoding".into(),
             span: Some(span),

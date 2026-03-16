@@ -33,11 +33,11 @@ fn discards_rows_where_given_column_is_empty() -> Result {
 }
 #[test]
 fn discards_empty_rows_by_default() -> Result {
-    let code = r#"
+    let code = "
         $in
         | compact
         | length
-    "#;
+    ";
 
     test()
         .run_with_data(code, (1, 2, 3, 14, ()))

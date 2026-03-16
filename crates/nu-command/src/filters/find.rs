@@ -73,12 +73,12 @@ impl Command for Find {
         vec![
             Example {
                 description: "Search for multiple terms in a command output.",
-                example: r#"ls | find toml md sh"#,
+                example: "ls | find toml md sh",
                 result: None,
             },
             Example {
                 description: "Search and highlight text for a term in a string.",
-                example: r#"'Cargo.toml' | find Cargo"#,
+                example: "'Cargo.toml' | find Cargo",
                 result: Some(Value::test_string(
                     "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mCargo\u{1b}[0m\u{1b}[39m.toml\u{1b}[0m"
                         .to_owned(),
@@ -86,7 +86,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search a number or a file size in a list of numbers.",
-                example: r#"[1 5 3kb 4 35 3Mb] | find 5 3kb"#,
+                example: "[1 5 3kb 4 35 3Mb] | find 5 3kb",
                 result: Some(Value::list(
                     vec![Value::test_int(5), Value::test_filesize(3000)],
                     Span::test_data(),
@@ -94,7 +94,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search a char in a list of string.",
-                example: r#"[moe larry curly] | find l"#,
+                example: "[moe larry curly] | find l",
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
@@ -240,7 +240,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find and highlight the last occurrence in a string.",
-                example: r#"'hello world hello' | find --rfind hello"#,
+                example: "'hello world hello' | find --rfind hello",
                 result: Some(Value::test_string(
                     "\u{1b}[39mhello world \u{1b}[0m\u{1b}[41;39mhello\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),

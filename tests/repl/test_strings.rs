@@ -3,24 +3,24 @@ use crate::repl::tests::{TestResult, fail_test, run_test};
 #[test]
 fn cjk_in_substrings() -> TestResult {
     run_test(
-        r#"let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); $s | str substring ($start + 1)..<($end)"#,
+        "let s = '[Rust 程序设计语言](title-page.md)'; let start = ($s | str index-of '('); let end = ($s | str index-of ')'); $s | str substring ($start + 1)..<($end)",
         "title-page.md",
     )
 }
 
 #[test]
 fn string_not_in_string() -> TestResult {
-    run_test(r#"'d' not-in 'abc'"#, "true")
+    run_test("'d' not-in 'abc'", "true")
 }
 
 #[test]
 fn string_in_string() -> TestResult {
-    run_test(r#"'z' in 'abc'"#, "false")
+    run_test("'z' in 'abc'", "false")
 }
 
 #[test]
 fn non_string_in_string() -> TestResult {
-    fail_test(r#"42 in 'abc'"#, "nu::parser::operator_incompatible_types")
+    fail_test("42 in 'abc'", "nu::parser::operator_incompatible_types")
 }
 
 #[test]
@@ -39,9 +39,9 @@ fn non_string_in_record() -> TestResult {
 #[test]
 fn unbalance_string() -> TestResult {
     fail_test(r#""aaaab"cc"#, "invalid characters")?;
-    fail_test(r#"'aaaab'cc"#, "invalid characters")?;
+    fail_test("'aaaab'cc", "invalid characters")?;
     fail_test(r#"$"aaaab"cc"#, "invalid characters")?;
-    fail_test(r#"$'aaaab'cc"#, "invalid characters")
+    fail_test("$'aaaab'cc", "invalid characters")
 }
 
 #[test]
@@ -56,7 +56,7 @@ fn string_in_valuestream() -> TestResult {
 
 #[test]
 fn single_tick_interpolation() -> TestResult {
-    run_test(r#"$'(3 + 4)'"#, "7")
+    run_test("$'(3 + 4)'", "7")
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn detect_newlines() -> TestResult {
 #[test]
 fn case_insensitive_sort() -> TestResult {
     run_test(
-        r#"[a, B, d, C, f] | sort -i | to json --raw"#,
+        "[a, B, d, C, f] | sort -i | to json --raw",
         "[\"a\",\"B\",\"C\",\"d\",\"f\"]",
     )
 }
@@ -95,7 +95,7 @@ fn raw_string() -> TestResult {
     )?;
     run_test("r#''#", "")?;
     run_test(
-        r#"r#'a string with sharp inside # and ends with #'#"#,
+        "r#'a string with sharp inside # and ends with #'#",
         "a string with sharp inside # and ends with #",
     )
 }
@@ -117,7 +117,7 @@ fn raw_string_inside_parentheses() -> TestResult {
     )?;
     run_test(&format!("{left}r#''#{right}"), "")?;
     run_test(
-        &format!(r#"{left}r#'a string with sharp inside # and ends with #'#{right}"#),
+        &format!("{left}r#'a string with sharp inside # and ends with #'#{right}"),
         "a string with sharp inside # and ends with #",
     )
 }
@@ -139,7 +139,7 @@ fn raw_string_inside_list() -> TestResult {
     )?;
     run_test(&format!("{left}r#''#{right} | get 0"), "")?;
     run_test(
-        &format!(r#"{left}r#'a string with sharp inside # and ends with #'#{right} | get 0"#),
+        &format!("{left}r#'a string with sharp inside # and ends with #'#{right} | get 0"),
         "a string with sharp inside # and ends with #",
     )
 }
@@ -161,7 +161,7 @@ fn raw_string_inside_closure() -> TestResult {
     )?;
     run_test(&format!("do {left}r#''#{right}"), "")?;
     run_test(
-        &format!(r#"do {left}r#'a string with sharp inside # and ends with #'#{right}"#),
+        &format!("do {left}r#'a string with sharp inside # and ends with #'#{right}"),
         "a string with sharp inside # and ends with #",
     )
 }

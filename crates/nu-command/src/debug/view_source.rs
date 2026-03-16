@@ -26,46 +26,46 @@ impl Command for ViewSource {
         vec![
             Example {
                 description: "View the source of a code block.",
-                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
+                example: "let abc = {|| echo 'hi' }; view source $abc",
                 result: Some(Value::test_string("{|| echo 'hi' }")),
             },
             Example {
                 description: "View the source of a custom command.",
-                example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
+                example: "def hi [] { echo 'Hi!' }; view source hi",
                 result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment.",
-                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                example: "def --env foo [] { $env.BAR = 'BAZ' }; view source foo",
                 result: Some(Value::test_string("def --env foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags.",
-                example: r#"def --wrapped --env foo [...rest: string] { print $rest }; view source foo"#,
+                example: "def --wrapped --env foo [...rest: string] { print $rest }; view source foo",
                 result: Some(Value::test_string(
                     "def --env --wrapped foo [ ...rest: string] { print $rest }",
                 )),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments.",
-                example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
+                example: "def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test",
                 result: Some(Value::test_string(
                     "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
                 )),
             },
             Example {
                 description: "View the source of a module.",
-                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
+                example: "module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo",
                 result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias.",
-                example: r#"alias hello = echo hi; view source hello"#,
+                example: "alias hello = echo hi; view source hello",
                 result: Some(Value::test_string("echo hi")),
             },
             Example {
                 description: "View the file where a definition lives via metadata.",
-                example: r#"view source some_command | metadata"#,
+                example: "view source some_command | metadata",
                 result: None,
             },
         ]

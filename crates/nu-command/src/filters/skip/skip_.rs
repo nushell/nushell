@@ -27,7 +27,7 @@ impl Command for Skip {
     }
 
     fn extra_description(&self) -> &str {
-        r#"To skip specific numbered rows, try `drop nth`. To skip specific named columns, try `reject`."#
+        "To skip specific numbered rows, try `drop nth`. To skip specific named columns, try `reject`."
     }
 
     fn search_terms(&self) -> Vec<&str> {

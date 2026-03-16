@@ -20,10 +20,10 @@ impl Command for Overlay {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
+        "This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
-  You must use one of the following subcommands. Using this command as-is will only produce this help message."#
+  You must use one of the following subcommands. Using this command as-is will only produce this help message."
     }
 
     fn command_type(&self) -> CommandType {

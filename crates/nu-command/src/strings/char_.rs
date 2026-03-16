@@ -210,32 +210,32 @@ impl Command for Char {
         vec![
             Example {
                 description: "Output newline",
-                example: r#"char newline"#,
+                example: "char newline",
                 result: Some(Value::test_string("\n")),
             },
             Example {
                 description: "List available characters",
-                example: r#"char --list"#,
+                example: "char --list",
                 result: None,
             },
             Example {
                 description: "Output prompt character, newline and a hamburger menu character",
-                example: r#"(char prompt) + (char newline) + (char hamburger)"#,
+                example: "(char prompt) + (char newline) + (char hamburger)",
                 result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
             },
             Example {
                 description: "Output Unicode character",
-                example: r#"char --unicode 1f378"#,
+                example: "char --unicode 1f378",
                 result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
                 description: "Create Unicode from integer codepoint values",
-                example: r#"char --integer (0x60 + 1) (0x60 + 2)"#,
+                example: "char --integer (0x60 + 1) (0x60 + 2)",
                 result: Some(Value::test_string("ab")),
             },
             Example {
                 description: "Output multi-byte Unicode character",
-                example: r#"char --unicode 1F468 200D 1F466 200D 1F466"#,
+                example: "char --unicode 1F468 200D 1F466 200D 1F466",
                 result: Some(Value::test_string(
                     "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
                 )),

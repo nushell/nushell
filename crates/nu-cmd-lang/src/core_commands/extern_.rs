@@ -30,8 +30,8 @@ impl Command for Extern {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -51,7 +51,7 @@ impl Command for Extern {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Write a signature for an external command.",
-            example: r#"extern echo [text: string]"#,
+            example: "extern echo [text: string]",
             result: None,
         }]
     }

@@ -63,8 +63,8 @@ impl Command for ExploreRegex {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
-Supports AltGr key combinations for international keyboard layouts."#
+        "Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
+Supports AltGr key combinations for international keyboard layouts."
     }
 
     fn run(
@@ -88,12 +88,12 @@ Supports AltGr key combinations for international keyboard layouts."#
         vec![
             Example {
                 description: "Explore a regular expression interactively",
-                example: r#"explore regex"#,
+                example: "explore regex",
                 result: None,
             },
             Example {
                 description: "Explore a regular expression interactively with sample text",
-                example: r#"open -r Cargo.toml | explore regex"#,
+                example: "open -r Cargo.toml | explore regex",
                 result: None,
             },
         ]

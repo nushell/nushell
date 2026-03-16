@@ -37,8 +37,8 @@ impl Command for PathParse {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Each path is split into a table with 'parent', 'stem' and 'extension' fields.
-On Windows, an extra 'prefix' column is added."#
+        "Each path is split into a table with 'parent', 'stem' and 'extension' fields.
+On Windows, an extra 'prefix' column is added."
     }
 
     fn is_const(&self) -> bool {

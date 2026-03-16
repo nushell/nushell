@@ -53,7 +53,7 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each --keep-order {|e| $e * 2 }"#,
+                example: "[1 2 3] | par-each --keep-order {|e| $e * 2 }",
                 description: "Multiplies each number, keeping an original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
@@ -62,7 +62,7 @@ impl Command for ParEach {
                 ])),
             },
             Example {
-                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
+                example: "1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item",
                 description: "Enumerate and sort-by can be used to reconstruct the original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
@@ -71,7 +71,7 @@ impl Command for ParEach {
                 ])),
             },
             Example {
-                example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
+                example: "[foo bar baz] | par-each {|e| $e + '!' } | sort",
                 description: "Output can still be sorted afterward.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("bar!"),

@@ -62,7 +62,7 @@ impl Command for ToHtml {
                 description: "Outputs an HTML string representing the contents of this table",
                 example: "[[foo bar]; [1 2]] | to html",
                 result: Some(Value::test_string(
-                    r#"<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
+                    "<html><style>body { background-color:white;color:black; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>",
                 )),
             },
             Example {
@@ -83,7 +83,7 @@ impl Command for ToHtml {
                 description: "Optionally, output the string with a dark background",
                 example: "[[foo bar]; [1 2]] | to html --dark",
                 result: Some(Value::test_string(
-                    r#"<html><style>body { background-color:black;color:white; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>"#,
+                    "<html><style>body { background-color:black;color:white; }</style><body><table><thead><tr><th>foo</th><th>bar</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table></body></html>",
                 )),
             },
         ]
@@ -232,7 +232,7 @@ fn to_html(
     if !partial {
         write!(
             &mut output_string,
-            r"<html><style>body {{ background-color:{};color:{}; }}</style><body>",
+            "<html><style>body {{ background-color:{};color:{}; }}</style><body>",
             color_hm
                 .get("background")
                 .expect("Error getting background color"),
@@ -391,7 +391,7 @@ fn setup_html_color_regexes(
             r"(?P<reset>\[0m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             // Reset the text color, normal weight font
             format!(
-                r"<span style='color:{};font-weight:normal;'>$word</span>",
+                "<span style='color:{};font-weight:normal;'>$word</span>",
                 color_hm
                     .get("foreground")
                     .expect("Error getting reset text color")
@@ -404,7 +404,7 @@ fn setup_html_color_regexes(
             // Bold Black
             r"(?P<bb>\[1;30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("foreground")
                     .expect("Error getting bold black text color")
@@ -417,7 +417,7 @@ fn setup_html_color_regexes(
             // Bold Red
             r"(?P<br>\[1;31m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_red")
                     .expect("Error getting bold red text color"),
@@ -430,7 +430,7 @@ fn setup_html_color_regexes(
             // Bold Green
             r"(?P<bg>\[1;32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_green")
                     .expect("Error getting bold green text color"),
@@ -443,7 +443,7 @@ fn setup_html_color_regexes(
             // Bold Yellow
             r"(?P<by>\[1;33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_yellow")
                     .expect("Error getting bold yellow text color"),
@@ -456,7 +456,7 @@ fn setup_html_color_regexes(
             // Bold Blue
             r"(?P<bu>\[1;34m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_blue")
                     .expect("Error getting bold blue text color"),
@@ -469,7 +469,7 @@ fn setup_html_color_regexes(
             // Bold Magenta
             r"(?P<bm>\[1;35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_magenta")
                     .expect("Error getting bold magenta text color"),
@@ -482,7 +482,7 @@ fn setup_html_color_regexes(
             // Bold Cyan
             r"(?P<bc>\[1;36m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("bold_cyan")
                     .expect("Error getting bold cyan text color"),
@@ -497,7 +497,7 @@ fn setup_html_color_regexes(
             // is white. White on white = no bueno.
             r"(?P<bw>\[1;37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};font-weight:bold;'>$word</span>",
+                "<span style='color:{};font-weight:bold;'>$word</span>",
                 color_hm
                     .get("foreground")
                     .expect("Error getting bold bold white text color"),
@@ -511,7 +511,7 @@ fn setup_html_color_regexes(
             // Black
             r"(?P<b>\[30m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm
                     .get("foreground")
                     .expect("Error getting black text color"),
@@ -524,7 +524,7 @@ fn setup_html_color_regexes(
             // Red
             r"(?P<r>\[31m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm.get("red").expect("Error getting red text color"),
             ),
         ),
@@ -535,7 +535,7 @@ fn setup_html_color_regexes(
             // Green
             r"(?P<g>\[32m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm
                     .get("green")
                     .expect("Error getting green text color"),
@@ -548,7 +548,7 @@ fn setup_html_color_regexes(
             // Yellow
             r"(?P<y>\[33m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm
                     .get("yellow")
                     .expect("Error getting yellow text color"),
@@ -561,7 +561,7 @@ fn setup_html_color_regexes(
             // Blue
             r"(?P<u>\[34m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm.get("blue").expect("Error getting blue text color"),
             ),
         ),
@@ -572,7 +572,7 @@ fn setup_html_color_regexes(
             // Magenta
             r"(?P<m>\[35m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm
                     .get("magenta")
                     .expect("Error getting magenta text color"),
@@ -585,7 +585,7 @@ fn setup_html_color_regexes(
             // Cyan
             r"(?P<c>\[36m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm.get("cyan").expect("Error getting cyan text color"),
             ),
         ),
@@ -598,7 +598,7 @@ fn setup_html_color_regexes(
             // is white. White on white = no bueno.
             r"(?P<w>\[37m)(?P<word>[[:alnum:][:space:][:punct:]]*)",
             format!(
-                r"<span style='color:{};'>$word</span>",
+                "<span style='color:{};'>$word</span>",
                 color_hm
                     .get("foreground")
                     .expect("Error getting white text color"),
@@ -615,7 +615,7 @@ fn setup_no_color_regexes(hash: &mut HashMap<u32, (&'static str, String)>) {
         0,
         (
             r"(?:\x1B[@-Z\\-_]|[\x80-\x9A\x9C-\x9F]|(?:\x1B\[|\x9B)[0-?]*[ -/]*[@-~])",
-            r"$name_group_doesnt_exist".to_string(),
+            "$name_group_doesnt_exist".to_string(),
         ),
     );
 }

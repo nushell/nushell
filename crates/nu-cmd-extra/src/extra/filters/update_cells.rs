@@ -81,7 +81,7 @@ impl Command for UpdateCells {
                 })])),
             },
             Example {
-                example: r#"{a: 1, b: 2, c: 3} | update cells { $in + 10 }"#,
+                example: "{a: 1, b: 2, c: 3} | update cells { $in + 10 }",
                 description: "Update each value in a record.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(11),

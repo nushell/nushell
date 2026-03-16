@@ -33,10 +33,10 @@ impl Command for OverlayNew {
     }
 
     fn extra_description(&self) -> &str {
-        r#"The command will first create an empty module, then add it as an overlay.
+        "The command will first create an empty module, then add it as an overlay.
 
 This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -67,7 +67,7 @@ This command is a parser keyword. For details, check:
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Create an empty overlay.",
-            example: r#"overlay new spam"#,
+            example: "overlay new spam",
             result: None,
         }]
     }

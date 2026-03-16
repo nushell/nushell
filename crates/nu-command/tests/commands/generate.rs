@@ -18,7 +18,7 @@ fn generate_null_break() {
 
 #[test]
 fn generate_allows_empty_output() {
-    let actual = nu!(r#"
+    let actual = nu!("
     generate {|x|
       if $x == 1 {
         {next: ($x + 1)}
@@ -26,20 +26,20 @@ fn generate_allows_empty_output() {
         {out: $x, next: ($x + 1)}
       }
     } 0 | to nuon
-          "#);
+          ");
 
     assert_eq!(actual.out, "[0, 2]");
 }
 
 #[test]
 fn generate_allows_no_output() {
-    let actual = nu!(r#"
+    let actual = nu!("
     generate {|x|
       if $x < 3 {
         {next: ($x + 1)}
       }
     } 0 | to nuon
-          "#);
+          ");
 
     assert_eq!(actual.out, "[]");
 }
@@ -137,19 +137,19 @@ fn generate_raise_error_on_no_default_parameter_closure_and_init_val() {
 
 #[test]
 fn generate_allows_pipeline_input() {
-    let actual = nu!(r#"[1 2 3] | generate {|e, x=null| {out: $e, next: null}} | to nuon"#);
+    let actual = nu!("[1 2 3] | generate {|e, x=null| {out: $e, next: null}} | to nuon");
     assert_eq!(actual.out, "[1, 2, 3]");
 }
 
 #[test]
 fn generate_with_input_is_streaming() {
-    let actual = nu!(r#"
+    let actual = nu!("
     1..10
     | each {|x| print -en $x; $x}
     | generate {|e, sum=0| let sum = $e + $sum; {out: $sum, next: $sum}}
     | first 5
     | to nuon
-    "#);
+    ");
 
     assert_eq!(actual.out, "[1, 3, 6, 10, 15]");
     assert_eq!(actual.err, "12345");

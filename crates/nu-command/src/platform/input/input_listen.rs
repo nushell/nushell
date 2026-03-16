@@ -56,7 +56,7 @@ impl Command for InputListen {
     }
 
     fn extra_description(&self) -> &str {
-        r#"There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
+        "There are 5 different type of events: focus, key, mouse, paste, resize. Each will produce a
 corresponding record, distinguished by type field:
 ```
     { type: focus event: (gained|lost) }
@@ -70,7 +70,7 @@ There are 4 `key_type` variants:
     f - f1, f2, f3 ... keys
     char - alphanumeric and special symbols (a, A, 1, $ ...)
     media - dedicated media keys (play, pause, tracknext ...)
-    other - keys not falling under previous categories (up, down, backspace, enter ...)"#
+    other - keys not falling under previous categories (up, down, backspace, enter ...)"
     }
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {

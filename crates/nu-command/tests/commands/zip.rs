@@ -1,6 +1,6 @@
 use nu_test_support::prelude::*;
 
-const ZIP_POWERED_TEST_ASSERTION_COMMAND: &str = r#"
+const ZIP_POWERED_TEST_ASSERTION_COMMAND: &str = "
 export def expect [
     left,
     --to-eq,
@@ -10,7 +10,7 @@ export def expect [
         $row.name.0 == $row.name.1 and $row.commits.0 == $row.commits.1
     }
 }
-"#;
+";
 
 #[test]
 fn zips_two_tables() -> Result {

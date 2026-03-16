@@ -14,7 +14,7 @@ fn http_options_is_success() -> Result {
         .create();
 
     let code = format!(
-        r#"http options {url} | get headers.response | length"#,
+        "http options {url} | get headers.response | length",
         url = server.url()
     );
 
@@ -29,7 +29,7 @@ fn http_options_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("OPTIONS", "/").with_status(400).create();
 
-    let code = format!(r#"http options {url}"#, url = server.url());
+    let code = format!("http options {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?;
 
     match err {

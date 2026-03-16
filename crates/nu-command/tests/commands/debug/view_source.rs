@@ -12,15 +12,15 @@ fn datasource_filepath_metadata() -> Result {
     Playground::setup("cd_ds_filepath_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "mdata.nu",
-            r#"
+            "
                 def foo [] { echo hi }
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             source mdata.nu
             view source foo | metadata | get source
-        "#;
+        ";
 
         let outcome: String = test().cwd(dirs.test()).run(code)?;
         // expect path printed somehow

@@ -37,7 +37,7 @@ fn sort_table() {
 
     assert_eq!(
         actual.out,
-        r#"[[id, quantity, price]; [100, 5, 1], [100, 5, 8], [100, 10, 5]]"#
+        "[[id, quantity, price]; [100, 5, 1], [100, 5, 8], [100, 10, 5]]"
     );
 }
 
@@ -70,14 +70,14 @@ fn sort_record_natural() {
 fn sort_record_insensitive() {
     let actual = nu!("{abe:1,zed:2,ABE:3} | sort -i | to nuon");
 
-    assert_eq!(actual.out, r#"{abe: 1, ABE: 3, zed: 2}"#);
+    assert_eq!(actual.out, "{abe: 1, ABE: 3, zed: 2}");
 }
 
 #[test]
 fn sort_record_insensitive_reverse() {
     let actual = nu!("{abe:1,zed:2,ABE:3} | sort -ir | to nuon");
 
-    assert_eq!(actual.out, r#"{zed: 2, ABE: 3, abe: 1}"#);
+    assert_eq!(actual.out, "{zed: 2, ABE: 3, abe: 1}");
 }
 
 #[test]

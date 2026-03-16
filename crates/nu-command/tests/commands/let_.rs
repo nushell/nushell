@@ -67,14 +67,14 @@ fn mut_pipeline_allows_in() {
 
 #[test]
 fn let_pipeline_redirects_internals() {
-    let actual = nu!(r#"let x = echo 'bar'; $x | str length"#);
+    let actual = nu!("let x = echo 'bar'; $x | str length");
 
     assert_eq!(actual.out, "3");
 }
 
 #[test]
 fn let_pipeline_redirects_externals() {
-    let actual = nu!(r#"let x = nu --testbin cococo 'bar'; $x | str length"#);
+    let actual = nu!("let x = nu --testbin cococo 'bar'; $x | str length");
 
     assert_eq!(actual.out, "3");
 }
@@ -132,7 +132,7 @@ fn let_raw_string() {
     let actual = nu!(r#"let x = r###'abcde""fghi"'''##'#jkl'###; $x"#);
     assert_eq!(actual.out, r#"abcde""fghi"'''##'#jkl"#);
 
-    let actual = nu!(r#"let x = r#'abc'#; $x"#);
+    let actual = nu!("let x = r#'abc'#; $x");
     assert_eq!(actual.out, "abc");
 }
 

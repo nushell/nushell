@@ -201,33 +201,33 @@ fn update_optional_column_in_table_with_closure_mixed() {
 
 #[test]
 fn update_table_cell_respects_reorder_option() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let a = [[foo]; [bar]];
         let b = ($a | update foo.0 'baz');
         $b.0.foo
-    "#);
+    ");
 
     assert_eq!(actual.out, "baz")
 }
 
 #[test]
 fn update_table_cell_multiple_ints_reorder() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let a = [ [[foo]; [bar]] ];
         let b = ($a | update 0.0.foo 'hi');
         $b.0.0.foo
-    "#);
+    ");
 
     assert_eq!(actual.out, "hi")
 }
 
 #[test]
 fn update_table_cell_mixed_rows() {
-    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], r#"
+    let actual = nu!(experimental: vec!["reorder-cell-paths".to_string()], "
         let table = [ [foo]; ['a'] ['b'] ];
         let t = ($table | update foo.0 'z');
         $t.foo.0
-    "#);
+    ");
 
     assert_eq!(actual.out, "z")
 }

@@ -152,7 +152,7 @@ fn literal_string() {
 
 #[test]
 fn literal_raw_string() {
-    test_eval(r#"r#'bazquux'#"#, Eq("bazquux"))
+    test_eval("r#'bazquux'#", Eq("bazquux"))
 }
 
 #[test]
@@ -363,7 +363,7 @@ fn while_mutate_var() {
 
 #[test]
 fn for_list() {
-    test_eval("for v in [1 2 3] { print ($v * 2) }", Eq(r"246"))
+    test_eval("for v in [1 2 3] { print ($v * 2) }", Eq("246"))
 }
 
 #[test]
@@ -434,10 +434,10 @@ fn try_catch_with_non_literal_closure_no_var() {
 #[test]
 fn try_catch_with_non_literal_closure() {
     test_eval(
-        r#"
+        "
             let error_handler = { |err| $err.msg }
             try { error make { msg: foobar } } catch $error_handler
-        "#,
+        ",
         Eq("foobar"),
     )
 }
@@ -445,7 +445,7 @@ fn try_catch_with_non_literal_closure() {
 #[test]
 fn try_catch_external() {
     test_eval(
-        r#"try { nu -c 'exit 1' } catch { $env.LAST_EXIT_CODE }"#,
+        "try { nu -c 'exit 1' } catch { $env.LAST_EXIT_CODE }",
         Eq("1"),
     )
 }

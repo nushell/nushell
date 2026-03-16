@@ -74,12 +74,12 @@ impl Command for LoadEnv {
         vec![
             Example {
                 description: "Load variables from an input stream.",
-                example: r#"{NAME: ABE, AGE: UNKNOWN} | load-env; $env.NAME"#,
+                example: "{NAME: ABE, AGE: UNKNOWN} | load-env; $env.NAME",
                 result: Some(Value::test_string("ABE")),
             },
             Example {
                 description: "Load variables from an argument.",
-                example: r#"load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME"#,
+                example: "load-env {NAME: ABE, AGE: UNKNOWN}; $env.NAME",
                 result: Some(Value::test_string("ABE")),
             },
         ]

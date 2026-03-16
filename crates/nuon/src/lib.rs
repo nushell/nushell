@@ -384,7 +384,7 @@ mod tests {
     #[test]
     fn cell_path() {
         nuon_end_to_end(
-            r#"$.foo.bar.0"#,
+            "$.foo.bar.0",
             Some(Value::test_cell_path(CellPath {
                 members: vec![
                     PathMember::string(
@@ -512,7 +512,7 @@ mod tests {
     #[test]
     fn raw_string_parses_with_hashes() {
         // String containing '# parses correctly with more hashes
-        let input = r"r##'contains '# in middle'##";
+        let input = "r##'contains '# in middle'##";
         let val = from_nuon(input, None).unwrap();
         assert_eq!(val, Value::test_string("contains '# in middle"));
     }

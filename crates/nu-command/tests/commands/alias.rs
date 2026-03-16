@@ -5,11 +5,11 @@ use nu_test_support::playground::Playground;
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_simple() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+    let actual = nu!(cwd: "tests/fixtures/formats", "
         alias bar = use sample_def.nu greet;
         bar;
         greet
-    "#);
+    ");
 
     assert_eq!(actual.out, "hello");
 }
@@ -17,10 +17,10 @@ fn alias_simple() {
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_1() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+    let actual = nu!(cwd: "tests/fixtures/formats", "
         overlay use ./activate-foo.nu;
         scope aliases | find deactivate-foo | length
-    "#);
+    ");
 
     assert_eq!(actual.out, "1");
 }
@@ -28,11 +28,11 @@ fn alias_hiding_1() {
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
 fn alias_hiding_2() {
-    let actual = nu!(cwd: "tests/fixtures/formats", r#"
+    let actual = nu!(cwd: "tests/fixtures/formats", "
         overlay use ./activate-foo.nu;
         deactivate-foo;
         scope aliases | find deactivate-foo | length
-    "#);
+    ");
 
     assert_eq!(actual.out, "0");
 }
@@ -56,7 +56,7 @@ fn alias_fails_with_invalid_name() {
 
 #[test]
 fn cant_alias_keyword() {
-    let actual = nu!(r#" alias ou = let "#);
+    let actual = nu!(" alias ou = let ");
     assert!(actual.err.contains("cant_alias_keyword"));
 }
 
@@ -83,16 +83,16 @@ fn alias_wont_recurse2() {
     Playground::setup("alias_wont_recurse2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 def eggs [] { spam 'eggs' }
                 alias spam = spam 'spam'
-            "#,
+            ",
         )]);
-        let actual = nu!(cwd: dirs.test(), r#"
+        let actual = nu!(cwd: dirs.test(), "
             def spam [what: string] { 'spam ' + $what };
             source spam.nu;
             spam
-        "#);
+        ");
 
         assert_eq!(actual.out, "spam spam");
         assert!(actual.err.is_empty());
@@ -101,35 +101,35 @@ fn alias_wont_recurse2() {
 
 #[test]
 fn alias_invalid_expression() {
-    let actual = nu!(r#" alias spam = 'foo' "#);
+    let actual = nu!(" alias spam = 'foo' ");
     assert!(actual.err.contains("cant_alias_expression"));
 
-    let actual = nu!(r#" alias spam = ([1 2 3] | length) "#);
+    let actual = nu!(" alias spam = ([1 2 3] | length) ");
     assert!(actual.err.contains("cant_alias_expression"));
 
-    let actual = nu!(r#" alias spam = 0..12 "#);
+    let actual = nu!(" alias spam = 0..12 ");
     assert!(actual.err.contains("cant_alias_expression"));
 }
 
 #[test]
 fn alias_if() {
-    let actual = nu!(r#" alias spam = if true { 'spam' } else { 'eggs' }; spam "#);
+    let actual = nu!(" alias spam = if true { 'spam' } else { 'eggs' }; spam ");
     assert_eq!(actual.out, "spam");
 }
 
 #[test]
 fn alias_match() {
-    let actual = nu!(r#" alias spam = match 3 { 1..10 => 'yes!' }; spam "#);
+    let actual = nu!(" alias spam = match 3 { 1..10 => 'yes!' }; spam ");
     assert_eq!(actual.out, "yes!");
 }
 
 // Issue https://github.com/nushell/nushell/issues/8103
 #[test]
 fn alias_multiword_name() {
-    let actual = nu!(r#"alias `foo bar` = echo 'test'; foo bar"#);
+    let actual = nu!("alias `foo bar` = echo 'test'; foo bar");
     assert_eq!(actual.out, "test");
 
-    let actual = nu!(r#"alias 'foo bar' = echo 'test'; foo bar"#);
+    let actual = nu!("alias 'foo bar' = echo 'test'; foo bar");
     assert_eq!(actual.out, "test");
 
     let actual = nu!(r#"alias "foo bar" = echo 'test'; foo bar"#);
@@ -138,7 +138,7 @@ fn alias_multiword_name() {
 
 #[test]
 fn alias_ordering() {
-    let actual = nu!(r#"alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'"#);
+    let actual = nu!("alias bar = echo; def echo [] { 'dummy echo' }; bar 'foo'");
     assert_eq!(actual.out, "foo");
 }
 

@@ -36,8 +36,8 @@ impl Command for PathType {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This checks the file system to confirm the path's object type.
-If the path does not exist, null will be returned."#
+        "This checks the file system to confirm the path's object type.
+If the path does not exist, null will be returned."
     }
 
     fn is_const(&self) -> bool {

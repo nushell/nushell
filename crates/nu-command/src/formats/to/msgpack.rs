@@ -35,7 +35,7 @@ impl Command for ToMsgpack {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 Not all values are representable as MessagePack.
 
 The datetime extension type is used for dates. Binaries are represented with
@@ -44,7 +44,7 @@ analogous way to `to json`, and may not convert to the exact same type when
 deserialized with `from msgpack`.
 
 MessagePack: https://msgpack.org/
-"#
+"
         .trim()
     }
 

@@ -162,10 +162,10 @@ pub fn load_standard_library(
 
     // Load prelude
     let (_, delta) = {
-        let source = r#"
+        let source = "
 # Prelude
 use std/prelude *
-"#;
+";
 
         // Add a placeholder file to the stack of files being evaluated.
         // The name of this file doesn't matter; it's only there to set the current working directory to NU_STDLIB_VIRTUAL_DIR.

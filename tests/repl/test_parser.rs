@@ -62,7 +62,7 @@ fn alias_2_multi_word() -> TestResult {
 #[ignore = "TODO: Allow alias to alias existing command with the same name"]
 #[test]
 fn alias_recursion() -> TestResult {
-    run_test_contains(r#"alias ls = ls -a; ls"#, " ")
+    run_test_contains("alias ls = ls -a; ls", " ")
 }
 
 #[test]
@@ -113,11 +113,11 @@ fn simple_value_iteration() -> TestResult {
 #[test]
 fn comment_multiline() -> TestResult {
     run_test(
-        r#"def foo [] {
+        "def foo [] {
         let x = 1 + 2 # comment
         let y = 3 + 4 # another comment
         $x + $y
-    }; foo"#,
+    }; foo",
         "10",
     )
 }
@@ -125,10 +125,10 @@ fn comment_multiline() -> TestResult {
 #[test]
 fn comment_skipping_1() -> TestResult {
     run_test(
-        r#"let x = {
+        "let x = {
         y: 20
         # foo
-    }; $x.y"#,
+    }; $x.y",
         "20",
     )
 }
@@ -136,11 +136,11 @@ fn comment_skipping_1() -> TestResult {
 #[test]
 fn comment_skipping_2() -> TestResult {
     run_test(
-        r#"let x = {
+        "let x = {
         y: 20
         # foo
         z: 40
-    }; $x.z"#,
+    }; $x.z",
         "40",
     )
 }
@@ -148,9 +148,9 @@ fn comment_skipping_2() -> TestResult {
 #[test]
 fn comment_skipping_in_pipeline_1() -> TestResult {
     run_test(
-        r#"[1,2,3] | #comment
+        "[1,2,3] | #comment
         each { |$it| $it + 2 } | # foo
-        math sum #bar"#,
+        math sum #bar",
         "12",
     )
 }
@@ -158,11 +158,11 @@ fn comment_skipping_in_pipeline_1() -> TestResult {
 #[test]
 fn comment_skipping_in_pipeline_2() -> TestResult {
     run_test(
-        r#"[1,2,3] #comment
+        "[1,2,3] #comment
         | #comment2
         each { |$it| $it + 2 } #foo
         | # bar
-        math sum #baz"#,
+        math sum #baz",
         "12",
     )
 }
@@ -170,34 +170,34 @@ fn comment_skipping_in_pipeline_2() -> TestResult {
 #[test]
 fn comment_skipping_in_pipeline_3() -> TestResult {
     run_test(
-        r#"[1,2,3] | #comment
+        "[1,2,3] | #comment
         #comment2
         each { |$it| $it + 2 } #foo
         | # bar
         #baz
-        math sum #foobar"#,
+        math sum #foobar",
         "12",
     )
 }
 
 #[test]
 fn still_string_if_hashtag_is_middle_of_string() -> TestResult {
-    run_test(r#"echo test#testing"#, "test#testing")
+    run_test("echo test#testing", "test#testing")
 }
 
 #[test]
 fn non_comment_hashtag_in_comment_does_not_stop_comment() -> TestResult {
-    run_test(r#"# command_bar_text: { fg: '#C4C9C6' },"#, "")
+    run_test("# command_bar_text: { fg: '#C4C9C6' },", "")
 }
 
 #[test]
 fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult {
     run_test(
-        r#"{
+        "{
         explore: {
             # command_bar_text: { fg: '#C4C9C6' },
         }
-    } | get explore | is-empty"#,
+    } | get explore | is-empty",
         "true",
     )
 }
@@ -205,14 +205,14 @@ fn non_comment_hashtag_in_comment_does_not_stop_comment_in_block() -> TestResult
 #[test]
 fn still_string_if_hashtag_is_middle_of_string_inside_each() -> TestResult {
     run_test(
-        r#"1..1 | each {echo test#testing } | get 0"#,
+        "1..1 | each {echo test#testing } | get 0",
         "test#testing",
     )
 }
 
 #[test]
 fn still_string_if_hashtag_is_middle_of_string_inside_each_also_with_dot() -> TestResult {
-    run_test(r#"1..1 | each {echo '.#testing' } | get 0"#, ".#testing")
+    run_test("1..1 | each {echo '.#testing' } | get 0", ".#testing")
 }
 
 #[test]
@@ -222,14 +222,14 @@ fn bad_var_name() -> TestResult {
 
 #[test]
 fn bad_var_name2() -> TestResult {
-    fail_test(r#"let $foo-bar = 4"#, "valid variable")?;
-    fail_test(r#"foo-bar=4 true"#, "Command `foo-bar=4` not found")
+    fail_test("let $foo-bar = 4", "valid variable")?;
+    fail_test("foo-bar=4 true", "Command `foo-bar=4` not found")
 }
 
 #[test]
 fn bad_var_name3() -> TestResult {
-    fail_test(r#"let $=foo = 4"#, "valid variable")?;
-    fail_test(r#"=foo=4 true"#, "Command `=foo=4` not found")
+    fail_test("let $=foo = 4", "valid variable")?;
+    fail_test("=foo=4 true", "Command `=foo=4` not found")
 }
 
 #[test]
@@ -278,7 +278,7 @@ fn too_few_arguments() -> TestResult {
 #[test]
 fn long_flag() -> TestResult {
     run_test(
-        r#"([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon"#,
+        "([a, b, c] | enumerate | each --keep-empty { |e| if $e.index != 1 { 100 }}).1 | to nuon",
         "null",
     )
 }
@@ -291,17 +291,17 @@ fn for_in_missing_var_name() -> TestResult {
 #[test]
 fn multiline_pipe_in_block() -> TestResult {
     run_test(
-        r#"do {
+        "do {
             echo hello |
             str length
-        }"#,
+        }",
         "5",
     )
 }
 
 #[test]
 fn bad_short_flag() -> TestResult {
-    fail_test(r#"def foo3 [-l?:int] { $l }"#, "short flag")
+    fail_test("def foo3 [-l?:int] { $l }", "short flag")
 }
 
 #[test]
@@ -323,14 +323,14 @@ fn string_interp_with_equals() -> TestResult {
 #[test]
 fn raw_string_with_equals() -> TestResult {
     run_test(
-        r#"let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix"#,
+        "let query_prefix = r#'https://api.github.com/search/issues?q=repo:nushell/'#; $query_prefix",
         "https://api.github.com/search/issues?q=repo:nushell/",
     )
 }
 
 #[test]
 fn raw_string_with_hashtag() -> TestResult {
-    run_test(r#"r##' one # two '##"#, "one # two")
+    run_test("r##' one # two '##", "one # two")
 }
 
 #[test]
@@ -355,18 +355,18 @@ fn record_quotes_with_equals() -> TestResult {
 
 #[test]
 fn recursive_parse() -> TestResult {
-    run_test(r#"def c [] { c }; echo done"#, "done")
+    run_test("def c [] { c }; echo done", "done")
 }
 
 #[test]
 fn commands_have_description() -> TestResult {
     run_test_contains(
-        r#"
+        "
     # This is a test
     #
     # To see if I have cool description
     def foo [] {}
-    help foo"#,
+    help foo",
         "cool description",
     )
 }
@@ -390,7 +390,7 @@ fn commands_from_crlf_source_have_extra_description() -> TestResult {
 #[test]
 fn equals_separates_long_flag() -> TestResult {
     run_test(
-        r#"'nushell' | fill --alignment right --width=10 --character='-'"#,
+        "'nushell' | fill --alignment right --width=10 --character='-'",
         "---nushell",
     )
 }
@@ -408,7 +408,7 @@ fn assign_expressions() -> TestResult {
 #[test]
 fn assign_takes_pipeline() -> TestResult {
     run_test(
-        r#"mut foo = 'bar'; $foo = $foo | str upcase | str reverse; $foo"#,
+        "mut foo = 'bar'; $foo = $foo | str upcase | str reverse; $foo",
         "RAB",
     )
 }
@@ -416,7 +416,7 @@ fn assign_takes_pipeline() -> TestResult {
 #[test]
 fn append_assign_takes_pipeline() -> TestResult {
     run_test(
-        r#"mut foo = 'bar'; $foo ++= $foo | str upcase; $foo"#,
+        "mut foo = 'bar'; $foo ++= $foo | str upcase; $foo",
         "barBAR",
     )
 }
@@ -470,7 +470,7 @@ fn string_interpolation_escaping() -> TestResult {
 #[test]
 fn capture_multiple_commands() -> TestResult {
     run_test(
-        r#"
+        "
 let CONST_A = 'Hello'
 
 def 'say-hi' [] {
@@ -483,7 +483,7 @@ def 'call-me' [] {
 
 [(say-hi) (call-me)] | str join
 
-    "#,
+    ",
         "HelloHello",
     )
 }
@@ -491,7 +491,7 @@ def 'call-me' [] {
 #[test]
 fn capture_multiple_commands2() -> TestResult {
     run_test(
-        r#"
+        "
 let CONST_A = 'Hello'
 
 def 'call-me' [] {
@@ -504,7 +504,7 @@ def 'say-hi' [] {
 
 [(say-hi) (call-me)] | str join
 
-    "#,
+    ",
         "HelloHello",
     )
 }
@@ -512,7 +512,7 @@ def 'say-hi' [] {
 #[test]
 fn capture_multiple_commands3() -> TestResult {
     run_test(
-        r#"
+        "
 let CONST_A = 'Hello'
 
 def 'say-hi' [] {
@@ -525,7 +525,7 @@ def 'call-me' [] {
 
 [(call-me) (say-hi)] | str join
 
-    "#,
+    ",
         "HelloHello",
     )
 }
@@ -533,7 +533,7 @@ def 'call-me' [] {
 #[test]
 fn capture_multiple_commands4() -> TestResult {
     run_test(
-        r#"
+        "
 let CONST_A = 'Hello'
 
 def 'call-me' [] {
@@ -546,7 +546,7 @@ def 'say-hi' [] {
 
 [(call-me) (say-hi)] | str join
 
-    "#,
+    ",
         "HelloHello",
     )
 }
@@ -562,7 +562,7 @@ fn capture_row_condition() -> TestResult {
 #[test]
 fn starts_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it starts-with L | str join"#,
+        "[Moe Larry Curly] | where $it starts-with L | str join",
         "Larry",
     )
 }
@@ -570,7 +570,7 @@ fn starts_with_operator_succeeds() -> TestResult {
 #[test]
 fn not_starts_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it not-starts-with L | str join"#,
+        "[Moe Larry Curly] | where $it not-starts-with L | str join",
         "MoeCurly",
     )
 }
@@ -578,7 +578,7 @@ fn not_starts_with_operator_succeeds() -> TestResult {
 #[test]
 fn ends_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it ends-with ly | str join"#,
+        "[Moe Larry Curly] | where $it ends-with ly | str join",
         "Curly",
     )
 }
@@ -586,19 +586,19 @@ fn ends_with_operator_succeeds() -> TestResult {
 #[test]
 fn not_ends_with_operator_succeeds() -> TestResult {
     run_test(
-        r#"[Moe Larry Curly] | where $it not-ends-with y | str join"#,
+        "[Moe Larry Curly] | where $it not-ends-with y | str join",
         "Moe",
     )
 }
 
 #[test]
 fn proper_missing_param() -> TestResult {
-    fail_test(r#"def foo [x y z w] { }; foo a b c"#, "missing w")
+    fail_test("def foo [x y z w] { }; foo a b c", "missing w")
 }
 
 #[test]
 fn block_arity_check1() -> TestResult {
-    fail_test(r#"ls | each { |x, y| 1}"#, "expected 1 closure parameter")
+    fail_test("ls | each { |x, y| 1}", "expected 1 closure parameter")
 }
 
 // deprecating former support for escapes like `/uNNNN`, dropping test.
@@ -630,21 +630,21 @@ fn proper_rest_types() -> TestResult {
 #[test]
 fn single_value_row_condition() -> TestResult {
     run_test(
-        r#"[[a, b]; [true, false], [true, true]] | where a | length"#,
+        "[[a, b]; [true, false], [true, true]] | where a | length",
         "2",
     )
 }
 
 #[test]
 fn row_condition_non_boolean() -> TestResult {
-    fail_test(r#"[1 2 3] | where 1"#, "expected bool")
+    fail_test("[1 2 3] | where 1", "expected bool")
 }
 
 #[test]
 fn performance_nested_lists() -> TestResult {
     // Parser used to be exponential on deeply nested lists
     // TODO: Add a timeout
-    fail_test(r#"[[[[[[[[[[[[[[[[[[[[[[[[[[[["#, "Unexpected end of code")
+    fail_test("[[[[[[[[[[[[[[[[[[[[[[[[[[[[", "Unexpected end of code")
 }
 
 #[test]
@@ -652,7 +652,7 @@ fn performance_nested_modules() -> TestResult {
     // Parser used to be exponential on deeply nested modules
     // TODO: Add a timeout
     fail_test(
-        r#"
+        "
 module foo { module foo { module foo { module foo {
 module foo { module foo { module foo { module foo {
 module foo { module foo { module foo { module foo {
@@ -660,24 +660,24 @@ module foo { module foo { module foo { module foo {
 module foo { module foo { module foo { module foo {
 module foo { module foo { module foo { module foo {
 module foo { module foo { module foo { module foo {
- use bar.nu }}}}}}}}}}}}}}}}}}}}}}}}}}}}"#,
+ use bar.nu }}}}}}}}}}}}}}}}}}}}}}}}}}}}",
         "module bar.nu not found",
     )
 }
 
 #[test]
 fn unary_not_1() -> TestResult {
-    run_test(r#"not false"#, "true")
+    run_test("not false", "true")
 }
 
 #[test]
 fn unary_not_2() -> TestResult {
-    run_test(r#"not (false)"#, "true")
+    run_test("not (false)", "true")
 }
 
 #[test]
 fn unary_not_3() -> TestResult {
-    run_test(r#"(not false)"#, "true")
+    run_test("(not false)", "true")
 }
 
 #[test]
@@ -696,7 +696,7 @@ fn unary_not_5() -> TestResult {
 #[test]
 fn unary_not_6() -> TestResult {
     run_test(
-        r#"[[name, present]; [abc, true], [def, false]] | where not present | get name.0"#,
+        "[[name, present]; [abc, true], [def, false]] | where not present | get name.0",
         "def",
     )
 }
@@ -704,58 +704,58 @@ fn unary_not_6() -> TestResult {
 #[test]
 fn comment_in_multiple_pipelines() -> TestResult {
     run_test(
-        r#"[[name, present]; [abc, true], [def, false]]
+        "[[name, present]; [abc, true], [def, false]]
         # | where not present
-        | get name.0"#,
+        | get name.0",
         "abc",
     )
 }
 
 #[test]
 fn date_literal() -> TestResult {
-    run_test(r#"2022-09-10 | into record | get day"#, "10")
+    run_test("2022-09-10 | into record | get day", "10")
 }
 
 #[test]
 fn and_and_or() -> TestResult {
-    run_test(r#"true and false or true"#, "true")
+    run_test("true and false or true", "true")
 }
 
 #[test]
 fn and_and_xor() -> TestResult {
     // Assumes the precedence NOT > AND > XOR > OR
-    run_test(r#"true and true xor true and false"#, "true")
+    run_test("true and true xor true and false", "true")
 }
 
 #[test]
 fn or_and_xor() -> TestResult {
     // Assumes the precedence NOT > AND > XOR > OR
-    run_test(r#"true or false xor true or false"#, "true")
+    run_test("true or false xor true or false", "true")
 }
 
 #[test]
 fn unbalanced_delimiter() -> TestResult {
-    fail_test(r#"{a:{b:5}}}"#, "unbalanced { and }")
+    fail_test("{a:{b:5}}}", "unbalanced { and }")
 }
 
 #[test]
 fn unbalanced_delimiter2() -> TestResult {
-    fail_test(r#"{}#.}"#, "unbalanced { and }")
+    fail_test("{}#.}", "unbalanced { and }")
 }
 
 #[test]
 fn unbalanced_delimiter3() -> TestResult {
-    fail_test(r#"{"#, "Unexpected end of code")
+    fail_test("{", "Unexpected end of code")
 }
 
 #[test]
 fn unbalanced_delimiter4() -> TestResult {
-    fail_test(r#"}"#, "unbalanced { and }")
+    fail_test("}", "unbalanced { and }")
 }
 
 #[test]
 fn unbalanced_parens1() -> TestResult {
-    fail_test(r#")"#, "unbalanced ( and )")
+    fail_test(")", "unbalanced ( and )")
 }
 
 #[test]
@@ -770,7 +770,7 @@ mod plugin_tests {
     #[test]
     fn plugin_use_with_string_literal() -> TestResult {
         fail_test(
-            r#"plugin use 'nu-plugin-math'"#,
+            "plugin use 'nu-plugin-math'",
             "Plugin registry file not set",
         )
     }
@@ -869,7 +869,7 @@ fn let_variable_type_mismatch() -> TestResult {
 fn let_variable_table_runtime_cast() -> TestResult {
     let outcome = nu!(
         experimental: vec!["enforce-runtime-annotations".to_string()],
-        r#"let x: table = ([[a]; [1]] | to nuon | from nuon); $x | describe"#,
+        "let x: table = ([[a]; [1]] | to nuon | from nuon); $x | describe",
     );
 
     // Type::Any should be accepted by compatible types (record can convert to table)
@@ -881,7 +881,7 @@ fn let_variable_table_runtime_cast() -> TestResult {
 fn let_variable_table_runtime_mismatch() -> TestResult {
     let outcome = nu!(
         experimental: vec!["enforce-runtime-annotations".to_string()],
-        r#"mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]"#,
+        "mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]",
     );
 
     // This conversion should fail due to a key mismatch
@@ -897,7 +897,7 @@ fn let_variable_table_runtime_mismatch() -> TestResult {
 fn mut_variable_table_runtime_mismatch() -> TestResult {
     let outcome = nu!(
         experimental: vec!["enforce-runtime-annotations".to_string()],
-        r#"mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]"#,
+        "mut x: table<b: int> = ([[b]; [1]]  | to nuon | from nuon); $x = [[a]; [1]]",
     );
 
     assert!(
@@ -912,7 +912,7 @@ fn mut_variable_table_runtime_mismatch() -> TestResult {
 fn let_variable_record_runtime_cast() -> TestResult {
     let outcome = nu!(
         experimental: vec!["enforce-runtime-annotations".to_string()],
-        r#"let x: record<a: int> = ({a: 1} | to nuon | from nuon); $x | describe"#,
+        "let x: record<a: int> = ({a: 1} | to nuon | from nuon); $x | describe",
     );
     // Records from Type::Any sources should be convertible to tables when field types match
     assert!(outcome.out.contains("record<a: int>"));
@@ -923,7 +923,7 @@ fn let_variable_record_runtime_cast() -> TestResult {
 fn let_variable_record_runtime_mismatch() -> TestResult {
     let outcome = nu!(
         experimental: vec!["enforce-runtime-annotations".to_string()],
-        r#"let x: record<b: int> = ({a: 1} | to nuon | from nuon); $x | describe"#,
+        "let x: record<b: int> = ({a: 1} | to nuon | from nuon); $x | describe",
     );
 
     // This conversion should fail due to a key mismatch
@@ -1013,22 +1013,22 @@ fn let_assign_table_cell_path_to_wrong_type(
 #[test]
 fn let_variable_disallows_completer() -> TestResult {
     fail_test(
-        r#"let x: int@completer = 42"#,
+        "let x: int@completer = 42",
         "Unexpected custom completer",
     )
 }
 
 #[test]
 fn def_with_input_output() -> TestResult {
-    run_test(r#"def foo []: nothing -> int { 3 }; foo"#, "3")
+    run_test("def foo []: nothing -> int { 3 }; foo", "3")
 }
 
 #[test]
 fn def_with_input_output_with_line_breaks() -> TestResult {
     run_test(
-        r#"def foo []: [
+        "def foo []: [
           nothing -> int
-        ] { 3 }; foo"#,
+        ] { 3 }; foo",
         "3",
     )
 }
@@ -1036,10 +1036,10 @@ fn def_with_input_output_with_line_breaks() -> TestResult {
 #[test]
 fn def_with_multi_input_output_with_line_breaks() -> TestResult {
     run_test(
-        r#"def foo []: [
+        "def foo []: [
           nothing -> int
           string -> int
-        ] { 3 }; foo"#,
+        ] { 3 }; foo",
         "3",
     )
 }
@@ -1047,7 +1047,7 @@ fn def_with_multi_input_output_with_line_breaks() -> TestResult {
 #[test]
 fn def_with_multi_input_output_without_commas() -> TestResult {
     run_test(
-        r#"def foo []: [nothing -> int string -> int] { 3 }; foo"#,
+        "def foo []: [nothing -> int string -> int] { 3 }; foo",
         "3",
     )
 }
@@ -1055,7 +1055,7 @@ fn def_with_multi_input_output_without_commas() -> TestResult {
 #[test]
 fn def_with_multi_input_output_called_with_first_sig() -> TestResult {
     run_test(
-        r#"def foo []: [int -> int, string -> int] { 3 }; 10 | foo"#,
+        "def foo []: [int -> int, string -> int] { 3 }; 10 | foo",
         "3",
     )
 }
@@ -1071,7 +1071,7 @@ fn def_with_multi_input_output_called_with_second_sig() -> TestResult {
 #[test]
 fn def_with_input_output_mismatch_1() -> TestResult {
     fail_test(
-        r#"def foo []: [int -> int, string -> int] { 3 }; foo"#,
+        "def foo []: [int -> int, string -> int] { 3 }; foo",
         "command doesn't support",
     )
 }
@@ -1079,25 +1079,25 @@ fn def_with_input_output_mismatch_1() -> TestResult {
 #[test]
 fn def_with_input_output_mismatch_2() -> TestResult {
     fail_test(
-        r#"def foo []: [int -> int, string -> int] { 3 }; {x: 2} | foo"#,
+        "def foo []: [int -> int, string -> int] { 3 }; {x: 2} | foo",
         "command doesn't support",
     )
 }
 
 #[test]
 fn def_with_input_output_broken_1() -> TestResult {
-    fail_test(r#"def foo []: int { 3 }"#, "expected arrow")
+    fail_test("def foo []: int { 3 }", "expected arrow")
 }
 
 #[test]
 fn def_with_input_output_broken_2() -> TestResult {
-    fail_test(r#"def foo []: int -> { 3 }"#, "expected type")
+    fail_test("def foo []: int -> { 3 }", "expected type")
 }
 
 #[test]
 fn def_with_input_output_broken_3() -> TestResult {
     fail_test(
-        r#"def foo []: int -> int@completer {}"#,
+        "def foo []: int -> int@completer {}",
         "Unexpected custom completer",
     )
 }
@@ -1105,7 +1105,7 @@ fn def_with_input_output_broken_3() -> TestResult {
 #[test]
 fn def_with_input_output_broken_4() -> TestResult {
     fail_test(
-        r#"def foo []: int -> list<int@completer> {}"#,
+        "def foo []: int -> list<int@completer> {}",
         "Unexpected custom completer",
     )
 }
@@ -1144,12 +1144,12 @@ fn def_with_in_var_mut_2() -> TestResult {
 
 #[test]
 fn properly_nest_captures() -> TestResult {
-    run_test(r#"do { let b = 3; def c [] { $b }; c }"#, "3")
+    run_test("do { let b = 3; def c [] { $b }; c }", "3")
 }
 
 #[test]
 fn properly_nest_captures_call_first() -> TestResult {
-    run_test(r#"do { let b = 3; c; def c [] { $b }; c }"#, "3")
+    run_test("do { let b = 3; c; def c [] { $b }; c }", "3")
 }
 
 #[test]
@@ -1162,31 +1162,31 @@ fn properly_typecheck_rest_param() -> TestResult {
 
 #[test]
 fn implied_collect_has_compatible_type() -> TestResult {
-    run_test(r#"let idx = 3 | $in; $idx < 1"#, "false")
+    run_test("let idx = 3 | $in; $idx < 1", "false")
 }
 
 #[test]
 fn record_expected_colon() -> TestResult {
-    fail_test(r#"{ a: 2 b }"#, "expected ':'")?;
-    fail_test(r#"{ a: 2 b 3 }"#, "expected ':'")
+    fail_test("{ a: 2 b }", "expected ':'")?;
+    fail_test("{ a: 2 b 3 }", "expected ':'")
 }
 
 #[test]
 fn record_missing_value() -> TestResult {
-    fail_test(r#"{ a: 2 b: }"#, "expected value for record field")
+    fail_test("{ a: 2 b: }", "expected value for record field")
 }
 
 #[test]
 fn record_type_inferred() -> TestResult {
     fail_test(
-        r#"let foo: string = { 1: 1 }"#,
+        "let foo: string = { 1: 1 }",
         "expected string, found record<1: int>",
     )
 }
 
 #[test]
 fn record_force_string_key_names() -> TestResult {
-    run_test(r#"{1kb: 1}.1kb"#, "1")
+    run_test("{1kb: 1}.1kb", "1")
 }
 
 #[test]
@@ -1235,10 +1235,10 @@ fn not_panic_with_recursive_call() {
 // https://github.com/nushell/nushell/issues/16040
 #[test]
 fn external_argument_with_subexpressions() -> TestResult {
-    run_test(r#"^echo foo( ('bar') | $in ++ 'baz' )"#, "foobarbaz")?;
-    run_test(r#"^echo foo( 'bar' )('baz')"#, "foobarbaz")?;
+    run_test("^echo foo( ('bar') | $in ++ 'baz' )", "foobarbaz")?;
+    run_test("^echo foo( 'bar' )('baz')", "foobarbaz")?;
     run_test(r#"^echo ")('foo')(""#, ")('foo')(")?;
-    fail_test(r#"^echo foo( 'bar'"#, "Unexpected end of code")
+    fail_test("^echo foo( 'bar'", "Unexpected end of code")
 }
 
 // https://github.com/nushell/nushell/issues/16332
@@ -1250,17 +1250,17 @@ fn quote_escape_but_not_env_shorthand() -> TestResult {
 // https://github.com/nushell/nushell/issues/16586
 #[test]
 fn redefine_def_should_not_panic() -> TestResult {
-    fail_test(r#"def def (=a|s)>"#, "Unclosed delimiter")
+    fail_test("def def (=a|s)>", "Unclosed delimiter")
 }
 
 #[test]
 fn table_literal_column_var() -> TestResult {
     run_test(
-        r#"
+        "
             let column_name = 'column0'
             let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
             $tbl.column0.0
-        "#,
+        ",
         "foo",
     )
 }
@@ -1268,11 +1268,11 @@ fn table_literal_column_var() -> TestResult {
 #[test]
 fn table_literal_column_var_parse_err() -> TestResult {
     fail_test(
-        r#"
+        "
             let column_name = {a: 123}
             let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
             $tbl.column0.0
-        "#,
+        ",
         "must be a string",
     )
 }
@@ -1280,11 +1280,11 @@ fn table_literal_column_var_parse_err() -> TestResult {
 #[test]
 fn table_literal_column_var_shell_err() -> TestResult {
     fail_test(
-        r#"
+        "
             let column_name = echo {a: 123}
             let tbl = [[ $column_name column1 ]; [ foo bar ] [ baz car ] [ far fit ]]
             $tbl.column0.0
-        "#,
+        ",
         "can't convert",
     )
 }

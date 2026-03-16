@@ -7,11 +7,11 @@ fn adds_a_row_to_the_beginning() {
     Playground::setup("prepend_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 Andrés N. Robalino
                 JT Turner
                 Yehuda Katz
-            "#,
+            ",
         )]);
 
         let actual = nu!(cwd: dirs.test(), r#"

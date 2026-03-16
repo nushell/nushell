@@ -8,7 +8,7 @@ use nu_test_support::prelude::*;
 fn http_delete_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("DELETE", "/").create();
-    let code = format!(r#"http delete {url}"#, url = server.url());
+    let code = format!("http delete {url}", url = server.url());
     test().run(code).expect_value_eq("")
 }
 
@@ -24,7 +24,7 @@ fn http_delete_is_success_pipeline() -> Result {
 fn http_delete_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("DELETE", "/").with_status(400).create();
-    let code = format!(r#"http delete {url}"#, url = server.url());
+    let code = format!("http delete {url}", url = server.url());
     let err = test().run(code).expect_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {

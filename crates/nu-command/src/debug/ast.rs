@@ -90,7 +90,7 @@ impl Command for Ast {
             },
             Example {
                 description: "Print the ast of a pipeline flattened.",
-                example: r#"ast 'ls | sort-by type name -i' --flatten"#,
+                example: "ast 'ls | sort-by type name -i' --flatten",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "content" => Value::test_string("ls"),

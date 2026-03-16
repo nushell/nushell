@@ -38,7 +38,7 @@ impl Command for PluginRm {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This does not remove the plugin commands from the current scope or from `plugin
 list` in the current shell. It instead removes the plugin from the plugin
 registry file (by default, `$nu.plugin-path`). The changes will be apparent the
@@ -46,7 +46,7 @@ next time `nu` is launched with that plugin registry file.
 
 This can be useful for removing an invalid plugin signature, if it can't be
 fixed with `plugin add`.
-"#
+"
         .trim()
     }
 

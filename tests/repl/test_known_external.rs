@@ -43,13 +43,13 @@ fn known_external_complex_unknown_args() -> TestResult {
 #[test]
 fn known_external_from_module() -> TestResult {
     run_test_contains(
-        r#"module spam {
+        "module spam {
             export extern echo []
         }
 
         use spam echo
         echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
-        "#,
+        ",
         "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
     )
 }
@@ -96,11 +96,11 @@ fn known_external_missing_flag_param() -> TestResult {
 #[test]
 fn known_external_misc_values() -> TestResult {
     run_test(
-        r#"
+        "
             let x = 'abc'
             extern echo [...args]
             echo $x ...[ a b c ]
-        "#,
+        ",
         "abc a b c",
     )
 }
@@ -110,13 +110,13 @@ fn known_external_misc_values() -> TestResult {
 fn known_external_subcommand_from_module() -> TestResult {
     let output = Command::new("cargo").arg("add").arg("-h").output()?;
     run_test(
-        r#"
+        "
             module cargo {
                 export extern add []
             };
             use cargo;
             cargo add -h
-        "#,
+        ",
         String::from_utf8(output.stdout)?.trim(),
     )
 }
@@ -126,14 +126,14 @@ fn known_external_subcommand_from_module() -> TestResult {
 fn known_external_aliased_subcommand_from_module() -> TestResult {
     let output = Command::new("cargo").arg("add").arg("-h").output()?;
     run_test(
-        r#"
+        "
             module cargo {
                 export extern add []
             };
             use cargo;
             alias cc = cargo add;
             cc -h
-        "#,
+        ",
         String::from_utf8(output.stdout)?.trim(),
     )
 }
@@ -141,10 +141,10 @@ fn known_external_aliased_subcommand_from_module() -> TestResult {
 #[test]
 fn known_external_arg_expansion() -> TestResult {
     run_test(
-        r#"
+        "
             extern echo [];
             echo ~/foo
-        "#,
+        ",
         &dirs::home_dir()
             .expect("can't find home dir")
             .join("foo")

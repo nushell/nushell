@@ -2,11 +2,11 @@ use nu_test_support::nu;
 
 #[test]
 fn row() {
-    let left_sample = r#"[[name, country, luck];
+    let left_sample = "[[name, country, luck];
         [Andrés, Ecuador, 0],
         [JT, USA, 0],
         [Jason, Canada, 0],
-        [Yehuda, USA, 0]]"#;
+        [Yehuda, USA, 0]]";
 
     let right_sample = r#"[[name, country, luck];
          ["Andrés Robalino", "Guayaquil Ecuador", 1],

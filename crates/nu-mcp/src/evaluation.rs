@@ -763,7 +763,7 @@ mod tests {
         };
         let evaluator = Evaluator::new(engine_state);
 
-        let result = evaluator.eval(r#"do { |x| $x + 1 } 41"#);
+        let result = evaluator.eval("do { |x| $x + 1 } 41");
 
         assert!(
             result.is_ok(),

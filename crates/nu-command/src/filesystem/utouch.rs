@@ -269,7 +269,7 @@ impl Command for UTouch {
                 result: None,
             },
             Example {
-                description: r#"Changes the last modified and accessed time of all files with the .json extension to today's date."#,
+                description: "Changes the last modified and accessed time of all files with the .json extension to today's date.",
                 example: "touch *.json",
                 result: None,
             },
@@ -280,17 +280,17 @@ impl Command for UTouch {
             },
             Example {
                 description: r#"Changes the last modified time of files d and e to "fixture.json"'s last modified time."#,
-                example: r#"touch -m -r fixture.json d e"#,
+                example: "touch -m -r fixture.json d e",
                 result: None,
             },
             Example {
                 description: r#"Changes the last accessed time of "fixture.json" to a datetime."#,
-                example: r#"touch -a -t 2019-08-24T12:30:30 fixture.json"#,
+                example: "touch -a -t 2019-08-24T12:30:30 fixture.json",
                 result: None,
             },
             Example {
-                description: r#"Change the last accessed and modified times of stdout."#,
-                example: r#"touch -"#,
+                description: "Change the last accessed and modified times of stdout.",
+                example: "touch -",
                 result: None,
             },
             Example {

@@ -48,7 +48,7 @@ impl Command for Reduce {
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $acc - $it }",
-                description: r#"`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4)."#,
+                description: "`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4).",
                 result: Some(Value::test_int(-8)),
             },
             Example {
@@ -82,7 +82,7 @@ impl Command for Reduce {
                 result: Some(Value::test_string("StrStrStr")),
             },
             Example {
-                example: r#"[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}"#,
+                example: "[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}",
                 description: "Merge multiple records together, making use of the fact that the accumulated value is also supplied as pipeline input to the closure.",
                 result: Some(Value::test_record(record!(
                     "a" => Value::test_int(1),

@@ -13,8 +13,8 @@ impl Command for HelpPipeAndRedirect {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command contains basic usage of pipe and redirect symbol, for more detail, check:
-https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
+        "This command contains basic usage of pipe and redirect symbol, for more detail, check:
+https://www.nushell.sh/lang-guide/chapters/pipelines.html"
     }
 
     fn signature(&self) -> Signature {

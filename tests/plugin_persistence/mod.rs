@@ -13,7 +13,7 @@ fn plugin_list_shows_installed_plugins() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugins: [("nu_plugin_inc"), ("nu_plugin_custom_values")],
-        r#"(plugin list).name | str join ','"#
+        "(plugin list).name | str join ','"
     );
     assert_eq!("custom_values,inc", out.out);
     assert!(out.status.success());
@@ -25,7 +25,7 @@ fn plugin_list_shows_installed_plugin_version() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_inc"),
-        r#"(plugin list).version.0"#
+        "(plugin list).version.0"
     );
     assert_eq!(env!("CARGO_PKG_VERSION"), out.out);
     assert!(out.status.success());
@@ -96,7 +96,7 @@ fn plugin_stop_can_find_by_filename() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_inc"),
-        r#"plugin stop (plugin list | where name == inc).0.filename"#
+        "plugin stop (plugin list | where name == inc).0.filename"
     );
     assert!(result.status.success());
     assert!(result.err.is_empty());
@@ -217,11 +217,11 @@ fn custom_values_can_still_be_passed_to_plugin_after_stop() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_custom_values"),
-        r#"
+        "
             let cv = custom-value generate
             plugin stop custom_values
             $cv | custom-value update
-        "#
+        "
     );
     assert!(!out.out.is_empty());
     assert!(out.err.is_empty());
@@ -235,11 +235,11 @@ fn custom_values_can_still_be_collapsed_after_stop() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_custom_values"),
-        r#"
+        "
             let cv = custom-value generate
             plugin stop custom_values
             $cv | print
-        "#
+        "
     );
     assert!(!out.out.is_empty());
     assert!(out.err.is_empty());
@@ -380,13 +380,13 @@ fn plugin_gc_can_be_disabled_by_plugin() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        r#"
+        "
             example disable-gc
             $env.config.plugin_gc = { default: { stop_after: 0sec } }
             example one 1 foo | ignore # ensure we've run the plugin with the new config
             sleep 100ms
             (plugin list | where name == example).0.status == running
-        "#
+        "
     );
     assert!(out.status.success());
     assert_eq!("true", out.out);
@@ -398,11 +398,11 @@ fn plugin_gc_does_not_stop_plugin_while_stream_output_is_active() {
     let out = nu_with_plugins!(
         cwd: ".",
         plugin: ("nu_plugin_example"),
-        r#"
+        "
             $env.config.plugin_gc = { default: { stop_after: 10ms } }
             # This would exceed the configured time
             example seq 1 500 | each { |n| sleep 1ms; $n } | length | print
-        "#
+        "
     );
     assert!(out.status.success());
     assert_eq!("500", out.out);

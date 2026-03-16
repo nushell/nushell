@@ -29,8 +29,8 @@ impl Command for Tee {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This is useful for doing something else with a stream while still continuing to
-use it in your pipeline."#
+        "This is useful for doing something else with a stream while still continuing to
+use it in your pipeline."
     }
 
     fn signature(&self) -> Signature {

@@ -365,7 +365,7 @@ fn into_sqlite_big_insert() {
 #[test]
 fn into_sqlite_empty() {
     Playground::setup("empty", |dirs, _| {
-        insert_test_rows(&dirs, r#"[]"#, Some("SELECT * FROM sqlite_schema;"), vec![]);
+        insert_test_rows(&dirs, "[]", Some("SELECT * FROM sqlite_schema;"), vec![]);
     });
 }
 

@@ -321,7 +321,7 @@ fn try_exit_runs_finally() {
     assert_eq!(actual.status.code(), Some(3));
 
     // nested try with exit should run all finally block
-    let actual = nu!(r#"
+    let actual = nu!("
     try {
         try {
             exit 3
@@ -330,7 +330,7 @@ fn try_exit_runs_finally() {
         }
     } finally {
         print 'outer finally'
-    }"#);
+    }");
     assert!(actual.out.contains("inner finally"));
     assert!(actual.out.contains("outer finally"));
     assert_eq!(actual.status.code(), Some(3));
@@ -358,11 +358,11 @@ fn catch_finally_with_variable() {
 fn finally_should_not_run_before_try_finished() {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
-        r#"
+        "
         with-env { FOO: 'bar' } {
             try { nu --testbin echo_env FOO } finally { print 'bb' }
         }
-        "#
+        "
     );
     assert_eq!(actual.out, "barbb")
 }
@@ -371,11 +371,11 @@ fn finally_should_not_run_before_try_finished() {
 fn finally_should_not_run_before_catch_finished() {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
-        r#"
+        "
         with-env { FOO: 'bar' } {
             try { 1 / 0 } catch { nu --testbin echo_env FOO } finally { print 'bb' }
         }
-        "#
+        "
     );
     assert_eq!(actual.out, "barbb")
 }

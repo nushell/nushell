@@ -34,7 +34,7 @@ impl Command for UrlBuildQuery {
         vec![
             Example {
                 description: "Outputs a query string representing the contents of this record.",
-                example: r#"{ mode:normal userid:31415 } | url build-query"#,
+                example: "{ mode:normal userid:31415 } | url build-query",
                 result: Some(Value::test_string("mode=normal&userid=31415")),
             },
             Example {
@@ -49,7 +49,7 @@ impl Command for UrlBuildQuery {
             },
             Example {
                 description: "Outputs a query string representing the contents of this table containing key-value pairs.",
-                example: r#"[[key, value]; [a, one], [a, two], [b, three], [a, four]] | url build-query"#,
+                example: "[[key, value]; [a, one], [a, two], [b, three], [a, four]] | url build-query",
                 result: Some(Value::test_string("a=one&a=two&b=three&a=four")),
             },
         ]

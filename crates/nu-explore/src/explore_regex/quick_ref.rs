@@ -594,11 +594,11 @@ mod tests {
         );
 
         // Test conditional with group
-        let result = Regex::new(r"(a)?(?(1)b|c)");
+        let result = Regex::new("(a)?(?(1)b|c)");
         assert!(result.is_ok(), "Conditional (?(1)...) should work");
 
         // Test conditional with named group
-        let result = Regex::new(r"(?<test>a)?(?(<test>)b|c)");
+        let result = Regex::new("(?<test>a)?(?(<test>)b|c)");
         assert!(result.is_ok(), "Conditional with named group should work");
     }
 

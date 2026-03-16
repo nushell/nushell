@@ -121,7 +121,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters.",
-                example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
+                example: "[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
                         Value::list(vec![Value::test_string("a")], Span::test_data()),
@@ -143,7 +143,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers on multiples of 3.",
-                example: r"[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
+                example: "[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                     Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
@@ -153,7 +153,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers into lists ending with 0.",
-                example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
+                example: "[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),

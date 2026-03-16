@@ -153,7 +153,7 @@ fn has_operator() -> Result {
     "#;
     test()
         .run(code)
-        .expect_value_eq(r#"[[name, children]; [foo, [a, b]]]"#)?;
+        .expect_value_eq("[[name, children]; [foo, [a, b]]]")?;
 
     let code = r#"
         [[name, children]; [foo, [a, b]], [bar [b, c]], [baz, [c, d]]] 
@@ -162,10 +162,10 @@ fn has_operator() -> Result {
     "#;
     test()
         .run(code)
-        .expect_value_eq(r#"[[name, children]; [bar, [b, c]], [baz, [c, d]]]"#)?;
+        .expect_value_eq("[[name, children]; [bar, [b, c]], [baz, [c, d]]]")?;
 
-    test().run(r#"{foo: 1} has foo"#).expect_value_eq(true)?;
-    test().run(r#"{foo: 1} has bar "#).expect_value_eq(false)
+    test().run("{foo: 1} has foo").expect_value_eq(true)?;
+    test().run("{foo: 1} has bar ").expect_value_eq(false)
 }
 
 #[test]

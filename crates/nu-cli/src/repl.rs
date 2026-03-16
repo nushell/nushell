@@ -160,7 +160,7 @@ pub fn evaluate_repl(
                 eval_source(
                     engine_state,
                     &mut unique_stack,
-                    r#"banner --short"#.as_bytes(),
+                    "banner --short".as_bytes(),
                     "show short banner",
                     PipelineData::empty(),
                     false,
@@ -170,7 +170,7 @@ pub fn evaluate_repl(
                 eval_source(
                     engine_state,
                     &mut unique_stack,
-                    r#"banner"#.as_bytes(),
+                    "banner".as_bytes(),
                     "show_banner",
                     PipelineData::empty(),
                     false,
@@ -1712,7 +1712,7 @@ mod test_auto_cd {
 
     #[test]
     fn escape_vscode_semicolon_test() {
-        let input = r#"now;is"#;
+        let input = "now;is";
         let expected = r#"now\x3Bis"#;
         let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);

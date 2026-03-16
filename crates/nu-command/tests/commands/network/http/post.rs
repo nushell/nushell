@@ -42,7 +42,7 @@ fn http_post_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("POST", "/").create();
 
-    let code = format!(r#"http post {url}"#, url = server.url());
+    let code = format!("http post {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?.generic_error()?;
     assert_eq!(
         err,
@@ -80,7 +80,7 @@ fn http_post_json_is_success() -> Result {
     let mock = server.mock("POST", "/").match_body(JSON).create();
 
     let code = format!(
-        r#"http post -t 'application/json' {url} {{foo: 'bar'}}"#,
+        "http post -t 'application/json' {url} {{foo: 'bar'}}",
         url = server.url()
     );
 
@@ -131,10 +131,10 @@ fn http_post_json_list_is_success() -> Result {
 fn http_post_json_int_is_success() -> Result {
     let mut server = Server::new();
 
-    let mock = server.mock("POST", "/").match_body(r#"50"#).create();
+    let mock = server.mock("POST", "/").match_body("50").create();
 
     let code = format!(
-        r#"http post -t 'application/json' {url} 50"#,
+        "http post -t 'application/json' {url} 50",
         url = server.url()
     );
 
@@ -234,9 +234,9 @@ fn http_post_multipart_is_success() -> Result {
         )
         .match_body(Matcher::AllOf(vec![
             Matcher::Regex(r#"(?m)^Content-Disposition: form-data; name="foo""#.to_string()),
-            Matcher::Regex(r#"(?m)^Content-Type: application/octet-stream"#.to_string()),
-            Matcher::Regex(r#"(?m)^Content-Length: 3"#.to_string()),
-            Matcher::Regex(r#"(?m)^bar"#.to_string()),
+            Matcher::Regex("(?m)^Content-Type: application/octet-stream".to_string()),
+            Matcher::Regex("(?m)^Content-Length: 3".to_string()),
+            Matcher::Regex("(?m)^bar".to_string()),
         ]))
         .with_status(200)
         .create();

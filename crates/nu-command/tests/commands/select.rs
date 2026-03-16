@@ -4,7 +4,7 @@ use nu_test_support::playground::Playground;
 
 #[test]
 fn regular_columns() {
-    let actual = nu!(r#"
+    let actual = nu!("
         echo [
             [first_name, last_name, rusty_at, type];
     
@@ -15,7 +15,7 @@ fn regular_columns() {
         | select rusty_at last_name
         | get 0
         | get last_name
-    "#);
+    ");
 
     assert_eq!(actual.out, "Robalino");
 }
@@ -57,7 +57,7 @@ fn complex_nested_columns() {
 
 #[test]
 fn fails_if_given_unknown_column_name() {
-    let actual = nu!(r#"
+    let actual = nu!("
         [
             [first_name, last_name, rusty_at, type];
     
@@ -66,7 +66,7 @@ fn fails_if_given_unknown_column_name() {
             [Yehuda Katz '10/11/2013' A]
         ]
         | select rrusty_at first_name
-    "#);
+    ");
 
     assert!(actual.err.contains("nu::shell::name_not_found"));
 }
@@ -173,7 +173,7 @@ fn select_ignores_errors_successfully4() {
         r#""key val\na 1\nb 2\n" | lines | split column --collapse-empty " " | select foo? | to nuon"#
     );
 
-    assert_eq!(actual.out, r#"[[foo]; [null], [null], [null]]"#.to_string());
+    assert_eq!(actual.out, "[[foo]; [null], [null], [null]]".to_string());
     assert!(actual.err.is_empty());
 }
 
@@ -239,20 +239,20 @@ fn select_on_empty_list_returns_empty_list() {
 
 #[test]
 fn select_columns_with_list_spread() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let columns = [a c];
         echo [[a b c]; [1 2 3]] | select ...$columns | to nuon
-        "#);
+        ");
 
     assert_eq!(actual.out, "[[a, c]; [1, 3]]");
 }
 
 #[test]
 fn select_rows_with_list_spread() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let rows = [0 2];
         echo [[a b c]; [1 2 3] [4 5 6] [7 8 9]] | select ...$rows | to nuon
-        "#);
+        ");
 
     assert_eq!(actual.out, "[[a, b, c]; [1, 2, 3], [7, 8, 9]]");
 }

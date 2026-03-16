@@ -25,8 +25,8 @@ impl Command for Return {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -51,7 +51,7 @@ impl Command for Return {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Return early.",
-            example: r#"def foo [] { return }"#,
+            example: "def foo [] { return }",
             result: None,
         }]
     }

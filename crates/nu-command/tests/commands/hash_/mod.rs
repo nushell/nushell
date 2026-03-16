@@ -2,45 +2,45 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn base64_defaults_to_encoding_with_standard_character_type() -> Result {
-    let code = r#"
+    let code = "
         echo 'username:password' | encode base64
-        "#;
+        ";
 
     test().run(code).expect_value_eq("dXNlcm5hbWU6cGFzc3dvcmQ=")
 }
 
 #[test]
 fn base64_defaults_to_encoding_with_nopad() -> Result {
-    let code = r#"
+    let code = "
         echo 'username:password' | encode base64 --nopad
-        "#;
+        ";
 
     test().run(code).expect_value_eq("dXNlcm5hbWU6cGFzc3dvcmQ")
 }
 
 #[test]
 fn base64_decode_value() -> Result {
-    let code = r#"
+    let code = "
         echo 'YWJjeHl6' | decode base64 | decode
-        "#;
+        ";
 
     test().run(code).expect_value_eq("abcxyz")
 }
 
 #[test]
 fn base64_decode_with_nopad() -> Result {
-    let code = r#"
+    let code = "
         echo 'R29vZCBsdWNrIHRvIHlvdQ' | decode base64 --nopad | decode
-        "#;
+        ";
 
     test().run(code).expect_value_eq("Good luck to you")
 }
 
 #[test]
 fn base64_decode_with_url() -> Result {
-    let code = r#"
+    let code = "
         echo 'vu7_' | decode base64 --url | decode
-        "#;
+        ";
 
     test().run(code).expect_value_eq("¾îÿ")
 }
@@ -58,9 +58,9 @@ fn error_invalid_decode_value() -> Result {
 
 #[test]
 fn md5_works_with_file() -> Result {
-    let code = r#"
+    let code = "
     open sample.db --raw | hash md5
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -70,9 +70,9 @@ fn md5_works_with_file() -> Result {
 
 #[test]
 fn sha256_works_with_file() -> Result {
-    let code = r#"
+    let code = "
     open sample.db --raw | hash sha256
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")

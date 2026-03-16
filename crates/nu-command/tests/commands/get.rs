@@ -10,7 +10,7 @@ fn simple_get_record() {
 
 #[test]
 fn simple_get_list() {
-    let actual = nu!(r#"([{foo: 'bar'}] | get foo) == [bar]"#);
+    let actual = nu!("([{foo: 'bar'}] | get foo) == [bar]");
     assert_eq!(actual.out, "true");
 }
 
@@ -200,13 +200,13 @@ fn ignore_errors_works() {
 
 #[test]
 fn ignore_multiple() {
-    let actual = nu!(r#"[[a];[b]] | get -o c d | to nuon"#);
+    let actual = nu!("[[a];[b]] | get -o c d | to nuon");
 
     assert_eq!(actual.out, "[[null], [null]]");
 }
 
 #[test]
 fn test_const() {
-    let actual = nu!(r#"const x = [1 2 3] | get 1; $x"#);
+    let actual = nu!("const x = [1 2 3] | get 1; $x");
     assert_eq!(actual.out, "2");
 }

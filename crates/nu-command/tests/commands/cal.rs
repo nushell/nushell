@@ -163,10 +163,10 @@ fn cal_rows_in_2020() -> Result {
 
 #[test]
 fn cal_week_day_start_mo() -> Result {
-    let code = r#"
+    let code = "
         cal --as-table --full-year 2020 -m --month-names --week-start mo
         | where month_name == january
-    "#;
+    ";
 
     let outcome: Vec<HashMap<String, Value>> = test().run(code)?;
     assert_eq!(outcome.len(), 5);

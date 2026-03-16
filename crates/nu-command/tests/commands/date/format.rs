@@ -2,9 +2,9 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn formatter_not_valid() -> Result {
-    let code = r#"
+    let code = "
         date now | format date '%N'
-        "#;
+        ";
 
     let err = test().run(code).expect_shell_error()?;
     assert!(matches!(err, ShellError::TypeMismatch { .. }));
@@ -22,9 +22,9 @@ fn test_j_q_format_specifiers() -> Result {
 
 #[test]
 fn test_j_q_format_specifiers_current_time() -> Result {
-    let code = r#"
+    let code = "
         date now | format date '%J_%Q' | str length
-        "#;
+        ";
 
     // Should be exactly 15 characters: YYYYMMDD_HHMMSS
     test().run(code).expect_value_eq(15)

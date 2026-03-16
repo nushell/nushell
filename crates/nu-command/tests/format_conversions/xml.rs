@@ -2,7 +2,7 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn table_to_xml_text_and_from_xml_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open jt.xml
         | to xml
         | from xml
@@ -15,7 +15,7 @@ fn table_to_xml_text_and_from_xml_text_back_into_table() -> Result {
         | flatten
         | where tag == guid
         | get 0.attributes.isPermaLink
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -114,7 +114,7 @@ fn to_xml_pi_comment_not_escaped() -> Result {
 
 #[test]
 fn to_xml_self_closed() -> Result {
-    let code = r#"
+    let code = "
         {
             tag: root
             content: [
@@ -124,7 +124,7 @@ fn to_xml_self_closed() -> Result {
                 [c {t: y} []]
             ]
         } | to xml --self-closed
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")

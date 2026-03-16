@@ -10,11 +10,11 @@ mod simple {
         Playground::setup("parse_test_simple_1", |dirs, sandbox| {
             sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
-                r#"
+                "
                     VAR1=Cheese
                     VAR2=JTParsed
                     VAR3=NushellSecretIngredient
-                "#,
+                ",
             )]);
 
             let actual = nu!(cwd: dirs.test(), r#"
@@ -99,10 +99,10 @@ mod regex {
     fn nushell_git_log_oneline<'a>() -> Vec<Stub<'a>> {
         vec![Stub::FileWithContentToBeTrimmed(
             "nushell_git_log_oneline.txt",
-            r#"
+            "
                 ae87582c Fix missing invocation errors (#1846)
                 b89976da let format access variables also (#1842)
-            "#,
+            ",
         )]
     }
 

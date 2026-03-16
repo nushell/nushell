@@ -15,7 +15,7 @@ impl Command for Interleave {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This combinator is useful for reading output from multiple commands.
+        "This combinator is useful for reading output from multiple commands.
 
 If input is provided to `interleave`, the input will be combined with the
 output of the closures. This enables `interleave` to be used at any position
@@ -27,7 +27,7 @@ ordered. However, the order of items from any given stream is guaranteed to be
 preserved as they were in that stream.
 
 If interleaving streams in a fair (round-robin) manner is desired, consider
-using `zip { ... } | flatten` instead."#
+using `zip { ... } | flatten` instead."
     }
 
     fn signature(&self) -> Signature {
@@ -56,8 +56,8 @@ using `zip { ... } | flatten` instead."#
         vec![
             Example {
                 example: "seq 1 50 | wrap a | interleave { seq 1 50 | wrap b }",
-                description: r#"Read two sequences of numbers into separate columns of a table.
-Note that the order of rows with 'a' columns and rows with 'b' columns is arbitrary."#,
+                description: "Read two sequences of numbers into separate columns of a table.
+Note that the order of rows with 'a' columns and rows with 'b' columns is arbitrary.",
                 result: None,
             },
             Example {

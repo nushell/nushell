@@ -831,13 +831,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | country |
             | --- |
             | Ecuador |
             | New Zealand |
             | USA |
-            "#)
+            ")
         );
 
         assert_eq!(
@@ -849,13 +849,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | country     |
             | ----------- |
             | Ecuador     |
             | New Zealand |
             | USA         |
-            "#)
+            ")
         );
     }
 
@@ -881,12 +881,12 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             |  | foo |
             | --- | --- |
             | 1 | 2 |
             | 3 | 4 |
-            "#)
+            ")
         );
     }
 
@@ -916,13 +916,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- | --- |
             | 1 | 2 |
             | 3 | 4 |
             | 5 |  |
-            "#)
+            ")
         );
     }
 
@@ -970,13 +970,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- |:---:|
             | 1   |  2  |
             | 3   |  4  |
             | 5   |  6  |
-            "#)
+            ")
         );
 
         // Without pretty
@@ -989,13 +989,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- |:---:|
             | 1 | 2 |
             | 3 | 4 |
             | 5 | 6 |
-            "#)
+            ")
         );
     }
 
@@ -1027,13 +1027,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- | --- |
             | 1   | 2   |
             | 3   | 4   |
             | 5   | 6   |
-            "#)
+            ")
         );
     }
 
@@ -1092,13 +1092,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | command | input |  output  |
             |:-------:| ----- |:--------:|
             |   ls    | .     | file.txt |
             |  echo   | 'hi'  |    hi    |
             |   cp    | a.txt |  b.txt   |
-            "#)
+            ")
         );
     }
 
@@ -1145,13 +1145,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | name    | age |
             | ------- | --- |
             | Alice   | 30  |
             | Bob     | 5   |
             | Charlie | 20  |
-            "#)
+            ")
         );
     }
 
@@ -1193,12 +1193,12 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | k          |             v              |
             | ---------- |:--------------------------:|
             | version    |          0.104.1           |
             | build_time | 2025-05-28 11:00:45 +01:00 |
-            "#)
+            ")
         );
     }
 
@@ -1340,11 +1340,11 @@ mod tests {
                 true,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | tag | code |
             | --- | --- |
             | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
-            "#)
+            ")
         );
 
         assert_eq!(
@@ -1356,11 +1356,11 @@ mod tests {
                 true,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | tag   | code                                                                                                                                                                                                                                                                                                                                    |
             | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
             | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
-            "#)
+            ")
         );
     }
 

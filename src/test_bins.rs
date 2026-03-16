@@ -84,9 +84,9 @@ impl TestBin for EchoEnvMixed {
 
         if args.len() != 3 {
             panic!(
-                r#"Usage examples:
+                "Usage examples:
 * nu --testbin echo_env_mixed out-err FOO BAR
-* nu --testbin echo_env_mixed err-out FOO BAR"#
+* nu --testbin echo_env_mixed err-out FOO BAR"
             )
         }
         match args[0].as_str() {

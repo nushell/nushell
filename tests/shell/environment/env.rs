@@ -90,7 +90,7 @@ fn env_assignment_with_if() {
 
 #[test]
 fn env_assignment_with_match() {
-    let actual = nu!(r#"$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR"#);
+    let actual = nu!("$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR");
     assert_eq!(actual.out, "yes!");
 }
 
@@ -220,11 +220,11 @@ fn std_log_env_vars_are_not_overridden() {
 #[test]
 fn std_log_env_vars_have_defaults() {
     let actual = nu_with_std!(
-        r#"
+        "
             use std/log
             print -e $env.NU_LOG_FORMAT
             print -e $env.NU_LOG_DATE_FORMAT
-        "#
+        "
     );
     assert!(actual.err.contains("%MSG%"));
     assert!(actual.err.contains("%Y-"));

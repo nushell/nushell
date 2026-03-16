@@ -139,10 +139,10 @@ impl Command for JobSpawn {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Executes the provided closure in a background thread
+        "Executes the provided closure in a background thread
 and registers this task in the background job table, which can be retrieved with `job list`.
 
 This command returns the job id of the newly created job.
-            "#
+            "
     }
 }

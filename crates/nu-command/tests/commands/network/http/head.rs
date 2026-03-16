@@ -8,7 +8,7 @@ fn http_head_is_success() -> Result {
     let _mock = server.mock("HEAD", "/").with_header("foo", "bar").create();
 
     let code = format!(
-        r#"http head {url} | where name == foo | get value.0"#,
+        "http head {url} | where name == foo | get value.0",
         url = server.url()
     );
     test().run(code).expect_value_eq("bar")
@@ -20,7 +20,7 @@ fn http_head_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("HEAD", "/").with_status(400).create();
 
-    let code = format!(r#"http head {url}"#, url = server.url());
+    let code = format!("http head {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -42,7 +42,7 @@ fn http_head_with_accept_errors() -> Result {
         .create();
 
     let code = format!(
-        r#"http head -e {url} | where name == x-error-header | get value.0"#,
+        "http head -e {url} | where name == x-error-header | get value.0",
         url = server.url()
     );
 
@@ -61,10 +61,10 @@ fn http_head_full_response_includes_status_and_headers() -> Result {
         .create();
 
     let code = format!(
-        r#"
+        "
             http head --full {url}
             | to json
-        "#,
+        ",
         url = server.url()
     );
 

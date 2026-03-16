@@ -128,15 +128,15 @@ fn which_custom_command_reports_file() -> Result {
     Playground::setup("which_file_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "foo.nu",
-            r#"
+            "
                 def foo [] { echo hi }
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             source foo.nu
             which foo
-        "#;
+        ";
 
         #[derive(Debug, FromValue)]
         struct Outcome {

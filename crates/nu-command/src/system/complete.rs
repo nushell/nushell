@@ -20,7 +20,7 @@ impl Command for Complete {
     }
 
     fn extra_description(&self) -> &str {
-        r#"In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"#
+        "In order to capture stdout, stderr, and exit_code, externally piped in commands need to be wrapped with `do`"
     }
 
     fn run(

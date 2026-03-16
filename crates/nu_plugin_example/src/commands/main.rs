@@ -17,13 +17,13 @@ impl SimplePluginCommand for Main {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 The `example` plugin demonstrates usage of the Nushell plugin API.
 
 Several commands provided to test and demonstrate different capabilities of
 plugins exposed through the API. None of these commands are intended to be
 particularly useful.
-"#
+"
         .trim()
     }
 

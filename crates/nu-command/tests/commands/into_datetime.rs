@@ -4,7 +4,7 @@ use nu_test_support::nu;
 
 #[test]
 fn into_datetime_from_record_cell_path() {
-    let actual = nu!(r#"{d: '2021'} | into datetime d"#);
+    let actual = nu!("{d: '2021'} | into datetime d");
 
     assert!(actual.out.contains("years ago"));
 }
@@ -12,10 +12,10 @@ fn into_datetime_from_record_cell_path() {
 #[test]
 fn into_datetime_from_record() {
     let actual = nu!(
-        r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'} | into datetime | into record"#
+        "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'} | into datetime | into record"
     );
     let expected = nu!(
-        r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'}"#
+        "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5, millisecond: 6, microsecond: 7, nanosecond: 8, timezone: '+01:00'}"
     );
 
     assert_eq!(expected.out, actual.out);
@@ -23,9 +23,9 @@ fn into_datetime_from_record() {
 
 #[test]
 fn into_datetime_from_record_very_old() {
-    let actual = nu!(r#"{year: -100, timezone: '+02:00'} | into datetime | into record"#);
+    let actual = nu!("{year: -100, timezone: '+02:00'} | into datetime | into record");
     let expected = nu!(
-        r#"{year: -100, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+02:00'}"#
+        "{year: -100, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+02:00'}"
     );
 
     assert_eq!(expected.out, actual.out);
@@ -33,9 +33,9 @@ fn into_datetime_from_record_very_old() {
 
 #[test]
 fn into_datetime_from_record_defaults() {
-    let actual = nu!(r#"{year: 2025, timezone: '+02:00'} | into datetime | into record"#);
+    let actual = nu!("{year: 2025, timezone: '+02:00'} | into datetime | into record");
     let expected = nu!(
-        r#"{year: 2025, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+02:00'}"#
+        "{year: 2025, month: 1, day: 1, hour: 0, minute: 0, second: 0, millisecond: 0, microsecond: 0, nanosecond: 0, timezone: '+02:00'}"
     );
 
     assert_eq!(expected.out, actual.out);
@@ -44,7 +44,7 @@ fn into_datetime_from_record_defaults() {
 #[test]
 fn into_datetime_from_record_round_trip() {
     let actual = nu!(
-        r#"(1743348798 | into datetime | into record | into datetime | into int) == 1743348798"#
+        "(1743348798 | into datetime | into record | into datetime | into int) == 1743348798"
     );
 
     assert!(actual.out.contains("true"));
@@ -61,7 +61,7 @@ fn into_datetime_table_column() {
 
 #[test]
 fn into_datetime_from_record_fails_with_wrong_type() {
-    let actual = nu!(r#"{year: '2023'} | into datetime"#);
+    let actual = nu!("{year: '2023'} | into datetime");
 
     assert!(
         actual
@@ -72,14 +72,14 @@ fn into_datetime_from_record_fails_with_wrong_type() {
 
 #[test]
 fn into_datetime_from_record_fails_with_invalid_date_time_values() {
-    let actual = nu!(r#"{year: 2023, month: 13} | into datetime"#);
+    let actual = nu!("{year: 2023, month: 13} | into datetime");
 
     assert!(actual.err.contains("nu::shell::incorrect_value"));
 }
 
 #[test]
 fn into_datetime_from_record_fails_with_invalid_timezone() {
-    let actual = nu!(r#"{year: 2023, timezone: '+100:00'} | into datetime"#);
+    let actual = nu!("{year: 2023, timezone: '+100:00'} | into datetime");
 
     assert!(actual.err.contains("nu::shell::incorrect_value"));
 }
@@ -88,7 +88,7 @@ fn into_datetime_from_record_fails_with_invalid_timezone() {
 
 #[test]
 fn into_datetime_from_record_fails_with_unknown_key() {
-    let actual = nu!(r#"{year: 2023, unknown: 1} | into datetime"#);
+    let actual = nu!("{year: 2023, unknown: 1} | into datetime");
 
     assert!(actual.err.contains("nu::shell::unsupported_input"));
 }
@@ -96,7 +96,7 @@ fn into_datetime_from_record_fails_with_unknown_key() {
 #[test]
 fn into_datetime_from_record_incompatible_with_format_flag() {
     let actual = nu!(
-        r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --format ''"#
+        "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --format ''"
     );
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));
@@ -105,7 +105,7 @@ fn into_datetime_from_record_incompatible_with_format_flag() {
 #[test]
 fn into_datetime_from_record_incompatible_with_timezone_flag() {
     let actual = nu!(
-        r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --timezone UTC"#
+        "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --timezone UTC"
     );
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));
@@ -114,7 +114,7 @@ fn into_datetime_from_record_incompatible_with_timezone_flag() {
 #[test]
 fn into_datetime_from_record_incompatible_with_offset_flag() {
     let actual = nu!(
-        r#"{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --offset 1"#
+        "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --offset 1"
     );
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));

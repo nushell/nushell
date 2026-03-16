@@ -2,12 +2,12 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn from_ods_file_to_table() -> Result {
-    let code = r#"
+    let code = "
         open sample_data.ods
         | get SalesOrders
         | get 4
         | get column2
-    "#;
+    ";
     test()
         .cwd("tests/fixtures/formats")
         .run(code)

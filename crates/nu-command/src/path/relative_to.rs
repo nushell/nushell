@@ -40,9 +40,9 @@ impl Command for PathRelativeTo {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Can be used only when the input and the argument paths are either both
+        "Can be used only when the input and the argument paths are either both
 absolute or both relative. The argument path needs to be a parent of the input
-path."#
+path."
     }
 
     fn is_const(&self) -> bool {
@@ -98,7 +98,7 @@ path."#
             Example {
                 description: "Find a relative path from two absolute paths.",
                 example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
-                result: Some(Value::test_string(r"viking")),
+                result: Some(Value::test_string("viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list.",
@@ -111,7 +111,7 @@ path."#
             Example {
                 description: "Find a relative path from two relative paths.",
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
-                result: Some(Value::test_string(r"spam")),
+                result: Some(Value::test_string("spam")),
             },
         ]
     }

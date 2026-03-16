@@ -45,11 +45,11 @@ fn errors_if_given_unknown_column_name() {
 "#;
 
     let actual = nu!(format!(
-        r#"
+        "
             '{sample}'
             | from json
             | group-by {{|| get nu.releases.missing_column }}
-        "#
+        "
     ));
     assert!(actual.err.contains("cannot find column"));
 }
@@ -71,7 +71,7 @@ fn errors_if_column_not_found() {
 #[test]
 fn group_by_on_empty_list_returns_empty_record() {
     let actual = nu!("[[a b]; [1 2]] | where false | group-by a | to nuon --raw");
-    let expected = r#"{}"#;
+    let expected = "{}";
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, expected);
 }
@@ -79,7 +79,7 @@ fn group_by_on_empty_list_returns_empty_record() {
 #[test]
 fn group_by_to_table_on_empty_list_returns_empty_list() {
     let actual = nu!("[[a b]; [1 2]] | where false | group-by --to-table a | to nuon --raw");
-    let expected = r#"[]"#;
+    let expected = "[]";
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, expected);
 }

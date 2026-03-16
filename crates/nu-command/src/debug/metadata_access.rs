@@ -55,10 +55,10 @@ impl Command for MetadataAccess {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Access metadata and data from a stream together.",
-            example: r#"{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}"#,
+            example: "{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}",
             result: Some(Value::test_record(record! {
                 "in" => Value::test_string(r#"{"foo":"bar"}"#),
-                "content" => Value::test_string(r#"application/json"#)
+                "content" => Value::test_string("application/json")
             })),
         }]
     }

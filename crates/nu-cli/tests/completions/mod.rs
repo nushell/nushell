@@ -121,12 +121,12 @@ fn custom_completer_with_options(
 ) -> NuCompleter {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!(
-        r#"
+        "
         {}
         def comp [] {{
             {{ completions: [{}], options: {{ {} }} }}
         }}
-        def my-command [arg: string@comp] {{}}"#,
+        def my-command [arg: string@comp] {{}}",
         global_opts,
         completions
             .iter()
@@ -146,7 +146,7 @@ fn custom_completer() -> NuCompleter {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
-    let record = r#"
+    let record = "
         let external_completer = {|spans|
             $spans
         }
@@ -156,7 +156,7 @@ fn custom_completer() -> NuCompleter {
             max_results: 100
             completer: $external_completer
         }
-    "#;
+    ";
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
@@ -288,7 +288,7 @@ fn customcompletions_no_sort() {
 fn customcompletions_no_filter() {
     let mut completer = custom_completer_with_options(
         "",
-        r#"filter: false"#,
+        "filter: false",
         &["zzzfoo", "foo", "not matched", "abcfoo"],
     );
     let suggestions = completer.complete("my-command foo", 14);
@@ -308,9 +308,9 @@ fn custom_completions_override_span(
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!(
-        r#"
+        "
         def comp [] {{ [{{ value: foobarbaz, span: {span_string} }}] }}
-        def my-command [arg: string@comp] {{}}"#
+        def my-command [arg: string@comp] {{}}"
     );
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
@@ -379,9 +379,9 @@ fn custom_completions_strip_ansi_from_record_values() {
 
 #[rstest]
 /// Fallback to file completions if custom completer returns null
-#[case::fallback(r#"
+#[case::fallback("
     def comp [] { null }
-    def my-command [arg: string@comp] {}"#,
+    def my-command [arg: string@comp] {}",
     "my-command test", None,
     vec![folder("test_a"), file("test_a_symlink"), folder("test_b")],
     4
@@ -419,20 +419,20 @@ fn custom_completions_strip_ansi_from_record_values() {
     "foo --test test".len()
 )]
 // Directory only
-#[case::flag_value_respect_to_type(r#"
-    def foo [--test: directory] {}"#,
+#[case::flag_value_respect_to_type("
+    def foo [--test: directory] {}",
     &format!("foo --test=directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::short_flag_value(r#"
-    def foo [-t: directory] {}"#,
+#[case::short_flag_value("
+    def foo [-t: directory] {}",
     &format!("foo -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag1(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag1("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path directory_completion{MAIN_SEPARATOR}"), None,
     vec![
         folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder")),
@@ -440,14 +440,14 @@ fn custom_completions_strip_ansi_from_record_values() {
     ],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag2(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag2("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path bar baz directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag3(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag3("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path bar baz qux -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
@@ -529,12 +529,12 @@ fn list_completions_defined_inline() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = /* lang=nu */ r#"
+    let completion_str = /* lang=nu */ "
         export def say [
           animal: string@[cat dog]
         ] { }
 
-        say "#;
+        say ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // including only subcommand completions
@@ -548,12 +548,12 @@ fn list_completions_extern() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = /* lang=nu */ r#"
+    let completion_str = /* lang=nu */ "
         export extern say [
           animal: string@[cat dog]
         ]
 
-        say "#;
+        say ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // including only subcommand completions
@@ -702,9 +702,9 @@ fn hide_env_completions() {
 #[test]
 fn customcompletions_invalid() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
+    let command = "
         def comp [] { 123 }
-        def my-command [arg: string@comp] {}"#;
+        def my-command [arg: string@comp] {}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -1109,7 +1109,7 @@ fn command_wide_completion_custom() {
     @complete "nu-complete foo""#
 )]
 #[case::external(
-    r#"
+    "
     let external_completer = {|spans| null }
 
     $env.config.completions.external = {
@@ -1118,7 +1118,7 @@ fn command_wide_completion_custom() {
         completer: $external_completer
     }
 
-    @complete external"#
+    @complete external"
 )]
 fn command_wide_completion_fallback(#[case] code: &str) {
     // Create a new engine with PWD
@@ -1134,7 +1134,7 @@ fn command_wide_completion_fallback(#[case] code: &str) {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let sample = /* lang=nu */ r#"foo bar completions"#;
+    let sample = /* lang=nu */ "foo bar completions";
 
     let suggestions = completer.complete(sample, sample.len());
     let expected = vec![folder("completions")];
@@ -1342,7 +1342,7 @@ fn file_completions() {
 fn custom_command_rest_any_args_file_completions() {
     // Create a new engine
     let (dir, dir_str, mut engine, mut stack) = new_engine();
-    let command = r#"def list [ ...args: any ] {}"#;
+    let command = "def list [ ...args: any ] {}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
@@ -2680,7 +2680,7 @@ fn unlet_variable_grandparent_stack_not_in_completions() {
 #[case("{a: [1 {a: 2}]}.a.1.")]
 fn record_cell_path_completions(#[case] input: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
+    let command = "let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -2698,7 +2698,7 @@ fn record_cell_path_completions(#[case] input: &str) {
 #[case("($bar).", ["a", "b"].into())]
 fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
+    let command = "let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -2740,7 +2740,7 @@ fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -l"#;
+    let alias = "alias ll = ls -l";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -2759,7 +2759,7 @@ fn alias_of_basic_command() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls "#;
+    let alias = "alias ll = ls ";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -2778,10 +2778,10 @@ fn alias_of_another_alias() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -la"#;
+    let alias = "alias ll = ls -la";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
     // Create the second alias
-    let alias = r#"alias lf = ll -f"#;
+    let alias = "alias lf = ll -f";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3055,7 +3055,7 @@ fn alias_offset_bug_7648() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
+    let alias = "alias ea = ^$env.EDITOR /tmp/test.s";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3073,7 +3073,7 @@ fn alias_offset_bug_7754() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -l"#;
+    let alias = "alias ll = ls -l";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3230,7 +3230,7 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
 #[test]
 fn cellpath_assignment_operator_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"mut foo = {'foo': [1, '1']}"#;
+    let command = "mut foo = {'foo': [1, '1']}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3247,7 +3247,7 @@ fn cellpath_assignment_operator_completions() {
     match_suggestions(&expected, &suggestions);
 
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"mut foo = {'foo': [1, (date now)]}"#;
+    let command = "mut foo = {'foo': [1, (date now)]}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3265,11 +3265,11 @@ fn cellpath_assignment_operator_completions() {
 #[test]
 fn alias_expansion_for_external_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"alias example_alias = example_cmd arg1 arg2"#;
+    let command = "alias example_alias = example_cmd arg1 arg2";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    let command = "$env.config.completions.external.completer = {|s| $s }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3282,11 +3282,11 @@ fn alias_expansion_for_external_completions() {
 #[test]
 fn nested_alias_expansion_for_external_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg"#;
+    let command = "alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    let command = "$env.config.completions.external.completer = {|s| $s }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));

@@ -133,7 +133,7 @@ fn prefixed_overlay_keeps_custom_decl() {
 fn def_before_overlay_use_should_work() {
     let inp = &[
         r#"def something [] { "example" }"#,
-        r#"module spam { }"#,
+        "module spam { }",
         "overlay use spam",
         r#"def bar [] { "bar" }"#,
         "overlay hide spam",
@@ -964,7 +964,7 @@ fn overlay_use_export_env_config_affected() {
         "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
         "overlay use spam",
         "$out ++= [(20MiB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -985,7 +985,7 @@ fn overlay_hide_config_affected() {
         "$out ++= [(20MiB | into string)]",
         "overlay hide",
         "$out ++= [(20MB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     // Can't hide overlay within the same source file
@@ -1009,7 +1009,7 @@ fn overlay_use_after_hide_config_affected() {
         "$out ++= [(20MB | into string)]",
         "overlay use spam",
         "$out ++= [(20MiB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     // Can't hide overlay within the same source file
@@ -1603,11 +1603,11 @@ fn test_overlay_use_with_printing_file_pwd() {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.FILE_PWD
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(
@@ -1625,11 +1625,11 @@ fn test_overlay_use_with_printing_current_file() {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.CURRENT_FILE
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(

@@ -78,7 +78,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all instances of null from a list",
-                example: r#"[1, null, 2] | compact"#,
+                example: "[1, null, 2] | compact",
                 result: Some(Value::test_list(vec![
                     Value::test_int(1),
                     Value::test_int(2),
@@ -97,7 +97,7 @@ impl Command for Compact {
             },
             Example {
                 description: "Filter out all instances of null from a record",
-                example: r#"{a: 1, b: null, c: 3} | compact"#,
+                example: "{a: 1, b: null, c: 3} | compact",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(1),
                     "c" =>  Value::test_int(3),

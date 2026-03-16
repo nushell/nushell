@@ -8,15 +8,15 @@ fn to_column() {
         sandbox.with_files(&[
             FileWithContentToBeTrimmed(
                 "sample.txt",
-                r#"
+                "
                 importer,shipper,tariff_item,name,origin
-            "#,
+            ",
             ),
             FileWithContentToBeTrimmed(
                 "sample2.txt",
-                r#"
+                "
                 importer , shipper  , tariff_item  ,   name  ,  origin
-            "#,
+            ",
             ),
         ]);
 

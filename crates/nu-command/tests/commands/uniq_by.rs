@@ -46,19 +46,19 @@ fn uniq_counting(#[case] item: &str, #[case] count: u32) -> Result {
 
 #[test]
 fn uniq_unique() -> Result {
-    let code = r#"
+    let code = "
         echo [1 2 3 4 1 5]
         | wrap item
         | uniq-by item --unique
         | get item
-    "#;
+    ";
 
     test().run(code).expect_value_eq([2, 3, 4, 5])
 }
 
 #[test]
 fn table() -> Result {
-    let code = r#"
+    let code = "
         [
             [fruit day];
             [apple monday]
@@ -69,9 +69,9 @@ fn table() -> Result {
             [orange tuesday]
         ]
         | uniq-by fruit
-    "#;
+    ";
 
-    let expected = r#"
+    let expected = "
         [
             [fruit day];
             [apple monday]
@@ -79,7 +79,7 @@ fn table() -> Result {
             [pear monday]
             [orange tuesday]
         ]
-    "#;
+    ";
 
     let actual: Value = test().run(code)?;
     let expected: Value = test().run(expected)?;
@@ -96,7 +96,7 @@ fn uniq_by_empty() -> Result {
 
 #[test]
 fn uniq_by_multiple_columns() -> Result {
-    let code = r#"
+    let code = "
         [
             [fruit day];
             [apple monday]
@@ -107,9 +107,9 @@ fn uniq_by_multiple_columns() -> Result {
             [orange tuesday]
         ]
         | uniq-by fruit day
-    "#;
+    ";
 
-    let expected = r#"
+    let expected = "
         [
             [fruit day];
             [apple monday]
@@ -118,7 +118,7 @@ fn uniq_by_multiple_columns() -> Result {
             [pear monday]
             [orange tuesday]
         ]
-    "#;
+    ";
 
     let actual: Value = test().run(code)?;
     let expected: Value = test().run(expected)?;
@@ -128,7 +128,7 @@ fn uniq_by_multiple_columns() -> Result {
 
 #[test]
 fn table_with_ignore_case() -> Result {
-    let code = r#"
+    let code = "
         [
             [origin, people];
             [World, ([
@@ -144,9 +144,9 @@ fn table_with_ignore_case() -> Result {
                 ['Geremias', {plate: 'Bitoque', carbs: 100}]
             ])],
         ] | uniq-by people -i
-    "#;
+    ";
 
-    let expected = r#"
+    let expected = "
         [
             [origin, people];
             [World, ([
@@ -158,7 +158,7 @@ fn table_with_ignore_case() -> Result {
                 ['Martin', {plate: 'bitoque', carbs: 100}]
             ])],
         ]
-    "#;
+    ";
 
     let actual: Value = test().run(code)?;
     let expected: Value = test().run(expected)?;

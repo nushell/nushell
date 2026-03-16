@@ -243,7 +243,7 @@ mod test {
             },
             TestCase {
                 description: "Double Curly Braces Without Quotes.",
-                input: r#"value: {{ something }}"#,
+                input: "value: {{ something }}",
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),
                 })),

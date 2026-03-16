@@ -27,8 +27,8 @@ impl Command for Source {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -112,17 +112,17 @@ impl Command for Source {
         vec![
             Example {
                 description: "Runs foo.nu in the current context.",
-                example: r#"source foo.nu"#,
+                example: "source foo.nu",
                 result: None,
             },
             Example {
                 description: "Runs foo.nu in current context and call the command defined, suppose foo.nu has content: `def say-hi [] { echo 'Hi!' }`.",
-                example: r#"source ./foo.nu; say-hi"#,
+                example: "source ./foo.nu; say-hi",
                 result: None,
             },
             Example {
                 description: "Sourcing `null` is a no-op.",
-                example: r#"source null"#,
+                example: "source null",
                 result: None,
             },
             Example {

@@ -106,7 +106,7 @@ impl Command for BytesIndexOf {
             },
             Example {
                 description: "Returns index of pattern for specific column.",
-                example: r#" [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC"#,
+                example: " [[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes index-of 0x[11] ColA ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_int(0),
                     "ColB" => Value::binary(vec![0x14, 0x15, 0x16], Span::test_data()),

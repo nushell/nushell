@@ -917,7 +917,7 @@ mod tests {
         ));
 
         // match: preceded and followed by newline is ok
-        let haystack = r"
+        let haystack = "
         `command`
         ";
         assert!(matches!(

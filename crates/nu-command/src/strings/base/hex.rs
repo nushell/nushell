@@ -83,7 +83,7 @@ impl Command for EncodeHex {
         vec![
             Example {
                 description: "Encode a binary value",
-                example: r#"0x[C3 06] | encode hex"#,
+                example: "0x[C3 06] | encode hex",
                 result: Some(Value::test_string("C306")),
             },
             Example {
@@ -93,7 +93,7 @@ impl Command for EncodeHex {
             },
             Example {
                 description: "Output a Lowercase version of the encoding",
-                example: r#"0x[AD EF] | encode hex --lower"#,
+                example: "0x[AD EF] | encode hex --lower",
                 result: Some(Value::test_string("adef")),
             },
         ]

@@ -43,7 +43,7 @@ fn http_put_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("PUT", "/").create();
 
-    let code = format!(r#"http put {url}"#, url = server.url());
+    let code = format!("http put {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?.generic_error()?;
     assert_eq!(
         err,

@@ -218,7 +218,7 @@ fn check_parse(
 ) -> Result<PipelineData, ShellError> {
     if starting_error_count != working_set.parse_errors.len() {
         let msg = format!(
-            r#"Found : {}"#,
+            "Found : {}",
             working_set
                 .parse_errors
                 .first()
@@ -275,7 +275,7 @@ fn parse_file_or_dir_module(
     if starting_error_count != working_set.parse_errors.len() {
         if is_debug {
             let msg = format!(
-                r#"Found : {}"#,
+                "Found : {}",
                 working_set
                     .parse_errors
                     .first()

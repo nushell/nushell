@@ -53,21 +53,21 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table.",
-                example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml"#,
+                example: "{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml",
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record.",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
+                example: "{tag: note content : [{tag: remember content : [Event]}]} | to xml",
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting.",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
+                example: "{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3",
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -79,8 +79,8 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Save space using self-closed tags.",
-                example: r#"{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed"#,
-                result: Some(Value::test_string(r#"<root><a/><b/><c/></root>"#)),
+                example: "{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed",
+                result: Some(Value::test_string("<root><a/><b/><c/></root>")),
             },
         ]
     }

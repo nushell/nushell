@@ -131,11 +131,11 @@ pub fn create_file_at(full_path: impl AsRef<Path>) -> Result<(), std::io::Error>
 // specify all test files relative to root directory.
 // OK to use fwd slash in paths, they're hacked to OS dir separator when needed (windows)
 #[rstest]
-#[case(".", r#"'*z'"#, &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
-#[case(".", r#"'qqq'"#, &["ablez", "baker", "charliez"], &[], "glob matches none")]
-#[case("foo/bar", r"'*[\]}]*'", &[r#"foo/bar/ab}le"#, "foo/bar/baker", r#"foo/bar/cha]rlie"#], &[r#"foo/bar/ab}le"#, r#"foo/bar/cha]rlie"#], "glob has quoted metachars")]
-#[case("foo/bar", r#"'../*'"#, &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/bar/../able", "foo/bar/../bar", "foo/bar/../charlie"], "glob matches files in parent")]
-#[case("foo", r#"'./{a,b}*'"#, &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar"], "glob with leading ./ matches peer files")]
+#[case(".", "'*z'", &["ablez", "baker", "charliez"], &["ablez", "charliez"], "simple glob")]
+#[case(".", "'qqq'", &["ablez", "baker", "charliez"], &[], "glob matches none")]
+#[case("foo/bar", r"'*[\]}]*'", &["foo/bar/ab}le", "foo/bar/baker", "foo/bar/cha]rlie"], &["foo/bar/ab}le", "foo/bar/cha]rlie"], "glob has quoted metachars")]
+#[case("foo/bar", "'../*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/bar/../able", "foo/bar/../bar", "foo/bar/../charlie"], "glob matches files in parent")]
+#[case("foo", "'./{a,b}*'", &["foo/able", "foo/bar/baker", "foo/charlie"], &["foo/able", "foo/bar"], "glob with leading ./ matches peer files")]
 fn glob_files_in_parent(
     #[case] wd: &str,
     #[case] glob: &str,

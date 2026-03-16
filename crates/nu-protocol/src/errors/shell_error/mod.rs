@@ -463,8 +463,8 @@ pub enum ShellError {
     #[diagnostic(
             code(nu::shell::env_var_not_a_string),
             help(
-                r#"The '{envvar_name}' environment variable must be a string or be convertible to a string.
-    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+                "The '{envvar_name}' environment variable must be a string or be convertible to a string.
+    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."
             )
         )]
     EnvVarNotAString {
@@ -482,7 +482,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
+            "The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."
         )
     )]
     AutomaticEnvVarSetManually {
@@ -500,7 +500,7 @@ pub enum ShellError {
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::shell::cannot_replace_env),
-        help(r#"Assigning a value to '$env' is not allowed."#)
+        help("Assigning a value to '$env' is not allowed.")
     )]
     CannotReplaceEnv {
         #[label("setting '$env' not allowed")]

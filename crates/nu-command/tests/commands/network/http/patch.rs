@@ -43,7 +43,7 @@ fn http_patch_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("PATCH", "/").create();
 
-    let code = format!(r#"http patch {url}"#, url = server.url());
+    let code = format!("http patch {url}", url = server.url());
     let err = test().run(code).expect_shell_error()?.generic_error()?;
     assert_eq!(
         err,

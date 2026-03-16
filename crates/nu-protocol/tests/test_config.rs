@@ -3,8 +3,8 @@ use nu_test_support::{nu, nu_repl_code};
 #[test]
 fn filesize_mb() {
     let code = &[
-        r#"$env.config = { filesize: { unit: MB } }"#,
-        r#"20MB | into string"#,
+        "$env.config = { filesize: { unit: MB } }",
+        "20MB | into string",
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, "20.0 MB");
@@ -13,8 +13,8 @@ fn filesize_mb() {
 #[test]
 fn filesize_mib() {
     let code = &[
-        r#"$env.config = { filesize: { unit: MiB } }"#,
-        r#"20MiB | into string"#,
+        "$env.config = { filesize: { unit: MiB } }",
+        "20MiB | into string",
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, "20.0 MiB");
@@ -23,8 +23,8 @@ fn filesize_mib() {
 #[test]
 fn filesize_format_decimal() {
     let code = &[
-        r#"$env.config = { filesize: { unit: metric } }"#,
-        r#"[2MB 2GB 2TB] | into string | to nuon"#,
+        "$env.config = { filesize: { unit: metric } }",
+        "[2MB 2GB 2TB] | into string | to nuon",
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
@@ -33,8 +33,8 @@ fn filesize_format_decimal() {
 #[test]
 fn filesize_format_binary() {
     let code = &[
-        r#"$env.config = { filesize: { unit: binary } }"#,
-        r#"[2MiB 2GiB 2TiB] | into string | to nuon"#,
+        "$env.config = { filesize: { unit: binary } }",
+        "[2MiB 2GiB 2TiB] | into string | to nuon",
     ];
     let actual = nu!(nu_repl_code(code));
     assert_eq!(actual.out, r#"["2.0 MiB", "2.0 GiB", "2.0 TiB"]"#);
@@ -100,9 +100,9 @@ diagnostic code: nu::shell::error
 #[test]
 fn plugins() {
     let code = &[
-        r#"$env.config = { plugins: { nu_plugin_config: { key: value } } }"#,
-        r#"$env.config.plugins"#,
+        "$env.config = { plugins: { nu_plugin_config: { key: value } } }",
+        "$env.config.plugins",
     ];
     let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"{nu_plugin_config: {key: value}}"#);
+    assert_eq!(actual.out, "{nu_plugin_config: {key: value}}");
 }

@@ -48,7 +48,7 @@ fn save_append_will_create_file_if_not_exists() {
 
         nu!(
             cwd: dirs.root(),
-            r#"'hello' | save --raw --append save_test_3/new-file.txt"#,
+            "'hello' | save --raw --append save_test_3/new-file.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -74,7 +74,7 @@ fn save_append_will_not_overwrite_content() {
 
         nu!(
             cwd: dirs.root(),
-            r#"'world' | save --append save_test_4/new-file.txt"#,
+            "'world' | save --append save_test_4/new-file.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -145,7 +145,7 @@ fn save_string_and_stream_as_raw() {
         let actual = file_contents(expected_file);
         assert_eq!(
             actual,
-            r#"<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"#
+            "<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"
         )
     })
 }
@@ -320,7 +320,7 @@ fn save_file_correct_relative_path() {
 
         nu!(
             cwd: dirs.test(),
-            r#"use test.nu; test"#
+            "use test.nu; test"
         );
 
         let actual = file_contents(expected_file);
@@ -521,7 +521,7 @@ fn save_missing_parent_dir() {
 
         let actual = nu!(
             cwd: dirs.root(),
-            r#"'hello' | save save_test_24/foobar/hello.txt"#,
+            "'hello' | save save_test_24/foobar/hello.txt",
         );
 
         assert!(actual.err.contains("nu::shell::io::directory_not_found"));
@@ -539,7 +539,7 @@ fn save_missing_ancestor_dir() {
 
         let actual = nu!(
             cwd: dirs.root(),
-            r#"'hello' | save save_test_24/foo/bar/baz/hello.txt"#,
+            "'hello' | save save_test_24/foo/bar/baz/hello.txt",
         );
 
         assert!(actual.err.contains("nu::shell::io::directory_not_found"));

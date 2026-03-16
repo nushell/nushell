@@ -128,13 +128,13 @@ impl Command for Default {
                 ])),
             },
             Example {
-                description: r#"Generate a default value from a closure"#,
+                description: "Generate a default value from a closure",
                 example: "null | default { 1 + 2 }",
                 result: Some(Value::test_int(3)),
             },
             Example {
-                description: r#"Fill missing column values based on other columns"#,
-                example: r#"[{a:1 b:2} {b:1}] | upsert a {|rc| default { $rc.b + 1 } }"#,
+                description: "Fill missing column values based on other columns",
+                example: "[{a:1 b:2} {b:1}] | upsert a {|rc| default { $rc.b + 1 } }",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" => Value::test_int(1),
@@ -354,7 +354,7 @@ fn closure_variable_warning(
                     label,
                     span,
                     help: Some(
-                        r"Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
+                        "Since 0.105.0, closure literals passed to default are lazily evaluated, rather than returned as a value.
 In a future release, closures passed by variable will also be lazily evaluated.".to_string(),
                     ),
                     report_mode: ReportMode::FirstUse,

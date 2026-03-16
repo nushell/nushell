@@ -4,10 +4,10 @@ use super::join_path_sep;
 
 #[test]
 fn returns_path_joined_from_list() -> Result {
-    let code = r#"
+    let code = "
         echo [ home viking spam.txt ]
         | path join
-    "#;
+    ";
 
     let expected = join_path_sep(&["home", "viking", "spam.txt"]);
     test().cwd("tests").run(code).expect_value_eq(expected)
@@ -15,8 +15,8 @@ fn returns_path_joined_from_list() -> Result {
 
 #[test]
 fn drop_one_path_join() -> Result {
-    let code = r#"[a, b, c] | drop 1 | path join
-            "#;
+    let code = "[a, b, c] | drop 1 | path join
+            ";
 
     let expected = join_path_sep(&["a", "b"]);
     test().cwd("tests").run(code).expect_value_eq(expected)

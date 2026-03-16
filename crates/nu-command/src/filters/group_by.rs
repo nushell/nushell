@@ -61,12 +61,12 @@ impl Command for GroupBy {
         vec![
             Example {
                 description: "Group items by the \"type\" column's values.",
-                example: r#"ls | group-by type"#,
+                example: "ls | group-by type",
                 result: None,
             },
             Example {
                 description: "Group items by the \"foo\" column's values, ignoring records without a \"foo\" column.",
-                example: r#"open cool.json | group-by foo?"#,
+                example: "open cool.json | group-by foo?",
                 result: None,
             },
             Example {

@@ -147,27 +147,27 @@ impl Command for Cd {
         vec![
             Example {
                 description: "Change to your home directory.",
-                example: r#"cd ~"#,
+                example: "cd ~",
                 result: None,
             },
             Example {
                 description: r#"Change to the previous working directory (same as "cd $env.OLDPWD")."#,
-                example: r#"cd -"#,
+                example: "cd -",
                 result: None,
             },
             Example {
                 description: "Changing directory with a custom command requires 'def --env'.",
-                example: r#"def --env gohome [] { cd ~ }"#,
+                example: "def --env gohome [] { cd ~ }",
                 result: None,
             },
             Example {
                 description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
-                example: r#"cd ..."#,
+                example: "cd ...",
                 result: None,
             },
             Example {
                 description: "The cd command itself is often optional. Simply entering a path to a directory will cd to it.",
-                example: r#"/home"#,
+                example: "/home",
                 result: None,
             },
         ]

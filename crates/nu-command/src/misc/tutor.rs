@@ -136,7 +136,7 @@ fn tutor(
 }
 
 fn default_tutor() -> &'static str {
-    r#"
+    "
 Welcome to the Nushell tutorial!
 
 With the `tutor` command, you'll be able to learn a lot about how Nushell
@@ -145,11 +145,11 @@ works along with many fun tips and tricks to speed up everyday tasks.
 To get started, you can use `tutor begin`, and to see all the available
 tutorials just run `tutor list`.
 
-"#
+"
 }
 
 fn begin_tutor() -> &'static str {
-    r#"
+    "
 Nushell is a structured shell and programming language. One way to begin
 using it is to try a few of the commands.
 
@@ -176,7 +176,7 @@ If at any point, you'd like to restart this tutorial, you can run:
 ```
 tutor begin
 ```
-"#
+"
 }
 
 fn table_tutor() -> &'static str {
@@ -218,7 +218,7 @@ tutor cells
 }
 
 fn cell_tutor() -> &'static str {
-    r#"
+    "
 Working with cells of data in the table is a key part of working with data in
 Nushell. Because of this, there is a rich list of commands to work with cells
 as well as handy shorthands for accessing cells.
@@ -246,11 +246,11 @@ You can also learn about these cell shorthands by running:
 ```
 tutor shorthands
 ```
-"#
+"
 }
 
 fn expression_tutor() -> &'static str {
-    r#"
+    "
 Expressions give you the power to mix calls to commands with math. The
 simplest expression is a single value like a string or number.
 ```
@@ -275,7 +275,7 @@ You can continue to learn more about the `echo` command by running:
 ```
 tutor echo
 ```
-"#
+"
 }
 
 fn echo_tutor() -> &'static str {
@@ -309,7 +309,7 @@ tutor each
 }
 
 fn each_tutor() -> &'static str {
-    r#"
+    "
 The `each` command gives us a way of working with the individual elements
 (sometimes called 'rows') of a list one at a time. It reads these in from
 the pipeline and runs a closure on each one.
@@ -328,11 +328,11 @@ You can also learn more about variables by running:
 ```
 tutor variables
 ```
-"#
+"
 }
 
 fn variable_tutor() -> &'static str {
-    r#"
+    "
 Variables are an important way to store values to be used later. To create a
 variable, you can use the `let` keyword. The `let` command will create a
 variable and then assign it a value in one step.
@@ -349,7 +349,7 @@ instance of Nushell. The `$it` variable is the name given to closure parameters
 if you don't specify one. And `$in` is the variable that allows you to work
 with all of the data coming in from the pipeline in one place.
 
-"#
+"
 }
 
 fn block_tutor() -> &'static str {
@@ -380,7 +380,7 @@ even though it was declared outside the block.
 }
 
 fn closure_tutor() -> &'static str {
-    r#"
+    "
 Closures are blocks of code you can pass to commands. They can accept
 parameters and are commonly used with commands like `each`, `where`, and
 `reduce`.
@@ -399,7 +399,7 @@ let multiplier = 3
 
 Many commands also make the incoming pipeline value available as `$in` inside the closure.
 
-"#
+"
 }
 
 fn shorthand_tutor() -> &'static str {

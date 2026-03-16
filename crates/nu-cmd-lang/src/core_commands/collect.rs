@@ -30,10 +30,10 @@ impl Command for Collect {
     }
 
     fn extra_description(&self) -> &str {
-        r#"If provided, run a closure with the collected value as input.
+        "If provided, run a closure with the collected value as input.
 
 The entire stream will be collected into one value in memory, so if the stream
-is particularly large, this can cause high memory usage."#
+is particularly large, this can cause high memory usage."
     }
 
     fn command_type(&self) -> CommandType {
