@@ -177,13 +177,10 @@ mod tests {
     use reedline::FileBackedHistory;
 
     fn history() -> FileBackedHistory {
-        match FileBackedHistory::new(10) {
-            Ok(history) => history,
-            Err(err) => panic!("failed to build history: {err}"),
-        }
+        FileBackedHistory::new(10).unwrap()
     }
 
-    fn parse_test_closure(source: &str) -> (Arc<EngineState>, Closure) {
+    fn create_hinter(source: &str) -> ExternalHinter {
         let mut engine_state = EngineState::new();
         let mut working_set = StateWorkingSet::new(&engine_state);
         let parsed = parse(&mut working_set, None, source.as_bytes(), false);
@@ -193,36 +190,31 @@ mod tests {
             working_set.parse_errors
         );
 
-        let Some(pipeline) = parsed.pipelines.first() else {
-            panic!("expected one pipeline in parsed source");
-        };
-        let Some(element) = pipeline.elements.first() else {
-            panic!("expected one pipeline element in parsed source");
-        };
+        let pipeline = parsed.pipelines.first().unwrap();
+        let element = pipeline.elements.first().unwrap();
 
-        let block_id = match element.expr.expr {
-            Expr::Closure(block_id) => block_id,
-            _ => panic!("source did not parse to a closure expression"),
+        let Expr::Closure(block_id) = element.expr.expr else {
+            panic!("source did not parse to a closure expression");
         };
 
-        if let Err(err) = engine_state.merge_delta(working_set.render()) {
-            panic!("failed to merge delta: {err}");
-        }
+        engine_state.merge_delta(working_set.render()).unwrap();
 
-        (
+        let closure = Closure {
+            block_id,
+            captures: vec![],
+        };
+
+        ExternalHinter::new(
             Arc::new(engine_state),
-            Closure {
-                block_id,
-                captures: vec![],
-            },
+            Arc::new(Stack::new()),
+            closure,
+            Style::new(),
         )
     }
 
     #[test]
     fn uses_external_hint_string_and_caches_for_completion() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| 'hello there'}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| 'hello there'}");
         let history = history();
 
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
@@ -232,11 +224,17 @@ mod tests {
     }
 
     #[test]
+    fn closure_receives_context_record() {
+        let mut hinter = create_hinter("{|ctx| $ctx.line}");
+        let history = history();
+
+        let hint = hinter.handle("echo hello", 10, &history, false, "/tmp");
+        assert_eq!(hint, "echo hello");
+    }
+
+    #[test]
     fn record_return_with_hint_and_next_token() {
-        let (engine_state, closure) =
-            parse_test_closure("{|ctx| {hint: 'hello there', next_token: 'hello'}}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| {hint: 'hello there', next_token: 'hello'}}");
         let history = history();
 
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
@@ -247,10 +245,8 @@ mod tests {
 
     #[test]
     fn record_return_with_custom_next_token() {
-        let (engine_state, closure) =
-            parse_test_closure("{|ctx| {hint: 'hello there friend', next_token: 'hello there'}}");
         let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+            create_hinter("{|ctx| {hint: 'hello there friend', next_token: 'hello there'}}");
         let history = history();
 
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
@@ -260,9 +256,7 @@ mod tests {
 
     #[test]
     fn record_return_hint_only_uses_default_next_token() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| {hint: 'hello there'}}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| {hint: 'hello there'}}");
         let history = history();
 
         let hint = hinter.handle("echo ", 5, &history, false, "/tmp");
@@ -272,9 +266,7 @@ mod tests {
 
     #[test]
     fn null_result_returns_no_hint() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| null}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| null}");
         let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
@@ -285,9 +277,7 @@ mod tests {
 
     #[test]
     fn invalid_return_type_returns_no_hint() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| 42}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| 42}");
         let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
@@ -297,9 +287,7 @@ mod tests {
 
     #[test]
     fn eval_error_returns_no_hint() {
-        let (engine_state, closure) = parse_test_closure("{|ctx| 1 / 0}");
-        let mut hinter =
-            ExternalHinter::new(engine_state, Arc::new(Stack::new()), closure, Style::new());
+        let mut hinter = create_hinter("{|ctx| 1 / 0}");
         let history = history();
 
         let hint = hinter.handle("echo", 4, &history, false, "/tmp");
