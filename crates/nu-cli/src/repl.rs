@@ -863,7 +863,7 @@ fn parse_operation(
     }
 
     let path = nu_path::expand_path_with(&orig, &cwd, true);
-    if (engine_state.get_config().auto_cd_always || looks_like_path(&orig))
+    if (engine_state.get_config().auto_cd_greedy || looks_like_path(&orig))
         && path.is_dir()
         && tokens.0.len() == 1
     {
