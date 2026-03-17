@@ -57,34 +57,34 @@ fn lists_regular_files_in_special_folder() {
             .with_files(&[EmptyFile("abcd/?/test2.txt")]);
 
         let actual = nu!(
-            cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd]"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test(), format!(r#"ls abcd] | length"#));
+            cwd: dirs.test(), format!("ls abcd] | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("[abcd]"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("[bbcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("[bbcd]"), format!("ls | length"));
         assert_eq!(actual.out, "0");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls -D ../* | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls -D ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls -D ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls ../* | length"));
         assert_eq!(actual.out, "2");
     })
 }

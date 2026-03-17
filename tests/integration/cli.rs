@@ -1756,8 +1756,8 @@ fn include_path_appends_to_env_nu_lib_dirs() -> TestResult {
     }
     #[cfg(not(windows))]
     {
-        assert!(stdout.contains(r#"/scripts"#));
-        assert!(stdout.contains(r#"/completions"#));
+        assert!(stdout.contains("/scripts"));
+        assert!(stdout.contains("/completions"));
     }
     Ok(())
 }

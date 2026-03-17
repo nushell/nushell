@@ -163,7 +163,7 @@ fn external_arg_with_option_like_embedded_quotes() {
         |dirs, _| {
             let actual = nu!(
                 cwd: dirs.test(),
-                r#"^echo --foo='bar' -foo='bar'"#,
+                "^echo --foo='bar' -foo='bar'",
             );
 
             assert_eq!(actual.out, "--foo=bar -foo=bar");
@@ -465,7 +465,7 @@ fn redirect_combine(nu_bin: &str, prefix: &str) {
     Playground::setup("redirect_combine", |dirs, _| {
         let actual = nu!(
             cwd: dirs.test(),
-            format!(r#"{prefix}sh ...[-c 'echo Foo; echo >&2 Bar'] o+e>| print"#)
+            format!("{prefix}sh ...[-c 'echo Foo; echo >&2 Bar'] o+e>| print")
         );
 
         // Lines are collapsed in the nu! macro

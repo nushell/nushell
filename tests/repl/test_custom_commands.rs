@@ -221,9 +221,9 @@ fn override_table_eval_file() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def bang [] { bang }; bang
-        "#);
+        ");
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 
@@ -233,9 +233,9 @@ fn infinite_recursion_does_not_panic() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_mutual_recursion_does_not_panic() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def bang [] { def boom [] { bang }; boom }; bang
-        "#);
+        ");
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 

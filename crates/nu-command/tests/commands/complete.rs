@@ -86,11 +86,11 @@ fn capture_error_with_both_stdout_stderr_messages_not_hang_nushell() -> Result {
     Playground::setup(
         "external with many stdout and stderr messages",
         |dirs, sandbox| {
-            let script_body = r#"
+            let script_body = "
         x=$(printf '=%.0s' $(seq 40960))
         echo $x
         echo $x 1>&2
-        "#;
+        ";
             let expect_body = "=".repeat(40960);
 
             sandbox.with_files(&[FileWithContent("test.sh", script_body)]);

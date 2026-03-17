@@ -104,7 +104,7 @@ impl PluginIdentity {
     #[cfg(not(windows))]
     #[doc(hidden)]
     pub fn new_fake(name: &str) -> PluginIdentity {
-        PluginIdentity::new(format!(r"/fake/path/nu_plugin_{name}"), None)
+        PluginIdentity::new(format!("/fake/path/nu_plugin_{name}"), None)
             .expect("fake plugin identity path is invalid")
     }
 

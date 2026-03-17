@@ -122,39 +122,39 @@ the output of 'path parse' and 'path split' subcommands."
         vec![
             Example {
                 description: "Append a filename to a path.",
-                example: r"'/home/viking' | path join spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "'/home/viking' | path join spam.txt",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Append a filename to a path.",
-                example: r"'/home/viking' | path join spams this_spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
+                example: "'/home/viking' | path join spams this_spam.txt",
+                result: Some(Value::test_string("/home/viking/spams/this_spam.txt")),
             },
             Example {
                 description: "Use relative paths, e.g. '..' will go up one directory.",
-                example: r"'/home/viking' | path join .. folder",
-                result: Some(Value::test_string(r"/home/viking/../folder")),
+                example: "'/home/viking' | path join .. folder",
+                result: Some(Value::test_string("/home/viking/../folder")),
             },
             Example {
                 description: "Use absolute paths, e.g. '/' will bring you to the top level directory.",
-                example: r"'/home/viking' | path join / folder",
-                result: Some(Value::test_string(r"/folder")),
+                example: "'/home/viking' | path join / folder",
+                result: Some(Value::test_string("/folder")),
             },
             Example {
                 description: "Join a list of parts into a path.",
-                example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "[ '/' 'home' 'viking' 'spam.txt' ] | path join",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a structured path into a path.",
-                example: r"{ parent: '/home/viking', stem: 'spam', extension: 'txt' } | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "{ parent: '/home/viking', stem: 'spam', extension: 'txt' } | path join",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a table of structured paths into a list of paths.",
-                example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
+                example: "[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
                 result: Some(Value::list(
-                    vec![Value::test_string(r"/home/viking/spam.txt")],
+                    vec![Value::test_string("/home/viking/spam.txt")],
                     Span::test_data(),
                 )),
             },

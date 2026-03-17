@@ -114,7 +114,7 @@ impl Command for PathSelf {
             #[cfg(not(windows))]
             Example {
                 description: "Get the absolute form of a path relative to the current file.",
-                example: r#"const current_file = path self ../foo"#,
+                example: "const current_file = path self ../foo",
                 result: None,
             },
         ]
