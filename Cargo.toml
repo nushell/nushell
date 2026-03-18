@@ -124,7 +124,7 @@ libc = "=0.2.178" # Pinned to avoid loongarch64 build failure with libc >= 0.2.1
 libproc = "0.14.11"
 log = "0.4"
 lru = "0.16"
-lscolors = { version = "0.20", default-features = false }
+lscolors = { version = "0.21", default-features = false }
 lsp-server = "0.7.9"
 lsp-types = { version = "0.97.0", features = ["proposed"] }
 lsp-textdocument = "0.5.0"
