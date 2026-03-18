@@ -947,7 +947,7 @@ macro_rules! record {
 #[macro_export]
 macro_rules! test_record {
     {$($col:expr => $val:expr),+ $(,)?} => {
-        $crate::Value::test_record(record! {
+        $crate::Value::test_record($crate::record! {
             $($col => $crate::IntoValue::into_value($val, $crate::Span::test_data())),+
         })
     };
