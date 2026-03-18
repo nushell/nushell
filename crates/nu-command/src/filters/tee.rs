@@ -302,7 +302,7 @@ fn panic_error() -> ShellError {
 fn tee<T, I: Iterator<Item = T>>(
     input: I,
     with_cloned_stream: impl FnOnce(mpsc::Receiver<T>) -> Result<(), ShellError> + Send + 'static,
-) -> Result<TeeIterator<T, I>, std::io::Error>
+) -> Result<TeeIterator<I>, std::io::Error>
 where
     T: Clone + Send + 'static,
 {
@@ -320,14 +320,18 @@ where
     })
 }
 
-struct TeeIterator<T, I: Iterator<Item = T>> {
+struct TeeIterator<I: Iterator> {
     thread: Option<JoinHandle<Result<(), ShellError>>>,
     iter: I,
-    tx: Option<Sender<T>>,
+    tx: Option<Sender<I::Item>>,
 }
 
-impl<T: Clone + Send + 'static, I: Iterator<Item = T>> Iterator for TeeIterator<T, I> {
-    type Item = Result<T, ShellError>;
+impl<I> Iterator for TeeIterator<I>
+where
+    I: Iterator,
+    I::Item: Clone,
+{
+    type Item = Result<I::Item, ShellError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.thread.as_ref().is_some_and(|t| t.is_finished()) {
@@ -363,7 +367,7 @@ impl<T: Clone + Send + 'static, I: Iterator<Item = T>> Iterator for TeeIterator<
     }
 }
 
-impl<T, I: Iterator<Item = T>> Drop for TeeIterator<T, I> {
+impl<I: Iterator> Drop for TeeIterator<I> {
     fn drop(&mut self) {
         // in case the iterator is dropped without consuming all the input,
         // and the channel is still alive we need to force consume all the input
