@@ -224,7 +224,7 @@ which = "8.0.2"
 win_uds = "=0.2.2"
 windows = "0.62.2"
 windows-sys = "0.61.2"
-winreg = "0.55"
+winreg = "0.56"
 memchr = "2.8.0"
 webpki-roots = "1.0.6"
 
