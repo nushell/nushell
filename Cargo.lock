@@ -4116,7 +4116,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
- "strum",
+ "strum 0.28.0",
  "sysinfo",
  "tempfile",
  "unicode-segmentation",
@@ -4295,7 +4295,7 @@ dependencies = [
  "serde_urlencoded",
  "serde_yaml 0.9.34+deprecated",
  "sha2",
- "strum",
+ "strum 0.28.0",
  "sysinfo",
  "tabled",
  "tempfile",
@@ -4611,7 +4611,7 @@ dependencies = [
  "rstest",
  "serde",
  "serde_json",
- "strum",
+ "strum 0.28.0",
  "strum_macros",
  "tempfile",
  "thiserror 2.0.18",
@@ -6645,7 +6645,7 @@ dependencies = [
  "itertools 0.14.0",
  "kasuari",
  "lru",
- "strum",
+ "strum 0.27.2",
  "thiserror 2.0.18",
  "unicode-segmentation",
  "unicode-truncate",
@@ -6687,7 +6687,7 @@ dependencies = [
  "itertools 0.14.0",
  "line-clipping",
  "ratatui-core",
- "strum",
+ "strum 0.27.2",
  "time",
  "unicode-segmentation",
  "unicode-width 0.2.2",
@@ -6792,7 +6792,7 @@ dependencies = [
  "serde",
  "serde_json",
  "strip-ansi-escapes",
- "strum",
+ "strum 0.27.2",
  "thiserror 2.0.18",
  "unicase",
  "unicode-segmentation",
@@ -7884,6 +7884,12 @@ checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
 dependencies = [
  "strum_macros",
 ]
+
+[[package]]
+name = "strum"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
 
 [[package]]
 name = "strum_macros"
