@@ -92,10 +92,7 @@ struct NuSourceRequest {
 #[tool_handler]
 impl ServerHandler for NushellMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            instructions: Some(include_str!("instructions.md").to_string()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_instructions(include_str!("instructions.md").to_string())
     }
 }

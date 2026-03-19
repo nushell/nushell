@@ -131,18 +131,19 @@ async fn run_http_server(
         },
     });
 
+    let mut config = StreamableHttpServerConfig::default();
+    config.sse_keep_alive = Some(SSE_KEEP_ALIVE);
+    config.sse_retry = Some(SSE_RETRY);
+    config.stateful_mode = true;
+    config.cancellation_token = cancellation_token.clone();
+
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        StreamableHttpServerConfig {
-            sse_keep_alive: Some(SSE_KEEP_ALIVE),
-            sse_retry: Some(SSE_RETRY),
-            stateful_mode: true,
-            cancellation_token: cancellation_token.clone(),
-        },
+        config,
     ));
 
     let addr = format!("0.0.0.0:{port}");
