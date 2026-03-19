@@ -241,6 +241,11 @@ impl Command for Glob {
             false => LinkBehavior::ReadFile,
         };
 
+        let make_walk_behavior = |depth: usize| WalkBehavior {
+            depth: DepthBehavior::Max(DepthMax(depth)),
+            link: link_behavior,
+        };
+
         let result = if !not_patterns.is_empty() {
             let patterns: Vec<WaxGlob<'static>> = not_patterns
                 .into_iter()
@@ -266,13 +271,7 @@ impl Command for Glob {
             })?;
 
             let glob_results = glob
-                .walk_with_behavior(
-                    path,
-                    WalkBehavior {
-                        depth: DepthBehavior::Max(DepthMax(folder_depth)),
-                        link: link_behavior,
-                    },
-                )
+                .walk_with_behavior(path, make_walk_behavior(folder_depth))
                 .not(any_pattern)
                 .map_err(|err| ShellError::GenericError {
                     error: "error with glob's not pattern".into(),
@@ -293,13 +292,7 @@ impl Command for Glob {
             )
         } else {
             let glob_results = glob
-                .walk_with_behavior(
-                    path,
-                    WalkBehavior {
-                        depth: DepthBehavior::Max(DepthMax(folder_depth)),
-                        link: link_behavior,
-                    },
-                )
+                .walk_with_behavior(path, make_walk_behavior(folder_depth))
                 .flatten();
             glob_to_value(
                 engine_state.signals(),
@@ -370,7 +363,7 @@ fn glob_to_value(
             || no_symlinks && file_type.is_symlink())
         {
             Some(Value::string(
-                entry.into_path().to_string_lossy().to_string(),
+                entry.into_path().to_string_lossy().into_owned(),
                 span,
             ))
         } else {
