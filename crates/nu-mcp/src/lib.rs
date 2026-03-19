@@ -108,12 +108,6 @@ const SESSION_KEEP_ALIVE: Duration = Duration::from_secs(30 * 60);
 /// Channel capacity for session message buffering
 const SESSION_CHANNEL_CAPACITY: usize = 16;
 
-/// SSE keep-alive ping interval
-const SSE_KEEP_ALIVE: Duration = Duration::from_secs(15);
-
-/// SSE retry interval for client reconnection
-const SSE_RETRY: Duration = Duration::from_secs(3);
-
 async fn run_http_server(
     engine_state: EngineState,
     port: u16,
@@ -131,19 +125,13 @@ async fn run_http_server(
         },
     });
 
-    let mut config = StreamableHttpServerConfig::default();
-    config.sse_keep_alive = Some(SSE_KEEP_ALIVE);
-    config.sse_retry = Some(SSE_RETRY);
-    config.stateful_mode = true;
-    config.cancellation_token = cancellation_token.clone();
-
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {
             let engine_state = engine_state.clone();
             move || Ok(NushellMcpServer::new((*engine_state).clone()))
         },
         session_manager,
-        config,
+        StreamableHttpServerConfig::default(),
     ));
 
     let addr = format!("0.0.0.0:{port}");
