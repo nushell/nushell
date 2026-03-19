@@ -61,7 +61,9 @@ fn summarizes_by_values() -> Result {
         | get 0
     "#;
 
-    test().run_with_data(code, SAMPLE.clone()).expect_value_eq(2)
+    test()
+        .run_with_data(code, SAMPLE.clone())
+        .expect_value_eq(2)
 }
 
 #[test]
