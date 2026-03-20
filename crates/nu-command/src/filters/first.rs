@@ -35,6 +35,10 @@ impl Command for First {
             .category(Category::Filters)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["head", "take", "Select-Object"]
+    }
+
     fn description(&self) -> &str {
         "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
     }

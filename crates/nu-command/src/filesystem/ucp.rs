@@ -29,7 +29,7 @@ impl Command for UCp {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["copy", "file", "files", "coreutils"]
+        vec!["copy", "file", "files", "coreutils", "Copy-Item", "ci"]
     }
 
     fn signature(&self) -> Signature {

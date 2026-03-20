@@ -33,7 +33,7 @@ impl Command for Ps {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["procedures", "operations", "tasks", "ops"]
+        vec!["procedures", "operations", "tasks", "ops", "top", "tasklist", "Get-Process", "gps"]
     }
 
     fn run(

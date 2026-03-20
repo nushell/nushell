@@ -36,6 +36,9 @@ impl Command for Save {
             "io",
             ">",
             ">>",
+            "tee",
+            "Out-File",
+            "Set-Content",
         ]
     }
 

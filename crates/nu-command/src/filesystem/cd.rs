@@ -17,7 +17,7 @@ impl Command for Cd {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["change", "directory", "dir", "folder", "switch"]
+        vec!["change", "directory", "dir", "folder", "switch", "chdir", "Set-Location", "sl"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

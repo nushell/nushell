@@ -152,7 +152,7 @@ impl Command for Ls {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["dir"]
+        vec!["dir", "Get-ChildItem", "gci"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {

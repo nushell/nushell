@@ -21,8 +21,7 @@ impl Command for UName {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        // add other terms?
-        vec!["system", "coreutils"]
+        vec!["system", "coreutils", "ver", "systeminfo"]
     }
 
     fn is_const(&self) -> bool {

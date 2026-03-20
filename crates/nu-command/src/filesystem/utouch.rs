@@ -17,7 +17,7 @@ impl Command for UTouch {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["create", "file", "coreutils"]
+        vec!["create", "file", "coreutils", "New-Item"]
     }
 
     fn signature(&self) -> Signature {

@@ -35,6 +35,10 @@ impl Command for Last {
             .category(Category::Filters)
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["tail", "end", "Select-Object"]
+    }
+
     fn description(&self) -> &str {
         "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
     }

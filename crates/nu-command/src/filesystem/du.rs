@@ -30,6 +30,10 @@ impl Command for Du {
         "Find disk usage sizes of specified items."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["disk", "usage", "size", "space"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::table())])

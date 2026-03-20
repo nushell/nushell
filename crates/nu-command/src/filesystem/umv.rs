@@ -52,7 +52,7 @@ impl Command for UMv {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["move", "file", "files", "coreutils"]
+        vec!["move", "file", "files", "coreutils", "rename", "ren", "Move-Item", "mi"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
