@@ -338,6 +338,34 @@ impl IntoValue for bytes::Bytes {
     }
 }
 
+impl IntoValue for serde_json::Value {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            serde_json::Value::Null => Value::nothing(span),
+            serde_json::Value::Bool(b) => Value::bool(b, span),
+            serde_json::Value::Number(num) => {
+                if let Some(n) = num.as_i64() {
+                    return Value::int(n, span);
+                }
+                Value::float(
+                    num.as_f64()
+                        .expect("should always return some floating point number"),
+                    span,
+                )
+            }
+            serde_json::Value::String(s) => Value::string(s, span),
+            serde_json::Value::Array(values) => Value::list(
+                values.into_iter().map(|v| v.into_value(span)).collect(),
+                span,
+            ),
+            serde_json::Value::Object(map) => Value::record(
+                Record::from_iter(map.into_iter().map(|(k, v)| (k, v.into_value(span)))),
+                span,
+            ),
+        }
+    }
+}
+
 // TODO: use this type for all the `into_value` methods that types implement but return a Result
 /// A trait for trying to convert a value into a `Value`.
 ///
