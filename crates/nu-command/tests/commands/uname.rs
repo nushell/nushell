@@ -1,12 +1,6 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
+
 #[test]
-fn test_uname_all() {
-    Playground::setup("uname_test_1", |dirs, _| {
-        let actual = nu!(
-            cwd: dirs.test(),
-            "uname"
-        );
-        assert!(actual.status.success())
-    })
+fn test_uname_all() -> Result {
+    test().run("uname").map(|_: Value| ())
 }
