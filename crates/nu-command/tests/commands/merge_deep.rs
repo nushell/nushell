@@ -1,6 +1,6 @@
-use std::fmt::Display;
 use nu_test_support::prelude::*;
 use rstest::rstest;
+use std::fmt::Display;
 
 struct Strategy<'a>(Option<&'a str>);
 
