@@ -32,6 +32,9 @@ pub use harness::macros::*;
 // Needs to be reexported for `nu!` macro
 pub use nu_path;
 
+// Export json macro to allow writing json values easily.
+pub use serde_json::json;
+
 #[derive(Debug)]
 pub struct Outcome {
     pub out: String,
