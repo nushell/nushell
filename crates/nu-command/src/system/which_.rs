@@ -333,9 +333,11 @@ fn which(
     let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
     if which_args.applications.is_empty() {
-        return Ok(list_all_executables(engine_state, &paths, which_args.all, head)
-            .into_iter()
-            .into_pipeline_data(head, engine_state.signals().clone()));
+        return Ok(
+            list_all_executables(engine_state, &paths, which_args.all, head)
+                .into_iter()
+                .into_pipeline_data(head, engine_state.signals().clone()),
+        );
     }
 
     for app in which_args.applications {
