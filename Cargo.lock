@@ -4695,6 +4695,7 @@ dependencies = [
  "nu-test-support-macros",
  "nu-utils",
  "num-format",
+ "serde_json",
  "tempfile",
  "thiserror 2.0.18",
  "which 8.0.2",
