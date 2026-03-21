@@ -40,7 +40,7 @@ impl Command for Kill {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["stop", "end", "close", "taskkill", "Stop-Process", "spps"]
+        vec!["stop", "end", "close", "taskkill"]
     }
 
     fn run(

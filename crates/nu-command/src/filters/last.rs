@@ -36,7 +36,7 @@ impl Command for Last {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["tail", "end", "Select-Object"]
+        vec!["tail", "end"]
     }
 
     fn description(&self) -> &str {

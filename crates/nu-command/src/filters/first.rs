@@ -36,7 +36,7 @@ impl Command for First {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["head", "take", "Select-Object"]
+        vec!["head", "take"]
     }
 
     fn description(&self) -> &str {

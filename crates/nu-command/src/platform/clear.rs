@@ -25,7 +25,7 @@ impl Command for Clear {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["cls", "reset", "Clear-Host"]
+        vec!["cls", "reset"]
     }
 
     fn signature(&self) -> Signature {
