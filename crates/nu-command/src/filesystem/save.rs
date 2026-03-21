@@ -36,7 +36,6 @@ impl Command for Save {
             "io",
             ">",
             ">>",
-            "tee",
         ]
     }
 
