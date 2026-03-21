@@ -1011,6 +1011,7 @@ fn event_from_record(
     span: Span,
 ) -> Result<ReedlineEvent, ShellError> {
     use ReedlineEventDiscriminants as RED;
+    // When updating this implementation, also update `display_reedline_event` function
     let event = match RED::from_str(name) {
         Ok(RED::None) => ReedlineEvent::None,
         Ok(RED::HistoryHintComplete) => ReedlineEvent::HistoryHintComplete,
@@ -1091,7 +1092,6 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Submit => "Submit",
         RED::SubmitOrNewline => "SubmitOrNewline",
         RED::Esc => "Esc",
-        RED::Edit => "Edit: <EditCommand> or Edit: <EditCommand> value: <string>",
         RED::Repaint => "Repaint",
         RED::PreviousHistory => "PreviousHistory",
         RED::Up => "Up",
@@ -1102,8 +1102,6 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Left => "Left",
         RED::NextHistory => "NextHistory",
         RED::SearchHistory => "SearchHistory",
-        RED::Multiple => "Multiple[ {{ ReedLineEvents, }} ]",
-        RED::UntilFound => "UntilFound [ {{ ReedLineEvents, }} ]",
         RED::Menu => "Menu name: <string>",
         RED::MenuNext => "MenuNext",
         RED::MenuPrevious => "MenuPrevious",
@@ -1116,7 +1114,10 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
+        // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
+        // These are not usable in `send`
+        RED::Edit | RED::Multiple | RED::UntilFound => return None,
     })
 }
 
@@ -1127,6 +1128,7 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     use EditCommandDiscriminants as ECD;
+    // When updating this implementation, also update `display_edit_command` function
     let edit = match ECD::from_str(name) {
         Ok(ECD::MoveToStart) => EditCommand::MoveToStart {
             select: extract_value("select", record, span)
@@ -1446,7 +1448,7 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
         ECD::InsertNewline => "InsertNewline",
-        ECD::ReplaceChar => "ReplaceChar <char>",
+        ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",
         ECD::CutChar => "CutChar",
@@ -1521,12 +1523,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopyInsidePair => "CopyInsidePair left: <char>, right <char>",
         ECD::CutAroundPair => "CutAroundPair left: <char>, right <char>",
         ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
-        ECD::CutTextObject => {
-            "CutTextObject scope: <inner|around>, object_type: <word|bigword|bracket|quote>"
-        }
-        ECD::CopyTextObject => {
-            "CopyTextObject scope: <inner|around>, object_type: <word|bigword|bracket|quote>"
-        }
+        ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
+        ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
         ECD::ReplaceChars => return None,
     })
 }
