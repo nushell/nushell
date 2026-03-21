@@ -243,6 +243,35 @@ fn rm(
             &currentdir_path,
             target.item.is_expand(),
         );
+
+        // `rm link/` where `link` is a symlink to a directory
+        // should error with "is a directory" rather than removing the underlying directory.
+        // A trailing slash forces dereferencing the symlink, which rm should not do.
+        let raw = target.item.as_ref();
+        if raw.ends_with('/') || raw.ends_with(std::path::MAIN_SEPARATOR) {
+            let without_sep = raw
+                .trim_end_matches('/')
+                .trim_end_matches(std::path::MAIN_SEPARATOR);
+            let symlink_check =
+                expand_path_with(without_sep, &currentdir_path, target.item.is_expand());
+            if symlink_check
+                .symlink_metadata()
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false)
+            {
+                return Err(ShellError::GenericError {
+                    error: format!("Cannot remove `{}`: is a directory", raw),
+                    msg: "is a directory".into(),
+                    span: Some(target.span),
+                    help: Some(format!(
+                        "use `rm {}` without the trailing slash to remove the symlink itself",
+                        without_sep
+                    )),
+                    inner: vec![],
+                });
+            }
+        }
+
         if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
