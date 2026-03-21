@@ -29,7 +29,14 @@ impl Command for UMkdir {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["directory", "folder", "create", "make_dirs", "coreutils", "md"]
+        vec![
+            "directory",
+            "folder",
+            "create",
+            "make_dirs",
+            "coreutils",
+            "md",
+        ]
     }
 
     fn signature(&self) -> Signature {
