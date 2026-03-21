@@ -12,7 +12,7 @@ impl Command for Sort {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["order", "arrange"]
+        vec!["order"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
