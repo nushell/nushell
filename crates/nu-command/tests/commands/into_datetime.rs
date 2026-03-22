@@ -159,3 +159,73 @@ fn test_q_format_specifier_time_only() {
     // Check for the time components - should parse as time with default date
     assert!(actual.out.contains("20:00:12"));
 }
+
+#[test]
+fn formatted_input_applies_timezone_flag_as_wall_clock() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime --format '%F_%R' --timezone utc | into record | get timezone
+        "#);
+
+    assert_eq!(actual.out, "+00:00");
+}
+
+#[test]
+fn formatted_input_applies_short_timezone_flag_as_wall_clock() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime -f '%F_%R' -z u | into record | get timezone
+        "#);
+
+    assert_eq!(actual.out, "+00:00");
+}
+
+#[test]
+fn formatted_input_applies_offset_flag_as_wall_clock() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime --format '%F_%R' --offset 2 | into record | get timezone
+        "#);
+
+    assert_eq!(actual.out, "+02:00");
+}
+
+#[test]
+fn formatted_input_applies_short_offset_flag_as_wall_clock() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime -f '%F_%R' -o 2 | into record | get timezone
+        "#);
+
+    assert_eq!(actual.out, "+02:00");
+}
+
+#[test]
+fn formatted_input_offset_takes_precedence_over_timezone() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime --format '%F_%R' --timezone utc --offset 3 | into record | get timezone
+        "#);
+
+    assert_eq!(actual.out, "+03:00");
+}
+
+#[test]
+fn formatted_input_rejects_invalid_timezone_flag() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime --format '%F_%R' --timezone invalid
+        "#);
+
+    assert!(actual.err.contains("nu::shell::type_mismatch"));
+}
+
+#[test]
+fn formatted_input_rejects_invalid_offset_flag() {
+    let actual = nu!(r#"
+        "2026-03-21_00:25" | into datetime --format '%F_%R' --offset 15
+        "#);
+
+    assert!(actual.err.contains("nu::shell::type_mismatch"));
+}
+
+#[test]
+fn list_flag_produces_available_format_entries() {
+    let actual = nu!("into datetime --list | length");
+
+    assert_ne!(actual.out, "0");
+}

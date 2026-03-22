@@ -99,14 +99,14 @@ impl Command for IntoDatetime {
                     .short('z')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "Specify timezone if the input is a Unix timestamp. Valid options: 'UTC' ('u') or 'LOCAL' ('l').",
+                        "Specify timezone to interpret timestamps and formatted datetime input. Valid options: 'UTC' ('u') or 'LOCAL' ('l').",
                     )
                     .completion(Completion::new_list(Zone::OPTIONS)),
             )
             .named(
                 "offset",
                 SyntaxShape::Int,
-                "Specify timezone by offset from UTC if the input is a Unix timestamp, like '+8', '-4'.",
+                "Specify timezone by offset from UTC to interpret timestamps and formatted datetime input, like '+8', '-4'.",
                 Some('o'),
             )
             .named(
@@ -430,7 +430,7 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     Ok(dt) => match timezone {
                         None => Value::date(dt, head),
                         Some(Spanned { item, span }) => match item {
-                            Zone::Utc => Value::date(dt, head),
+                            Zone::Utc => Value::date(dt.with_timezone(&Utc).into(), *span),
                             Zone::Local => Value::date(dt.with_timezone(&Local).into(), *span),
                             Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
                                 Some(eastoffset) => {
@@ -468,24 +468,25 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                             ),
                         },
                     },
-                    Err(reason) => parse_with_format(val, &format_str, head).unwrap_or_else(|_| {
-                        Value::error(
-                            ShellError::CantConvert {
-                                to_type: format!(
-                                    "could not parse as datetime using format '{}'",
-                                    dt_format.item.0
-                                ),
-                                from_type: reason.to_string(),
-                                span: head,
-                                help: Some(
-                                    "you can use `into datetime` without a format string to \
+                    Err(reason) => parse_with_format(val, &format_str, head, timezone.as_ref())
+                        .unwrap_or_else(|_| {
+                            Value::error(
+                                ShellError::CantConvert {
+                                    to_type: format!(
+                                        "could not parse as datetime using format '{}'",
+                                        dt_format.item.0
+                                    ),
+                                    from_type: reason.to_string(),
+                                    span: head,
+                                    help: Some(
+                                        "you can use `into datetime` without a format string to \
                                          enable flexible parsing"
-                                        .to_string(),
-                                ),
-                            },
-                            head,
-                        )
-                    }),
+                                            .to_string(),
+                                    ),
+                                },
+                                head,
+                            )
+                        }),
                 }
             }
 
@@ -745,29 +746,90 @@ fn parse_timezone_from_record(
     }
 }
 
-fn parse_with_format(val: &str, fmt: &str, head: Span) -> Result<Value, ()> {
+fn datetime_parse_error_value(val: &str, span: Span) -> Value {
+    Value::error(
+        ShellError::DatetimeParseError {
+            msg: val.to_string(),
+            span,
+        },
+        span,
+    )
+}
+
+fn invalid_timezone_value(span: Span) -> Value {
+    Value::error(
+        // This is an argument error, not an input error
+        ShellError::TypeMismatch {
+            err_message: "Invalid timezone or offset".to_string(),
+            span,
+        },
+        span,
+    )
+}
+
+fn interpret_wall_clock_datetime(
+    dt: NaiveDateTime,
+    timezone: Option<&Spanned<Zone>>,
+    head: Span,
+    val: &str,
+) -> Value {
+    match timezone {
+        None => match Local.from_local_datetime(&dt).single() {
+            Some(dt_native) => Value::date(dt_native.into(), head),
+            None => datetime_parse_error_value(val, head),
+        },
+        Some(Spanned { item, span }) => match item {
+            Zone::Utc => Value::date(Utc.from_utc_datetime(&dt).into(), *span),
+            Zone::Local => match Local.from_local_datetime(&dt).single() {
+                Some(dt_native) => Value::date(dt_native.into(), *span),
+                None => datetime_parse_error_value(val, *span),
+            },
+            Zone::East(i) => match FixedOffset::east_opt((*i as i32) * HOUR) {
+                Some(eastoffset) => match eastoffset.from_local_datetime(&dt).single() {
+                    Some(dt_native) => Value::date(dt_native, *span),
+                    None => datetime_parse_error_value(val, *span),
+                },
+                None => datetime_parse_error_value(val, *span),
+            },
+            Zone::West(i) => match FixedOffset::west_opt((*i as i32) * HOUR) {
+                Some(westoffset) => match westoffset.from_local_datetime(&dt).single() {
+                    Some(dt_native) => Value::date(dt_native, *span),
+                    None => datetime_parse_error_value(val, *span),
+                },
+                None => datetime_parse_error_value(val, *span),
+            },
+            Zone::Error => invalid_timezone_value(*span),
+        },
+    }
+}
+
+fn parse_with_format(
+    val: &str,
+    fmt: &str,
+    head: Span,
+    timezone: Option<&Spanned<Zone>>,
+) -> Result<Value, ()> {
     // try parsing at date + time
     if let Ok(dt) = NaiveDateTime::parse_from_str(val, fmt) {
-        let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
-        return Ok(Value::date(dt_native.into(), head));
+        return Ok(interpret_wall_clock_datetime(dt, timezone, head, val));
     }
 
     // try parsing at date only
     if let Ok(date) = NaiveDate::parse_from_str(val, fmt)
         && let Some(dt) = date.and_hms_opt(0, 0, 0)
     {
-        let dt_native = Local.from_local_datetime(&dt).single().unwrap_or_default();
-        return Ok(Value::date(dt_native.into(), head));
+        return Ok(interpret_wall_clock_datetime(dt, timezone, head, val));
     }
 
     // try parsing at time only
     if let Ok(time) = NaiveTime::parse_from_str(val, fmt) {
         let now = Local::now().naive_local().date();
-        let dt_native = Local
-            .from_local_datetime(&now.and_time(time))
-            .single()
-            .unwrap_or_default();
-        return Ok(Value::date(dt_native.into(), head));
+        return Ok(interpret_wall_clock_datetime(
+            now.and_time(time),
+            timezone,
+            head,
+            val,
+        ));
     }
 
     Err(())
@@ -829,6 +891,94 @@ mod tests {
         );
 
         assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_a_date_format_without_timezone_with_utc_timezone() {
+        let date_str = Value::test_string("2026-03-21_00:25");
+        let timezone_option = Some(Spanned {
+            item: Zone::Utc,
+            span: Span::test_data(),
+        });
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%F_%R".to_string()),
+            span: Span::test_data(),
+        });
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_str, &args, Span::test_data());
+        let expected = Value::date(
+            Utc.from_utc_datetime(
+                &NaiveDateTime::parse_from_str("2026-03-21_00:25", "%F_%R").unwrap(),
+            )
+            .into(),
+            Span::test_data(),
+        );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_a_date_format_without_timezone_with_offset_timezone() {
+        let date_str = Value::test_string("29 Aug 2025 19:30:07");
+        let timezone_option = Some(Spanned {
+            item: Zone::East(3),
+            span: Span::test_data(),
+        });
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%d %b %Y %H:%M:%S".to_string()),
+            span: Span::test_data(),
+        });
+        let args = Arguments {
+            zone_options: timezone_option,
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+        let actual = action(&date_str, &args, Span::test_data());
+
+        let dt =
+            NaiveDateTime::parse_from_str("29 Aug 2025 19:30:07", "%d %b %Y %H:%M:%S").unwrap();
+        let eastoffset = FixedOffset::east_opt(3 * HOUR).unwrap();
+        let expected = Value::date(
+            eastoffset.from_local_datetime(&dt).single().unwrap(),
+            Span::test_data(),
+        );
+
+        assert_eq!(actual, expected)
+    }
+
+    #[test]
+    fn takes_a_date_format_without_timezone_applies_timezone_and_offset_differently() {
+        let date_str = Value::test_string("2026-03-21_00:25");
+        let fmt_options = Some(Spanned {
+            item: DatetimeFormat("%F_%R".to_string()),
+            span: Span::test_data(),
+        });
+
+        let utc_args = Arguments {
+            zone_options: Some(Spanned {
+                item: Zone::Utc,
+                span: Span::test_data(),
+            }),
+            format_options: fmt_options.clone(),
+            cell_paths: None,
+        };
+        let east_args = Arguments {
+            zone_options: Some(Spanned {
+                item: Zone::East(1),
+                span: Span::test_data(),
+            }),
+            format_options: fmt_options,
+            cell_paths: None,
+        };
+
+        let utc_actual = action(&date_str, &utc_args, Span::test_data());
+        let east_actual = action(&date_str, &east_args, Span::test_data());
+
+        assert_ne!(utc_actual, east_actual)
     }
 
     #[test]
