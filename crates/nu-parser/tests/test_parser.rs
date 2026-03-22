@@ -1815,7 +1815,22 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let _ = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            let block = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            assert_eq!(block.len(), 1);
+
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::StringInterpolation(expressions) => {
+                    expressions.iter().map(|e| &e.expr).collect()
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
 
             assert!(
                 working_set.parse_errors.iter().any(
