@@ -148,21 +148,21 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
             nu_plugin_engine::load_plugin_file(&mut working_set, &contents, span);
 
         if plugin_load_errors > 0 {
+            let error = format!(
+                "Failed to load {plugin_load_errors} plugin entr{} from {}",
+                if plugin_load_errors == 1 { "y" } else { "ies" },
+                plugin_path.display(),
+            );
+            let msg = "plugins with incompatible or invalid registry data were skipped";
+            let help = "run `plugin list` and re-add outdated plugins with `plugin add`";
+            let generic_error = match span {
+                Some(span) => GenericError::new(error, msg, span),
+                None => GenericError::new_internal(error, msg),
+            };
             report_shell_error(
                 None,
                 engine_state,
-                &ShellError::Generic(
-                    GenericError::new(
-                        format!(
-                            "Failed to load {plugin_load_errors} plugin entr{} from {}",
-                            if plugin_load_errors == 1 { "y" } else { "ies" },
-                            plugin_path.display(),
-                        ),
-                        "plugins with incompatible or invalid registry data were skipped",
-                        span.unwrap_or(Span::unknown()),
-                    )
-                    .with_help("run `plugin list` and re-add outdated plugins with `plugin add`"),
-                ),
+                &ShellError::Generic(generic_error.with_help(help)),
             );
         }
 
