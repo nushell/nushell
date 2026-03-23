@@ -9,6 +9,7 @@ pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
 pub mod locale;
+pub mod location;
 mod multilife;
 pub mod net;
 mod nu_cow;
