@@ -5,6 +5,7 @@ use crate::{
         StackCallArgGuard, StackCollectValueGuard, StackIoGuard, StackOutDest,
     },
     report_shell_warning,
+    shell_error::generic::GenericError,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -190,13 +191,11 @@ impl Stack {
             Some(v) => Ok(v),
             None => {
                 if var_id == NU_VARIABLE_ID || var_id == ENV_VARIABLE_ID {
-                    return Err(ShellError::GenericError {
-                        error: "Built-in variables `$env` and `$nu` have no metadata".into(),
-                        msg: "no metadata available".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Built-in variables `$env` and `$nu` have no metadata",
+                        "no metadata available",
+                        span,
+                    )));
                 }
                 Err(ShellError::VariableNotFoundAtRuntime { span })
             }
@@ -783,29 +782,23 @@ impl Stack {
         // Helper function to create a simple generic error.
         // Its messages are not especially helpful, but these errors don't occur often, so it's probably fine.
         fn error(msg: &str) -> Result<(), ShellError> {
-            Err(ShellError::GenericError {
-                error: msg.into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+            Err(ShellError::Generic(GenericError::new_internal(
+                msg.to_string(),
+                "",
+            )))
         }
 
         let path = path.as_ref();
 
         if !path.is_absolute() {
             if let Some(Component::Prefix(_)) = path.components().next() {
-                return Err(ShellError::GenericError {
-                    error: "Cannot set $env.PWD to a prefix-only path".to_string(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(format!(
-                        "Try to use {}{MAIN_SEPARATOR} instead",
-                        path.display()
-                    )),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal("Cannot set $env.PWD to a prefix-only path", "")
+                        .with_help(format!(
+                            "Try to use {}{MAIN_SEPARATOR} instead",
+                            path.display()
+                        )),
+                ));
             }
 
             error("Cannot set $env.PWD to a non-absolute path")

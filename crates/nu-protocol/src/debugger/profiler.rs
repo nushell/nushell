@@ -4,14 +4,18 @@
 //! profiling Nushell code.
 
 use crate::{
-    PipelineData, PipelineExecutionData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
     record,
+    shell_error::generic::GenericError,
+    PipelineData, PipelineExecutionData, ShellError, Span, Value,
 };
-use std::{borrow::Borrow, io::BufRead};
+use std::{
+    borrow::{Borrow, Cow},
+    io::BufRead,
+};
 use web_time::Instant;
 
 #[derive(Debug, Clone, Copy)]
@@ -299,14 +303,8 @@ impl Debugger for Profiler {
     }
 }
 
-fn profiler_error(msg: impl Into<String>, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Profiler Error".to_string(),
-        msg: msg.into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+fn profiler_error(msg: impl Into<Cow<'static, str>>, span: Span) -> ShellError {
+    ShellError::Generic(GenericError::new("Profiler Error", msg, span))
 }
 
 fn expr_to_string(engine_state: &EngineState, expr: &Expr) -> String {

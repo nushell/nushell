@@ -3,13 +3,14 @@
 //! This enables you to assign `const`-constants and execute parse-time code dependent on this.
 //! e.g. `source $my_const`
 use crate::{
-    BlockId, Config, HistoryFileFormat, HistoryPath, PipelineData, Record, ShellError, Span, Value,
-    VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument},
     debugger::{DebugContext, WithoutDebug},
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
     record,
+    shell_error::generic::GenericError,
+    BlockId, Config, HistoryFileFormat, HistoryPath, PipelineData, Record, ShellError, Span, Value,
+    VarId,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -155,13 +156,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.home-dir failed".into(),
-                    msg: "Could not get home directory".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.home-dir failed",
+                    "Could not get home directory",
+                    span,
+                )),
                 span,
             )
         },
@@ -175,13 +174,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_data_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.data-dir failed".into(),
-                    msg: "Could not get data path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.data-dir failed",
+                    "Could not get data path",
+                    span,
+                )),
                 span,
             )
         },
@@ -195,13 +192,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_cache_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.cache-dir failed".into(),
-                    msg: "Could not get cache path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.cache-dir failed",
+                    "Could not get cache path",
+                    span,
+                )),
                 span,
             )
         },
@@ -272,13 +267,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(current_exe.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.current-exe failed".into(),
-                    msg: "Could not get current executable path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.current-exe failed",
+                    "Could not get current executable path",
+                    span,
+                )),
                 span,
             )
         },
