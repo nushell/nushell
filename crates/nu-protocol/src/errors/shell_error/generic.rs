@@ -62,11 +62,19 @@ impl GenericError {
     ///
     /// The `error` is a short title, the `msg` provides details, and the `span`
     /// points to the user code that triggered the issue.
+    #[track_caller]
     pub fn new(
         error: impl Into<Cow<'static, str>>,
         msg: impl Into<Cow<'static, str>>,
         span: Span,
     ) -> Self {
+        // TODO: enable this at some point to find where unknown spans are passed around
+        // debug_assert_ne!(
+        //     span,
+        //     Span::unknown(),
+        //     "do not use `Span::unknown()` in a `GenericError::new`, prefer `GenericError::new_internal`"
+        // );
+
         Self {
             code: DEFAULT_CODE.into(),
             error: error.into(),
