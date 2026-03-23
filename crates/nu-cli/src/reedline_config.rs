@@ -1092,6 +1092,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Submit => "Submit",
         RED::SubmitOrNewline => "SubmitOrNewline",
         RED::Esc => "Esc",
+        RED::Edit => "event: { edit: <edit> }",
         RED::Repaint => "Repaint",
         RED::PreviousHistory => "PreviousHistory",
         RED::Up => "Up",
@@ -1102,6 +1103,8 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Left => "Left",
         RED::NextHistory => "NextHistory",
         RED::SearchHistory => "SearchHistory",
+        RED::Multiple => "event: { send: list<event> }",
+        RED::UntilFound => "event: { until: list<event> }",
         RED::Menu => "Menu name: <string>",
         RED::MenuNext => "MenuNext",
         RED::MenuPrevious => "MenuPrevious",
@@ -1116,8 +1119,6 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::ViChangeMode => "ViChangeMode mode: <string>",
         // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
-        // These are not usable in `send`
-        RED::Edit | RED::Multiple | RED::UntilFound => return None,
     })
 }
 
