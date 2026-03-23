@@ -11,21 +11,21 @@ use std::{
 pub const DEFAULT_CODE: &str = "nu::shell::error";
 
 /// Generic [`ShellError`].
-/// 
-/// This is a generic error for all cases where any of the variants of [`ShellError`] do not fit 
+///
+/// This is a generic error for all cases where any of the variants of [`ShellError`] do not fit
 /// and creating new variants is too niche.
-/// Usually this should be created using [`new`](Self::new) or [`new_internal`](Self::new_internal) 
-/// if absolutely no span is available, try however to provide at least some span like `call.head` 
+/// Usually this should be created using [`new`](Self::new) or [`new_internal`](Self::new_internal)
+/// if absolutely no span is available, try however to provide at least some span like `call.head`
 /// inside a [`Command::run`](crate::engine::Command::run) context.
-/// 
-/// Using [`with_code`](Self::with_code), [`with_help`](Self::with_help), 
+///
+/// Using [`with_code`](Self::with_code), [`with_help`](Self::with_help),
 /// [`with_inner`](Self::with_inner) can improve the error type making it more useful.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericError {
     /// The diagnostic code for this error.
     ///
-    /// Defaults to [`DEFAULT_CODE`]. 
+    /// Defaults to [`DEFAULT_CODE`].
     /// Use [`with_code`](Self::with_code) to override it.
     pub code: Cow<'static, str>,
 
@@ -47,7 +47,7 @@ pub struct GenericError {
 
 /// Represents where an error originated.
 ///
-/// Most user-facing errors should point to a [`Span`]. 
+/// Most user-facing errors should point to a [`Span`].
 /// When no user span is available (for internal errors), store a [`Location`] string instead.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SpanOrLocation {

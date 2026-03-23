@@ -1,11 +1,12 @@
 #![allow(unused_assignments)]
 use super::chained_error::ChainedError;
 use crate::{
-    ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
     ast::Operator,
     engine::{Stack, StateWorkingSet},
-    format_cli_error, record,
+    format_cli_error, record, ConfigError, FromValue, LabeledError, ParseError, Span, Spanned,
+    Type, Value,
 };
+use generic::GenericError;
 use job::JobError;
 use miette::{Diagnostic, LabeledSpan, NamedSource};
 use serde::{Deserialize, Serialize};
@@ -927,7 +928,9 @@ pub enum ShellError {
     /// creation of the custom value and its use.
     #[error("Custom value failed to decode")]
     #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
-    #[diagnostic(help("the plugin may have been updated and no longer support this custom value"))]
+    #[diagnostic(help(
+        "the plugin may have been updated and no longer support this custom value"
+    ))]
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]
@@ -1557,13 +1560,11 @@ impl FromValue for ShellError {
                     })?
                     .clone(),
             ),
-            Value::Nothing { internal_span } => Ok(Self::GenericError {
-                error: "error".into(),
-                msg: "is nothing".into(),
-                span: Some(internal_span),
-                help: None,
-                inner: vec![],
-            }),
+            Value::Nothing { internal_span } => Ok(Self::Generic(GenericError::new(
+                "error",
+                "is nothing",
+                internal_span,
+            ))),
             _ => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -1576,25 +1577,19 @@ impl FromValue for ShellError {
 
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new_internal(
+            format!("{error:?}"),
+            error.to_string(),
+        ))
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(error: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new_internal(
+            format!("{error:?}"),
+            error.to_string(),
+        ))
     }
 }
 
