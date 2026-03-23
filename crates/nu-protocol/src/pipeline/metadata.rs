@@ -33,6 +33,13 @@ impl PipelineMetadata {
         }
     }
 
+    pub fn with_path_columns(self, path_columns: Vec<String>) -> Self {
+        Self {
+            path_columns,
+            ..self
+        }
+    }
+
     pub fn with_content_type(self, content_type: Option<String>) -> Self {
         Self {
             content_type,
