@@ -6,7 +6,7 @@ use nu_protocol::shell_error::generic::GenericError;
 #[cfg(feature = "plugin")]
 use nu_protocol::{ParseError, PluginRegistryFile, Spanned, engine::StateWorkingSet};
 use nu_protocol::{
-    PipelineData, Span,
+    PipelineData,
     engine::{EngineState, Stack},
     report_shell_error,
 };
@@ -111,10 +111,10 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
             Err(err) => {
                 log::warn!("Failed to read plugin registry file: {err:?}");
                 let error = format!(
-                                "Error while reading plugin registry file: {}",
-                                plugin_path.display()
-                            );
-                            let msg = "plugin path defined here";
+                    "Error while reading plugin registry file: {}",
+                    plugin_path.display()
+                );
+                let msg = "plugin path defined here";
                 report_shell_error(
                     None,
                     engine_state,
