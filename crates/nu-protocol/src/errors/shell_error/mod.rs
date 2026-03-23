@@ -1042,7 +1042,7 @@ pub enum ShellError {
     /// This is a generic error type used for different situations.
     #[error("{error}")]
     #[diagnostic(code(nu::shell::error))]
-    #[deprecated(note = "use `ShellError::Generic` instead")]
+    #[deprecated(since = "0.111.1", note = "use `ShellError::Generic` instead")]
     GenericError {
         error: String,
         msg: String,
