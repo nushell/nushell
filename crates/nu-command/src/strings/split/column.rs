@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct SplitColumn;
@@ -184,12 +185,12 @@ fn split_column(
         let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
-    .map_err(|e| ShellError::GenericError {
-        error: "Error with regular expression".into(),
-        msg: e.to_string(),
-        span: Some(args.separator.span),
-        help: None,
-        inner: vec![],
+    .map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error with regular expression",
+            e.to_string(),
+            args.separator.span,
+        ))
     })?;
 
     input.flat_map(

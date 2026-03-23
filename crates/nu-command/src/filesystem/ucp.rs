@@ -2,7 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_protocol::{
     NuGlob,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use std::path::PathBuf;
 use uu_cp::{BackupMode, CopyMode, CpError, UpdateMode};
@@ -157,26 +157,21 @@ impl Command for UCp {
         let reflink_mode = uu_cp::ReflinkMode::Never;
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "Missing file operand".into(),
-                msg: "Missing file operand".into(),
-                span: Some(call.head),
-                help: Some("Please provide source and destination paths".into()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new("Missing file operand", "Missing file operand", call.head)
+                    .with_help("Please provide source and destination paths"),
+            ));
         }
 
         if paths.len() == 1 {
-            return Err(ShellError::GenericError {
-                error: "Missing destination path".into(),
-                msg: format!(
+            return Err(ShellError::Generic(GenericError::new(
+                "Missing destination path",
+                format!(
                     "Missing destination path operand after {}",
                     paths[0].item.as_ref()
                 ),
-                span: Some(paths[0].span),
-                help: None,
-                inner: vec![],
-            });
+                paths[0].span,
+            )));
         }
         let target = paths.pop().expect("Should not be reached?");
         let target_path = PathBuf::from(&nu_utils::strip_ansi_string_unlikely(
@@ -185,13 +180,11 @@ impl Command for UCp {
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let target_path = nu_path::expand_path_with(target_path, &cwd, target.item.is_expand());
         if target.item.as_ref().ends_with(PATH_SEPARATOR) && !target_path.is_dir() {
-            return Err(ShellError::GenericError {
-                error: "is not a directory".into(),
-                msg: "is not a directory".into(),
-                span: Some(target.span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "is not a directory",
+                "is not a directory",
+                target.span,
+            )));
         };
 
         // paths now contains the sources
@@ -229,15 +222,14 @@ impl Command for UCp {
                 match v {
                     Ok(path) => {
                         if !recursive && path.is_dir() {
-                            return Err(ShellError::GenericError {
-                                error: "could_not_copy_directory".into(),
-                                msg: "resolves to a directory (not copied)".into(),
-                                span: Some(p.span),
-                                help: Some(
-                                    "Directories must be copied using \"--recursive\"".into(),
-                                ),
-                                inner: vec![],
-                            });
+                            return Err(ShellError::Generic(
+                                GenericError::new(
+                                    "could_not_copy_directory",
+                                    "resolves to a directory (not copied)",
+                                    p.span,
+                                )
+                                .with_help("Directories must be copied using \"--recursive\""),
+                            ));
                         };
                         app_vals.push(path)
                     }
@@ -291,14 +283,10 @@ impl Command for UCp {
                 // code should still be EXIT_ERR as does GNU cp
                 CpError::NotAllFilesCopied => {}
                 _ => {
-                    eprintln!("here");
-                    return Err(ShellError::GenericError {
-                        error: format!("{error}"),
-                        msg: translate!(&error.to_string()),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new_internal(
+                        format!("{error}"),
+                        translate!(&error.to_string()),
+                    )));
                 }
             };
             // TODO: What should we do in place of set_exit_code?

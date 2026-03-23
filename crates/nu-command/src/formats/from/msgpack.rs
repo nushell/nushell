@@ -10,7 +10,7 @@ use std::{
 use byteorder::{BigEndian, ReadBytesExt};
 use chrono::{TimeZone, Utc};
 use nu_engine::command_prelude::*;
-use nu_protocol::Signals;
+use nu_protocol::{Signals, shell_error::generic::GenericError};
 use rmp::decode::{self as mp, ValueReadError};
 
 /// Max recursion depth
@@ -190,33 +190,30 @@ impl From<Spanned<FromUtf8Error>> for ReadError {
 impl From<ReadError> for ShellError {
     fn from(value: ReadError) -> Self {
         match value {
-            ReadError::MaxDepth(span) => ShellError::GenericError {
-                error: "MessagePack data is nested too deeply".into(),
-                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            },
-            ReadError::Io(err, span) => ShellError::GenericError {
-                error: "Error while reading MessagePack data".into(),
-                msg: err.to_string(),
-                span: Some(span),
-                help: None,
-                // Take the inner ShellError
-                inner: err
-                    .source()
-                    .and_then(|s| s.downcast_ref::<ShellError>())
-                    .cloned()
-                    .into_iter()
-                    .collect(),
-            },
-            ReadError::TypeMismatch(marker, span) => ShellError::GenericError {
-                error: "Invalid marker while reading MessagePack data".into(),
-                msg: format!("unexpected {marker:?} in data"),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            },
+            ReadError::MaxDepth(span) => ShellError::Generic(GenericError::new(
+                "MessagePack data is nested too deeply",
+                format!("exceeded depth limit ({MAX_DEPTH})"),
+                span,
+            )),
+            ReadError::Io(err, span) => ShellError::Generic(
+                GenericError::new(
+                    "Error while reading MessagePack data",
+                    err.to_string(),
+                    span,
+                )
+                .with_inner(
+                    err.source()
+                        .and_then(|s| s.downcast_ref::<ShellError>())
+                        .cloned()
+                        .into_iter()
+                        .collect::<Vec<_>>(),
+                ),
+            ),
+            ReadError::TypeMismatch(marker, span) => ShellError::Generic(GenericError::new(
+                "Invalid marker while reading MessagePack data",
+                format!("unexpected {marker:?} in data"),
+                span,
+            )),
             ReadError::Utf8(err, span) => ShellError::NonUtf8Custom {
                 msg: format!("in MessagePack data: {err}"),
                 span,
@@ -303,13 +300,11 @@ fn read_value(input: &mut impl io::Read, span: Span, depth: usize) -> Result<Val
                 .try_into()
                 .map(|val| Value::int(val, span))
                 .map_err(|err| {
-                    ShellError::GenericError {
-                        error: "MessagePack integer too big for Nushell".into(),
-                        msg: err.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }
+                    ShellError::Generic(GenericError::new(
+                        "MessagePack integer too big for Nushell",
+                        err.to_string(),
+                        span,
+                    ))
                     .into()
                 })
         }
@@ -423,12 +418,12 @@ fn read_map(
         .map(|_| {
             let key = read_value(input, span, depth + 1)?
                 .into_string()
-                .map_err(|_| ShellError::GenericError {
-                    error: "Invalid non-string value in MessagePack map".into(),
-                    msg: "only maps with string keys are supported".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .map_err(|_| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid non-string value in MessagePack map",
+                        "only maps with string keys are supported",
+                        span,
+                    ))
                 })?;
             let val = read_value(input, span, depth + 1)?;
             Ok((key, val))
@@ -458,13 +453,14 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
             let secs = input.read_i64::<BigEndian>().err_span(span)?;
             make_date(secs, nanos, span)
         }
-        _ => Err(ShellError::GenericError {
-            error: "Unknown MessagePack extension".into(),
-            msg: format!("encountered extension type {ty}, length {len}"),
-            span: Some(span),
-            help: Some("only the timestamp extension (-1) is supported".into()),
-            inner: vec![],
-        }
+        _ => Err(ShellError::Generic(
+            GenericError::new(
+                "Unknown MessagePack extension",
+                format!("encountered extension type {ty}, length {len}"),
+                span,
+            )
+            .with_help("only the timestamp extension (-1) is supported"),
+        )
         .into()),
     }
 }
@@ -472,13 +468,14 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
 fn make_date(secs: i64, nanos: u32, span: Span) -> Result<Value, ReadError> {
     match Utc.timestamp_opt(secs, nanos) {
         chrono::offset::LocalResult::Single(dt) => Ok(Value::date(dt.into(), span)),
-        _ => Err(ShellError::GenericError {
-            error: "Invalid MessagePack timestamp".into(),
-            msg: "datetime is out of supported range".into(),
-            span: Some(span),
-            help: Some("nanoseconds must be less than 1 billion".into()),
-            inner: vec![],
-        }
+        _ => Err(ShellError::Generic(
+            GenericError::new(
+                "Invalid MessagePack timestamp",
+                "datetime is out of supported range",
+                span,
+            )
+            .with_help("nanoseconds must be less than 1 billion"),
+        )
         .into()),
     }
 }
@@ -500,13 +497,16 @@ fn assert_eof(input: &mut impl io::Read, span: Span) -> Result<(), ShellError> {
         // End of file
         Err(_) => Ok(()),
         // More bytes
-        Ok(()) => Err(ShellError::GenericError {
-            error: "Additional data after end of MessagePack object".into(),
-            msg: "there was more data available after parsing".into(),
-            span: Some(span),
-            help: Some("this might be invalid data, but you can use `from msgpack --objects` to read multiple objects".into()),
-            inner: vec![],
-        })
+        Ok(()) => Err(ShellError::Generic(
+            GenericError::new(
+                "Additional data after end of MessagePack object",
+                "there was more data available after parsing",
+                span,
+            )
+            .with_help(
+                "this might be invalid data, but you can use `from msgpack --objects` to read multiple objects",
+            ),
+        )),
     }
 }
 

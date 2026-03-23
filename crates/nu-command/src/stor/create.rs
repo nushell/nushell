@@ -1,5 +1,6 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -143,14 +144,12 @@ fn process(
 
                 // dbg!(&create_stmt);
 
-                conn.execute(&create_stmt, [])
-                    .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from create".into(),
-                        msg: err.to_string(),
-                        span: Some(Span::test_data()),
-                        help: None,
-                        inner: vec![],
-                    })?;
+                conn.execute(&create_stmt, []).map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to open SQLite connection in memory from create",
+                        err.to_string(),
+                    ))
+                })?;
             }
             None => {
                 return Err(ShellError::MissingParameter {

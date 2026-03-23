@@ -2,8 +2,9 @@ use nu_protocol::{
     Filesize, IntoValue, Range, Record, ShellError, Span, Type, Unit, Value,
     ast::{Expr, Expression, ListItem, RecordItem},
     engine::{EngineState, StateWorkingSet},
+    shell_error::generic::GenericError,
 };
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 /// convert a raw string representation of NUON data to an actual Nushell [`Value`]
 ///
@@ -26,32 +27,32 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
 
     if let Some(pipeline) = block.pipelines.get(1) {
         if let Some(element) = pipeline.elements.first() {
-            return Err(ShellError::GenericError {
-                error: "error when loading nuon text".into(),
-                msg: "could not load nuon text".into(),
-                span,
-                help: None,
-                inner: vec![ShellError::OutsideSpannedLabeledError {
+            return Err(ShellError::Generic(
+                make_generic_error(
+                    span,
+                    "error when loading nuon text",
+                    "could not load nuon text",
+                )
+                .with_inner([ShellError::OutsideSpannedLabeledError {
                     src: input.to_string(),
                     error: "error when loading".into(),
                     msg: "excess values when loading".into(),
                     span: element.expr.span,
-                }],
-            });
+                }]),
+            ));
         } else {
-            return Err(ShellError::GenericError {
-                error: "error when loading nuon text".into(),
-                msg: "could not load nuon text".into(),
-                span,
-                help: None,
-                inner: vec![ShellError::GenericError {
-                    error: "error when loading".into(),
-                    msg: "excess values when loading".into(),
+            return Err(ShellError::Generic(
+                make_generic_error(
                     span,
-                    help: None,
-                    inner: vec![],
-                }],
-            });
+                    "error when loading nuon text",
+                    "could not load nuon text",
+                )
+                .with_inner([ShellError::Generic(make_generic_error(
+                    span,
+                    "error when loading",
+                    "excess values when loading",
+                ))]),
+            ));
         }
     }
 
@@ -66,18 +67,19 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
         let mut pipeline = Arc::make_mut(&mut block).pipelines.remove(0);
 
         if let Some(expr) = pipeline.elements.get(1) {
-            return Err(ShellError::GenericError {
-                error: "error when loading nuon text".into(),
-                msg: "could not load nuon text".into(),
-                span,
-                help: None,
-                inner: vec![ShellError::OutsideSpannedLabeledError {
+            return Err(ShellError::Generic(
+                make_generic_error(
+                    span,
+                    "error when loading nuon text",
+                    "could not load nuon text",
+                )
+                .with_inner([ShellError::OutsideSpannedLabeledError {
                     src: input.to_string(),
                     error: "error when loading".into(),
                     msg: "detected a pipeline in nuon file".into(),
                     span: expr.expr.span,
-                }],
-            });
+                }]),
+            ));
         }
 
         if pipeline.elements.is_empty() {
@@ -93,23 +95,35 @@ pub fn from_nuon(input: &str, span: Option<Span>) -> Result<Value, ShellError> {
     };
 
     if let Some(err) = working_set.parse_errors.first() {
-        return Err(ShellError::GenericError {
-            error: "error when parsing nuon text".into(),
-            msg: "could not parse nuon text".into(),
-            span,
-            help: None,
-            inner: vec![ShellError::OutsideSpannedLabeledError {
+        return Err(ShellError::Generic(
+            make_generic_error(
+                span,
+                "error when parsing nuon text",
+                "could not parse nuon text",
+            )
+            .with_inner([ShellError::OutsideSpannedLabeledError {
                 src: input.to_string(),
                 error: "error when parsing".into(),
                 msg: err.to_string(),
                 span: err.span(),
-            }],
-        });
+            }]),
+        ));
     }
 
     let value = convert_to_value(expr, span.unwrap_or(Span::unknown()), input)?;
 
     Ok(value)
+}
+
+fn make_generic_error(
+    span: Option<Span>,
+    error: impl Into<Cow<'static, str>>,
+    msg: impl Into<Cow<'static, str>>,
+) -> GenericError {
+    match span {
+        Some(span) => GenericError::new(error, msg, span),
+        None => GenericError::new_internal(error, msg),
+    }
 }
 
 fn convert_to_value(

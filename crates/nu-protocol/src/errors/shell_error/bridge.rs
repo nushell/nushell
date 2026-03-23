@@ -1,4 +1,6 @@
 use super::ShellError;
+#[cfg(test)]
+use super::generic::GenericError;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -32,13 +34,7 @@ impl From<ShellErrorBridge> for std::io::Error {
 
 #[test]
 fn test_bridge_io_error_roundtrip() {
-    let shell_error = ShellError::GenericError {
-        error: "some error".into(),
-        msg: "some message".into(),
-        span: None,
-        help: None,
-        inner: vec![],
-    };
+    let shell_error = ShellError::Generic(GenericError::new_internal("some error", "some message"));
 
     let bridge = ShellErrorBridge(shell_error);
     let io_error = std::io::Error::from(bridge.clone());

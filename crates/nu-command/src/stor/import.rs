@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct StorImport;
@@ -66,12 +67,11 @@ impl Command for StorImport {
 
         if let Ok(mut conn) = db.open_connection() {
             db.restore_database_from_file(&mut conn, file_name)
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to open SQLite connection in memory from import".into(),
-                    msg: err.to_string(),
-                    span: Some(Span::test_data()),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to open SQLite connection in memory from import",
+                        err.to_string(),
+                    ))
                 })?;
         }
         // dbg!(db.clone());

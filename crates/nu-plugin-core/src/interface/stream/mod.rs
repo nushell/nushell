@@ -1,5 +1,5 @@
 use nu_plugin_protocol::{StreamData, StreamId, StreamMessage};
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Span, Value, shell_error::generic::GenericError};
 use std::{
     collections::{BTreeMap, btree_map},
     iter::FusedIterator,
@@ -62,12 +62,11 @@ where
     /// * an error was sent on the channel
     /// * the message received couldn't be converted to `T`
     pub fn recv(&mut self) -> Result<Option<T>, ShellError> {
-        let connection_lost = || ShellError::GenericError {
-            error: "Stream ended unexpectedly".into(),
-            msg: "connection lost before explicit end of stream".into(),
-            span: None,
-            help: None,
-            inner: vec![],
+        let connection_lost = || {
+            ShellError::Generic(GenericError::new_internal(
+                "Stream ended unexpectedly",
+                "connection lost before explicit end of stream",
+            ))
         };
 
         if let Some(ref rx) = self.receiver {
@@ -214,16 +213,16 @@ where
                 Ok(())
             }
         } else {
-            Err(ShellError::GenericError {
-                error: "Wrote to a stream after it ended".into(),
-                msg: format!(
-                    "tried to write to stream {} after it was already ended",
-                    self.id
-                ),
-                span: None,
-                help: Some("this may be a bug in the nu-plugin crate".into()),
-                inner: vec![],
-            })
+            Err(ShellError::Generic(
+                GenericError::new_internal(
+                    "Wrote to a stream after it ended",
+                    format!(
+                        "tried to write to stream {} after it was already ended",
+                        self.id
+                    ),
+                )
+                .with_help("this may be a bug in the nu-plugin crate"),
+            ))
         }
     }
 
@@ -579,13 +578,13 @@ impl StreamManagerHandle {
                 e.insert(tx);
                 Ok(())
             } else {
-                Err(ShellError::GenericError {
-                    error: format!("Failed to acquire reader for stream {id}"),
-                    msg: "tried to get a reader for a stream that's already being read".into(),
-                    span: None,
-                    help: Some("this may be a bug in the nu-plugin crate".into()),
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(
+                    GenericError::new_internal(
+                        format!("Failed to acquire reader for stream {id}"),
+                        "tried to get a reader for a stream that's already being read",
+                    )
+                    .with_help("this may be a bug in the nu-plugin crate"),
+                ))
             }
         })?;
         Ok(StreamReader::new(id, rx, writer))
@@ -617,13 +616,13 @@ impl StreamManagerHandle {
                 e.insert(Arc::downgrade(&signal));
                 Ok(())
             } else {
-                Err(ShellError::GenericError {
-                    error: format!("Failed to acquire writer for stream {id}"),
-                    msg: "tried to get a writer for a stream that's already being written".into(),
-                    span: None,
-                    help: Some("this may be a bug in the nu-plugin crate".into()),
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(
+                    GenericError::new_internal(
+                        format!("Failed to acquire writer for stream {id}"),
+                        "tried to get a writer for a stream that's already being written",
+                    )
+                    .with_help("this may be a bug in the nu-plugin crate"),
+                ))
             }
         })?;
         Ok(StreamWriter::new(id, signal, writer))

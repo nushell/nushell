@@ -1,5 +1,6 @@
 use nix::sys::resource::{RLIM_INFINITY, Resource, rlim_t};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use std::sync::LazyLock;
 
@@ -400,26 +401,14 @@ fn print_limits(
 
 /// Wrap `nix::sys::resource::getrlimit`
 fn setrlimit(res: Resource, soft_limit: rlim_t, hard_limit: rlim_t) -> Result<(), ShellError> {
-    nix::sys::resource::setrlimit(res, soft_limit, hard_limit).map_err(|e| {
-        ShellError::GenericError {
-            error: e.to_string(),
-            msg: String::new(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }
-    })
+    nix::sys::resource::setrlimit(res, soft_limit, hard_limit)
+        .map_err(|e| ShellError::Generic(GenericError::new_internal(e.to_string(), "")))
 }
 
 /// Wrap `nix::sys::resource::setrlimit`
 fn getrlimit(res: Resource) -> Result<(rlim_t, rlim_t), ShellError> {
-    nix::sys::resource::getrlimit(res).map_err(|e| ShellError::GenericError {
-        error: e.to_string(),
-        msg: String::new(),
-        span: None,
-        help: None,
-        inner: vec![],
-    })
+    nix::sys::resource::getrlimit(res)
+        .map_err(|e| ShellError::Generic(GenericError::new_internal(e.to_string(), "")))
 }
 
 /// Parse user input

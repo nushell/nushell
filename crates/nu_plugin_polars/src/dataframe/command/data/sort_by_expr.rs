@@ -5,6 +5,7 @@ use crate::{
     values::CustomValueSupport,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -135,13 +136,11 @@ impl PluginCommand for LazySortBy {
                         .get_flag::<Value>("reverse")?
                         .expect("already checked and it exists")
                         .span();
-                    Err(ShellError::GenericError {
-                        error: "Incorrect list size".into(),
-                        msg: "Size doesn't match expression list".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })?
+                    Err(ShellError::Generic(GenericError::new(
+                        "Incorrect list size",
+                        "Size doesn't match expression list",
+                        span,
+                    )))?
                 } else {
                     list
                 }

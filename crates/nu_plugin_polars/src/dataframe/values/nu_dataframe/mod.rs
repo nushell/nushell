@@ -7,6 +7,7 @@ pub use conversion::{Column, ColumnMap};
 pub use operations::Axis;
 
 use indexmap::map::IndexMap;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{PipelineData, Record, ShellError, Span, Value, did_you_mean};
 use polars::prelude::{
     Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
@@ -146,13 +147,11 @@ impl NuDataFrame {
     pub fn try_from_series(series: Series, span: Span) -> Result<Self, ShellError> {
         match DataFrame::new_infer_height(vec![series.into()]) {
             Ok(dataframe) => Ok(NuDataFrame::new(false, dataframe)),
-            Err(e) => Err(ShellError::GenericError {
-                error: "Error creating dataframe".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            }),
+            Err(e) => Err(ShellError::Generic(GenericError::new(
+                "Error creating dataframe",
+                e.to_string(),
+                span,
+            ))),
         }
     }
 
@@ -203,13 +202,11 @@ impl NuDataFrame {
         let columns_converted: Vec<PolarsColumn> = columns.into_iter().map(Into::into).collect();
 
         let dataframe = DataFrame::new_infer_height(columns_converted).map_err(|e| {
-            ShellError::GenericError {
-                error: "Error creating dataframe".into(),
-                msg: format!("Unable to create DataFrame: {e}"),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            }
+            ShellError::Generic(GenericError::new(
+                "Error creating dataframe",
+                format!("Unable to create DataFrame: {e}"),
+                span,
+            ))
         })?;
 
         Ok(Self::new(false, dataframe))
@@ -278,14 +275,13 @@ impl NuDataFrame {
             }
         })?;
 
-        let df =
-            DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| ShellError::GenericError {
-                error: "Error creating dataframe".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })?;
+        let df = DataFrame::new_infer_height(vec![s.clone()]).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error creating dataframe",
+                e.to_string(),
+                span,
+            ))
+        })?;
 
         Ok(Self::new(false, df))
     }
@@ -296,13 +292,11 @@ impl NuDataFrame {
 
     pub fn as_series(&self, span: Span) -> Result<Series, ShellError> {
         if !self.is_series() {
-            return Err(ShellError::GenericError {
-                error: "Error using as series".into(),
-                msg: "dataframe has more than one column".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Error using as series",
+                "dataframe has more than one column",
+                span,
+            )));
         }
 
         let series = self
@@ -537,13 +531,10 @@ impl Cacheable for NuDataFrame {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuDataFrame(df) => Ok(df),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a dataframe".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a dataframe",
+                "",
+            ))),
         }
     }
 }

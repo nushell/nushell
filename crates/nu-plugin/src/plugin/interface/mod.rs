@@ -1138,12 +1138,11 @@ impl Drop for ForegroundGuard {
 fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
     use nix::unistd::{Pid, setpgid};
     if let Ok(pgrp) = pgrp.try_into() {
-        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| ShellError::GenericError {
-            error: "Failed to set process group for foreground".into(),
-            msg: "".into(),
-            span: None,
-            help: Some(err.to_string()),
-            inner: vec![],
+        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| {
+            ShellError::Generic(
+                GenericError::new_internal("Failed to set process group for foreground", "")
+                    .with_help(err.to_string()),
+            )
         })
     } else {
         Err(ShellError::NushellFailed {

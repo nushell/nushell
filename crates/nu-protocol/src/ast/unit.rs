@@ -1,5 +1,5 @@
 use crate::{
-    shell_error::generic::GenericError, Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value,
+    Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value, shell_error::generic::GenericError,
 };
 use serde::{Deserialize, Serialize};
 use std::fmt;

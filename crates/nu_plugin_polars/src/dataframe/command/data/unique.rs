@@ -9,6 +9,7 @@ use crate::{
 use crate::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -213,12 +214,11 @@ fn command_eager(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let res = series.unique().map_err(|e| ShellError::GenericError {
-        error: "Error calculating unique values".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: Some("The str-slice command can only be used with string columns".into()),
-        inner: vec![],
+    let res = series.unique().map_err(|e| {
+        ShellError::Generic(
+            GenericError::new("Error calculating unique values", e.to_string(), call.head)
+                .with_help("The str-slice command can only be used with string columns"),
+        )
     })?;
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;

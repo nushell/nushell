@@ -1,4 +1,5 @@
 use nu_engine::{column::get_columns, command_prelude::*};
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Transpose;
@@ -205,33 +206,27 @@ pub fn transpose(
                         if let Ok(s) = x.coerce_string() {
                             headers.push(s);
                         } else {
-                            return Err(ShellError::GenericError {
-                                error: "Header row needs string headers".into(),
-                                msg: "used non-string headers".into(),
-                                span: Some(name),
-                                help: None,
-                                inner: vec![],
-                            });
+                            return Err(ShellError::Generic(GenericError::new(
+                                "Header row needs string headers",
+                                "used non-string headers",
+                                name,
+                            )));
                         }
                     }
                     _ => {
-                        return Err(ShellError::GenericError {
-                            error: "Header row is incomplete and can't be used".into(),
-                            msg: "using incomplete header row".into(),
-                            span: Some(name),
-                            help: None,
-                            inner: vec![],
-                        });
+                        return Err(ShellError::Generic(GenericError::new(
+                            "Header row is incomplete and can't be used",
+                            "using incomplete header row",
+                            name,
+                        )));
                     }
                 }
             } else {
-                return Err(ShellError::GenericError {
-                    error: "Header row is incomplete and can't be used".into(),
-                    msg: "using incomplete header row".into(),
-                    span: Some(name),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Header row is incomplete and can't be used",
+                    "using incomplete header row",
+                    name,
+                )));
             }
         }
     } else {

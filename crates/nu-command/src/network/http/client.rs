@@ -21,6 +21,7 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ByteStream, LabeledError, PipelineMetadata, Signals,
     shell_error::{
+        generic::GenericError,
         io::IoError,
         network::{DnsError, DnsErrorKind, NetworkError},
     },
@@ -741,13 +742,9 @@ fn send_cancellable_request_bytes(
             let ret = byte_stream
                 .reader()
                 .ok_or_else(|| {
-                    ShellErrorOrRequestError::ShellError(ShellError::GenericError {
-                        error: "Could not read byte stream".to_string(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    })
+                    ShellErrorOrRequestError::ShellError(ShellError::Generic(
+                        GenericError::new_internal("Could not read byte stream", ""),
+                    ))
                 })
                 .and_then(|reader| {
                     request

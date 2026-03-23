@@ -3,7 +3,8 @@ use nu_engine::{command_prelude::*, get_eval_block};
 use nu_path::{expand_path_with, is_windows_device_path};
 use nu_protocol::{
     ByteStreamSource, DataSource, OutDest, PipelineMetadata, Signals, ast,
-    byte_stream::copy_with_signals, process::ChildPipe, shell_error::io::IoError,
+    byte_stream::copy_with_signals, process::ChildPipe, shell_error::generic::GenericError,
+    shell_error::io::IoError,
 };
 use std::{
     borrow::Cow,
@@ -305,18 +306,19 @@ impl Command for Save {
 }
 
 fn saving_to_source_file_error(dest: &Spanned<PathBuf>) -> ShellError {
-    ShellError::GenericError {
-        error: "pipeline input and output are the same file".into(),
-        msg: format!(
-            "can't save output to '{}' while it's being read",
-            dest.item.display()
+    ShellError::Generic(
+        GenericError::new(
+            "pipeline input and output are the same file",
+            format!(
+                "can't save output to '{}' while it's being read",
+                dest.item.display()
+            ),
+            dest.span,
+        )
+        .with_help(
+            "insert a `collect` command in the pipeline before `save` (see `help collect`).",
         ),
-        span: Some(dest.span),
-        help: Some(
-            "insert a `collect` command in the pipeline before `save` (see `help collect`).".into(),
-        ),
-        inner: vec![],
-    }
+    )
 }
 
 fn check_saving_to_source_file(
@@ -410,16 +412,17 @@ fn prepare_path(
     let path = &path.item;
 
     if !(force || append) && path.exists() {
-        Err(ShellError::GenericError {
-            error: "Destination file already exists".into(),
-            msg: format!(
-                "Destination file '{}' already exists",
-                path.to_string_lossy()
-            ),
-            span: Some(span),
-            help: Some("you can use -f, --force to force overwriting the destination".into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "Destination file already exists",
+                format!(
+                    "Destination file '{}' already exists",
+                    path.to_string_lossy()
+                ),
+                span,
+            )
+            .with_help("you can use -f, --force to force overwriting the destination"),
+        ))
     } else {
         Ok((path, span))
     }
@@ -505,13 +508,14 @@ fn get_files(
     let stderr_file = stderr_path_and_span
         .map(|(stderr_path, stderr_path_span)| {
             if path == stderr_path {
-                Err(ShellError::GenericError {
-                    error: "input and stderr input to same file".into(),
-                    msg: "can't save both input and stderr input to the same file".into(),
-                    span: Some(stderr_path_span),
-                    help: Some("you should use `o+e> file` instead".into()),
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(
+                    GenericError::new(
+                        "input and stderr input to same file",
+                        "can't save both input and stderr input to the same file",
+                        stderr_path_span,
+                    )
+                    .with_help("you should use `o+e> file` instead"),
+                ))
             } else {
                 open_file(engine_state, stderr_path, stderr_path_span, append)
             }

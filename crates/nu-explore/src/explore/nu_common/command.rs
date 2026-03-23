@@ -4,6 +4,7 @@ use nu_protocol::{
     OutDest, PipelineData, ShellError, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Redirection, Stack, StateWorkingSet},
+    shell_error::generic::GenericError,
 };
 use std::sync::Arc;
 
@@ -14,25 +15,19 @@ pub fn run_command_with_value(
     stack: &mut Stack,
 ) -> Result<PipelineData, ShellError> {
     if is_ignored_command(command) {
-        return Err(ShellError::GenericError {
-            error: "Command ignored".to_string(),
-            msg: "the command is ignored".to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new_internal(
+            "Command ignored",
+            "the command is ignored",
+        )));
     }
 
     let pipeline = PipelineData::value(input.clone(), None);
     let pipeline = run_nu_command(engine_state, stack, command, pipeline)?;
     if let PipelineData::Value(Value::Error { error, .. }, ..) = pipeline {
-        Err(ShellError::GenericError {
-            error: "Error from pipeline".to_string(),
-            msg: error.to_string(),
-            span: None,
-            help: None,
-            inner: vec![*error],
-        })
+        Err(ShellError::Generic(
+            GenericError::new_internal("Error from pipeline", error.to_string())
+                .with_inner([*error]),
+        ))
     } else {
         Ok(pipeline)
     }
@@ -73,13 +68,10 @@ fn eval_source2(
         );
 
         if let Some(err) = working_set.parse_errors.first() {
-            return Err(ShellError::GenericError {
-                error: "Parse error".to_string(),
-                msg: err.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new_internal(
+                "Parse error",
+                err.to_string(),
+            )));
         }
 
         (output, working_set.render())
@@ -87,13 +79,9 @@ fn eval_source2(
 
     // We need to merge different info other wise things like PIPEs etc will not work.
     if let Err(err) = engine_state.merge_delta(delta) {
-        return Err(ShellError::GenericError {
-            error: "Merge error".to_string(),
-            msg: err.to_string(),
-            span: None,
-            help: None,
-            inner: vec![err],
-        });
+        return Err(ShellError::Generic(
+            GenericError::new_internal("Merge error", err.to_string()).with_inner([err]),
+        ));
     }
 
     // eval_block outputs all expressions except the last to STDOUT;

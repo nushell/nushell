@@ -18,6 +18,7 @@ use polars::prelude::{
     TimeZone as PolarsTimeZone, UInt8Type, UInt16Type, UInt32Type, UInt64Type,
 };
 
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Record, ShellError, Span, Value};
 use polars_arrow::Either;
 use polars_arrow::array::Utf8ViewArray;
@@ -290,13 +291,10 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     value_to_option(v, |v| match v {
                         Value::Float { val, .. } => Ok(*val as f32),
                         Value::Int { val, .. } => Ok(*val as f32),
-                        x => Err(ShellError::GenericError {
-                            error: "Error converting to f32".into(),
-                            msg: "".into(),
-                            span: None,
-                            help: Some(format!("Unexpected type: {x:?}")),
-                            inner: vec![],
-                        }),
+                        x => Err(ShellError::Generic(
+                            GenericError::new_internal("Error converting to f32", "")
+                                .with_help(format!("Unexpected type: {x:?}")),
+                        )),
                     })
                 })
                 .collect();
@@ -310,13 +308,10 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     value_to_option(v, |v| match v {
                         Value::Float { val, .. } => Ok(*val),
                         Value::Int { val, .. } => Ok(*val as f64),
-                        x => Err(ShellError::GenericError {
-                            error: "Error converting to f64".into(),
-                            msg: "".into(),
-                            span: None,
-                            help: Some(format!("Unexpected type: {x:?}")),
-                            inner: vec![],
-                        }),
+                        x => Err(ShellError::Generic(
+                            GenericError::new_internal("Error converting to f64", "")
+                                .with_help(format!("Unexpected type: {x:?}")),
+                        )),
                     })
                 })
                 .collect();
@@ -330,24 +325,20 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     value_to_option(v, |v| match v {
                         Value::Float { val, .. } => Ok(*val),
                         Value::Int { val, .. } => Ok(*val as f64),
-                        x => Err(ShellError::GenericError {
-                            error: "Error converting to decimal".into(),
-                            msg: "".into(),
-                            span: None,
-                            help: Some(format!("Unexpected type: {x:?}")),
-                            inner: vec![],
-                        }),
+                        x => Err(ShellError::Generic(
+                            GenericError::new_internal("Error converting to decimal", "")
+                                .with_help(format!("Unexpected type: {x:?}")),
+                        )),
                     })
                 })
                 .collect();
             Series::new(name, series_values?)
                 .cast_with_options(&DataType::Decimal(*precision, *scale), Default::default())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error parsing decimal".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new_internal("Error parsing decimal", "")
+                            .with_help(e.to_string()),
+                    )
                 })
         }
         DataType::UInt8 => {
@@ -470,12 +461,16 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     Value::String { val, .. } => {
                         let expected_format = "%Y-%m-%d";
                         let nanos = NaiveDate::parse_from_str(val, expected_format)
-                            .map_err(|e| ShellError::GenericError {
-                                error: format!("Error parsing date from string: {e}"),
-                                msg: "".into(),
-                                span: None,
-                                help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-date <format>`.")),
-                                inner: vec![],
+                            .map_err(|e| {
+                                ShellError::Generic(
+                                    GenericError::new_internal(
+                                        format!("Error parsing date from string: {e}"),
+                                        "",
+                                    )
+                                    .with_help(format!(
+                                        "Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-date <format>`."
+                                    )),
+                                )
                             })?
                             .and_hms_nano_opt(0, 0, 0, 0)
                             .and_then(|dt| dt.and_utc().timestamp_nanos_opt());
@@ -489,12 +484,11 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
             ChunkedArray::<Int64Type>::from_iter_options(name, it.into_iter())
                 .into_datetime(TimeUnit::Nanoseconds, None)
                 .cast_with_options(&DataType::Date, Default::default())
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error parsing date".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new_internal("Error parsing date", "")
+                            .with_help(e.to_string()),
+                    )
                 })
         }
         DataType::Datetime(tu, maybe_tz) => {
@@ -508,12 +502,11 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                             // the value is converted to it
                             tz.parse::<Tz>()
                                 .map(|tz| val.with_timezone(&tz))
-                                .map_err(|e| ShellError::GenericError {
-                                    error: "Error parsing timezone".into(),
-                                    msg: "".into(),
-                                    span: None,
-                                    help: Some(e.to_string()),
-                                    inner: vec![],
+                                .map_err(|e| {
+                                    ShellError::Generic(
+                                        GenericError::new_internal("Error parsing timezone", "")
+                                            .with_help(e.to_string()),
+                                    )
                                 })?
                                 .timestamp_nanos_opt()
                                 .map(|nanos| nanos_to_timeunit(nanos, *tu))
@@ -528,12 +521,16 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                             // because we're converting to the number of nano seconds since epoch, the timezone is irrelevant
                             let expected_format = "%Y-%m-%d %H:%M:%S%:z";
                             DateTime::parse_from_str(val, expected_format)
-                                .map_err(|e| ShellError::GenericError {
-                                    error: format!("Error parsing datetime from string: {e}"),
-                                    msg: "".into(),
-                                    span: None,
-                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
-                                    inner: vec![],
+                                .map_err(|e| {
+                                    ShellError::Generic(
+                                        GenericError::new_internal(
+                                            format!("Error parsing datetime from string: {e}"),
+                                            "",
+                                        )
+                                        .with_help(format!(
+                                            "Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`."
+                                        )),
+                                    )
                                 })?
                                 .timestamp_nanos_opt()
                                 .map(|nanos| nanos_to_timeunit(nanos, *tu))
@@ -544,12 +541,16 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                             let expected_format = "%Y-%m-%d %H:%M:%S";
 
                             NaiveDateTime::parse_from_str(val, expected_format)
-                                .map_err(|e| ShellError::GenericError {
-                                    error: format!("Error parsing datetime from string: {e}"),
-                                    msg: "".into(),
-                                    span: None,
-                                    help: Some(format!("Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`.")),
-                                    inner: vec![],
+                                .map_err(|e| {
+                                    ShellError::Generic(
+                                        GenericError::new_internal(
+                                            format!("Error parsing datetime from string: {e}"),
+                                            "",
+                                        )
+                                        .with_help(format!(
+                                            "Expected format {expected_format}. If you need to parse with another format, please set the schema to `str` and parse with `polars as-datetime <format>`."
+                                        )),
+                                    )
                                 })?
                                 .and_utc()
                                 .timestamp_nanos_opt()
@@ -582,26 +583,25 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
                     let series = df
                         .df
                         .column(name)
-                        .map_err(|e| ShellError::GenericError {
-                            error: format!(
-                                "Error creating struct, could not get column name {name}: {e}"
-                            ),
-                            msg: "".into(),
-                            span: None,
-                            help: None,
-                            inner: vec![],
+                        .map_err(|e| {
+                            ShellError::Generic(GenericError::new_internal(
+                                format!(
+                                    "Error creating struct, could not get column name {name}: {e}"
+                                ),
+                                "",
+                            ))
                         })?
                         .as_materialized_series();
 
                     if let Some(v) = structs.get_mut(name) {
-                        let _ = v.append(series)
-                                .map_err(|e| ShellError::GenericError {
-                                    error: format!("Error creating struct, could not append to series for col {name}: {e}"),
-                                    msg: "".into(),
-                                    span: None,
-                                    help: None,
-                                    inner: vec![],
-                                })?;
+                        let _ = v.append(series).map_err(|e| {
+                            ShellError::Generic(GenericError::new_internal(
+                                format!(
+                                    "Error creating struct, could not append to series for col {name}: {e}"
+                                ),
+                                "",
+                            ))
+                        })?;
                     } else {
                         structs.insert(name.clone(), series.to_owned());
                     }
@@ -612,22 +612,18 @@ fn typed_column_to_series(name: PlSmallStr, column: TypedColumn) -> Result<Serie
 
             let chunked =
                 StructChunked::from_series(column.name().to_owned(), structs.len(), structs.iter())
-                    .map_err(|e| ShellError::GenericError {
-                        error: format!("Error creating struct: {e}"),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
+                    .map_err(|e| {
+                        ShellError::Generic(GenericError::new_internal(
+                            format!("Error creating struct: {e}"),
+                            "",
+                        ))
                     })?;
             Ok(chunked.into_series())
         }
-        _ => Err(ShellError::GenericError {
-            error: format!("Error creating dataframe: Unsupported type: {column_type:?}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new_internal(
+            format!("Error creating dataframe: Unsupported type: {column_type:?}"),
+            "",
+        ))),
     }
 }
 
@@ -643,12 +639,11 @@ pub fn from_parsed_columns(column_values: ColumnMap) -> Result<NuDataFrame, Shel
 
     DataFrame::new_infer_height(df_columns)
         .map(|df| NuDataFrame::new(false, df))
-        .map_err(|e| ShellError::GenericError {
-            error: "Error creating dataframe".into(),
-            msg: e.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                "Error creating dataframe",
+                e.to_string(),
+            ))
         })
 }
 
@@ -686,14 +681,13 @@ fn input_type_list_to_series(
     data_type: &DataType,
     values: &[Value],
 ) -> Result<Series, ShellError> {
-    let inconsistent_error = |_| ShellError::GenericError {
-        error: format!(
-            "column {name} contains a list with inconsistent types: Expecting: {data_type:?}"
-        ),
-        msg: "".into(),
-        span: None,
-        help: None,
-        inner: vec![],
+    let inconsistent_error = |_| {
+        ShellError::Generic(GenericError::new_internal(
+            format!(
+                "column {name} contains a list with inconsistent types: Expecting: {data_type:?}"
+            ),
+            "",
+        ))
     };
 
     macro_rules! primitive_list_series {
@@ -783,12 +777,11 @@ fn input_type_list_to_series(
 
                 builder
                     .append_series(&dt_chunked.into_series())
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Error appending to series".into(),
-                        msg: "".into(),
-                        span: None,
-                        help: Some(e.to_string()),
-                        inner: vec![],
+                    .map_err(|e| {
+                        ShellError::Generic(
+                            GenericError::new_internal("Error appending to series", "")
+                                .with_help(e.to_string()),
+                        )
                     })?
             }
             let res = builder.finish();
@@ -817,12 +810,11 @@ fn series_to_values(
             }
         }
         DataType::UInt8 => {
-            let casted = series.u8().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to u8".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.u8().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to u8", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -840,12 +832,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt16 => {
-            let casted = series.u16().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to u16".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.u16().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to u16", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -863,12 +854,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt32 => {
-            let casted = series.u32().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to u32".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.u32().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to u32", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -886,12 +876,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::UInt64 => {
-            let casted = series.u64().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to u64".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.u64().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to u64", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -909,12 +898,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int8 => {
-            let casted = series.i8().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to i8".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.i8().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to i8", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -932,12 +920,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int16 => {
-            let casted = series.i16().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to i16".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.i16().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to i16", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -955,12 +942,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int32 => {
-            let casted = series.i32().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to i32".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.i32().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to i32", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -978,12 +964,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Int64 => {
-            let casted = series.i64().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to i64".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.i64().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to i64", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -1001,12 +986,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Float32 => {
-            let casted = series.f32().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to f32".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.f32().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to f32", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -1024,12 +1008,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Float64 => {
-            let casted = series.f64().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to f64".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.f64().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to f64", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -1047,12 +1030,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Boolean => {
-            let casted = series.bool().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to bool".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.bool().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to bool", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -1070,12 +1052,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::String => {
-            let casted = series.str().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to string".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let casted = series.str().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to string", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let it = casted.into_iter();
@@ -1093,12 +1074,11 @@ fn series_to_values(
             Ok(values)
         }
         t @ (DataType::Binary | DataType::BinaryOffset) => {
-            let make_err = |e: PolarsError| ShellError::GenericError {
-                error: "Error casting column to binary".into(),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
+            let make_err = |e: PolarsError| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to binary", "")
+                        .with_help(e.to_string()),
+                )
             };
 
             let it = match t {
@@ -1126,13 +1106,10 @@ fn series_to_values(
                 .downcast_ref::<ChunkedArray<ObjectType<DataFrameValue>>>();
 
             match casted {
-                None => Err(ShellError::GenericError {
-                    error: "Error casting object from series".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(format!("Object not supported for conversion: {x}")),
-                    inner: vec![],
-                }),
+                None => Err(ShellError::Generic(
+                    GenericError::new_internal("Error casting object from series", "")
+                        .with_help(format!("Object not supported for conversion: {x}")),
+                )),
                 Some(ca) => {
                     let it = ca.into_iter();
                     let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row)
@@ -1154,13 +1131,10 @@ fn series_to_values(
         DataType::List(x) => {
             let casted = series.as_any().downcast_ref::<ChunkedArray<ListType>>();
             match casted {
-                None => Err(ShellError::GenericError {
-                    error: "Error casting list from series".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(format!("List not supported for conversion: {x}")),
-                    inner: vec![],
-                }),
+                None => Err(ShellError::Generic(
+                    GenericError::new_internal("Error casting list from series", "")
+                        .with_help(format!("List not supported for conversion: {x}")),
+                )),
                 Some(ca) => {
                     let it = ca.into_iter();
                     if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1184,12 +1158,11 @@ fn series_to_values(
         DataType::Date => {
             let casted = series
                 .date()
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error casting column to date".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new_internal("Error casting column to date", "")
+                            .with_help(e.to_string()),
+                    )
                 })?
                 .clone()
                 .into_physical();
@@ -1214,12 +1187,11 @@ fn series_to_values(
         DataType::Datetime(time_unit, tz) => {
             let casted = series
                 .datetime()
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error casting column to datetime".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new_internal("Error casting column to datetime", "")
+                            .with_help(e.to_string()),
+                    )
                 })?
                 .clone()
                 .into_physical();
@@ -1245,12 +1217,11 @@ fn series_to_values(
         DataType::Duration(time_unit) => {
             let casted = series
                 .duration()
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error casting column to duration".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new_internal("Error casting column to duration", "")
+                            .with_help(e.to_string()),
+                    )
                 })?
                 .clone()
                 .into_physical();
@@ -1272,12 +1243,11 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Struct(_) => {
-            let casted = series.struct_().map_err(|e| ShellError::GenericError {
-                error: "Error casting column to struct".into(),
-                msg: "".to_string(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: Vec::new(),
+            let casted = series.struct_().map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to struct", "")
+                        .with_help(e.to_string()),
+                )
             })?;
 
             let range = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1289,31 +1259,24 @@ fn series_to_values(
             let mut values = Vec::with_capacity(casted.len());
 
             for i in range {
-                let val = casted
-                    .get_any_value(i)
-                    .map_err(|e| ShellError::GenericError {
-                        error: format!("Could not get struct value for index {i} - {e}"),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    })?;
+                let val = casted.get_any_value(i).map_err(|e| {
+                    ShellError::Generic(GenericError::new_internal(
+                        format!("Could not get struct value for index {i} - {e}"),
+                        "",
+                    ))
+                })?;
                 values.push(any_value_to_value(&val, span)?)
             }
 
             Ok(values)
         }
         DataType::Time => {
-            let casted =
-                series
-                    .timestamp(TimeUnit::Nanoseconds)
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Error casting column to time".into(),
-                        msg: "".into(),
-                        span: None,
-                        help: Some(e.to_string()),
-                        inner: vec![],
-                    })?;
+            let casted = series.timestamp(TimeUnit::Nanoseconds).map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to time", "")
+                        .with_help(e.to_string()),
+                )
+            })?;
 
             let it = casted.into_iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
@@ -1330,15 +1293,12 @@ fn series_to_values(
             Ok(values)
         }
         DataType::Decimal(_precision, _scale) => {
-            let casted = series
-                .cast(&DataType::Float64)
-                .map_err(|e| ShellError::GenericError {
-                    error: "Errors casting decimal column to float".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
-                })?;
+            let casted = series.cast(&DataType::Float64).map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new_internal("Errors casting decimal column to float", "")
+                        .with_help(e.to_string()),
+                )
+            })?;
             series_to_values(&casted, maybe_from_row, maybe_size, span)
         }
         DataType::Categorical(categories, _categorical_ordering) => {
@@ -1347,13 +1307,10 @@ fn series_to_values(
         DataType::Enum(frozen_categories, _categorical_ordering) => {
             Ok(utf8_view_array_to_value(frozen_categories.categories()))
         }
-        e => Err(ShellError::GenericError {
-            error: "Error creating Dataframe".into(),
-            msg: "".to_string(),
-            span: None,
-            help: Some(format!("Value not supported in nushell: {e:?}")),
-            inner: vec![],
-        }),
+        e => Err(ShellError::Generic(
+            GenericError::new_internal("Error creating Dataframe", "")
+                .with_help(format!("Value not supported in nushell: {e:?}")),
+        )),
     }
 }
 
@@ -1447,13 +1404,10 @@ fn any_value_to_value(any_value: &AnyValue, span: Span) -> Result<Value, ShellEr
 
             Ok(Value::list(values, span))
         }
-        e => Err(ShellError::GenericError {
-            error: "Error creating Value".into(),
-            msg: "".to_string(),
-            span: Some(span),
-            help: Some(format!("Value not supported in nushell: {e:?}")),
-            inner: Vec::new(),
-        }),
+        e => Err(ShellError::Generic(
+            GenericError::new("Error creating Value", "", span)
+                .with_help(format!("Value not supported in nushell: {e:?}")),
+        )),
     }
 }
 
@@ -1467,12 +1421,11 @@ fn nanos_from_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
         TimeUnit::Milliseconds => 1_000_000, // Convert milliseconds to nanoseconds
         TimeUnit::Nanoseconds => 1,      // Already in nanoseconds
     })
-    .ok_or_else(|| ShellError::GenericError {
-        error: format!("Converting from {time_unit} to nanoseconds caused an overflow"),
-        msg: "".into(),
-        span: None,
-        help: None,
-        inner: vec![],
+    .ok_or_else(|| {
+        ShellError::Generic(GenericError::new_internal(
+            format!("Converting from {time_unit} to nanoseconds caused an overflow"),
+            "",
+        ))
     })
 }
 
@@ -1483,12 +1436,11 @@ fn nanos_to_timeunit(a: i64, time_unit: TimeUnit) -> Result<i64, ShellError> {
         TimeUnit::Milliseconds => 1_000_000i64, // Convert milliseconds to nanoseconds
         TimeUnit::Nanoseconds => 1i64,      // Already in nanoseconds
     })
-    .ok_or_else(|| ShellError::GenericError {
-        error: format!("Converting from nanoseconds to {time_unit} caused an overflow"),
-        msg: "".into(),
-        span: None,
-        help: None,
-        inner: vec![],
+    .ok_or_else(|| {
+        ShellError::Generic(GenericError::new_internal(
+            format!("Converting from nanoseconds to {time_unit} caused an overflow"),
+            "",
+        ))
     })
 }
 
@@ -1498,15 +1450,13 @@ fn datetime_from_epoch_nanos(
     span: Span,
 ) -> Result<DateTime<FixedOffset>, ShellError> {
     let tz: Tz = if let Some(polars_tz) = timezone {
-        polars_tz
-            .parse::<Tz>()
-            .map_err(|_| ShellError::GenericError {
-                error: format!("Could not parse polars timezone: {polars_tz}"),
-                msg: "".to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })?
+        polars_tz.parse::<Tz>().map_err(|_| {
+            ShellError::Generic(GenericError::new(
+                format!("Could not parse polars timezone: {polars_tz}"),
+                "",
+                span,
+            ))
+        })?
     } else {
         Tz::UTC
     };

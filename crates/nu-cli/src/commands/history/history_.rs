@@ -1,5 +1,7 @@
 use super::fields;
 use nu_engine::command_prelude::*;
+#[cfg(not(feature = "sqlite"))]
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     HistoryFileFormat,
     shell_error::{self, io::IoError},
@@ -98,13 +100,14 @@ impl Command for History {
             // this variant should never happen, the config value is handled in the `UpdateFromValue` impl
             #[cfg(not(feature = "sqlite"))]
             HistoryFileFormat::Sqlite => {
-                return Err(ShellError::GenericError {
-                    error: "Could not open history reader".into(),
-                    msg: "SQLite is not supported".to_string(),
-                    span: Some(call.head),
-                    help: "Compile Nushell with `sqlite` feature".to_string().into(),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new(
+                        "Could not open history reader",
+                        "SQLite is not supported",
+                        call.head,
+                    )
+                    .with_help("Compile Nushell with `sqlite` feature"),
+                ));
             }
             HistoryFileFormat::Plaintext => {
                 FileBackedHistory::with_file(history.max_size as usize, history_path.clone())
@@ -142,13 +145,14 @@ impl Command for History {
             // this variant should never happen, the config value is handled in the `UpdateFromValue` impl
             #[cfg(not(feature = "sqlite"))]
             HistoryFileFormat::Sqlite => {
-                return Err(ShellError::GenericError {
-                    error: "Could not open history reader".into(),
-                    msg: "SQLite is not supported".to_string(),
-                    span: Some(call.head),
-                    help: "Compile Nushell with `sqlite` feature".to_string().into(),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new(
+                        "Could not open history reader",
+                        "SQLite is not supported",
+                        call.head,
+                    )
+                    .with_help("Compile Nushell with `sqlite` feature"),
+                ));
             }
             #[cfg(feature = "sqlite")]
             HistoryFileFormat::Sqlite => {

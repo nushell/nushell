@@ -2,6 +2,7 @@ use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     debugger::{DurationMode, Profiler, ProfilerOptions},
     engine::Closure,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -137,12 +138,12 @@ confusing the id/parent_id hierarchy. The --expr flag is helpful for investigati
             call.span(),
         );
 
-        let lock_err = |_| ShellError::GenericError {
-            error: "Profiler Error".to_string(),
-            msg: "could not lock debugger, poisoned mutex".to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        let lock_err = |_| {
+            ShellError::Generic(GenericError::new(
+                "Profiler Error",
+                "could not lock debugger, poisoned mutex",
+                call.head,
+            ))
         };
 
         engine_state

@@ -8,6 +8,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 use polars::prelude::IntoSeries;
 
@@ -114,12 +115,12 @@ fn command(
     let mut res = df
         .as_ref()
         .is_unique()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error finding unique values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error finding unique values",
+                e.to_string(),
+                call.head,
+            ))
         })?
         .into_series();
 

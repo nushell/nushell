@@ -3,6 +3,7 @@ use nu_plugin_protocol::{
     CallInfo, DynamicCompletionCall, EvaluatedCall, GetCompletionArgType, GetCompletionInfo,
 };
 use nu_protocol::engine::ArgType;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{DynamicCompletionCallRef, DynamicSuggestion};
 use nu_protocol::{PluginIdentity, PluginSignature, engine::CommandType};
 use std::sync::Arc;
@@ -93,13 +94,11 @@ impl Command for PluginDeclaration {
             })
             .map_err(|err| {
                 let decl = engine_state.get_decl(call.decl_id);
-                ShellError::GenericError {
-                    error: format!("Unable to spawn plugin for `{}`", decl.name()),
-                    msg: err.to_string(),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
-                }
+                ShellError::Generic(GenericError::new(
+                    format!("Unable to spawn plugin for `{}`", decl.name()),
+                    err.to_string(),
+                    call.head,
+                ))
             })?;
 
         // Create the context to execute in - this supports engine calls and custom values
@@ -149,12 +148,11 @@ impl Command for PluginDeclaration {
                 p.set_gc_config(engine_config.plugin_gc.get(p.identity().name()));
                 p.get_plugin(Some((engine_state, stack)))
             })
-            .map_err(|err| ShellError::GenericError {
-                error: "failed to get custom completion".to_string(),
-                msg: err.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "failed to get custom completion",
+                    err.to_string(),
+                ))
             })?;
 
         let arg_info = match arg_type {

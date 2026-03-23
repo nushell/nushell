@@ -8,6 +8,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 use polars::prelude::{IntoLazy, arg_where, col};
 
@@ -85,13 +86,11 @@ fn command(
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
     let columns = df.as_ref().get_column_names();
     if columns.len() > 1 {
-        return Err(ShellError::GenericError {
-            error: "Error using as series".into(),
-            msg: "dataframe has more than one column".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Error using as series",
+            "dataframe has more than one column",
+            call.head,
+        )));
     }
 
     match columns.first() {
@@ -103,12 +102,12 @@ fn command(
                 .lazy()
                 .select(&[expression])
                 .collect()
-                .map_err(|err| ShellError::GenericError {
-                    error: "Error creating index column".into(),
-                    msg: err.to_string(),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new(
+                        "Error creating index column",
+                        err.to_string(),
+                        call.head,
+                    ))
                 })?
                 .into();
 

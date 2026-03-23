@@ -4,6 +4,7 @@ use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing,
+    shell_error::generic::GenericError,
 };
 use serde::Serialize;
 
@@ -48,15 +49,28 @@ impl PluginCustomValueWithSource {
 
     /// Helper to get the plugin to implement an op
     fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
-        let wrap_err = |err: ShellError| ShellError::GenericError {
-            error: format!(
-                "Unable to spawn plugin `{}` to {for_op}",
-                self.source.name()
-            ),
-            msg: err.to_string(),
-            span,
-            help: None,
-            inner: vec![err],
+        let wrap_err = |err: ShellError| {
+            let error = if let Some(span) = span {
+                GenericError::new(
+                    format!(
+                        "Unable to spawn plugin `{}` to {for_op}",
+                        self.source.name()
+                    ),
+                    err.to_string(),
+                    span,
+                )
+                .with_inner([err])
+            } else {
+                GenericError::new_internal(
+                    format!(
+                        "Unable to spawn plugin `{}` to {for_op}",
+                        self.source.name()
+                    ),
+                    err.to_string(),
+                )
+                .with_inner([err])
+            };
+            ShellError::Generic(error)
         };
 
         self.source

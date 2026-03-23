@@ -1,7 +1,9 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals, shell_error::io::IoError};
+use nu_protocol::{
+    ListStream, Signals, shell_error::generic::GenericError, shell_error::io::IoError,
+};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -198,18 +200,19 @@ pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, 
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
                 let label_span = Span::from_row_column(row, col, string_input);
-                Err(ShellError::GenericError {
-                    error: "Error while parsing JSON text".into(),
-                    msg: "error parsing JSON text".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![ShellError::OutsideSpannedLabeledError {
+                Err(ShellError::Generic(
+                    GenericError::new(
+                        "Error while parsing JSON text",
+                        "error parsing JSON text",
+                        span,
+                    )
+                    .with_inner([ShellError::OutsideSpannedLabeledError {
                         src: string_input.into(),
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
-                    }],
-                })
+                    }]),
+                ))
             }
             x => Err(ShellError::CantConvert {
                 to_type: format!("structured json data ({x})"),
@@ -227,18 +230,19 @@ fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Valu
         Err(err) => Err(if err.is_syntax() {
             let label = err.to_string();
             let label_span = Span::from_row_column(err.line(), err.column(), string_input);
-            ShellError::GenericError {
-                error: "Error while parsing JSON text".into(),
-                msg: "error parsing JSON text".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![ShellError::OutsideSpannedLabeledError {
+            ShellError::Generic(
+                GenericError::new(
+                    "Error while parsing JSON text",
+                    "error parsing JSON text",
+                    span,
+                )
+                .with_inner([ShellError::OutsideSpannedLabeledError {
                     src: string_input.into(),
                     error: "Error while parsing JSON text".into(),
                     msg: label,
                     span: label_span,
-                }],
-            }
+                }]),
+            )
         } else {
             ShellError::CantConvert {
                 to_type: format!("structured json data ({err})"),

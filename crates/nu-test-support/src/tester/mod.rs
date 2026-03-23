@@ -619,7 +619,7 @@ pub trait ShellErrorExt {
     /// chained error that chained another error.
     ///
     /// However, this function returns [`None`]
-    /// - if `inner` of [`ShellError::GenericError`] is empty
+    /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
     /// - the error is none of the above types
     ///
@@ -629,10 +629,10 @@ pub trait ShellErrorExt {
     /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
     fn into_labeled(self) -> Result<LabeledError>;
 
-    /// Extract the error field from [`ShellError::GenericError`], if it is one.
+    /// Extract the error field from [`ShellError::Generic`], if it is one.
     fn generic_error(self) -> Result<String>;
 
-    /// Extract the message field from [`ShellError::GenericError`], if it is one.
+    /// Extract the message field from [`ShellError::Generic`], if it is one.
     fn generic_msg(self) -> Result<String>;
 }
 
@@ -644,7 +644,7 @@ impl ShellErrorExt for ShellError {
             kind: TestErrorKind::NoInner,
         };
         match self {
-            ShellError::GenericError { inner, .. } => inner.into_iter().next().ok_or(no_inner),
+            ShellError::Generic(err) => err.inner.into_iter().next().ok_or(no_inner),
             ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
             _ => Err(no_inner),
         }
@@ -667,7 +667,7 @@ impl ShellErrorExt for ShellError {
     #[track_caller]
     fn generic_error(self) -> Result<String> {
         match self {
-            ShellError::GenericError { error, .. } => Ok(error),
+            ShellError::Generic(err) => Ok(err.error.into_owned()),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
                 kind: TestErrorKind::UnexpectedErrorKind {
@@ -681,7 +681,7 @@ impl ShellErrorExt for ShellError {
     #[track_caller]
     fn generic_msg(self) -> Result<String> {
         match self {
-            ShellError::GenericError { msg, .. } => Ok(msg),
+            ShellError::Generic(err) => Ok(err.msg.into_owned()),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
                 kind: TestErrorKind::UnexpectedErrorKind {

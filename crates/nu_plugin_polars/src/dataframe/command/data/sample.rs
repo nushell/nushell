@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Value,
@@ -123,12 +124,12 @@ fn command(
                 shuffle,
                 seed,
             )
-            .map_err(|e| ShellError::GenericError {
-                error: "Error creating sample".into(),
-                msg: e.to_string(),
-                span: Some(rows.span),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error creating sample",
+                    e.to_string(),
+                    rows.span,
+                ))
             }),
         (None, Some(frac)) => df
             .as_ref()
@@ -138,27 +139,26 @@ fn command(
                 shuffle,
                 seed,
             )
-            .map_err(|e| ShellError::GenericError {
-                error: "Error creating sample".into(),
-                msg: e.to_string(),
-                span: Some(frac.span),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error creating sample",
+                    e.to_string(),
+                    frac.span,
+                ))
             }),
-        (Some(_), Some(_)) => Err(ShellError::GenericError {
-            error: "Incompatible flags".into(),
-            msg: "Only one selection criterion allowed".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        }),
-        (None, None) => Err(ShellError::GenericError {
-            error: "No selection".into(),
-            msg: "No selection criterion was found".into(),
-            span: Some(call.head),
-            help: Some("Perhaps you want to use the flag -n or -f".into()),
-            inner: vec![],
-        }),
+        (Some(_), Some(_)) => Err(ShellError::Generic(GenericError::new(
+            "Incompatible flags",
+            "Only one selection criterion allowed",
+            call.head,
+        ))),
+        (None, None) => Err(ShellError::Generic(
+            GenericError::new(
+                "No selection",
+                "No selection criterion was found",
+                call.head,
+            )
+            .with_help("Perhaps you want to use the flag -n or -f"),
+        )),
     };
     let df = NuDataFrame::new(false, df?);
     df.to_pipeline_data(plugin, engine, call.head)

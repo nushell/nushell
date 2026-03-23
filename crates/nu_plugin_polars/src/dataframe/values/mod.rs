@@ -12,6 +12,7 @@ pub mod utils;
 use crate::{Cacheable, PolarsPlugin};
 use nu_dtype::custom_value::NuDataTypeCustomValue;
 use nu_plugin::EngineInterface;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value, ast::Operator,
 };
@@ -373,12 +374,11 @@ pub trait CustomValueSupport: Cacheable {
         if let Some(internal) = cv.internal() {
             Ok(internal.clone())
         } else {
-            Self::get_cached(plugin, cv.id())?.ok_or_else(|| ShellError::GenericError {
-                error: format!("Dataframe {:?} not found in cache", cv.id()),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
+            Self::get_cached(plugin, cv.id())?.ok_or_else(|| {
+                ShellError::Generic(GenericError::new_internal(
+                    format!("Dataframe {:?} not found in cache", cv.id()),
+                    "",
+                ))
             })
         }
     }
@@ -620,7 +620,7 @@ mod test {
         // "*" is not a permitted value for scale
         let dtype = "decimal<7,*>";
         let schema = str_to_dtype(dtype, Span::unknown());
-        assert!(matches!(schema, Err(ShellError::GenericError { .. })));
+        assert!(matches!(schema, Err(ShellError::Generic(_))));
 
         let dtype = "decimal<*,2>";
         let schema = str_to_dtype(dtype, Span::unknown()).unwrap();
@@ -657,6 +657,6 @@ mod test {
 
         let dtype = "list<decimal<7,*>>";
         let schema = str_to_dtype(dtype, Span::unknown());
-        assert!(matches!(schema, Err(ShellError::GenericError { .. })));
+        assert!(matches!(schema, Err(ShellError::Generic(_))));
     }
 }

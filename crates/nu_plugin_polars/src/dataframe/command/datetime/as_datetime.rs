@@ -12,6 +12,7 @@ use polars_plan::plans::DynLiteralValue;
 use std::sync::Arc;
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Value,
@@ -284,13 +285,11 @@ fn command(
             let val = v.into_string()?;
             match val.as_str() {
                 "raise" | "earliest" | "latest" => Ok(val),
-                _ => Err(ShellError::GenericError {
-                    error: "Invalid argument value".into(),
-                    msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
+                _ => Err(ShellError::Generic(GenericError::new(
+                    "Invalid argument value",
+                    "`ambiguous` must be one of raise, earliest, latest, or null",
+                    span,
+                ))),
             }
         }
         Some(Value::Nothing { .. }) => Ok("null".into()),
@@ -436,12 +435,12 @@ fn command_eager(
     let not_exact = !options.exact;
 
     let series = df.as_series(call.head)?;
-    let casted = series.str().map_err(|e| ShellError::GenericError {
-        error: "Error casting to string".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let casted = series.str().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error casting to string",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
     let res = if not_exact {
@@ -465,12 +464,12 @@ fn command_eager(
     };
 
     let mut res = res
-        .map_err(|e| ShellError::GenericError {
-            error: "Error creating datetime".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error creating datetime",
+                e.to_string(),
+                call.head,
+            ))
         })?
         .into_series();
 

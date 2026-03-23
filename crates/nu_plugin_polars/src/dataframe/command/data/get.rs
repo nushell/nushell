@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -82,16 +83,13 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let df = df
-        .as_ref()
-        .select(col_string)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error selecting columns".into(),
-            msg: e.to_string(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        })?;
+    let df = df.as_ref().select(col_string).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error selecting columns",
+            e.to_string(),
+            col_span,
+        ))
+    })?;
     let df = NuDataFrame::new(false, df);
     df.to_pipeline_data(plugin, engine, call.head)
 }

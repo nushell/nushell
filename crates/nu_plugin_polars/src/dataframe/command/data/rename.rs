@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -155,15 +156,13 @@ fn command_eager(
     let mut polars_df = df.to_polars();
 
     for (from, to) in columns.iter().zip(new_names.iter()) {
-        polars_df
-            .rename(from, to.into())
-            .map_err(|e| ShellError::GenericError {
-                error: "Error renaming".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+        polars_df.rename(from, to.into()).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error renaming",
+                e.to_string(),
+                call.head,
+            ))
+        })?;
     }
 
     let df = NuDataFrame::new(false, polars_df);

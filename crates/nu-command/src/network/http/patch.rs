@@ -5,6 +5,7 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct HttpPatch;
@@ -185,13 +186,11 @@ fn run_patch(
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
     let Some(data) = data else {
-        return Err(ShellError::GenericError {
-            error: "Data must be provided either through pipeline or positional argument".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Data must be provided either through pipeline or positional argument",
+            "",
+            call.head,
+        )));
     };
 
     let args = Arguments {

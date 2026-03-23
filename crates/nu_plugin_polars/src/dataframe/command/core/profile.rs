@@ -1,6 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Value, record,
+    shell_error::generic::GenericError,
 };
 
 use crate::{
@@ -90,16 +91,13 @@ fn command_lazy(
     call: &EvaluatedCall,
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
-    let (df, profiling_df) = lazy
-        .to_polars()
-        .profile()
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Could not profile dataframe: {e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let (df, profiling_df) = lazy.to_polars().profile().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            format!("Could not profile dataframe: {e}"),
+            "",
+            call.head,
+        ))
+    })?;
 
     let df = NuDataFrame::from(df).cache_and_to_value(plugin, engine, call.head)?;
     let profiling_df =

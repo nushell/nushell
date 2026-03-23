@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use super::query::{record_to_query_string, table_to_query_string};
 
@@ -293,13 +294,11 @@ impl UrlComponents {
                 nu_protocol::report_shell_error(
                     Some(stack),
                     engine_state,
-                    &ShellError::GenericError {
-                        error: format!("'{key}' is not a valid URL field"),
-                        msg: format!("remove '{key}' col from input record"),
-                        span: Some(value_span),
-                        help: None,
-                        inner: vec![],
-                    },
+                    &ShellError::Generic(GenericError::new(
+                        format!("'{key}' is not a valid URL field"),
+                        format!("remove '{key}' col from input record"),
+                        value_span,
+                    )),
                 );
                 Ok(self)
             }

@@ -3,7 +3,7 @@ use crate::{
     convert_json_string_to_value, platform::clip::get_config::get_clip_config_with_plugin_fallback,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct ClipPaste;
@@ -39,13 +39,11 @@ impl Command for ClipPaste {
         let config = stack.get_config(engine_state);
         let text = create_clipboard(&config, engine_state, stack).get_text()?;
         if text.trim().is_empty() {
-            return Err(ShellError::GenericError {
-                error: "Clipboard is empty.".into(),
-                msg: "No text data is currently available in the clipboard.".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Clipboard is empty.",
+                "No text data is currently available in the clipboard.",
+                call.head,
+            )));
         }
 
         let default_raw = get_default_raw(&config, engine_state, stack);

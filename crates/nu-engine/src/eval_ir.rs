@@ -15,6 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -86,13 +87,25 @@ pub fn eval_ir_block<D: DebugContext>(
         result
     } else {
         // FIXME blocks having IR should not be optional
-        Err(ShellError::GenericError {
-            error: "Can't evaluate block in IR mode".into(),
-            msg: "block is missing compiled representation".into(),
-            span: block.span,
-            help: Some("the IrBlock is probably missing due to a compilation error".into()),
-            inner: vec![],
-        })
+        let error = if let Some(span) = block.span {
+            ShellError::Generic(
+                GenericError::new(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                    span,
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        } else {
+            ShellError::Generic(
+                GenericError::new_internal(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        };
+        Err(error)
     }
 }
 
@@ -570,13 +583,11 @@ fn eval_instruction<D: DebugContext>(
             {
                 Ok(Continue)
             }
-            _ => Err(ShellError::GenericError {
-                error: "Can't redirect stderr of internal command output".into(),
-                msg: "piping stderr only works on external commands".into(),
-                span: Some(*span),
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new(
+                "Can't redirect stderr of internal command output",
+                "piping stderr only works on external commands",
+                *span,
+            ))),
         },
         Instruction::OpenFile {
             file_num,

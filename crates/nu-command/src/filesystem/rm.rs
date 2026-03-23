@@ -4,7 +4,7 @@ use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
     NuGlob, report_shell_error,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 #[cfg(unix)]
 use std::os::unix::prelude::FileTypeExt;
@@ -167,47 +167,36 @@ fn rm(
 
     if !TRASH_SUPPORTED {
         if rm_always_trash {
-            return Err(ShellError::GenericError {
-                error: "Cannot execute `rm`; the current configuration specifies \
+            return Err(ShellError::Generic(GenericError::new(
+                "Cannot execute `rm`; the current configuration specifies \
                     `always_trash = true`, but the current nu executable was not \
-                    built with feature `trash_support`."
-                    .into(),
-                msg: "trash required to be true but not supported".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+                    built with feature `trash_support`.",
+                "trash required to be true but not supported",
+                span,
+            )));
         } else if trash {
-            return Err(ShellError::GenericError{
-                error: "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform"
-                    .into(),
-                msg: "this option is only available if nu is built with the `trash-support` feature and the platform supports trash"
-                    .into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Cannot execute `rm` with option `--trash`; feature `trash-support` not enabled or on an unsupported platform",
+                "this option is only available if nu is built with the `trash-support` feature and the platform supports trash",
+                span,
+            )));
         }
     }
 
     if paths.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "rm requires target paths".into(),
-            msg: "needs parameter".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "rm requires target paths",
+            "needs parameter",
+            span,
+        )));
     }
 
     if unique_argument_check.is_some() && !(interactive_once || interactive) {
-        return Err(ShellError::GenericError {
-            error: "You are trying to remove your home dir".into(),
-            msg: "If you really want to remove your home dir, please use -I or -i".into(),
-            span: unique_argument_check,
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "You are trying to remove your home dir",
+            "If you really want to remove your home dir, please use -I or -i",
+            unique_argument_check.unwrap_or(call.head),
+        )));
     }
 
     let targets_span = Span::new(
@@ -246,13 +235,11 @@ fn rm(
         if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
-            return Err(ShellError::GenericError {
-                error: "Cannot remove any parent directory".into(),
-                msg: "cannot remove any parent directory".into(),
-                span: Some(target.span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Cannot remove any parent directory",
+                "cannot remove any parent directory",
+                target.span,
+            )));
         }
 
         match nu_engine::glob_from(
@@ -287,13 +274,11 @@ fn rm(
                                 .or_insert_with(|| target.span);
                         }
                         Err(e) => {
-                            return Err(ShellError::GenericError {
-                                error: format!("Could not remove {:}", path.to_string_lossy()),
-                                msg: e.to_string(),
-                                span: Some(target.span),
-                                help: None,
-                                inner: vec![],
-                            });
+                            return Err(ShellError::Generic(GenericError::new(
+                                format!("Could not remove {:}", path.to_string_lossy()),
+                                e.to_string(),
+                                target.span,
+                            )));
                         }
                     }
                 }
@@ -322,13 +307,11 @@ fn rm(
     }
 
     if all_targets.is_empty() && !force {
-        return Err(ShellError::GenericError {
-            error: "File(s) not found".into(),
-            msg: "File(s) not found".into(),
-            span: Some(targets_span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "File(s) not found",
+            "File(s) not found",
+            targets_span,
+        )));
     }
 
     if interactive_once {
@@ -337,13 +320,10 @@ fn rm(
             format!("rm: remove {} files? ", all_targets.len()),
         );
         if let Err(e) = interaction {
-            return Err(ShellError::GenericError {
-                error: format!("Error during interaction: {e:}"),
-                msg: "could not move".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new_internal(
+                format!("Error during interaction: {e:}"),
+                "could not move",
+            )));
         } else if !confirmed {
             return Ok(PipelineData::empty());
         }
@@ -444,23 +424,19 @@ fn rm(
                 }
             } else {
                 let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                Err(ShellError::GenericError {
+                Err(ShellError::Generic(GenericError::new(
                     error,
-                    msg: "cannot remove non-empty directory".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                })
+                    "cannot remove non-empty directory",
+                    span,
+                )))
             }
         } else {
             let error = format!("no such file or directory: {:}", f.to_string_lossy());
-            Err(ShellError::GenericError {
+            Err(ShellError::Generic(GenericError::new(
                 error,
-                msg: "no such file or directory".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            })
+                "no such file or directory",
+                span,
+            )))
         }
     });
 

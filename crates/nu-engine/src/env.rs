@@ -4,6 +4,7 @@ use nu_protocol::{
     ShellError, Span, Type, Value, VarId,
     ast::Expr,
     engine::{Call, EngineState, EnvName, Stack},
+    shell_error::generic::GenericError,
 };
 use std::{
     collections::HashMap,
@@ -246,15 +247,13 @@ pub fn find_in_dirs_env(
                 if Path::new(&cwd).is_absolute() {
                     cwd
                 } else {
-                    return Err(ShellError::GenericError {
-                        error: "Invalid current directory".into(),
-                        msg: format!(
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Invalid current directory",
+                        format!(
                             "The 'FILE_PWD' environment variable must be set to an absolute path. Found: '{cwd}'"
                         ),
-                        span: Some(pwd.span()),
-                        help: None,
-                        inner: vec![],
-                    });
+                        pwd.span(),
+                    )));
                 }
             }
             Err(e) => return Err(e),
@@ -342,15 +341,11 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
                 // Must be a list of strings
                 if !vals.iter().all(|v| matches!(v, Value::String { .. })) {
                     error = error.or_else(|| {
-                        Some(ShellError::GenericError {
-                            error: format!(
-                                "Incorrect {preserve_case_name} environment variable value"
-                            ),
-                            msg: format!("{preserve_case_name} must be a list of strings"),
-                            span: Some(span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Some(ShellError::Generic(GenericError::new(
+                            format!("Incorrect {preserve_case_name} environment variable value"),
+                            format!("{preserve_case_name} must be a list of strings"),
+                            span,
+                        )))
                     });
                 }
             }
@@ -360,13 +355,11 @@ fn ensure_path(engine_state: &EngineState, stack: &mut Stack) -> Option<ShellErr
                 let span = val.span();
 
                 error = error.or_else(|| {
-                    Some(ShellError::GenericError {
-                        error: format!("Incorrect {preserve_case_name} environment variable value"),
-                        msg: format!("{preserve_case_name} must be a list of strings"),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Some(ShellError::Generic(GenericError::new(
+                        format!("Incorrect {preserve_case_name} environment variable value"),
+                        format!("{preserve_case_name} must be a list of strings"),
+                        span,
+                    )))
                 });
             }
         }

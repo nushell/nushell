@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::shell_error::generic::GenericError;
 
 use super::client::RedirectMode;
 use super::get::run_get;
@@ -127,15 +128,16 @@ impl Command for Http {
             && let method @ ("delete" | "get" | "head" | "options" | "patch" | "post" | "put") =
                 method.to_lowercase().as_str()
         {
-            return Err(ShellError::GenericError {
-                error: "Invalid command construction".into(),
-                msg: format!(
-                    "Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
-                ),
-                span: Some(*span),
-                help: format!("Prefer to use `http {method}` directly").into(),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Invalid command construction",
+                    format!(
+                        "Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
+                    ),
+                    *span,
+                )
+                .with_help(format!("Prefer to use `http {method}` directly")),
+            ));
         }
 
         match (url, data) {

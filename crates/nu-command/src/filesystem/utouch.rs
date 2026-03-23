@@ -3,7 +3,7 @@ use filetime::FileTime;
 use nu_engine::command_prelude::*;
 use nu_glob::{glob, is_glob};
 use nu_path::expand_path_with;
-use nu_protocol::{NuGlob, shell_error::io::IoError};
+use nu_protocol::{NuGlob, shell_error::generic::GenericError, shell_error::io::IoError};
 use std::path::PathBuf;
 use uu_touch::{ChangeTimes, InputFile, Options, Source, error::TouchError};
 use uucore::{localized_help_template, translate};
@@ -181,19 +181,20 @@ impl Command for UTouch {
                     });
 
                     if is_glob(&file_name.to_string_lossy()) {
-                        return Err(ShellError::GenericError {
-                            error: format!(
-                                "No matches found for glob {}",
-                                file_name.to_string_lossy()
-                            ),
-                            msg: "No matches found for glob".into(),
-                            span: Some(file_glob.span),
-                            help: Some(format!(
+                        return Err(ShellError::Generic(
+                            GenericError::new(
+                                format!(
+                                    "No matches found for glob {}",
+                                    file_name.to_string_lossy()
+                                ),
+                                "No matches found for glob",
+                                file_glob.span,
+                            )
+                            .with_help(format!(
                                 "Use quotes if you want to create a file named {}",
                                 file_name.to_string_lossy()
                             )),
-                            inner: vec![],
-                        });
+                        ));
                     }
 
                     input_files.push(InputFile::Path(file_path));
@@ -216,13 +217,13 @@ impl Command for UTouch {
             },
         ) {
             let nu_err = match err {
-                TouchError::TouchFileError { path, index, error } => ShellError::GenericError {
-                    error: format!("Could not touch {}", path.display()),
-                    msg: translate!(&error.to_string()),
-                    span: Some(file_globs[index].span),
-                    help: None,
-                    inner: Vec::new(),
-                },
+                TouchError::TouchFileError { path, index, error } => {
+                    ShellError::Generic(GenericError::new(
+                        format!("Could not touch {}", path.display()),
+                        translate!(&error.to_string()),
+                        file_globs[index].span,
+                    ))
+                }
                 TouchError::InvalidDateFormat(date) => ShellError::IncorrectValue {
                     msg: format!("Invalid date: {date}"),
                     val_span: date_span.expect("touch should've been given a date"),
@@ -237,13 +238,11 @@ impl Command for UTouch {
                         "failed to read metadata",
                     ))
                 }
-                _ => ShellError::GenericError {
-                    error: format!("{err}"),
-                    msg: translate!(&err.to_string()),
-                    span: Some(call.head),
-                    help: None,
-                    inner: Vec::new(),
-                },
+                _ => ShellError::Generic(GenericError::new(
+                    format!("{err}"),
+                    translate!(&err.to_string()),
+                    call.head,
+                )),
             };
             return Err(nu_err);
         }

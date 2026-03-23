@@ -527,15 +527,12 @@ impl EngineState {
         // Updating the signatures plugin file with the added signatures
         use std::fs::File;
 
-        let plugin_path = self
-            .plugin_path
-            .as_ref()
-            .ok_or_else(|| {
-                ShellError::Generic(
-                    GenericError::new_internal("Plugin file path not set", "")
-                        .with_help("you may be running nu with --no-config-file"),
-                )
-            })?;
+        let plugin_path = self.plugin_path.as_ref().ok_or_else(|| {
+            ShellError::Generic(
+                GenericError::new_internal("Plugin file path not set", "")
+                    .with_help("you may be running nu with --no-config-file"),
+            )
+        })?;
 
         // Read the current contents of the plugin file if it exists
         let mut contents = match File::open(plugin_path.as_path()) {

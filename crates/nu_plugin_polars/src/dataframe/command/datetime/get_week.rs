@@ -7,6 +7,7 @@ use crate::{
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::{
     prelude::{DatetimeMethods, IntoSeries, NamedFrom, col},
@@ -137,12 +138,12 @@ fn command_eager(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let casted = series.datetime().map_err(|e| ShellError::GenericError {
-        error: "Error casting to datetime type".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let casted = series.datetime().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error casting to datetime type",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
     let res = casted.week().into_series();

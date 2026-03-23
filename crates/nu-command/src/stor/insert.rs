@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 use rusqlite::params_from_iter;
 
 #[derive(Clone)]
@@ -109,13 +110,11 @@ fn handle(
     // Check for conflicting use of both pipeline input and flag
     if let Some(record) = data_record {
         if !matches!(input, PipelineData::Empty) {
-            return Err(ShellError::GenericError {
-                error: "Pipeline and Flag both being used".into(),
-                msg: "Use either pipeline input or '--data-record' parameter".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Pipeline and Flag both being used",
+                "Use either pipeline input or '--data-record' parameter",
+                span,
+            )));
         }
         return Ok(vec![record]);
     }
@@ -196,13 +195,11 @@ fn process(
 
     if let Ok(conn) = db.open_connection() {
         conn.execute(&create_stmt, params_from_iter(params))
-            .map_err(|err| ShellError::GenericError {
-                error: "Failed to insert using the SQLite connection in memory from insert.rs."
-                    .into(),
-                msg: err.to_string(),
-                span: Some(Span::test_data()),
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to insert using the SQLite connection in memory from insert.rs.",
+                    err.to_string(),
+                ))
             })?;
     };
     // dbg!(db.clone());

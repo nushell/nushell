@@ -7,6 +7,7 @@ use crate::values::{Column, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -105,16 +106,13 @@ fn command(
     call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let res = df
-        .as_series(call.head)?
-        .n_unique()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error counting unique values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let res = df.as_series(call.head)?.n_unique().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error counting unique values",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
 
     let value = Value::int(res as i64, call.head);
 

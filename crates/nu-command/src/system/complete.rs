@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::OutDest;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Complete;
@@ -34,13 +35,11 @@ impl Command for Complete {
         match input {
             PipelineData::ByteStream(stream, ..) => {
                 let Ok(mut child) = stream.into_child() else {
-                    return Err(ShellError::GenericError {
-                        error: "Complete only works with external commands".into(),
-                        msg: "complete only works on external commands".into(),
-                        span: Some(call.head),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Complete only works with external commands",
+                        "complete only works on external commands",
+                        call.head,
+                    )));
                 };
 
                 // `complete` reports non-zero status via its `exit_code` field.
@@ -79,13 +78,11 @@ impl Command for Complete {
             }
             // bubble up errors from the previous command
             PipelineData::Value(Value::Error { error, .. }, _) => Err(*error),
-            _ => Err(ShellError::GenericError {
-                error: "Complete only works with external commands".into(),
-                msg: "complete only works on external commands".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new(
+                "Complete only works with external commands",
+                "complete only works on external commands",
+                head,
+            ))),
         }
     }
 

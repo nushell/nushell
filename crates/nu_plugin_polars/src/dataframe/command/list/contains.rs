@@ -8,6 +8,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -150,13 +151,11 @@ fn command_expr(
     let single_expression = match expressions.as_slice() {
         [single] => single.clone(),
         _ => {
-            return Err(ShellError::GenericError {
-                error: "Expected a single polars expression".into(),
-                msg: "Requires a single polars expressions or column name as argument".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Expected a single polars expression",
+                "Requires a single polars expressions or column name as argument",
+                call.head,
+            )));
         }
     };
     let res: NuExpression = expr

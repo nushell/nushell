@@ -6,6 +6,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
     report_error::{report_parse_error, report_shell_error},
+    shell_error::generic::GenericError,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -92,13 +93,11 @@ pub fn eval_hook(
                 );
                 if let Some(err) = working_set.parse_errors.first() {
                     report_parse_error(Some(stack), &working_set, err);
-                    return Err(ShellError::GenericError {
-                        error: format!("Failed to run {hook_name} hook"),
-                        msg: "source code has errors".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: Vec::new(),
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        format!("Failed to run {hook_name} hook"),
+                        "source code has errors",
+                        span,
+                    )));
                 }
 
                 (output, working_set.render(), vars)
@@ -216,13 +215,11 @@ pub fn eval_hook(
                             );
                             if let Some(err) = working_set.parse_errors.first() {
                                 report_parse_error(Some(stack), &working_set, err);
-                                return Err(ShellError::GenericError {
-                                    error: format!("Failed to run {hook_name} hook"),
-                                    msg: "source code has errors".into(),
-                                    span: Some(span),
-                                    help: None,
-                                    inner: Vec::new(),
-                                });
+                                return Err(ShellError::Generic(GenericError::new(
+                                    format!("Failed to run {hook_name} hook"),
+                                    "source code has errors",
+                                    span,
+                                )));
                             }
 
                             (output, working_set.render(), vars)

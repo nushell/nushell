@@ -4,6 +4,7 @@ use crate::values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -95,12 +96,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let series = df.as_series(call.head)?;
-    let bool = series.bool().map_err(|_| ShellError::GenericError {
-        error: "Error converting to bool".into(),
-        msg: "all-false only works with series of type bool".into(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let bool = series.bool().map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "Error converting to bool",
+            "all-false only works with series of type bool",
+            call.head,
+        ))
     })?;
 
     let value = Value::bool(bool.all(), call.head);

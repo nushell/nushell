@@ -6,7 +6,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type, Value,
+    SyntaxShape, Type, Value, shell_error::generic::GenericError,
 };
 
 use polars::lazy::dsl::{
@@ -32,13 +32,14 @@ impl HorizontalType {
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
             "mean" => Ok(Self::Mean),
-            _ => Err(ShellError::GenericError {
-                error: "Wrong operation".into(),
-                msg: "Operation not valid for cumulative".into(),
-                span: Some(span),
-                help: Some("Allowed values: all, any, max, min, sum, mean".into()),
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(
+                GenericError::new(
+                    "Wrong operation",
+                    "Operation not valid for cumulative",
+                    span,
+                )
+                .with_help("Allowed values: all, any, max, min, sum, mean"),
+            )),
         }
     }
 }
@@ -167,12 +168,11 @@ fn command(
         HorizontalType::Sum => sum_horizontal(exprs, ignore_nulls),
         HorizontalType::Mean => mean_horizontal(exprs, ignore_nulls),
     }
-    .map_err(|e| ShellError::GenericError {
-        error: "Cannot apply horizontal aggregation".to_string(),
-        msg: "".into(),
-        span: Some(call.head),
-        help: Some(e.to_string()),
-        inner: vec![],
+    .map_err(|e| {
+        ShellError::Generic(
+            GenericError::new("Cannot apply horizontal aggregation", "", call.head)
+                .with_help(e.to_string()),
+        )
     })?
     .into();
 

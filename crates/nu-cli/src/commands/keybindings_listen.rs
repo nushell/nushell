@@ -2,7 +2,10 @@ use crossterm::{
     QueueableCommand, event::Event, event::KeyCode, event::KeyEvent, execute, terminal,
 };
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, shell_error::io::IoError};
+use nu_protocol::{
+    Config,
+    shell_error::{generic::GenericError, io::IoError},
+};
 use std::io::{Write, stdout};
 
 #[derive(Clone)]
@@ -42,13 +45,9 @@ impl Command for KeybindingsListen {
             Err(e) => {
                 terminal::disable_raw_mode()
                     .map_err(|err| IoError::new_internal(err, "Could not disable raw mode"))?;
-                Err(ShellError::GenericError {
-                    error: "Error with input".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(e.to_string()),
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(
+                    GenericError::new_internal("Error with input", "").with_help(e.to_string()),
+                ))
             }
         }
     }

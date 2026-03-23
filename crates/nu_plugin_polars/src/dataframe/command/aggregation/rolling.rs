@@ -4,7 +4,7 @@ use crate::{PolarsPlugin, values::CustomValueSupport};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Value, shell_error::generic::GenericError,
 };
 use polars::prelude::{DataType, IntoSeries, RollingOptionsFixedWindow, SeriesOpsTime};
 
@@ -22,13 +22,14 @@ impl RollType {
             "max" => Ok(Self::Max),
             "sum" => Ok(Self::Sum),
             "mean" => Ok(Self::Mean),
-            _ => Err(ShellError::GenericError {
-                error: "Wrong operation".into(),
-                msg: "Operation not valid for cumulative".into(),
-                span: Some(span),
-                help: Some("Allowed values: min, max, sum, mean".into()),
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(
+                GenericError::new(
+                    "Wrong operation",
+                    "Operation not valid for cumulative",
+                    span,
+                )
+                .with_help("Allowed values: min, max, sum, mean"),
+            )),
         }
     }
 
@@ -145,13 +146,11 @@ fn command(
     let series = df.as_series(call.head)?;
 
     if let DataType::Object(..) = series.dtype() {
-        return Err(ShellError::GenericError {
-            error: "Found object series".into(),
-            msg: "Series of type object cannot be used for rolling operation".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Found object series",
+            "Series of type object cannot be used for rolling operation",
+            call.head,
+        )));
     }
 
     let roll_type = RollType::from_str(&roll_type.item, roll_type.span)?;
@@ -169,12 +168,12 @@ fn command(
         RollType::Mean => series.rolling_mean(rolling_opts),
     };
 
-    let mut res = res.map_err(|e| ShellError::GenericError {
-        error: "Error calculating rolling values".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let mut res = res.map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error calculating rolling values",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
     let name = format!("{}_{}", series.name(), roll_type.to_str());

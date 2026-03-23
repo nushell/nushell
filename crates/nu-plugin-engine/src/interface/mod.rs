@@ -13,7 +13,7 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     CustomValue, DynamicSuggestion, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
     ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
-    engine::Sequence,
+    engine::Sequence, shell_error::generic::GenericError,
 };
 use nu_utils::SharedCow;
 use std::{
@@ -383,14 +383,10 @@ impl PluginInterfaceManager {
                 // don't block
                 this.state.writer.write(&PluginInput::EngineCallResponse(
                     engine_call_id,
-                    EngineCallResponse::Error(ShellError::GenericError {
-                        error: "Caller hung up".to_string(),
-                        msg: "Can't make engine call because the original caller hung up"
-                            .to_string(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    }),
+                    EngineCallResponse::Error(ShellError::Generic(GenericError::new_internal(
+                        "Caller hung up",
+                        "Can't make engine call because the original caller hung up",
+                    ))),
                 ))?;
                 this.state.writer.flush()
             };
@@ -774,17 +770,28 @@ impl PluginInterface {
             ))
             .map_err(|_| {
                 let existing_error = self.state.error.get().cloned();
-                ShellError::GenericError {
-                    error: format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
-                    msg: "can't complete this operation because the plugin is closed".into(),
-                    span: call.span(),
-                    help: Some(format!(
-                        "the plugin may have experienced an error. Try loading the plugin again \
+                let help = format!(
+                    "the plugin may have experienced an error. Try loading the plugin again \
                         with `{}`",
-                        self.state.source.identity.use_command(),
-                    )),
-                    inner: existing_error.into_iter().collect(),
-                }
+                    self.state.source.identity.use_command(),
+                );
+                let error = if let Some(span) = call.span() {
+                    GenericError::new(
+                        format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                        "can't complete this operation because the plugin is closed",
+                        span,
+                    )
+                    .with_help(help)
+                    .with_inner(existing_error.into_iter())
+                } else {
+                    GenericError::new_internal(
+                        format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
+                        "can't complete this operation because the plugin is closed",
+                    )
+                    .with_help(help)
+                    .with_inner(existing_error.into_iter())
+                };
+                ShellError::Generic(error)
             })?;
 
         // Starting a plugin call adds a lock on the GC. Locks are not added for streams being read
@@ -851,19 +858,35 @@ impl PluginInterface {
         // If we fail to get a response, check for an error in the state first, and return it if
         // set. This is probably a much more helpful error than 'failed to receive response' alone
         let existing_error = self.state.error.get().cloned();
-        Err(ShellError::GenericError {
-            error: format!(
-                "Failed to receive response to plugin call from `{}`",
-                self.state.source.identity.name()
-            ),
-            msg: "while waiting for this operation to complete".into(),
-            span: state.span,
-            help: Some(format!(
+        {
+            let help = format!(
                 "try restarting the plugin with `{}`",
                 self.state.source.identity.use_command()
-            )),
-            inner: existing_error.into_iter().collect(),
-        })
+            );
+            let error = if let Some(span) = state.span {
+                GenericError::new(
+                    format!(
+                        "Failed to receive response to plugin call from `{}`",
+                        self.state.source.identity.name()
+                    ),
+                    "while waiting for this operation to complete",
+                    span,
+                )
+                .with_help(help)
+                .with_inner(existing_error)
+            } else {
+                GenericError::new_internal(
+                    format!(
+                        "Failed to receive response to plugin call from `{}`",
+                        self.state.source.identity.name()
+                    ),
+                    "while waiting for this operation to complete",
+                )
+                .with_help(help)
+                .with_inner(existing_error)
+            };
+            Err(ShellError::Generic(error))
+        }
     }
 
     /// Handle an engine call and write the response.
@@ -908,20 +931,33 @@ impl PluginInterface {
     ) -> Result<PluginCallResponse<PipelineData>, ShellError> {
         // Check for an error in the state first, and return it if set.
         if let Some(error) = self.state.error.get() {
-            return Err(ShellError::GenericError {
-                error: format!(
-                    "Failed to send plugin call to `{}`",
-                    self.state.source.identity.name()
-                ),
-                msg: "the plugin encountered an error before this operation could be attempted"
-                    .into(),
-                span: call.span(),
-                help: Some(format!(
-                    "try loading the plugin again with `{}`",
-                    self.state.source.identity.use_command(),
-                )),
-                inner: vec![error.clone()],
-            });
+            let help = format!(
+                "try loading the plugin again with `{}`",
+                self.state.source.identity.use_command(),
+            );
+            let error = if let Some(span) = call.span() {
+                GenericError::new(
+                    format!(
+                        "Failed to send plugin call to `{}`",
+                        self.state.source.identity.name()
+                    ),
+                    "the plugin encountered an error before this operation could be attempted",
+                    span,
+                )
+                .with_help(help)
+                .with_inner([error.clone()])
+            } else {
+                GenericError::new_internal(
+                    format!(
+                        "Failed to send plugin call to `{}`",
+                        self.state.source.identity.name()
+                    ),
+                    "the plugin encountered an error before this operation could be attempted",
+                )
+                .with_help(help)
+                .with_inner([error.clone()])
+            };
+            return Err(ShellError::Generic(error));
         }
 
         let result = self.write_plugin_call(call, context.as_deref())?;
@@ -1316,12 +1352,14 @@ pub(crate) fn handle_engine_call(
 ) -> Result<EngineCallResponse<PipelineData>, ShellError> {
     let call_name = call.name();
 
-    let context = context.ok_or_else(|| ShellError::GenericError {
-        error: "A plugin execution context is required for this engine call".into(),
-        msg: format!("attempted to call {call_name} outside of a command invocation"),
-        span: None,
-        help: Some("this is probably a bug with the plugin".into()),
-        inner: vec![],
+    let context = context.ok_or_else(|| {
+        ShellError::Generic(
+            GenericError::new_internal(
+                "A plugin execution context is required for this engine call",
+                format!("attempted to call {call_name} outside of a command invocation"),
+            )
+            .with_help("this is probably a bug with the plugin"),
+        )
     })?;
 
     match call {
@@ -1431,12 +1469,13 @@ fn set_foreground(
             })
         }
     } else {
-        Err(ShellError::GenericError {
-            error: "Can't manage plugin process to enter foreground".into(),
-            msg: "the process ID for this plugin is unknown".into(),
-            span: Some(context.span()),
-            help: Some("the plugin may be running in a test".into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "Can't manage plugin process to enter foreground",
+                "the process ID for this plugin is unknown",
+                context.span(),
+            )
+            .with_help("the plugin may be running in a test"),
+        ))
     }
 }

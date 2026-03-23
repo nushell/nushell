@@ -6,6 +6,7 @@ use crate::{
 
 use crate::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
     record,
@@ -164,31 +165,15 @@ fn command_eager(
     let mut df = (*nu_df.df).clone();
     let column = df
         .column(&column_nm)
-        .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+        .map_err(|e| ShellError::Generic(GenericError::new(format!("{e}"), "", call.head)))?;
 
-    let casted = column.cast(&dtype).map_err(|e| ShellError::GenericError {
-        error: format!("{e}"),
-        msg: "".into(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
-    })?;
+    let casted = column
+        .cast(&dtype)
+        .map_err(|e| ShellError::Generic(GenericError::new(format!("{e}"), "", call.head)))?;
 
     let _ = df
         .with_column(casted)
-        .map_err(|e| ShellError::GenericError {
-            error: format!("{e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+        .map_err(|e| ShellError::Generic(GenericError::new(format!("{e}"), "", call.head)))?;
 
     let df = NuDataFrame::new(false, df);
     df.to_pipeline_data(plugin, engine, call.head)

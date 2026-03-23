@@ -6,6 +6,7 @@ use crate::values::CustomValueSupport;
 use crate::values::NuDataFrame;
 use crate::values::PolarsPluginType;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -92,15 +93,13 @@ fn command(
 
     let mut ctx = SQLContext::new();
     ctx.register("df", &df.df);
-    let df_sql = ctx
-        .execute(&sql_query)
-        .map_err(|e| ShellError::GenericError {
-            error: "Dataframe Error".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let df_sql = ctx.execute(&sql_query).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Dataframe Error",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
     let lazy = NuLazyFrame::new(!df.from_lazy, df_sql);
     lazy.to_pipeline_data(plugin, engine, call.head)
 }

@@ -10,6 +10,7 @@ use nu_protocol::{
     process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning, report_shell_error,
+    shell_error::generic::GenericError,
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
@@ -47,13 +48,13 @@ fn gather_env_vars(
         report_shell_error(
             None,
             engine_state,
-            &ShellError::GenericError {
-                error: format!("Environment variable was not captured: {env_str}"),
-                msg: "".into(),
-                span: None,
-                help: Some(msg.into()),
-                inner: vec![],
-            },
+            &ShellError::Generic(
+                GenericError::new_internal(
+                    format!("Environment variable was not captured: {env_str}"),
+                    "",
+                )
+                .with_help(msg.to_string()),
+            ),
         );
     }
 
@@ -79,15 +80,12 @@ fn gather_env_vars(
             report_shell_error(
                 None,
                 engine_state,
-                &ShellError::GenericError {
-                    error: "Current directory is not a valid utf-8 path".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some(format!(
-                        "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
-                    )),
-                    inner: vec![],
-                },
+                &ShellError::Generic(
+                    GenericError::new_internal("Current directory is not a valid utf-8 path", "")
+                        .with_help(format!(
+                            "Retrieving current directory failed: {init_cwd:?} not a valid utf-8 path"
+                        )),
+                ),
             );
         }
     }

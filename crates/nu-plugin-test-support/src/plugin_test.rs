@@ -13,6 +13,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
+    shell_error::generic::GenericError,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -299,13 +300,10 @@ impl PluginTest {
         if !failed {
             Ok(())
         } else {
-            Err(ShellError::GenericError {
-                error: "Some examples failed. See the error output for details".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+            Err(ShellError::Generic(GenericError::new_internal(
+                "Some examples failed. See the error output for details",
+                "",
+            )))
         }
     }
 

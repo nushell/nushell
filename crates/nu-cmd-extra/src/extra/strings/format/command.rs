@@ -1,6 +1,8 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, ListStream, ast::PathMember, casing::Casing};
+use nu_protocol::{
+    Config, ListStream, ast::PathMember, casing::Casing, shell_error::generic::GenericError,
+};
 
 #[derive(Clone)]
 pub struct FormatPattern;
@@ -192,12 +194,15 @@ fn extract_formatting_operations(
         span: call_head,
     };
 
-    let make_removed_functionality_error = |span: Span| ShellError::GenericError {
-        error: "Removed functionality".into(),
-        msg: "The ability to use variables ($it) in `format pattern` has been removed.".into(),
-        span: Some(span),
-        help: Some("You can use other formatting options, such as string interpolation.".into()),
-        inner: vec![],
+    let make_removed_functionality_error = |span: Span| {
+        ShellError::Generic(
+            GenericError::new(
+                "Removed functionality",
+                "The ability to use variables ($it) in `format pattern` has been removed.",
+                span,
+            )
+            .with_help("You can use other formatting options, such as string interpolation."),
+        )
     };
 
     ops.map(|res_op| {

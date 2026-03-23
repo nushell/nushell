@@ -1,6 +1,7 @@
 use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 struct Arguments {
     signed: bool,
@@ -152,15 +153,13 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Eight => {
                     let Ok(i) = i64::try_from((val as u64).rotate_right(bits)) else {
                         return Value::error(
-                            ShellError::GenericError {
-                                error: "result out of range for specified number".into(),
-                                msg: format!(
+                            ShellError::Generic(GenericError::new(
+                                "result out of range for specified number",
+                                format!(
                                     "rotating right by {bits} is out of range for the value {val}"
                                 ),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            },
+                                span,
+                            )),
                             span,
                         );
                     };

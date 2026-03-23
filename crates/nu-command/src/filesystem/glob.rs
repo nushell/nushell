@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals};
+use nu_protocol::{ListStream, Signals, shell_error::generic::GenericError};
 use wax::{
     Glob as WaxGlob, any, walk::DepthBehavior, walk::DepthMax, walk::Entry, walk::FileIterator,
     walk::GlobEntry, walk::LinkBehavior, walk::WalkBehavior,
@@ -176,13 +176,14 @@ impl Command for Glob {
         let glob_pattern = patch_windows_glob_pattern(glob_pattern, glob_span)?;
 
         if glob_pattern.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "glob pattern must not be empty".into(),
-                msg: "glob pattern is empty".into(),
-                span: Some(glob_span),
-                help: Some("add characters to the glob pattern".into()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "glob pattern must not be empty",
+                    "glob pattern is empty",
+                    glob_span,
+                )
+                .with_help("add characters to the glob pattern"),
+            ));
         }
 
         // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
@@ -200,23 +201,17 @@ impl Command for Glob {
         let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
             Ok(p) => p.partition_or_empty(),
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: "error with glob pattern".into(),
-                    msg: format!("{e}"),
-                    span: Some(glob_span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "error with glob pattern",
+                    format!("{e}"),
+                    glob_span,
+                )));
             }
         };
 
         let path = engine_state.cwd_as_string(Some(stack))?;
-        let path = nu_path::absolute_with(prefix, path).map_err(|e| ShellError::GenericError {
-            error: "invalid path".into(),
-            msg: format!("{e}"),
-            span: Some(glob_span),
-            help: None,
-            inner: vec![],
+        let path = nu_path::absolute_with(prefix, path).map_err(|e| {
+            ShellError::Generic(GenericError::new("invalid path", format!("{e}"), glob_span))
         })?;
         let path = match path.try_exists() {
             Ok(true) => path,
@@ -226,13 +221,11 @@ impl Command for Glob {
                 std::path::PathBuf::new() // user should get empty list not an error
             }
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: "error accessing path".into(),
-                    msg: format!("{e}"),
-                    span: Some(glob_span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "error accessing path",
+                    format!("{e}"),
+                    glob_span,
+                )));
             }
         };
 
@@ -251,34 +244,34 @@ impl Command for Glob {
                 .into_iter()
                 .map(|pattern| {
                     WaxGlob::new(&pattern)
-                        .map_err(|err| ShellError::GenericError {
-                            error: "error with glob's not pattern".into(),
-                            msg: format!("{err}"),
-                            span: Some(not_pattern_span),
-                            help: None,
-                            inner: vec![],
+                        .map_err(|err| {
+                            ShellError::Generic(GenericError::new(
+                                "error with glob's not pattern",
+                                format!("{err}"),
+                                not_pattern_span,
+                            ))
                         })
                         .map(|g| g.into_owned())
                 })
                 .collect::<Result<_, _>>()?;
 
-            let any_pattern = any(patterns).map_err(|err| ShellError::GenericError {
-                error: "error with glob's not pattern".into(),
-                msg: format!("{err}"),
-                span: Some(not_pattern_span),
-                help: None,
-                inner: vec![],
+            let any_pattern = any(patterns).map_err(|err| {
+                ShellError::Generic(GenericError::new(
+                    "error with glob's not pattern",
+                    format!("{err}"),
+                    not_pattern_span,
+                ))
             })?;
 
             let glob_results = glob
                 .walk_with_behavior(path, make_walk_behavior(folder_depth))
                 .not(any_pattern)
-                .map_err(|err| ShellError::GenericError {
-                    error: "error with glob's not pattern".into(),
-                    msg: format!("{err}"),
-                    span: Some(not_pattern_span),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new(
+                        "error with glob's not pattern",
+                        format!("{err}"),
+                        not_pattern_span,
+                    ))
                 })?
                 .flatten();
 
@@ -316,13 +309,14 @@ fn patch_windows_glob_pattern(glob_pattern: String, glob_span: Span) -> Result<S
             Ok(format!("{drive}\\:/{}", chars.as_str()))
         }
         (Some(drive), Some(':'), Some(_)) if drive.is_ascii_alphabetic() => {
-            Err(ShellError::GenericError {
-                error: "invalid Windows path format".into(),
-                msg: "Windows paths with drive letters must include a path separator (/) after the colon".into(),
-                span: Some(glob_span),
-                help: Some("use format like 'C:/' instead of 'C:'".into()),
-                inner: vec![],
-            })
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "invalid Windows path format",
+                    "Windows paths with drive letters must include a path separator (/) after the colon",
+                    glob_span,
+                )
+                .with_help("use format like 'C:/' instead of 'C:'"),
+            ))
         }
         _ => Ok(glob_pattern),
     }

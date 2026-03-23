@@ -1,5 +1,5 @@
 use super::GetPlugin;
-use nu_protocol::{PluginIdentity, ShellError, Span};
+use nu_protocol::{PluginIdentity, ShellError, Span, shell_error::generic::GenericError};
 use std::sync::{Arc, Weak};
 
 /// The source of a custom value or plugin command. Includes a weak reference to the persistent
@@ -37,15 +37,23 @@ impl PluginSource {
     /// Try to upgrade the persistent reference, and return an error referencing `span` as the
     /// object that referenced it otherwise
     pub fn persistent(&self, span: Option<Span>) -> Result<Arc<dyn GetPlugin>, ShellError> {
-        self.persistent
-            .upgrade()
-            .ok_or_else(|| ShellError::GenericError {
-                error: format!("The `{}` plugin is no longer present", self.identity.name()),
-                msg: "removed since this object was created".into(),
-                span,
-                help: Some("try recreating the object that came from the plugin".into()),
-                inner: vec![],
-            })
+        self.persistent.upgrade().ok_or_else(|| {
+            let error = if let Some(span) = span {
+                GenericError::new(
+                    format!("The `{}` plugin is no longer present", self.identity.name()),
+                    "removed since this object was created",
+                    span,
+                )
+                .with_help("try recreating the object that came from the plugin")
+            } else {
+                GenericError::new_internal(
+                    format!("The `{}` plugin is no longer present", self.identity.name()),
+                    "removed since this object was created",
+                )
+                .with_help("try recreating the object that came from the plugin")
+            };
+            ShellError::Generic(error)
+        })
     }
 
     /// Sources are compatible if their identities are equal

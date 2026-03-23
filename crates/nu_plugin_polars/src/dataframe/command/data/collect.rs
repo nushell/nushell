@@ -5,6 +5,7 @@ use crate::{
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
@@ -86,17 +87,13 @@ impl PluginCommand for LazyCollect {
                 // This should just increment the cache value.
                 // We can return a value back without incrementing the
                 // cache value or the value will be dropped (issue #12828)
-                let cv =
-                    plugin
-                        .cache
-                        .get(&df.id, true)?
-                        .ok_or_else(|| ShellError::GenericError {
-                            error: format!("Failed to get cached value {}", df.id),
-                            msg: "".into(),
-                            span: Some(call.head),
-                            help: None,
-                            inner: vec![],
-                        })?;
+                let cv = plugin.cache.get(&df.id, true)?.ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        format!("Failed to get cached value {}", df.id),
+                        "",
+                        call.head,
+                    ))
+                })?;
                 let df = NuDataFrame::from_cache_value(cv.value.clone())?;
 
                 // just return the dataframe, add to cache again to be safe

@@ -1,5 +1,6 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Reduce;
@@ -106,15 +107,9 @@ impl Command for Reduce {
 
         let mut iter = input.into_iter();
 
-        let mut acc = fold
-            .or_else(|| iter.next())
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Expected input".into(),
-                msg: "needs input".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![],
-            })?;
+        let mut acc = fold.or_else(|| iter.next()).ok_or_else(|| {
+            ShellError::Generic(GenericError::new("Expected input", "needs input", head))
+        })?;
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 

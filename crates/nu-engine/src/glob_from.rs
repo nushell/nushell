@@ -1,6 +1,9 @@
 use nu_glob::MatchOptions;
 use nu_path::{absolute_with, expand_path_with};
-use nu_protocol::{NuGlob, ShellError, Signals, Span, Spanned, shell_error::io::IoError};
+use nu_protocol::{
+    NuGlob, ShellError, Signals, Span, Spanned, shell_error::generic::GenericError,
+    shell_error::io::IoError,
+};
 use std::{
     fs, io,
     path::{Component, Path, PathBuf},
@@ -103,26 +106,22 @@ pub fn glob_from(
     let glob_options = options.unwrap_or_default();
 
     let glob = nu_glob::glob_with(&pattern, glob_options, signals).map_err(|e| {
-        nu_protocol::ShellError::GenericError {
-            error: "Error extracting glob pattern".into(),
-            msg: e.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new(
+            "Error extracting glob pattern",
+            e.to_string(),
+            span,
+        ))
     })?;
 
     Ok((
         prefix,
         Box::new(glob.map(move |x| match x {
             Ok(v) => Ok(v),
-            Err(e) => Err(nu_protocol::ShellError::GenericError {
-                error: "Error extracting glob pattern".into(),
-                msg: e.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            }),
+            Err(e) => Err(ShellError::Generic(GenericError::new(
+                "Error extracting glob pattern",
+                e.to_string(),
+                span,
+            ))),
         })),
     ))
 }

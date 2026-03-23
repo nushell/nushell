@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -239,13 +240,11 @@ fn command_lazy(
         .unwrap_or_else(|| PlSmallStr::from("_"));
 
     if index.is_none() && values.is_none() {
-        return Err(ShellError::GenericError {
-            error: "`pivot` needs either `--index or `--values` needs to be specified".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "`pivot` needs either `--index or `--values` needs to be specified",
+            "",
+            call.head,
+        )));
     }
 
     let index_selector = if let Some(index) = index.clone() {
@@ -288,28 +287,26 @@ fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellE
             "length" | "len" | "count" => Ok(element().len()),
             "last" => Ok(element().last()),
             "element" | "item" => Ok(element().item(true)),
-            s => Err(ShellError::GenericError {
-                error: format!("{s} is not a valid aggregation"),
-                msg: "".into(),
-                span: None,
-                help: Some(
-                    "Use one of the following: first, sum, min, max, mean, median, count, last"
-                        .into(),
+            s => Err(ShellError::Generic(
+                GenericError::new(
+                    format!("{s} is not a valid aggregation"),
+                    "",
+                    Span::unknown(),
+                )
+                .with_help(
+                    "Use one of the following: first, sum, min, max, mean, median, count, last",
                 ),
-                inner: vec![],
-            }),
+            )),
         },
         Value::Custom { .. } => {
             let expr = NuExpression::try_from_value(plugin, &agg)?;
             Ok(expr.into_polars())
         }
-        _ => Err(ShellError::GenericError {
-            error: "Aggregation must be a string or expression".into(),
-            msg: "".into(),
-            span: Some(agg.span()),
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Aggregation must be a string or expression",
+            "",
+            agg.span(),
+        ))),
     }
 }
 

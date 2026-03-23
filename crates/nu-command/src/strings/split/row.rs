@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct SplitRow;
@@ -160,12 +161,12 @@ fn split_row(
         let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
-    .map_err(|e| ShellError::GenericError {
-        error: "Error with regular expression".into(),
-        msg: e.to_string(),
-        span: Some(args.separator.span),
-        help: None,
-        inner: vec![],
+    .map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error with regular expression",
+            e.to_string(),
+            args.separator.span,
+        ))
     })?;
     input.flat_map(
         move |x| split_row_helper(&x, &regex, args.max_split, name_span),
@@ -189,13 +190,11 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                         .map(|x| match x {
                             Ok(val) => Value::string(val, v_span),
                             Err(err) => Value::error(
-                                ShellError::GenericError {
-                                    error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
-                                    span: Some(v_span),
-                                    help: None,
-                                    inner: vec![],
-                                },
+                                ShellError::Generic(GenericError::new(
+                                    "Error with regular expression",
+                                    err.to_string(),
+                                    v_span,
+                                )),
                                 v_span,
                             ),
                         })
@@ -205,13 +204,11 @@ fn split_row_helper(v: &Value, regex: &Regex, max_split: Option<usize>, name: Sp
                         .map(|x| match x {
                             Ok(val) => Value::string(val, v_span),
                             Err(err) => Value::error(
-                                ShellError::GenericError {
-                                    error: "Error with regular expression".into(),
-                                    msg: err.to_string(),
-                                    span: Some(v_span),
-                                    help: None,
-                                    inner: vec![],
-                                },
+                                ShellError::Generic(GenericError::new(
+                                    "Error with regular expression",
+                                    err.to_string(),
+                                    v_span,
+                                )),
                                 v_span,
                             ),
                         })

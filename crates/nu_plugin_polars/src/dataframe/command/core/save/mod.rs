@@ -17,7 +17,7 @@ use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use polars::error::PolarsError;
 
@@ -192,13 +192,18 @@ fn command(
                 _ => Err(unknown_file_save_error(resource.span)),
             },
             PolarsFileType::Avro => match polars_object {
-                _ if resource.cloud_options.is_some() => Err(ShellError::GenericError {
-                    error: "Cloud URLS are not supported with Avro".into(),
-                    msg: "".into(),
-                    span: call.get_flag_span("eager"),
-                    help: Some("Remove flag".into()),
-                    inner: vec![],
-                }),
+                _ if resource.cloud_options.is_some() => {
+                    let error = match call.get_flag_span("eager") {
+                        Some(span) => {
+                            GenericError::new("Cloud URLS are not supported with Avro", "", span)
+                        }
+                        None => {
+                            GenericError::new_internal("Cloud URLS are not supported with Avro", "")
+                        }
+                    }
+                    .with_help("Remove flag");
+                    Err(ShellError::Generic(error))
+                }
                 PolarsPluginObject::NuLazyFrame(lazy) => {
                     let df = lazy.collect(call.head)?;
                     avro::command_eager(call, &df, resource)
@@ -262,23 +267,19 @@ fn write_into_source_error(span: Span) -> ShellError {
 }
 
 pub(crate) fn polars_file_save_error(e: PolarsError, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: format!("Error saving file: {e}"),
-        msg: "".into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        format!("Error saving file: {e}"),
+        "",
+        span,
+    ))
 }
 
 pub fn unknown_file_save_error(span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Could not save file for unknown reason".into(),
-        msg: "".into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Could not save file for unknown reason",
+        "",
+        span,
+    ))
 }
 
 #[cfg(test)]

@@ -5,7 +5,9 @@ use std::io;
 
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
-use nu_protocol::{Signals, Spanned, ast::PathMember, shell_error::io::IoError};
+use nu_protocol::{
+    Signals, Spanned, ast::PathMember, shell_error::generic::GenericError, shell_error::io::IoError,
+};
 use rmp::encode as mp;
 
 /// Max recursion depth
@@ -138,20 +140,16 @@ impl From<ShellError> for WriteError {
 impl From<WriteError> for ShellError {
     fn from(value: WriteError) -> Self {
         match value {
-            WriteError::MaxDepth(span) => ShellError::GenericError {
-                error: "MessagePack data is nested too deeply".into(),
-                msg: format!("exceeded depth limit ({MAX_DEPTH})"),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            },
-            WriteError::Rmp(err, span) => ShellError::GenericError {
-                error: "Failed to encode MessagePack data".into(),
-                msg: err.to_string(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            },
+            WriteError::MaxDepth(span) => ShellError::Generic(GenericError::new(
+                "MessagePack data is nested too deeply",
+                format!("exceeded depth limit ({MAX_DEPTH})"),
+                span,
+            )),
+            WriteError::Rmp(err, span) => ShellError::Generic(GenericError::new(
+                "Failed to encode MessagePack data",
+                err.to_string(),
+                span,
+            )),
             WriteError::Io(err, span) => ShellError::Io(IoError::new(err, span, None)),
             WriteError::Shell(err) => *err,
         }
@@ -303,15 +301,13 @@ where
     U: TryFrom<T>,
     <U as TryFrom<T>>::Error: std::fmt::Display,
 {
-    value
-        .try_into()
-        .map_err(|err: <U as TryFrom<T>>::Error| ShellError::GenericError {
-            error: "Value not compatible with MessagePack".into(),
-            msg: err.to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })
+    value.try_into().map_err(|err: <U as TryFrom<T>>::Error| {
+        ShellError::Generic(GenericError::new(
+            "Value not compatible with MessagePack",
+            err.to_string(),
+            span,
+        ))
+    })
 }
 
 #[cfg(test)]

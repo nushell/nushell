@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct StrTrim;
@@ -158,13 +159,11 @@ fn run(
     let to_trim = match character.as_ref() {
         Some(v) => {
             if v.item.chars().count() > 1 {
-                return Err(ShellError::GenericError {
-                    error: "Trim only works with single character".into(),
-                    msg: "needs single character".into(),
-                    span: Some(v.span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Trim only works with single character",
+                    "needs single character",
+                    v.span,
+                )));
             }
             v.item.chars().next()
         }

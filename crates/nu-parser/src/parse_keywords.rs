@@ -23,6 +23,7 @@ use nu_protocol::{
     engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
+    shell_error::generic::GenericError,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -970,13 +971,14 @@ fn handle_special_attributes(
             "example" => match CustomExample::from_value(value) {
                 Ok(example) => examples.push(example),
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_example".into(),
-                        msg: "Value couldn't be converted to an example".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr example` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_example",
+                            "Value couldn't be converted to an example",
+                            val_span,
+                        )
+                        .with_help("Is `attr example` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -985,13 +987,14 @@ fn handle_special_attributes(
                     search_terms.append(&mut terms);
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_search_terms".into(),
-                        msg: "Value couldn't be converted to search-terms".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr search-terms` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_search_terms",
+                            "Value couldn't be converted to search-terms",
+                            val_span,
+                        )
+                        .with_help("Is `attr search-terms` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1000,13 +1003,14 @@ fn handle_special_attributes(
                     category.push_str(&term);
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_category".into(),
-                        msg: "Value couldn't be converted to category".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr category` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_category",
+                            "Value couldn't be converted to category",
+                            val_span,
+                        )
+                        .with_help("Is `attr category` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1021,13 +1025,14 @@ fn handle_special_attributes(
                     }
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_completer".into(),
-                        msg: "Value couldn't be converted to a completer".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr complete` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_completer",
+                            "Value couldn't be converted to a completer",
+                            val_span,
+                        )
+                        .with_help("Is `attr complete` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1036,13 +1041,14 @@ fn handle_special_attributes(
                     signature.complete = Some(CommandWideCompleter::External);
                 }
                 _ => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_completer".into(),
-                        msg: "This attribute shouldn't return anything".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr complete` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_completer",
+                            "This attribute shouldn't return anything",
+                            val_span,
+                        )
+                        .with_help("Is `attr complete` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },

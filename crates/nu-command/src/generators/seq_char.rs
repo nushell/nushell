@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct SeqChar;
@@ -78,23 +79,19 @@ fn seq_char(
     let end: Spanned<String> = call.req(engine_state, stack, 1)?;
 
     if !is_single_character(&start.item) {
-        return Err(ShellError::GenericError {
-            error: "seq char only accepts individual ASCII characters as parameters".into(),
-            msg: "input should be a single ASCII character".into(),
-            span: Some(start.span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "seq char only accepts individual ASCII characters as parameters",
+            "input should be a single ASCII character",
+            start.span,
+        )));
     }
 
     if !is_single_character(&end.item) {
-        return Err(ShellError::GenericError {
-            error: "seq char only accepts individual ASCII characters as parameters".into(),
-            msg: "input should be a single ASCII character".into(),
-            span: Some(end.span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "seq char only accepts individual ASCII characters as parameters",
+            "input should be a single ASCII character",
+            end.span,
+        )));
     }
 
     let start = start

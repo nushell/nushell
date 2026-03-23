@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct Headers;
@@ -82,12 +82,12 @@ fn extract_headers(
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     table
         .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Found empty list".into(),
-            msg: "unable to extract headers".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
+        .ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Found empty list",
+                "unable to extract headers",
+                span,
+            ))
         })
         .and_then(Value::as_record)
         .and_then(|record| {

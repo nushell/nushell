@@ -1,6 +1,7 @@
 use std::ops::Not;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone, Debug)]
 enum Location {
@@ -129,22 +130,18 @@ impl Command for Move {
             (None, None, true, false) => Location::First,
             (None, None, false, true) => Location::Last,
             (None, None, false, false) => {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "Missing required location flag".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "Missing required location flag",
+                    head,
+                )));
             }
             _ => {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "Use only a single flag".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "Use only a single flag",
+                    head,
+                )));
             }
         };
 
@@ -193,13 +190,11 @@ fn move_record_columns(
         if let Some(idx) = record.index_of(column.coerce_string()?) {
             column_idx.push(idx);
         } else {
-            return Err(ShellError::GenericError {
-                error: "Cannot move columns".into(),
-                msg: "column does not exist".into(),
-                span: Some(column.span()),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Cannot move columns",
+                "column does not exist",
+                column.span(),
+            )));
         }
     }
 
@@ -209,13 +204,11 @@ fn move_record_columns(
         Location::Before(pivot) | Location::After(pivot) => {
             // Check if pivot exists
             if !record.contains(&pivot.item) {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "column does not exist".into(),
-                    span: Some(pivot.span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "column does not exist",
+                    pivot.span,
+                )));
             }
 
             for (i, (inp_col, inp_val)) in record.iter().enumerate() {

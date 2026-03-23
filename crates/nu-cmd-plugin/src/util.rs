@@ -4,6 +4,7 @@ use nu_protocol::{
     engine::StateWorkingSet,
     shell_error::{
         self,
+        generic::GenericError,
         io::{IoError, IoErrorExt, NotFound},
     },
 };
@@ -23,16 +24,16 @@ fn get_plugin_registry_file_path(
     if let Some(custom_path) = custom_path {
         Ok(nu_path::expand_path_with(&custom_path.item, cwd, true))
     } else {
-        engine_state
-            .plugin_path
-            .clone()
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Plugin registry file not set".into(),
-                msg: "pass --plugin-config explicitly here".into(),
-                span: Some(span),
-                help: Some("you may be running `nu` with --no-config-file".into()),
-                inner: vec![],
-            })
+        engine_state.plugin_path.clone().ok_or_else(|| {
+            ShellError::Generic(
+                GenericError::new(
+                    "Plugin registry file not set",
+                    "pass --plugin-config explicitly here",
+                    span,
+                )
+                .with_help("you may be running `nu` with --no-config-file"),
+            )
+        })
     }
 }
 

@@ -4,7 +4,8 @@ use super::definitions::{
 };
 use nu_protocol::{
     CustomValue, IntoPipelineData, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
-    ast, casing::Casing, engine::EngineState, shell_error::io::IoError,
+    ast, casing::Casing, engine::EngineState, shell_error::generic::GenericError,
+    shell_error::io::IoError,
 };
 use rusqlite::{
     Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,
@@ -52,13 +53,11 @@ impl SQLiteDatabase {
                 if buf == SQLITE_MAGIC_BYTES {
                     Ok(SQLiteDatabase::new(path, signals))
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Not a SQLite file".into(),
-                        msg: format!("Could not read '{}' as SQLite file", path.display()),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Not a SQLite file",
+                        format!("Could not read '{}' as SQLite file", path.display()),
+                        span,
+                    )))
                 }
             })
     }
@@ -114,20 +113,18 @@ impl SQLiteDatabase {
         if self.path.to_string_lossy() == MEMORY_DB {
             open_connection_in_memory_custom()
         } else {
-            let conn = Connection::open(&self.path).map_err(|e| ShellError::GenericError {
-                error: "Failed to open SQLite database from open_connection".into(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
+            let conn = Connection::open(&self.path).map_err(|e| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to open SQLite database from open_connection",
+                    e.to_string(),
+                ))
             })?;
             conn.busy_handler(Some(SQLiteDatabase::sleeper))
-                .map_err(|e| ShellError::GenericError {
-                    error: "Failed to set busy handler for SQLite database".into(),
-                    msg: e.to_string(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to set busy handler for SQLite database",
+                        e.to_string(),
+                    ))
                 })?;
             Ok(conn)
         }
@@ -415,12 +412,12 @@ pub fn open_sqlite_db(path: &Path, call_span: Span) -> Result<Connection, ShellE
         open_connection_in_memory_custom()
     } else {
         let path = path.to_string_lossy().to_string();
-        Connection::open(path).map_err(|err| ShellError::GenericError {
-            error: "Failed to open SQLite database".into(),
-            msg: err.to_string(),
-            span: Some(call_span),
-            help: None,
-            inner: Vec::new(),
+        Connection::open(path).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "Failed to open SQLite database",
+                err.to_string(),
+                call_span,
+            ))
         })
     }
 }
@@ -553,13 +550,9 @@ impl From<ShellError> for SqliteOrShellError {
 impl SqliteOrShellError {
     fn into_shell_error(self, span: Span, msg: &str) -> ShellError {
         match self {
-            Self::SqliteError(err) => ShellError::GenericError {
-                error: msg.into(),
-                msg: err.to_string(),
-                span: Some(span),
-                help: None,
-                inner: Vec::new(),
-            },
+            Self::SqliteError(err) => {
+                ShellError::Generic(GenericError::new(msg.to_string(), err.to_string(), span))
+            }
             Self::ShellError(err) => err,
         }
     }
@@ -780,32 +773,31 @@ pub fn convert_sqlite_value_to_nu_value(
 
 pub fn open_connection_in_memory_custom() -> Result<Connection, ShellError> {
     let flags = OpenFlags::default();
-    let conn =
-        Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| ShellError::GenericError {
-            error: "Failed to open SQLite custom connection in memory".into(),
-            msg: e.to_string(),
-            span: Some(Span::test_data()),
-            help: None,
-            inner: vec![],
-        })?;
+    let conn = Connection::open_with_flags(MEMORY_DB, flags).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Failed to open SQLite custom connection in memory",
+            e.to_string(),
+            Span::test_data(),
+        ))
+    })?;
     conn.busy_handler(Some(SQLiteDatabase::sleeper))
-        .map_err(|e| ShellError::GenericError {
-            error: "Failed to set busy handler for SQLite custom connection in memory".into(),
-            msg: e.to_string(),
-            span: Some(Span::test_data()),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Failed to set busy handler for SQLite custom connection in memory",
+                e.to_string(),
+                Span::test_data(),
+            ))
         })?;
     Ok(conn)
 }
 
 pub fn open_connection_in_memory() -> Result<Connection, ShellError> {
-    Connection::open_in_memory().map_err(|e| ShellError::GenericError {
-        error: "Failed to open SQLite standard connection in memory".into(),
-        msg: e.to_string(),
-        span: Some(Span::test_data()),
-        help: None,
-        inner: vec![],
+    Connection::open_in_memory().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Failed to open SQLite standard connection in memory",
+            e.to_string(),
+            Span::test_data(),
+        ))
     })
 }
 
@@ -970,12 +962,12 @@ impl SQLiteQueryBuilder {
         if let Some(where_clause) = &self.sql_where {
             write!(sql, " WHERE {}", where_clause).expect("writing to a String is infallible");
         }
-        let mut stmt = conn.prepare(&sql).map_err(|e| ShellError::GenericError {
-            error: "Failed to prepare count query".into(),
-            msg: e.to_string(),
-            span: Some(call_span),
-            help: None,
-            inner: vec![],
+        let mut stmt = conn.prepare(&sql).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Failed to prepare count query",
+                e.to_string(),
+                call_span,
+            ))
         })?;
         let params: Vec<Box<dyn ToSql>> = self
             .sql_params
@@ -984,12 +976,12 @@ impl SQLiteQueryBuilder {
             .collect();
         let count: i64 = stmt
             .query_row(rusqlite::params_from_iter(params), |row| row.get(0))
-            .map_err(|e| ShellError::GenericError {
-                error: "Failed to execute count query".into(),
-                msg: e.to_string(),
-                span: Some(call_span),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Failed to execute count query",
+                    e.to_string(),
+                    call_span,
+                ))
             })?;
         Ok(count)
     }

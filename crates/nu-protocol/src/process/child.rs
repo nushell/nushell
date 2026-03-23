@@ -1,8 +1,8 @@
 use crate::{
+    ShellError, Span,
     byte_stream::convert_file,
     engine::{EngineState, FrozenJob, Job},
     shell_error::{generic::GenericError, io::IoError},
-    ShellError, Span,
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
@@ -481,13 +481,11 @@ impl ChildProcess {
                 .map(|handle| {
                     handle.join().map_err(|e| match e.downcast::<io::Error>() {
                         Ok(io) => from_io_error(*io).into(),
-                        Err(err) => ShellError::GenericError {
-                            error: "Unknown error".into(),
-                            msg: format!("{err:?}"),
-                            span: Some(self.span),
-                            help: None,
-                            inner: Vec::new(),
-                        },
+                        Err(err) => ShellError::Generic(GenericError::new(
+                            "Unknown error",
+                            format!("{err:?}"),
+                            self.span,
+                        )),
                     })
                 })
                 .transpose()?

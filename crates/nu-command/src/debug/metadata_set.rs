@@ -1,6 +1,9 @@
 use super::util::{extend_record_with_metadata, parse_metadata_from_record};
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure};
+use nu_protocol::{
+    DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure,
+    shell_error::generic::GenericError,
+};
 
 #[derive(Clone)]
 pub struct MetadataSet;
@@ -86,13 +89,14 @@ impl Command for MetadataSet {
         // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
             if ds_fp.is_some() || ds_ls || path_columns.is_some() || content_type.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Incompatible parameters".into(),
-                    msg: "cannot use closure with other flags".into(),
-                    span: Some(head),
-                    help: Some("Use either the closure parameter or flags, not both".into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new(
+                        "Incompatible parameters",
+                        "cannot use closure with other flags",
+                        head,
+                    )
+                    .with_help("Use either the closure parameter or flags, not both"),
+                ));
             }
 
             let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
@@ -102,12 +106,16 @@ impl Command for MetadataSet {
                 .run_with_value(metadata_value)?
                 .into_value(head)?;
 
-            let result_record = result.as_record().map_err(|err| ShellError::GenericError {
-                error: "Closure must return a record".into(),
-                msg: format!("got {}", result.get_type()),
-                span: Some(head),
-                help: Some("The closure should return a record with metadata fields".into()),
-                inner: vec![err],
+            let result_record = result.as_record().map_err(|err| {
+                ShellError::Generic(
+                    GenericError::new(
+                        "Closure must return a record",
+                        format!("got {}", result.get_type()),
+                        head,
+                    )
+                    .with_help("The closure should return a record with metadata fields")
+                    .with_inner([err]),
+                )
             })?;
 
             metadata = parse_metadata_from_record(result_record);

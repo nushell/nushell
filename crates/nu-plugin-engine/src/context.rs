@@ -6,6 +6,7 @@ use nu_protocol::{
     Signals, Span, Spanned, Value,
     engine::{Call, Closure, EngineState, Redirection, Stack},
     ir::{self, IrBlock},
+    shell_error::generic::GenericError,
 };
 use std::{
     borrow::Cow,
@@ -175,15 +176,15 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
         let block = self
             .engine_state
             .try_get_block(closure.item.block_id)
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Plugin misbehaving".into(),
-                msg: format!(
-                    "Tried to evaluate unknown block id: {}",
-                    closure.item.block_id.get()
-                ),
-                span: Some(closure.span),
-                help: None,
-                inner: vec![],
+            .ok_or_else(|| {
+                ShellError::Generic(GenericError::new(
+                    "Plugin misbehaving",
+                    format!(
+                        "Tried to evaluate unknown block id: {}",
+                        closure.item.block_id.get()
+                    ),
+                    closure.span,
+                ))
             })?;
 
         let mut stack = self
@@ -221,30 +222,26 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
     }
 
     fn get_block_ir(&self, block_id: BlockId) -> Result<IrBlock, ShellError> {
-        let block =
-            self.engine_state
-                .try_get_block(block_id)
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Plugin misbehaving".into(),
-                    msg: format!("Tried to get IR for unknown block id: {}", block_id.get()),
-                    span: Some(self.call.head),
-                    help: None,
-                    inner: vec![],
-                })?;
+        let block = self.engine_state.try_get_block(block_id).ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Plugin misbehaving",
+                format!("Tried to get IR for unknown block id: {}", block_id.get()),
+                self.call.head,
+            ))
+        })?;
 
-        block
-            .ir_block
-            .clone()
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Block has no IR".into(),
-                msg: format!("Block {} was not compiled to IR", block_id.get()),
-                span: Some(self.call.head),
-                help: Some(
-                    "This block may be a declaration or built-in that has no IR representation"
-                        .into(),
+        block.ir_block.clone().ok_or_else(|| {
+            ShellError::Generic(
+                GenericError::new(
+                    "Block has no IR",
+                    format!("Block {} was not compiled to IR", block_id.get()),
+                    self.call.head,
+                )
+                .with_help(
+                    "This block may be a declaration or built-in that has no IR representation",
                 ),
-                inner: vec![],
-            })
+            )
+        })
     }
 
     fn call_decl(
@@ -256,13 +253,11 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
         redirect_stderr: bool,
     ) -> Result<PipelineData, ShellError> {
         if decl_id.get() >= self.engine_state.num_decls() {
-            return Err(ShellError::GenericError {
-                error: "Plugin misbehaving".into(),
-                msg: format!("Tried to call unknown decl id: {}", decl_id.get()),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Plugin misbehaving",
+                format!("Tried to call unknown decl id: {}", decl_id.get()),
+                call.head,
+            )));
         }
 
         let decl = self.engine_state.get_decl(decl_id);

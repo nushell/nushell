@@ -7,7 +7,10 @@ use notify_debouncer_full::{
     },
 };
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{Signals, engine::Closure, report_shell_error, shell_error::io::IoError};
+use nu_protocol::{
+    Signals, engine::Closure, report_shell_error, shell_error::generic::GenericError,
+    shell_error::io::IoError,
+};
 
 use std::{
     borrow::Cow,
@@ -144,23 +147,20 @@ impl Command for Watch {
 
         let (tx, rx) = channel();
 
-        let mut debouncer =
-            new_debouncer(debounce_duration, None, tx).map_err(|err| ShellError::GenericError {
-                error: "Failed to create watcher".to_string(),
-                msg: err.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+        let mut debouncer = new_debouncer(debounce_duration, None, tx).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "Failed to create watcher",
+                err.to_string(),
+                call.head,
+            ))
+        })?;
 
         if let Err(err) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::GenericError {
-                error: "Failed to create watcher".to_string(),
-                msg: err.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Failed to create watcher",
+                err.to_string(),
+                call.head,
+            )));
         }
         // need to cache to make sure that rename event works.
         debouncer.cache().add_root(&path, recursive_mode);
@@ -357,25 +357,19 @@ impl Iterator for WatchIterator {
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => {
                     self.rx = None;
-                    return Some(Err(ShellError::GenericError {
-                        error: "Disconnected".to_string(),
-                        msg: "Unexpected disconnect from file watcher".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    }));
+                    return Some(Err(ShellError::Generic(GenericError::new_internal(
+                        "Disconnected",
+                        "Unexpected disconnect from file watcher",
+                    ))));
                 }
             };
 
             let Ok(events) = x else {
                 self.rx = None;
-                return Some(Err(ShellError::GenericError {
-                    error: "Receiving events failed".to_string(),
-                    msg: "Unexpected errors when receiving events".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                }));
+                return Some(Err(ShellError::Generic(GenericError::new_internal(
+                    "Receiving events failed",
+                    "Unexpected errors when receiving events",
+                ))));
             };
 
             let watch_events = events

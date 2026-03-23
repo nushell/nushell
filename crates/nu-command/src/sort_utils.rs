@@ -1,4 +1,5 @@
 use nu_engine::ClosureEval;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{PipelineData, Record, ShellError, Span, Value, ast::CellPath};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
@@ -58,13 +59,11 @@ pub fn sort_by(
     natural: bool,
 ) -> Result<(), ShellError> {
     if comparators.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "expected name".into(),
-            msg: "requires a cell path or closure to sort data".into(),
-            span: Some(head_span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "expected name",
+            "requires a cell path or closure to sort data",
+            head_span,
+        )));
     }
 
     // allow the comparator function to indicate error

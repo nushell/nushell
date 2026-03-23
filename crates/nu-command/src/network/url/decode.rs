@@ -1,5 +1,6 @@
 use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use percent_encoding::percent_decode_str;
 
@@ -82,13 +83,11 @@ fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
             match val {
                 Ok(val) => Value::string(val, head),
                 Err(e) => Value::error(
-                    ShellError::GenericError {
-                        error: "Failed to decode string".into(),
-                        msg: e.to_string(),
-                        span: Some(input_span),
-                        help: None,
-                        inner: vec![],
-                    },
+                    ShellError::Generic(GenericError::new(
+                        "Failed to decode string",
+                        e.to_string(),
+                        input_span,
+                    )),
                     head,
                 ),
             }

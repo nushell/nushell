@@ -1,6 +1,9 @@
 use crate::{TableOutput, TableTheme, clean_charset, colorize_space_str, string_wrap};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
-use nu_protocol::{Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value};
+use nu_protocol::{
+    Config, FooterMode, ShellError, Span, TableMode, TrimStrategy, Value,
+    shell_error::generic::GenericError,
+};
 use nu_utils::terminal_size;
 
 pub type NuText = (String, TextStyle);
@@ -156,13 +159,13 @@ fn convert_with_precision(val: &str, precision: usize) -> Result<String, ShellEr
     let val_float = match val.trim().parse::<f64>() {
         Ok(f) => f,
         Err(e) => {
-            return Err(ShellError::GenericError {
-                error: format!("error converting string [{}] to f64", &val),
-                msg: "".into(),
-                span: None,
-                help: Some(e.to_string()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new_internal(
+                    format!("error converting string [{}] to f64", &val),
+                    "",
+                )
+                .with_help(e.to_string()),
+            ));
         }
     };
     Ok(format!("{val_float:.precision$}"))

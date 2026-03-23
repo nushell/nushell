@@ -7,7 +7,7 @@ use hyper_util::{
     server::conn::auto::Builder,
     service::TowerToHyperService,
 };
-use nu_protocol::{ShellError, engine::EngineState};
+use nu_protocol::{ShellError, engine::EngineState, shell_error::generic::GenericError};
 use rmcp::{
     ServiceExt,
     transport::{
@@ -70,12 +70,11 @@ pub fn initialize_mcp_server(
     engine_state.is_mcp = true;
 
     tracing::info!(?transport, "Starting MCP server");
-    let runtime = Runtime::new().map_err(|e| ShellError::GenericError {
-        error: format!("Could not instantiate tokio: {e}"),
-        msg: "".into(),
-        span: None,
-        help: None,
-        inner: vec![],
+    let runtime = Runtime::new().map_err(|e| {
+        ShellError::Generic(GenericError::new_internal(
+            format!("Could not instantiate tokio: {e}"),
+            "",
+        ))
     })?;
 
     runtime.block_on(async {

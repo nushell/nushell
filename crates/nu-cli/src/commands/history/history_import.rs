@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     HistoryFileFormat,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 
 use reedline::{
@@ -160,13 +160,7 @@ fn import(
 
 fn error_from_reedline(e: ReedlineError) -> ShellError {
     // TODO: Should we add a new ShellError variant?
-    ShellError::GenericError {
-        error: "Reedline error".to_owned(),
-        msg: format!("{e}"),
-        span: None,
-        help: None,
-        inner: Vec::new(),
-    }
+    ShellError::Generic(GenericError::new_internal("Reedline error", format!("{e}")))
 }
 
 fn item_from_value(v: Value) -> Result<HistoryItem, ShellError> {
@@ -245,13 +239,11 @@ fn duration_from_value(v: Value, span: Span) -> Result<std::time::Duration, Shel
 fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
     let Ok(mut bak_path) = path.to_path_buf().into_os_string().into_string() else {
         // This isn't fundamentally problem, but trying to work with OsString is a nightmare.
-        return Err(ShellError::GenericError {
-            error: "History path not UTF-8".to_string(),
-            msg: "History path must be representable as UTF-8".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "History path not UTF-8",
+            "History path must be representable as UTF-8",
+            span,
+        )));
     };
     bak_path.push_str(".bak");
     if !Path::new(&bak_path).exists() {
@@ -266,13 +258,11 @@ fn find_backup_path(path: &Path, span: Span) -> Result<PathBuf, ShellError> {
             return Ok(PathBuf::from(bak_path));
         }
     }
-    Err(ShellError::GenericError {
-        error: "Too many backup files".to_string(),
-        msg: "Found too many existing backup files".to_string(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    })
+    Err(ShellError::Generic(GenericError::new(
+        "Too many backup files",
+        "Found too many existing backup files",
+        span,
+    )))
 }
 
 fn backup(path: &Path, span: Span) -> Result<Option<PathBuf>, ShellError> {

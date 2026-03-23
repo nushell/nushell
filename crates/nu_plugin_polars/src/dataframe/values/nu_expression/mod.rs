@@ -1,6 +1,7 @@
 mod custom_value;
 
 use crate::values::{NuSelector, NuSelectorCustomValue};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
@@ -516,13 +517,10 @@ impl Cacheable for NuExpression {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuExpression(df) => Ok(df),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not an expression".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not an expression",
+                "",
+            ))),
         }
     }
 }
@@ -565,12 +563,12 @@ impl CustomValueSupport for NuExpression {
             Value::Date { val, .. } => val
                 .to_owned()
                 .timestamp_nanos_opt()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Integer overflow".into(),
-                    msg: "Provided datetime in nanoseconds is too large for i64".into(),
-                    span: Some(value.span()),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Integer overflow",
+                        "Provided datetime in nanoseconds is too large for i64",
+                        value.span(),
+                    ))
                 })
                 .map(|nanos| -> NuExpression {
                     nanos

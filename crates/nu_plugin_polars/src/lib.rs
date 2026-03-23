@@ -21,6 +21,7 @@ pub mod dataframe;
 pub use dataframe::*;
 use nu_protocol::{
     CustomValue, LabeledError, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing,
+    shell_error::generic::GenericError,
 };
 use tokio::runtime::Runtime;
 use values::CustomValueType;
@@ -70,12 +71,11 @@ impl PolarsPlugin {
         Ok(Self {
             cache: Cache::default(),
             disable_cache_drop: false,
-            runtime: Runtime::new().map_err(|e| ShellError::GenericError {
-                error: format!("Could not instantiate tokio: {e}"),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
+            runtime: Runtime::new().map_err(|e| {
+                ShellError::Generic(GenericError::new_internal(
+                    format!("Could not instantiate tokio: {e}"),
+                    "",
+                ))
             })?,
         })
     }
@@ -285,13 +285,11 @@ where
 {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(inner_result) => inner_result,
-        Err(_) => Err(ShellError::GenericError {
-            error: "Panic occurred".into(),
-            msg: "".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }),
+        Err(_) => Err(ShellError::Generic(GenericError::new(
+            "Panic occurred",
+            "",
+            span,
+        ))),
     }
 }
 

@@ -8,6 +8,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -150,23 +151,21 @@ fn command_df(
     let pattern: String = call.req(0)?;
 
     let series = df.as_series(call.head)?;
-    let chunked = series.str().map_err(|e| ShellError::GenericError {
-        error: "The contains command only with string columns".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let chunked = series.str().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "The contains command only with string columns",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
-    let res = chunked
-        .contains(&pattern, false)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error searching in series".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let res = chunked.contains(&pattern, false).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error searching in series",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)

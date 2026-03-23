@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -84,37 +85,33 @@ fn command(
 
     let new_df = col_string
         .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Empty names list".into(),
-            msg: "No column names were found".into(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
+        .ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Empty names list",
+                "No column names were found",
+                col_span,
+            ))
         })
         .and_then(|col| {
-            df.as_ref()
-                .drop(&col.item)
-                .map_err(|e| ShellError::GenericError {
-                    error: "Error dropping column".into(),
-                    msg: e.to_string(),
-                    span: Some(col.span),
-                    help: None,
-                    inner: vec![],
-                })
+            df.as_ref().drop(&col.item).map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error dropping column",
+                    e.to_string(),
+                    col.span,
+                ))
+            })
         })?;
 
     // If there are more columns in the drop selection list, these
     // are added from the resulting dataframe
     let polars_df = col_string.iter().skip(1).try_fold(new_df, |new_df, col| {
-        new_df
-            .drop(&col.item)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error dropping column".into(),
-                msg: e.to_string(),
-                span: Some(col.span),
-                help: None,
-                inner: vec![],
-            })
+        new_df.drop(&col.item).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error dropping column",
+                e.to_string(),
+                col.span,
+            ))
+        })
     })?;
 
     let final_df = NuDataFrame::new(df.from_lazy, polars_df);

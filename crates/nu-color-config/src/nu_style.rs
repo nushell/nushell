@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::{ShellError, Value};
+use nu_protocol::{ShellError, Value, shell_error::generic::GenericError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
@@ -603,13 +603,15 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
 
     // Reject comma-delimited strings
     if attrs.contains(',') {
-        return Err(ShellError::GenericError {
-            error: "Invalid ANSI attribute format".into(),
-            msg: "Comma-separated attributes are not supported. Use lists instead.".into(),
-            span: None,
-            help: Some("Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings.".into()),
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(
+            GenericError::new_internal(
+                "Invalid ANSI attribute format",
+                "Comma-separated attributes are not supported. Use lists instead.",
+            )
+            .with_help(
+                "Use attr: [code1, code2] or attr: [name1, name2] instead of comma-separated strings.",
+            ),
+        ));
     }
 
     // Treat as space-separated codes/names (from lists) or single code/name (from strings)
@@ -632,13 +634,13 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
                 apply_code_to_style(ch, style)?;
                 continue;
             } else {
-                return Err(ShellError::GenericError {
-                    error: "Invalid ANSI attribute code".into(),
-                    msg: format!("Unknown attribute code: '{}'", ch),
-                    span: None,
-                    help: Some(VALID_CODES_HELP.into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal(
+                        "Invalid ANSI attribute code",
+                        format!("Unknown attribute code: '{}'", ch),
+                    )
+                    .with_help(VALID_CODES_HELP),
+                ));
             }
         }
 
@@ -653,13 +655,13 @@ fn fill_modifiers(attrs: &str, style: &mut Style) -> Result<(), ShellError> {
                 apply_code_to_style(ch, style)?;
             }
         } else {
-            return Err(ShellError::GenericError {
-                error: "Invalid ANSI attribute name".into(),
-                msg: format!("Unknown attribute name: '{}'", trimmed),
-                span: None,
-                help: Some(VALID_NAMES_HELP.into()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new_internal(
+                    "Invalid ANSI attribute name",
+                    format!("Unknown attribute name: '{}'", trimmed),
+                )
+                .with_help(VALID_NAMES_HELP),
+            ));
         }
     }
     Ok(())
@@ -677,13 +679,13 @@ fn apply_code_to_style(code: char, style: &mut Style) -> Result<(), ShellError> 
         'u' => style.is_underline = true,
         'n' => (),
         _ => {
-            return Err(ShellError::GenericError {
-                error: "Invalid ANSI attribute code".into(),
-                msg: format!("Unknown attribute code: '{}'", code),
-                span: None,
-                help: Some(VALID_CODES_HELP.into()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new_internal(
+                    "Invalid ANSI attribute code",
+                    format!("Unknown attribute code: '{}'", code),
+                )
+                .with_help(VALID_CODES_HELP),
+            ));
         }
     }
     Ok(())

@@ -7,6 +7,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 use polars::prelude::IntoSeries;
 
@@ -86,12 +87,12 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let bool = series.bool().map_err(|e| ShellError::GenericError {
-        error: "Error inverting mask".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let bool = series.bool().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error inverting mask",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
     let res = bool.not();

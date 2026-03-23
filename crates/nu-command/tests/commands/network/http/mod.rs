@@ -29,9 +29,10 @@ fn disallow_dynamic_http_methods(#[case] method: &str) -> Result {
     let code = format!("let method = '{method}'; http $method example.com");
     let err = test().run(code).expect_error()?;
     match err {
-        ShellError::GenericError {
-            help: Some(help), ..
-        } => {
+        ShellError::Generic(err) => {
+            let Some(help) = err.help else {
+                return Err(ShellError::Generic(err).into());
+            };
             assert_contains(
                 format!("Prefer to use `http {}` directly", method.to_lowercase()),
                 help,

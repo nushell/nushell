@@ -2,7 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::{
     engine::StateWorkingSet,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 
 #[derive(Clone)]
@@ -40,13 +40,14 @@ impl Command for PathSelf {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::GenericError {
-            error: "this command can only run during parse-time".into(),
-            msg: "can't run after parse-time".into(),
-            span: Some(call.head),
-            help: Some("try assigning this command's output to a const variable".into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "this command can only run during parse-time",
+                "can't run after parse-time",
+                call.head,
+            )
+            .with_help("try assigning this command's output to a const variable"),
+        ))
     }
 
     fn run_const(

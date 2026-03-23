@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, PipelineMetadata, Span};
+use nu_protocol::{Config, PipelineMetadata, Span, shell_error::generic::GenericError};
 
 use std::fmt::Write;
 
@@ -92,22 +92,18 @@ impl Command for ViewSource {
 
                         Ok(make_output(engine_state, src, Some(span), call.head))
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view int value".to_string(),
-                            msg: "the block does not have a viewable span".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view int value",
+                            "the block does not have a viewable span",
+                            arg_span,
+                        )))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: format!("Block Id {} does not exist", arg.coerce_into_string()?),
-                        msg: "this number does not correspond to a block".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        format!("Block Id {} does not exist", arg.coerce_into_string()?),
+                        "this number does not correspond to a block",
+                        arg_span,
+                    )))
                 }
             }
 
@@ -237,22 +233,18 @@ impl Command for ViewSource {
                                 call.head,
                             ))
                         } else {
-                            Err(ShellError::GenericError {
-                                error: "Cannot view string value".to_string(),
-                                msg: "the command does not have a viewable block span".to_string(),
-                                span: Some(arg_span),
-                                help: None,
-                                inner: vec![],
-                            })
+                            Err(ShellError::Generic(GenericError::new(
+                                "Cannot view string value",
+                                "the command does not have a viewable block span",
+                                arg_span,
+                            )))
                         }
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view string decl value".to_string(),
-                            msg: "the command does not have a viewable block".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view string decl value",
+                            "the command does not have a viewable block",
+                            arg_span,
+                        )))
                     }
                 } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
                     // arg is a module
@@ -267,22 +259,18 @@ impl Command for ViewSource {
                             call.head,
                         ))
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view string module value".to_string(),
-                            msg: "the module does not have a viewable block".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view string module value",
+                            "the module does not have a viewable block",
+                            arg_span,
+                        )))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Cannot view string value".to_string(),
-                        msg: "this name does not correspond to a viewable value".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Cannot view string value",
+                        "this name does not correspond to a viewable value",
+                        arg_span,
+                    )))
                 }
             }
             value => {
@@ -307,13 +295,11 @@ impl Command for ViewSource {
                         ))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Cannot view value".to_string(),
-                        msg: "this value cannot be viewed".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Cannot view value",
+                        "this value cannot be viewed",
+                        arg_span,
+                    )))
                 }
             }
         }

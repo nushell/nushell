@@ -1,5 +1,6 @@
 use fancy_regex::{Captures, Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ListStream, Signals, engine::StateWorkingSet};
 use std::collections::VecDeque;
 
@@ -176,12 +177,12 @@ fn operate(
     let regex = RegexBuilder::new(&item_to_parse)
         .backtrack_limit(backtrack_limit)
         .build()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error with regular expression".into(),
-            msg: e.to_string(),
-            span: Some(pattern_span),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error with regular expression",
+                e.to_string(),
+                pattern_span,
+            ))
         })?;
 
     let columns = regex
@@ -386,12 +387,12 @@ fn captures_to_value(
     columns: &[String],
     span: Span,
 ) -> Result<Value, ShellError> {
-    let captures = captures.map_err(|err| ShellError::GenericError {
-        error: "Error with regular expression captures".into(),
-        msg: err.to_string(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
+    let captures = captures.map_err(|err| {
+        ShellError::Generic(GenericError::new(
+            "Error with regular expression captures",
+            err.to_string(),
+            span,
+        ))
     })?;
 
     let record = columns

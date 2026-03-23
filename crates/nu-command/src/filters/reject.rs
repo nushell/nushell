@@ -1,5 +1,8 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing,
+    shell_error::generic::GenericError,
+};
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -219,13 +222,11 @@ fn reject(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Reject only allows row numbers for rows".into(),
-                        msg: "extra after row number".into(),
-                        span: Some(*span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Reject only allows row numbers for rows",
+                        "extra after row number",
+                        *span,
+                    )));
                 }
                 if !unique_rows.contains(val) {
                     unique_rows.insert(*val);

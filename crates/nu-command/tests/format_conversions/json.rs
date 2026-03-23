@@ -240,8 +240,8 @@ fn strict_parsing_fails_on_comment() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { msg, .. } => {
-            assert_contains("error parsing JSON text", msg);
+        ShellError::Generic(err) => {
+            assert_contains("error parsing JSON text", err.msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -254,8 +254,8 @@ fn strict_parsing_fails_on_trailing_comma() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { msg, .. } => {
-            assert_contains("error parsing JSON text", msg);
+        ShellError::Generic(err) => {
+            assert_contains("error parsing JSON text", err.msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -274,8 +274,8 @@ fn unbounded_from_in_range_fails() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { error, .. } => {
-            assert_contains("Cannot create range", error);
+        ShellError::Generic(err) => {
+            assert_contains("Cannot create range", err.error);
             Ok(())
         }
         other => Err(other.into()),
@@ -290,11 +290,11 @@ fn inf_in_range_fails() -> Result {
 
     let code = "5..inf | to json";
     let err = test().run(code).expect_shell_error()?;
-    let ShellError::GenericError { msg, .. } = err else {
+    let ShellError::Generic(err) = err else {
         panic!("unexpected err, {err:?}")
     };
     assert_eq!(
-        msg,
+        err.msg,
         "Unbounded ranges are not allowed when converting to this format"
     );
 

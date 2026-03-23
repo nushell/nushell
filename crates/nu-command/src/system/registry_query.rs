@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::shell_error::io::IoError;
 use windows::{Win32::System::Environment::ExpandEnvironmentStringsW, core::PCWSTR};
 use winreg::{RegKey, enums::*, types::FromRegValue};
@@ -128,13 +129,11 @@ fn registry_query(
                         )
                         .into_pipeline_data())
                     }
-                    Err(_) => Err(ShellError::GenericError {
-                        error: "Unable to find registry key/value".into(),
-                        msg: format!("Registry value: {} was not found", value.item),
-                        span: Some(value.span),
-                        help: None,
-                        inner: vec![],
-                    }),
+                    Err(_) => Err(ShellError::Generic(GenericError::new(
+                        "Unable to find registry key/value",
+                        format!("Registry value: {} was not found", value.item),
+                        value.span,
+                    ))),
                 }
             }
             None => Ok(Value::nothing(call_span).into_pipeline_data()),
@@ -159,13 +158,11 @@ fn get_reg_hive(
     })
     .collect::<Result<Vec<_>, ShellError>>()?;
     if flags.len() > 1 {
-        return Err(ShellError::GenericError {
-            error: "Only one registry key can be specified".into(),
-            msg: "Only one registry key can be specified".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Only one registry key can be specified",
+            "Only one registry key can be specified",
+            call.head,
+        )));
     }
     let hive = flags.first().copied().unwrap_or("hkcu");
     let hkey = match hive {

@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 use polars::prelude::PlSmallStr;
 
@@ -95,12 +96,12 @@ fn command(
         allow_duplicates,
         include_breaks,
     )
-    .map_err(|e| ShellError::GenericError {
-        error: "Error cutting series".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    .map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error cutting series",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
     NuDataFrame::try_from_series(new_series, call.head)?.to_pipeline_data(plugin, engine, call.head)

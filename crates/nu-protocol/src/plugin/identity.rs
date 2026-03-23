@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{shell_error::generic::GenericError, ParseError, ShellError, Spanned};
+use crate::{ParseError, ShellError, Spanned, shell_error::generic::GenericError};
 
 /// Error when an invalid plugin filename was encountered.
 #[derive(Debug, Clone)]

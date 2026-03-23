@@ -6,8 +6,8 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    shell_error::generic::GenericError, PluginIdentity, PluginMetadata, PluginSignature,
-    ShellError, Span,
+    PluginIdentity, PluginMetadata, PluginSignature, ShellError, Span,
+    shell_error::generic::GenericError,
 };
 
 // This has a big impact on performance

@@ -2,6 +2,7 @@ use super::{InputNumType, NumberBytes, get_input_num_type, get_number_bytes};
 use itertools::Itertools;
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use std::iter;
 
@@ -163,17 +164,16 @@ fn action(input: &Value, args: &Arguments, span: Span) -> Value {
                 Eight => {
                     let Ok(i) = i64::try_from((val as u64) << bits) else {
                         return Value::error(
-                            ShellError::GenericError {
-                                error: "result out of range for int".into(),
-                                msg: format!(
-                                    "shifting left by {bits} is out of range for the value {val}"
-                                ),
-                                span: Some(span),
-                                help: Some(
-                                    "Ensure the result fits in a 64-bit signed integer.".into(),
-                                ),
-                                inner: vec![],
-                            },
+                            ShellError::Generic(
+                                GenericError::new(
+                                    "result out of range for int",
+                                    format!(
+                                        "shifting left by {bits} is out of range for the value {val}"
+                                    ),
+                                    span,
+                                )
+                                .with_help("Ensure the result fits in a 64-bit signed integer."),
+                            ),
                             span,
                         );
                     };

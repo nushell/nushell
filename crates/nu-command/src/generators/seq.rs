@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::ListStream;
+use nu_protocol::{ListStream, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct Seq;
@@ -96,13 +96,11 @@ fn seq(
     let contains_decimals = rest_nums_check.is_err();
 
     if rest_nums.is_empty() {
-        return Err(ShellError::GenericError {
-            error: "seq requires some parameters".into(),
-            msg: "needs parameter".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "seq requires some parameters",
+            "needs parameter",
+            call.head,
+        )));
     }
 
     let rest_nums: Vec<f64> = rest_nums.iter().map(|n| n.item).collect();

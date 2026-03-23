@@ -1,6 +1,7 @@
 mod custom_value;
 
 use core::fmt;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
@@ -56,13 +57,10 @@ impl Cacheable for NuLazyGroupBy {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuLazyGroupBy(df) => Ok(df),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a group by".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a group by",
+                "",
+            ))),
         }
     }
 }

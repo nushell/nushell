@@ -7,6 +7,7 @@ use crate::explore::run_pager;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 /// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
@@ -94,13 +95,7 @@ impl Command for Explore {
             Err(err) => {
                 let shell_error = match err.downcast::<ShellError>() {
                     Ok(e) => e,
-                    Err(e) => ShellError::GenericError {
-                        error: e.to_string(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    },
+                    Err(e) => ShellError::Generic(GenericError::new_internal(e.to_string(), "")),
                 };
 
                 Ok(PipelineData::value(

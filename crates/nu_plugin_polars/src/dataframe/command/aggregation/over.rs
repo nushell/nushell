@@ -6,6 +6,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    shell_error::generic::GenericError,
 };
 use polars::df;
 
@@ -95,12 +96,12 @@ impl PluginCommand for Over {
                 let expr: NuExpression = expr
                     .into_polars()
                     .over_with_options(Some(expressions), None, Default::default())
-                    .map_err(|e| ShellError::GenericError {
-                        error: format!("Error applying over expression: {e}"),
-                        msg: "".into(),
-                        span: Some(call.head),
-                        help: None,
-                        inner: vec![],
+                    .map_err(|e| {
+                        ShellError::Generic(GenericError::new(
+                            format!("Error applying over expression: {e}"),
+                            "",
+                            call.head,
+                        ))
                     })?
                     .into();
                 expr.to_pipeline_data(plugin, engine, call.head)

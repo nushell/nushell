@@ -1,10 +1,10 @@
 #![allow(unused_assignments)]
 use super::chained_error::ChainedError;
 use crate::{
+    ConfigError, FromValue, LabeledError, ParseError, Span, Spanned, Type, Value,
     ast::Operator,
     engine::{Stack, StateWorkingSet},
-    format_cli_error, record, ConfigError, FromValue, LabeledError, ParseError, Span, Spanned,
-    Type, Value,
+    format_cli_error, record,
 };
 use generic::GenericError;
 use job::JobError;
@@ -928,9 +928,7 @@ pub enum ShellError {
     /// creation of the custom value and its use.
     #[error("Custom value failed to decode")]
     #[diagnostic(code(nu::shell::custom_value_failed_to_decode))]
-    #[diagnostic(help(
-        "the plugin may have been updated and no longer support this custom value"
-    ))]
+    #[diagnostic(help("the plugin may have been updated and no longer support this custom value"))]
     CustomValueFailedToDecode {
         msg: String,
         #[label("{msg}")]

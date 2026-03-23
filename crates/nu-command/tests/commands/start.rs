@@ -1,10 +1,10 @@
 use super::*;
+use nu_engine::eval_expression;
 use nu_engine::test_help::{convert_single_value_to_cmd_args, eval_block_with_input};
-use nu_engine::{eval_expression};
 use nu_protocol::{
-    PipelineData, Span, Spanned, Type, Value,
     ast::Call,
     engine::{EngineState, Stack, StateWorkingSet},
+    PipelineData, Span, Spanned, Type, Value,
 };
 use std::path::PathBuf;
 
@@ -87,14 +87,13 @@ fn test_start_nonexistent_local_path() {
         "Expected an error for a non-existent file path"
     );
 
-    if let Err(ShellError::GenericError { error, .. }) = result {
+    if let Err(ShellError::Generic(err)) = result {
         assert!(
-            error.contains("Cannot find file or URL"),
+            err.error.contains("Cannot find file or URL"),
             "Expected 'Cannot find file or URL' in error, found: {}",
-            error
+            err.error
         );
     } else {
-        panic!("Unexpected error type, expected ShellError::GenericError");
+        panic!("Unexpected error type, expected ShellError::Generic");
     }
 }
-

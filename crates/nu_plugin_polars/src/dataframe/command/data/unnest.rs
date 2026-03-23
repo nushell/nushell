@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
 };
@@ -122,13 +123,11 @@ impl PluginCommand for UnnestDF {
         match PolarsPluginObject::try_from_pipeline(plugin, input, call.head)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
             PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),
-            _ => Err(ShellError::GenericError {
-                error: "Must be a dataframe or lazy dataframe".into(),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new(
+                "Must be a dataframe or lazy dataframe",
+                "",
+                call.head,
+            ))),
         }
         .map_err(LabeledError::from)
         .map(|pd| pd.set_metadata(metadata))
@@ -146,12 +145,12 @@ fn command_eager(
     let polars = df.to_polars();
     let result: NuDataFrame = polars
         .unnest(cols, separator.as_deref())
-        .map_err(|e| ShellError::GenericError {
-            error: format!("Error unnesting dataframe: {e}"),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                format!("Error unnesting dataframe: {e}"),
+                "",
+                call.head,
+            ))
         })?
         .into();
     result.to_pipeline_data(plugin, engine, call.head)

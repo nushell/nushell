@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct FromNuon;
@@ -59,13 +60,14 @@ impl Command for FromNuon {
         match nuon::from_nuon(&string_input, Some(head)) {
             Ok(result) => Ok(result
                 .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None)))),
-            Err(err) => Err(ShellError::GenericError {
-                error: "error when loading nuon text".into(),
-                msg: "could not load nuon text".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![err],
-            }),
+            Err(err) => Err(ShellError::Generic(
+                GenericError::new(
+                    "error when loading nuon text",
+                    "could not load nuon text",
+                    head,
+                )
+                .with_inner([err]),
+            )),
         }
     }
 }

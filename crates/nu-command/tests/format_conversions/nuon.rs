@@ -531,9 +531,9 @@ fn read_code_should_fail_rather_than_panic() -> Result {
         .cwd("tests/fixtures/formats")
         .run(code)
         .expect_shell_error()?;
-    let ShellError::GenericError { error, .. } = err else {
+    let ShellError::Generic(err) = err else {
         return Err(err.into());
     };
-    assert_eq!(error, "error when loading nuon text");
+    assert_eq!(err.error, "error when loading nuon text");
     Ok(())
 }

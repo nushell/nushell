@@ -6,6 +6,7 @@ use crate::{
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Value,
@@ -237,13 +238,11 @@ impl PluginCommand for ReplaceTimeZone {
                 let val = v.into_string()?;
                 match val.as_str() {
                     "raise" | "earliest" | "latest" => Ok(val),
-                    _ => Err(ShellError::GenericError {
-                        error: "Invalid argument value".into(),
-                        msg: "`ambiguous` must be one of raise, earliest, latest, or null".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    }),
+                    _ => Err(ShellError::Generic(GenericError::new(
+                        "Invalid argument value",
+                        "`ambiguous` must be one of raise, earliest, latest, or null",
+                        span,
+                    ))),
                 }
             }
             Some(Value::Nothing { .. }) => Ok("null".into()),
@@ -255,13 +254,11 @@ impl PluginCommand for ReplaceTimeZone {
         let nonexistent = match call.get_flag::<Value>("nonexistent")? {
             Some(v @ Value::String { .. }) => match v.as_str()? {
                 "raise" => Ok(NonExistent::Raise),
-                _ => Err(ShellError::GenericError {
-                    error: "Invalid argument value".into(),
-                    msg: "`nonexistent` must be one of raise or null".into(),
-                    span: Some(v.span()),
-                    help: None,
-                    inner: vec![],
-                }),
+                _ => Err(ShellError::Generic(GenericError::new(
+                    "Invalid argument value",
+                    "`nonexistent` must be one of raise or null",
+                    v.span(),
+                ))),
             },
             Some(Value::Nothing { .. }) => Ok(NonExistent::Null),
             Some(_) => unreachable!("Argument only accepts string or null."),

@@ -1,6 +1,7 @@
 pub mod custom_value;
 
 use custom_value::NuDataTypeCustomValue;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::prelude::{DataType, Field, TimeUnit, UnknownKind};
 use polars_compute::decimal::DEC128_MAX_PREC;
@@ -55,13 +56,10 @@ impl Cacheable for NuDataType {
     fn from_cache_value(cv: super::PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuDataType(dt) => Ok(dt),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a dataframe".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a dataframe",
+                "",
+            ))),
         }
     }
 }
@@ -183,23 +181,23 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
             let mut split = dtype.split(',');
             let next = split
                 .next()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "Missing time unit".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        "Missing time unit",
+                        span,
+                    ))
                 })?
                 .trim();
             let time_unit = str_to_time_unit(next, span)?;
             let next = split
                 .next()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "Missing time zone".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        "Missing time zone",
+                        span,
+                    ))
                 })?
                 .trim();
             let timezone = if "*" == next {
@@ -215,12 +213,12 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
             let next = inner
                 .split(',')
                 .next()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "Missing time unit".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        "Missing time unit",
+                        span,
+                    ))
                 })?
                 .trim();
             let time_unit = str_to_time_unit(next, span)?;
@@ -234,62 +232,56 @@ pub fn str_to_dtype(dtype: &str, span: Span) -> Result<DataType, ShellError> {
             let mut split = dtype.split(',');
             let next = split
                 .next()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "Missing decimal precision".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        "Missing decimal precision",
+                        span,
+                    ))
                 })?
                 .trim();
             let precision = match next {
                 "*" => DEC128_MAX_PREC,
-                _ => next
-                    .parse::<usize>()
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Invalid polars data type".into(),
-                        msg: format!("Error in parsing decimal precision: {e}"),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })?,
+                _ => next.parse::<usize>().map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        format!("Error in parsing decimal precision: {e}"),
+                        span,
+                    ))
+                })?,
             };
 
             let next = split
                 .next()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "Missing decimal scale".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        "Missing decimal scale",
+                        span,
+                    ))
                 })?
                 .trim();
             let scale = match next {
-                "*" => Err(ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: "`*` is not a permitted value for scale".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
-                _ => next.parse::<usize>().map_err(|e| ShellError::GenericError {
-                    error: "Invalid polars data type".into(),
-                    msg: format!("Error in parsing decimal precision: {e}"),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
+                "*" => Err(ShellError::Generic(GenericError::new(
+                    "Invalid polars data type",
+                    "`*` is not a permitted value for scale",
+                    span,
+                ))),
+                _ => next.parse::<usize>().map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid polars data type",
+                        format!("Error in parsing decimal precision: {e}"),
+                        span,
+                    ))
                 }),
             }?;
             Ok(DataType::Decimal(precision, scale))
         }
-        _ => Err(ShellError::GenericError {
-            error: "Invalid polars data type".into(),
-            msg: format!("Unknown type: {dtype}"),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Invalid polars data type",
+            format!("Unknown type: {dtype}"),
+            span,
+        ))),
     }
 }
 
@@ -310,13 +302,11 @@ pub fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellEr
         "ms" => Ok(TimeUnit::Milliseconds),
         "us" | "μs" => Ok(TimeUnit::Microseconds),
         "ns" => Ok(TimeUnit::Nanoseconds),
-        _ => Err(ShellError::GenericError {
-            error: "Invalid polars data type".into(),
-            msg: "Invalid time unit".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Invalid polars data type",
+            "Invalid time unit",
+            span,
+        ))),
     }
 }
 

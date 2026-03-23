@@ -1,11 +1,11 @@
 #[cfg(feature = "os")]
 use crate::process::ExitStatusGuard;
 use crate::{
+    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
+    Range, ShellError, Signals, Span, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
-    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Signals, Span, Type, Value,
 };
 use std::{borrow::Cow, io::Write, ops::Deref, panic::Location};
 

@@ -1,6 +1,6 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{Signals, engine::Closure};
+use nu_protocol::{Signals, engine::Closure, shell_error::generic::GenericError};
 use rayon::prelude::*;
 
 #[derive(Clone)]
@@ -99,12 +99,12 @@ impl Command for ParEach {
                 .num_threads(num_threads)
                 .build()
             {
-                Err(e) => Err(e).map_err(|e| ShellError::GenericError {
-                    error: "Error creating thread pool".into(),
-                    msg: e.to_string(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
+                Err(e) => Err(e).map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Error creating thread pool",
+                        e.to_string(),
+                        head,
+                    ))
                 }),
                 Ok(pool) => Ok(pool),
             }

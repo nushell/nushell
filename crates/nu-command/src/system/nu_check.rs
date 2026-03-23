@@ -2,6 +2,7 @@ use nu_engine::{command_prelude::*, find_in_dirs_env, get_dirs_var_from_call};
 use nu_parser::{parse, parse_module_block, parse_module_file_or_dir, unescape_unquote_string};
 use nu_protocol::{
     engine::{FileStack, StateWorkingSet},
+    shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
 use std::path::{Path, PathBuf};
@@ -122,13 +123,14 @@ impl Command for NuCheck {
                         // The working set is not merged, so no need to pop the file from the stack.
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Failed to execute command".into(),
-                        msg: "Requires path argument if ran without pipeline input".into(),
-                        span: Some(call.head),
-                        help: Some("Please run 'nu-check --help' for more details".into()),
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(
+                        GenericError::new(
+                            "Failed to execute command",
+                            "Requires path argument if ran without pipeline input",
+                            call.head,
+                        )
+                        .with_help("Please run 'nu-check --help' for more details"),
+                    ))
                 }
             }
         }
@@ -226,13 +228,11 @@ fn check_parse(
         );
 
         if is_debug {
-            Err(ShellError::GenericError {
-                error: "Failed to parse content".into(),
-                msg,
-                span: Some(call_head),
-                help,
-                inner: vec![],
-            })
+            let mut err = GenericError::new("Failed to parse content", msg, call_head);
+            if let Some(help) = help {
+                err = err.with_help(help);
+            }
+            Err(ShellError::Generic(err))
         } else {
             Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
@@ -281,13 +281,11 @@ fn parse_file_or_dir_module(
                     .first()
                     .expect("Missing parser error")
             );
-            Err(ShellError::GenericError {
-                error: "Failed to parse content".into(),
-                msg,
-                span: Some(path_span),
-                help: Some("If the content is intended to be a script, please try to remove `--as-module` flag ".into()),
-                inner: vec![],
-            })
+            Err(ShellError::Generic(
+                GenericError::new("Failed to parse content", msg, path_span).with_help(
+                    "If the content is intended to be a script, please try to remove `--as-module` flag ",
+                ),
+            ))
         } else {
             Ok(PipelineData::value(Value::bool(false, call_head), None))
         }
@@ -304,13 +302,14 @@ fn check_path(
     let bytes = working_set.get_span_contents(path_span);
     let (filename, err) = unescape_unquote_string(bytes, path_span);
     if let Some(e) = err {
-        Err(ShellError::GenericError {
-            error: "Could not escape filename".to_string(),
-            msg: "could not escape filename".to_string(),
-            span: Some(call_head),
-            help: Some(format!("Returned error: {e}")),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "Could not escape filename",
+                "could not escape filename",
+                call_head,
+            )
+            .with_help(format!("Returned error: {e}")),
+        ))
     } else {
         Ok(filename)
     }

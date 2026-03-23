@@ -3,7 +3,7 @@ use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing,
+    casing::Casing, shell_error::generic::GenericError,
 };
 use std::collections::BTreeSet;
 
@@ -238,13 +238,11 @@ fn select(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Select only allows row numbers for rows".into(),
-                        msg: "extra after row number".into(),
-                        span: Some(*span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Select only allows row numbers for rows",
+                        "extra after row number",
+                        *span,
+                    )));
                 }
                 unique_rows.insert(*val);
             }
