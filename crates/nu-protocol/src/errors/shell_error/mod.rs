@@ -13,6 +13,7 @@ use std::num::NonZeroI32;
 use thiserror::Error;
 
 pub mod bridge;
+pub mod generic;
 pub mod io;
 pub mod job;
 pub mod network;
