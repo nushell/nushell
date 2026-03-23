@@ -1053,6 +1053,11 @@ pub enum ShellError {
     },
 
     /// This is a generic error type used for different situations.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Generic(#[from] generic::GenericError),
+
+    /// This is a generic error type used for different situations.
     #[error("{error}")]
     #[diagnostic(code(nu::shell::outsidespan))]
     OutsideSpannedLabeledError {
