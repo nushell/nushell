@@ -163,10 +163,63 @@ impl NuTester {
         self.locale("en_US.utf8")
     }
 
-    /// Inherit the PATH environment variable from the running process.
+    /// Inherit the `PATH` environment variable from the running process.
+    ///
+    /// This is useful for tests that spawn external commands and should resolve
+    /// binaries the same way as the parent test process.
+    ///
+    /// Panics if `PATH` is not set in the current process environment.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
         self.env("PATH", path)
+    }
+
+    /// Inherit an environment variable from the running process, but only if it is set.
+    ///
+    /// This is useful for optional variables whose absence should not cause a panic.
+    pub fn inherit_env_if_set(self, key: impl AsRef<str>) -> Self {
+        let key = key.as_ref();
+        match env::var(key) {
+            Ok(val) => self.env(key, val),
+            Err(_) => self,
+        }
+    }
+
+    /// Inherit Rust toolchain related environment variables from the running process,
+    /// but only when they are set.
+    ///
+    /// This helps tests that spawn `cargo`, `rustc`, or `rustup` behave more like
+    /// the parent process, especially when the active toolchain or install location
+    /// is configured through environment variables.
+    ///
+    /// The following variables are inherited when present:
+    /// - `PATH`
+    /// - `CARGO_HOME`
+    /// - `RUSTUP_HOME`
+    /// - `RUSTUP_TOOLCHAIN`
+    /// - `RUSTUP_DIST_SERVER`
+    /// - `RUSTUP_UPDATE_ROOT`
+    ///
+    /// Proxy variables are also inherited when present since `rustup` may need them
+    /// to download or resolve toolchain metadata:
+    /// - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`
+    /// - `http_proxy`, `https_proxy`, `no_proxy`
+    ///
+    /// This does not guarantee identical behavior to an interactive shell since the
+    /// current working directory can still affect rustup toolchain resolution.
+    pub fn inherit_rust_toolchain_env(self) -> Self {
+        self.inherit_env_if_set("PATH")
+            .inherit_env_if_set("CARGO_HOME")
+            .inherit_env_if_set("RUSTUP_HOME")
+            .inherit_env_if_set("RUSTUP_TOOLCHAIN")
+            .inherit_env_if_set("RUSTUP_DIST_SERVER")
+            .inherit_env_if_set("RUSTUP_UPDATE_ROOT")
+            .inherit_env_if_set("HTTP_PROXY")
+            .inherit_env_if_set("HTTPS_PROXY")
+            .inherit_env_if_set("NO_PROXY")
+            .inherit_env_if_set("http_proxy")
+            .inherit_env_if_set("https_proxy")
+            .inherit_env_if_set("no_proxy")
     }
 
     /// Adds the "nu" binary for testing to the path.
