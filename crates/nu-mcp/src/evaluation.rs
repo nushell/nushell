@@ -300,6 +300,9 @@ impl Evaluator {
 
         tokio::select! {
             biased;
+            _ = ct.cancelled() => {
+                promote_to_background_job(result_rx, interrupt, jobs, root_job_sender, description)
+            }
             result = &mut result_rx => match result {
                 Ok((new_state, eval_result)) => {
                     let mut state = self.state.lock().await;
@@ -311,9 +314,6 @@ impl Evaluator {
                     None,
                 )),
             },
-            _ = ct.cancelled() => {
-                promote_to_background_job(result_rx, interrupt, jobs, root_job_sender, description)
-            }
             _ = tokio::time::sleep(promote_after) => {
                 promote_to_background_job(result_rx, interrupt, jobs, root_job_sender, description)
             }
