@@ -115,7 +115,7 @@ fn run_ps(
             #[cfg(target_os = "linux")]
             {
                 let proc_stat = proc.curr_proc.stat().map_err(|e| {
-                    ShellError::Generic(GenericError::new(
+                    ShellError::Generic(nu_protocol::shell_error::generic::GenericError::new(
                         "Error getting process stat",
                         e.to_string(),
                         span,

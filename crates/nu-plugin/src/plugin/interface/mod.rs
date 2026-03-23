@@ -10,6 +10,8 @@ use nu_plugin_protocol::{
     GetCompletionInfo, Ordering, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
     PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
+#[cfg(unix)]
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     BlockId, Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
     PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
