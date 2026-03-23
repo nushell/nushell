@@ -3,13 +3,13 @@ use miette::{Diagnostic, SourceCode, SourceSpan};
 use nu_protocol::{
     PipelineData, PipelineExecutionData, Signals, Span, Value,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{EngineState, Job, Jobs, Mail, Stack, StateWorkingSet, ThreadJob},
 };
 use std::{
-    sync::{Arc, atomic::AtomicBool},
-    time::{SystemTime, UNIX_EPOCH},
+    sync::{Arc, Mutex as SyncMutex, atomic::AtomicBool, mpsc, mpsc::Sender},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, oneshot};
 use tokio_util::sync::CancellationToken;
 
 const OUTPUT_LIMIT_ENV_VAR: &str = "NU_MCP_OUTPUT_LIMIT";
@@ -165,10 +165,12 @@ pub(crate) fn shell_error_to_mcp_error(
     )
 }
 
-/// MCP error for cancelled operations.
-fn cancelled_error() -> rmcp::ErrorData {
-    rmcp::ErrorData::internal_error("Operation cancelled by client".to_string(), None)
-}
+/// Maximum length for job descriptions shown in `job list`.
+const JOB_DESCRIPTION_MAX_LEN: usize = 40;
+
+/// How long an evaluation can run before being auto-promoted to a background job.
+/// Overridden via `NU_MCP_PROMOTE_AFTER` env var (e.g. `30sec`, `5sec`).
+const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(10);
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -182,12 +184,13 @@ fn cancelled_error() -> rmcp::ErrorData {
 ///
 /// Step 2 ensures parsed blocks (including closures) are registered and available.
 ///
-/// # Cancellation Support
+/// # Cancellation & Job Promotion
 ///
 /// The evaluator supports cancellation via `CancellationToken`. When cancelled:
-/// 1. The evaluation is interrupted via nushell's `Signals` mechanism
-/// 2. Any forked state changes are discarded
-/// 3. The original state remains unchanged
+/// 1. The evaluation is promoted to a background job (not interrupted)
+/// 2. Results are delivered to the main thread's mailbox when complete
+/// 3. The original state remains unchanged (forked state is not committed)
+/// 4. The caller can retrieve results via `job recv`
 ///
 /// # State Persistence
 ///
@@ -269,65 +272,50 @@ impl Evaluator {
         }
     }
 
-    /// Evaluates nushell source code with cancellation support.
-    ///
-    /// This method:
-    /// 1. Forks the current state (cheap due to Arc-based copy-on-write)
-    /// 2. Runs the evaluation on the forked state in a blocking task
-    /// 3. Races the evaluation against the cancellation token
-    /// 4. On success: merges changes back to the main state
-    /// 5. On cancellation: discards the forked state, original unchanged
+    /// Evaluates nushell source code, promoting to a background job on
+    /// cancellation or if the evaluation exceeds `NU_MCP_PROMOTE_AFTER` (default 10s).
     pub async fn eval_async(
         &self,
         nu_source: &str,
         ct: CancellationToken,
     ) -> Result<String, rmcp::ErrorData> {
-        // Fork the state for isolated evaluation
-        let (forked_state, interrupt) = {
+        let (forked_state, interrupt, promote_after) = {
             let state = self.state.lock().await;
-            state.fork()
+            let timeout = promote_timeout(&state.engine_state, &state.stack);
+            let (forked, interrupt) = state.fork();
+            (forked, interrupt, timeout)
         };
 
+        let jobs = forked_state.engine_state.jobs.clone();
+        let root_job_sender = forked_state.engine_state.root_job_sender.clone();
+
         let source = nu_source.to_string();
+        let description = job_description(&source);
 
-        // Run evaluation in a blocking task since eval_block is synchronous
-        let eval_handle = tokio::task::spawn_blocking(move || eval_inner(forked_state, &source));
+        let (result_tx, mut result_rx) = oneshot::channel();
 
-        // Set up cancellation monitoring
-        let abort_handle = eval_handle.abort_handle();
-
-        // Spawn a task to trigger interrupt on cancellation
-        let interrupt_clone = interrupt.clone();
-        let ct_clone = ct.clone();
-        tokio::spawn(async move {
-            ct_clone.cancelled().await;
-            // Trigger nushell's interrupt signal to stop any running commands
-            interrupt_clone.store(true, std::sync::atomic::Ordering::Relaxed);
-            // Abort the blocking task
-            abort_handle.abort();
+        tokio::task::spawn_blocking(move || {
+            let _ = result_tx.send(eval_inner(forked_state, &source));
         });
 
-        // Wait for evaluation to complete
-        match eval_handle.await {
-            Ok((new_state, eval_result)) => {
-                // Check if we were cancelled
-                if ct.is_cancelled() {
-                    return Err(cancelled_error());
+        tokio::select! {
+            biased;
+            result = &mut result_rx => match result {
+                Ok((new_state, eval_result)) => {
+                    let mut state = self.state.lock().await;
+                    *state = new_state;
+                    eval_result
                 }
-                // Commit the forked state back to main state
-                let mut state = self.state.lock().await;
-                *state = new_state;
-                eval_result
+                Err(_) => Err(rmcp::ErrorData::internal_error(
+                    "Evaluation task panicked".to_string(),
+                    None,
+                )),
+            },
+            _ = ct.cancelled() => {
+                promote_to_background_job(result_rx, interrupt, jobs, root_job_sender, description)
             }
-            Err(join_error) => {
-                if join_error.is_cancelled() {
-                    Err(cancelled_error())
-                } else {
-                    Err(rmcp::ErrorData::internal_error(
-                        format!("Evaluation task panicked: {join_error}"),
-                        None,
-                    ))
-                }
+            _ = tokio::time::sleep(promote_after) => {
+                promote_to_background_job(result_rx, interrupt, jobs, root_job_sender, description)
             }
         }
     }
@@ -340,6 +328,60 @@ impl Evaluator {
         // Create a runtime for sync evaluation in tests
         let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
         rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
+    }
+}
+
+/// Registers a [`ThreadJob`] for a still-running evaluation and spawns a task
+/// that delivers results to the main thread's mailbox (job 0) on completion.
+/// Shares the forked evaluation's interrupt signal so `job kill` works.
+fn promote_to_background_job(
+    result_rx: oneshot::Receiver<(EvalState, Result<String, rmcp::ErrorData>)>,
+    interrupt: Arc<AtomicBool>,
+    jobs: Arc<SyncMutex<Jobs>>,
+    root_job_sender: Sender<Mail>,
+    description: String,
+) -> Result<String, rmcp::ErrorData> {
+    let signals = Signals::new(interrupt);
+    let (sender, _receiver) = mpsc::channel();
+    let thread_job = ThreadJob::new(signals, Some(description), sender);
+
+    let job_id = {
+        let mut jobs = jobs.lock().expect("jobs lock poisoned");
+        jobs.add_job(Job::Thread(thread_job))
+    };
+
+    tokio::spawn(async move {
+        let output = match result_rx.await {
+            Ok((_state, Ok(output))) => output,
+            Ok((_state, Err(err))) => format!("Error: {}", err.message),
+            Err(_) => "Evaluation task panicked".to_string(),
+        };
+
+        let value = Value::string(output, Span::unknown());
+        let _ = root_job_sender.send((None, PipelineData::value(value, None)));
+
+        let mut jobs = jobs.lock().expect("jobs lock poisoned");
+        jobs.remove_job(job_id);
+    });
+
+    Err(rmcp::ErrorData::internal_error(
+        format!(
+            "Operation promoted to background job (id: {}). \
+             Use `job list` to see it and `job recv` to get the result.",
+            job_id.get()
+        ),
+        None,
+    ))
+}
+
+/// Creates a short description for display in `job list`.
+fn job_description(source: &str) -> String {
+    let first_line = source.lines().next().unwrap_or(source);
+    if first_line.len() <= JOB_DESCRIPTION_MAX_LEN {
+        format!("mcp: {first_line}")
+    } else {
+        let truncated: String = first_line.chars().take(JOB_DESCRIPTION_MAX_LEN).collect();
+        format!("mcp: {truncated}...")
     }
 }
 
@@ -442,6 +484,19 @@ fn eval_on_state(
             .span(Some(Span::unknown())),
     )
     .map_err(|e| shell_error_to_mcp_error(e, engine_state))
+}
+
+/// Returns the duration after which a running evaluation is auto-promoted
+/// to a background job.
+///
+/// Defaults to 10s. Can be overridden via `NU_MCP_PROMOTE_AFTER` env var.
+fn promote_timeout(engine_state: &EngineState, stack: &Stack) -> Duration {
+    stack
+        .get_env_var(engine_state, "NU_MCP_PROMOTE_AFTER")
+        .and_then(|v| v.as_duration().ok())
+        .and_then(|nanos| u64::try_from(nanos).ok())
+        .map(Duration::from_nanos)
+        .unwrap_or(DEFAULT_PROMOTE_AFTER)
 }
 
 /// Returns the output limit in bytes.
@@ -857,7 +912,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_cancellation_discards_state() {
+    async fn test_cancellation_promotes_to_background_job() {
         let engine_state = nu_cmd_lang::create_default_context();
         let evaluator = Evaluator::new(engine_state);
 
@@ -874,18 +929,23 @@ mod tests {
         // Cancel immediately
         ct_clone.cancel();
 
-        // This should be cancelled and state should not change
+        // Should be promoted to a background job, not just discarded
         let result = evaluator.eval_async("let x = 999", ct).await;
         assert!(result.is_err(), "Cancelled evaluation should error");
+        let err_msg = result.unwrap_err().message.to_string();
+        assert!(
+            err_msg.contains("promoted to background job"),
+            "Error should mention promotion, got: {err_msg}"
+        );
 
-        // Original variable should still be 1
+        // Original variable should still be 1 (forked state not committed)
         let result = evaluator
             .eval_async("$x", CancellationToken::new())
             .await
             .unwrap();
         assert!(
             result.contains('1') && !result.contains("999"),
-            "Variable should still be 1 after cancelled eval, got: {result}"
+            "Variable should still be 1 after promoted eval, got: {result}"
         );
     }
 }

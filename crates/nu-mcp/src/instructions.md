@@ -260,6 +260,29 @@ job spawn { let my_id = job id; ... }
 - `job id` - Get current job's ID
 - `job tag <id> <tag>` - Add/change a job's description tag
 
+**Auto-promoted jobs:**
+
+Evaluations that run longer than 10 seconds (or when the client cancels) are automatically promoted to background jobs. The evaluation continues running and results are delivered to the main thread's mailbox when complete. The timeout is configurable via `$env.NU_MCP_PROMOTE_AFTER` (e.g., `30sec`, `5sec`).
+
+```nu
+# After promotion, the server returns an error like:
+# "Operation promoted to background job (id: 1). Use `job list` to see it and `job recv` to get the result."
+
+# Check if the promoted job is still running
+job list
+
+# Retrieve the result (blocks until available)
+job recv
+
+# Or with a timeout
+job recv --timeout 60sec
+
+# Change the auto-promote threshold
+$env.NU_MCP_PROMOTE_AFTER = 30sec
+```
+
+Promoted jobs appear in `job list` with a description like `mcp: <command>`. They share the jobs table with manually spawned jobs, so `job kill <id>` works to cancel them.
+
 **Common gotchas:**
 - There is no `job ls`. Use `job list`.
 - `job recv` does not accept a job id or `--id`. It only reads from the current job's mailbox.
