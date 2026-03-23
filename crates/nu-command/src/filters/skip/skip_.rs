@@ -64,10 +64,9 @@ impl Command for Skip {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
-        let metadata = input.metadata().map(|m| m.with_content_type(None));
 
         let n: usize = match n {
             Some(v) => {
@@ -89,6 +88,7 @@ impl Command for Skip {
             }
             None => 1,
         };
+
         let input_span = input.span().unwrap_or(call.head);
         match input {
             PipelineData::ByteStream(stream, metadata) => {
@@ -97,7 +97,7 @@ impl Command for Skip {
                     Ok(PipelineData::byte_stream(
                         stream.skip(span, n as u64)?,
                         // last 5 bytes of an image/png stream are not image/png themselves
-                        metadata.map(|m| m.with_content_type(None)),
+                        metadata.map(|m| if n > 0 { m.with_content_type(None) } else { m }),
                     ))
                 } else {
                     Err(ShellError::OnlySupportsThisInputType {
@@ -110,17 +110,20 @@ impl Command for Skip {
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
-                let metadata = metadata.map(|m| m.with_content_type(None));
+                let metadata = metadata.map(|m| if n > 0 { m.with_content_type(None) } else { m });
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
-            _ => Ok(input
-                .into_iter_strict(call.head)?
-                .skip(n)
-                .into_pipeline_data_with_metadata(
-                    input_span,
-                    engine_state.signals().clone(),
-                    metadata,
-                )),
+            _ => {
+                let metadata = input.take_metadata();
+                Ok(input
+                    .into_iter_strict(call.head)?
+                    .skip(n)
+                    .into_pipeline_data_with_metadata(
+                        input_span,
+                        engine_state.signals().clone(),
+                        metadata,
+                    ))
+            }
         }
     }
 }
