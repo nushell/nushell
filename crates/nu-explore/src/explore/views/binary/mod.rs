@@ -3,6 +3,7 @@
 mod binary_widget;
 
 use crossterm::event::KeyEvent;
+use nu_pretty_hex::HexStyles;
 use nu_protocol::{
     Value,
     engine::{EngineState, Stack},
@@ -119,6 +120,7 @@ fn settings_from_config(config: &ExploreConfig) -> Settings {
             None,
             config.table.column_padding_left as u16,
             config.table.column_padding_right as u16,
+            HexStyles::default(),
         ),
     }
 }
