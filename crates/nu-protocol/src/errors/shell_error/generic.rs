@@ -1,4 +1,4 @@
-use crate::{ShellError, Span};
+use crate::{ShellError, Span, shell_error::SpanOrLocation};
 use miette::Diagnostic;
 use nu_utils::location::Location;
 use std::{
@@ -43,18 +43,6 @@ pub struct GenericError {
 
     /// Related errors that provide more context.
     pub inner: Vec<ShellError>,
-}
-
-/// Represents where an error originated.
-///
-/// Most user-facing errors should point to a [`Span`].
-/// When no user span is available (for internal errors), store a [`Location`] string instead.
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SpanOrLocation {
-    /// A span in user-provided Nushell code.
-    Span(Span),
-    /// A [`Location`] string from Rust code where the error originated.
-    Location(String),
 }
 
 impl GenericError {

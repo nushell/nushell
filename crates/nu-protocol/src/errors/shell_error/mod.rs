@@ -1666,6 +1666,24 @@ fn shell_error_serialize_roundtrip() {
     );
 }
 
+/// Represents where an error originated.
+///
+/// Most user-facing errors should point to a [`Span`].
+/// When no user span is available (for internal errors), store a
+/// [`Location`](nu_utils::location::Location) string instead.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum SpanOrLocation {
+    /// A span in user-provided Nushell code.
+    Span(Span),
+
+    /// A [`Location`](nu_utils::location::Location) string from Rust code where the error
+    /// originated.
+    ///
+    /// For usage with [`miette`] it's easier to hold a string here instead of a
+    /// [`Location`](nu_utils::location::Location).
+    Location(String),
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
