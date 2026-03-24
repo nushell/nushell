@@ -61,6 +61,7 @@ impl PluginCommand for LazyQuantile {
                             Column::new("b".to_string(), vec![Value::test_float(2.0)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -87,6 +88,7 @@ impl PluginCommand for LazyQuantile {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

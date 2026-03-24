@@ -35,6 +35,7 @@ impl PluginCommand for ExprLen {
                     NuDataFrame::try_from_columns(
                         vec![Column::new("len".to_string(), vec![Value::test_int(2)])],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

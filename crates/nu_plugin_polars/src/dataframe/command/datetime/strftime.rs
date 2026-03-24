@@ -63,6 +63,7 @@ impl PluginCommand for StrFTime {
                             vec![Value::test_string("2020/08/04")],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -83,6 +84,7 @@ impl PluginCommand for StrFTime {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

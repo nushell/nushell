@@ -42,7 +42,7 @@ impl PluginCommand for ExprImplode {
                     )
                     .expect("should not fail"),
                 )
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

@@ -59,7 +59,7 @@ impl PluginCommand for Entropy {
                         )
                         .expect("should be able to create a dataframe"),
                     )
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -73,7 +73,7 @@ impl PluginCommand for Entropy {
                         )
                         .expect("should be able to create a dataframe"),
                     )
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]

@@ -60,6 +60,7 @@ impl PluginCommand for LazyFillNA {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("Df for test should not fail")
                     .into_value(Span::test_data()),
@@ -81,6 +82,7 @@ impl PluginCommand for LazyFillNA {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("Df for test should not fail")
                     .into_value(Span::test_data()),
@@ -164,7 +166,7 @@ fn cmd_df(
             Column::new(column_name, values)
         })
         .collect::<Vec<Column>>();
-    let df = NuDataFrame::try_from_columns(dataframe, None)?;
+    let df = NuDataFrame::try_from_columns(dataframe, None, call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

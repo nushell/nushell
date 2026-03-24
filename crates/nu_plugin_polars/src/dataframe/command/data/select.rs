@@ -54,6 +54,7 @@ impl PluginCommand for LazySelect {
                             vec![Value::test_int(6), Value::test_int(4), Value::test_int(2)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -69,6 +70,7 @@ impl PluginCommand for LazySelect {
                             vec![Value::test_int(12), Value::test_int(8), Value::test_int(4)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -94,6 +96,7 @@ impl PluginCommand for LazySelect {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -115,6 +118,7 @@ impl PluginCommand for LazySelect {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -136,6 +140,7 @@ impl PluginCommand for LazySelect {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -151,6 +156,7 @@ impl PluginCommand for LazySelect {
                             vec![Value::test_int(1), Value::test_int(4)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

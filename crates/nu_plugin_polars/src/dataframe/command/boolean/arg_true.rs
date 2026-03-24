@@ -56,6 +56,7 @@ impl PluginCommand for ArgTrue {
                         vec![Value::test_int(1)],
                     )],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

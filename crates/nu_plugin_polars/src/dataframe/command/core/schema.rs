@@ -52,7 +52,7 @@ impl PluginCommand for SchemaCmd {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         if call.has_flag("datatype-list")? {
-            Ok(PipelineData::value(datatype_list(Span::unknown()), None))
+            Ok(PipelineData::value(datatype_list(call.head), None))
         } else {
             command(plugin, engine, call, input).map_err(LabeledError::from)
         }

@@ -48,6 +48,7 @@ impl PluginCommand for AllFalse {
                             vec![Value::test_bool(true)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -65,6 +66,7 @@ impl PluginCommand for AllFalse {
                             vec![Value::test_bool(false)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -109,6 +111,7 @@ fn command(
     let df = NuDataFrame::try_from_columns(
         vec![Column::new("all_false".to_string(), vec![value])],
         None,
+        call.head,
     )?;
     df.to_pipeline_data(plugin, engine, call.head)
 }

@@ -81,7 +81,7 @@ impl PluginCommand for ToLazyFrame {
             .transpose()?;
 
         let metadata = input.take_metadata();
-        let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
+        let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema, call.head)?;
         let mut lazy = NuLazyFrame::from_dataframe(df);
         // We don't want this converted back to an eager dataframe at some point
         lazy.from_eager = false;

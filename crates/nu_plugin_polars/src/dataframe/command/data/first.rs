@@ -63,6 +63,7 @@ impl PluginCommand for FirstDF {
                             Column::new("b".to_string(), vec![Value::test_int(2)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -84,6 +85,7 @@ impl PluginCommand for FirstDF {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),

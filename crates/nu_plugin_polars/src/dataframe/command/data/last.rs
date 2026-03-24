@@ -61,6 +61,7 @@ impl PluginCommand for LastDF {
                             Column::new("b".to_string(), vec![Value::test_int(4)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

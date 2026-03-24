@@ -69,6 +69,7 @@ impl PluginCommand for ExprDatePart {
                             ),
                             Field::new("datetime_year".into(), DataType::Int64),
                         ])))),
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

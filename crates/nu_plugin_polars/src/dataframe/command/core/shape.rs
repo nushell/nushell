@@ -47,6 +47,7 @@ impl PluginCommand for ShapeDF {
                         Column::new("columns".to_string(), vec![Value::test_int(2)]),
                     ],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -80,7 +81,7 @@ fn command(
     let rows_col = Column::new("rows".to_string(), vec![rows]);
     let cols_col = Column::new("columns".to_string(), vec![cols]);
 
-    let df = NuDataFrame::try_from_columns(vec![rows_col, cols_col], None)?;
+    let df = NuDataFrame::try_from_columns(vec![rows_col, cols_col], None, call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

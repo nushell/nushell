@@ -62,6 +62,7 @@ impl PluginCommand for StrJoin {
                             vec![Value::test_string("abc,abc,abc")],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -82,6 +83,7 @@ impl PluginCommand for StrJoin {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

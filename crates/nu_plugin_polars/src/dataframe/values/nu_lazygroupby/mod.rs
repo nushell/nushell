@@ -79,12 +79,12 @@ impl CustomValueSupport for NuLazyGroupBy {
         PolarsPluginType::NuLazyGroupBy
     }
 
-    fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
         Ok(Value::record(
             record! {
-                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", Span::unknown())
+                "LazyGroupBy" => Value::string("apply aggregation to complete execution plan", span)
             },
-            Span::unknown(),
+            span,
         ))
     }
 }

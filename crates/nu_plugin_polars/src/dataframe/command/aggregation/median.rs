@@ -65,6 +65,7 @@ impl PluginCommand for LazyMedian {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -80,6 +81,7 @@ impl PluginCommand for LazyMedian {
                             Column::new("b".to_string(), vec![Value::test_float(2.0)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

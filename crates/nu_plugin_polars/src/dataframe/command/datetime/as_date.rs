@@ -91,6 +91,7 @@ impl PluginCommand for AsDate {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new("date".into(), DataType::Date),
                         ])))),
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -127,6 +128,7 @@ impl PluginCommand for AsDate {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new("date".into(), DataType::Date),
                         ])))),
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -163,6 +165,7 @@ impl PluginCommand for AsDate {
                         Some(NuSchema::new(Arc::new(Schema::from_iter(vec![
                             Field::new("date".into(), DataType::Date),
                         ])))),
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

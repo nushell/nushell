@@ -55,6 +55,7 @@ impl PluginCommand for NUnique {
                             vec![Value::test_int(4)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -119,6 +120,7 @@ fn command(
     let df = NuDataFrame::try_from_columns(
         vec![Column::new("count_unique".to_string(), vec![value])],
         None,
+        call.head,
     )?;
     df.to_pipeline_data(plugin, engine, call.head)
 }

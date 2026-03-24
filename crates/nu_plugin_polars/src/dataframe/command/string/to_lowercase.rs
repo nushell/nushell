@@ -59,6 +59,7 @@ impl PluginCommand for ToLowerCase {
                             vec![Value::test_string("abc")],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -78,6 +79,7 @@ impl PluginCommand for ToLowerCase {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

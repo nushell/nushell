@@ -49,6 +49,7 @@ impl PluginCommand for ArgMin {
                 NuDataFrame::try_from_columns(
                     vec![Column::new("arg_min".to_string(), vec![Value::test_int(0)])],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

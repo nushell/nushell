@@ -58,8 +58,9 @@ impl PolarsPluginCustomValue for NuDataTypeCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
         let dtype = NuDataType::try_from_custom_value(plugin, self)?;
-        dtype.base_value(Span::unknown())
+        dtype.base_value(span)
     }
 }

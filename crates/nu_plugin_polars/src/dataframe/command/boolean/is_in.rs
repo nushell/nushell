@@ -70,6 +70,7 @@ impl PluginCommand for ExprIsIn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -104,6 +105,7 @@ impl PluginCommand for ExprIsIn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -138,6 +140,7 @@ impl PluginCommand for ExprIsIn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -199,6 +202,7 @@ fn command_expr(
                         NuDataFrame::try_from_columns(
                             vec![Column::new("list".to_string(), list)],
                             None,
+                            call.head,
                         )
                     })
                 })?;

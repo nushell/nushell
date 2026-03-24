@@ -58,9 +58,10 @@ impl PolarsPluginCustomValue for NuSelectorCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
         let selector = NuSelector::try_from_custom_value(plugin, self)?;
-        selector.base_value(Span::unknown())
+        selector.base_value(span)
     }
 
     fn custom_value_operation(

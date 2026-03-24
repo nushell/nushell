@@ -65,9 +65,10 @@ impl PolarsPluginCustomValue for NuDataFrameCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
         let df = NuDataFrame::try_from_custom_value(plugin, self)?;
-        df.base_value(Span::unknown())
+        df.base_value(span)
     }
 
     fn custom_value_operation(

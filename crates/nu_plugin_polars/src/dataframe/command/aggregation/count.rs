@@ -48,7 +48,7 @@ impl PluginCommand for ExprCount {
                     )
                     .expect("should not fail"),
                 )
-                .into_value(Span::unknown()),
+                .into_value(Span::test_data()),
             ),
         }]
     }

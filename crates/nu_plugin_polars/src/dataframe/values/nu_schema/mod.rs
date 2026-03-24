@@ -93,7 +93,7 @@ impl CustomValueSupport for NuSchema {
                 })
             }
         } else {
-            let schema = value_to_schema(plugin, value, Span::unknown())?;
+            let schema = value_to_schema(plugin, value, value.span())?;
             Ok(Self::new(Arc::new(schema)))
         }
     }

@@ -75,6 +75,7 @@ impl PluginCommand for LazySortBy {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -106,6 +107,7 @@ impl PluginCommand for LazySortBy {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

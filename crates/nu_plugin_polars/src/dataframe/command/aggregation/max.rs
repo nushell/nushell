@@ -53,6 +53,7 @@ impl PluginCommand for ExprMax {
                             Column::new("b".to_string(), vec![Value::test_int(4)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -79,6 +80,7 @@ impl PluginCommand for ExprMax {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

@@ -50,9 +50,10 @@ impl PolarsPluginCustomValue for NuWhenCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
         let when = NuWhen::try_from_custom_value(plugin, self)?;
-        when.base_value(Span::unknown())
+        when.base_value(span)
     }
 
     fn id(&self) -> &Uuid {

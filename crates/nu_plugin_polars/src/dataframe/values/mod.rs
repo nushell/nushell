@@ -240,7 +240,10 @@ impl CustomValueType {
         }
     }
 
-    pub fn try_from_custom_value(val: Box<dyn CustomValue>) -> Result<CustomValueType, ShellError> {
+    pub fn try_from_custom_value(
+        val: Box<dyn CustomValue>,
+        span: Span,
+    ) -> Result<CustomValueType, ShellError> {
         if let Some(df_cv) = val.as_any().downcast_ref::<NuDataFrameCustomValue>() {
             Ok(CustomValueType::NuDataFrame(df_cv.clone()))
         } else if let Some(lf_cv) = val.as_any().downcast_ref::<NuLazyFrameCustomValue>() {
@@ -261,7 +264,7 @@ impl CustomValueType {
             Err(ShellError::CantConvert {
                 to_type: "physical type".into(),
                 from_type: "value".into(),
-                span: Span::unknown(),
+                span,
                 help: None,
             })
         }
@@ -294,6 +297,7 @@ pub trait PolarsPluginCustomValue: CustomValue {
         &self,
         plugin: &PolarsPlugin,
         engine: &EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError>;
 
     fn custom_value_operation(
