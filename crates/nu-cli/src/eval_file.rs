@@ -219,37 +219,24 @@ pub fn evaluate_file(
 
 #[cfg(test)]
 mod tests {
-    use super::evaluate_file;
-    use nu_protocol::{PipelineData, Span, Value, engine::Stack};
-    use std::fs;
+    use nu_test_support::fs::Stub::FileWithContent;
+    use nu_test_support::playground::Playground;
+    use nu_test_support::prelude::*;
 
     #[test]
-    fn evaluate_file_arg_with_newline_does_not_split_commands() {
-        let tempdir = tempfile::tempdir().expect("create tempdir");
-        let file_path = tempdir.path().join("test.nu");
-        fs::write(&file_path, "def main [...args: string] { $args }").unwrap();
+    fn evaluate_file_arg_with_newline_does_not_split_commands() -> Result {
+        Playground::setup("evaluate_file_newline_arg", |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "test.nu",
+                "def main [...args: string] { print ...($args) }",
+            )]);
 
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
-        engine_state.generate_nu_constant();
-        nu_std::load_standard_library(&mut engine_state).expect("could not load standard library");
-
-        let mut stack = Stack::new();
-        stack.add_env_var(
-            "PWD".to_string(),
-            Value::string(tempdir.path().to_string_lossy(), Span::unknown()),
-        );
-        let args = vec!["a".to_string(), "b".to_string(), "c\nd".to_string()];
-        assert!(args[2].contains('\n')); // ensure the argument contains a real newline before we escape/quote it
-
-        // Should not panic or error due to the newline in the argument.
-        evaluate_file(
-            file_path.to_string_lossy().to_string(),
-            &args,
-            &mut engine_state,
-            &mut stack,
-            PipelineData::empty(),
-        )
-        .expect("evaluate_file should succeed with newline in argument");
+            // If newline escaping regresses, command parsing fails before returning "ok".
+            test()
+                .cwd(dirs.test())
+                .add_nu_to_path()
+                .run("nu test.nu a b \"c\\nd\"; 'ok'")
+                .expect_value_eq("ok")
+        })
     }
 }
