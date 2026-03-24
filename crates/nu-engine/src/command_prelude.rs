@@ -1,4 +1,7 @@
+#[doc(no_inline)]
 pub use crate::CallExt;
+
+#[doc(no_inline)]
 pub use nu_protocol::{
     ByteStream, ByteStreamType, Category, Completion, ErrSpan, Example, Flag,
     IntoInterruptiblePipelineData, IntoPipelineData, IntoSpanned, IntoValue, PipelineData,
