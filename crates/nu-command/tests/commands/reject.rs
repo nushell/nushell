@@ -1,4 +1,8 @@
+use nu_protocol::test_record;
+use nu_protocol::{IntoPipelineData, PipelineMetadata};
 use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn regular_columns() {
@@ -184,4 +188,36 @@ fn test_works_with_integer_path_and_stream() {
     let actual = nu!("[[N u s h e l l]] | flatten | reject 1 | to nuon");
 
     assert_eq!(actual.out, "[N, s, h, e, l, l]");
+}
+
+enum Metadata {
+    Keep,
+    Drop,
+}
+
+#[rstest]
+#[case::index_only("reject 1", Metadata::Keep)]
+#[case::two_indices("reject 1 0", Metadata::Keep)]
+#[case::index_and_column("reject type 1", Metadata::Keep)]
+#[case::single_column("reject name", Metadata::Drop)]
+#[case::case_insensitive("reject NaMe!", Metadata::Drop)]
+#[case::multiple_columns("reject name type", Metadata::Drop)]
+fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) -> Result {
+    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
+
+    let data = Value::test_list(vec![
+        test_record! { "name" => "Cargo.toml", "type" => "file" },
+        test_record! { "name" => "src",        "type" => "dir" },
+    ])
+    .into_pipeline_data_with_metadata(in_metadata.clone());
+
+    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
+
+    let target_metadata = match metadata {
+        Metadata::Keep => in_metadata,
+        Metadata::Drop => Some(PipelineMetadata::default()),
+    };
+
+    assert_eq!(target_metadata, out_metadata);
+    Ok(())
 }
