@@ -88,8 +88,19 @@ fn into_datetime_from_record_fails_with_wrong_type() -> Result {
     let err = test()
         .run("{year: '2023'} | into datetime")
         .expect_shell_error()?;
-    assert_contains("Input type not supported.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::OnlySupportsThisInputType {
+            exp_input_type,
+            wrong_type,
+            ..
+        } => {
+            assert_eq!(exp_input_type, "int");
+            assert_eq!(wrong_type, "string");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -97,8 +108,17 @@ fn into_datetime_from_record_fails_with_invalid_date_time_values() -> Result {
     let err = test()
         .run("{year: 2023, month: 13} | into datetime")
         .expect_shell_error()?;
-    assert_contains("Incorrect value.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::IncorrectValue { msg, .. } => {
+            assert_eq!(
+                msg,
+                "one of more values are incorrect and do not represent valid date"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -106,8 +126,14 @@ fn into_datetime_from_record_fails_with_invalid_timezone() -> Result {
     let err = test()
         .run("{year: 2023, timezone: '+100:00'} | into datetime")
         .expect_shell_error()?;
-    assert_contains("Incorrect value.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::IncorrectValue { msg, .. } => {
+            assert_eq!(msg, "invalid timezone");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 // Tests invalid usage
@@ -117,8 +143,17 @@ fn into_datetime_from_record_fails_with_unknown_key() -> Result {
     let err = test()
         .run("{year: 2023, unknown: 1} | into datetime")
         .expect_shell_error()?;
-    assert_contains("Unsupported input", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::UnsupportedInput { msg, .. } => {
+            assert_eq!(
+                msg,
+                "Column 'unknown' is not valid for a structured datetime. Allowed columns are: year, month, day, hour, minute, second, millisecond, microsecond, nanosecond, timezone"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -128,8 +163,19 @@ fn into_datetime_from_record_incompatible_with_format_flag() -> Result {
             "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --format ''",
         )
         .expect_shell_error()?;
-    assert_contains("Incompatible parameters.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::IncompatibleParameters {
+            left_message,
+            right_message,
+            ..
+        } => {
+            assert_eq!(left_message, "got a record as input");
+            assert_eq!(right_message, "cannot be used with records");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -139,8 +185,22 @@ fn into_datetime_from_record_incompatible_with_timezone_flag() -> Result {
             "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --timezone UTC",
         )
         .expect_shell_error()?;
-    assert_contains("Incompatible parameters.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::IncompatibleParameters {
+            left_message,
+            right_message,
+            ..
+        } => {
+            assert_eq!(left_message, "got a record as input");
+            assert_eq!(
+                right_message,
+                "the timezone should be included in the record"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -150,8 +210,22 @@ fn into_datetime_from_record_incompatible_with_offset_flag() -> Result {
             "{year: 2023, month: 1, day: 2, hour: 3, minute: 4, second: 5} | into datetime --offset 1",
         )
         .expect_shell_error()?;
-    assert_contains("Incompatible parameters.", err.to_string());
-    Ok(())
+
+    match err {
+        ShellError::IncompatibleParameters {
+            left_message,
+            right_message,
+            ..
+        } => {
+            assert_eq!(left_message, "got a record as input");
+            assert_eq!(
+                right_message,
+                "the timezone should be included in the record"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -225,8 +299,14 @@ fn formatted_input_rejects_invalid_timezone_flag() -> Result {
     let err = test()
         .run(r#""2026-03-21_00:25" | into datetime --format '%F_%R' --timezone invalid"#)
         .expect_shell_error()?;
-    assert!(matches!(err, ShellError::TypeMismatch { .. }));
-    Ok(())
+
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert_eq!(err_message, "Invalid timezone or offset");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -234,8 +314,14 @@ fn formatted_input_rejects_invalid_offset_flag() -> Result {
     let err = test()
         .run(r#""2026-03-21_00:25" | into datetime --format '%F_%R' --offset 15"#)
         .expect_shell_error()?;
-    assert!(matches!(err, ShellError::TypeMismatch { .. }));
-    Ok(())
+
+    match err {
+        ShellError::TypeMismatch { err_message, .. } => {
+            assert_eq!(err_message, "Invalid timezone or offset");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
