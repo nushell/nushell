@@ -98,7 +98,7 @@ pub fn help_externs(
 
         if let Some(decl) = engine_state.find_decl(name.as_bytes(), &[]) {
             let cmd = engine_state.get_decl(decl);
-            let help_text = get_full_help(cmd, engine_state, stack);
+            let help_text = get_full_help(cmd, engine_state, stack, call.head);
             Ok(Value::string(help_text, call.head).into_pipeline_data())
         } else {
             Err(ShellError::CommandNotFound {

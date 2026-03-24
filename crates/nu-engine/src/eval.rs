@@ -22,7 +22,7 @@ pub fn eval_call<D: DebugContext>(
     let decl = engine_state.get_decl(call.decl_id);
 
     if !decl.is_known_external() && call.named_iter().any(|(flag, _, _)| flag.item == "help") {
-        let help = get_full_help(decl, engine_state, caller_stack);
+        let help = get_full_help(decl, engine_state, caller_stack, call.head);
         Ok(Value::string(help, call.head).into_pipeline_data())
     } else if let Some(block_id) = decl.block_id() {
         let block = engine_state.get_block(block_id);
@@ -339,7 +339,7 @@ pub fn eval_collect<D: DebugContext>(
     mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     // Evaluate the expression with the variable set to the collected input
-    let span = input.span().unwrap_or(Span::unknown());
+    let span = input.span().unwrap_or(expr.span);
 
     let metadata = input.take_metadata().and_then(|m| m.for_collect());
 

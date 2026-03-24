@@ -936,7 +936,7 @@ fn eval_instruction<D: DebugContext>(
             dst,
             stream,
             end_index,
-        } => eval_iterate(ctx, *dst, *stream, *end_index),
+        } => eval_iterate(ctx, *dst, *stream, *end_index, *span),
         Instruction::OnError { index } => {
             ctx.stack.error_handlers.push(ErrorHandler {
                 handler_index: *index,
@@ -1517,7 +1517,7 @@ fn check_input_types(
             exp_input_type: expected_string,
             wrong_type: input.get_type().to_string(),
             dst_span: head,
-            src_span: input.span().unwrap_or(Span::unknown()),
+            src_span: input.span().unwrap_or(head),
         }),
         // expected_string didn't generate properly, so we can't show the proper error
         (_, None) => Err(ShellError::NushellFailed {
@@ -1784,6 +1784,7 @@ fn eval_iterate(
     dst: RegId,
     stream: RegId,
     end_index: usize,
+    span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let mut data = ctx.take_reg(stream);
     if let PipelineData::ListStream(list_stream, _) = &mut data.body {
@@ -1800,7 +1801,7 @@ fn eval_iterate(
         // Convert the PipelineData to an iterator, and wrap it in a ListStream so it can be
         // iterated on
         let metadata = data.body.take_metadata();
-        let span = data.span().unwrap_or(Span::unknown());
+        let span = data.span().unwrap_or(span);
         ctx.put_reg(
             stream,
             PipelineExecutionData::from(PipelineData::list_stream(
@@ -1808,7 +1809,7 @@ fn eval_iterate(
                 metadata,
             )),
         );
-        eval_iterate(ctx, dst, stream, end_index)
+        eval_iterate(ctx, dst, stream, end_index, span)
     }
 }
 

@@ -36,7 +36,11 @@ impl Command for ConfigMeta {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
+        Ok(Value::string(
+            get_full_help(self, engine_state, stack, call.head),
+            call.head,
+        )
+        .into_pipeline_data())
     }
 
     fn search_terms(&self) -> Vec<&str> {

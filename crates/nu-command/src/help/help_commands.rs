@@ -88,7 +88,7 @@ pub fn help_commands(
             // Usage line in the generated help text accordingly.
             let sig = engine_state.get_signature(cmd).update_from_command(cmd);
 
-            let mut help_text = get_full_help(cmd, engine_state, stack);
+            let mut help_text = get_full_help(cmd, engine_state, stack, head);
 
             // If the requested name differs from the signature's base name (module-qualified
             // request), replace the first occurrence of the usage call name so help shows
