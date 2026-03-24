@@ -9,6 +9,7 @@ use crate::{
 use generic::GenericError;
 use job::JobError;
 use miette::{Diagnostic, LabeledSpan, NamedSource};
+use nu_utils::location::Location;
 use serde::{Deserialize, Serialize};
 use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
@@ -1670,18 +1671,28 @@ fn shell_error_serialize_roundtrip() {
 ///
 /// Most user-facing errors should point to a [`Span`].
 /// When no user span is available (for internal errors), store a
-/// [`Location`](nu_utils::location::Location) string instead.
+/// [`Location`] string instead.
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum ErrorSite {
     /// A span in user-provided Nushell code.
     Span(Span),
 
-    /// A [`Location`](nu_utils::location::Location) string from Rust code where the error
-    /// originated.
+    /// A [`Location`] string from Rust code where the error originated.
     ///
-    /// For usage with [`miette`] it's easier to hold a string here instead of a
-    /// [`Location`](nu_utils::location::Location).
+    /// For usage with [`miette`] it's easier to hold a string here instead of a [`Location`].
     Location(String),
+}
+
+impl From<Span> for ErrorSite {
+    fn from(span: Span) -> Self {
+        Self::Span(span)
+    }
+}
+
+impl From<Location> for ErrorSite {
+    fn from(location: Location) -> Self {
+        Self::Location(location.to_string())
+    }
 }
 
 // TODO: implement further chaining than just one
