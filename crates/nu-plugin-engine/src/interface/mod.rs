@@ -1049,14 +1049,13 @@ impl PluginInterface {
         &self,
         value: PluginCustomValueWithSource,
         other_value: Value,
+        span: Span,
     ) -> Result<Option<Ordering>, ShellError> {
         // Check that the value came from the right source
-        value.verify_source(Span::unknown(), &self.state.source)?;
+        value.verify_source(span, &self.state.source)?;
 
-        // Note: the protocol is always designed to have a span with the custom value, but this
-        // operation doesn't support one.
         let call = PluginCall::CustomValueOp(
-            value.without_source().into_spanned(Span::unknown()),
+            value.without_source().into_spanned(span),
             CustomValueOp::PartialCmp(other_value),
         );
         match self.plugin_call(call, None)? {
@@ -1106,10 +1105,11 @@ impl PluginInterface {
 
     /// Notify the plugin about a dropped custom value.
     pub fn custom_value_dropped(&self, value: PluginCustomValue) -> Result<(), ShellError> {
-        // Make sure we don't block here. This can happen on the receiver thread, which would cause a deadlock. We should not try to receive the response - just let it be discarded.
+        // Make sure we don't block here. This can happen on the receiver thread, which would cause
+        // a deadlock. We should not try to receive the response - just let it be discarded.
         //
-        // Note: the protocol is always designed to have a span with the custom value, but this
-        // operation doesn't support one.
+        // Note: Span::unknown() is used here because this is called from Drop, which has no span
+        // context available.
         drop(self.write_plugin_call(
             PluginCall::CustomValueOp(value.into_spanned(Span::unknown()), CustomValueOp::Dropped),
             None,

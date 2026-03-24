@@ -151,6 +151,8 @@ pub trait FromShellError {
 }
 
 // For List streams.
+// Note: Span::unknown() is unavoidable here because this is called from Iterator::next(),
+// which has no span context. The ShellError itself carries its own span information.
 impl FromShellError for Value {
     fn from_shell_error(err: ShellError) -> Self {
         Value::error(err, Span::unknown())

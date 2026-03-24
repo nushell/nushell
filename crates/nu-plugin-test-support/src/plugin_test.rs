@@ -346,7 +346,8 @@ impl PluginTest {
                 PluginCustomValueWithSource::add_source_in(&mut b_serialized, &self.source)?;
                 // Now get the plugin reference and execute the comparison
                 let persistent = self.source.persistent(None)?.get_plugin(None)?;
-                let ordering = persistent.custom_value_partial_cmp(serialized, b_serialized)?;
+                let ordering =
+                    persistent.custom_value_partial_cmp(serialized, b_serialized, a.span())?;
                 Ok(matches!(
                     ordering.map(Ordering::from),
                     Some(Ordering::Equal)

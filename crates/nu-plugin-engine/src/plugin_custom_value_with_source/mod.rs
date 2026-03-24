@@ -205,9 +205,7 @@ impl CustomValue for PluginCustomValueWithSource {
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         self.get_plugin(Some(other.span()), "perform comparison")
             .and_then(|plugin| {
-                // We're passing Span::unknown() here because we don't have one, and it probably
-                // shouldn't matter here and is just a consequence of the API
-                plugin.custom_value_partial_cmp(self.clone(), other.clone())
+                plugin.custom_value_partial_cmp(self.clone(), other.clone(), other.span())
             })
             .unwrap_or_else(|err| {
                 // We can't do anything with the error other than log it.
