@@ -1,6 +1,9 @@
+use nu_protocol::{IntoPipelineData, PipelineMetadata, Span};
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn simple_get_record() {
@@ -209,4 +212,50 @@ fn ignore_multiple() {
 fn test_const() {
     let actual = nu!("const x = [1 2 3] | get 1; $x");
     assert_eq!(actual.out, "2");
+}
+
+#[derive(Debug, IntoValue, Clone)]
+struct Sample {
+    name: &'static str,
+    r#type: &'static str,
+}
+
+#[rustfmt::skip]
+static SAMPLE: [Sample; 2] = [
+    Sample { name: "Cargo.toml", r#type: "file" },
+    Sample { name: "src",        r#type: "dir"  },
+];
+
+#[rstest]
+#[case::index_only("get 1")]
+#[case::two_indices("get 1 0")]
+#[case::index_and_column("get name 1")]
+fn keeps_path_columns_metadata_if_cell_path_is_index(#[case] code: &str) -> Result {
+    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
+    let data = SAMPLE
+        .clone()
+        .into_value(Span::test_data())
+        .into_pipeline_data_with_metadata(in_metadata.clone());
+
+    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
+
+    assert_eq!(in_metadata, out_metadata);
+    Ok(())
+}
+
+#[rstest]
+#[case::single_column("get name")]
+#[case::cellpath_with_multiple_members("get 1.name")]
+#[case::multiple_columns("get name type")]
+fn removes_path_columns_metadata_if_cell_path_is_not_index(#[case] code: &str) -> Result {
+    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
+    let data = SAMPLE
+        .clone()
+        .into_value(Span::test_data())
+        .into_pipeline_data_with_metadata(in_metadata);
+
+    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
+
+    assert_eq!(Some(PipelineMetadata::default()), out_metadata);
+    Ok(())
 }
