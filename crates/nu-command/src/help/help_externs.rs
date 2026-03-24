@@ -80,6 +80,7 @@ pub fn help_externs(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 

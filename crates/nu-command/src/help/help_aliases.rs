@@ -80,6 +80,7 @@ pub fn help_aliases(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 

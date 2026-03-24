@@ -278,7 +278,7 @@ impl Matcher {
             Matcher::Direct(lhs) => rhs == lhs,
             Matcher::Closure(closure) => closure
                 .run_with_value(rhs.clone())
-                .and_then(|data| data.into_value(Span::unknown()))
+                .and_then(|data| data.into_value(rhs.span()))
                 .map(|value| value.is_true())
                 .unwrap_or(false),
         })

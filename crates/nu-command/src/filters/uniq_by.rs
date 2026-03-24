@@ -170,9 +170,15 @@ fn item_mapper_by_col(cols: Vec<String>) -> impl Fn(crate::ItemMapperState) -> c
     Box::new(move |ms: crate::ItemMapperState| -> crate::ValueCounter {
         let item_column_values = get_data_by_columns(&columns, &ms.item);
 
-        let col_vals = Value::list(item_column_values, Span::unknown());
+        let col_vals = Value::list(item_column_values, ms.head);
 
-        crate::ValueCounter::new_vals_to_compare(ms.item, ms.flag_ignore_case, col_vals, ms.index)
+        crate::ValueCounter::new_vals_to_compare(
+            ms.item,
+            ms.flag_ignore_case,
+            col_vals,
+            ms.index,
+            ms.head,
+        )
     })
 }
 

@@ -170,7 +170,7 @@ impl Command for Sort {
                                 col.0.clone(),
                                 false,
                                 Casing::Sensitive,
-                                Span::unknown(),
+                                call.head,
                             )]
                         })
                         .map(|members| CellPath { members })

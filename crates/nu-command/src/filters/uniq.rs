@@ -56,8 +56,9 @@ impl Command for Uniq {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
-            item_mapper(ms.item, ms.flag_ignore_case, ms.index)
+            item_mapper(ms.item, ms.flag_ignore_case, ms.index, head)
         });
 
         let metadata = input.metadata();
@@ -121,10 +122,11 @@ pub struct ItemMapperState {
     pub item: Value,
     pub flag_ignore_case: bool,
     pub index: usize,
+    pub head: Span,
 }
 
-fn item_mapper(item: Value, flag_ignore_case: bool, index: usize) -> ValueCounter {
-    ValueCounter::new(item, flag_ignore_case, index)
+fn item_mapper(item: Value, flag_ignore_case: bool, index: usize, head: Span) -> ValueCounter {
+    ValueCounter::new(item, flag_ignore_case, index, head)
 }
 
 pub struct ValueCounter {
@@ -141,21 +143,22 @@ impl PartialEq<Self> for ValueCounter {
 }
 
 impl ValueCounter {
-    fn new(val: Value, flag_ignore_case: bool, index: usize) -> Self {
-        Self::new_vals_to_compare(val.clone(), flag_ignore_case, val, index)
+    fn new(val: Value, flag_ignore_case: bool, index: usize, head: Span) -> Self {
+        Self::new_vals_to_compare(val.clone(), flag_ignore_case, val, index, head)
     }
     pub fn new_vals_to_compare(
         val: Value,
         flag_ignore_case: bool,
         vals_to_compare: Value,
         index: usize,
+        head: Span,
     ) -> Self {
         ValueCounter {
             val,
             val_to_compare: if flag_ignore_case {
-                clone_to_folded_case(&vals_to_compare.with_span(Span::unknown()))
+                clone_to_folded_case(&vals_to_compare.with_span(head))
             } else {
-                vals_to_compare.with_span(Span::unknown())
+                vals_to_compare.with_span(head)
             },
             count: 1,
             index,
@@ -206,12 +209,16 @@ fn sort_attributes(val: Value) -> Value {
     }
 }
 
-fn generate_key(engine_state: &EngineState, item: &ValueCounter) -> Result<String, ShellError> {
+fn generate_key(
+    engine_state: &EngineState,
+    item: &ValueCounter,
+    head: Span,
+) -> Result<String, ShellError> {
     let value = sort_attributes(item.val_to_compare.clone()); //otherwise, keys could be different for Records
     nuon::to_nuon(
         engine_state,
         &value,
-        nuon::ToNuonConfig::default().span(Some(Span::unknown())),
+        nuon::ToNuonConfig::default().span(Some(head)),
     )
 }
 
@@ -259,12 +266,13 @@ pub fn uniq(
                 item,
                 flag_ignore_case,
                 index,
+                head,
             }))
         })
         .try_fold(
             HashMap::<String, ValueCounter>::new(),
             |mut counter, item| {
-                let key = generate_key(engine_state, &item);
+                let key = generate_key(engine_state, &item, head);
 
                 match key {
                     Ok(key) => {

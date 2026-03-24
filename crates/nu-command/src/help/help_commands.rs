@@ -61,6 +61,7 @@ pub fn help_commands(
             &f.item,
             &["name", "description", "search_terms"],
             true,
+            head,
         );
     }
 

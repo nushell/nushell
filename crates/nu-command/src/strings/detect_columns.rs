@@ -314,7 +314,7 @@ fn detect_columns(
     args: Arguments,
 ) -> Result<PipelineData, ShellError> {
     let name_span = call.head;
-    let input_span = input.span().unwrap_or(Span::unknown());
+    let input_span = input.span().unwrap_or(name_span);
 
     // Handle different input types
     match input {
@@ -1006,13 +1006,13 @@ fn merge_record_impl(
         .skip(start_index)
         .map(|v| v.coerce_str().unwrap_or_default())
         .join(" ");
-    let binding = Value::string(combined, Span::unknown());
+    let binding = Value::string(combined, input_span);
     let last_seg = vals.split_off(end_index);
     vals.truncate(start_index);
     vals.push(binding);
     vals.extend(last_seg);
 
-    Record::from_raw_cols_vals(cols, vals, Span::unknown(), input_span)
+    Record::from_raw_cols_vals(cols, vals, input_span, input_span)
 }
 
 #[cfg(test)]

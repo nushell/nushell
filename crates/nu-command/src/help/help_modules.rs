@@ -88,6 +88,7 @@ pub fn help_modules(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 
