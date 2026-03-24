@@ -13,7 +13,7 @@ use web_time::Instant;
 use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
-use nu_pretty_hex::HexConfig;
+use nu_pretty_hex::{HexConfig, HexStyles};
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
     ValueIterator,
@@ -244,6 +244,7 @@ struct TableConfig {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
+    hex_styles: HexStyles,
 }
 
 impl TableConfig {
@@ -255,6 +256,7 @@ impl TableConfig {
         index: Option<usize>,
         use_ansi_coloring: bool,
         icons: bool,
+        hex_styles: HexStyles,
     ) -> Self {
         Self {
             view,
@@ -264,6 +266,7 @@ impl TableConfig {
             index,
             use_ansi_coloring,
             icons,
+            hex_styles,
         }
     }
 }
@@ -301,6 +304,7 @@ fn parse_table_config(
     let args = get_cli_args(call, state, stack)?;
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
+    let hex_styles = get_hex_styles(state, stack);
 
     let cfg = TableConfig::new(
         table_view,
@@ -310,6 +314,7 @@ fn parse_table_config(
         args.index,
         args.use_ansi_coloring,
         args.icons,
+        hex_styles,
     );
 
     Ok(cfg)
@@ -457,15 +462,18 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
-        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
-        ),
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => {
+            Ok(PipelineData::byte_stream(
+                pretty_hex_stream(stream, input.cfg.hex_styles, input.call.head),
+                None,
+            ))
+        }
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
             Ok(PipelineData::byte_stream(
-                pretty_hex_stream(stream, input.call.head),
+                pretty_hex_stream(stream, input.cfg.hex_styles, input.call.head),
                 None,
             ))
         }
@@ -505,12 +513,13 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     }
 }
 
-fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
+fn pretty_hex_stream(stream: ByteStream, styles: HexStyles, span: Span) -> ByteStream {
     let mut cfg = HexConfig {
         // We are going to render the title manually first
         title: true,
         // If building on 32-bit, the stream size might be bigger than a usize
         length: stream.known_size().and_then(|sz| sz.try_into().ok()),
+        styles,
         ..HexConfig::default()
     };
 
@@ -1349,5 +1358,17 @@ fn get_table_width(width_param: Option<i64>) -> usize {
         w as usize
     } else {
         DEFAULT_TABLE_WIDTH
+    }
+}
+
+fn get_hex_styles(engine_state: &EngineState, stack: &mut Stack) -> HexStyles {
+    let comp = StyleComputer::from_config(engine_state, stack);
+    let null = Value::nothing(Span::unknown());
+    HexStyles {
+        null_char: comp.compute("binary_null_char", &null),
+        ascii_printable: comp.compute("binary_ascii_printable", &null),
+        ascii_whitespace: comp.compute("binary_ascii_whitespace", &null),
+        ascii_other: comp.compute("binary_ascii_other", &null),
+        non_ascii: comp.compute("binary_non_ascii", &null),
     }
 }
