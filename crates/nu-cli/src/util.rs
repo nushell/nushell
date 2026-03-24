@@ -248,6 +248,7 @@ pub fn eval_source(
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {
             let code = failed.into();
+            // No call span available in eval_source — this wraps generic source evaluation
             stack.set_last_exit_code(code, Span::unknown());
             code
         }

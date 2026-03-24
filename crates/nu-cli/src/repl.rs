@@ -94,7 +94,7 @@ pub fn evaluate_repl(
 
     let nu_prompt = NushellPrompt::new();
 
-    // seed env vars
+    // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
         "CMD_DURATION_MS".into(),
         Value::string("0823", Span::unknown()),
@@ -276,6 +276,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
         })
         .collect();
 
+    // No source span available — this is an internal REPL helper for vscode integration
     String::from_utf8(bytes).map_err(|err| ShellError::CantConvert {
         to_type: "string".to_string(),
         from_type: "bytes".to_string(),
@@ -443,6 +444,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     start_time = std::time::Instant::now();
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
         // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+        // No meaningful span — this is a synthetic null value for style computation.
         let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
         if let Some(closure) = config.hinter.closure.as_ref() {
             line_editor.with_hinter(Box::new(ExternalHinter::new(
@@ -471,6 +473,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reedline adding menus", start_time, use_color);
 
     start_time = std::time::Instant::now();
+    // No call span available in the REPL loop for editor lookup
     let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
 
     line_editor = if let Ok((cmd, args)) = buffer_editor {
@@ -677,6 +680,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             }
             let cmd_duration = cmd_execution_start_time.elapsed();
 
+            // No source span for REPL-generated timing values
             stack.add_env_var(
                 "CMD_DURATION_MS".into(),
                 Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
@@ -926,7 +930,7 @@ fn do_auto_cd(
         return;
     }
 
-    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
+    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), span));
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
@@ -964,7 +968,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
-    stack.set_last_exit_code(0, Span::unknown());
+    stack.set_last_exit_code(0, span);
 }
 
 ///

@@ -25,8 +25,9 @@ fn find_id(
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
     let file_id = working_set.add_file(file_path.to_string(), file);
-    let offset = working_set.get_span_for_file(file_id).start;
-    let _ = working_set.files.push(file_path.into(), Span::unknown());
+    let file_span = working_set.get_span_for_file(file_id);
+    let offset = file_span.start;
+    let _ = working_set.files.push(file_path.into(), file_span);
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
@@ -55,6 +56,7 @@ fn read_in_file<'a>(
     engine_state: &'a mut EngineState,
     file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
+    // No source span — this is the IDE entry point reading the file from disk
     let file = std::fs::read(file_path)
         .map_err(|err| {
             ShellError::Io(IoError::new_with_additional_context(
@@ -92,6 +94,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        // Top-level IDE check — no source location triggered this file load
         let _ = working_set.files.push(file_path.into(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
@@ -656,6 +659,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        // Top-level IDE ast dump — no source location triggered this file load
         let _ = working_set.files.push(file_path.into(), Span::unknown());
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 

@@ -44,6 +44,7 @@ pub fn evaluate_file(
                 "Input file name '{}' is not valid UTF8",
                 file_path.to_string_lossy()
             ),
+            // No call span available during file evaluation startup
             span: Span::unknown(),
         })?;
 
@@ -71,6 +72,7 @@ pub fn evaluate_file(
         )
     })?;
 
+    // These env vars are set before parsing, so no source span is available
     stack.add_env_var(
         "FILE_PWD".to_string(),
         Value::string(parent.to_string_lossy(), Span::unknown()),

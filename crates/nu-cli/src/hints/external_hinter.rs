@@ -54,6 +54,7 @@ impl ExternalHinter {
         pos: usize,
         cwd: &str,
     ) -> Result<Option<HintResult>, String> {
+        // No call span available — this is a reedline hinter callback
         let span = Span::unknown();
         let context = Record::from_raw_cols_vals(
             vec!["line".to_string(), "pos".to_string(), "cwd".to_string()],

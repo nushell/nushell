@@ -302,7 +302,7 @@ impl NuCompleter {
                         full_cell_path,
                         position: if strip { pos - 1 } else { pos },
                     };
-                    let ctx = Context::new(working_set, Span::unknown(), &[], offset);
+                    let ctx = Context::new(working_set, element_expression.span, &[], offset);
                     return self.process_completion(&mut cell_path_completer, &ctx);
                 }
             }

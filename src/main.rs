@@ -191,6 +191,7 @@ fn main() -> Result<()> {
     default_nu_plugin_dirs_path.push("plugins");
     engine_state.add_env_var("NU_PLUGIN_DIRS".to_string(), Value::test_list(vec![]));
     let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+    // No source span — this is a built-in variable defined at startup
     let var_id = working_set.add_variable(
         b"$NU_PLUGIN_DIRS".into(),
         Span::unknown(),
@@ -318,6 +319,7 @@ fn main() -> Result<()> {
     }
 
     start_time = std::time::Instant::now();
+    // No source span — default config is synthesized at startup
     engine_state.add_env_var(
         "config".into(),
         Config::default().into_value(Span::unknown()),
@@ -391,12 +393,14 @@ fn main() -> Result<()> {
         let all_lib_dirs: Vec<String> = user_lib_dirs.into_iter().chain(default_paths).collect();
 
         // Convert to Value list for setting env vars and constants
+        // No source span — these are startup-computed library directory paths
         let all_lib_dir_values: Vec<Value> = all_lib_dirs
             .iter()
             .map(|s| Value::string(s.clone(), Span::unknown()))
             .collect();
 
         // Set $env.NU_LIB_DIRS to the full list (defaults + user-set)
+        // No source span — startup env var setup
         engine_state.add_env_var(
             "NU_LIB_DIRS".to_string(),
             Value::list(all_lib_dir_values.clone(), Span::unknown()),
@@ -404,6 +408,7 @@ fn main() -> Result<()> {
 
         // Set $NU_LIB_DIRS as a constant with the same full list
         let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+        // No source span — built-in constant defined at startup
         let var_id = working_set.add_variable(
             b"$NU_LIB_DIRS".into(),
             Span::unknown(),
@@ -416,6 +421,7 @@ fn main() -> Result<()> {
     }
     perf!("$env.NU_LIB_DIRS/$NU_LIB_DIRS setup", start_time, use_color);
 
+    // No source span — startup constant
     engine_state.add_env_var(
         "NU_VERSION".to_string(),
         Value::string(env!("CARGO_PKG_VERSION"), Span::unknown()),
@@ -637,6 +643,7 @@ fn main() -> Result<()> {
             .map(|x| x.as_str().unwrap_or("0").parse::<i64>().unwrap_or(0))
             .unwrap_or(0);
         shlvl += 1;
+        // No source span — startup env var
         engine_state.add_env_var("SHLVL".to_string(), Value::int(shlvl, Span::unknown()));
 
         run_repl(

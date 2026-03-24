@@ -562,6 +562,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                 let value = parse_string_value(&mut parser, "table-mode")?;
                 let normalized = value.trim().to_ascii_lowercase();
                 match normalized.parse::<TableMode>() {
+                    // No source span — CLI argument parsing happens before engine setup
                     Ok(_) => cli.table_mode = Some(Value::string(value, Span::unknown())),
                     Err(valid) => {
                         let suggestion = did_you_mean(TABLE_MODE_VALUES, &normalized)
@@ -585,6 +586,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     "error style",
                 )?;
                 // Store original case value for error-style
+                // No source span — CLI argument parsing happens before engine setup
                 cli.error_style = Some(Value::string(normalized, Span::unknown()));
             }
             Long("no-newline") => cli.no_newline = Some(spanned_true()),
@@ -793,6 +795,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
 }
 
 // Helper to build a spanned boolean-like "true" value.
+// No source span — these originate from CLI argument parsing, before the engine exists.
 fn spanned_true() -> Spanned<String> {
     Spanned {
         item: "true".to_string(),
@@ -801,6 +804,7 @@ fn spanned_true() -> Spanned<String> {
 }
 
 // Wrap a string value in a Spanned wrapper with unknown span.
+// No source span — these originate from CLI argument parsing, before the engine exists.
 fn spanned_value(value: String) -> Spanned<String> {
     Spanned {
         item: value,
@@ -880,6 +884,7 @@ fn parse_port_value(parser: &mut lexopt::Parser, name: &str) -> Result<u16, CliE
 // Helper to parse IDE integer options and wrap in Value::int.
 fn parse_ide_int_option(parser: &mut lexopt::Parser, name: &str) -> Result<Value, CliError> {
     let value = parse_int_value(parser, name)?;
+    // No source span — CLI argument parsing happens before the engine exists
     Ok(Value::int(value, Span::unknown()))
 }
 
