@@ -10,7 +10,7 @@ use generic::GenericError;
 use job::JobError;
 use miette::{Diagnostic, LabeledSpan, NamedSource};
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroI32;
+use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
@@ -1672,7 +1672,7 @@ fn shell_error_serialize_roundtrip() {
 /// When no user span is available (for internal errors), store a
 /// [`Location`](nu_utils::location::Location) string instead.
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum SpanOrLocation {
+pub enum ErrorSite {
     /// A span in user-provided Nushell code.
     Span(Span),
 
@@ -1682,6 +1682,18 @@ pub enum SpanOrLocation {
     /// For usage with [`miette`] it's easier to hold a string here instead of a
     /// [`Location`](nu_utils::location::Location).
     Location(String),
+}
+
+// TODO: implement further chaining than just one
+#[derive(Debug, Error, Clone, Diagnostic)]
+#[error(transparent)]
+pub struct ErrorSource(Arc<dyn StdError + Send + Sync>);
+
+impl PartialEq for ErrorSource {
+    fn eq(&self, other: &Self) -> bool {
+        // TODO: implement this less wasteful
+        self.0.to_string() == other.0.to_string()
+    }
 }
 
 #[cfg(test)]

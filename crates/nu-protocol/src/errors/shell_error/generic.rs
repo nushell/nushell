@@ -1,10 +1,14 @@
-use crate::{ShellError, Span, shell_error::SpanOrLocation};
+use crate::{
+    ShellError, Span,
+    shell_error::{ErrorSite, ErrorSource},
+};
 use miette::Diagnostic;
 use nu_utils::location::Location;
 use std::{
     borrow::Cow,
-    error::Error,
+    error::Error as StdError,
     fmt::{self, Display},
+    sync::Arc,
 };
 
 /// Default code that [`GenericError`] is using as error code.
@@ -36,13 +40,16 @@ pub struct GenericError {
     pub msg: Cow<'static, str>,
 
     /// The error origin: either a user span or an internal Rust location.
-    pub source: SpanOrLocation,
+    pub site: ErrorSite,
 
     /// Optional additional guidance for the user.
     pub help: Option<Cow<'static, str>>,
 
     /// Related errors that provide more context.
     pub inner: Vec<ShellError>,
+
+    /// Optional error source.
+    pub source: Option<ErrorSource>,
 }
 
 impl GenericError {
@@ -67,9 +74,10 @@ impl GenericError {
             code: DEFAULT_CODE.into(),
             error: error.into(),
             msg: msg.into(),
-            source: SpanOrLocation::Span(span),
+            site: ErrorSite::Span(span),
             help: None,
             inner: Vec::new(),
+            source: None,
         }
     }
 
@@ -87,9 +95,10 @@ impl GenericError {
             code: DEFAULT_CODE.into(),
             error: error.into(),
             msg: msg.into(),
-            source: SpanOrLocation::Location(location.to_string()),
+            site: ErrorSite::Location(location.to_string()),
             help: None,
             inner: Vec::new(),
+            source: None,
         }
     }
 
@@ -107,9 +116,10 @@ impl GenericError {
             code: DEFAULT_CODE.into(),
             error: error.into(),
             msg: msg.into(),
-            source: SpanOrLocation::Location(location.into().to_string()),
+            site: ErrorSite::Location(location.into().to_string()),
             help: None,
             inner: Vec::new(),
+            source: None,
         }
     }
 
@@ -136,16 +146,24 @@ impl GenericError {
             ..self
         }
     }
+
+    /// Attaches error source that can be used to render error chains.
+    pub fn with_source(self, source: impl StdError + Send + Sync + 'static) -> Self {
+        Self {
+            source: Some(ErrorSource(Arc::new(source))),
+            ..self
+        }
+    }
 }
 
 impl Display for GenericError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let GenericError { error, msg, .. } = self;
-        write!(f, "{error}: {msg}")
+        let GenericError { error, .. } = self;
+        write!(f, "{error}")
     }
 }
 
-impl Error for GenericError {}
+impl StdError for GenericError {}
 
 impl Diagnostic for GenericError {
     fn code<'a>(&'a self) -> Option<Box<dyn Display + 'a>> {
@@ -153,9 +171,9 @@ impl Diagnostic for GenericError {
     }
 
     fn labels(&self) -> Option<Box<dyn Iterator<Item = miette::LabeledSpan> + '_>> {
-        let span = match &self.source {
-            SpanOrLocation::Span(span) => (*span).into(),
-            SpanOrLocation::Location(location) => miette::SourceSpan::new(0.into(), location.len()),
+        let span = match &self.site {
+            ErrorSite::Span(span) => (*span).into(),
+            ErrorSite::Location(location) => miette::SourceSpan::new(0.into(), location.len()),
         };
 
         let label = miette::LabeledSpan::new_with_span(Some(self.msg.to_string()), span);
@@ -163,9 +181,9 @@ impl Diagnostic for GenericError {
     }
 
     fn source_code(&self) -> Option<&dyn miette::SourceCode> {
-        match &self.source {
-            SpanOrLocation::Span(_) => None,
-            SpanOrLocation::Location(location) => Some(location as &dyn miette::SourceCode),
+        match &self.site {
+            ErrorSite::Span(_) => None,
+            ErrorSite::Location(location) => Some(location as &dyn miette::SourceCode),
         }
     }
 
@@ -182,5 +200,9 @@ impl Diagnostic for GenericError {
                 self.inner.iter().map(|err| err as &dyn Diagnostic),
             )),
         }
+    }
+
+    fn diagnostic_source(&self) -> Option<&dyn Diagnostic> {
+        self.source.as_ref().map(|err| err as &dyn Diagnostic)
     }
 }

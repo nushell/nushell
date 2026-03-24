@@ -238,14 +238,10 @@ impl std::fmt::Debug for CliError<'_> {
                     .color(ansi_support)
                     .unicode(ansi_support)
                     .terminal_links(ansi_support)
-                    .context_lines(error_lines as usize);
+                    .context_lines(error_lines as usize)
+                    .with_cause_chain();
                 match style {
-                    ErrorStyle::Nested => Box::new(
-                        handler
-                            .show_related_errors_as_nested()
-                            .with_cause_chain()
-                            .build(),
-                    ),
+                    ErrorStyle::Nested => Box::new(handler.show_related_errors_as_nested().build()),
                     _ => Box::new(handler.build()),
                 }
             }
