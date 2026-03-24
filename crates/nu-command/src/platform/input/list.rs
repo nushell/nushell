@@ -122,19 +122,20 @@ impl Default for InputListConfig {
 }
 
 impl InputListConfig {
-    fn from_nu_config(config: &nu_protocol::Config, style_computer: &StyleComputer) -> Self {
+    fn from_nu_config(
+        config: &nu_protocol::Config,
+        style_computer: &StyleComputer,
+        span: Span,
+    ) -> Self {
         let mut ret = Self::default();
 
         // Get styles from color_config (same as regular table command and find)
-        let color_config_header =
-            style_computer.compute("header", &Value::string("", Span::unknown()));
-        let color_config_separator =
-            style_computer.compute("separator", &Value::nothing(Span::unknown()));
+        let color_config_header = style_computer.compute("header", &Value::string("", span));
+        let color_config_separator = style_computer.compute("separator", &Value::nothing(span));
         let color_config_search_result =
-            style_computer.compute("search_result", &Value::string("", Span::unknown()));
-        let color_config_hints = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-        let color_config_row_index =
-            style_computer.compute("row_index", &Value::string("", Span::unknown()));
+            style_computer.compute("search_result", &Value::string("", span));
+        let color_config_hints = style_computer.compute("hints", &Value::nothing(span));
+        let color_config_row_index = style_computer.compute("row_index", &Value::string("", span));
 
         ret.table_header = color_config_header;
         ret.table_separator = color_config_separator;
@@ -330,7 +331,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
         let per_column = call.has_flag(engine_state, stack, "per-column")?;
         let config = stack.get_config(engine_state);
         let style_computer = StyleComputer::from_config(engine_state, stack);
-        let mut input_list_config = InputListConfig::from_nu_config(&config, &style_computer);
+        let mut input_list_config = InputListConfig::from_nu_config(&config, &style_computer, head);
         if no_footer {
             input_list_config.show_footer = false;
         }

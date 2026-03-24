@@ -1002,10 +1002,7 @@ fn transform_response_using_content_type(
             .map_err(|err| {
                 LabeledError::new(err.to_string())
                     .with_help("cannot parse")
-                    .with_label(
-                        format!("Cannot parse URL: {requested_url}"),
-                        Span::unknown(),
-                    )
+                    .with_label(format!("Cannot parse URL: {requested_url}"), span)
             })?
             .path_segments()
             .and_then(|mut segments| segments.next_back())

@@ -597,7 +597,7 @@ fn handle_record(
     };
 
     if let Some(limit) = input.cfg.abbreviation {
-        record = make_record_abbreviation(record, limit);
+        record = make_record_abbreviation(record, limit, span);
     }
 
     let config = input.get_config();
@@ -666,7 +666,7 @@ fn handle_record(
     Ok(data)
 }
 
-fn make_record_abbreviation(mut record: Record, limit: usize) -> Record {
+fn make_record_abbreviation(mut record: Record, limit: usize, span: Span) -> Record {
     if record.len() <= limit * 2 + 1 {
         return record;
     }
@@ -676,7 +676,7 @@ fn make_record_abbreviation(mut record: Record, limit: usize) -> Record {
     let mut record_iter = record.into_iter();
     record = Record::with_capacity(limit * 2 + 1);
     record.extend(record_iter.by_ref().take(limit));
-    record.push(String::from("..."), Value::string("...", Span::unknown()));
+    record.push(String::from("..."), Value::string("...", span));
     record.extend(record_iter.skip(prev_len - 2 * limit));
     record
 }
@@ -975,8 +975,12 @@ impl Iterator for PagingTableCreator {
 
         match self.table_config.abbreviation {
             Some(abbr) => {
-                (batch, _, end) =
-                    stream_collect_abbreviated(&mut self.stream, abbr, self.engine_state.signals());
+                (batch, _, end) = stream_collect_abbreviated(
+                    &mut self.stream,
+                    abbr,
+                    self.engine_state.signals(),
+                    self.head,
+                );
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
@@ -1070,6 +1074,7 @@ fn stream_collect_abbreviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
+    span: Span,
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
@@ -1100,7 +1105,7 @@ fn stream_collect_abbreviated(
 
     let have_filled_list = head.len() == size && tail.len() == size;
     if have_filled_list {
-        let dummy = get_abbreviated_dummy(&head, &tail);
+        let dummy = get_abbreviated_dummy(&head, &tail, span);
         head.insert(size, dummy)
     }
 
@@ -1109,8 +1114,8 @@ fn stream_collect_abbreviated(
     (head, read, end)
 }
 
-fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
-    let dummy = || Value::string(String::from("..."), Span::unknown());
+fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>, span: Span) -> Value {
+    let dummy = || Value::string(String::from("..."), span);
     let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
 
     if is_record_list {
@@ -1122,7 +1127,7 @@ fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
                 .columns()
                 .map(|key| (key.clone(), dummy()))
                 .collect(),
-            Span::unknown(),
+            span,
         )
     } else {
         dummy()

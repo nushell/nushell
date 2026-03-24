@@ -210,7 +210,7 @@ fn du_for_one_pattern(
         None => nu_engine::glob_from(
             &Spanned {
                 item: NuGlob::Expand("*".into()),
-                span: Span::unknown(),
+                span,
             },
             current_dir,
             span,
