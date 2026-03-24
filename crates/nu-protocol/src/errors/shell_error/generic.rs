@@ -93,6 +93,26 @@ impl GenericError {
         }
     }
 
+    /// Creates a new [`GenericError`] for internal errors without a user span but a provided
+    /// Rust location.
+    ///
+    /// Use this in places where a [`Location`] is already recorded and just needs to passed on,
+    /// otherwise prefer [`new_internal`](Self::new_internal).
+    pub fn new_internal_with_location(
+        error: impl Into<Cow<'static, str>>,
+        msg: impl Into<Cow<'static, str>>,
+        location: impl Into<Location>,
+    ) -> Self {
+        Self {
+            code: DEFAULT_CODE.into(),
+            error: error.into(),
+            msg: msg.into(),
+            source: SpanOrLocation::Location(location.into().to_string()),
+            help: None,
+            inner: Vec::new(),
+        }
+    }
+
     /// Overrides the diagnostic code for this error.
     pub fn with_code(self, code: impl Into<Cow<'static, str>>) -> Self {
         Self {
