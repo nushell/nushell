@@ -48,12 +48,14 @@ impl History {
     /// Creates a `Value::list` containing all history entries for use in evaluation.
     pub fn as_value(&self) -> Value {
         let list: Vec<Value> = self.buffer.iter().cloned().collect();
+        // No source span available -- history is a runtime-constructed value
         Value::list(list, Span::unknown())
     }
 }
 
 fn register_history_variable(engine_state: &mut EngineState) -> VarId {
     let mut working_set = StateWorkingSet::new(engine_state);
+    // No source span -- $history is a synthetic variable, not from parsed source
     let var_id = working_set.add_variable(
         b"history".to_vec(),
         Span::unknown(),

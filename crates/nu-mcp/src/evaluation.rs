@@ -36,6 +36,7 @@ fn format_mcp_error(
     working_set: &StateWorkingSet,
     error: &dyn Diagnostic,
     default_code: Option<&'static str>,
+    span: Span,
 ) -> String {
     let mut record = nu_protocol::record! {};
 
@@ -45,11 +46,11 @@ fn format_mcp_error(
         .map(|c| c.to_string())
         .or_else(|| default_code.map(String::from));
     if let Some(code) = code {
-        record.push("code", Value::string(code, Span::unknown()));
+        record.push("code", Value::string(code, span));
     }
 
     // Error message from Display trait
-    record.push("msg", Value::string(error.to_string(), Span::unknown()));
+    record.push("msg", Value::string(error.to_string(), span));
 
     // Severity level (error, warning, advice)
     if let Some(severity) = error.severity() {
@@ -58,17 +59,17 @@ fn format_mcp_error(
             miette::Severity::Warning => "warning",
             miette::Severity::Advice => "advice",
         };
-        record.push("severity", Value::string(severity_str, Span::unknown()));
+        record.push("severity", Value::string(severity_str, span));
     }
 
     // Help/hint text if available
     if let Some(help) = error.help() {
-        record.push("help", Value::string(help.to_string(), Span::unknown()));
+        record.push("help", Value::string(help.to_string(), span));
     }
 
     // Documentation URL if available
     if let Some(url) = error.url() {
-        record.push("url", Value::string(url.to_string(), Span::unknown()));
+        record.push("url", Value::string(url.to_string(), span));
     }
 
     // Labels with span information, line/column, and source context
@@ -79,37 +80,38 @@ fn format_mcp_error(
 
                 // Label text/message (what it's pointing at, e.g., "expected duration")
                 if let Some(text) = label.label() {
-                    label_record.push("text", Value::string(text, Span::unknown()));
+                    label_record.push("text", Value::string(text, span));
                 }
 
                 // Extract source context with line/column info
-                let span: SourceSpan = *label.inner();
-                if let Some((span_text, line, column)) = extract_source_context(working_set, &span)
+                let source_span: SourceSpan = *label.inner();
+                if let Some((span_text, line, column)) =
+                    extract_source_context(working_set, &source_span)
                 {
                     // The exact source text at the error span
-                    label_record.push("span", Value::string(span_text, Span::unknown()));
+                    label_record.push("span", Value::string(span_text, span));
                     // 1-indexed line and column for human readability
-                    label_record.push("line", Value::int(line as i64, Span::unknown()));
-                    label_record.push("column", Value::int(column as i64, Span::unknown()));
+                    label_record.push("line", Value::int(line as i64, span));
+                    label_record.push("column", Value::int(column as i64, span));
                 }
 
-                Value::record(label_record, Span::unknown())
+                Value::record(label_record, span)
             })
             .collect();
 
         if !labels_list.is_empty() {
-            record.push("labels", Value::list(labels_list, Span::unknown()));
+            record.push("labels", Value::list(labels_list, span));
         }
     }
 
     // Convert to NUON format
-    let value = Value::record(record, Span::unknown());
+    let value = Value::record(record, span);
     nuon::to_nuon(
         working_set.permanent(),
         &value,
         nuon::ToNuonConfig::default()
             .style(nuon::ToStyle::Raw)
-            .span(Some(Span::unknown())),
+            .span(Some(span)),
     )
     .unwrap_or_else(|_| error.to_string())
 }
@@ -146,8 +148,12 @@ fn user_input_error(
     working_set: &StateWorkingSet,
     error: &dyn Diagnostic,
     default_code: Option<&'static str>,
+    span: Span,
 ) -> rmcp::ErrorData {
-    rmcp::ErrorData::invalid_params(format_mcp_error(working_set, error, default_code), None)
+    rmcp::ErrorData::invalid_params(
+        format_mcp_error(working_set, error, default_code, span),
+        None,
+    )
 }
 
 /// Creates an internal MCP error for runtime errors.
@@ -157,10 +163,11 @@ fn user_input_error(
 pub(crate) fn shell_error_to_mcp_error(
     error: nu_protocol::ShellError,
     engine_state: &EngineState,
+    span: Span,
 ) -> rmcp::ErrorData {
     let working_set = StateWorkingSet::new(engine_state);
     rmcp::ErrorData::internal_error(
-        format_mcp_error(&working_set, &error, Some("nu::shell::error")),
+        format_mcp_error(&working_set, &error, Some("nu::shell::error"), span),
         None,
     )
 }
@@ -373,33 +380,37 @@ fn eval_on_state(
         let block = nu_parser::parse(&mut working_set, None, nu_source.as_bytes(), false);
 
         if let Some(err) = working_set.parse_errors.first() {
-            return Err(user_input_error(&working_set, err, None));
+            let span = block.span.unwrap_or(Span::unknown());
+            return Err(user_input_error(&working_set, err, None, span));
         }
 
         if let Some(err) = working_set.compile_errors.first() {
-            return Err(user_input_error(&working_set, err, None));
+            let span = block.span.unwrap_or(Span::unknown());
+            return Err(user_input_error(&working_set, err, None, span));
         }
 
         (block, working_set.render())
     };
 
+    let block_span = block.span.unwrap_or(Span::unknown());
+
     engine_state
         .merge_delta(delta)
-        .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+        .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))?;
 
     // Set up $history variable on the stack before evaluation
     stack.add_var(history.var_id(), history.as_value());
 
     let output =
         nu_engine::eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
-            .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+            .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))?;
 
     let cwd = engine_state
         .cwd(Some(stack))
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|_| String::from("unknown"));
 
-    let (output_value, output_nuon) = process_pipeline(output, engine_state)?;
+    let (output_value, output_nuon) = process_pipeline(output, engine_state, block_span)?;
 
     // Create timestamp for response
     let timestamp = SystemTime::now()
@@ -415,9 +426,9 @@ fn eval_on_state(
         output_limit(engine_state, stack).is_some_and(|limit| output_nuon.len() > limit);
 
     let mut record = nu_protocol::record! {
-        "cwd" => Value::string(cwd, Span::unknown()),
-        "history_index" => Value::int(history_index as i64, Span::unknown()),
-        "timestamp" => Value::date(timestamp_value, Span::unknown()),
+        "cwd" => Value::string(cwd, block_span),
+        "history_index" => Value::int(history_index as i64, block_span),
+        "timestamp" => Value::date(timestamp_value, block_span),
     };
 
     if truncated {
@@ -425,23 +436,23 @@ fn eval_on_state(
             "note",
             Value::string(
                 format!("output truncated, full result in $history.{history_index}"),
-                Span::unknown(),
+                block_span,
             ),
         );
     } else {
-        record.push("output", Value::string(output_nuon, Span::unknown()));
+        record.push("output", Value::string(output_nuon, block_span));
     }
 
-    let response = Value::record(record, Span::unknown());
+    let response = Value::record(record, block_span);
 
     nuon::to_nuon(
         engine_state,
         &response,
         nuon::ToNuonConfig::default()
             .style(nuon::ToStyle::Raw)
-            .span(Some(Span::unknown())),
+            .span(Some(block_span)),
     )
-    .map_err(|e| shell_error_to_mcp_error(e, engine_state))
+    .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))
 }
 
 /// Returns the output limit in bytes.
@@ -461,8 +472,9 @@ fn output_limit(engine_state: &EngineState, stack: &Stack) -> Option<usize> {
 fn process_pipeline(
     pipeline_execution_data: PipelineExecutionData,
     engine_state: &EngineState,
+    call_span: Span,
 ) -> Result<(Value, String), rmcp::ErrorData> {
-    let span = pipeline_execution_data.span();
+    let span = pipeline_execution_data.span().unwrap_or(call_span);
 
     if let PipelineData::ByteStream(stream, ..) = pipeline_execution_data.body {
         // Try to handle as a child process first (external commands)
@@ -471,7 +483,7 @@ fn process_pipeline(
             Ok(child) => {
                 let output = child
                     .wait_with_output()
-                    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+                    .map_err(|e| shell_error_to_mcp_error(e, engine_state, call_span))?;
 
                 // Combine stdout and stderr into a single output
                 let mut combined = Vec::new();
@@ -486,7 +498,7 @@ fn process_pipeline(
                 }
 
                 let string_output = String::from_utf8_lossy(&combined).into_owned();
-                let value = Value::string(&string_output, Span::unknown());
+                let value = Value::string(&string_output, span);
                 return Ok((value, string_output));
             }
             Err(stream) => {
@@ -494,9 +506,9 @@ fn process_pipeline(
                 let mut buffer = Vec::new();
                 stream
                     .write_to(&mut buffer)
-                    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+                    .map_err(|e| shell_error_to_mcp_error(e, engine_state, call_span))?;
                 let string_output = String::from_utf8_lossy(&buffer).into_owned();
-                let value = Value::string(&string_output, Span::unknown());
+                let value = Value::string(&string_output, span);
                 return Ok((value, string_output));
             }
         }
@@ -505,7 +517,11 @@ fn process_pipeline(
     let mut values = Vec::new();
     for item in pipeline_execution_data.body {
         if let Value::Error { error, .. } = &item {
-            return Err(shell_error_to_mcp_error(*error.clone(), engine_state));
+            return Err(shell_error_to_mcp_error(
+                *error.clone(),
+                engine_state,
+                call_span,
+            ));
         }
         values.push(item);
     }
@@ -514,7 +530,7 @@ fn process_pipeline(
         1 => values
             .pop()
             .expect("values has exactly one element; this cannot fail"),
-        _ => Value::list(values, span.unwrap_or(Span::unknown())),
+        _ => Value::list(values, span),
     };
 
     let nuon_string = nuon::to_nuon(
@@ -522,9 +538,9 @@ fn process_pipeline(
         &value_to_store,
         nuon::ToNuonConfig::default()
             .style(nuon::ToStyle::Raw)
-            .span(Some(Span::unknown())),
+            .span(Some(call_span)),
     )
-    .map_err(|e| shell_error_to_mcp_error(e, engine_state))?;
+    .map_err(|e| shell_error_to_mcp_error(e, engine_state, call_span))?;
 
     Ok((value_to_store, nuon_string))
 }
