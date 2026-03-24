@@ -1,4 +1,4 @@
-use nu_protocol::{IntoPipelineData, PipelineMetadata, Span};
+use nu_protocol::{IntoPipelineData, PipelineMetadata, test_record};
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
@@ -214,48 +214,34 @@ fn test_const() {
     assert_eq!(actual.out, "2");
 }
 
-#[derive(Debug, IntoValue, Clone)]
-struct Sample {
-    name: &'static str,
-    r#type: &'static str,
-}
-
-#[rustfmt::skip]
-static SAMPLE: [Sample; 2] = [
-    Sample { name: "Cargo.toml", r#type: "file" },
-    Sample { name: "src",        r#type: "dir"  },
-];
-
-#[rstest]
-#[case::index_only("get 1")]
-#[case::two_indices("get 1 0")]
-#[case::index_and_column("get name 1")]
-fn keeps_path_columns_metadata_if_cell_path_is_index(#[case] code: &str) -> Result {
-    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
-    let data = SAMPLE
-        .clone()
-        .into_value(Span::test_data())
-        .into_pipeline_data_with_metadata(in_metadata.clone());
-
-    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
-
-    assert_eq!(in_metadata, out_metadata);
-    Ok(())
+enum Metadata {
+    Keep,
+    Drop,
 }
 
 #[rstest]
-#[case::single_column("get name")]
-#[case::cellpath_with_multiple_members("get 1.name")]
-#[case::multiple_columns("get name type")]
-fn removes_path_columns_metadata_if_cell_path_is_not_index(#[case] code: &str) -> Result {
+#[case::index_only("get 1", Metadata::Keep)]
+#[case::two_indices("get 1 0", Metadata::Keep)]
+#[case::index_and_column("get name 1", Metadata::Keep)]
+#[case::single_column("get name", Metadata::Drop)]
+#[case::cellpath_with_multiple_members("get 1.name", Metadata::Drop)]
+#[case::multiple_columns("get name type", Metadata::Drop)]
+fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) -> Result {
     let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
-    let data = SAMPLE
-        .clone()
-        .into_value(Span::test_data())
-        .into_pipeline_data_with_metadata(in_metadata);
+
+    let data = Value::test_list(vec![
+        test_record! { "name" => "Cargo.toml", "type" => "file" },
+        test_record! { "name" => "src",        "type" => "dir" },
+    ])
+    .into_pipeline_data_with_metadata(in_metadata.clone());
 
     let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
 
-    assert_eq!(Some(PipelineMetadata::default()), out_metadata);
+    let target_metadata = match metadata {
+        Metadata::Keep => in_metadata,
+        Metadata::Drop => Some(PipelineMetadata::default()),
+    };
+
+    assert_eq!(target_metadata, out_metadata);
     Ok(())
 }
