@@ -462,18 +462,15 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     let span = input.data.span().unwrap_or(input.call.head);
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
-        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => {
-            Ok(PipelineData::byte_stream(
-                pretty_hex_stream(stream, input.cfg.hex_styles, input.call.head),
-                None,
-            ))
-        }
+        PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
+            PipelineData::byte_stream(pretty_hex_stream(stream, input.cfg, input.call.head), None),
+        ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
             Ok(PipelineData::byte_stream(
-                pretty_hex_stream(stream, input.cfg.hex_styles, input.call.head),
+                pretty_hex_stream(stream, input.cfg, input.call.head),
                 None,
             ))
         }
@@ -513,13 +510,13 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     }
 }
 
-fn pretty_hex_stream(stream: ByteStream, styles: HexStyles, span: Span) -> ByteStream {
+fn pretty_hex_stream(stream: ByteStream, table_cfg: TableConfig, span: Span) -> ByteStream {
     let mut cfg = HexConfig {
         // We are going to render the title manually first
         title: true,
         // If building on 32-bit, the stream size might be bigger than a usize
         length: stream.known_size().and_then(|sz| sz.try_into().ok()),
-        styles,
+        styles: table_cfg.hex_styles,
         ..HexConfig::default()
     };
 
@@ -548,7 +545,8 @@ fn pretty_hex_stream(stream: ByteStream, styles: HexStyles, span: Span) -> ByteS
 
             // Write the title at the beginning
             if cfg.title {
-                nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+                nu_pretty_hex::write_title(&mut write_buf, cfg, table_cfg.use_ansi_coloring)
+                    .expect("format error");
                 cfg.title = false;
 
                 // Put the write_buf back into buffer
@@ -567,8 +565,13 @@ fn pretty_hex_stream(stream: ByteStream, styles: HexStyles, span: Span) -> ByteS
                     })?;
 
                 if !read_buf.is_empty() {
-                    nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
-                        .expect("format error");
+                    nu_pretty_hex::hex_write(
+                        &mut write_buf,
+                        &read_buf,
+                        cfg,
+                        Some(table_cfg.use_ansi_coloring),
+                    )
+                    .expect("format error");
                     write_buf.push('\n');
 
                     // Advance the address offset for next time
