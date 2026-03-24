@@ -3614,7 +3614,7 @@ mod test {
             .map(|s| SelectItem {
                 name: s.to_string(),
                 cells: None,
-                value: nu_protocol::Value::nothing(nu_protocol::Span::unknown()),
+                value: nu_protocol::Value::nothing(nu_protocol::Span::test_data()),
             })
             .collect();
         let leaked: &'static [SelectItem] = Box::leak(options.into_boxed_slice());

@@ -298,7 +298,7 @@ mod tests {
 
     #[test]
     fn test_item_from_value_string() -> Result<(), ShellError> {
-        let item = item_from_value(Value::string("foo", Span::unknown()))?;
+        let item = item_from_value(Value::string("foo", Span::test_data()))?;
         assert_eq!(
             item,
             HistoryItem {
@@ -318,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_item_from_value_record() {
-        let span = Span::unknown();
+        let span = Span::test_data();
         let rec = new_record(&[
             ("command", Value::string("foo", span)),
             (
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_item_from_value_record_extra_field() {
-        let span = Span::unknown();
+        let span = Span::test_data();
         let rec = new_record(&[
             ("command_line", Value::string("foo", span)),
             ("id_nonexistent", Value::int(1, span)),
@@ -367,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_item_from_value_record_bad_type() {
-        let span = Span::unknown();
+        let span = Span::test_data();
         let rec = new_record(&[
             ("command_line", Value::string("foo", span)),
             ("id", Value::string("one".to_string(), span)),
@@ -376,7 +376,7 @@ mod tests {
     }
 
     fn new_record(rec: &[(&'static str, Value)]) -> Value {
-        let span = Span::unknown();
+        let span = Span::test_data();
         let rec = Record::from_raw_cols_vals(
             rec.iter().map(|(col, _)| col.to_string()).collect(),
             rec.iter().map(|(_, val)| val.clone()).collect(),

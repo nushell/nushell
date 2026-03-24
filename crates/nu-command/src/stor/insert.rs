@@ -237,7 +237,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_with_simple_parameters".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert("int_column".to_string(), Value::test_int(42));
         columns.insert("real_column".to_string(), Value::test_float(3.1));
@@ -275,7 +275,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_string_with_space".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -303,7 +303,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_string_too_long".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -331,7 +331,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_param_is_wrong_type".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "int_column".to_string(),
@@ -359,7 +359,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_column_doesnt_exist".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "not_a_column".to_string(),
@@ -379,7 +379,7 @@ mod test {
         ));
 
         let table_name = Some("test_errors_when_table_doesnt_exist".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -427,7 +427,7 @@ mod test {
         let result = process(
             &EngineState::new(),
             Some("test_insert_json".to_owned()),
-            Span::unknown(),
+            Span::test_data(),
             &db,
             row,
         );

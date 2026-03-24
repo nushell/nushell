@@ -152,7 +152,7 @@ mod tests {
                     Value::test_int(2),
                     Value::test_int(42),
                     RangeInclusion::Inclusive,
-                    Span::unknown(),
+                    Span::test_data(),
                 )
                 .unwrap(),
             ))),

@@ -743,30 +743,31 @@ mod test {
 
             let cwd = dirs.test().as_std_path();
 
-            let actual = expand_glob("*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob("*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
             let expected = &["a.txt", "b.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob("./*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("'*.txt'", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob("'*.txt'", cwd, Span::test_data(), Signals::empty()).unwrap();
             let expected = &["'*.txt'"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob(".", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob(".", cwd, Span::test_data(), Signals::empty()).unwrap();
             let expected = &["."];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("./a.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob("./a.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
             let expected = &["./a.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("[*.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual = expand_glob("[*.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
             let expected = &["[*.txt"];
             assert_eq!(actual, expected);
 
-            let actual = expand_glob("~/foo.txt", cwd, Span::unknown(), Signals::empty()).unwrap();
+            let actual =
+                expand_glob("~/foo.txt", cwd, Span::test_data(), Signals::empty()).unwrap();
             let home = dirs::home_dir().expect("failed to get home dir");
             let expected: Vec<OsString> = vec![home.join("foo.txt").into()];
             assert_eq!(actual, expected);
@@ -792,12 +793,12 @@ mod test {
         assert_eq!(buf, b"");
 
         let mut buf = vec![];
-        let input = PipelineData::value(Value::string("foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::string("foo", Span::test_data()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
         let mut buf = vec![];
-        let input = PipelineData::value(Value::binary(b"foo", Span::unknown()), None);
+        let input = PipelineData::value(Value::binary(b"foo", Span::test_data()), None);
         write_pipeline_data(engine_state.clone(), stack.clone(), input, &mut buf).unwrap();
         assert_eq!(buf, b"foo");
 
@@ -805,7 +806,7 @@ mod test {
         let input = PipelineData::byte_stream(
             ByteStream::read(
                 b"foo".as_slice(),
-                Span::unknown(),
+                Span::test_data(),
                 Signals::empty(),
                 ByteStreamType::Unknown,
             ),

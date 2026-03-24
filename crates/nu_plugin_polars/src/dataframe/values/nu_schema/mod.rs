@@ -154,7 +154,7 @@ mod test {
             "address" => Value::test_record(address)
         });
 
-        let schema = value_to_schema(&plugin, &value, Span::unknown()).unwrap();
+        let schema = value_to_schema(&plugin, &value, Span::test_data()).unwrap();
         let expected = Schema::from_iter(vec![
             Field::new("name".into(), DataType::String),
             Field::new("age".into(), DataType::Int32),

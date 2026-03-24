@@ -325,7 +325,7 @@ fn into_sqlite_big_insert() {
                 .upsert_cell_path(
                     &[PathMember::String {
                         val: "somedate".into(),
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         optional: false,
                         casing: Casing::Sensitive,
                     }],
@@ -339,7 +339,7 @@ fn into_sqlite_big_insert() {
                 &engine_state,
                 &value,
                 nuon::ToNuonConfig::default()
-                    .span(Some(Span::unknown()))
+                    .span(Some(Span::test_data()))
                     .serialize_types(serialize_types),
             )
             .unwrap()
@@ -392,17 +392,17 @@ impl From<TestRow> for Value {
     fn from(row: TestRow) -> Self {
         Value::record(
             record! {
-                "somebool" => Value::bool(row.0, Span::unknown()),
-                "someint" => Value::int(row.1, Span::unknown()),
-                "somefloat" => Value::float(row.2, Span::unknown()),
-                "somefilesize" => Value::filesize(row.3, Span::unknown()),
-                "someduration" => Value::duration(row.4, Span::unknown()),
-                "somedate" => Value::date(row.5, Span::unknown()),
-                "somestring" => Value::string(row.6, Span::unknown()),
-                "somebinary" => Value::binary(row.7, Span::unknown()),
-                "somenull" => Value::nothing(Span::unknown()),
+                "somebool" => Value::bool(row.0, Span::test_data()),
+                "someint" => Value::int(row.1, Span::test_data()),
+                "somefloat" => Value::float(row.2, Span::test_data()),
+                "somefilesize" => Value::filesize(row.3, Span::test_data()),
+                "someduration" => Value::duration(row.4, Span::test_data()),
+                "somedate" => Value::date(row.5, Span::test_data()),
+                "somestring" => Value::string(row.6, Span::test_data()),
+                "somebinary" => Value::binary(row.7, Span::test_data()),
+                "somenull" => Value::nothing(Span::test_data()),
             },
-            Span::unknown(),
+            Span::test_data(),
         )
     }
 }

@@ -38,7 +38,7 @@ fn setup_engine() -> EngineState {
 fn setup_stack_and_engine_from_command(command: &str) -> (Stack, EngineState) {
     let mut engine = setup_engine();
     let commands = Spanned {
-        span: Span::unknown(),
+        span: Span::test_data(),
         item: command.to_string(),
     };
 
@@ -74,7 +74,7 @@ fn bench_command(
     engine: EngineState,
 ) -> impl IntoBenchmarks {
     let commands = Spanned {
-        span: Span::unknown(),
+        span: Span::test_data(),
         item: command.into(),
     };
     [benchmark_fn(name, move |b| {
@@ -146,7 +146,7 @@ fn bench_load_use_standard_lib() -> impl IntoBenchmarks {
         let engine = nu_cmd_extra::add_extra_command_context(setup_engine());
         let commands = Spanned {
             item: "use std".into(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         };
         b.iter(move || {
             let mut engine = engine.clone();
