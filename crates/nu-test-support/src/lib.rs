@@ -11,7 +11,9 @@
 //! # }
 //! #
 //! # fn main() -> Result {
-//!     test().run("version | get version").expect_value_eq(env!("CARGO_PKG_VERSION"))
+//!     test()
+//!         .run("version | get version")
+//!         .expect_value_eq(env!("CARGO_PKG_VERSION"))
 //! }
 //! ```
 
