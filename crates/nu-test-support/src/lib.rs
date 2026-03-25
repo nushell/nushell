@@ -1,3 +1,17 @@
+//! Test support for the nushell crates.
+//! 
+//! ```
+//! # use nu_test_support::harness::macros::test;
+//! #[test]
+//! #[serial]
+//! fn a() {
+//! # }
+//! #
+//! # fn main() {
+//!     panic!("executed test")
+//! }
+//! ```
+
 pub mod assertions;
 pub mod fs;
 pub mod harness;
