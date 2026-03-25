@@ -227,7 +227,7 @@ fn select(
     engine_state: &EngineState,
     call_span: Span,
     columns: Vec<CellPath>,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
@@ -256,7 +256,7 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {

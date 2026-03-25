@@ -134,7 +134,7 @@ pub fn transpose(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let args = TransposeArgs {
@@ -173,7 +173,7 @@ pub fn transpose(
         });
     }
 
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let input: Vec<_> = input.into_iter().collect();
 
     // Ensure error values are propagated and non-record values are rejected

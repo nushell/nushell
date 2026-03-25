@@ -250,7 +250,8 @@ use it in your pipeline."
                 return stderr_misuse(input.span().unwrap_or(head), head);
             }
 
-            let metadata = input.metadata();
+            let mut input = input;
+            let metadata = input.take_metadata();
             let metadata_clone = metadata.clone();
 
             if let PipelineData::ListStream(..) = input {

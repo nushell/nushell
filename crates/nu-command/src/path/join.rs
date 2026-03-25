@@ -165,15 +165,13 @@ the output of 'path parse' and 'path split' subcommands."
 fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
-    let metadata = input.metadata();
-
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::value(
+        PipelineData::ListStream(stream, metadata) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),
-        PipelineData::ByteStream(stream, ..) => Ok(PipelineData::value(
+        PipelineData::ByteStream(stream, metadata) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),

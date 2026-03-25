@@ -116,8 +116,8 @@ impl Command for ParEach {
         let max_threads = threads.unwrap_or(0);
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
 
-        let input = input.into_stream_or_original(engine_state);
-        let metadata = input.metadata();
+        let mut input = input.into_stream_or_original(engine_state);
+        let metadata = input.take_metadata();
 
         // A helper function sorts the output if needed
         let apply_order = |mut vec: Vec<(usize, Value)>| {

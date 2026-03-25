@@ -95,12 +95,12 @@ impl Command for Zip {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let other = call.req(engine_state, stack, 0)?;
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let other = if let Value::Closure { val, .. } = other {
             // If a closure was provided, evaluate it and consume its stream output
             ClosureEvalOnce::new(engine_state, stack, *val).run_with_input(PipelineData::empty())?

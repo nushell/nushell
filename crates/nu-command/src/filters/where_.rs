@@ -59,14 +59,14 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         Ok(input
             .into_iter_strict(head)?
             .filter_map(move |value| {

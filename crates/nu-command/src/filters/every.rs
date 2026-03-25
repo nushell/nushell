@@ -57,7 +57,7 @@ impl Command for Every {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let stride = match call.req::<usize>(engine_state, stack, 0)? {
             0 => 1,
@@ -66,7 +66,7 @@ impl Command for Every {
 
         let skip = call.has_flag(engine_state, stack, "skip")?;
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         Ok(input
             .into_iter()

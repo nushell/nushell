@@ -130,10 +130,10 @@ impl Command for DetectType {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input
-            .metadata()
+            .take_metadata()
             .map(|metadata| metadata.with_content_type(None));
         let span = call.head;
         let display_as_filesize = call.has_flag(engine_state, stack, "prefer-filesize")?;

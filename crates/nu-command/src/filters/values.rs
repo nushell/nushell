@@ -136,10 +136,9 @@ fn values(
 ) -> Result<PipelineData, ShellError> {
     let input = input.into_stream_or_original(engine_state);
     let signals = engine_state.signals().clone();
-    let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(v, ..) => {
+        PipelineData::Value(v, metadata) => {
             let span = v.span();
             match v {
                 Value::List { vals, .. } => match get_values(&vals, head, span) {
@@ -172,7 +171,7 @@ fn values(
                 }),
             }
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineData::ListStream(stream, metadata) => {
             let vals: Vec<_> = stream.into_iter().collect();
             match get_values(&vals, head, head) {
                 Ok(cols) => Ok(cols

@@ -54,14 +54,14 @@ impl Command for Uniq {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let mapper = Box::new(move |ms: ItemMapperState| -> ValueCounter {
             item_mapper(ms.item, ms.flag_ignore_case, ms.index, head)
         });
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         uniq(
             engine_state,
             stack,

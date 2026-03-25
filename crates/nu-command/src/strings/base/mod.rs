@@ -17,9 +17,9 @@ pub use hex::{DecodeHex, EncodeHex};
 pub fn decode(
     encoding: Encoding,
     call_span: Span,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let (input_str, input_span) = get_string(input, call_span)?;
     let output = match encoding.decode(input_str.as_bytes()) {
         Ok(output) => output,
@@ -38,9 +38,9 @@ pub fn decode(
 pub fn encode(
     encoding: Encoding,
     call_span: Span,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let (input_bytes, _) = get_binary(input, call_span)?;
     let output = encoding.encode(&input_bytes);
 

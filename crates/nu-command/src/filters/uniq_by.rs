@@ -62,7 +62,7 @@ impl Command for UniqBy {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
 
@@ -73,7 +73,7 @@ impl Command for UniqBy {
             });
         }
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         let vec: Vec<_> = input.into_iter().collect();
         match validate(&vec, &columns, call.head) {

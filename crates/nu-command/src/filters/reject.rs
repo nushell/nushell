@@ -214,7 +214,6 @@ fn reject(
 ) -> Result<PipelineData, ShellError> {
     let input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
-    let metadata = input.metadata();
     let mut new_columns = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
@@ -258,7 +257,7 @@ fn reject(
     });
 
     match input {
-        PipelineData::ListStream(stream, ..) if !has_integer_path_member => {
+        PipelineData::ListStream(stream, metadata) if !has_integer_path_member => {
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
@@ -277,7 +276,8 @@ fn reject(
             Ok(result.set_metadata(metadata))
         }
 
-        input => {
+        mut input => {
+            let metadata = input.take_metadata();
             let mut val = input.into_value(span)?;
 
             for cell_path in new_columns {

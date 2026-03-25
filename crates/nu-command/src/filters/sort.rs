@@ -139,14 +139,14 @@ impl Command for Sort {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let sort_by_value = call.has_flag(engine_state, stack, "values")?;
-        let metadata = input.metadata();
 
         let span = input.span().unwrap_or(call.head);
+        let metadata = input.take_metadata();
         let value = input.into_value(span)?;
         let sorted: Value = match value {
             Value::Record { val, .. } => {
