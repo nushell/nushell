@@ -19,6 +19,8 @@ mod split_read;
 pub mod strings;
 pub mod sync;
 pub mod utils;
+#[doc(hidden)]
+pub mod module_path;
 
 pub use locale::get_system_locale;
 pub use utils::{
