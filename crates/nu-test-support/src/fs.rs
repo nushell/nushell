@@ -23,18 +23,6 @@ pub fn file_contents_binary(full_path: impl AsRef<AbsolutePath>) -> Vec<u8> {
     contents
 }
 
-pub fn line_ending() -> String {
-    #[cfg(windows)]
-    {
-        String::from("\r\n")
-    }
-
-    #[cfg(not(windows))]
-    {
-        String::from("\n")
-    }
-}
-
 pub fn files_exist_at(files: &[impl AsRef<Path>], path: impl AsRef<AbsolutePath>) -> bool {
     let path = path.as_ref();
     files.iter().all(|f| path.join(f.as_ref()).exists())

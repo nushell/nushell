@@ -1,7 +1,7 @@
 use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
 use nu_protocol::{Parameter, Signals};
-use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_CHAR};
+use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_STR};
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
@@ -52,9 +52,9 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
-        "eol" => LINE_SEPARATOR_CHAR.to_string(),
-        "lsep" => LINE_SEPARATOR_CHAR.to_string(),
-        "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
+        "eol" => LINE_SEPARATOR_STR.to_string(),
+        "lsep" => LINE_SEPARATOR_STR.to_string(),
+        "line_sep" => LINE_SEPARATOR_STR.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
