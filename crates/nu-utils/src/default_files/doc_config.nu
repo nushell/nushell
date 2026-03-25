@@ -884,6 +884,26 @@ $env.config.color_config.closure = "green_bold"
 # Default: default
 $env.config.color_config.binary = "default"
 
+# color_config.binary_null_char: Style for null characters (\0) in binary hex viewer.
+# Default: grey42
+$env.config.color_config.binary_null_char = "grey42"
+
+# color_config.binary_printable: Style for printable ASCII characters in binary hex viewer.
+# Default: cyan_bold
+$env.config.color_config.binary_printable = "cyan_bold"
+
+# color_config.binary_whitespace: Style for whitespace ASCII characters in binary hex viewer.
+# Default: green_bold
+$env.config.color_config.binary_whitespace = "green_bold"
+
+# color_config.binary_ascii_other: Style for other ASCII characters in binary hex viewer.
+# Default: purple_bold
+$env.config.color_config.binary_ascii_other = "purple_bold"
+
+# color_config.binary_non_ascii: Style for non-ASCII characters in binary hex viewer.
+# Default: yellow_bold
+$env.config.color_config.binary_non_ascii = "yellow_bold"
+
 # color_config.custom: Style for custom values in output.
 # Default: default
 $env.config.color_config.custom = "default"

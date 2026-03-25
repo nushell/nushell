@@ -247,30 +247,6 @@ struct TableConfig {
     hex_styles: HexStyles,
 }
 
-impl TableConfig {
-    fn new(
-        view: TableView,
-        width: usize,
-        theme: TableMode,
-        abbreviation: Option<usize>,
-        index: Option<usize>,
-        use_ansi_coloring: bool,
-        icons: bool,
-        hex_styles: HexStyles,
-    ) -> Self {
-        Self {
-            view,
-            width,
-            theme,
-            abbreviation,
-            index,
-            use_ansi_coloring,
-            icons,
-            hex_styles,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum TableView {
     General,
@@ -284,7 +260,7 @@ enum TableView {
 
 struct CLIArgs {
     width: Option<i64>,
-    abbrivation: Option<usize>,
+    abbreviation: Option<usize>,
     theme: TableMode,
     expand: bool,
     expand_limit: Option<usize>,
@@ -301,21 +277,29 @@ fn parse_table_config(
     state: &EngineState,
     stack: &mut Stack,
 ) -> ShellResult<TableConfig> {
-    let args = get_cli_args(call, state, stack)?;
+    let args @ CLIArgs {
+        abbreviation,
+        theme,
+        index,
+        use_ansi_coloring,
+        icons,
+        ..
+    } = get_cli_args(call, state, stack)?;
+
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
     let hex_styles = get_hex_styles(state, stack);
 
-    let cfg = TableConfig::new(
-        table_view,
-        term_width,
-        args.theme,
-        args.abbrivation,
-        args.index,
-        args.use_ansi_coloring,
-        args.icons,
+    let cfg = TableConfig {
+        view: table_view,
+        width: term_width,
+        theme,
+        abbreviation,
+        index,
+        use_ansi_coloring,
+        icons,
         hex_styles,
-    );
+    };
 
     Ok(cfg)
 }
@@ -340,7 +324,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
     let expand_flatten_separator: Option<String> =
         call.get_flag(state, stack, "flatten-separator")?;
     let collapse: bool = call.has_flag(state, stack, "collapse")?;
-    let abbrivation: Option<usize> = call
+    let abbreviation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
         .or_else(|| stack.get_config(state).table.abbreviated_row_count);
     let theme =
@@ -352,7 +336,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
 
     Ok(CLIArgs {
         theme,
-        abbrivation,
+        abbreviation,
         collapse,
         expand,
         expand_limit,
