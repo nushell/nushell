@@ -277,7 +277,7 @@ same-file = "1.0.6"
 # Our dependencies don't use OpenSSL on Windows
 openssl = { version = "0.10", features = ["vendored"], optional = true }
 
-[target.'cfg(windows)'.build-dependencies]
+[build-dependencies]
 winresource = "0.1"
 
 [target.'cfg(target_family = "unix")'.dependencies]
