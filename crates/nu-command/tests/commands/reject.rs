@@ -202,7 +202,11 @@ enum Metadata {
 #[case::case_insensitive("reject NaMe!", Metadata::Drop)]
 #[case::multiple_columns("reject name type", Metadata::Drop)]
 fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) -> Result {
-    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
+    let in_metadata = Some(
+        PipelineMetadata::default()
+            .with_path_columns(vec!["name".into()])
+            .with_content_type(Some("text/palin".into())),
+    );
 
     let data = Value::test_list(vec![
         test_record! { "name" => "Cargo.toml", "type" => "file" },
@@ -214,7 +218,7 @@ fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) ->
 
     let target_metadata = match metadata {
         Metadata::Keep => in_metadata,
-        Metadata::Drop => Some(PipelineMetadata::default()),
+        Metadata::Drop => in_metadata.map(|m| m.with_path_columns(vec![])),
     };
 
     assert_eq!(target_metadata, out_metadata);
