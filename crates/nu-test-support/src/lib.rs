@@ -1,5 +1,3 @@
-#![doc = include_str!("../README.md")]
-
 use std::{borrow::Borrow, fmt::Debug, process::ExitStatus};
 
 pub mod commands;
