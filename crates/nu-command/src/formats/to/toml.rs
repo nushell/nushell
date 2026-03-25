@@ -174,11 +174,11 @@ fn value_to_toml_value(
 
 fn to_toml(
     engine_state: &EngineState,
-    input: PipelineData,
+    mut input: PipelineData,
     span: Span,
     serialize_types: bool,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let value = input.into_value(span)?;
 
     let toml_value = value_to_toml_value(engine_state, &value, span, serialize_types)?;

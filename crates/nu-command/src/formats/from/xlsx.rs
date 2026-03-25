@@ -35,7 +35,7 @@ impl Command for FromXlsx {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
@@ -47,7 +47,7 @@ impl Command for FromXlsx {
             vec![]
         };
 
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
         from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 

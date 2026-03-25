@@ -105,7 +105,7 @@ MessagePack: https://msgpack.org/
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let objects = call.has_flag(engine_state, stack, "objects")?;
         let opts = Opts {
@@ -113,7 +113,7 @@ MessagePack: https://msgpack.org/
             objects,
             signals: engine_state.signals().clone(),
         };
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
         let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {

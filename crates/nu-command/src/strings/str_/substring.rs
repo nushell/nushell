@@ -86,10 +86,12 @@ impl Command for StrSubstring {
             cell_paths,
             graphemes: grapheme_flags(engine_state, stack, call)?,
         };
-        operate(action, args, input, call.head, engine_state.signals()).map(|pipeline| {
-            // a substring of text/json is not necessarily text/json itself
-            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
-            pipeline.set_metadata(metadata)
+        operate(action, args, input, call.head, engine_state.signals()).map(|mut pipeline| {
+            if let Some(metadata) = pipeline.metadata_mut() {
+                // a substring of text/json is not necessarily text/json itself
+                metadata.content_type = None;
+            }
+            pipeline
         })
     }
 
@@ -115,10 +117,12 @@ impl Command for StrSubstring {
             call.head,
             working_set.permanent().signals(),
         )
-        .map(|pipeline| {
-            // a substring of text/json is not necessarily text/json itself
-            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
-            pipeline.set_metadata(metadata)
+        .map(|mut pipeline| {
+            if let Some(metadata) = pipeline.metadata_mut() {
+                // a substring of text/json is not necessarily text/json itself
+                metadata.content_type = None;
+            }
+            pipeline
         })
     }
 

@@ -131,12 +131,12 @@ pub fn value_to_yaml_value(
 
 fn to_yaml(
     engine_state: &EngineState,
-    input: PipelineData,
+    mut input: PipelineData,
     head: Span,
     serialize_types: bool,
 ) -> Result<PipelineData, ShellError> {
     let metadata = input
-        .metadata()
+        .take_metadata()
         .unwrap_or_default()
         // Per RFC-9512, application/yaml should be used
         .with_content_type(Some("application/yaml".into()));
