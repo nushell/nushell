@@ -1369,8 +1369,8 @@ fn get_hex_styles(engine_state: &EngineState, stack: &mut Stack) -> HexStyles {
     let null = Value::nothing(Span::unknown());
     HexStyles {
         null_char: comp.compute("binary_null_char", &null),
-        ascii_printable: comp.compute("binary_ascii_printable", &null),
-        ascii_whitespace: comp.compute("binary_ascii_whitespace", &null),
+        printable: comp.compute("binary_printable", &null),
+        whitespace: comp.compute("binary_whitespace", &null),
         ascii_other: comp.compute("binary_ascii_other", &null),
         non_ascii: comp.compute("binary_non_ascii", &null),
     }

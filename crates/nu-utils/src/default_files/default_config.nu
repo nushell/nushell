@@ -16,7 +16,7 @@ $env.config.color_config = {
     string: default
     nothing: default
     binary: default
-    binary_null: grey42
+    binary_null_char: grey42
     binary_printable: cyan_bold
     binary_whitespace: green_bold
     binary_ascii_other: purple_bold

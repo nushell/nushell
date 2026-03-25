@@ -123,13 +123,13 @@ pub fn categorize_byte(byte: &u8, styles: &HexStyles) -> (Style, Option<char>) {
     if byte == &0 {
         (styles.null_char, null_char)
     } else if byte.is_ascii_graphic() {
-        (styles.ascii_printable, ascii_printable)
+        (styles.printable, ascii_printable)
     } else if byte.is_ascii_whitespace() {
         // 0x20 == 32 decimal - replace with a real space
         if byte == &32 {
-            (styles.ascii_whitespace, ascii_space)
+            (styles.whitespace, ascii_space)
         } else {
-            (styles.ascii_whitespace, ascii_whitespace)
+            (styles.whitespace, ascii_whitespace)
         }
     } else if byte.is_ascii() {
         (styles.ascii_other, ascii_other)
@@ -145,9 +145,9 @@ pub struct HexStyles {
     /// Style for null bytes (`\0`).
     pub null_char: Style,
     /// Style for non-whitespace printable ASCII characters.
-    pub ascii_printable: Style,
+    pub printable: Style,
     /// Style for whitespace printable ASCII characters.
-    pub ascii_whitespace: Style,
+    pub whitespace: Style,
     /// Style for other ASCII characters (e.g. control characters).
     pub ascii_other: Style,
     /// Style for non-ASCII characters (i.e. `0x80..`).
@@ -158,8 +158,8 @@ impl Default for HexStyles {
     fn default() -> Self {
         Self {
             null_char: Style::default().fg(Color::Fixed(242)),
-            ascii_printable: Style::default().fg(Color::Cyan).bold(),
-            ascii_whitespace: Style::default().fg(Color::Green).bold(),
+            printable: Style::default().fg(Color::Cyan).bold(),
+            whitespace: Style::default().fg(Color::Green).bold(),
             ascii_other: Style::default().fg(Color::Purple).bold(),
             non_ascii: Style::default().fg(Color::Yellow).bold(),
         }
@@ -283,12 +283,12 @@ where
         if use_color {
             writeln!(
                 writer,
-                "Length: {length} | {0}printable {1}whitespace {2}ascii_other {3}non_ascii{4}",
-                cfg.styles.ascii_printable.prefix(),
-                cfg.styles.ascii_whitespace.prefix(),
-                cfg.styles.ascii_other.prefix(),
-                cfg.styles.non_ascii.prefix(),
-                cfg.styles.non_ascii.suffix(),
+                "Length: {length} | {} {} {} {} {}",
+                cfg.styles.null_char.paint("null_char"),
+                cfg.styles.printable.paint("printable"),
+                cfg.styles.whitespace.paint("whitespace"),
+                cfg.styles.ascii_other.paint("ascii_other"),
+                cfg.styles.non_ascii.paint("non_ascii"),
             )
         } else {
             writeln!(writer, "Length: {length}")

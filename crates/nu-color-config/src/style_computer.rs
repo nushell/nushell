@@ -127,7 +127,7 @@ impl<'a> StyleComputer<'a> {
             ("string".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("nothing".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("binary".to_string(), ComputableStyle::Static(Color::Default.normal())),
-            ("binary_null".to_string(), ComputableStyle::Static(Color::Fixed(242).normal())),
+            ("binary_null_char".to_string(), ComputableStyle::Static(Color::Fixed(242).normal())),
             ("binary_printable".to_string(), ComputableStyle::Static(Color::Cyan.bold())),
             ("binary_whitespace".to_string(), ComputableStyle::Static(Color::Green.bold())),
             ("binary_ascii_other".to_string(), ComputableStyle::Static(Color::Purple.bold())),
