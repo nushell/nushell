@@ -37,6 +37,7 @@ pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
     pub use linkme::distributed_slice as collect_test;
     pub use nu_test_support_macros::test;
+    pub use nu_utils::module_path_without_crate;
 }
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
