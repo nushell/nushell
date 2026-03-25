@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
+use nu_table::{NuRecordsValue, NuTable, TableTheme};
 use nu_utils::ConfigFileKind;
 use std::{
     fmt::Write,
@@ -526,6 +527,61 @@ fn bench_type_widen_chain() -> impl IntoBenchmarks {
     })]
 }
 
+// Note: each benchmark iteration includes table construction (NuTable::new + cell
+// allocation) in addition to draw(), because draw() consumes self. For large tables
+// (e.g. 1000x15) this means significant allocation overhead is included in the measurement.
+fn create_nu_table(rows: usize, cols: usize) -> NuTable {
+    let mut table = NuTable::new(rows, cols);
+    for row in 0..rows {
+        let data: Vec<NuRecordsValue> = (0..cols)
+            .map(|col| NuRecordsValue::new(format!("cell_{row}_{col}")))
+            .collect();
+        table.set_row(row, data);
+    }
+    table
+}
+
+fn bench_table_render(rows: usize, cols: usize) -> impl IntoBenchmarks {
+    [benchmark_fn(
+        format!("table_render_{rows}x{cols}"),
+        move |b| {
+            b.iter(move || {
+                let mut table = create_nu_table(rows, cols);
+                table.set_theme(TableTheme::rounded());
+                table.set_structure(false, true, false);
+                black_box(table.draw(120))
+            })
+        },
+    )]
+}
+
+fn bench_table_render_with_theme(theme_name: &str, theme: TableTheme) -> impl IntoBenchmarks {
+    let name = format!("table_render_theme_{theme_name}");
+    [benchmark_fn(name, move |b| {
+        let theme = theme.clone();
+        b.iter(move || {
+            let mut table = create_nu_table(100, 5);
+            table.set_theme(theme.clone());
+            table.set_structure(false, true, false);
+            black_box(table.draw(120))
+        })
+    })]
+}
+
+fn bench_table_render_wide(termwidth: usize) -> impl IntoBenchmarks {
+    [benchmark_fn(
+        format!("table_render_wide_{termwidth}"),
+        move |b| {
+            b.iter(move || {
+                let mut table = create_nu_table(100, 10);
+                table.set_theme(TableTheme::rounded());
+                table.set_structure(false, true, false);
+                black_box(table.draw(termwidth))
+            })
+        },
+    )]
+}
+
 tango_benchmarks!(
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
@@ -632,7 +688,23 @@ tango_benchmarks!(
     decode_json(10000, 15),
     // MsgPack
     decode_msgpack(100, 5),
-    decode_msgpack(10000, 15)
+    decode_msgpack(10000, 15),
+    // Table rendering
+    bench_table_render(10, 3),
+    bench_table_render(100, 5),
+    bench_table_render(1_000, 5),
+    bench_table_render(1_000, 15),
+    // Table rendering with different themes
+    bench_table_render_with_theme("basic", TableTheme::basic()),
+    bench_table_render_with_theme("rounded", TableTheme::rounded()),
+    bench_table_render_with_theme("thin", TableTheme::thin()),
+    bench_table_render_with_theme("heavy", TableTheme::heavy()),
+    bench_table_render_with_theme("none", TableTheme::none()),
+    // Table rendering with different terminal widths
+    bench_table_render_wide(40),
+    bench_table_render_wide(80),
+    bench_table_render_wide(120),
+    bench_table_render_wide(200)
 );
 
 tango_main!();
