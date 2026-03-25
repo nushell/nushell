@@ -247,7 +247,7 @@ fn helper(
 ) -> Result<PipelineData, ShellError> {
     let span = args.url.span();
     let Spanned {
-        item: (requested_url, _),
+        item: (requested_url, _, zone_id),
         span: request_span,
     } = http_parse_url(call, span, args.url)?;
     let redirect_mode = http_parse_redirect_mode(args.redirect)?;
@@ -255,13 +255,14 @@ fn helper(
     let cwd = engine_state.cwd(None)?;
     let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
 
-    let mut request = if args.pool {
+    let mut request = if args.pool && zone_id.is_none() {
         http_client_pool(engine_state, stack)?.post(&requested_url)
     } else {
         let client = http_client(
             args.insecure,
             redirect_mode,
             unix_socket_path,
+            zone_id,
             engine_state,
             stack,
         )?;

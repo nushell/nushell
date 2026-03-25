@@ -162,7 +162,7 @@ pub fn http_client_pool(
     #[cfg(feature = "native-tls")]
     let connector = connector.chain(NativeTlsConnector::default());
 
-    let resolver = DnsLookupResolver;
+    let resolver = DnsLookupResolver::new(None);
     let agent = ureq::Agent::with_parts(config_builder.build(), connector, resolver);
 
     let arc_agent = Arc::new(agent);
@@ -182,6 +182,7 @@ pub fn reset_http_client_pool(
         allow_insecure,
         redirect_mode,
         unix_socket_path,
+        None,
         engine_state,
         stack,
     )?;
@@ -194,6 +195,7 @@ pub fn http_client(
     allow_insecure: bool,
     redirect_mode: RedirectMode,
     unix_socket_path: Option<PathBuf>,
+    zone_id: Option<String>,
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Result<ureq::Agent, ShellError> {
@@ -241,15 +243,48 @@ pub fn http_client(
     #[cfg(feature = "native-tls")]
     let connector = connector.chain(NativeTlsConnector::default());
 
-    let resolver = DnsLookupResolver;
+    let resolver = DnsLookupResolver::new(zone_id);
     Ok(ureq::Agent::with_parts(config, connector, resolver))
+}
+
+/// Extracts an IPv6 zone ID from a URL string, returning the cleaned URL and zone ID.
+///
+/// IPv6 link-local addresses use zone IDs (e.g., `fe80::1%eth0`) to specify the network
+/// interface. In URLs, the `%` is encoded as `%25` (e.g., `http://[fe80::1%25eth0]:8080/`).
+/// Since `url::Url::parse()` doesn't support zone IDs, this function strips them before
+/// parsing and returns them separately for use in DNS resolution.
+fn extract_ipv6_zone_id(url: &str) -> (String, Option<String>) {
+    if let Some(bracket_start) = url.find('[')
+        && let Some(bracket_end) = url[bracket_start..].find(']').map(|i| bracket_start + i)
+    {
+        let bracket_content = &url[bracket_start + 1..bracket_end];
+
+        // Check for %25-encoded zone ID first, then raw %
+        let zone_sep = bracket_content
+            .find("%25")
+            .map(|pos| (pos, 3))
+            .or_else(|| bracket_content.find('%').map(|pos| (pos, 1)));
+
+        if let Some((sep_pos, sep_len)) = zone_sep {
+            let zone_id = &bracket_content[sep_pos + sep_len..];
+            if !zone_id.is_empty() {
+                let cleaned = format!(
+                    "{}{}",
+                    &url[..bracket_start + 1 + sep_pos],
+                    &url[bracket_end..]
+                );
+                return (cleaned, Some(zone_id.to_string()));
+            }
+        }
+    }
+    (url.to_string(), None)
 }
 
 pub fn http_parse_url(
     call: &Call,
     span: Span,
     raw_url: Value,
-) -> Result<Spanned<(String, Url)>, ShellError> {
+) -> Result<Spanned<(String, Url, Option<String>)>, ShellError> {
     let url_span = raw_url.span();
     let mut requested_url = raw_url.coerce_into_string()?;
     if requested_url.starts_with(':') {
@@ -258,7 +293,9 @@ pub fn http_parse_url(
         requested_url = format!("http://{requested_url}");
     }
 
-    let url = match url::Url::parse(&requested_url) {
+    let (parse_url, zone_id) = extract_ipv6_zone_id(&requested_url);
+
+    let url = match url::Url::parse(&parse_url) {
         Ok(u) => u,
         Err(_e) => {
             return Err(ShellError::UnsupportedInput {
@@ -270,7 +307,7 @@ pub fn http_parse_url(
         }
     };
 
-    Ok((requested_url, url).into_spanned(url_span))
+    Ok((parse_url, url, zone_id).into_spanned(url_span))
 }
 
 pub fn http_parse_redirect_mode(mode: Option<Spanned<String>>) -> Result<RedirectMode, ShellError> {
@@ -1290,6 +1327,48 @@ mod test {
 
         let none = None;
         assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_percent25_encoded() {
+        let (url, zone) = extract_ipv6_zone_id("http://[fe80::1%25eth0]:8080/path");
+        assert_eq!(url, "http://[fe80::1]:8080/path");
+        assert_eq!(zone, Some("eth0".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_raw_percent() {
+        let (url, zone) = extract_ipv6_zone_id("http://[fe80::1%eth0]:8080/path");
+        assert_eq!(url, "http://[fe80::1]:8080/path");
+        assert_eq!(zone, Some("eth0".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_none_for_regular_ipv6() {
+        let (url, zone) = extract_ipv6_zone_id("http://[::1]:8080/path");
+        assert_eq!(url, "http://[::1]:8080/path");
+        assert_eq!(zone, None);
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_none_for_ipv4() {
+        let (url, zone) = extract_ipv6_zone_id("http://192.168.1.1:8080/path");
+        assert_eq!(url, "http://192.168.1.1:8080/path");
+        assert_eq!(zone, None);
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_numeric() {
+        let (url, zone) = extract_ipv6_zone_id("http://[fe80::1%2512]:8080/");
+        assert_eq!(url, "http://[fe80::1]:8080/");
+        assert_eq!(zone, Some("12".to_string()));
+    }
+
+    #[test]
+    fn test_extract_ipv6_zone_id_preserves_query() {
+        let (url, zone) = extract_ipv6_zone_id("http://[fe80::1%25wlan0]:80/path?key=val");
+        assert_eq!(url, "http://[fe80::1]:80/path?key=val");
+        assert_eq!(zone, Some("wlan0".to_string()));
     }
 
     #[test]

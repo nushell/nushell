@@ -11,7 +11,15 @@ use ureq::{
 };
 
 #[derive(Debug)]
-pub struct DnsLookupResolver;
+pub struct DnsLookupResolver {
+    zone_id: Option<String>,
+}
+
+impl DnsLookupResolver {
+    pub fn new(zone_id: Option<String>) -> Self {
+        Self { zone_id }
+    }
+}
 
 impl Resolver for DnsLookupResolver {
     fn resolve(
@@ -27,10 +35,21 @@ impl Resolver for DnsLookupResolver {
             _ => 80, // http commands only support HTTP/HTTPS, default to port 80
         });
 
+        // If a zone ID was extracted from an IPv6 link-local URL, append it to the host.
+        // POSIX getaddrinfo natively handles "fe80::1%eth0" and returns SocketAddrV6
+        // with the correct scope_id set.
+        let host_with_zone;
+        let lookup_host = if let (Some(h), Some(zone)) = (host, &self.zone_id) {
+            host_with_zone = format!("{h}%{zone}");
+            Some(host_with_zone.as_str())
+        } else {
+            host
+        };
+
         // Pass None as service to avoid "Service not supported for this socket type" errors
         // in certain environments (e.g., Docker containers on some Linux distributions).
         // We'll set the port manually on each resolved address.
-        let addr_info_iter = dns_lookup::getaddrinfo(host, None, None)
+        let addr_info_iter = dns_lookup::getaddrinfo(lookup_host, None, None)
             .map_err(|err| ureq::Error::Other(Box::new(LookupError(err))))?;
 
         let ip_family = config.ip_family();
