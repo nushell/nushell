@@ -5,6 +5,7 @@ pub mod net;
 pub mod playground;
 
 mod deprecated;
+#[doc(no_inline)]
 pub use deprecated::*;
 
 pub mod tester;
