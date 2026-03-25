@@ -1,14 +1,17 @@
 //! Test support for the nushell crates.
-//! 
+//!
 //! ```
 //! # use nu_test_support::harness::macros::test;
+//! use nu_test_support::prelude::*;
+//!
 //! #[test]
 //! #[serial]
-//! fn a() {
+//! fn a() -> Result {
+//!     # unimplemented!()
 //! # }
 //! #
-//! # fn main() {
-//!     panic!("executed test")
+//! # fn main() -> Result {
+//!     test().run("version | get version").expect_value_eq(env!("CARGO_PKG_VERSION"))
 //! }
 //! ```
 
