@@ -64,7 +64,7 @@ impl Command for Skip {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        mut input: PipelineData,
+        input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let n: Option<Value> = call.opt(engine_state, stack, 0)?;
 
@@ -113,7 +113,7 @@ impl Command for Skip {
                 let metadata = metadata.map(|m| if n > 0 { m.with_content_type(None) } else { m });
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
-            _ => {
+            mut input => {
                 let metadata = input.take_metadata();
                 Ok(input
                     .into_iter_strict(call.head)?

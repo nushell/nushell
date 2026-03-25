@@ -1,5 +1,4 @@
-use nu_protocol::test_record;
-use nu_protocol::{IntoPipelineData, PipelineMetadata};
+use nu_protocol::{IntoPipelineData, PipelineMetadata, test_record};
 use nu_test_support::nu;
 use nu_test_support::prelude::*;
 use rstest::rstest;
