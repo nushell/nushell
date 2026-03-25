@@ -1,13 +1,13 @@
 //! Test support for the nushell crates.
 //!
 //! ```
-//! # use nu_test_support::harness::macros::test;
+//! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //!
 //! #[test]
 //! #[serial]
 //! fn a() -> Result {
-//!     # unimplemented!()
+//! #     unimplemented!()
 //! # }
 //! #
 //! # fn main() -> Result {
