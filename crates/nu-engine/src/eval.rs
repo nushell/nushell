@@ -336,12 +336,12 @@ pub fn eval_collect<D: DebugContext>(
     stack: &mut Stack,
     var_id: VarId,
     expr: &Expression,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     // Evaluate the expression with the variable set to the collected input
     let span = input.span().unwrap_or(Span::unknown());
 
-    let metadata = input.metadata().and_then(|m| m.for_collect());
+    let metadata = input.take_metadata().and_then(|m| m.for_collect());
 
     let input = input.into_value(span)?;
 

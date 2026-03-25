@@ -70,6 +70,10 @@ impl PipelineData {
     /// Note: This performs a deep clone of heap-allocated structures.
     /// Use [`.metadata_ref()`](Self::metadata_ref), [`.metadata_mut()`](Self::metadata_mut)
     /// or [`.take_metadata()`](Self::take_metadata) to avoid unnecessary allocations.
+    #[deprecated(
+        since = "0.111.1",
+        note = "Use .metadata_ref(), .metadata_mut() or .take_metadata() instead"
+    )]
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         self.metadata_ref().cloned()
     }
@@ -332,7 +336,7 @@ impl PipelineData {
     /// [`OutDest::Print`], the [`PipelineData`] is drained and printed. Otherwise, the
     /// [`PipelineData`] is drained, but only printed if it is the output of an external command.
     pub fn drain_to_out_dests(
-        self,
+        mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
@@ -343,7 +347,7 @@ impl PipelineData {
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
             OutDest::Value => {
-                let metadata = self.metadata();
+                let metadata = self.take_metadata();
                 let span = self.span().unwrap_or(Span::unknown());
                 self.into_value(span).map(|val| Self::Value(val, metadata))
             }

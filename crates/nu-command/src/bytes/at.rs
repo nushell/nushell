@@ -87,10 +87,12 @@ impl Command for BytesAt {
                 call.head,
                 engine_state.signals(),
             )
-            .map(|pipeline| {
-                // bytes 3..5 of an image/png stream are not image/png themselves
-                let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
-                pipeline.set_metadata(metadata)
+            .map(|mut pipeline| {
+                if let Some(metadata) = pipeline.metadata_mut() {
+                    // bytes 3..5 of an image/png stream are not image/png themselves
+                    metadata.content_type = None;
+                }
+                pipeline
             })
         }
     }

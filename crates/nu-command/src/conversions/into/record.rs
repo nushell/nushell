@@ -118,8 +118,9 @@ fn into_record(call: &Call, input: PipelineData) -> Result<PipelineData, ShellEr
             Ok(parse_duration_into_record(val, span).into_pipeline_data())
         }
         PipelineData::Value(Value::List { .. }, _) | PipelineData::ListStream(..) => {
+            let mut input = input;
             let mut record = Record::new();
-            let metadata = input.metadata();
+            let metadata = input.take_metadata();
 
             enum ExpectedType {
                 Record,

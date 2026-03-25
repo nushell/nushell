@@ -95,5 +95,5 @@ pub fn build_metadata_record(pipeline: &PipelineData, head: Span) -> Record {
     if let Some(span) = pipeline.span() {
         record.insert("span", span.into_value(head));
     }
-    extend_record_with_metadata(record, pipeline.metadata().as_ref(), head)
+    extend_record_with_metadata(record, pipeline.metadata_ref(), head)
 }

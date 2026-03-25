@@ -37,14 +37,14 @@ impl Command for BytesCollect {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let separator: Option<Vec<u8>> = call.opt(engine_state, stack, 0)?;
 
         let span = call.head;
 
         // input should be a list of binary data.
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let iter = Itertools::intersperse(
             input.into_iter_strict(span)?.map(move |value| {
                 // Everything is wrapped in Some in case there's a separator, so we can flatten

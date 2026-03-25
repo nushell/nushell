@@ -67,17 +67,15 @@ impl Command for Metadata {
                             ..
                         } => {
                             let origin = stack.get_var_with_origin(*var_id, *span)?;
-                            Ok(build_metadata_record_value(
-                                &origin,
-                                input.metadata().as_ref(),
-                                head,
+                            Ok(
+                                build_metadata_record_value(&origin, input.metadata_ref(), head)
+                                    .into_pipeline_data(),
                             )
-                            .into_pipeline_data())
                         }
                         _ => {
                             let val: Value = call.req(engine_state, stack, 0)?;
                             Ok(
-                                build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                                build_metadata_record_value(&val, input.metadata_ref(), head)
                                     .into_pipeline_data(),
                             )
                         }
@@ -85,7 +83,7 @@ impl Command for Metadata {
                 } else {
                     let val: Value = call.req(engine_state, stack, 0)?;
                     Ok(
-                        build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                        build_metadata_record_value(&val, input.metadata_ref(), head)
                             .into_pipeline_data(),
                     )
                 }
@@ -93,7 +91,7 @@ impl Command for Metadata {
             Some(_) => {
                 let val: Value = call.req(engine_state, stack, 0)?;
                 Ok(
-                    build_metadata_record_value(&val, input.metadata().as_ref(), head)
+                    build_metadata_record_value(&val, input.metadata_ref(), head)
                         .into_pipeline_data(),
                 )
             }

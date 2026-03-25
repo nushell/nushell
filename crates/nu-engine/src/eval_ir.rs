@@ -847,10 +847,10 @@ fn eval_instruction<D: DebugContext>(
             path,
             new_value,
         } => {
-            let data = ctx.take_reg(*src_dst);
-            let metadata = data.metadata();
+            let mut data = ctx.take_reg(*src_dst).body;
+            let metadata = data.take_metadata();
             // Change the span because we're modifying it
-            let mut value = data.body.into_value(*span)?;
+            let mut value = data.into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
@@ -1631,9 +1631,9 @@ fn collect(
     fallback_span: Span,
     #[cfg(feature = "os")] ignore_error: bool,
 ) -> Result<PipelineData, ShellError> {
-    let data = pipe.body;
+    let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.metadata().and_then(|m| m.for_collect());
+    let metadata = data.take_metadata().and_then(|m| m.for_collect());
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
@@ -1799,7 +1799,7 @@ fn eval_iterate(
     } else {
         // Convert the PipelineData to an iterator, and wrap it in a ListStream so it can be
         // iterated on
-        let metadata = data.metadata();
+        let metadata = data.body.take_metadata();
         let span = data.span().unwrap_or(Span::unknown());
         ctx.put_reg(
             stream,
