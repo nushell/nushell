@@ -2,7 +2,7 @@ use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
-    fs::{Stub, line_ending},
+    fs::Stub,
     nu,
     playground::{Dirs, Playground},
 };
@@ -343,7 +343,7 @@ fn into_sqlite_big_insert() {
                     .serialize_types(serialize_types),
             )
             .unwrap()
-                + &line_ending();
+                + nu_utils::consts::LINE_SEPARATOR_STR;
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();
             expected_rows.push(row);
