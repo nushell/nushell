@@ -4,7 +4,7 @@ pub mod harness;
 pub mod net;
 pub mod playground;
 
-mod deprecated;
+pub mod deprecated;
 #[doc(no_inline)]
 pub use deprecated::*;
 
@@ -15,7 +15,9 @@ pub use tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test}
 pub mod prelude {
     #[doc(no_inline)]
     pub use super::{
-        Outcome, assertions::*, nu,
+        Outcome,
+        assertions::*,
+        nu,
         playground::Playground,
         tester::{Result, ShellErrorExt, TestError as Error, TestResultExt, test},
     };

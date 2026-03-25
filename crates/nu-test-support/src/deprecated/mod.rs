@@ -1,14 +1,14 @@
 //! Deprecated testing utilities.
-//! 
+//!
 //! The utilities in this module are considered deprecated and new tests should no longer use them.
-//! However they are not yet marked as `#[deprecated]` to avoid a massive amount of warnings during 
+//! However they are not yet marked as `#[deprecated]` to avoid a massive amount of warnings during
 //! compilation.
 
 use std::process::ExitStatus;
 
-pub mod macros;
-pub mod locale_override;
 pub mod commands;
+pub mod locale_override;
+pub mod macros;
 
 #[derive(Debug)]
 pub struct Outcome {
