@@ -40,16 +40,6 @@ pub struct Outcome {
     pub status: ExitStatus,
 }
 
-#[cfg(windows)]
-pub const NATIVE_PATH_ENV_VAR: &str = "Path";
-#[cfg(not(windows))]
-pub const NATIVE_PATH_ENV_VAR: &str = "PATH";
-
-#[cfg(windows)]
-pub const NATIVE_PATH_ENV_SEPARATOR: char = ';';
-#[cfg(not(windows))]
-pub const NATIVE_PATH_ENV_SEPARATOR: char = ':';
-
 impl Outcome {
     pub fn new(out: String, err: String, status: ExitStatus) -> Outcome {
         Outcome { out, err, status }
@@ -74,7 +64,7 @@ pub fn nu_repl_code(source_lines: &[&str]) -> String {
 pub fn shell_os_paths() -> Vec<std::path::PathBuf> {
     let mut original_paths = vec![];
 
-    if let Some(paths) = std::env::var_os(NATIVE_PATH_ENV_VAR) {
+    if let Some(paths) = std::env::var_os(nu_utils::consts::NATIVE_PATH_ENV_VAR) {
         original_paths = std::env::split_paths(&paths).collect::<Vec<_>>();
     }
 

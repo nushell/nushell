@@ -47,7 +47,7 @@ pub fn executable_path() -> AbsolutePathBuf {
 }
 
 pub fn installed_nu_path() -> AbsolutePathBuf {
-    let path = std::env::var_os(crate::NATIVE_PATH_ENV_VAR);
+    let path = std::env::var_os(nu_utils::consts::NATIVE_PATH_ENV_VAR);
     if let Ok(path) = which::which_in("nu", path, ".") {
         AbsolutePathBuf::try_from(path).expect("installed nushell path is absolute")
     } else {
