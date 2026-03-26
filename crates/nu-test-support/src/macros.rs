@@ -212,6 +212,42 @@ macro_rules! nu_with_plugins {
         )
     }};
 
+    // Arms without cwd (defaults to ".")
+    (plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
+        nu_with_plugins!(
+            cwd: ".",
+            envs: Vec::<(&str, &str)>::new(),
+            plugins: [$(($plugin_name)),*],
+            $command
+        )
+    }};
+    (plugin: ($plugin_name:expr), $command:expr) => {{
+        nu_with_plugins!(
+            cwd: ".",
+            envs: Vec::<(&str, &str)>::new(),
+            plugin: ($plugin_name),
+            $command
+        )
+    }};
+
+    // Arms without cwd but with envs (defaults cwd to ".")
+    (envs: $envs:expr, plugins: [$(($plugin_name:expr)),*$(,)?], $command:expr) => {{
+        nu_with_plugins!(
+            cwd: ".",
+            envs: $envs,
+            plugins: [$(($plugin_name)),*],
+            $command
+        )
+    }};
+    (envs: $envs:expr, plugin: ($plugin_name:expr), $command:expr) => {{
+        nu_with_plugins!(
+            cwd: ".",
+            envs: $envs,
+            plugin: ($plugin_name),
+            $command
+        )
+    }};
+
     (
         cwd: $cwd:expr,
         envs: $envs:expr,
