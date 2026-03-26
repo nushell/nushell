@@ -1,7 +1,5 @@
 #[doc(hidden)]
 pub mod __private {
-    use std::slice;
-
     /// Returns the module path without the leading crate segment.
     ///
     /// For example:
@@ -13,36 +11,26 @@ pub mod __private {
     ///
     /// Panics if `full` does not contain `"::"`.
     pub const fn module_path_without_crate_impl(full: &str) -> &str {
-        let bytes = full.as_bytes();
+        let mut bytes = full.as_bytes();
 
-        let offset = 'offset: {
-            let mut i = 0;
-            while i + 1 < bytes.len() {
-                if bytes[i] == b':' && bytes[i + 1] == b':' {
-                    break 'offset i + 2;
+        while let [first, rest @ ..] = bytes {
+            bytes = rest;
+            if *first == b':' {
+                match rest {
+                    [second, rest @ ..] if *second == b':' => {
+                        // SAFETY:
+                        // - `full` is a valid `&str`, so `bytes` is valid UTF-8.
+                        // - `:` is ASCII (1 byte), so `rest` is guaranteed to start on a UTF-8 code point boundary.
+                        // - Therefore the resulting byte slice is valid UTF-8, making `from_utf8_unchecked` sound.
+                        // - Also this is required as dynamically slicing a &str is not possible in stable rust yet.
+                        return unsafe { str::from_utf8_unchecked(rest) };
+                    }
+                    _ => (),
                 }
-                i += 1;
             }
-
-            panic!("expected a module path containing '::', like 'crate::module'");
-        };
-
-        // We need `unsafe` here because const Rust does not yet allow slicing a `str`
-        // with a runtime-computed offset (`&full[offset..]`).
-        // So we reconstruct the subslice manually from raw parts.
-        //
-        // SAFETY:
-        // - `full` is a valid `&str`, so `bytes` is valid UTF-8.
-        // - `offset` is computed only after finding a `b"::"` sequence, so `offset == i + 2`.
-        // - `:` is ASCII (1 byte), so `i + 2` is guaranteed to lie on a UTF-8 code point boundary.
-        // - `offset <= bytes.len()`, so the constructed slice is in-bounds.
-        // - Therefore the resulting byte slice is valid UTF-8, making `from_utf8_unchecked` sound.
-        unsafe {
-            let start = bytes.as_ptr().add(offset);
-            let len = bytes.len() - offset;
-            let trimmed = slice::from_raw_parts(start, len);
-            str::from_utf8_unchecked(trimmed)
         }
+
+        panic!("expected a module path containing '::', like 'crate::module'");
     }
 }
 
