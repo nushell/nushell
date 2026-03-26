@@ -96,7 +96,10 @@ impl Command for Skip {
                     let span = stream.span();
                     Ok(PipelineData::byte_stream(
                         stream.skip(span, n as u64)?,
-                        // an image/png with 5 bytes skipped is not an image/png itself
+                        // if we've skipped over n (greater than 0) amount of binary data and we're
+                        // looking at y bytes, the data is really no longer a png image, it's just
+                        // some raw bytes. so, in that case there's no need to still have a
+                        // metadata content_type of image/png.
                         metadata.map(|m| if n > 0 { m.with_content_type(None) } else { m }),
                     ))
                 } else {
@@ -110,7 +113,10 @@ impl Command for Skip {
             }
             PipelineData::Value(Value::Binary { val, .. }, metadata) => {
                 let bytes = val.into_iter().skip(n).collect::<Vec<_>>();
-                // an image/png with 5 bytes skipped is not an image/png itself
+                // if we've skipped over n (greater than 0) amount of binary data and we're
+                // looking at y bytes, the data is really no longer a png image, it's just
+                // some raw bytes. so, in that case there's no need to still have a
+                // metadata content_type of image/png.
                 let metadata = metadata.map(|m| if n > 0 { m.with_content_type(None) } else { m });
                 Ok(Value::binary(bytes, input_span).into_pipeline_data_with_metadata(metadata))
             }
