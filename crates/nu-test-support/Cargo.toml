@@ -50,5 +50,10 @@ tempfile = { workspace = true }
 thiserror = { workspace = true }
 which = { workspace = true }
 
+[dev-dependencies]
+# doc tests use the "os" feature of `nu-command`
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1", features = ["default"] }
+nu-command = { path = "../nu-command", version = "0.111.1", features = ["default"] }
+
 [target.'cfg(unix)'.dependencies]
 gatekeeper = { workspace = true }
