@@ -329,7 +329,7 @@
 //! The [`inherit_path`](tester::NuTester::inherit_path) method restores access to the system PATH,
 //! allowing tests to call external binaries.
 //!
-//! ```no_run
+//! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //!
@@ -342,8 +342,8 @@
 //! # fn main() -> Result {
 //!     test()
 //!         .inherit_path()
-//!         .run(r#"cmd.exe /c "echo 🪟""#)
-//!         .expect_value_eq("🪟")
+//!         .run(r#"cmd.exe /c "echo abc""#)
+//!         .expect_value_eq("abc")
 //! }
 //!
 //! #[cfg(unix)]
@@ -355,8 +355,8 @@
 //! # fn main() -> Result {
 //!     test()
 //!         .inherit_path()
-//!         .run(r#"sh -c "echo 🐧""#)
-//!         .expect_value_eq("🐧")
+//!         .run(r#"sh -c "echo abc""#)
+//!         .expect_value_eq("abc")
 //! }
 //! ```
 //!
@@ -365,7 +365,7 @@
 //! The [`inherit_rust_toolchain_env`](tester::NuTester::inherit_rust_toolchain_env)
 //! method makes Rust tooling such as `cargo` or `rustc` available inside tests.
 //!
-//! ```no_run
+//! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //!
@@ -391,7 +391,7 @@
 //! This approach requires rebuilding when behavior changes and should generally be avoided unless
 //! necessary.
 //!
-//! ```no_run
+//! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //!
@@ -428,6 +428,63 @@
 //!         .env("HEY", "👋")
 //!         .run("$env.HEY")
 //!         .expect_value_eq("👋")
+//! }
+//! ```
+//!
+//! ## Using the Playground
+//!
+//! The [`Playground`](playground::Playground) provides a sandboxed filesystem
+//! environment for tests. This is especially useful when testing commands
+//! that modify the filesystem, such as creating or removing files.
+//!
+//! Tests typically combine the playground with [`cwd`](tester::NuTester::cwd)
+//! to point the tester to the sandboxed directory.
+//!
+//! ### Testing Filesystem Changes
+//!
+//! This pattern sets up a temporary filesystem, performs operations, and asserts the result without
+//! affecting the real system.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
+//!
+//! #[test]
+//! fn rm_in_playground() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     Playground::setup("rm_in_doctest", |dirs, sandbox| {
+//!         sandbox.with_files(&[EmptyFile("i_will_be_deleted.txt")]);
+//!         test()
+//!             .cwd(dirs.test())
+//!             .run("rm i_will_be_deleted.txt")
+//!             .expect_value_eq(())
+//!     })
+//! }
+//! ```
+//!
+//! ## Configuring Experimental Options
+//!
+//! Experimental features can be enabled or disabled per test using the
+//! `#[exp]` attribute provided by the custom test harness.
+//!
+//! ```no_run
+//! # // this is a no_run as we cannot set experimental options safely during a doctest run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_experimental::EXAMPLE;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! #[exp(EXAMPLE)]
+//! fn example_experimental_option() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     let code = "debug experimental-options | where identifier == example | get enabled.0";
+//!     test().run(code).expect_value_eq(true)
 //! }
 //! ```
 
