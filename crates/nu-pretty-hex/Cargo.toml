@@ -21,4 +21,4 @@ nu-ansi-term = { workspace = true }
 
 [dev-dependencies]
 heapless = { version = "0.9", default-features = false }
-rand = "0.8"
+rand = { workspace = true }

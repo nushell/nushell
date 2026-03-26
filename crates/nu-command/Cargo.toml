@@ -212,7 +212,7 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["getrandom", "getrandom/js", "rand", "uuid"]
+js = ["getrandom", "getrandom/wasm_js", "rand", "uuid"]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,

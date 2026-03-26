@@ -7,7 +7,7 @@ use nu_test_support::{
     playground::{Dirs, Playground},
 };
 use rand::{
-    Rng, SeedableRng,
+    RngExt, SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
     prelude::Distribution,
     random_range,
@@ -384,7 +384,9 @@ struct TestRow(
 
 impl TestRow {
     pub fn random() -> Self {
-        StdRng::from_os_rng().sample(StandardUniform)
+        let mut thread_rng = rand::rng();
+        let mut rng = StdRng::from_rng(&mut thread_rng);
+        rng.sample(StandardUniform)
     }
 }
 
