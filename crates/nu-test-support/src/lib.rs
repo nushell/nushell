@@ -202,6 +202,234 @@
 //!         .expect_value_eq("🦜🤝🦆")
 //! }
 //! ```
+//!
+//! ## Inserting Data
+//!
+//! In some cases, it is more convenient to pass data into a pipeline directly
+//! instead of constructing it in Nushell code. The
+//! [`run_with_data`](tester::NuTester::run_with_data) method supports this by
+//! accepting a value that implements [`IntoValue`](nu_protocol::IntoValue).
+//!
+//! Since both [`IntoValue`](nu_protocol::IntoValue) and
+//! [`FromValue`](nu_protocol::FromValue) can be derived, it is straightforward
+//! to define Rust types that can be passed into Nushell and compared on the
+//! way out.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[derive(Debug, PartialEq, Eq, Clone, IntoValue, FromValue)]
+//! struct Sample {
+//!     a: String,
+//!     b: u32,
+//! }
+//!
+//! #[test]
+//! fn in_and_out() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     let sample = Sample {
+//!         a: "🐳".into(),
+//!         b: 52,
+//!     };
+//!
+//!     test()
+//!         .run_with_data("$in | to nuon | from nuon", sample.clone())
+//!         .expect_value_eq(sample)
+//! }
+//! ```
+//!
+//! ## Working with Metadata or Streams
+//!
+//! Some tests need access to metadata or streaming data. In these cases,
+//! [`run`](tester::NuTester::run) is not sufficient, since it returns a
+//! [`Value`](nu_protocol::Value).
+//!
+//! To work with lower level details, the raw [`PipelineData`](nu_protocol::PipelineData)
+//! can be obtained using [`run_raw`](tester::NuTester::run_raw) or
+//! [`run_raw_with_data`](tester::NuTester::run_raw_with_data).
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn check_metadata() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     let mut pipeline_data = test().run_raw("version | to nuon")?.body;
+//!     let metadata = pipeline_data.take_metadata().expect("should have metadata");
+//!     let content_type = metadata.content_type.expect("should have a content type");
+//!     assert_eq!(content_type, "application/x-nuon");
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ## Configuring the Tester
+//!
+//! By default, the tester only includes Nushell builtins, the standard library,
+//! the `$nu` constant, and a minimal set of environment variables.
+//! For example, `$env.PATH` is unset to keep tests deterministic.
+//! When needed, the tester can be configured through a set of convenience methods.
+//!
+//! ### Setting the Working Directory
+//!
+//! The [`cwd`](tester::NuTester::cwd) method sets the current working directory (`$env.PWD`).
+//! This is useful when tests rely on filesystem access relative to a specific location.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn cwd() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test()
+//!         .cwd("./crates/nu-test-support")
+//!         .run("open Cargo.toml | get package.name")
+//!         .expect_value_eq("nu-test-support")
+//! }
+//! ```
+//!
+//! ### Configuring the Locale
+//!
+//! The [`locale`](tester::NuTester::locale) method overrides the locale, while
+//! [`locale_en`](tester::NuTester::locale_en) provides a convenient way to force English output.
+//! This is helpful when testing locale dependent behavior.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn locale() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     let code = r#""2021-10-22 20:00:12 +01:00" | format date "%c""#;
+//!     let en: String = test().locale_en().run(&code)?;
+//!     let de: String = test().locale("de_DE").run(&code)?;
+//!     assert_ne!(en, de);
+//!     Ok(())
+//! }
+//! ```
+//!
+//! ### Inheriting the System PATH
+//!
+//! By default, external commands are not available since `$env.PATH` is unset.
+//! The [`inherit_path`](tester::NuTester::inherit_path) method restores access to the system PATH,
+//! allowing tests to call external binaries.
+//!
+//! ```no_run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[cfg(windows)]
+//! #[test]
+//! fn echo() -> Result {
+//! #     unimplemented!()
+//! # }
+//! # #[cfg(windows)]
+//! # fn main() -> Result {
+//!     test()
+//!         .inherit_path()
+//!         .run(r#"cmd.exe /c "echo 🪟""#)
+//!         .expect_value_eq("🪟")
+//! }
+//!
+//! #[cfg(unix)]
+//! #[test]
+//! fn echo() -> Result {
+//! #     unimplemented!()
+//! # }
+//! # #[cfg(unix)]
+//! # fn main() -> Result {
+//!     test()
+//!         .inherit_path()
+//!         .run(r#"sh -c "echo 🐧""#)
+//!         .expect_value_eq("🐧")
+//! }
+//! ```
+//!
+//! ### Using the Rust Toolchain
+//!
+//! The [`inherit_rust_toolchain_env`](tester::NuTester::inherit_rust_toolchain_env)
+//! method makes Rust tooling such as `cargo` or `rustc` available inside tests.
+//!
+//! ```no_run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn check_cargo_version() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     let code = r#"cargo --version | split row " " | get 0"#;
+//!     test()
+//!         .inherit_rust_toolchain_env()
+//!         .run(code)
+//!         .expect_value_eq("cargo")
+//! }
+//! ```
+//!
+//! ### Running the `nu` Binary
+//!
+//! The [`add_nu_to_path`](tester::NuTester::add_nu_to_path) method adds the compiled `nu` binary
+//! from the `target` directory to the PATH.
+//! This allows invoking `nu` itself from within tests.
+//! This approach requires rebuilding when behavior changes and should generally be avoided unless
+//! necessary.
+//!
+//! ```no_run
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn cococo() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test()
+//!         .add_nu_to_path()
+//!         .run("nu --testbin cococo")
+//!         .expect_value_eq("cococo")
+//! }
+//! ```
+//!
+//! ### Setting Environment Variables
+//!
+//! The [`env`](tester::NuTester::env) method sets environment variables for the tester itself.
+//! Unlike the `#[env]` attribute, this configures the tester instance directly rather than the
+//! test harness.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn hey() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test()
+//!         .env("HEY", "👋")
+//!         .run("$env.HEY")
+//!         .expect_value_eq("👋")
+//! }
+//! ```
 
 pub mod assertions;
 pub mod fs;
