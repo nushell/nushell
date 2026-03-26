@@ -56,6 +56,7 @@ nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1", features = ["defau
 nu-command = { path = "../nu-command", version = "0.111.1", features = ["default"] }
 
 bytes = { workspace = true }
+rstest = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 gatekeeper = { workspace = true }

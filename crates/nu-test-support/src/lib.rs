@@ -511,7 +511,7 @@
 //! It works out of the box with the custom test harness, but requires careful ordering when
 //! combined with additional test attributes.
 //!
-//! ```ignore
+//! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //! use rstest::rstest;
@@ -519,7 +519,7 @@
 //! #[rstest]
 //! #[case("a", "a🦜a")]
 //! #[case("🦜", "🦜🦜🦜")]
-//! fn simple_case(pre_and_suffix: &str, result: &str) -> Result {
+//! fn simple_case(#[case] pre_and_suffix: &str, #[case] result: &str) -> Result {
 //! #     unimplemented!()
 //! # }
 //! #
@@ -536,7 +536,7 @@
 //! becomes important.
 //! The harness attribute must be explicitly specified to ensure the test is picked up correctly.
 //!
-//! ```ignore
+//! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
 //! use rstest::rstest;
@@ -546,7 +546,7 @@
 //! #[case(-1)]
 //! #[nu_test_support::test]
 //! #[env(QUICK_MATHS = "true")]
-//! fn math_abs(input: i32) -> Result {
+//! fn math_abs(#[case] input: i32) -> Result {
 //! #     unimplemented!()
 //! # }
 //! #
