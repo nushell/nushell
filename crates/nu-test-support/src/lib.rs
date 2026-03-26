@@ -213,11 +213,6 @@
 //! This is also useful to avoid using [`format!`], which can make tests harder
 //! to read or reason about.
 //!
-//! ### Passing Raw Data into a Pipeline
-//!
-//! This pattern feeds a simple Rust value into the Nushell pipeline via `$in`,
-//! keeping the test logic focused on transformations instead of setup.
-//!
 //! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use bytes::Bytes;
@@ -234,8 +229,6 @@
 //!         .expect_value_eq("hello world")
 //! }
 //! ```
-//!
-//! ### Using Typed Data
 //!
 //! Since both [`IntoValue`](nu_protocol::IntoValue) and [`FromValue`](nu_protocol::FromValue) can
 //! be derived, custom Rust types can be passed into Nushell and asserted directly.
@@ -518,11 +511,6 @@
 //! It works out of the box with the custom test harness, but requires careful ordering when
 //! combined with additional test attributes.
 //!
-//! ### Parameterized Test Cases
-//!
-//! This pattern uses `#[case]` to define multiple inputs for a single test, allowing the same
-//! logic to be reused across different scenarios.
-//!
 //! ```ignore
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::prelude::*;
@@ -543,8 +531,6 @@
 //!         .expect_value_eq(result)
 //! }
 //! ```
-//!
-//! ### Combining with Test Configuration
 //!
 //! When combining `rstest` with the custom test harness attributes, the order of attributes
 //! becomes important.
