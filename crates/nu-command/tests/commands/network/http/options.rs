@@ -13,12 +13,16 @@ fn http_options_default_shows_response_headers() -> Result {
         .with_header("Allow", "OPTIONS, GET")
         .create();
 
-    let code = format!(
-        "http options {url} | where name == allow | get value.0",
-        url = server.url()
-    );
+    let code = "
+        let url = $in
+        http options $url
+        | where name == allow
+        | get value.0
+    ";
 
-    test().run(code).expect_value_eq("OPTIONS, GET")
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("OPTIONS, GET")
 }
 
 #[test]
@@ -30,12 +34,14 @@ fn http_options_full_response_includes_response_headers() -> Result {
         .with_header("Allow", "OPTIONS, GET")
         .create();
 
-    let code = format!(
-        "http options --full {url} | get headers.response | length",
-        url = server.url()
-    );
+    let code = "
+        let url = $in
+        http options --full $url
+        | get headers.response
+        | length
+    ";
 
-    let outcome: i64 = test().run(code)?;
+    let outcome: i64 = test().run_with_data(code, server.url())?;
     assert!(outcome > 0);
     Ok(())
 }
@@ -50,12 +56,15 @@ fn http_options_with_allow_errors() -> Result {
         .with_header("x-error-header", "present")
         .create();
 
-    let code = format!(
-        "http options -e {url} | where name == x-error-header | get value.0",
-        url = server.url()
-    );
+    let code = "
+        let url = $in
+        http options -e $url
+        | where name == x-error-header
+        | get value.0";
 
-    test().run(code).expect_value_eq("present")
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("present")
 }
 
 #[test]
@@ -64,8 +73,10 @@ fn http_options_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("OPTIONS", "/").with_status(400).create();
 
-    let code = format!("http options {url}", url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = "let url = $in; http options $url";
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
 
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -87,8 +98,8 @@ fn http_options_timeout() -> Result {
         })
         .create();
 
-    let code = format!("http options --max-time 100ms {url}", url = server.url());
-    let err = test().run(code).expect_io_error()?;
+    let code = "let url = $in; http options --max-time 100ms $url";
+    let err = test().run_with_data(code, server.url()).expect_io_error()?;
     assert!(matches!(
         err.kind,
         shell_error::io::ErrorKind::Std(std::io::ErrorKind::TimedOut, ..)

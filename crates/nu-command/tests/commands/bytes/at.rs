@@ -73,9 +73,10 @@ pub fn test_string_returns_correct_slice_for_max_end() -> Result {
 
 #[test]
 pub fn test_drops_content_type() -> Result {
-    let code = format!(
-        "open {} | bytes at 3..5 | metadata | get content_type? | describe",
-        file!(),
-    );
-    test().run(code).expect_value_eq("nothing")
+    test()
+        .run_with_data(
+            "open $in | bytes at 3..5 | metadata | get content_type? | describe",
+            file!(),
+        )
+        .expect_value_eq("nothing")
 }

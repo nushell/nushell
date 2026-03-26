@@ -8,15 +8,15 @@ use nu_test_support::prelude::*;
 fn http_post_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("POST", "/").match_body("foo").create();
-    let code = format!(r#"http post {url} "foo""#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; http post $url "foo""#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 #[test]
 fn http_post_is_success_pipeline() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("POST", "/").match_body("foo").create();
-    let code = format!(r#""foo" | http post {url}"#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; "foo" | http post $url"#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 
 #[test]
@@ -25,8 +25,10 @@ fn http_post_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("POST", "/").with_status(400).create();
 
-    let code = format!(r#"http post {url} "body""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http post $url "body""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_contains("Bad request (400)", msg);
@@ -42,8 +44,11 @@ fn http_post_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("POST", "/").create();
 
-    let code = format!("http post {url}", url = server.url());
-    let err = test().run(code).expect_shell_error()?.generic_error()?;
+    let code = "let url = $in; http post $url";
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?
+        .generic_error()?;
     assert_eq!(
         err,
         "Data must be provided either through pipeline or positional argument"
@@ -57,8 +62,10 @@ fn http_post_failed_due_to_unexpected_body() -> Result {
 
     let _mock = server.mock("POST", "/").match_body("foo").create();
 
-    let code = format!(r#"http post {url} "bar""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http post $url "bar""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
 
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -79,12 +86,11 @@ fn http_post_json_is_success() -> Result {
 
     let mock = server.mock("POST", "/").match_body(JSON).create();
 
-    let code = format!(
-        "http post -t 'application/json' {url} {{foo: 'bar'}}",
-        url = server.url()
-    );
+    let code = "let url = $in; http post -t 'application/json' $url {foo: 'bar'}";
 
-    test().run(code).expect_value_eq("")?;
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("")?;
     mock.assert();
     Ok(())
 }
@@ -95,12 +101,11 @@ fn http_post_json_string_is_success() -> Result {
 
     let mock = server.mock("POST", "/").match_body(JSON).create();
 
-    let code = format!(
-        r#"http post -t 'application/json' {url} '{{"foo":"bar"}}'"#,
-        url = server.url()
-    );
+    let code = r#"let url = $in; http post -t 'application/json' $url '{"foo":"bar"}'"#;
 
-    test().run(code).expect_value_eq("")?;
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("")?;
     mock.assert();
     Ok(())
 }
@@ -117,12 +122,11 @@ fn http_post_json_list_is_success() -> Result {
 
     let mock = server.mock("POST", "/").match_body(JSON_LIST).create();
 
-    let code = format!(
-        r#"http post -t 'application/json' {url} [{{foo: "bar"}}]"#,
-        url = server.url()
-    );
+    let code = r#"let url = $in; http post -t 'application/json' $url [{foo: "bar"}]"#;
 
-    test().run(code).expect_value_eq("")?;
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("")?;
     mock.assert();
     Ok(())
 }
@@ -133,12 +137,11 @@ fn http_post_json_int_is_success() -> Result {
 
     let mock = server.mock("POST", "/").match_body("50").create();
 
-    let code = format!(
-        "http post -t 'application/json' {url} 50",
-        url = server.url()
-    );
+    let code = "let url = $in; http post -t 'application/json' $url 50";
 
-    test().run(code).expect_value_eq("")?;
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("")?;
     mock.assert();
     Ok(())
 }
@@ -149,12 +152,11 @@ fn http_post_json_raw_string_is_success() -> Result {
 
     let mock = server.mock("POST", "/").match_body(r#""test""#).create();
 
-    let code = format!(
-        r#"http post -t 'application/json' {url} "test""#,
-        url = server.url()
-    );
+    let code = r#"let url = $in; http post -t 'application/json' $url "test""#;
 
-    test().run(code).expect_value_eq("")?;
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("")?;
     mock.assert();
     Ok(())
 }
@@ -170,8 +172,10 @@ fn http_post_follows_redirect() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!("http post {url}/foo postbody", url = server.url());
-    test().run(code).expect_value_eq("bar")
+    let code = "let url = $in; http post $'($url)/foo' postbody";
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("bar")
 }
 
 #[test]

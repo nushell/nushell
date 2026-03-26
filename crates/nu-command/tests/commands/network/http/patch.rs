@@ -8,16 +8,16 @@ use nu_test_support::prelude::*;
 fn http_patch_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
-    let code = format!(r#"http patch {url} "foo""#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; http patch $url "foo""#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 
 #[test]
 fn http_patch_is_success_pipeline() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
-    let code = format!(r#""foo" | http patch {url}"#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; "foo" | http patch $url"#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 
 #[test]
@@ -26,8 +26,10 @@ fn http_patch_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("PATCH", "/").with_status(400).create();
 
-    let code = format!(r#"http patch {url} "body""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http patch $url "body""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_contains("Bad request (400)", msg);
@@ -43,8 +45,11 @@ fn http_patch_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("PATCH", "/").create();
 
-    let code = format!("http patch {url}", url = server.url());
-    let err = test().run(code).expect_shell_error()?.generic_error()?;
+    let code = "let url = $in; http patch $url";
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?
+        .generic_error()?;
     assert_eq!(
         err,
         "Data must be provided either through pipeline or positional argument"
@@ -58,8 +63,10 @@ fn http_patch_failed_due_to_unexpected_body() -> Result {
 
     let _mock = server.mock("PATCH", "/").match_body("foo").create();
 
-    let code = format!(r#"http patch {url} "bar""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http patch $url "bar""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
 
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -81,8 +88,10 @@ fn http_patch_follows_redirect() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!("http patch {url}/foo patchbody", url = server.url());
-    test().run(code).expect_value_eq("bar")
+    let code = "let url = $in; http patch $'($url)/foo' patchbody";
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("bar")
 }
 
 #[test]
@@ -96,12 +105,10 @@ fn http_patch_redirect_mode_manual() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http patch --redirect-mode manual {url}/foo patchbody",
-        url = server.url()
-    );
-
-    test().run(code).expect_value_eq("foo")
+    let code = "let url = $in; http patch --redirect-mode manual $'($url)/foo' patchbody";
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("foo")
 }
 
 #[test]
@@ -115,12 +122,11 @@ fn http_patch_redirect_mode_error() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http patch --redirect-mode error {url}/foo patchbody",
-        url = server.url()
-    );
+    let code = "let url = $in; http patch --redirect-mode error $'($url)/foo' patchbody";
 
-    let err = test().run(code).expect_shell_error()?;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_eq!(
@@ -144,11 +150,8 @@ fn http_patch_timeout() -> Result {
         })
         .create();
 
-    let code = format!(
-        "http patch --max-time 100ms {url} patchbody",
-        url = server.url()
-    );
-    let err = test().run(code).expect_io_error()?;
+    let code = "let url = $in; http patch --max-time 100ms $url patchbody";
+    let err = test().run_with_data(code, server.url()).expect_io_error()?;
     assert!(matches!(
         err.kind,
         shell_error::io::ErrorKind::Std(std::io::ErrorKind::TimedOut, ..)

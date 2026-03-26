@@ -13,8 +13,8 @@ fn removes_duplicate_rows() -> Result {
         [JT        , Turner,    "11/12/2011", O   ]
     ]"#;
 
-    let code = format!("{sample} | uniq-by last_name | length");
-    test().run(code).expect_value_eq(3)
+    let code = "from nuon | uniq-by last_name | length";
+    test().run_with_data(code, sample).expect_value_eq(3)
 }
 
 #[test]
@@ -31,17 +31,19 @@ fn uniq_when_keys_out_of_order() -> Result {
 #[case::b("B", 1)]
 fn uniq_counting(#[case] item: &str, #[case] count: u32) -> Result {
     #[rustfmt::skip]
-    let code = format!(r#"
+    let code = r#"
+        let item = $in
+
         ["A", "B", "A"]
         | wrap item
         | uniq-by item --count
         | flatten
-        | where item == {item}
+        | where item == $item
         | get count
         | get 0
-    "#);
+    "#;
 
-    test().run(code).expect_value_eq(count)
+    test().run_with_data(code, item).expect_value_eq(count)
 }
 
 #[test]

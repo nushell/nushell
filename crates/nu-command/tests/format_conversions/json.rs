@@ -213,24 +213,28 @@ fn table_to_json_text_strict() -> Result {
 
 #[test]
 fn top_level_values_from_json() -> Result {
+    let mut tester = test();
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let code = format!(r#""{value}" | from json | to json"#);
-        test().run(&code).expect_value_eq(value)?;
-
-        let code = format!(r#""{value}" | from json | describe"#);
-        test().run(&code).expect_value_eq(type_name)?;
+        tester
+            .run_with_data("from json | to json", value)
+            .expect_value_eq(value)?;
+        tester
+            .run_with_data("from json | describe", value)
+            .expect_value_eq(type_name)?;
     }
     Ok(())
 }
 
 #[test]
 fn top_level_values_from_json_strict() -> Result {
+    let mut tester = test();
     for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let code = format!(r#""{value}" | from json -s | to json"#);
-        test().run(&code).expect_value_eq(value)?;
-
-        let code = format!(r#""{value}" | from json -s | describe"#);
-        test().run(&code).expect_value_eq(type_name)?;
+        tester
+            .run_with_data("from json -s | to json", value)
+            .expect_value_eq(value)?;
+        tester
+            .run_with_data("from json -s | describe", value)
+            .expect_value_eq(type_name)?;
     }
     Ok(())
 }

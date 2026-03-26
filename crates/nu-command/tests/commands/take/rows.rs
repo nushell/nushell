@@ -9,16 +9,14 @@ fn rows() -> Result {
          [Jason , 2],
          [Yehuda, 1]]";
 
-    let code = format!(
-        "
-            {sample}
-            | take 3
-            | get lucky_code
-            | math sum
-        "
-    );
+    let code = "
+        from nuon
+        | take 3
+        | get lucky_code
+        | math sum
+    ";
 
-    test().run(code).expect_value_eq(4)
+    test().run_with_data(code, sample).expect_value_eq(4)
 }
 
 #[test]
@@ -61,10 +59,10 @@ fn works_with_binary_list() -> Result {
 
 #[test]
 fn takes_bytes_and_drops_content_type() -> Result {
-    let code = format!(
-        "open {} | take 3 | metadata | get content_type? | describe",
-        file!(),
-    );
-
-    test().run(code).expect_value_eq("nothing")
+    test()
+        .run_with_data(
+            "open $in | take 3 | metadata | get content_type? | describe",
+            file!(),
+        )
+        .expect_value_eq("nothing")
 }

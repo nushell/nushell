@@ -8,16 +8,16 @@ use nu_test_support::prelude::*;
 fn http_put_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("PUT", "/").match_body("foo").create();
-    let code = format!(r#"http put {url} "foo""#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; http put $url "foo""#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 
 #[test]
 fn http_put_is_success_pipeline() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("PUT", "/").match_body("foo").create();
-    let code = format!(r#""foo" | http put {url} "#, url = server.url());
-    test().run(code).expect_value_eq("")
+    let code = r#"let url = $in; "foo" | http put $url "#;
+    test().run_with_data(code, server.url()).expect_value_eq("")
 }
 
 #[test]
@@ -26,8 +26,10 @@ fn http_put_failed_due_to_server_error() -> Result {
 
     let _mock = server.mock("PUT", "/").with_status(400).create();
 
-    let code = format!(r#"http put {url} "body""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http put $url "body""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_contains("Bad request (400)", msg);
@@ -43,8 +45,11 @@ fn http_put_failed_due_to_missing_body() -> Result {
 
     let _mock = server.mock("PUT", "/").create();
 
-    let code = format!("http put {url}", url = server.url());
-    let err = test().run(code).expect_shell_error()?.generic_error()?;
+    let code = "let url = $in; http put $url";
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?
+        .generic_error()?;
     assert_eq!(
         err,
         "Data must be provided either through pipeline or positional argument"
@@ -58,8 +63,10 @@ fn http_put_failed_due_to_unexpected_body() -> Result {
 
     let _mock = server.mock("PUT", "/").match_body("foo").create();
 
-    let code = format!(r#"http put {url} "bar""#, url = server.url());
-    let err = test().run(code).expect_shell_error()?;
+    let code = r#"let url = $in; http put $url "bar""#;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
 
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -81,8 +88,10 @@ fn http_put_follows_redirect() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!("http put {url}/foo putbody", url = server.url());
-    test().run(code).expect_value_eq("bar")
+    let code = "let url = $in; http put $'($url)/foo' putbody";
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("bar")
 }
 
 #[test]
@@ -96,11 +105,10 @@ fn http_put_redirect_mode_manual() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http put --redirect-mode manual {url}/foo putbody",
-        url = server.url()
-    );
-    test().run(code).expect_value_eq("foo")
+    let code = "let url = $in; http put --redirect-mode manual $'($url)/foo' putbody";
+    test()
+        .run_with_data(code, server.url())
+        .expect_value_eq("foo")
 }
 
 #[test]
@@ -114,12 +122,11 @@ fn http_put_redirect_mode_error() -> Result {
         .with_header("Location", "/bar")
         .create();
 
-    let code = format!(
-        "http put --redirect-mode error {url}/foo putbody",
-        url = server.url()
-    );
+    let code = "let url = $in; http put --redirect-mode error $'($url)/foo' putbody";
 
-    let err = test().run(code).expect_shell_error()?;
+    let err = test()
+        .run_with_data(code, server.url())
+        .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
             assert_eq!(
@@ -143,11 +150,8 @@ fn http_put_timeout() -> Result {
         })
         .create();
 
-    let code = format!(
-        "http put --max-time 100ms {url} putbody",
-        url = server.url()
-    );
-    let err = test().run(code).expect_io_error()?;
+    let code = "let url = $in; http put --max-time 100ms $url putbody";
+    let err = test().run_with_data(code, server.url()).expect_io_error()?;
     assert!(matches!(
         err.kind,
         shell_error::io::ErrorKind::Std(std::io::ErrorKind::TimedOut, ..)

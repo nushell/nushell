@@ -24,11 +24,12 @@ fn fail_on_non_iterator() -> Result {
 
 #[test]
 fn skips_bytes_and_drops_content_type() -> Result {
-    let code = format!(
-        "open {} | skip 3 | metadata | get content_type? | describe",
-        file!(),
-    );
-    test().run(code).expect_value_eq("nothing")
+    test()
+        .run_with_data(
+            "open $in | skip 3 | metadata | get content_type? | describe",
+            file!(),
+        )
+        .expect_value_eq("nothing")
 }
 
 enum InputType {

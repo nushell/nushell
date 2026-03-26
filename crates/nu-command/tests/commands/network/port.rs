@@ -14,7 +14,7 @@ fn port_with_already_usage() -> Result {
     let port = nu_utils::net::reserve_local_addr().unwrap().port();
     let _listener = TcpListener::bind((Ipv4Addr::LOCALHOST, port)).unwrap();
     let err = test()
-        .run(format!("port {port} {port}"))
+        .run_with_data("let port = $in; port $port $port", port)
         .expect_io_error()?;
     assert!(matches!(
         err.kind,

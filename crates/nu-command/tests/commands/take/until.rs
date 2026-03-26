@@ -21,19 +21,17 @@ fn condition_is_met() -> Result {
         [Yehuda, 1, 1, 3]
     ]"#;
 
-    let code = format!(
-        r#"
-            {sample}
-            | skip while {{|row| $row."Chicken Collection" != "Blue Chickens" }}
-            | take until {{|row| $row."Chicken Collection" == "Red Chickens" }}
-            | skip 1
-            | into int "31/04/2020"
-            | get "31/04/2020"
-            | math sum
-        "#
-    );
+    let code = r#"
+        from nuon
+        | skip while {|row| $row."Chicken Collection" != "Blue Chickens" }
+        | take until {|row| $row."Chicken Collection" == "Red Chickens" }
+        | skip 1
+        | into int "31/04/2020"
+        | get "31/04/2020"
+        | math sum
+    "#;
 
-    test().run(code).expect_value_eq(8)
+    test().run_with_data(code, sample).expect_value_eq(8)
 }
 
 #[test]

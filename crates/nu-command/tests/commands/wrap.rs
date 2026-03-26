@@ -9,30 +9,28 @@ const SAMPLE: &str = "[
 
 #[test]
 fn wrap_rows_into_a_row() -> Result {
-    let code = format!(
-        "
-            {SAMPLE}
-            | wrap caballeros
-            | get caballeros
-            | get 0
-            | get last_name
-        "
-    );
+    let code = "
+        from nuon
+        | wrap caballeros
+        | get caballeros
+        | get 0
+        | get last_name
+    ";
 
-    test().run(code).expect_value_eq("Robalino")
+    test()
+        .run_with_data(code, SAMPLE)
+        .expect_value_eq("Robalino")
 }
 
 #[test]
 fn wrap_rows_into_a_table() -> Result {
-    let code = format!(
-        "
-            {SAMPLE}
-            | get last_name
-            | wrap caballero
-            | get 2
-            | get caballero
-        "
-    );
+    let code = "
+        from nuon
+        | get last_name
+        | wrap caballero
+        | get 2
+        | get caballero
+    ";
 
-    test().run(code).expect_value_eq("Katz")
+    test().run_with_data(code, SAMPLE).expect_value_eq("Katz")
 }
