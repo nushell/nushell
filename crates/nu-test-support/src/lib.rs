@@ -440,11 +440,6 @@
 //! Tests typically combine the playground with [`cwd`](tester::NuTester::cwd)
 //! to point the tester to the sandboxed directory.
 //!
-//! ### Testing Filesystem Changes
-//!
-//! This pattern sets up a temporary filesystem, performs operations, and asserts the result without
-//! affecting the real system.
-//!
 //! ```
 //! # #[macro_use] extern crate nu_test_support;
 //! use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
