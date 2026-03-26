@@ -4667,6 +4667,7 @@ dependencies = [
 name = "nu-test-support"
 version = "0.111.1"
 dependencies = [
+ "bytes",
  "gatekeeper",
  "itertools 0.14.0",
  "kitest",

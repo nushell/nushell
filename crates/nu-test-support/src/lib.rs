@@ -210,10 +210,36 @@
 //! [`run_with_data`](tester::NuTester::run_with_data) method supports this by
 //! accepting a value that implements [`IntoValue`](nu_protocol::IntoValue).
 //!
-//! Since both [`IntoValue`](nu_protocol::IntoValue) and
-//! [`FromValue`](nu_protocol::FromValue) can be derived, it is straightforward
-//! to define Rust types that can be passed into Nushell and compared on the
-//! way out.
+//! This is also useful to avoid using [`format!`], which can make tests harder
+//! to read or reason about.
+//!
+//! ### Passing Raw Data into a Pipeline
+//!
+//! This pattern feeds a simple Rust value into the Nushell pipeline via `$in`,
+//! keeping the test logic focused on transformations instead of setup.
+//!
+//! ```
+//! # #[macro_use] extern crate nu_test_support;
+//! use bytes::Bytes;
+//! use nu_test_support::prelude::*;
+//!
+//! #[test]
+//! fn decode_bytes() -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//!     test()
+//!         .run_with_data("$in | decode", Bytes::from("hello world"))
+//!         .expect_value_eq("hello world")
+//! }
+//! ```
+//!
+//! ### Using Typed Data
+//!
+//! Since both [`IntoValue`](nu_protocol::IntoValue) and [`FromValue`](nu_protocol::FromValue) can
+//! be derived, custom Rust types can be passed into Nushell and asserted directly.
+//! This keeps tests type safe and expressive.
 //!
 //! ```
 //! # #[macro_use] extern crate nu_test_support;
@@ -244,8 +270,8 @@
 //!
 //! ## Working with Metadata or Streams
 //!
-//! Some tests need access to metadata or streaming data. In these cases,
-//! [`run`](tester::NuTester::run) is not sufficient, since it returns a
+//! Some tests need access to metadata or streaming data.
+//! In these cases, [`run`](tester::NuTester::run) is not sufficient, since it returns a
 //! [`Value`](nu_protocol::Value).
 //!
 //! To work with lower level details, the raw [`PipelineData`](nu_protocol::PipelineData)
@@ -480,6 +506,69 @@
 //! # fn main() -> Result {
 //!     let code = "debug experimental-options | where identifier == example | get enabled.0";
 //!     test().run(code).expect_value_eq(true)
+//! }
+//! ```
+//!
+//! ## Using `rstest`
+//!
+//! The `rstest` crate provides support for fixtures and parameterized test cases, which can
+//! significantly reduce boilerplate.
+//! It is especially useful when testing the same logic with multiple inputs.
+//!
+//! It works out of the box with the custom test harness, but requires careful ordering when
+//! combined with additional test attributes.
+//!
+//! ### Parameterized Test Cases
+//!
+//! This pattern uses `#[case]` to define multiple inputs for a single test, allowing the same
+//! logic to be reused across different scenarios.
+//!
+//! ```ignore
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//! use rstest::rstest;
+//!
+//! #[rstest]
+//! #[case("a", "a🦜a")]
+//! #[case("🦜", "🦜🦜🦜")]
+//! fn simple_case(pre_and_suffix: &str, result: &str) -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//! # let pre_and_suffix = "a";
+//! # let result = "a🦜a";
+//!     test()
+//!         .run_with_data("$in + 🦜 + $in", pre_and_suffix)
+//!         .expect_value_eq(result)
+//! }
+//! ```
+//!
+//! ### Combining with Test Configuration
+//!
+//! When combining `rstest` with the custom test harness attributes, the order of attributes
+//! becomes important.
+//! The harness attribute must be explicitly specified to ensure the test is picked up correctly.
+//!
+//! ```ignore
+//! # #[macro_use] extern crate nu_test_support;
+//! use nu_test_support::prelude::*;
+//! use rstest::rstest;
+//!
+//! #[rstest]
+//! #[case(1)]
+//! #[case(-1)]
+//! #[nu_test_support::test]
+//! #[env(QUICK_MATHS = "true")]
+//! fn math_abs(input: i32) -> Result {
+//! #     unimplemented!()
+//! # }
+//! #
+//! # fn main() -> Result {
+//! # let input: i32 = 1;
+//!     test()
+//!         .run_with_data("$in | math abs", input)
+//!         .expect_value_eq(1)
 //! }
 //! ```
 
