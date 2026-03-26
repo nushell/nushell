@@ -16,6 +16,11 @@ $env.config.color_config = {
     string: default
     nothing: default
     binary: default
+    binary_null_char: grey42
+    binary_printable: cyan_bold
+    binary_whitespace: green_bold
+    binary_ascii_other: purple_bold
+    binary_non_ascii: yellow_bold
     cell-path: default
     row_index: green_bold
     record: default

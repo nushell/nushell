@@ -107,12 +107,36 @@ fn first_helper(
         1
     };
 
-    // first 5 bytes of an image/png are not image/png themselves
-    let metadata = input.metadata().map(|m| m.with_content_type(None));
+    let mut input = input;
+    let input_meta = input.take_metadata();
 
-    // early exit for `first 0`
+    // Count is 0: return empty data immediately.
+    //
+    // The main `match` below is not safe for this case-byte streams can still be read from the
+    // pipe, and sqlite lazy queries can still run. For "take nothing" we only produce an empty
+    // value: empty binary (and clear pipeline `content_type` for binary) or an empty list, with
+    // other metadata unchanged.
     if rows == 0 {
-        return Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(metadata));
+        return match input {
+            PipelineData::Value(val, _) if matches!(&val, Value::Binary { .. }) => Ok(
+                Value::binary(Vec::new(), val.span()).into_pipeline_data_with_metadata(
+                    input_meta.map(|m| m.with_content_type(None)),
+                ),
+            ),
+            PipelineData::ByteStream(stream, _) => {
+                if stream.type_().is_binary_coercible() {
+                    let span = stream.span();
+                    Ok(
+                        Value::binary(Vec::new(), span).into_pipeline_data_with_metadata(
+                            input_meta.map(|m| m.with_content_type(None)),
+                        ),
+                    )
+                } else {
+                    Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(input_meta))
+                }
+            }
+            _ => Ok(Value::list(Vec::new(), head).into_pipeline_data_with_metadata(input_meta)),
+        };
     }
 
     match input {
@@ -122,52 +146,55 @@ fn first_helper(
                 Value::List { mut vals, .. } => {
                     if return_single_element {
                         if let Some(val) = vals.first_mut() {
-                            Ok(std::mem::take(val).into_pipeline_data())
+                            Ok(std::mem::take(val).into_pipeline_data_with_metadata(input_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {
                             // There are no values, so return nothing instead of an error so
                             // that users can pipe this through 'default' if they want to.
-                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
                     } else {
                         vals.truncate(rows);
-                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(metadata))
+                        Ok(Value::list(vals, span).into_pipeline_data_with_metadata(input_meta))
                     }
                 }
                 Value::Binary { mut val, .. } => {
+                    // A slice (or single byte as int) is not the whole file/stream; drop MIME.
+                    let binary_meta = input_meta.map(|m| m.with_content_type(None));
                     if return_single_element {
                         if let Some(&val) = val.first() {
-                            Ok(Value::int(val.into(), span).into_pipeline_data())
+                            Ok(Value::int(val.into(), span)
+                                .into_pipeline_data_with_metadata(binary_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {
                             // There are no values, so return nothing instead of an error so
                             // that users can pipe this through 'default' if they want to.
-                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(binary_meta))
                         }
                     } else {
                         val.truncate(rows);
-                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(metadata))
+                        Ok(Value::binary(val, span).into_pipeline_data_with_metadata(binary_meta))
                     }
                 }
                 Value::Range { val, .. } => {
                     let mut iter = val.into_range_iter(span, Signals::empty());
                     if return_single_element {
                         if let Some(v) = iter.next() {
-                            Ok(v.into_pipeline_data())
+                            Ok(v.into_pipeline_data_with_metadata(input_meta))
                         } else if strict_mode {
                             Err(ShellError::AccessEmptyContent { span: head })
                         } else {
                             // There are no values, so return nothing instead of an error so
                             // that users can pipe this through 'default' if they want to.
-                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                            Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                         }
                     } else {
                         Ok(iter.take(rows).into_pipeline_data_with_metadata(
                             span,
                             engine_state.signals().clone(),
-                            metadata,
+                            input_meta,
                         ))
                     }
                 }
@@ -188,14 +215,14 @@ fn first_helper(
                             let value = result.into_value(head)?;
                             if let Value::List { vals, .. } = value {
                                 if let Some(val) = vals.into_iter().next() {
-                                    Ok(val.into_pipeline_data())
+                                    Ok(val.into_pipeline_data_with_metadata(input_meta))
                                 } else if strict_mode {
                                     Err(ShellError::AccessEmptyContent { span: head })
                                 } else {
                                     // There are no values, so return nothing instead of an error so
                                     // that users can pipe this through 'default' if they want to.
                                     Ok(Value::nothing(head)
-                                        .into_pipeline_data_with_metadata(metadata))
+                                        .into_pipeline_data_with_metadata(input_meta))
                                 }
                             } else {
                                 Err(ShellError::NushellFailed {
@@ -205,7 +232,9 @@ fn first_helper(
                         } else {
                             // For multiple, limit rows
                             let new_table = table.clone().with_limit(rows as i64);
-                            new_table.execute(head)
+                            new_table
+                                .execute(head)
+                                .map(|data| data.set_metadata(input_meta))
                         }
                     } else {
                         Err(ShellError::OnlySupportsThisInputType {
@@ -224,28 +253,28 @@ fn first_helper(
                 }),
             }
         }
-        PipelineData::ListStream(stream, metadata) => {
+        PipelineData::ListStream(stream, _) => {
             if return_single_element {
                 if let Some(v) = stream.into_iter().next() {
-                    Ok(v.into_pipeline_data())
+                    Ok(v.into_pipeline_data_with_metadata(input_meta))
                 } else if strict_mode {
                     Err(ShellError::AccessEmptyContent { span: head })
                 } else {
                     // There are no values, so return nothing instead of an error so
                     // that users can pipe this through 'default' if they want to.
-                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(input_meta))
                 }
             } else {
                 Ok(PipelineData::list_stream(
                     stream.modify(|iter| iter.take(rows)),
-                    metadata,
+                    input_meta,
                 ))
             }
         }
-        PipelineData::ByteStream(stream, metadata) => {
+        PipelineData::ByteStream(stream, _) => {
             if stream.type_().is_binary_coercible() {
                 let span = stream.span();
-                let metadata = metadata.map(|m| m.with_content_type(None));
+                let metadata = input_meta.map(|m| m.with_content_type(None));
                 if let Some(mut reader) = stream.reader() {
                     if return_single_element {
                         // Take a single byte
@@ -255,7 +284,8 @@ fn first_helper(
                             .map_err(|err| IoError::new(err, span, None))?
                             > 0
                         {
-                            Ok(Value::int(byte[0] as i64, head).into_pipeline_data())
+                            Ok(Value::int(byte[0] as i64, head)
+                                .into_pipeline_data_with_metadata(metadata))
                         } else {
                             Err(ShellError::AccessEmptyContent { span: head })
                         }
@@ -272,7 +302,7 @@ fn first_helper(
                         ))
                     }
                 } else {
-                    Ok(PipelineData::empty())
+                    Ok(Value::nothing(head).into_pipeline_data_with_metadata(metadata))
                 }
             } else {
                 Err(ShellError::OnlySupportsThisInputType {

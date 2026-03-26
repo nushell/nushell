@@ -220,15 +220,15 @@ impl Job {
             let tag = record
                 .get(COLUMN_TAG_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
             let attrs = record
                 .get(COLUMN_ATTRS_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
             let content = record
                 .get(COLUMN_CONTENT_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
 
             let content_span = content.span();
             let tag_span = tag.span();

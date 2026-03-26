@@ -3,6 +3,7 @@ use nu_protocol::{
     DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing,
     shell_error::generic::GenericError,
 };
+use nu_utils::IgnoreCaseExt;
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -212,8 +213,9 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
-    let input = input.into_stream_or_original(engine_state);
+    let mut input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
+    let mut metadata = input.take_metadata();
     let mut new_columns = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
@@ -239,6 +241,22 @@ fn reject(
             }
         };
     }
+
+    // remove path_columns that are available in new_columns
+    if let Some(metadata) = &mut metadata {
+        metadata.path_columns.retain(|column| {
+            !new_columns
+                .iter()
+                .any(|cell_path| match cell_path.members.as_slice() {
+                    [PathMember::String { val, casing, .. }] => match casing {
+                        Casing::Sensitive => val == column,
+                        Casing::Insensitive => val.eq_ignore_case(column),
+                    },
+                    _ => false,
+                })
+        });
+    }
+
     new_rows.sort_unstable_by_key(|k| {
         Reverse({
             match k.members[0] {
@@ -257,7 +275,7 @@ fn reject(
     });
 
     match input {
-        PipelineData::ListStream(stream, metadata) if !has_integer_path_member => {
+        PipelineData::ListStream(stream, ..) if !has_integer_path_member => {
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
@@ -276,8 +294,7 @@ fn reject(
             Ok(result.set_metadata(metadata))
         }
 
-        mut input => {
-            let metadata = input.take_metadata();
+        input => {
             let mut val = input.into_value(span)?;
 
             for cell_path in new_columns {

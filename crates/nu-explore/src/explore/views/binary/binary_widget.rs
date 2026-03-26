@@ -1,5 +1,5 @@
 use nu_color_config::TextStyle;
-use nu_pretty_hex::categorize_byte;
+use nu_pretty_hex::{HexStyles, categorize_byte};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -64,6 +64,7 @@ pub struct BinaryStyle {
     color_index: Option<NuStyle>,
     column_padding_left: u16,
     column_padding_right: u16,
+    hex_styles: HexStyles,
 }
 
 impl BinaryStyle {
@@ -71,11 +72,13 @@ impl BinaryStyle {
         color_index: Option<NuStyle>,
         column_padding_left: u16,
         column_padding_right: u16,
+        hex_styles: HexStyles,
     ) -> Self {
         Self {
             color_index,
             column_padding_left,
             column_padding_right,
+            hex_styles,
         }
     }
 }
@@ -279,16 +282,16 @@ fn render_hex_usize(
     width
 }
 
-fn get_ascii_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
-    let (style, c) = categorize_byte(&n);
+fn get_ascii_char(w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
+    let (style, c) = categorize_byte(&n, &w.style.hex_styles);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
 
     (c, style)
 }
 
-fn get_segment_char(_w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
-    let (style, c) = categorize_byte(&n);
+fn get_segment_char(w: &BinaryWidget, n: u8) -> (char, Option<NuStyle>) {
+    let (style, c) = categorize_byte(&n, &w.style.hex_styles);
     let c = c.unwrap_or(n as char);
     let style = if style.is_plain() { None } else { Some(style) };
 

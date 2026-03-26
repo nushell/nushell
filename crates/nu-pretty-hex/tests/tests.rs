@@ -162,3 +162,28 @@ fn test_hex_write_with_simple_config() {
     let have = core::str::from_utf8(&buffer).unwrap();
     assert_eq!(expected, have);
 }
+
+/// Test checking whether pretty printer correctly uses ansi coloring.
+#[test]
+fn test_hex_colors() {
+    let config = HexConfig::default();
+
+    let bytes = [
+        0, 1, 2, 3, b'a', b'b', b'c', b' ', b'\t', b'\n', b'\r', b'[', b'?', 0xF0, 0xFE, 0xFF,
+    ];
+
+    // Snapshot taken via
+    // $bytes | table | into binary | bytes replace --all 0x[1b] ('\u{1b}' | into binary)  | decode
+    const EXPECTED: &str =
+        "Length: 16 (0x10) bytes | \u{1b}[38;5;242mnull_char\u{1b}[0m \u{1b}[1;36mprintable\u{1b}[0m \u{1b}[1;32mwhitespace\u{1b}[0m \u{1b}[1;35mascii_other\u{1b}[0m \u{1b}[1;33mnon_ascii\u{1b}[0m
+\u{1b}[36m00000000\u{1b}[0m:   \u{1b}[38;5;242m00\u{1b}[0m \u{1b}[1;35m01\u{1b}[0m \u{1b}[1;35m02\u{1b}[0m \u{1b}[1;35m03\u{1b}[0m  \u{1b}[1;36m61\u{1b}[0m \u{1b}[1;36m62\u{1b}[0m \u{1b}[1;36m63\u{1b}[0m \u{1b}[1;32m20\u{1b}[0m  \u{1b}[1;32m09\u{1b}[0m \u{1b}[1;32m0a\u{1b}[0m \u{1b}[1;32m0d\u{1b}[0m \u{1b}[1;36m5b\u{1b}[0m  \u{1b}[1;36m3f\u{1b}[0m \u{1b}[1;33mf0\u{1b}[0m \u{1b}[1;33mfe\u{1b}[0m \u{1b}[1;33mff\u{1b}[0m   \u{1b}[38;5;242m0\u{1b}[0m\u{1b}[1;35m•\u{1b}[0m\u{1b}[1;35m•\u{1b}[0m\u{1b}[1;35m•\u{1b}[0m\u{1b}[1;36ma\u{1b}[0m\u{1b}[1;36mb\u{1b}[0m\u{1b}[1;36mc\u{1b}[0m\u{1b}[1;32m \u{1b}[0m\u{1b}[1;32m_\u{1b}[0m\u{1b}[1;32m_\u{1b}[0m\u{1b}[1;32m_\u{1b}[0m\u{1b}[1;36m[\u{1b}[0m\u{1b}[1;36m?\u{1b}[0m\u{1b}[1;33m×\u{1b}[0m\u{1b}[1;33m×\u{1b}[0m\u{1b}[1;33m×\u{1b}[0m";
+
+    let mut buffer = heapless::Vec::<u8, { EXPECTED.len() * 2 }>::new();
+    hex_write(&mut buffer, &bytes, config, Some(true)).unwrap();
+
+    let have = core::str::from_utf8(&buffer).unwrap();
+    assert_eq!(
+        EXPECTED, have,
+        "\nwant:\n```\n{EXPECTED}\n```\nhave:\n```\n{have}\n```"
+    );
+}

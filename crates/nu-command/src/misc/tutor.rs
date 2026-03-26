@@ -446,10 +446,10 @@ fn display(help: &str, engine_state: &EngineState, stack: &mut Stack, span: Span
                     engine_state,
                     stack,
                     &Call::new(span),
-                    Value::string(item, Span::unknown()).into_pipeline_data(),
+                    Value::string(item, span).into_pipeline_data(),
                 );
 
-                if let Ok(value) = result.and_then(|data| data.into_value(Span::unknown())) {
+                if let Ok(value) = result.and_then(|data| data.into_value(span)) {
                     match value.coerce_into_string() {
                         Ok(s) => {
                             build.push_str(&s);

@@ -81,11 +81,11 @@ impl Command for Source {
         // Add env vars so they are available to the script
         stack.add_env_var(
             "FILE_PWD".to_string(),
-            Value::string(parent.to_string_lossy(), Span::unknown()),
+            Value::string(parent.to_string_lossy(), call.head),
         );
         stack.add_env_var(
             "CURRENT_FILE".to_string(),
-            Value::string(file_path.to_string_lossy(), Span::unknown()),
+            Value::string(file_path.to_string_lossy(), call.head),
         );
 
         let eval_block_with_early_return = get_eval_block_with_early_return(engine_state);

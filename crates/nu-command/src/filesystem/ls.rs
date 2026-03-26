@@ -330,7 +330,7 @@ fn ls_for_one_pattern(
     signals: Signals,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, ShellError> {
+    fn create_pool(num_threads: usize, call_span: Span) -> Result<rayon::ThreadPool, ShellError> {
         match rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build()
@@ -339,7 +339,7 @@ fn ls_for_one_pattern(
                 ShellError::Generic(GenericError::new(
                     "Error creating thread pool",
                     e.to_string(),
-                    Span::unknown(),
+                    call_span,
                 ))
             }),
             Ok(pool) => Ok(pool),
@@ -484,9 +484,9 @@ fn ls_for_one_pattern(
                 )
             })?
             .get();
-        create_pool(count)?
+        create_pool(count, call_span)?
     } else {
-        create_pool(1)?
+        create_pool(1, call_span)?
     };
 
     pool.install(|| {
