@@ -158,9 +158,9 @@ impl PluginCommand for Cumulative {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let cum_type: Spanned<String> = call.req(0)?;
         let cum_type = CumulativeType::from_str(&cum_type.item, cum_type.span)?;

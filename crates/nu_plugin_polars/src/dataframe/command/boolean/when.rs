@@ -109,15 +109,15 @@ impl PluginCommand for ExprWhen {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let when_predicate: Value = call.req(0)?;
         let when_predicate = NuExpression::try_from_value(plugin, &when_predicate)?;
 
         let then_predicate: Value = call.req(1)?;
         let then_predicate = NuExpression::try_from_value(plugin, &then_predicate)?;
 
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let when_then: NuWhen = match value {
             Value::Nothing { .. } => when(when_predicate.into_polars())

@@ -91,9 +91,9 @@ impl PluginCommand for SelectorLast {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let n: Option<i64> = call.opt(0)?;
 
         let selector = match n {

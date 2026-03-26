@@ -47,10 +47,8 @@ impl Command for Take {
         let rows_desired: usize = call.req(engine_state, stack, 0)?;
         let input = input.into_stream_or_original(engine_state);
 
-        let metadata = input.metadata().map(|m| m.with_content_type(None));
-
         match input {
-            PipelineData::Value(val, _) => {
+            PipelineData::Value(val, metadata) => {
                 let span = val.span();
                 match val {
                     Value::List { vals, .. } => Ok(vals
@@ -63,7 +61,11 @@ impl Command for Take {
                         )),
                     Value::Binary { val, .. } => {
                         let slice: Vec<u8> = val.into_iter().take(rows_desired).collect();
-                        Ok(PipelineData::value(Value::binary(slice, span), metadata))
+                        Ok(PipelineData::value(
+                            Value::binary(slice, span),
+                            // first 5 bytes of an image/png stream are not image/png themselves
+                            metadata.map(|m| m.with_content_type(None)),
+                        ))
                     }
                     Value::Range { val, .. } => Ok(val
                         .into_range_iter(span, Signals::empty())

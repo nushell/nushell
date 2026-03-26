@@ -146,9 +146,9 @@ impl PluginCommand for ConvertTimeZone {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {

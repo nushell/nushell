@@ -184,9 +184,9 @@ impl PluginCommand for PivotDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
         command_lazy(plugin, engine, call, lazy)
             .map_err(LabeledError::from)

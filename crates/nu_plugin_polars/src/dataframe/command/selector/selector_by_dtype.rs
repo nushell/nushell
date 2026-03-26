@@ -84,9 +84,9 @@ impl PluginCommand for SelectorByDtype {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let dtype_strs: Vec<String> = call.rest(0)?;
 
         if dtype_strs.is_empty() {

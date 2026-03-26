@@ -164,13 +164,13 @@ impl PluginCommand for LazySelect {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
 
+        let metadata = input.take_metadata();
         let pipeline_value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         let lazy: NuLazyFrame = lazy.to_polars().select(&expressions).into();

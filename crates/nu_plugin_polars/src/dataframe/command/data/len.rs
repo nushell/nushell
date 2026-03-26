@@ -53,9 +53,9 @@ impl PluginCommand for ExprLen {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let res: NuExpression = polars::prelude::len().into();
         res.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)

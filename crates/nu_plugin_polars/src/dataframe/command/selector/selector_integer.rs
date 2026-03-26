@@ -64,9 +64,9 @@ impl PluginCommand for SelectorInteger {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         let selector = Selector::ByDType(DataTypeSelector::Integer);
         let nu_selector = NuSelector::from(selector);

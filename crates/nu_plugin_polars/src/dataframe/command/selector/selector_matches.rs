@@ -100,9 +100,9 @@ impl PluginCommand for SelectorMatches {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let n: String = call.req(0)?;
 
         let selector = Selector::Matches(n.into());

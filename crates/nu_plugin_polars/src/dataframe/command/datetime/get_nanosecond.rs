@@ -85,9 +85,9 @@ impl PluginCommand for GetNanosecond {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))

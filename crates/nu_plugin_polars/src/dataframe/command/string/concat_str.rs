@@ -84,9 +84,9 @@ impl PluginCommand for ExprConcatStr {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let separator: String = call.req(0)?;
         let value: Value = call.req(1)?;
 

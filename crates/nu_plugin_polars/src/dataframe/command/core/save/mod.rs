@@ -114,12 +114,12 @@ impl PluginCommand for SaveDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let spanned_file: Spanned<String> = call.req(0)?;
         debug!("file: {}", spanned_file.item);
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
 
         check_writing_into_source_file(

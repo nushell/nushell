@@ -177,9 +177,9 @@ impl PluginCommand for ExprMath {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let func_type: Spanned<String> = call.req(0)?;
         let func_type = FunctionType::from_str(&func_type.item, func_type.span)?;

@@ -73,14 +73,14 @@ impl PluginCommand for ToLazyFrame {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let maybe_schema = call
             .get_flag("schema")?
             .map(|schema| NuSchema::try_from_value(plugin, &schema))
             .transpose()?;
 
+        let metadata = input.take_metadata();
         let df = NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema)?;
         let mut lazy = NuLazyFrame::from_dataframe(df);
         // We don't want this converted back to an eager dataframe at some point

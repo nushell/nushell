@@ -100,9 +100,9 @@ impl PluginCommand for ConcatDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let maybe_df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head).ok();
         command_lazy(plugin, engine, call, maybe_df)
             .map_err(LabeledError::from)

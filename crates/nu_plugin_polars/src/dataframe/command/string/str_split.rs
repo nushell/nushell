@@ -62,9 +62,8 @@ impl PluginCommand for StrSplit {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let separator = call.req::<Spanned<Value>>(0).and_then(|sep| {
             let sep_expr = NuExpression::try_from_value(plugin, &sep.item)?;
             Ok(Spanned {
@@ -73,6 +72,7 @@ impl PluginCommand for StrSplit {
             })
         })?;
 
+        let metadata = input.take_metadata();
         let expr = NuExpression::try_from_pipeline(plugin, input, call.head)?;
         let res: NuExpression = expr
             .into_polars()

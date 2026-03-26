@@ -93,12 +93,12 @@ impl PluginCommand for ExprOtherwise {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let otherwise_predicate: Value = call.req(0)?;
         let otherwise_predicate = NuExpression::try_from_value(plugin, &otherwise_predicate)?;
 
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let complete: NuExpression = match NuWhen::try_from_value(plugin, &value)?.when_type {
             NuWhenType::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
