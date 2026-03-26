@@ -94,7 +94,7 @@
 //! This ensures that environment variables and experimental options are properly isolated between
 //! tests.
 //!
-//! By running tests in process instead of spawning a separate `nu` binary, tests can be
+//! By running tests in-process instead of spawning a separate `nu` binary, tests can be
 //! significantly faster.
 //! This also improves iteration speed, since the binary does not need to be rebuilt before each
 //! run. Additionally, the initial `NuTester` setup is performed once and then cloned, reducing
