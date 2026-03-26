@@ -49,7 +49,7 @@ pub mod __private {
 /// Expands to the current module path without the crate name.
 ///
 /// This behaves like [`module_path!`], but removes the leading crate segment.
-/// 
+///
 /// # Panics
 ///
 /// Panics if invoked from the crate root, because [`module_path!`] expands to
