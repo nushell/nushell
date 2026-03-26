@@ -248,16 +248,17 @@ fn rm(
                 .map(|m| m.file_type().is_symlink())
                 .unwrap_or(false)
             {
-                return Err(ShellError::GenericError {
-                    error: format!("Cannot remove `{}`: is a directory", raw),
-                    msg: "is a directory".into(),
-                    span: Some(target.span),
-                    help: Some(format!(
+                return Err(ShellError::Generic(
+                    GenericError::new(
+                        format!("Cannot remove `{}`: is a directory", raw),
+                        "is a directory",
+                        target.span,
+                    )
+                    .with_help(format!(
                         "use `rm {}` without the trailing slash to remove the symlink itself",
                         without_sep
                     )),
-                    inner: vec![],
-                });
+                ));
             }
         }
 
