@@ -1,6 +1,7 @@
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
@@ -132,15 +133,12 @@ impl Command for DetectType {
         call: &Call,
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let metadata = input
-            .take_metadata()
-            .map(|metadata| metadata.with_content_type(None));
         let span = call.head;
         let display_as_filesize = call.has_flag(engine_state, stack, "prefer-filesize")?;
         let prefer_dmy = call.has_flag(engine_state, stack, "prefer-dmy")?;
+        let metadata = input.take_metadata();
         let val = input.into_value(call.head)?;
-        let val = process(val, display_as_filesize, prefer_dmy, span)?;
-        Ok(val.into_pipeline_data_with_metadata(metadata))
+        process(val, metadata, display_as_filesize, prefer_dmy, span)
     }
 }
 
@@ -205,10 +203,11 @@ fn parse_date_from_string_with_dayfirst(
 // If it does, it will convert the value to that datatype.
 fn process(
     val: Value,
+    metadata: Option<PipelineMetadata>,
     display_as_filesize: bool,
     prefer_dmy: bool,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     // step 1: convert value to string
     let val_str = val.coerce_str().unwrap_or_default();
 
@@ -227,7 +226,7 @@ fn process(
     };
 
     // step 2: bounce string up against regexes
-    if BOOLEAN_RE.is_match(&val_str).unwrap_or(false) {
+    let value = if BOOLEAN_RE.is_match(&val_str).unwrap_or(false) {
         let bval = val_str
             .to_lowercase()
             .parse::<bool>()
@@ -344,8 +343,14 @@ fn process(
         Ok(Value::date(dt, span))
     } else {
         // If we don't know what it is, just return whatever it was passed in as
-        Ok(val)
-    }
+        return Ok(val.into_pipeline_data_with_metadata(metadata));
+    };
+
+    value.map(|value| {
+        value.into_pipeline_data_with_metadata(
+            metadata.map(|metadata| metadata.with_content_type(None)),
+        )
+    })
 }
 
 // region: datatype regexes
