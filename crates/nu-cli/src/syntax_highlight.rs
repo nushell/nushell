@@ -28,8 +28,15 @@ impl Highlighter for NuHighlighter {
 pub(crate) struct HighlightResult {
     /// The highlighted text
     pub(crate) text: StyledText,
-    /// The span of any garbage that was highlighted
+    /// The span of the first garbage found, if any
     pub(crate) found_garbage: Option<Span>,
+}
+
+impl HighlightResult {
+    fn push_with_shape(&mut self, shape: &FlatShape, text: String, config: &nu_protocol::Config) {
+        let shape = get_shape_color(shape.as_str(), config);
+        self.text.push((shape, text));
+    }
 }
 
 pub(crate) fn highlight_syntax(
@@ -85,21 +92,13 @@ pub(crate) fn highlight_syntax(
         let next_token =
             line[(span.start - global_span_offset)..(span.end - global_span_offset)].to_string();
 
-        let mut add_colored_token = |shape: &FlatShape, text: String| {
-            result
-                .text
-                .push((get_shape_color(shape.as_str(), &config), text));
-        };
-
         match flat_shape {
             FlatShape::Garbage => {
-                result.found_garbage.get_or_insert_with(|| {
-                    Span::new(
-                        span.start - global_span_offset,
-                        span.end - global_span_offset,
-                    )
-                });
-                add_colored_token(flat_shape, next_token)
+                result.found_garbage.get_or_insert(Span::new(
+                    span.start - global_span_offset,
+                    span.end - global_span_offset,
+                ));
+                result.push_with_shape(flat_shape, next_token, &config)
             }
             FlatShape::External(_) => {
                 let mut true_shape = flat_shape.clone();
@@ -121,7 +120,7 @@ pub(crate) fn highlight_syntax(
                         true_shape = FlatShape::ExternalResolved;
                     }
                 }
-                add_colored_token(&true_shape, next_token);
+                result.push_with_shape(&true_shape, next_token, &config);
             }
             FlatShape::List
             | FlatShape::Table
@@ -145,7 +144,7 @@ pub(crate) fn highlight_syntax(
                     result.text.push((style, text));
                 }
             }
-            _ => add_colored_token(flat_shape, next_token),
+            _ => result.push_with_shape(flat_shape, next_token, &config),
         }
         last_seen_span_end = span.end;
     }
