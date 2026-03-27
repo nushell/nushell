@@ -140,8 +140,8 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
 
         let metadata = input.take_metadata();
         let result = match input {
-            empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
-                return Ok(empty);
+            PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
+                return Ok(input.set_metadata(metadata));
             }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
