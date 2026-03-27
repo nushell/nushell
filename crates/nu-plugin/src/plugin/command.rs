@@ -235,7 +235,7 @@ pub trait PluginCommand: Sync {
 pub trait SimplePluginCommand: Sync {
     /// The type of plugin this command runs on.
     ///
-    /// Since [`.run()`] takes a reference to the plugin, it is necessary to define the type of
+    /// Since [`.run()`](Self::run) takes a reference to the plugin, it is necessary to define the type of
     /// plugin that the command expects here.
     type Plugin: Plugin;
 
@@ -256,7 +256,7 @@ pub trait SimplePluginCommand: Sync {
 
     /// Additional documentation for usage of the command.
     ///
-    /// This is optional - any arguments documented by [`.signature()`] will be shown in the help
+    /// This is optional - any arguments documented by [`.signature()`](Self::signature) will be shown in the help
     /// page automatically. However, this can be useful for explaining things that would be too
     /// brief to include in [`.description()`](Self::description) and may span multiple lines.
     fn extra_description(&self) -> &str {

@@ -676,7 +676,7 @@ impl EngineInterface {
     /// Get all environment variables from the engine.
     ///
     /// Since this is quite a large map that has to be sent, prefer to use
-    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// [`.get_env_var()`](Self::get_env_var) if the variables needed are known ahead of time
     /// and there are only a small number needed.
     ///
     /// # Example

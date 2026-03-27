@@ -199,7 +199,7 @@ impl PluginTest {
 
     /// Test a list of plugin examples. Prints an error for each failing example.
     ///
-    /// See [`.test_command_examples()`] for easier usage of this method on a command's examples.
+    /// See [`.test_command_examples()`](Self::test_command_examples) for easier usage of this method on a command's examples.
     ///
     /// # Example
     ///
