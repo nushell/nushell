@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -20,7 +19,6 @@ use rmcp::{
 };
 use server::NushellMcpServer;
 use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -116,13 +114,13 @@ async fn run_http_server(
     // Create cancellation token to propagate shutdown to all sessions/streams
     let cancellation_token = CancellationToken::new();
 
-    let session_manager = Arc::new(LocalSessionManager {
-        sessions: RwLock::new(HashMap::new()),
-        session_config: SessionConfig {
-            channel_capacity: SESSION_CHANNEL_CAPACITY,
-            keep_alive: Some(SESSION_KEEP_ALIVE),
-        },
-    });
+    let mut session_config = SessionConfig::default();
+    session_config.channel_capacity = SESSION_CHANNEL_CAPACITY;
+    session_config.keep_alive = Some(SESSION_KEEP_ALIVE);
+
+    let mut session_manager = LocalSessionManager::default();
+    session_manager.session_config = session_config;
+    let session_manager = Arc::new(session_manager);
 
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {
