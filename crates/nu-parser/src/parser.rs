@@ -14,9 +14,8 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    ParseWarning, PositionalArg, ReportMode, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type, Value, VarId, ast::*, casing::Casing, did_you_mean, engine::StateWorkingSet,
-    eval_const::eval_constant,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
+    casing::Casing, did_you_mean, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -3854,16 +3853,6 @@ pub(crate) fn ensure_not_reserved_variable_name(
             String::from_utf8_lossy(var_name).to_string(),
             span,
         ))
-    }
-
-    if var_name == b"it" {
-        working_set.warning(ParseWarning::Deprecated {
-            dep_type: "Variable name 'it'".into(),
-            label: "$it will be considered as a reserved variable like $nu, $env and $in in future releases.".into(),
-            span,
-            help: None,
-            report_mode: ReportMode::EveryUse,
-        });
     }
 }
 
