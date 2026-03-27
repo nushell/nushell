@@ -7,7 +7,12 @@ use crate::{
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
 };
-use std::{borrow::Cow, io::Write, ops::Deref, panic::Location};
+use std::{
+    borrow::Cow,
+    io::Write,
+    ops::{Deref, DerefMut},
+    panic::Location,
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -1131,6 +1136,12 @@ impl Deref for PipelineExecutionData {
 
     fn deref(&self) -> &Self::Target {
         &self.body
+    }
+}
+
+impl DerefMut for PipelineExecutionData {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
     }
 }
 
