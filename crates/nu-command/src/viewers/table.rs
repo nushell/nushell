@@ -479,8 +479,10 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::Custom { val, .. }, ..) => {
-            let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
+        PipelineData::Value(Value::Custom { val, .. }, metadata) => {
+            let base_pipeline = val
+                .to_base_value(span)?
+                .into_pipeline_data_with_metadata(metadata);
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
