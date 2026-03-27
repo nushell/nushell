@@ -823,7 +823,7 @@ fn extern_with_reserved_variable_name_1() -> TestResult {
 
 #[test]
 fn extern_with_reserved_variable_name_2() -> TestResult {
-    run_test("extern cmd (in, --env, ...nu)", "")
+    run_test("export extern cmd (in, --env, ...nu)", "")
 }
 
 #[test]
