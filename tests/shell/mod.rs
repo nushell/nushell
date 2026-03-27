@@ -1,8 +1,10 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::playground::Playground;
-use nu_test_support::prelude::*;
-use nu_test_support::{nu_repl_code, nu_with_std};
+use nu_test_support::{
+    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    nu_repl_code,
+    prelude::*,
+};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 mod environment;
 mod pipeline;
@@ -12,9 +14,7 @@ mod repl;
 #[ignore]
 #[test]
 fn plugins_are_declared_with_wix() -> Result {
-    test()
-        .run(
-            r#"
+    let code = r#"
         open Cargo.toml
         | get bin.name
         | str replace "nu_plugin_(extra|core)_(.*)" "nu_plugin_$2"
@@ -37,9 +37,9 @@ fn plugins_are_declared_with_wix() -> Result {
         | default wix _
         | each { |it| if $it.wix != $it.cargo { 1 } { 0 } }
         | math sum
-        "#,
-        )
-        .expect_value_eq(0)
+    "#;
+
+    test().run(code).expect_value_eq(0)
 }
 
 #[test]
@@ -202,19 +202,13 @@ fn nu_lib_dirs_relative_script() -> Result {
 #[test]
 fn run_script_that_looks_like_module() -> Result {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| {
-        let inp_lines = &[
-            "module spam { export def eggs [] { 'eggs' } }",
-            "export use spam eggs",
-            "export def foo [] { eggs }",
-            "export alias bar = foo",
-            "export def --env baz [] { bar }",
-            "baz",
-        ];
-
-        test()
-            .cwd(dirs.test())
-            .run(inp_lines.join("; "))
-            .expect_value_eq("eggs")
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("module spam { export def eggs [] { 'eggs' } }")?;
+        let () = tester.run("export use spam eggs")?;
+        let () = tester.run("export def foo [] { eggs }")?;
+        let () = tester.run("export alias bar = foo")?;
+        let () = tester.run("export def --env baz [] { bar }")?;
+        tester.run("baz").expect_value_eq("eggs")
     })
 }
 
@@ -223,7 +217,7 @@ fn run_export_extern() -> Result {
     Playground::setup("run_script_that_looks_like_module", |dirs, _| -> Result {
         let code = "export extern foo []; help foo | to text";
         let help_text: String = test().cwd(dirs.test()).run(code)?;
-        assert!(help_text.contains("Usage"));
+        assert_contains("Usage", help_text);
         Ok(())
     })
 }
@@ -321,13 +315,13 @@ fn main_script_can_have_subcommands2() -> Result {
                   }"#,
         )]);
 
-                let out: String = test()
-                        .cwd(dirs.test())
-                        .add_nu_to_path()
-                        .run("nu script.nu | to text")?;
+        let out: String = test()
+            .cwd(dirs.test())
+            .add_nu_to_path()
+            .run("nu script.nu | to text")?;
 
-                assert!(out.contains("usage: script.nu"));
-                Ok(())
+        assert_contains("usage: script.nu", out);
+        Ok(())
     })
 }
 
@@ -392,21 +386,13 @@ fn source_empty_file() -> Result {
     })
 }
 
-#[test]
-fn source_use_null() -> Result {
-    test()
-        .run("source null; null | describe")
-        .expect_value_eq("nothing")?;
-    test()
-        .run("source-env null; null | describe")
-        .expect_value_eq("nothing")?;
-    test()
-        .run("use null; null | describe")
-        .expect_value_eq("nothing")?;
-    test()
-        .run("overlay use null; null | describe")
-        .expect_value_eq("nothing")?;
-    Ok(())
+#[rstest]
+#[case("source null; null | describe")]
+#[case("source-env null; null | describe")]
+#[case("use null; null | describe")]
+#[case("overlay use null; null | describe")]
+fn source_use_null(#[case] code: &str) -> Result {
+    test().run(code).expect_value_eq("nothing")
 }
 
 #[test]
@@ -557,19 +543,20 @@ fn main_script_alias_persists() -> Result {
 
 // This test will have to change once clip copy is removed after deprecation time.
 #[test]
-#[ignore = "run this test only when experimental option native-clip is set"]
-fn builtin_commands_can_be_shadowed_and_extended() {
+#[exp(nu_experimental::NATIVE_CLIP)]
+fn builtin_commands_can_be_shadowed_and_extended() -> Result {
     // Demonstrate that importing a module can shadow built-in commands and
     // add new subcommands, which is the motivating use case for this PR.
-    let actual = nu_with_std!("use std/clip; clip");
+    let outcome: String = test().run("use std/clip; clip")?;
+    assert_contains("clip copy52", &outcome);
+    assert_contains("clip prefix", &outcome);
+    assert_contains("clip copy ", &outcome);
+    assert_eq!(outcome.matches("clip copy ").count(), 1);
 
-    assert!(actual.out.contains("clip copy52"));
-    assert!(actual.out.contains("clip prefix"));
-    assert!(actual.out.contains("clip copy "));
-    assert_eq!(actual.out.matches("clip copy ").count(), 1);
+    let outcome: String = test().run("use std/clip; clip copy --help")?;
+    assert_contains("deprecated", outcome);
 
-    let copy_help = nu_with_std!("use std/clip; clip copy --help");
-    assert!(copy_help.out.contains("deprecated"));
+    Ok(())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
