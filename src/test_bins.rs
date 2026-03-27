@@ -505,7 +505,7 @@ pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<dyn TestBin>
 
 /// Return a formatted help listing suitable for inclusion in usage output.
 ///
-/// The indentation matches the layout used by [`cli_help_text`] in `command.rs`, so callers can simply append it after the `--testbin` description.
+/// The indentation matches the layout used by `cli_help_text` in [`commands`](crate::command) module, so callers can simply append it after the `--testbin` description.
 pub fn help_list() -> String {
     let dispatcher = new_testbin_dispatcher();
     let mut pairs: Vec<_> = dispatcher.iter().collect();
