@@ -6,7 +6,9 @@ mod keybindings_default;
 mod keybindings_list;
 mod keybindings_listen;
 
-pub use commandline::{Commandline, CommandlineEdit, CommandlineGetCursor, CommandlineSetCursor};
+pub use commandline::{
+    Commandline, CommandlineComplete, CommandlineEdit, CommandlineGetCursor, CommandlineSetCursor,
+};
 pub use history::*;
 pub use keybindings::Keybindings;
 pub use keybindings_default::KeybindingsDefault;
