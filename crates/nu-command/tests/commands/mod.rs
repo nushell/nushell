@@ -23,6 +23,7 @@ mod debug_info;
 mod def;
 mod default;
 mod detect_columns;
+mod detect_type;
 mod do_;
 mod drop;
 mod du;
