@@ -325,7 +325,7 @@ pub fn lex_item(
                 span,
             ));
             Token {
-                contents: TokenContents::Item,
+                contents: TokenContents::Pipe,
                 span,
             }
         }
@@ -356,21 +356,21 @@ pub fn lex_item(
         b"&&" => {
             err = Some(ParseError::ShellAndAnd(span));
             Token {
-                contents: TokenContents::Item,
+                contents: TokenContents::Semicolon,
                 span,
             }
         }
         b"2>" => {
             err = Some(ParseError::ShellErrRedirect(span));
             Token {
-                contents: TokenContents::Item,
+                contents: TokenContents::ErrGreaterThan,
                 span,
             }
         }
         b"2>&1" => {
             err = Some(ParseError::ShellOutErrRedirect(span));
             Token {
-                contents: TokenContents::Item,
+                contents: TokenContents::Pipe,
                 span,
             }
         }
