@@ -10,13 +10,14 @@ use rstest::rstest;
 #[case::single_invalid("&&")]
 fn nu_highlight_garbage_detection(#[case] cmd: &str) {
     use std::fmt::Write;
+
     let color = "#112233";
 
     let mut buf = String::new();
-    writeln!(&mut buf, "let color = '{color}'");
-    writeln!(&mut buf, "$env.config.color_config.shape_garbage = $color");
-    writeln!(&mut buf, "let highlight = '{cmd}' | nu-highlight");
-    write!(&mut buf, "$highlight has (ansi $color)");
+    writeln!(&mut buf, "let color = '{color}'").unwrap();
+    writeln!(&mut buf, "$env.config.color_config.shape_garbage = $color").unwrap();
+    writeln!(&mut buf, "let highlight = '{cmd}' | nu-highlight").unwrap();
+    write!(&mut buf, "$highlight has (ansi $color)").unwrap();
 
     let outcome = nu!(buf);
 
