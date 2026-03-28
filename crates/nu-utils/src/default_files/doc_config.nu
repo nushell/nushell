@@ -89,13 +89,15 @@ $env.config.rm.always_trash = false
 # Default: 50
 $env.config.recursion_limit = 50
 
-# auto_cd_greedy (bool): Always tries to auto-cd.
-# Regardless of this option, typing a directory path as a command will
-# automatically change directories to that directory.
+# auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
+# an existing directory path. When this setting is false, a relative (e.g.
+# './dirname') or absolute path is required to auto-cd. When set to true, you
+# can simply type the directory name by itself. If the command string matches 
+# a subdirectory in the current directory, then it will trigger an auto-cd.
 # true: Always auto-cd if command string is an existing directory path.
 # false: Only auto-cd if command string 'looks like' a directory path, eg. begins
 # with `./`.
-$env.config.auto_cd_greedy = false
+$env.config.auto_cd_implicit = false
 
 # ------------------
 # Clipboard Settings
