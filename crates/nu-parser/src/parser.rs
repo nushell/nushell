@@ -1939,6 +1939,7 @@ fn parse_binary_with_base(
                 }
                 TokenContents::Pipe
                 | TokenContents::PipePipe
+                | TokenContents::Garbage
                 | TokenContents::ErrGreaterPipe
                 | TokenContents::OutGreaterThan
                 | TokenContents::OutErrGreaterPipe

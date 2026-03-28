@@ -327,6 +327,7 @@ pub fn lite_parse(
                             command.push(token.span);
                         }
                         TokenContents::Pipe
+                        | TokenContents::Garbage
                         | TokenContents::ErrGreaterPipe
                         | TokenContents::OutErrGreaterPipe => {
                             error = error
@@ -448,7 +449,8 @@ pub fn lite_parse(
                             command.pipe = Some(token.span);
                             pipeline.push(&mut command);
                         }
-                        TokenContents::Pipe => {
+                        TokenContents::Pipe | TokenContents::Garbage => {
+                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
                             pipeline.push(&mut command);
                         }
