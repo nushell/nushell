@@ -841,7 +841,7 @@ fn write_flag_to_long_desc<F>(
 pub fn get_flags_section<F>(
     signature: &Signature,
     help_style: &HelpStyle,
-    mut formatter: F, // format default Value or text with code (because some calls cant access config or nu-highlight)
+    mut formatter: F, // format default Value or text with code (because some calls cannot access config or nu-highlight)
 ) -> String
 where
     F: FnMut(FormatterValue) -> String,
