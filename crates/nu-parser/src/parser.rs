@@ -2969,7 +2969,9 @@ pub fn parse_unit_value<'res>(
     transform: fn(String) -> String,
 ) -> Option<ParseUnitResult<'res>> {
     if bytes.len() < 2
-        || !(bytes[0].is_ascii_digit() || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
+        || !(bytes[0].is_ascii_digit()
+            || bytes[0] == b'.'
+            || (bytes[0] == b'-' && bytes[1].is_ascii_digit()))
     {
         return None;
     }

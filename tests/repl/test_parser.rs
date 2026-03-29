@@ -812,6 +812,11 @@ fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
 }
 
 #[test]
+fn duration_with_float_number() -> TestResult {
+    run_test(".6min", "36sec")
+}
+
+#[test]
 fn duration_with_underscores_1() -> TestResult {
     run_test("420_min", "7hr")
 }
