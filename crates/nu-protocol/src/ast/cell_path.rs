@@ -177,6 +177,7 @@ impl PartialOrd for PathMember {
 ///
 /// This path member may be converted via [`into_path_member`](Self::into_path_member) into a
 /// [`PathMember`] that is using a [`Span::test_data()`](crate::Span::test_data) span.
+#[doc(hidden)]
 pub struct TestPathMember<T>(T);
 
 impl<S: Into<String>> From<S> for TestPathMember<String> {
