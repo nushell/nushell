@@ -16,6 +16,6 @@ pub fn test(
 #[proc_macro]
 pub fn test_cell_path(tokens: proc_macro::TokenStream) -> proc_macro::TokenStream {
     test_cell_path::test_cell_path(tokens.into())
-        .unwrap_or_else(|err| err.to_compile_error())
+        .unwrap_or_else(|err| err.into_compile_error())
         .into()
 }

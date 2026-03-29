@@ -26,7 +26,7 @@ pub enum ErrorKind {
 }
 
 impl Error {
-    pub fn to_compile_error(self) -> TokenStream {
+    pub fn into_compile_error(self) -> TokenStream {
         let span = self.span;
         let msg = match self.kind {
             ErrorKind::EmptyTokenStream => "empty token stream is not allowed",
@@ -195,7 +195,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::EmptyTokenStream));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("empty token stream is not allowed"));
     }
 
@@ -206,7 +206,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::ExpectedValue));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("expected group, ident or literal"));
     }
 
@@ -217,7 +217,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::ExpectedModifierOrDot));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("expected ! ? or ."));
     }
 
@@ -228,7 +228,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::DotWithoutFollowingComponent));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("dot without following component"));
     }
 
@@ -239,7 +239,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::DuplicateOptional));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("duplicate ?"));
     }
 
@@ -250,7 +250,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::DuplicateInsensitive));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("duplicate !"));
     }
 
@@ -261,7 +261,7 @@ mod tests {
         };
 
         assert!(matches!(&err.kind, ErrorKind::UnexpectedPunct));
-        let msg = err.to_compile_error().to_string();
+        let msg = err.into_compile_error().to_string();
         assert!(msg.contains("unexpected punctuation"));
     }
 }
