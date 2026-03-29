@@ -2,7 +2,8 @@
 authors = ["The Nushell Project Developers"]
 description = "A Nushell plugin to query JSON, XML, and various web data"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_query"
-edition = "2024"
+edition.workspace = true
+rust-version.workspace = true
 license = "MIT"
 name = "nu_plugin_query"
 version = "0.111.1"

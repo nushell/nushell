@@ -4,15 +4,19 @@ build = "scripts/build.rs"
 default-run = "nu"
 description = "A new type of shell"
 documentation = "https://www.nushell.sh/book/"
-edition = "2024"
+edition.workspace = true
 exclude = ["images"]
 homepage = "https://www.nushell.sh"
 license = "MIT"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
-rust-version = "1.92.0"
+rust-version.workspace = true
 version = "0.111.1"
 autotests = false
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.92.0"
 
 [[test]]
 name = "tests"

@@ -1,7 +1,8 @@
 [package]
 name = "nu-plugin-test-support"
 version = "0.111.1"
-edition = "2024"
+edition.workspace = true
+rust-version.workspace = true
 license = "MIT"
 description = "Testing support for Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test-support"

@@ -2,9 +2,10 @@
 authors = ["The Nushell Project Developers"]
 description = "CLI-related functionality for Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cli"
-edition = "2024"
+edition.workspace = true
 license = "MIT"
 name = "nu-cli"
+rust-version.workspace = true
 version = "0.111.1"
 autotests = false
 
