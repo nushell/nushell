@@ -598,7 +598,7 @@ pub use serde_json::json;
 
 /// Build a [`CellPath`](nu_protocol::ast::CellPath) in Rust using the familiar cell path syntax.
 ///
-/// This macro lets you write cell paths the same way you do in Nushell. 
+/// This macro lets you write cell paths the same way you do in Nushell.
 /// It also supports inline variables or expressions by wrapping them in a group (parentheses).
 ///
 /// # Examples
