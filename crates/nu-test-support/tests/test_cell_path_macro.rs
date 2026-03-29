@@ -1,5 +1,9 @@
-#![allow(unused_parens, reason = "the macro requires braces or parens to inline outside code")]
-use nu_test_support_macros::test_cell_path;
+#![allow(
+    unused_parens,
+    reason = "the macro requires braces or parens to inline outside code"
+)]
+
+use nu_test_support::test_cell_path;
 
 #[test]
 fn builds_simple_cell_path() {
