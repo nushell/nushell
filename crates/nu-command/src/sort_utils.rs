@@ -207,7 +207,18 @@ pub fn compare_values(
             natural,
         ))
     } else {
-        Ok(left.partial_cmp(right).unwrap_or(Ordering::Equal))
+        match (left, right) {
+            (Value::Float { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok(lhs.total_cmp(rhs))
+            }
+            (Value::Int { val: lhs, .. }, Value::Float { val: rhs, .. }) => {
+                Ok((*lhs as f64).total_cmp(rhs))
+            }
+            (Value::Float { val: lhs, .. }, Value::Int { val: rhs, .. }) => {
+                Ok(lhs.total_cmp(&(*rhs as f64)))
+            }
+            _ => Ok(left.partial_cmp(right).unwrap_or(Ordering::Equal)),
+        }
     }
 }
 
@@ -287,6 +298,27 @@ pub fn compare_custom_closure(
 mod tests {
     use super::*;
     use nu_protocol::{ast::PathMember, casing::Casing, record};
+
+    #[test]
+    fn test_sort_floats_strict() {
+        // Values that are equal under epsilon tolerance but different strictly
+        let a = Value::test_float(7.0);
+        let b = Value::test_float(7.0 + 0.6 * f64::EPSILON * 7.0);
+        let c = Value::test_float(7.0 + 1.2 * f64::EPSILON * 7.0);
+
+        // Under epsilon tolerance:
+        // a == b (diff = 0.6 * EPS * 7.0 < prec = 1.0 * EPS * 7.0)
+        // b == c (diff = 0.6 * EPS * 7.0 < prec = 1.0... * EPS * 7.0)
+        // a < c  (diff = 1.2 * EPS * 7.0 > prec = 1.0 * EPS * 7.0)
+        // This non-transitivity causes panics in sort.
+
+        let mut list = vec![c.clone(), b.clone(), a.clone()];
+
+        // This should not panic now and should sort strictly
+        assert!(sort(&mut list, false, false).is_ok());
+
+        assert_eq!(list, vec![a, b, c]);
+    }
 
     #[test]
     fn test_sort_basic() {
