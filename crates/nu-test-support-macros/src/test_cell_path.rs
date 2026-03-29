@@ -53,8 +53,12 @@ struct PathMember {
 
 impl ToTokens for PathMember {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        let PathMember {value, optional, insensitive} = self;
-        
+        let PathMember {
+            value,
+            optional,
+            insensitive,
+        } = self;
+
         let ts = match (optional, insensitive) {
             (None, None) => quote! {{
                 ::nu_protocol::ast::TestPathMember::from(#value).into_path_member()
@@ -76,7 +80,7 @@ impl ToTokens for PathMember {
                 path_member
             }},
         };
-        
+
         tokens.append_all(ts)
     }
 }
@@ -91,7 +95,11 @@ impl ToTokens for PathMemberValue {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             PathMemberValue::Group(group) => group.to_tokens(tokens),
-            PathMemberValue::Ident(ident) => ident.to_tokens(tokens),
+            PathMemberValue::Ident(ident) => {
+                let mut literal = Literal::string(&ident.to_string());
+                literal.set_span(ident.span());
+                literal.to_tokens(tokens);
+            }
             PathMemberValue::Literal(literal) => literal.to_tokens(tokens),
         }
     }
@@ -173,4 +181,87 @@ fn parse_tokens(tokens: TokenStream) -> Result<Vec<PathMember>, Error> {
     });
 
     Ok(values)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proc_macro2::TokenStream;
+
+    #[test]
+    fn error_empty_token_stream() {
+        let Err(err) = parse_tokens(TokenStream::new()) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::EmptyTokenStream));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("empty token stream is not allowed"));
+    }
+
+    #[test]
+    fn error_expected_value() {
+        let Err(err) = parse_tokens(quote!(.)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::ExpectedValue));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("expected group, ident or literal"));
+    }
+
+    #[test]
+    fn error_expected_modifier_or_dot() {
+        let Err(err) = parse_tokens(quote!(foo bar)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::ExpectedModifierOrDot));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("expected ! ? or ."));
+    }
+
+    #[test]
+    fn error_dot_without_following_component() {
+        let Err(err) = parse_tokens(quote!(foo.)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::DotWithoutFollowingComponent));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("dot without following component"));
+    }
+
+    #[test]
+    fn error_duplicate_optional() {
+        let Err(err) = parse_tokens(quote!(foo??)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::DuplicateOptional));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("duplicate ?"));
+    }
+
+    #[test]
+    fn error_duplicate_insensitive() {
+        let Err(err) = parse_tokens(quote!(foo!!)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::DuplicateInsensitive));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("duplicate !"));
+    }
+
+    #[test]
+    fn error_unexpected_punct() {
+        let Err(err) = parse_tokens(quote!(foo,)) else {
+            panic!("expected error");
+        };
+
+        assert!(matches!(&err.kind, ErrorKind::UnexpectedPunct));
+        let msg = err.to_compile_error().to_string();
+        assert!(msg.contains("unexpected punctuation"));
+    }
 }
