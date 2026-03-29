@@ -596,6 +596,29 @@ pub use nu_path;
 #[doc(no_inline)]
 pub use serde_json::json;
 
-// TODO: add docs here
+/// Build a [`CellPath`](nu_protocol::ast::CellPath) in Rust using the familiar cell path syntax.
+///
+/// This macro lets you write cell paths the same way you do in Nushell. 
+/// It also supports inline variables or expressions by wrapping them in a group (parentheses).
+///
+/// # Examples
+///
+/// ```rust
+/// use nu_test_support::test_cell_path;
+///
+/// let simple = test_cell_path!(foo.bar);
+/// assert_eq!(simple.to_string(), "$.foo.bar");
+///
+/// let with_modifiers = test_cell_path!(foo?.bar!);
+/// assert_eq!(with_modifiers.to_string(), "$.foo?.bar!");
+///
+/// let with_literal = test_cell_path!(foo."bar baz".3);
+/// assert_eq!(with_literal.to_string(), r#"$.foo."bar baz".3"#);
+///
+/// let column = "foo";
+/// let index = 3;
+/// let from_vars = test_cell_path!((column).(index));
+/// assert_eq!(from_vars.to_string(), "$.foo.3");
+/// ```
 #[doc(inline)]
 pub use nu_test_support_macros::test_cell_path;
