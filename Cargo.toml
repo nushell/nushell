@@ -160,9 +160,9 @@ quick-xml = "0.39.2"
 quickcheck = "1.1"
 quickcheck_macros = "1.2"
 quote = "1.0.45"
-rand = "0.9"
-getrandom = "0.2" # pick same version that rand requires
-rand_chacha = "0.9"
+rand = "0.10"
+getrandom = "*" # pick same version that rand requires
+rand_chacha = "0.10"
 ratatui = { version = "0.30", default-features = false, features = [
   "all-widgets",
   "crossterm",
