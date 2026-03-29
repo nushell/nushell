@@ -593,4 +593,9 @@ pub use harness::macros::*;
 pub use nu_path;
 
 // Export json macro to allow writing json values easily.
+#[doc(no_inline)]
 pub use serde_json::json;
+
+// TODO: add docs here
+#[doc(inline)]
+pub use nu_test_support_macros::test_cell_path;
