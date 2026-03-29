@@ -90,13 +90,10 @@ $env.config.rm.always_trash = false
 $env.config.recursion_limit = 50
 
 # auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
-# an existing directory path. When this setting is false, a relative (e.g.
-# './dirname') or absolute path is required to auto-cd. When set to true, you
-# can simply type the directory name by itself. If the command string matches 
-# a subdirectory in the current directory, then it will trigger an auto-cd.
-# true: Always auto-cd if command string is an existing directory path.
-# false: Only auto-cd if command string 'looks like' a directory path, eg. begins
-# with `./`.
+# an existing directory path.  
+# false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.
+# true: If the command string matches a subdirectory in the current directory
+# (e.g. 'src'), auto-cd will be triggered without needing './' or '/'.
 $env.config.auto_cd_implicit = false
 
 # ------------------
