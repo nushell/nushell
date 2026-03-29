@@ -7,11 +7,11 @@ use nu_test_support::{
     playground::{Dirs, Playground},
 };
 use rand::{
-    Rng, SeedableRng,
+    SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
-    prelude::Distribution,
+    prelude::*,
     random_range,
-    rngs::StdRng,
+    rngs::{StdRng, SysRng},
 };
 use std::io::Write;
 
@@ -384,7 +384,9 @@ struct TestRow(
 
 impl TestRow {
     pub fn random() -> Self {
-        StdRng::from_os_rng().sample(StandardUniform)
+        StdRng::try_from_rng(&mut SysRng)
+            .expect("OS RNG unavailable")
+            .sample(StandardUniform)
     }
 }
 
@@ -438,7 +440,7 @@ impl TryFrom<&rusqlite::Row<'_>> for TestRow {
 impl Distribution<TestRow> for StandardUniform {
     fn sample<R>(&self, rng: &mut R) -> TestRow
     where
-        R: rand::Rng + ?Sized,
+        R: rand::RngExt + ?Sized,
     {
         let dt = DateTime::from_timestamp_millis(random_range(0..2324252554000))
             .unwrap()
