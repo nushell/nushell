@@ -263,9 +263,9 @@ fn value_to_string(
                 };
 
                 if indent.is_some_and(|i| !i.is_empty()) {
-                    let header_row = format!("[ {} ];", headers.join(", "));
+                    let header_row = format!("[{}];", headers.join(", "));
 
-                    let value_rows = record_rows(&|row| format!("[ {} ]", row.join(", ")))?
+                    let value_rows = record_rows(&|row| format!("[{}]", row.join(", ")))?
                         .join(&format!(",{nl}{idt_po}"));
 
                     Ok(format!(
