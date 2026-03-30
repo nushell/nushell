@@ -27,10 +27,10 @@ impl Command for FromMd {
                 result: Some(Value::test_list(vec![heading_title_overview_node()])),
             },
             Example {
-                example: r#"'---
+                example: "'---
 title: Demo
 ---
-# A' | from md | get 0.type"#,
+# A' | from md | get 0.type",
                 description: "Parse markdown frontmatter as a dedicated node.",
                 result: Some(Value::test_string("yaml")),
             },
