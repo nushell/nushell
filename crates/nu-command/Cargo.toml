@@ -79,6 +79,7 @@ lscolors = { workspace = true, default-features = false, features = [
 md5 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
+mq-markdown = { workspace = true }
 multipart-rs = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, default-features = false, optional = true }
