@@ -134,7 +134,7 @@ fn flatten_pipeline_element_into(
     flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(span) = pipeline_element.pipe {
-        // HACK: `out>|`/`o>|` should be marked as garbage
+        // HACK: `out>|`/`o>|` should be marked as garbage,
         // but not done in up-level procedures.
         let shape = if span.len() > 1 {
             FlatShape::Garbage
@@ -145,7 +145,8 @@ fn flatten_pipeline_element_into(
     }
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
-        // HACK: `2>` should be marked as garbage, not done yet
+        // HACK: `2>` should be marked as garbage,
+        // yet extra structure for such marginal case seems not worthy.
         let detect_garbage = |target: &RedirectionTarget| {
             let span = target.span();
             if working_set.get_span_contents(span) == b"2>" {

@@ -1,4 +1,27 @@
 use nu_test_support::nu;
+use rstest::rstest;
+
+/// checks that garbage is highlighted as error
+#[rstest]
+#[case::out_pipe("ps out>| $in")]
+#[case::and_and("^foobar && ls")]
+#[case::error_redirection("^foobar 2> err")]
+#[case::out_error_redirection("^foobar 2>&1 err")]
+fn nu_highlight_garbage_detection(#[case] cmd: &str) {
+    use std::fmt::Write;
+
+    let color = "#112233";
+
+    let mut buf = String::new();
+    writeln!(&mut buf, "let color = '{color}'").unwrap();
+    writeln!(&mut buf, "$env.config.color_config.shape_garbage = $color").unwrap();
+    writeln!(&mut buf, "let highlight = '{cmd}' | nu-highlight").unwrap();
+    write!(&mut buf, "$highlight has (ansi $color)").unwrap();
+
+    let outcome = nu!(buf);
+
+    assert_eq!(outcome.out, "true");
+}
 
 #[test]
 fn nu_highlight_not_expr() {
