@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::{
         Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
         MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
+        RecordItem, RedirectionTarget,
     },
     engine::StateWorkingSet,
 };
@@ -134,13 +134,29 @@ fn flatten_pipeline_element_into(
     flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(span) = pipeline_element.pipe {
-        output.push((span, FlatShape::Pipe));
+        // HACK: `out>|`/`o>|` should be marked as garbage
+        // but not done in up-level procedures.
+        let shape = if span.len() > 1 {
+            FlatShape::Garbage
+        } else {
+            FlatShape::Pipe
+        };
+        output.push((span, shape));
     }
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
+        // HACK: `2>` should be marked as garbage, not done yet
+        let detect_garbage = |target: &RedirectionTarget| {
+            let span = target.span();
+            if working_set.get_span_contents(span) == b"2>" {
+                (span, FlatShape::Garbage)
+            } else {
+                (span, FlatShape::Redirection)
+            }
+        };
         match redirection {
             PipelineRedirection::Single { target, .. } => {
-                output.push((target.span(), FlatShape::Redirection));
+                output.push(detect_garbage(target));
                 if let Some(expr) = target.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
@@ -152,11 +168,11 @@ fn flatten_pipeline_element_into(
                     (err, out)
                 };
 
-                output.push((out.span(), FlatShape::Redirection));
+                output.push(detect_garbage(out));
                 if let Some(expr) = out.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
-                output.push((err.span(), FlatShape::Redirection));
+                output.push(detect_garbage(err));
                 if let Some(expr) = err.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
