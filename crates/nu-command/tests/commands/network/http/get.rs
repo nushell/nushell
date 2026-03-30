@@ -299,6 +299,23 @@ fn http_get_with_unknown_mime_type() -> Result {
 }
 
 #[test]
+fn http_get_with_x_nuon_mime_type() -> Result {
+    let mut server = Server::new();
+    let _mock = server
+        .mock("GET", "/foo")
+        .with_status(200)
+        // `application/x-nuon` is the documented MIME type per https://www.nushell.sh/lang-guide/chapters/mime_types.html
+        .with_header("content-type", "application/x-nuon")
+        .with_body("[1 2 3]")
+        .create();
+
+    // the `x-` prefix should be stripped, so `from nuon` is used to parse the response
+    let code = format!("http get {url}/foo", url = server.url());
+
+    test().run(code).expect_value_eq([1, 2, 3])
+}
+
+#[test]
 fn http_get_timeout() -> Result {
     let mut server = Server::new();
     let _mock = server

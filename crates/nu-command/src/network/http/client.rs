@@ -1012,7 +1012,13 @@ fn transform_response_using_content_type(
                     .extension()
                     .map(|name| name.to_string_lossy().to_string())
             }),
-        _ => Some(content_type.subtype().to_string()),
+        _ => {
+            let subtype = content_type.subtype().as_str();
+            // Strip the `x-` prefix used by unofficial/experimental MIME types
+            // (e.g. `application/x-nuon` → `nuon`) so that `from nuon` is found.
+            let ext = subtype.strip_prefix("x-").unwrap_or(subtype);
+            Some(ext.to_string())
+        }
     };
 
     let output = response_to_buffer(resp, engine_state, span);
