@@ -148,3 +148,50 @@ fn commandline_test_accepted_command() -> TestResult {
         "print accepted",
     )
 }
+
+#[test]
+fn commandline_test_complete_input() -> TestResult {
+    run_test(
+        "def bar [] {}\n\
+        def baz [] {}\n\
+        'ba' | commandline complete | to nuon",
+        "[bar, baz]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_no_input() -> TestResult {
+    run_test(
+        "def bar [] {}\n\
+        def baz [] {}\n\
+        commandline edit --replace 'ba'\n\
+        commandline complete | to nuon",
+        "[bar, baz]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_detailed() -> TestResult {
+    run_test(
+        "def bar [] {}\n\
+        'ba' | commandline complete --detailed | to nuon",
+        "[[value, span, kind]; [bar, {start: 0, end: 2}, {Command: [Custom, 463]}]]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_flags() -> TestResult {
+    run_test(
+        "def cmd [ --flag: string, --switch(-s) ] {}\n\
+        'cmd -' | commandline complete | to nuon",
+        "[--flag, --help, --switch, -h, -s]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_invalid_input() -> TestResult {
+    fail_test(
+        "123 | commandline complete",
+        "command doesn't support int input",
+    )
+}

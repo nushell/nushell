@@ -1,6 +1,7 @@
 use crate::completions::CompletionOptions;
+use nu_color_config::NuStyle;
 use nu_protocol::{
-    DynamicSuggestion, Span, SuggestionKind,
+    DynamicSuggestion, IntoValue, Record, Span, SuggestionKind, Value,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -45,6 +46,63 @@ impl SemanticSuggestion {
             kind: suggestion.kind,
         }
     }
+}
+
+impl IntoValue for SemanticSuggestion {
+    fn into_value(self, span: Span) -> Value {
+        let mut record = Record::new();
+        record.insert("value", Value::string(self.suggestion.value, span));
+
+        if let Some(span_rec) = span_record(self.suggestion.span, span) {
+            record.insert("span", span_rec);
+        }
+
+        if let Some(display) = self.suggestion.display_override {
+            record.insert("display_override", Value::string(display, span));
+        }
+
+        if let Some(style) = self.suggestion.style.map(NuStyle::from) {
+            record.insert("style", style.into_value(span));
+        }
+
+        if let Some(description) = self.suggestion.description {
+            record.insert("description", description.into_value(span));
+        }
+
+        if let Some(kind) = self.kind.map(|kind| match kind {
+            SuggestionKind::Command(ty, _) => ty.to_string().into_value(span),
+            SuggestionKind::Value(ty) => {
+                record.insert("type", ty.to_string().into_value(span));
+                "value".into_value(span)
+            }
+            SuggestionKind::CellPath => "cell-path".into_value(span),
+            SuggestionKind::Directory => "directory".into_value(span),
+            SuggestionKind::File => "file".into_value(span),
+            SuggestionKind::Flag => "flag".into_value(span),
+            SuggestionKind::Module => "module".into_value(span),
+            SuggestionKind::Operator => "operator".into_value(span),
+            SuggestionKind::Variable => "variable".into_value(span),
+        }) {
+            record.insert("kind", kind);
+        }
+
+        Value::record(record, span)
+    }
+}
+
+fn span_record(span: reedline::Span, src_span: Span) -> Option<Value> {
+    let (Ok(start), Ok(end)) = (span.start.try_into(), span.end.try_into()) else {
+        log::error!("failed to convert span to i64s");
+        return None;
+    };
+
+    Some(Value::record(
+        Record::from_iter([
+            ("start".into(), Value::int(start, src_span)),
+            ("end".into(), Value::int(end, src_span)),
+        ]),
+        src_span,
+    ))
 }
 
 impl From<Suggestion> for SemanticSuggestion {

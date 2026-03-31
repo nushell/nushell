@@ -1,8 +1,8 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::{ShellError, Value, shell_error::generic::GenericError};
+use nu_protocol::{IntoValue, ShellError, Value, shell_error::generic::GenericError};
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
+#[derive(Deserialize, Serialize, PartialEq, Eq, Debug, IntoValue)]
 pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,
@@ -98,6 +98,8 @@ fn color_to_string(color: Color) -> Option<String> {
         Color::LightGray => Some(String::from("light_gray")),
         Color::Default => Some(String::from("default")),
         Color::Rgb(r, g, b) => Some(format!("#{r:X}{g:X}{b:X}")),
+
+        // TODO... maybe a little macro could help with lookups str <-> int
         Color::Fixed(_) => None,
     }
 }
