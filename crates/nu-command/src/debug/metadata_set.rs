@@ -1,8 +1,8 @@
 use super::util::{extend_record_with_metadata, parse_metadata_from_record};
-use nu_engine::{command_prelude::*, ClosureEvalOnce};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
-    engine::Closure, shell_error::generic::GenericError, DataSource, DeprecationEntry,
-    DeprecationType, ReportMode,
+    DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
