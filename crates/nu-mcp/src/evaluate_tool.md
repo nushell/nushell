@@ -1,7 +1,8 @@
 Execute a command in the nushell.
-This will return the output and error concatenated into a single string, as
-you would see from running on the command line. There will also be an indication
-of if the command succeeded or failed.
+Successful evaluations return a structured NUON record string with metadata fields
+including `cwd`, `history_index`, `timestamp`, and either `output` or `note`.
+When evaluation fails, the MCP tool response is marked as an error and the content
+contains a structured NUON error record.
 
 Avoid commands that produce a large amount of output, and consider piping those outputs to files.
 If you need to run a long lived command, background it - e.g. `job spawn { uvicorn main:app }` so that

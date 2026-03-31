@@ -2,9 +2,9 @@ use std::sync::Arc;
 
 use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
-    ErrorData as McpError, RoleServer, ServerHandler,
+    RoleServer, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
-    model::{ServerCapabilities, ServerInfo},
+    model::{Implementation, ServerCapabilities, ServerInfo},
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
@@ -38,26 +38,32 @@ By default all available commands will be returned. To find a specific command b
         &self,
         ctx: RequestContext<RoleServer>,
         Parameters(ListCommandsRequest { find }): Parameters<ListCommandsRequest>,
-    ) -> Result<String, McpError> {
+    ) -> Result<String, String> {
         let cmd = if let Some(f) = find {
             format!("help commands --find {f}")
         } else {
             "help commands".to_string()
         };
 
-        self.evaluator.eval_async(&cmd, ctx.ct).await
+        self.evaluator
+            .eval_async(&cmd, ctx.ct)
+            .await
+            .map_err(|err| err.message.to_string())
     }
 
     #[tool(
-        description = "Get help for a specific Nushell command. This will only work on commands that are native to nushell. To find out if a command is native to nushell you can use the find_command tool."
+        description = "Get help for a specific Nushell command. This will only work on commands that are native to nushell. To find out if a command is native to nushell you can use the list_commands tool."
     )]
     async fn command_help(
         &self,
         ctx: RequestContext<RoleServer>,
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
-    ) -> Result<String, McpError> {
+    ) -> Result<String, String> {
         let cmd = format!("help {name}");
-        self.evaluator.eval_async(&cmd, ctx.ct).await
+        self.evaluator
+            .eval_async(&cmd, ctx.ct)
+            .await
+            .map_err(|err| err.message.to_string())
     }
 
     #[doc = include_str!("evaluate_tool.md")]
@@ -66,8 +72,11 @@ By default all available commands will be returned. To find a specific command b
         &self,
         ctx: RequestContext<RoleServer>,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
-    ) -> Result<String, McpError> {
-        self.evaluator.eval_async(&input, ctx.ct).await
+    ) -> Result<String, String> {
+        self.evaluator
+            .eval_async(&input, ctx.ct)
+            .await
+            .map_err(|err| err.message.to_string())
     }
 }
 
@@ -93,6 +102,11 @@ struct NuSourceRequest {
 impl ServerHandler for NushellMcpServer {
     fn get_info(&self) -> ServerInfo {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions(include_str!("instructions.md").to_string())
+            .with_server_info(
+                Implementation::new("nushell-mcp-server", env!("CARGO_PKG_VERSION"))
+                    .with_title("Nushell MCP Server")
+                    .with_website_url("https://www.nushell.sh"),
+            )
+            .with_instructions(include_str!("instructions.md"))
     }
 }

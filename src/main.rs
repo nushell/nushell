@@ -547,8 +547,23 @@ fn main() -> Result<()> {
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {
         perf!("mcp starting", start_time, use_color);
+        // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
+        engine_state.is_mcp = true;
+        let mcp_transport_kind = parsed_nu_cli_args
+            .mcp_transport
+            .as_ref()
+            .map(|value| value.item.as_str());
+        let is_stdio_transport = !matches!(mcp_transport_kind, Some("http"));
+
         if parsed_nu_cli_args.no_config_file.is_none() {
-            let mut stack = nu_protocol::engine::Stack::new();
+            let mut stack = if is_stdio_transport {
+                // Keep MCP stdio transport clean by capturing startup stdout in stack output.
+                // This is cross-platform and avoid spilling stdout into mcp messages.
+                // The `print` command also checks for MCP/LCP before printing to stdout.
+                nu_protocol::engine::Stack::new().collect_value()
+            } else {
+                nu_protocol::engine::Stack::new()
+            };
             config_files::setup_config(
                 &mut engine_state,
                 &mut stack,
@@ -559,11 +574,7 @@ fn main() -> Result<()> {
                 parsed_nu_cli_args.login_shell.is_some(),
             );
         }
-        let transport = match parsed_nu_cli_args
-            .mcp_transport
-            .as_ref()
-            .map(|value| value.item.as_str())
-        {
+        let transport = match mcp_transport_kind {
             Some("http") => {
                 let port = parsed_nu_cli_args.mcp_port.unwrap_or(8080);
                 nu_mcp::McpTransport::Http { port }

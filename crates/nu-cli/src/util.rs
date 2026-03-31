@@ -217,6 +217,8 @@ pub fn print_pipeline(
     pipeline: PipelineData,
     no_newline: bool,
 ) -> Result<(), ShellError> {
+    let to_stderr = engine_state.is_mcp || engine_state.is_lsp;
+
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(
             engine_state,
@@ -226,10 +228,10 @@ pub fn print_pipeline(
             &hook,
             "display_output",
         )?;
-        pipeline.print_raw(engine_state, no_newline, false)
+        pipeline.print_raw(engine_state, no_newline, to_stderr)
     } else {
         // if display_output isn't set, we should still prefer to print with some formatting
-        pipeline.print_table(engine_state, stack, no_newline, false)
+        pipeline.print_table(engine_state, stack, no_newline, to_stderr)
     }
 }
 

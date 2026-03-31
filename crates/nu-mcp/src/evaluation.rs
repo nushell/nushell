@@ -302,7 +302,9 @@ impl Evaluator {
         let (result_tx, mut result_rx) = oneshot::channel();
 
         tokio::task::spawn_blocking(move || {
-            let _ = result_tx.send(eval_inner(forked_state, &source));
+            if result_tx.send(eval_inner(forked_state, &source)).is_err() {
+                tracing::debug!("evaluation result receiver dropped before completion");
+            }
         });
 
         tokio::select! {
@@ -333,7 +335,12 @@ impl Evaluator {
     #[cfg(test)]
     pub fn eval(&self, nu_source: &str) -> Result<String, rmcp::ErrorData> {
         // Create a runtime for sync evaluation in tests
-        let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+        let rt = tokio::runtime::Runtime::new().map_err(|err| {
+            rmcp::ErrorData::internal_error(
+                format!("failed to create tokio runtime for test evaluation: {err}"),
+                None,
+            )
+        })?;
         rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
     }
 }
@@ -352,9 +359,14 @@ fn promote_to_background_job(
     let (sender, _receiver) = mpsc::channel();
     let thread_job = ThreadJob::new(signals, Some(description), sender);
 
-    let job_id = {
-        let mut jobs = jobs.lock().expect("jobs lock poisoned");
-        jobs.add_job(Job::Thread(thread_job))
+    let job_id = match jobs.lock() {
+        Ok(mut jobs) => jobs.add_job(Job::Thread(thread_job)),
+        Err(err) => {
+            return Err(rmcp::ErrorData::internal_error(
+                format!("failed to register background job: jobs lock poisoned ({err})"),
+                None,
+            ));
+        }
     };
 
     tokio::spawn(async move {
@@ -365,10 +377,21 @@ fn promote_to_background_job(
         };
 
         let value = Value::string(output, Span::unknown());
-        let _ = root_job_sender.send((None, PipelineData::value(value, None)));
+        if root_job_sender
+            .send((None, PipelineData::value(value, None)))
+            .is_err()
+        {
+            tracing::warn!("failed to send background job output to root mailbox");
+        }
 
-        let mut jobs = jobs.lock().expect("jobs lock poisoned");
-        jobs.remove_job(job_id);
+        match jobs.lock() {
+            Ok(mut jobs) => {
+                jobs.remove_job(job_id);
+            }
+            Err(err) => {
+                tracing::warn!("failed to remove finished background job: {err}");
+            }
+        }
     });
 
     Err(rmcp::ErrorData::internal_error(
@@ -441,7 +464,9 @@ fn eval_on_state(
         .map_err(|e| shell_error_to_mcp_error(e, engine_state, block_span))?;
 
     // Set up $history variable on the stack before evaluation
-    stack.add_var(history.var_id(), history.as_value());
+    if let Some(history_var_id) = history.var_id() {
+        stack.add_var(history_var_id, history.as_value());
+    }
 
     let output =
         nu_engine::eval_block::<WithoutDebug>(engine_state, stack, &block, PipelineData::empty())
@@ -582,9 +607,7 @@ fn process_pipeline(
     }
 
     let value_to_store = match values.len() {
-        1 => values
-            .pop()
-            .expect("values has exactly one element; this cannot fail"),
+        1 => values.pop().unwrap_or_else(|| Value::nothing(span)),
         _ => Value::list(values, span),
     };
 

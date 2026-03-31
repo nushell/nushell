@@ -43,11 +43,14 @@ pub fn initialize_mcp_server(
     mut engine_state: EngineState,
     transport: McpTransport,
 ) -> Result<(), ShellError> {
-    tracing_subscriber::fmt()
+    if let Err(err) = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
         .with_writer(std::io::stderr)
         .with_ansi(false)
-        .init();
+        .try_init()
+    {
+        tracing::debug!("tracing subscriber already initialized: {err}");
+    }
 
     // Detach from controlling terminal to prevent child processes from prompting for input.
     //

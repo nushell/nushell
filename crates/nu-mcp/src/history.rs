@@ -14,7 +14,7 @@ const DEFAULT_HISTORY_LIMIT: usize = 100;
 #[derive(Clone)]
 pub struct History {
     buffer: VecDeque<Value>,
-    var_id: VarId,
+    var_id: Option<VarId>,
 }
 
 impl History {
@@ -28,7 +28,7 @@ impl History {
     }
 
     /// Returns the variable ID for `$history`.
-    pub fn var_id(&self) -> VarId {
+    pub fn var_id(&self) -> Option<VarId> {
         self.var_id
     }
 
@@ -53,8 +53,13 @@ impl History {
     }
 }
 
-fn register_history_variable(engine_state: &mut EngineState) -> VarId {
+fn register_history_variable(engine_state: &mut EngineState) -> Option<VarId> {
     let mut working_set = StateWorkingSet::new(engine_state);
+
+    if let Some(existing_var_id) = working_set.find_variable(b"history") {
+        return Some(existing_var_id);
+    }
+
     // No source span -- $history is a synthetic variable, not from parsed source
     let var_id = working_set.add_variable(
         b"history".to_vec(),
@@ -63,10 +68,13 @@ fn register_history_variable(engine_state: &mut EngineState) -> VarId {
         false,
     );
     let delta = working_set.render();
-    engine_state
-        .merge_delta(delta)
-        .expect("failed to register $history variable");
-    var_id
+    match engine_state.merge_delta(delta) {
+        Ok(()) => Some(var_id),
+        Err(err) => {
+            tracing::warn!("failed to register $history variable: {err}");
+            None
+        }
+    }
 }
 
 /// Returns the history limit (max number of entries in the ring buffer).
