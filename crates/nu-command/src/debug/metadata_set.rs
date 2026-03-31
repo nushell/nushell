@@ -1,8 +1,8 @@
 use super::util::{extend_record_with_metadata, parse_metadata_from_record};
-use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_engine::{command_prelude::*, ClosureEvalOnce};
 use nu_protocol::{
-    DataSource, DeprecationEntry, DeprecationType, ReportMode, engine::Closure,
-    shell_error::generic::GenericError,
+    engine::Closure, shell_error::generic::GenericError, DataSource, DeprecationEntry,
+    DeprecationType, ReportMode,
 };
 
 #[derive(Clone)]
@@ -44,7 +44,7 @@ impl Command for MetadataSet {
             )
             .named(
                 "content-type",
-                SyntaxShape::String,
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
                 "Assign content type metadata to the input.",
                 Some('c'),
             )
@@ -77,7 +77,8 @@ impl Command for MetadataSet {
         let ds_ls = call.has_flag(engine_state, stack, "datasource-ls")?;
         let path_columns: Option<Vec<String>> =
             call.get_flag(engine_state, stack, "path-columns")?;
-        let content_type: Option<String> = call.get_flag(engine_state, stack, "content-type")?;
+        let content_type: Option<Option<String>> =
+            call.get_flag(engine_state, stack, "content-type")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -128,7 +129,7 @@ impl Command for MetadataSet {
 
         // Flag-based metadata modification
         if let Some(content_type) = content_type {
-            metadata.content_type = Some(content_type);
+            metadata.content_type = content_type;
         }
 
         match (ds_fp, ds_ls) {
