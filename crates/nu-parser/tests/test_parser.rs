@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -892,6 +892,90 @@ pub fn parse_if_in_const_expression() {
     };
 
     assert!(error.contains(")"));
+}
+
+#[test]
+fn parse_percent_prefixed_internal_call() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_prefers_builtin_when_custom_shadows_name() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    working_set.add_decl(Box::new(LsCustom));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+            assert_eq!(
+                decl.command_type(),
+                nu_protocol::engine::CommandType::Builtin
+            );
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_unknown_command_does_not_fallback_to_external() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%nu --version", true);
+
+    assert!(!working_set.parse_errors.is_empty());
+    assert!(
+        working_set.parse_errors.iter().any(|err| {
+            matches!(
+                err,
+                ParseError::LabeledErrorWithHelp { error, .. }
+                if error.contains("percent sigil requires a built-in command")
+            )
+        }),
+        "Unexpected parse errors: {:?}",
+        working_set.parse_errors
+    );
+
+    // Keep expression shape for completion while retaining parse-time failure semantics.
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
 }
 
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
@@ -2214,7 +2298,8 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        engine::{Call, CommandType},
     };
 
     #[derive(Clone)]
@@ -2341,6 +2426,37 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct LsCustom;
+
+    impl Command for LsCustom {
+        fn name(&self) -> &str {
+            "ls"
+        }
+
+        fn description(&self) -> &str {
+            "Mock custom ls command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn command_type(&self) -> CommandType {
+            CommandType::Custom
         }
 
         fn run(

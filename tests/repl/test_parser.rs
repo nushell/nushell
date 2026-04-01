@@ -1,5 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
-use nu_test_support::{nu, nu_repl_code};
+use nu_protocol::ParseError;
+use nu_test_support::{nu, nu_repl_code, test as nu_test};
 use rstest::rstest;
 use std::collections::HashMap;
 
@@ -419,29 +420,108 @@ fn append_assign_takes_pipeline() -> TestResult {
 }
 
 #[test]
-fn assign_bare_external_fails() {
-    let result = nu!("$env.FOO = nu --testbin cococo");
-    assert!(!result.status.success());
-    assert!(result.err.contains("must be explicit"));
+fn assign_bare_external_fails() -> TestResult {
+    let mut tester = nu_test().add_nu_to_path();
+    let err = tester
+        .run::<String>("$env.FOO = nu --testbin cococo")
+        .expect_err("assignment without caret should fail");
+    assert!(
+        format!("{err:?}").contains("must be explicit"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
 }
 
 #[test]
-fn assign_bare_external_with_caret() {
-    let result = nu!("$env.FOO = ^nu --testbin cococo");
-    assert!(result.status.success());
+fn assign_bare_external_with_caret() -> TestResult {
+    let mut tester = nu_test().add_nu_to_path();
+    let output: String = tester.run("$env.FOO = ^nu --testbin cococo; $env.FOO")?;
+    assert_eq!(output, "cococo");
+    Ok(())
 }
 
 #[test]
-fn assign_backtick_quoted_external_fails() {
-    let result = nu!("$env.FOO = `nu` --testbin cococo");
-    assert!(!result.status.success());
-    assert!(result.err.contains("must be explicit"));
+fn assign_backtick_quoted_external_fails() -> TestResult {
+    let mut tester = nu_test().add_nu_to_path();
+    let err = tester
+        .run::<String>("$env.FOO = `nu` --testbin cococo")
+        .expect_err("backtick external without caret should fail");
+    assert!(
+        format!("{err:?}").contains("must be explicit"),
+        "unexpected error: {err:?}"
+    );
+    Ok(())
 }
 
 #[test]
-fn assign_backtick_quoted_external_with_caret() {
-    let result = nu!("$env.FOO = ^`nu` --testbin cococo");
-    assert!(result.status.success());
+fn assign_backtick_quoted_external_with_caret() -> TestResult {
+    let mut tester = nu_test().add_nu_to_path();
+    let output: String = tester.run("$env.FOO = ^`nu` --testbin cococo; $env.FOO")?;
+    assert_eq!(output, "cococo");
+    Ok(())
+}
+
+#[test]
+fn percent_forces_builtin_command() -> TestResult {
+    let mut tester = nu_test();
+    let output: String = tester.run("%echo ok")?;
+    assert_eq!(output, "ok");
+    Ok(())
+}
+
+#[test]
+fn percent_prefers_builtin_when_custom_shadows_name() -> TestResult {
+    let mut tester = nu_test();
+    let output: bool = tester.run("def ls [] { 'hi' }; ((%ls | describe) == 'string')")?;
+    assert!(!output);
+    Ok(())
+}
+
+fn assert_percent_requires_builtin(code: &str, failure_message: &str) -> TestResult {
+    let tester = nu_test();
+    let err = tester.parse_and_compile(code).err().expect(failure_message);
+    let err = err.parse().expect("expected parse error");
+    assert!(
+        matches!(
+            err,
+            ParseError::LabeledErrorWithHelp { ref error, .. }
+            if error.contains("percent sigil requires a built-in command")
+        ),
+        "unexpected parse error: {err:?}"
+    );
+    Ok(())
+}
+
+#[test]
+fn percent_unknown_command_does_not_fallback_to_external() -> TestResult {
+    assert_percent_requires_builtin(
+        "%nu --version",
+        "expected percent-prefixed unknown command to fail",
+    )
+}
+
+#[test]
+fn percent_rejects_custom_command() -> TestResult {
+    assert_percent_requires_builtin(
+        "def foo [] { 'ok' }; %foo",
+        "expected percent-prefixed custom command to fail",
+    )
+}
+
+#[test]
+fn percent_rejects_alias_to_internal_call() -> TestResult {
+    assert_percent_requires_builtin(
+        "def foo [] { 'ok' }; alias bar = foo; %bar",
+        "expected percent-prefixed alias to fail",
+    )
+}
+
+#[test]
+fn percent_rejects_alias_to_external_call() -> TestResult {
+    assert_percent_requires_builtin(
+        "alias ext = ^nu --version; %ext",
+        "expected percent-prefixed alias-to-external to fail",
+    )
 }
 
 #[test]

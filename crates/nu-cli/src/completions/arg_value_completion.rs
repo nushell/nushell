@@ -184,6 +184,7 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                     let mut completer = CommandCompletion {
                         internals: true,
                         externals: true,
+                        builtins_only: false,
                     };
                     return self.completer.process_completion(&mut completer, &ctx);
                 }
@@ -191,6 +192,7 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                     let mut completer = CommandCompletion {
                         internals: true,
                         externals: false,
+                        builtins_only: false,
                     };
                     return self.completer.process_completion(&mut completer, &ctx);
                 }

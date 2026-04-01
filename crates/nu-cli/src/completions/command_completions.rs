@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::completions::{Completer, CompletionOptions};
 use nu_protocol::{
-    Category, Span, SuggestionKind,
+    Category, DeclId, Span, SuggestionKind,
     engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -15,9 +15,45 @@ pub struct CommandCompletion {
     pub internals: bool,
     /// Whether to include external commands
     pub externals: bool,
+    /// Whether internal completion should include only built-in commands
+    pub builtins_only: bool,
 }
 
 impl CommandCompletion {
+    fn external_command_collisions(
+        &self,
+        working_set: &StateWorkingSet,
+        internal_suggs: &HashSet<String>,
+    ) -> HashSet<String> {
+        let mut collisions = HashSet::new();
+
+        let paths_val = working_set.permanent_state.get_env_var("path");
+
+        if let Some(paths_val) = paths_val
+            && let Ok(paths) = paths_val.as_list()
+        {
+            for path in paths {
+                let path = path.coerce_str().unwrap_or_default();
+
+                if let Ok(mut contents) = std::fs::read_dir(path.as_ref()) {
+                    while let Some(Ok(item)) = contents.next() {
+                        let Ok(name) = item.file_name().into_string() else {
+                            continue;
+                        };
+
+                        if internal_suggs.contains(&name)
+                            && Self::is_executable_command(item.path())
+                        {
+                            collisions.insert(name);
+                        }
+                    }
+                }
+            }
+        }
+
+        collisions
+    }
+
     fn external_command_completion(
         &self,
         working_set: &StateWorkingSet,
@@ -124,30 +160,91 @@ impl Completer for CommandCompletion {
         let mut internal_suggs = HashSet::new();
         if self.internals {
             let mut matcher = NuMatcher::new(prefix.as_ref(), options, true);
-            working_set.traverse_commands(|name, decl_id| {
-                let name = String::from_utf8_lossy(name);
-                let command = working_set.get_decl(decl_id);
-                if command.signature().category == Category::Removed {
-                    return;
+            if self.builtins_only {
+                // `%` completion should still offer built-ins when a custom command shadows
+                // the same name, so we scan all declarations rather than only visible ones.
+                let mut seen = HashSet::new();
+
+                for idx in (0..working_set.num_decls()).rev() {
+                    let decl_id = DeclId::new(idx);
+                    let command = working_set.get_decl(decl_id);
+                    if command.signature().category == Category::Removed {
+                        continue;
+                    }
+                    if command.command_type() != CommandType::Builtin {
+                        continue;
+                    }
+
+                    let name = command.name();
+                    if !seen.insert(name.to_string()) {
+                        continue;
+                    }
+
+                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: name.to_string(),
+                            description: Some(command.description().to_string()),
+                            span: sugg_span,
+                            append_whitespace: true,
+                            ..Suggestion::default()
+                        },
+                        kind: Some(SuggestionKind::Command(CommandType::Builtin, Some(decl_id))),
+                    });
+                    if matched {
+                        internal_suggs.insert(name.to_string());
+                    }
                 }
-                let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                    suggestion: Suggestion {
-                        value: name.to_string(),
-                        description: Some(command.description().to_string()),
-                        span: sugg_span,
-                        append_whitespace: true,
-                        ..Suggestion::default()
-                    },
-                    kind: Some(SuggestionKind::Command(
-                        command.command_type(),
-                        Some(decl_id),
-                    )),
+            } else {
+                working_set.traverse_commands(|name, decl_id| {
+                    let name = String::from_utf8_lossy(name);
+                    let command = working_set.get_decl(decl_id);
+                    if command.signature().category == Category::Removed {
+                        return;
+                    }
+
+                    let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: name.to_string(),
+                            description: Some(command.description().to_string()),
+                            span: sugg_span,
+                            append_whitespace: true,
+                            ..Suggestion::default()
+                        },
+                        kind: Some(SuggestionKind::Command(
+                            command.command_type(),
+                            Some(decl_id),
+                        )),
+                    });
+                    if matched {
+                        internal_suggs.insert(name.to_string());
+                    }
                 });
-                if matched {
-                    internal_suggs.insert(name.to_string());
+            }
+
+            let mut internal_results = matcher.suggestion_results();
+
+            if self.externals {
+                let collisions = self.external_command_collisions(working_set, &internal_suggs);
+
+                if !collisions.is_empty() {
+                    let mut percent_prefixed = Vec::new();
+
+                    for suggestion in &internal_results {
+                        if collisions.contains(&suggestion.suggestion.value) {
+                            let mut prefixed = suggestion.suggestion.clone();
+                            prefixed.value = format!("%{}", suggestion.suggestion.value);
+                            percent_prefixed.push(SemanticSuggestion {
+                                suggestion: prefixed,
+                                kind: suggestion.kind.clone(),
+                            });
+                        }
+                    }
+
+                    internal_results.extend(percent_prefixed);
                 }
-            });
-            res.extend(matcher.suggestion_results());
+            }
+
+            res.extend(internal_results);
         }
 
         if self.externals {

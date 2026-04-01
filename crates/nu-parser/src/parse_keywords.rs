@@ -192,6 +192,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
 
     if name.contains('#')
         || name.contains('^')
+        || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
     {
@@ -1181,6 +1182,7 @@ pub fn parse_alias(
         let alias_name = if let Some(name) = alias_name_expr.as_string() {
             if name.contains('#')
                 || name.contains('^')
+                || name.contains('%')
                 || name.parse::<bytesize::ByteSize>().is_ok()
                 || name.parse::<f64>().is_ok()
             {

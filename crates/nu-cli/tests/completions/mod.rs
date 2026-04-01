@@ -633,7 +633,12 @@ fn external_commands() {
     #[cfg(windows)]
     let expected: Vec<_> = vec!["sleep", "sleep.exe"];
     #[cfg(not(windows))]
-    let expected: Vec<_> = vec!["sleep", "^sleep"];
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "ls; %sl";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep", "slice"];
     match_suggestions(&expected, &suggestions);
 
     #[cfg(windows)]
@@ -643,6 +648,44 @@ fn external_commands() {
         let expected: Vec<_> = vec!["script.ps1"];
         match_suggestions(&expected, &suggestions);
     }
+}
+
+#[test]
+fn percent_completion_only_shows_builtins() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = "
+        def slimy [] { }
+        alias slalias = slimy
+    ";
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "%sli";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    assert!(suggestions.iter().any(|s| s.value == "slice"));
+    assert!(!suggestions.iter().any(|s| s.value == "slimy"));
+    assert!(!suggestions.iter().any(|s| s.value == "slalias"));
+}
+
+#[test]
+fn percent_completion_includes_shadowed_builtin() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = "def ls [] { 'custom-ls' }";
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "%ls";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+
+    assert!(
+        suggestions.iter().any(|s| s.value == "ls"),
+        "expected built-in ls completion for `%ls`, got: {:?}",
+        suggestions
+            .iter()
+            .map(|s| s.value.clone())
+            .collect::<Vec<_>>()
+    );
 }
 
 /// Disable external commands except for those start with `^`
@@ -689,7 +732,7 @@ fn which_command_completions() {
     #[cfg(windows)]
     let expected: Vec<_> = vec!["sleep", "sleep.exe"];
     #[cfg(not(windows))]
-    let expected: Vec<_> = vec!["sleep", "^sleep"];
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
 }
 

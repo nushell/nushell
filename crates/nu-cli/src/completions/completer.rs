@@ -340,18 +340,25 @@ impl NuCompleter {
             // e.g. `def "foo -f --ff bar"`, complete by line text
             // instead of relying on the parsing result in that case
             Expr::Call(_) | Expr::ExternalCall(_, _) => {
-                let need_externals = !prefix_str.contains(' ');
-                let need_internals = !prefix_str.starts_with('^');
+                let force_external = prefix_str.starts_with('^');
+                let force_internal = prefix_str.starts_with('%');
+                let force_builtins_only = force_internal;
+
+                let need_externals = !prefix_str.contains(' ') && !force_internal;
+                let need_internals = !force_external;
                 let mut span = element_expression.span;
-                if !need_internals {
+                if force_external || force_internal {
                     span.start += 1;
                 };
                 suggestions.extend(self.command_completion_helper(
                     working_set,
                     span,
                     offset,
-                    need_internals,
-                    need_externals,
+                    CommandCompletionOptions {
+                        internals: need_internals,
+                        externals: need_externals,
+                        builtins_only: force_builtins_only,
+                    },
                     strip,
                 ))
             }
@@ -588,8 +595,11 @@ impl NuCompleter {
                                     working_set,
                                     span,
                                     offset,
-                                    true,
-                                    true,
+                                    CommandCompletionOptions {
+                                        internals: true,
+                                        externals: true,
+                                        builtins_only: false,
+                                    },
                                     strip,
                                 );
                                 // flags of sudo/doas can still be completed by external completer
@@ -667,14 +677,15 @@ impl NuCompleter {
         working_set: &StateWorkingSet,
         span: Span,
         offset: usize,
-        internals: bool,
-        externals: bool,
+        options: CommandCompletionOptions,
         strip: bool,
     ) -> Vec<SemanticSuggestion> {
         let config = self.engine_state.get_config();
         let mut command_completions = CommandCompletion {
-            internals,
-            externals: !internals || (externals && config.completions.external.enable),
+            internals: options.internals,
+            externals: !options.internals
+                || (options.externals && config.completions.external.enable),
+            builtins_only: options.builtins_only,
         };
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
@@ -754,6 +765,12 @@ impl NuCompleter {
             &options,
         )
     }
+}
+
+struct CommandCompletionOptions {
+    internals: bool,
+    externals: bool,
+    builtins_only: bool,
 }
 
 impl ReedlineCompleter for NuCompleter {

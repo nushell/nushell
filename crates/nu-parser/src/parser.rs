@@ -14,8 +14,12 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     BlockId, DeclId, DidYouMean, ENV_VARIABLE_ID, FilesizeUnit, Flag, IN_VARIABLE_ID, ParseError,
-    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId, ast::*,
-    casing::Casing, did_you_mean, engine::StateWorkingSet, eval_const::eval_constant,
+    PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape, Type, Value, VarId,
+    ast::*,
+    casing::Casing,
+    did_you_mean,
+    engine::{CommandType, StateWorkingSet},
+    eval_const::eval_constant,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -40,6 +44,7 @@ fn is_identifier_byte(b: u8) -> bool {
         && b != b'-'
         && b != b'*'
         && b != b'^'
+        && b != b'%'
         && b != b'/'
         && b != b'='
         && b != b'!'
@@ -1410,13 +1415,39 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         return garbage(working_set, head);
     }
 
-    let (cmd_start, pos, _name, maybe_decl_id) = find_longest_decl(working_set, spans);
+    let call_sigil = match working_set.get_span_contents(spans[0]).first() {
+        Some(b'^') => Some(b'^'),
+        Some(b'%') => Some(b'%'),
+        _ => None,
+    };
+
+    // `^` always forces external command parsing.
+    if call_sigil == Some(b'^') {
+        trace!("parsing: forced external call");
+        return parse_external_call(working_set, spans);
+    }
+
+    let mut adjusted_spans = Vec::new();
+    let resolution_spans = if call_sigil == Some(b'%') {
+        adjusted_spans.reserve(spans.len());
+        adjusted_spans.push(Span::new(spans[0].start + 1, spans[0].end));
+        adjusted_spans.extend_from_slice(&spans[1..]);
+        adjusted_spans.as_slice()
+    } else {
+        spans
+    };
+
+    let (cmd_start, pos, _name, maybe_decl_id) = if call_sigil == Some(b'%') {
+        find_longest_decl_with_command_type(working_set, resolution_spans, CommandType::Builtin)
+    } else {
+        find_longest_decl(working_set, resolution_spans)
+    };
 
     if let Some(decl_id) = maybe_decl_id {
         // Before the internal parsing we check if there is no let or alias declarations
         // that are missing their name, e.g.: let = 1 or alias = 2
-        if spans.len() > 1 {
-            let test_equal = working_set.get_span_contents(spans[1]);
+        if resolution_spans.len() > 1 {
+            let test_equal = working_set.get_span_contents(resolution_spans[1]);
 
             if test_equal == [b'='] {
                 trace!("incomplete statement");
@@ -1442,10 +1473,10 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 trace!("parsing: alias of external call");
 
                 let mut head = head.clone();
-                head.span = Span::concat(&spans[cmd_start..pos]); // replacing the spans preserves syntax highlighting
+                head.span = Span::concat(&resolution_spans[cmd_start..pos]); // replacing the spans preserves syntax highlighting
 
                 let mut final_args = args.clone().into_vec();
-                for arg_span in &spans[pos..] {
+                for arg_span in &resolution_spans[pos..] {
                     let arg = parse_external_arg(working_set, *arg_span);
                     final_args.push(arg);
                 }
@@ -1462,8 +1493,8 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 trace!("parsing: alias of internal call");
                 parse_internal_call(
                     working_set,
-                    Span::concat(&spans[cmd_start..pos]),
-                    &spans[pos..],
+                    Span::concat(&resolution_spans[cmd_start..pos]),
+                    &resolution_spans[pos..],
                     decl_id,
                     ArgumentParsingLevel::Full,
                 )
@@ -1472,8 +1503,8 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             trace!("parsing: internal call");
             parse_internal_call(
                 working_set,
-                Span::concat(&spans[cmd_start..pos]),
-                &spans[pos..],
+                Span::concat(&resolution_spans[cmd_start..pos]),
+                &resolution_spans[pos..],
                 decl_id,
                 ArgumentParsingLevel::Full,
             )
@@ -1486,6 +1517,19 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             parsed_call.output,
         )
     } else {
+        if call_sigil == Some(b'%') {
+            working_set.error(ParseError::LabeledErrorWithHelp {
+                error: "percent sigil requires a built-in command".into(),
+                label: "unknown built-in command".into(),
+                help:
+                    "remove `%` to use normal resolution, or use `^` to run an external command explicitly".into(),
+                span: resolution_spans[0],
+            });
+
+            // Preserve expression shape for features like completion while retaining the parse error.
+            return parse_external_call(working_set, spans);
+        }
+
         // We might be parsing left-unbounded range ("..10")
         let bytes = working_set.get_span_contents(spans[0]);
         trace!("parsing: range {bytes:?}");
@@ -1504,6 +1548,81 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         // Otherwise, try external command
         parse_external_call(working_set, spans)
     }
+}
+
+fn find_decl_with_command_type(
+    working_set: &StateWorkingSet<'_>,
+    name: &[u8],
+    command_type: CommandType,
+) -> Option<DeclId> {
+    // Search all known declarations so `%cmd` can still resolve a built-in even when
+    // a custom command with the same name shadows it in normal visibility lookup.
+    for idx in (0..working_set.num_decls()).rev() {
+        let decl_id = DeclId::new(idx);
+        let decl = working_set.get_decl(decl_id);
+        if decl.command_type() == command_type && decl.name().as_bytes() == name {
+            return Some(decl_id);
+        }
+    }
+
+    None
+}
+
+// Build a command name from spaced spans, preserving the existing parser command-name behavior.
+fn command_name_from_spans(
+    working_set: &StateWorkingSet<'_>,
+    spans: &[Span],
+    prefix: &[u8],
+) -> Vec<u8> {
+    let mut name = Vec::with_capacity(prefix.len() + spans.len() * 2);
+    name.extend(prefix);
+
+    for span in spans {
+        let name_part = working_set.get_span_contents(*span);
+        if name.is_empty() {
+            name.extend(name_part);
+        } else {
+            name.push(b' ');
+            name.extend(name_part);
+        }
+    }
+
+    name
+}
+
+// Variant of `find_longest_decl` that constrains matches to a specific command type.
+fn find_longest_decl_with_command_type(
+    working_set: &StateWorkingSet<'_>,
+    spans: &[Span],
+    command_type: CommandType,
+) -> (
+    usize,
+    usize,
+    Vec<u8>,
+    Option<nu_protocol::Id<nu_protocol::marker::Decl>>,
+) {
+    let mut pos = spans.len();
+    let cmd_start = 0;
+    let mut name_spans = spans.to_vec();
+
+    let mut name = command_name_from_spans(working_set, &name_spans, b"");
+
+    let mut maybe_decl_id = find_decl_with_command_type(working_set, &name, command_type);
+
+    while maybe_decl_id.is_none() {
+        if name_spans.len() <= 1 {
+            break;
+        }
+
+        name_spans.pop();
+        pos -= 1;
+
+        name = command_name_from_spans(working_set, &name_spans, b"");
+
+        maybe_decl_id = find_decl_with_command_type(working_set, &name, command_type);
+    }
+
+    (cmd_start, pos, name, maybe_decl_id)
 }
 
 pub fn find_longest_decl(
@@ -1531,24 +1650,16 @@ pub fn find_longest_decl_with_prefix(
     let mut pos = 0;
     let cmd_start = pos;
     let mut name_spans = vec![];
-    let mut name = vec![];
-    name.extend(prefix);
 
     for word_span in spans[cmd_start..].iter() {
         // Find the longest group of words that could form a command
 
         name_spans.push(*word_span);
 
-        let name_part = working_set.get_span_contents(*word_span);
-        if name.is_empty() {
-            name.extend(name_part);
-        } else {
-            name.push(b' ');
-            name.extend(name_part);
-        }
-
         pos += 1;
     }
+
+    let mut name = command_name_from_spans(working_set, &name_spans, prefix);
 
     let mut maybe_decl_id = working_set.find_decl(&name);
 
@@ -1562,18 +1673,7 @@ pub fn find_longest_decl_with_prefix(
         name_spans.pop();
         pos -= 1;
 
-        // TODO: Refactor to avoid recreating name with an inner loop.
-        name.clear();
-        name.extend(prefix);
-        for name_span in &name_spans {
-            let name_part = working_set.get_span_contents(*name_span);
-            if name.is_empty() {
-                name.extend(name_part);
-            } else {
-                name.push(b' ');
-                name.extend(name_part);
-            }
-        }
+        name = command_name_from_spans(working_set, &name_spans, prefix);
         maybe_decl_id = working_set.find_decl(&name);
     }
 

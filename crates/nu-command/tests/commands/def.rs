@@ -1,5 +1,7 @@
+use nu_protocol::ParseError;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::test as nu_test;
 use std::fs;
 
 #[test]
@@ -129,15 +131,28 @@ fn def_errors_with_multiple_commas() {
 
 #[test]
 fn def_fails_with_invalid_name() {
-    let err_msg = "command name can't be a number, a filesize, or contain a hash # or caret ^";
-    let actual = nu!(r#"def 1234 = echo "test""#);
-    assert!(actual.err.contains(err_msg));
+    let tester = nu_test();
 
-    let actual = nu!(r#"def 5gib = echo "test""#);
-    assert!(actual.err.contains(err_msg));
+    let err = tester
+        .parse_and_compile(r#"def 1234 = echo "test""#)
+        .err()
+        .expect("def with numeric name should fail");
+    let err = err.parse().expect("expected parse error");
+    assert!(matches!(err, ParseError::CommandDefNotValid(_)));
 
-    let actual = nu!("def ^foo [] {}");
-    assert!(actual.err.contains(err_msg));
+    let err = tester
+        .parse_and_compile(r#"def 5gib = echo "test""#)
+        .err()
+        .expect("def with filesize-like name should fail");
+    let err = err.parse().expect("expected parse error");
+    assert!(matches!(err, ParseError::CommandDefNotValid(_)));
+
+    let err = tester
+        .parse_and_compile("def ^foo [] {}")
+        .err()
+        .expect("def with caret should fail");
+    let err = err.parse().expect("expected parse error");
+    assert!(matches!(err, ParseError::CommandDefNotValid(_)));
 }
 
 #[test]
