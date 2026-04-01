@@ -11,7 +11,8 @@ env:
   NU_LOG_LEVEL: DEBUG
   CLIPPY_OPTIONS: "-D warnings"
   NUSHELL_CARGO_PROFILE: ci
-  NATIVE_OPTIONS: --workspace --exclude nu_plugin_*
+  MAIN_OPTIONS: --workspace --exclude nu_plugin_* --all-targets
+  PLUGIN_OPTIONS: --package nu_plugin_* --all-targets
   WASM_OPTIONS: >
     --no-default-features
     --target wasm32-unknown-unknown
@@ -52,32 +53,32 @@ jobs:
           - name: Ubuntu
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            options: $NATIVE_OPTIONS
+            options: $MAIN_OPTIONS
             steps: [fmt, clippy, build, test]
           - name: Windows
             host: windows-latest
             target: x86_64-pc-windows-msvc
-            options: $NATIVE_OPTIONS
+            options: $MAIN_OPTIONS
             steps: [fmt, clippy, build, test]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
-            options: $NATIVE_OPTIONS
+            options: $MAIN_OPTIONS
             steps: [fmt, clippy, build, test]
           - name: Ubuntu Plugins
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            options: --package nu_plugin_*
+            options: $PLUGIN_OPTIONS
             steps: [clippy, build, test]
           - name: Windows Plugins
             host: windows-latest
             target: x86_64-pc-windows-msvc
-            options: --package nu_plugin_*
+            options: $PLUGIN_OPTIONS
             steps: [clippy, build, test]
           - name: MacOS Plugins
             host: macos-latest
             target: x86_64-apple-darwin
-            options: --package nu_plugin_*
+            options: $PLUGIN_OPTIONS
             steps: [clippy, build, test]
           - name: WASM
             host: ubuntu-22.04
@@ -137,14 +138,14 @@ jobs:
       - name: cargo check
         if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
         working-directory: ${{ matrix.workspace.path }}
-        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets
+        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
         
       - name: cargo clippy
         if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
         working-directory: ${{ matrix.workspace.path }}
         run: |
           rustup component add clippy
-          cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets -- $CLIPPY_OPTIONS
+          cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} -- $CLIPPY_OPTIONS
 
       - name: cargo build
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
