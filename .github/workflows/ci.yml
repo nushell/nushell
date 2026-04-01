@@ -10,6 +10,7 @@ name: continuous-integration
 env:
   NU_LOG_LEVEL: DEBUG
   CLIPPY_OPTIONS: "-D warnings"
+  NUSHELL_CARGO_PROFILE: ci
   NATIVE_OPTIONS: --workspace --exclude nu_plugin_*
   WASM_OPTIONS: >
     --no-default-features
