@@ -4,11 +4,19 @@ use rstest::rstest;
 /// checks that garbage is highlighted as error
 #[rstest]
 #[case::out_pipe_as_garbage("ps out>| $in", "garbage")]
+#[case::out_pipe_as_garbage_without_following_elements("ps out>|", "garbage")]
 #[case::and_and_as_garbage("^foobar && ls", "garbage")]
 #[case::number_redirection_as_garbage("^foobar 2> err", "garbage")]
 #[case::number_redirection_as_garbage("^foobar 2>&1 err", "garbage")]
 #[case::redirection_pipe_has_a_redirection_part("^ls o+e>| ls", "redirection")]
 #[case::redirection_pipe_has_a_pipe_part("^ls e>| ls", "pipe")]
+#[case::separate_redirection_pipe_has_a_redirection_part("^ls o> foo e>| ls", "redirection")]
+#[case::separate_redirection_pipe_has_a_pipe_part("^ls o> foo e>| ls", "pipe")]
+#[case::separate_redirection_pipe_garbage("^ls e> foo o>| ls", "garbage")]
+#[case::separate_redirection_pipe_garbage_with_a_redirection_part(
+    "^ls e> foo o>| ls",
+    "redirection"
+)]
 fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) {
     use std::fmt::Write;
 

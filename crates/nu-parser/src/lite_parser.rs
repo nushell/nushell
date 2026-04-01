@@ -449,7 +449,6 @@ pub fn lite_parse(
                             pipeline.push(&mut command);
                         }
                         TokenContents::Pipe => {
-                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
                             pipeline.push(&mut command);
                         }
