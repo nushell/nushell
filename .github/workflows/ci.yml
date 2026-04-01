@@ -123,13 +123,9 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v6
 
-      - name: Setup Rust Toolchain and Cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          toolchain: nightly # include nightly for fuzzers
-          components: clippy, rustfmt # explicitly state these for fuzzers
-          override: false # respect workspace rust-toolchain.toml files
-          target: ${{ matrix.target.target }}
+      - name: Setup Rust Toolchain
+        run: rustup target add ${{ matrix.target.target }}
+        working-directory: ${{ matrix.workspace.path }}
 
       - name: cargo fmt
         run: cargo fmt --all --check
