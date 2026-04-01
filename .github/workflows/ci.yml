@@ -10,7 +10,7 @@ name: continuous-integration
 env:
   NU_LOG_LEVEL: DEBUG
   CLIPPY_OPTIONS: "-D warnings"
-  NATIVE_OPTIONS: --workspace --all-targets --exclude nu_plugin_*
+  NATIVE_OPTIONS: --workspace --exclude nu_plugin_*
   WASM_OPTIONS: >
     --no-default-features
     -p nu-cmd-base
@@ -131,12 +131,12 @@ jobs:
         if: contains(matrix.target.steps, 'fmt')
 
       - name: cargo check
-        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets
         working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'check')
 
       - name: cargo clippy
-        run: cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} -- $CLIPPY_OPTIONS
+        run: cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets -- $CLIPPY_OPTIONS
         working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'clippy')
 
