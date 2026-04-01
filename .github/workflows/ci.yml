@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   cargo:
-    name: cargo ${{ matrix.command.name }} in ${{ matrix.workspace.name }} (${{ matrix.platform.name }})
+    name: \`cargo ${{ matrix.command.name }}\` in ${{ matrix.workspace.name }} (${{ matrix.platform.name }})
     strategy:
       fail-fast: true
       matrix:
