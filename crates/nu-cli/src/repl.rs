@@ -31,6 +31,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
 };
+use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf,
@@ -53,7 +54,6 @@ use std::{
     time::Duration,
 };
 use sysinfo::System;
-use nu_utils::time::Instant;
 
 fn semantic_markers_from_config(
     config: &Config,

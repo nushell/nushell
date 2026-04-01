@@ -1,7 +1,4 @@
-use std::{
-    io::Result,
-    time::Duration,
-};
+use std::{io::Result, time::Duration};
 
 use nu_utils::time::Instant;
 

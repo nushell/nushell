@@ -7,8 +7,8 @@ use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Du
 use devicons::icon_for_file;
 use lscolors::{LsColors, Style};
 use nu_color_config::lookup_ansi_color_style;
-use url::Url;
 use nu_utils::time::Instant;
+use url::Url;
 
 use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
 use nu_engine::{command_prelude::*, env_to_string};

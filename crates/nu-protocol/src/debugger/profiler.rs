@@ -4,13 +4,13 @@
 //! profiling Nushell code.
 
 use crate::{
+    PipelineData, PipelineExecutionData, ShellError, Span, Value,
     ast::{Block, Expr, PipelineElement},
     debugger::Debugger,
     engine::EngineState,
     ir::IrBlock,
     record,
     shell_error::generic::GenericError,
-    PipelineData, PipelineExecutionData, ShellError, Span, Value,
 };
 use nu_utils::time::Instant;
 use std::{

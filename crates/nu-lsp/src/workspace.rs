@@ -3,7 +3,6 @@ use crate::{
     ast::{self, find_id, find_reference_by_id},
     path_to_uri, span_to_range, uri_to_path,
 };
-use nu_utils::time::Instant;
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
     DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location,
@@ -16,6 +15,7 @@ use nu_protocol::{
     Span,
     engine::{EngineState, StateWorkingSet},
 };
+use nu_utils::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,

@@ -25,18 +25,18 @@ use std::mem::ManuallyDrop;
 #[cfg(unix)]
 use std::net::Shutdown;
 use std::net::{SocketAddr, TcpStream};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;
 
 use nu_protocol::HandlerGuard;
+use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, Either, LazyBuffers, NextTimeout, Transport,
 };
-use ureq::Error;
 
 /// Callback invoked when a connection is established.
 /// Returns a guard that keeps the interrupt handler registered and a flag

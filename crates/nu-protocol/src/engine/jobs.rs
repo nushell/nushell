@@ -1,8 +1,8 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::{
-        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
         Arc, Mutex,
+        mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
     },
 };
 
@@ -11,9 +11,9 @@ use nu_utils::time::Instant;
 #[cfg(not(target_family = "wasm"))]
 use std::time::Duration;
 
-use nu_system::{kill_by_pid, UnfreezeHandle};
+use nu_system::{UnfreezeHandle, kill_by_pid};
 
-use crate::{shell_error, PipelineData, Signals};
+use crate::{PipelineData, Signals, shell_error};
 
 use crate::JobId;
 
