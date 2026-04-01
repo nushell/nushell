@@ -127,22 +127,27 @@ jobs:
 
       - name: cargo fmt
         run: cargo fmt --all --check
+        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'fmt')
 
       - name: cargo check
         run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'check')
 
       - name: cargo clippy
         run: cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} -- $CLIPPY_OPTIONS
+        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'clippy')
 
       - name: cargo build
         run: cargo build ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'build')
 
       - name: cargo test
         run: cargo test ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'test')
 
       - name: Assert Clean Repo
