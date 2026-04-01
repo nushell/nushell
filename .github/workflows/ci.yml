@@ -39,6 +39,7 @@ concurrency:
 
 jobs:
   cargo:
+    name: "`cargo` in ${{ matrix.workspace.name }} (${{ matrix.target.name }})"
     strategy:
       fail-fast: true
       matrix:
