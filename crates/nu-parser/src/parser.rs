@@ -4234,6 +4234,22 @@ pub fn parse_signature_helper(
                         }
                     }
                 } else {
+                    let mut check_and_add_variable =
+                        |working_set: &mut StateWorkingSet,
+                         var_name: Vec<u8>,
+                         ty: Type,
+                         span: Span| {
+                            if is_external {
+                                None
+                            } else {
+                                ensure_not_reserved_variable_name(working_set, &var_name, span);
+                                let var_id =
+                                    working_set.add_variable_without_scope(span, ty, false);
+                                pending_scope_inserts.push((var_name, var_id));
+                                Some(var_id)
+                            }
+                        };
+
                     match parse_mode {
                         ParseMode::Arg | ParseMode::AfterCommaArg | ParseMode::AfterType => {
                             // Long flag with optional short form following with no whitespace, e.g. --output, --age(-a)
@@ -4258,22 +4274,12 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                let var_id = if is_external {
-                                    None
-                                } else {
-                                    ensure_not_reserved_variable_name(
-                                        working_set,
-                                        &variable_name,
-                                        span,
-                                    );
-                                    let var_id = working_set.add_variable_without_scope(
-                                        span,
-                                        Type::Bool,
-                                        false,
-                                    );
-                                    pending_scope_inserts.push((variable_name, var_id));
-                                    Some(var_id)
-                                };
+                                let var_id = check_and_add_variable(
+                                    working_set,
+                                    variable_name,
+                                    Type::Bool,
+                                    span,
+                                );
 
                                 // If there's no short flag, exit now. Otherwise, parse it.
                                 if flags.len() == 1 {
@@ -4357,22 +4363,12 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                let var_id = if is_external {
-                                    None
-                                } else {
-                                    ensure_not_reserved_variable_name(
-                                        working_set,
-                                        &variable_name,
-                                        span,
-                                    );
-                                    let var_id = working_set.add_variable_without_scope(
-                                        span,
-                                        Type::Bool,
-                                        false,
-                                    );
-                                    pending_scope_inserts.push((variable_name, var_id));
-                                    Some(var_id)
-                                };
+                                let var_id = check_and_add_variable(
+                                    working_set,
+                                    variable_name,
+                                    Type::Bool,
+                                    span,
+                                );
 
                                 args.push(Arg::Flag {
                                     flag: Flag {
@@ -4439,22 +4435,12 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                let var_id = if is_external {
-                                    None
-                                } else {
-                                    ensure_not_reserved_variable_name(
-                                        working_set,
-                                        optional_param,
-                                        span,
-                                    );
-                                    let var_id = working_set.add_variable_without_scope(
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
-                                    pending_scope_inserts.push((optional_param.to_vec(), var_id));
-                                    Some(var_id)
-                                };
+                                let var_id = check_and_add_variable(
+                                    working_set,
+                                    optional_param.to_vec(),
+                                    Type::Any,
+                                    span,
+                                );
 
                                 args.push(Arg::Positional {
                                     arg: PositionalArg {
@@ -4482,18 +4468,12 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                let var_id = if is_external {
-                                    None
-                                } else {
-                                    ensure_not_reserved_variable_name(working_set, contents, span);
-                                    let var_id = working_set.add_variable_without_scope(
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
-                                    pending_scope_inserts.push((contents_vec, var_id));
-                                    Some(var_id)
-                                };
+                                let var_id = check_and_add_variable(
+                                    working_set,
+                                    contents_vec,
+                                    Type::Any,
+                                    span,
+                                );
 
                                 args.push(Arg::RestPositional(PositionalArg {
                                     desc: String::new(),
@@ -4517,22 +4497,12 @@ pub fn parse_signature_helper(
                                     ))
                                 }
 
-                                let var_id = if is_external {
-                                    None
-                                } else {
-                                    ensure_not_reserved_variable_name(
-                                        working_set,
-                                        &contents_vec,
-                                        span,
-                                    );
-                                    let var_id = working_set.add_variable_without_scope(
-                                        span,
-                                        Type::Any,
-                                        false,
-                                    );
-                                    pending_scope_inserts.push((contents_vec, var_id));
-                                    Some(var_id)
-                                };
+                                let var_id = check_and_add_variable(
+                                    working_set,
+                                    contents_vec,
+                                    Type::Any,
+                                    span,
+                                );
 
                                 // Positional arg, required
                                 args.push(Arg::Positional {
