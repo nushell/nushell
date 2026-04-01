@@ -48,6 +48,7 @@ jobs:
         with:
           toolchain: nightly # include nightly for fuzzers
           components: clippy, rustfmt # explicitly state these for fuzzers
+          override: false # respect workspace rust-toolchain.toml files
 
       - name: cargo ${{ matrix.command.name }}
         run: ${{ matrix.command.value }}
