@@ -281,28 +281,23 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
     let mut loop_input = input.chars().peekable();
+    let mut byte_offset = 0;
     loop {
         let mut before = String::new();
         while let Some(c) = loop_input.next() {
+            byte_offset += c.len_utf8();
             if c == '{' {
                 // If '{{', still creating a plaintext parse command, but just for a single '{' char
                 if loop_input.peek() == Some(&'{') {
-                    // Allow `{{name}` at end, like `$'{a}(char lbrace){b}'`, where `{` is literal
-                    let mut lookahead = loop_input.clone();
-                    let _ = lookahead.next();
-                    let mut saw_closing = false;
-                    for next in lookahead.by_ref() {
-                        if next == '}' {
-                            saw_closing = true;
-                            break;
-                        }
-                        if next == '{' {
-                            break;
-                        }
-                    }
+                    // Don't consume the second `{` if it starts a trailing capture like `{{b}`
+                    let after = &input[byte_offset + 1..];
+                    let is_trailing_capture = after
+                        .find(['}', '{'])
+                        .is_some_and(|p| after.as_bytes()[p] == b'}' && p + 1 == after.len());
 
-                    if !(saw_closing && lookahead.peek().is_none()) {
+                    if !is_trailing_capture {
                         let _ = loop_input.next();
+                        byte_offset += 1;
                     }
                 } else {
                     break;
@@ -318,6 +313,7 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
         // Look for column as we're now at one
         let mut column = String::new();
         while let Some(c) = loop_input.next() {
+            byte_offset += c.len_utf8();
             if c == '}' {
                 break;
             }

@@ -41,14 +41,27 @@ mod simple {
     }
 
     #[test]
-    fn char_lbrace_can_be_used_before_a_capture() {
-        let actual = nu!(r#"
-            "1234{56"
-            | parse $'{a}(char lbrace){b}'
-            | to json -r
-        "#);
+    fn char_lbrace_before_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""1234{56" | parse $'{a}(char lbrace){b}' | get a.0"#)
+            .expect_value_eq("1234")
+    }
 
-        assert_eq!(actual.out, r#"[{"a":"1234","b":"56"}]"#);
+    #[test]
+    fn double_brace_at_end_matches_literal_brace_with_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{hello" | parse "{{foo}" | get foo.0"#)
+            .expect_value_eq("hello")
+    }
+
+    #[test]
+    fn double_brace_at_end_does_not_match_without_brace_in_input() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""hello" | parse "{{foo}" | length"#)
+            .expect_value_eq(0)
     }
 
     #[test]
