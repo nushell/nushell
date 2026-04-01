@@ -2,6 +2,7 @@
     clippy::disallowed_types,
     reason = "only allow std::time::Instant here when it's not WASM"
 )]
+#![allow(clippy::unchecked_time_subtraction, reason = "just forwarded")]
 
 use std::{
     ops::{Add, AddAssign, Deref, Sub, SubAssign},
