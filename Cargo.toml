@@ -194,7 +194,7 @@ serde = { version = "1.0" }
 serde_json = "1.0.149"
 serde_urlencoded = "0.7.1"
 serde_yaml = "0.9.34-deprecated"
-sha2 = "0.10"
+sha2 = "0.11"
 strip-ansi-escapes = "0.2.1"
 strum = "0.27.0"
 strum_macros = "0.27.0"
