@@ -51,32 +51,32 @@ jobs:
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             options: $NATIVE_OPTIONS
-            steps: [fmt, clippy, test]
+            steps: [fmt, clippy, build, test]
           - name: Windows
             host: windows-latest
             target: x86_64-pc-windows-msvc
             options: $NATIVE_OPTIONS
-            steps: [fmt, clippy, test]
+            steps: [fmt, clippy, build, test]
           - name: MacOS
             host: macos-latest
             target: x86_64-apple-darwin
             options: $NATIVE_OPTIONS
-            steps: [fmt, clippy, test]
+            steps: [fmt, clippy, build, test]
           - name: Ubuntu Plugins
             host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             options: --package nu_plugin_*
-            steps: [clippy, test]
+            steps: [clippy, build, test]
           - name: Windows Plugins
             host: windows-latest
             target: x86_64-pc-windows-msvc
             options: --package nu_plugin_*
-            steps: [clippy, test]
+            steps: [clippy, build, test]
           - name: MacOS Plugins
             host: macos-latest
             target: x86_64-apple-darwin
             options: --package nu_plugin_*
-            steps: [clippy, test]
+            steps: [clippy, build, test]
           - name: WASM
             host: ubuntu-22.04
             target: wasm32-unknown-unknown
