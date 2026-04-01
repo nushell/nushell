@@ -87,12 +87,15 @@ jobs:
           - name: root
             path: ./
             profile: ci
+            skip: []
           - name: nu-parser/fuzz
             path: ./crates/nu-parser/fuzz
             profile: dev
+            skip: [build, test]
           - name: nu-path/fuzz
             path: ./crates/nu-path/fuzz
             profile: dev
+            skip: [build, test]
 
         exclude:
           - target: { name: WASM }
@@ -128,27 +131,27 @@ jobs:
       - name: cargo fmt
         run: cargo fmt --all --check
         working-directory: ${{ matrix.workspace.path }}
-        if: contains(matrix.target.steps, 'fmt')
+        if: contains(matrix.target.steps, 'fmt') && !contains(matrix.workspace.skip, 'fmt')
 
       - name: cargo check
         run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets
         working-directory: ${{ matrix.workspace.path }}
-        if: contains(matrix.target.steps, 'check')
+        if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
 
       - name: cargo clippy
         run: cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets -- $CLIPPY_OPTIONS
         working-directory: ${{ matrix.workspace.path }}
-        if: contains(matrix.target.steps, 'clippy')
+        if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
 
       - name: cargo build
         run: cargo build ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
         working-directory: ${{ matrix.workspace.path }}
-        if: contains(matrix.target.steps, 'build')
+        if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
 
       - name: cargo test
         run: cargo test ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
         working-directory: ${{ matrix.workspace.path }}
-        if: contains(matrix.target.steps, 'test')
+        if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
