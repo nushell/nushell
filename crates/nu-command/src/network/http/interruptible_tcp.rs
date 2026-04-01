@@ -25,18 +25,18 @@ use std::mem::ManuallyDrop;
 #[cfg(unix)]
 use std::net::Shutdown;
 use std::net::{SocketAddr, TcpStream};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(windows)]
 use std::os::windows::io::AsRawSocket;
 
 use nu_protocol::HandlerGuard;
-use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, Either, LazyBuffers, NextTimeout, Transport,
 };
+use ureq::Error;
 
 /// Callback invoked when a connection is established.
 /// Returns a guard that keeps the interrupt handler registered and a flag
@@ -333,10 +333,11 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
 mod tests {
     use super::*;
     use nu_protocol::{Handlers, SignalAction};
+    use nu_utils::time::Instant;
     use std::io::Write;
     use std::net::TcpListener;
     use std::thread;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     #[test]
     fn test_interrupt_unblocks_read() {

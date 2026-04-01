@@ -1,13 +1,15 @@
 //! This is used for both NetBSD and OpenBSD, because they are fairly similar.
 
 use itertools::{EitherOrBoth, Itertools};
-use libc::{CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV, sysctl};
+use libc::{sysctl, CTL_HW, CTL_KERN, KERN_PROC_ALL, KERN_PROC_ARGS, KERN_PROC_ARGV};
 use std::{
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 #[cfg(target_os = "netbsd")]
 type KInfoProc = libc::kinfo_proc2;

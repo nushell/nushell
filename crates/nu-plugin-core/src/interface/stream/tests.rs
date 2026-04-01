@@ -1,11 +1,12 @@
 use std::{
     sync::{
-        Arc,
         atomic::{AtomicBool, Ordering::Relaxed},
-        mpsc,
+        mpsc, Arc,
     },
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 use super::{StreamManager, StreamReader, StreamWriter, StreamWriterSignal, WriteStreamMessage};
 use nu_plugin_protocol::{StreamData, StreamMessage};

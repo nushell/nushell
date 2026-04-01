@@ -11,7 +11,8 @@ use mach2::mach_time;
 use std::cmp;
 use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use nu_utils::time::Instant;
 
 pub struct ProcessInfo {
     pub pid: i32,

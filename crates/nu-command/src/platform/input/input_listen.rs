@@ -4,7 +4,9 @@ use crossterm::event::{
 };
 use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use nu_utils::time::Instant;
 
 use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 use num_traits::AsPrimitive;

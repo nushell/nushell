@@ -15,6 +15,7 @@ use nu_protocol::{
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
 use nu_utils::{escape_quote_string, perf};
+use nu_utils::time::Instant;
 use std::path::Path;
 
 // This will collect environment variables from std::env and adds them to a stack.
@@ -243,7 +244,7 @@ pub fn eval_source(
     input: PipelineData,
     allow_return: bool,
 ) -> i32 {
-    let start_time = std::time::Instant::now();
+    let start_time = Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {

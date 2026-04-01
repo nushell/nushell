@@ -1,17 +1,19 @@
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     sync::{
-        Arc, Mutex,
         mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
+        Arc, Mutex,
     },
 };
 
 #[cfg(not(target_family = "wasm"))]
-use std::time::{Duration, Instant};
+use nu_utils::time::Instant;
+#[cfg(not(target_family = "wasm"))]
+use std::time::Duration;
 
-use nu_system::{UnfreezeHandle, kill_by_pid};
+use nu_system::{kill_by_pid, UnfreezeHandle};
 
-use crate::{PipelineData, Signals, shell_error};
+use crate::{shell_error, PipelineData, Signals};
 
 use crate::JobId;
 

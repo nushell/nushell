@@ -72,8 +72,8 @@ fn current_dir_from_environment() -> PathBuf {
 }
 
 fn main() -> Result<()> {
-    let entire_start_time = std::time::Instant::now();
-    let mut start_time = std::time::Instant::now();
+    let entire_start_time = nu_utils::time::Instant::now();
+    let mut start_time = nu_utils::time::Instant::now();
     miette::set_panic_hook();
     let miette_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |x| {
@@ -293,7 +293,7 @@ fn main() -> Result<()> {
         perf!("start logging", start_time, use_color);
     }
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     set_config_path(
         &mut engine_state,
         init_cwd.as_ref(),
@@ -313,12 +313,12 @@ fn main() -> Result<()> {
 
     #[cfg(unix)]
     {
-        start_time = std::time::Instant::now();
+        start_time = nu_utils::time::Instant::now();
         terminal::acquire(engine_state.is_interactive);
         perf!("acquire_terminal", start_time, use_color);
     }
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     // No source span — default config is synthesized at startup
     engine_state.add_env_var(
         "config".into(),
@@ -331,13 +331,13 @@ fn main() -> Result<()> {
         Value::test_record(record! {}),
     );
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     // First, set up env vars as strings only
     gather_parent_env_vars(&mut engine_state, init_cwd.as_ref());
     perf!("gather env vars", start_time, use_color);
 
     let mut stack = Stack::new();
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     let config = engine_state.get_config();
     let use_color = config.use_ansi_coloring.get(&engine_state);
     // Translate environment variables from Strings to Values
@@ -347,7 +347,7 @@ fn main() -> Result<()> {
     perf!("Convert path to list", start_time, use_color);
 
     // Set up NU_LIB_DIRS: constant = defaults + env + -I, env = env + -I
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     {
         /// Parse a string into a list of paths, splitting on the given separators.
         fn parse_path_list(value: &str, separators: &[char]) -> Vec<String> {
@@ -457,7 +457,7 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     if let Some(testbin) = &parsed_nu_cli_args.testbin {
         let dispatcher = test_bins::new_testbin_dispatcher();
         let test_bin = testbin.item.as_str();
@@ -482,7 +482,7 @@ fn main() -> Result<()> {
     }
     perf!("run test_bins", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     let input = if let Some(redirect_stdin) = &parsed_nu_cli_args.redirect_stdin {
         trace!("redirecting stdin");
         PipelineData::byte_stream(ByteStream::stdin(redirect_stdin.span)?, None)
@@ -492,7 +492,7 @@ fn main() -> Result<()> {
     };
     perf!("redirect stdin", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
     // Set up the $nu constant before evaluating config files (need to have $nu available in them)
     engine_state.generate_nu_constant();
     perf!("create_nu_constant", start_time, use_color);
@@ -503,7 +503,7 @@ fn main() -> Result<()> {
         use nu_protocol::{ErrSpan, PluginIdentity, RegisteredPlugin, engine::StateWorkingSet};
 
         // Load any plugins specified with --plugins
-        start_time = std::time::Instant::now();
+        start_time = nu_utils::time::Instant::now();
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         for plugin_filename in plugins {
@@ -542,7 +542,7 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
-    start_time = *nu_utils::time::Instant::now();
+    start_time = nu_utils::time::Instant::now();
 
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {

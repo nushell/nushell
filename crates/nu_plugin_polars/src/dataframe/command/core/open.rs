@@ -1,17 +1,18 @@
 use crate::{
-    EngineWrapper, PolarsPlugin,
     command::core::resource::Resource,
     dataframe::values::NuSchema,
     values::{CustomValueSupport, NuDataFrame, NuLazyFrame, PolarsFileType, PolarsPluginType},
+    EngineWrapper, PolarsPlugin,
 };
 use log::debug;
 use nu_utils::perf;
+use nu_utils::time::Instant;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
+    shell_error::{self, generic::GenericError, io::IoError},
     Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type, Value,
-    shell_error::{self, generic::GenericError, io::IoError},
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -24,7 +25,7 @@ use polars::{
     },
 };
 
-use polars_io::{HiveOptions, avro::AvroReader, csv::read::CsvReadOptions, ipc::IpcScanOptions};
+use polars_io::{avro::AvroReader, csv::read::CsvReadOptions, ipc::IpcScanOptions, HiveOptions};
 
 const DEFAULT_INFER_SCHEMA: usize = 100;
 
@@ -447,7 +448,7 @@ fn from_ndjson(
         );
     let maybe_schema = get_schema(plugin, call)?;
     if !is_eager {
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df = LazyJsonLineReader::new(resource.path)
             .with_infer_schema_length(Some(infer_schema))
@@ -486,7 +487,7 @@ fn from_ndjson(
             None => reader,
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df: NuDataFrame = reader
             .finish()
@@ -564,7 +565,7 @@ fn from_csv(
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| {
@@ -581,7 +582,7 @@ fn from_csv(
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let file_span = resource.span;
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
             .with_infer_schema_length(Some(infer_schema))

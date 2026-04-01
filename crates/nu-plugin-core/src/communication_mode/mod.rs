@@ -2,9 +2,9 @@ use std::ffi::OsStr;
 use std::io::{Stdin, Stdout};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 
-use nu_protocol::ShellError;
 #[cfg(feature = "local-socket")] // unused without that feature
 use nu_protocol::shell_error::io::IoError;
+use nu_protocol::ShellError;
 
 #[cfg(feature = "local-socket")]
 mod local_socket;
@@ -171,9 +171,10 @@ impl PreparedServerCommunication {
             }
             #[cfg(feature = "local-socket")]
             PreparedServerCommunication::LocalSocket { listener, .. } => {
-                use interprocess::local_socket::ListenerNonblockingMode;
                 use interprocess::local_socket::traits::{Listener, Stream};
-                use std::time::{Duration, Instant};
+                use interprocess::local_socket::ListenerNonblockingMode;
+                use nu_utils::time::Instant;
+                use std::time::Duration;
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);
                 const TIMEOUT: Duration = Duration::from_secs(10);

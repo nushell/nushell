@@ -3,7 +3,8 @@ use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCGroups, WithCurrentSystemInfo};
 use std::path::PathBuf;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use nu_utils::time::Instant;
 
 pub enum ProcessTask {
     Process(Process),

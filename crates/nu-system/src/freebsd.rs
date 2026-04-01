@@ -1,15 +1,17 @@
 use itertools::{EitherOrBoth, Itertools};
 use libc::{
-    CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS, TDF_IDLETD, c_char, kinfo_proc,
-    sysctl,
+    c_char, kinfo_proc, sysctl, CTL_HW, CTL_KERN, KERN_PROC, KERN_PROC_ALL, KERN_PROC_ARGS,
+    TDF_IDLETD,
 };
 use std::{
     ffi::CStr,
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 #[derive(Debug)]
 pub struct ProcessInfo {

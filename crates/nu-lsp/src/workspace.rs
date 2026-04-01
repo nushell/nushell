@@ -3,6 +3,7 @@ use crate::{
     ast::{self, find_id, find_reference_by_id},
     path_to_uri, span_to_range, uri_to_path,
 };
+use nu_utils::time::Instant;
 use lsp_textdocument::FullTextDocument;
 use lsp_types::{
     DocumentHighlight, DocumentHighlightKind, DocumentHighlightParams, Location,
@@ -225,7 +226,7 @@ impl LanguageServer {
             .ok();
         // TODO: WorkDoneProgress -> PartialResults for quicker response
         // currently not enabled by `lsp_types` but hackable in `server_capabilities` json
-        let time_start = std::time::Instant::now();
+        let time_start = Instant::now();
         loop {
             if self.handle_internal_messages().ok()? {
                 break;

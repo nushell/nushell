@@ -1,10 +1,12 @@
 use crate::PersistentPlugin;
 use nu_protocol::{PluginGcConfig, RegisteredPlugin};
 use std::{
-    sync::{Arc, Weak, mpsc},
+    sync::{mpsc, Arc, Weak},
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 /// Plugin garbage collector
 ///

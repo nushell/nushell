@@ -12,6 +12,8 @@ use nu_protocol::{
 };
 #[cfg(feature = "plugin")]
 use nu_utils::perf;
+#[cfg(feature = "plugin")]
+use nu_utils::time::Instant;
 use std::path::PathBuf;
 
 #[cfg(feature = "plugin")]
@@ -48,7 +50,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
         return;
     }
 
-    let mut start_time = std::time::Instant::now();
+    let mut start_time = Instant::now();
     // Reading signatures from plugin registry file
     // The plugin.msgpackz file stores the parsed signature collected from each registered plugin
     add_plugin_file(engine_state, plugin_file.clone());
@@ -61,7 +63,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
             .get(engine_state)
     );
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     let plugin_path = engine_state.plugin_path.clone();
     if let Some(plugin_path) = plugin_path {
         // Open the plugin file
@@ -140,7 +142,7 @@ pub fn read_plugin_file(engine_state: &mut EngineState, plugin_file: Option<Span
                 .use_ansi_coloring
                 .get(engine_state)
         );
-        start_time = std::time::Instant::now();
+        start_time = Instant::now();
 
         let mut working_set = StateWorkingSet::new(engine_state);
 
@@ -268,7 +270,7 @@ pub fn migrate_old_plugin_file(engine_state: &EngineState) -> bool {
     };
     use std::collections::BTreeMap;
 
-    let start_time = std::time::Instant::now();
+    let start_time = Instant::now();
 
     let Ok(cwd) = engine_state.cwd_as_string(None) else {
         return false;

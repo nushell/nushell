@@ -19,7 +19,7 @@ use std::ptr::null_mut;
 use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
-use web_time::Instant;
+use nu_utils::time::Instant;
 
 use windows::core::{PCWSTR, PWSTR};
 

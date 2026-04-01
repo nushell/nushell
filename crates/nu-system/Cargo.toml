@@ -17,6 +17,8 @@ bench = false
 workspace = true
 
 [dependencies]
+nu-utils = { path = "../nu-utils", version = "0.111.1" }
+
 libc = { workspace = true }
 log = { workspace = true }
 sysinfo = { workspace = true }

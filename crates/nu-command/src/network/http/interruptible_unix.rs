@@ -11,8 +11,8 @@ use std::mem::ManuallyDrop;
 #[cfg(unix)]
 use std::net::Shutdown;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(unix)]
@@ -21,10 +21,10 @@ use std::os::unix::net::UnixStream;
 use win_uds::net::UnixStream;
 
 use nu_protocol::HandlerGuard;
-use ureq::Error;
 use ureq::unversioned::transport::{
     Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
 };
+use ureq::Error;
 
 /// Callback invoked when a Unix socket connection is established.
 pub type OnConnectUnix =
@@ -252,9 +252,10 @@ mod tests {
     #[test]
     fn test_interrupt_unblocks_read() {
         use nu_protocol::{Handlers, SignalAction};
+        use nu_utils::time::Instant;
         use std::io::Write;
         use std::thread;
-        use std::time::{Duration, Instant};
+        use std::time::Duration;
 
         #[cfg(unix)]
         use std::os::unix::net::UnixListener;
