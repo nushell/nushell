@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use nu_pretty_hex::*;
 
 // #[test]

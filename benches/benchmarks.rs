@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 use nu_cli::{eval_source, evaluate_commands};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};

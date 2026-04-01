@@ -240,6 +240,7 @@ format_push_string = "warn"
 needless_raw_strings = "warn"
 result_large_err = "allow"
 unchecked_time_subtraction = "warn"
+unwrap_used = "deny"
 used_underscore_binding = "warn"
 
 [lints]
