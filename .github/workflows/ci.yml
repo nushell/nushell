@@ -80,7 +80,7 @@ jobs:
           - name: WASM
             host: ubuntu-22.04
             target: wasm32-unknown-unknown
-            options: $WASM_PACKAGES
+            options: $WASM_OPTIONS
             steps: [build, check]
 
         workspace:
@@ -130,7 +130,7 @@ jobs:
         if: contains(matrix.target.steps, 'fmt')
 
       - name: cargo check
-        run: cargo check ${{ matrix.target.packages }} --profile ${{ matrix.workspace.profile }}
+        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
         if: contains(matrix.target.steps, 'check')
 
       - name: cargo clippy
