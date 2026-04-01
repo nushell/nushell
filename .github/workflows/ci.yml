@@ -45,6 +45,8 @@ jobs:
 
       - name: Setup Rust Toolchain and Cache
         uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: nightly # include nightly for fuzzers
 
       - name: cargo ${{ matrix.command.name }}
         run: ${{ matrix.command.value }}
