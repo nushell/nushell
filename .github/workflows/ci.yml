@@ -32,11 +32,11 @@ jobs:
         command: 
           - { name: fmt, value: cargo fmt --all --check }
           - { name: clippy, value: cargo clippy --workspace --all-targets --exclude nu_plugin_* -- $CLIPPY_OPTIONS }
-          - { name: test, value: cargo test --workspace --profile $NUSHELL_CARGO_PROFILE --exclude nu_plugin_* }
+          - { name: test, value: cargo test --workspace $CARGO_BUILD_PROFILE --exclude nu_plugin_* }
         workspace:
-          - { name: root, value: ./ }
-          - { name: nu-parser/fuzz, value: ./crates/nu-parser/fuzz }
-          - { name: nu-path/fuzz, value: ./crates/nu-path/fuzz }
+          - { name: root, value: ./, profile: $NUSHELL_CARGO_PROFILE }
+          - { name: nu-parser/fuzz, value: ./crates/nu-parser/fuzz, profile: debug }
+          - { name: nu-path/fuzz, value: ./crates/nu-path/fuzz, profile: debug }
     runs-on: ${{ matrix.platform.value }}
 
     steps:
@@ -51,6 +51,8 @@ jobs:
       - name: cargo ${{ matrix.command.name }}
         run: ${{ matrix.command.value }}
         working-directory: ${{ matrix.workspace.value }}
+        env:
+          CARGO_BUILD_PROFILE: ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
