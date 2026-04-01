@@ -2,8 +2,7 @@
 name = "nu-parser-fuzz"
 version = "0.0.0"
 publish = false
-edition.workspace = true
-rust-version.workspace = true
+edition = "2024"
 
 [package.metadata]
 cargo-fuzz = true
