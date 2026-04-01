@@ -2,7 +2,7 @@ use log::trace;
 use nu_ansi_term::Style;
 use nu_color_config::{get_matching_brackets_style, get_shape_color};
 use nu_engine::env;
-use nu_parser::{FlatShape, flatten_block, lex, parse};
+use nu_parser::{FlatShape, flatten_block, parse};
 use nu_protocol::{
     Span,
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
@@ -28,22 +28,8 @@ impl Highlighter for NuHighlighter {
 pub(crate) struct HighlightResult {
     /// The highlighted text
     pub(crate) text: StyledText,
-    /// The span of the first garbage found, if any
+    /// The span of any garbage that was highlighted
     pub(crate) found_garbage: Option<Span>,
-}
-
-impl HighlightResult {
-    fn push_with_shape(&mut self, shape: &FlatShape, text: String, config: &nu_protocol::Config) {
-        let shape = get_shape_color(shape.as_str(), config);
-        self.text.push((shape, text));
-    }
-
-    fn set_last_shape_to_garbage(&mut self, config: &nu_protocol::Config) {
-        let Some((_, text)) = self.text.buffer.pop() else {
-            return;
-        };
-        self.push_with_shape(&FlatShape::Garbage, text, config);
-    }
 }
 
 pub(crate) fn highlight_syntax(
@@ -73,8 +59,6 @@ pub(crate) fn highlight_syntax(
         global_cursor_offset,
     );
 
-    let lex_err_span = span_of_lex_error(line, global_span_offset);
-
     for (raw_span, flat_shape) in &shapes {
         // NOTE: Currently we expand aliases while flattening for tasks such as completion
         // https://github.com/nushell/nushell/issues/16944
@@ -101,13 +85,21 @@ pub(crate) fn highlight_syntax(
         let next_token =
             line[(span.start - global_span_offset)..(span.end - global_span_offset)].to_string();
 
+        let mut add_colored_token = |shape: &FlatShape, text: String| {
+            result
+                .text
+                .push((get_shape_color(shape.as_str(), &config), text));
+        };
+
         match flat_shape {
             FlatShape::Garbage => {
-                result.found_garbage.get_or_insert(Span::new(
-                    span.start - global_span_offset,
-                    span.end - global_span_offset,
-                ));
-                result.push_with_shape(flat_shape, next_token, &config)
+                result.found_garbage.get_or_insert_with(|| {
+                    Span::new(
+                        span.start - global_span_offset,
+                        span.end - global_span_offset,
+                    )
+                });
+                add_colored_token(flat_shape, next_token)
             }
             FlatShape::External(_) => {
                 let mut true_shape = flat_shape.clone();
@@ -129,7 +121,7 @@ pub(crate) fn highlight_syntax(
                         true_shape = FlatShape::ExternalResolved;
                     }
                 }
-                result.push_with_shape(&true_shape, next_token, &config);
+                add_colored_token(&true_shape, next_token);
             }
             FlatShape::List
             | FlatShape::Table
@@ -153,17 +145,8 @@ pub(crate) fn highlight_syntax(
                     result.text.push((style, text));
                 }
             }
-            _ => result.push_with_shape(flat_shape, next_token, &config),
+            _ => add_colored_token(flat_shape, next_token),
         }
-
-        if lex_err_span.is_some_and(|err_span| err_span == *span) {
-            result.found_garbage.get_or_insert(Span::new(
-                span.start - global_span_offset,
-                span.end - global_span_offset,
-            ));
-            result.set_last_shape_to_garbage(&config);
-        }
-
         last_seen_span_end = span.end;
     }
 
@@ -173,19 +156,6 @@ pub(crate) fn highlight_syntax(
     }
 
     result
-}
-
-/// some syntax is rejected at lexing time,
-/// however after generating an error, we still tokenize,
-/// but lose the fact that they are actually invalid.
-///
-/// here we lex again to redetect them, since it's relatively cheap
-/// and easier than threading them all the way to the end of parsing
-fn span_of_lex_error(line: &str, offset: usize) -> Option<Span> {
-    let error = lex(line.as_bytes(), 0, &[], &[], false).1?;
-    let error_span = error.span();
-    let span = Span::new(error_span.start + offset, error_span.end + offset);
-    Some(span)
 }
 
 fn split_span_by_highlight_positions(
