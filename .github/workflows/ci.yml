@@ -85,13 +85,13 @@ jobs:
 
         workspace:
           - name: root
-            path: ${{ github.workspace }}
+            path: ./
             profile: ci
           - name: nu-parser/fuzzer
-            path: ${{ github.workspace }}/crates/nu-parser/fuzzer
+            path: ./crates/nu-parser/fuzzer
             profile: dev
           - name: nu-path/fuzzer
-            path: ${{ github.workspace }}/crates/nu-path/fuzzer
+            path: ./crates/nu-path/fuzzer
             profile: dev
 
         exclude:
