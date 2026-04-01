@@ -4759,6 +4759,7 @@ dependencies = [
  "strip-ansi-escapes",
  "sys-locale",
  "unicase",
+ "web-time",
 ]
 
 [[package]]

@@ -182,7 +182,7 @@ jobs:
         job:
           - name: Build WASM
             command: cargo build
-            args:
+            args: ""
           - name: Clippy WASM
             command: cargo clippy
             args: -- $CLIPPY_OPTIONS

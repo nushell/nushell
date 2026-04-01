@@ -542,7 +542,7 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
-    start_time = std::time::Instant::now();
+    start_time = *nu_utils::time::Instant::now();
 
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {

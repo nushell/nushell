@@ -43,5 +43,8 @@ crossterm_winapi = "0.9"
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["user", "fs"] }
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = { workspace = true }
+
 [lints]
 workspace = true
