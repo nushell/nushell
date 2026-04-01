@@ -928,7 +928,7 @@ pub fn parse_multispan_value(
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
             let arg = parse_expression(working_set, &spans[*spans_idx..]);
-            *spans_idx = spans.len() - 1;
+            *spans_idx = spans.len().saturating_sub(1);
 
             arg
         }
@@ -936,7 +936,7 @@ pub fn parse_multispan_value(
             trace!("parsing: signature");
 
             let sig = parse_full_signature(working_set, &spans[*spans_idx..], false);
-            *spans_idx = spans.len() - 1;
+            *spans_idx = spans.len().saturating_sub(1);
 
             sig
         }
@@ -944,7 +944,7 @@ pub fn parse_multispan_value(
             trace!("parsing: external signature");
 
             let sig = parse_full_signature(working_set, &spans[*spans_idx..], true);
-            *spans_idx = spans.len() - 1;
+            *spans_idx = spans.len().saturating_sub(1);
 
             sig
         }
