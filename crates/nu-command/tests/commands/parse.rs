@@ -41,6 +41,17 @@ mod simple {
     }
 
     #[test]
+    fn char_lbrace_can_be_used_before_a_capture() {
+        let actual = nu!(r#"
+            "1234{56"
+            | parse $'{a}(char lbrace){b}'
+            | to json -r
+        "#);
+
+        assert_eq!(actual.out, r#"[{"a":"1234","b":"56"}]"#);
+    }
+
+    #[test]
     fn properly_escapes_text() {
         let actual = nu!(r#"
             echo "(abc)123"

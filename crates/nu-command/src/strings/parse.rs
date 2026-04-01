@@ -287,7 +287,23 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
             if c == '{' {
                 // If '{{', still creating a plaintext parse command, but just for a single '{' char
                 if loop_input.peek() == Some(&'{') {
-                    let _ = loop_input.next();
+                    // Allow `{{name}` at end, like `$'{a}(char lbrace){b}'`, where `{` is literal
+                    let mut lookahead = loop_input.clone();
+                    let _ = lookahead.next();
+                    let mut saw_closing = false;
+                    for next in lookahead.by_ref() {
+                        if next == '}' {
+                            saw_closing = true;
+                            break;
+                        }
+                        if next == '{' {
+                            break;
+                        }
+                    }
+
+                    if !(saw_closing && lookahead.peek().is_none()) {
+                        let _ = loop_input.next();
+                    }
                 } else {
                     break;
                 }
