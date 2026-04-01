@@ -128,29 +128,33 @@ jobs:
         working-directory: ${{ matrix.workspace.path }}
 
       - name: cargo fmt
-        run: cargo fmt --all --check
-        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'fmt') && !contains(matrix.workspace.skip, 'fmt')
+        working-directory: ${{ matrix.workspace.path }}
+        run: |
+          rustup component add rustfmt
+          cargo fmt --all --check
 
       - name: cargo check
-        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets
-        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
-
-      - name: cargo clippy
-        run: cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets -- $CLIPPY_OPTIONS
         working-directory: ${{ matrix.workspace.path }}
+        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets
+        
+      - name: cargo clippy
         if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
+        working-directory: ${{ matrix.workspace.path }}
+        run: |
+          rustup component add clippy
+          cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} --all-targets -- $CLIPPY_OPTIONS
 
       - name: cargo build
-        run: cargo build ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
-        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo build ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
 
       - name: cargo test
-        run: cargo test ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
-        working-directory: ${{ matrix.workspace.path }}
         if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo test ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
 
       - name: Assert Clean Repo
         run: git diff --quiet && git diff --cached --quiet
