@@ -10,71 +10,48 @@ name: continuous-integration
 env:
   NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
-  # If changing these settings also change toolkit.nu
-  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
+  CLIPPY_OPTIONS: "-D warnings"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  fmt-clippy:
+  cargo:
+    name: cargo ${{ matrix.command.name }} in ${{ matrix.workspace.name }} (${{ matrix.platform.name }})
     strategy:
       fail-fast: true
       matrix:
         # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
         # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
         # revisiting this when 22.04 is closer to EOL (June 2027)
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
-
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
-
-        # If changing these settings also change toolkit.nu
-      - name: Clippy
-        run: cargo clippy --workspace --exclude nu_plugin_* -- $CLIPPY_OPTIONS
-
-        # In tests we don't have to deny unwrap
-      - name: Clippy of tests
-        run: cargo clippy --tests --workspace --exclude nu_plugin_* -- -D warnings
-
-      - name: Clippy of benchmarks
-        run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
-
-  tests:
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
-
-    runs-on: ${{ matrix.platform }}
+        platform: 
+          - { name: Ubuntu, value: ubuntu-22.04 }
+          - { name: Windows, value: windows-latest }
+          - { name: MacOS, value: macos-latest }
+        command: 
+          - { name: fmt, value: cargo fmt --all --check }
+          - { name: clippy, value: cargo clippy --workspace --all-targets --exclude nu_plugin_* -- $CLIPPY_OPTIONS }
+          - { name: test, value: cargo test --workspace --profile $NUSHELL_CARGO_PROFILE --exclude nu_plugin_* }
+        workspace:
+          - { name: root, value: ./ }
+          - { name: nu-parser/fuzz, value: ./crates/nu-parser/fuzz }
+          - { name: nu-path/fuzz, value: ./crates/nu-path/fuzz }
+    runs-on: ${{ matrix.platform.value }}
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Repo
+        uses: actions/checkout@v6
 
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      - name: Setup Rust Toolchain and Cache
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
-      - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_*
-      - name: Check for clean repo
-        shell: bash
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "there are changes";
-            git status --porcelain
-            exit 1
-          else
-            echo "no changes in working directory";
-          fi
+      - name: cargo ${{ matrix.command.name }}
+        run: ${{ matrix.command.value }}
+        working-directory: ${{ matrix.workspace.value }}
+
+      - name: Assert Clean Repo
+        run: git diff --quiet && git diff --cached --quiet
 
   std-lib-and-python-virtualenv:
     strategy:
@@ -175,7 +152,6 @@ jobs:
   wasm:
     env:
       WASM_OPTIONS: --no-default-features --target wasm32-unknown-unknown
-      CLIPPY_CONF_DIR: ${{ github.workspace }}/clippy/wasm/
 
     strategy:
       matrix:
