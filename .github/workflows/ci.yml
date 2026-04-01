@@ -87,30 +87,30 @@ jobs:
           - name: root
             path: ./
             profile: ci
-          - name: nu-parser/fuzzer
-            path: ./crates/nu-parser/fuzzer
+          - name: nu-parser/fuzz
+            path: ./crates/nu-parser/fuzz
             profile: dev
-          - name: nu-path/fuzzer
-            path: ./crates/nu-path/fuzzer
+          - name: nu-path/fuzz
+            path: ./crates/nu-path/fuzz
             profile: dev
 
         exclude:
           - target: { name: WASM }
-            workspace: { name: nu-parser/fuzzer }
+            workspace: { name: nu-parser/fuzz }
           - target: { name: WASM }
-            workspace: { name: nu-path/fuzzer }
+            workspace: { name: nu-path/fuzz }
           - target: { name: Ubuntu Plugins }
-            workspace: { name: nu-parser/fuzzer }
+            workspace: { name: nu-parser/fuzz }
           - target: { name: Ubuntu Plugins }
-            workspace: { name: nu-path/fuzzer }
+            workspace: { name: nu-path/fuzz }
           - target: { name: Windows Plugins }
-            workspace: { name: nu-parser/fuzzer }
+            workspace: { name: nu-parser/fuzz }
           - target: { name: Windows Plugins }
-            workspace: { name: nu-path/fuzzer }
+            workspace: { name: nu-path/fuzz }
           - target: { name: MacOS Plugins }
-            workspace: { name: nu-parser/fuzzer }
+            workspace: { name: nu-parser/fuzz }
           - target: { name: MacOS Plugins }
-            workspace: { name: nu-path/fuzzer }
+            workspace: { name: nu-path/fuzz }
     
     runs-on: ${{ matrix.target.host }}
 
