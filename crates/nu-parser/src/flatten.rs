@@ -134,14 +134,26 @@ fn flatten_pipeline_element_into(
     flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(span) = pipeline_element.pipe {
-        // HACK: `out>|`/`o>|` should be marked as garbage,
-        // but not done in up-level procedures.
-        let shape = if span.len() > 1 {
-            FlatShape::Garbage
+        // NOTE: redirection pipes, e.g. `err>|`/`o+e>|` are parsed as both pipe and redirection,
+        // we split them into 2 shapes here.
+        if let Some((last_span, _)) = output.last_mut()
+            && span == *last_span
+        {
+            last_span.end = last_span.end.saturating_sub(1);
+            output.push((
+                Span::new(span.end.saturating_sub(1), span.end),
+                FlatShape::Pipe,
+            ));
         } else {
-            FlatShape::Pipe
-        };
-        output.push((span, shape));
+            // HACK: `out>|`/`o>|` should be marked as garbage,
+            // but not done in up-level procedures.
+            let shape = if span.len() > 1 {
+                FlatShape::Garbage
+            } else {
+                FlatShape::Pipe
+            };
+            output.push((span, shape));
+        }
     }
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
