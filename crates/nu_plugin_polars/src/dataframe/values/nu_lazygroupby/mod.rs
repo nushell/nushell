@@ -2,7 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{ShellError, Span, Value, record};
+use nu_protocol::{ShellError, Value, record};
 use polars::prelude::LazyGroupBy;
 use std::sync::Arc;
 use uuid::Uuid;
