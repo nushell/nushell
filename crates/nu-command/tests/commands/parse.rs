@@ -65,6 +65,14 @@ mod simple {
     }
 
     #[test]
+    fn double_brace_with_suffix_before_capture_stays_literal() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{foo}x123" | parse "{{foo}x{bar}" | get bar.0"#)
+            .expect_value_eq("123")
+    }
+
+    #[test]
     fn properly_escapes_text() {
         let actual = nu!(r#"
             echo "(abc)123"

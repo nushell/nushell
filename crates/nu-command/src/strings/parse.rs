@@ -280,74 +280,89 @@ fn operate(
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
     let mut output = "(?s)\\A".to_string();
 
-    let mut loop_input = input.chars().peekable();
-    let mut byte_offset = 0;
-    loop {
-        let mut before = String::new();
-        while let Some(c) = loop_input.next() {
-            byte_offset += c.len_utf8();
+    // Single-pass scanner keeps parsing state explicit and avoids byte-offset bookkeeping.
+    let mut loop_input = input.char_indices().peekable();
+    let mut before = String::new();
+    let mut column = String::new();
+    let mut in_column = false;
+
+    while let Some((_, c)) = loop_input.next() {
+        if !in_column {
             if c == '{' {
-                // If '{{', still creating a plaintext parse command, but just for a single '{' char
-                if loop_input.peek() == Some(&'{') {
-                    // Don't consume the second `{` if it starts a trailing capture like `{{b}`
-                    let after = &input[byte_offset + 1..];
-                    let is_trailing_capture = after
-                        .find(['}', '{'])
-                        .is_some_and(|p| after.as_bytes()[p] == b'}' && p + 1 == after.len());
+                // If '{{', still creating a plaintext parse command, but just for a single '{' char.
+                let mut literal_lbrace = false;
+                if let Some((next_idx, '{')) = loop_input.peek().copied() {
+                    // Don't consume the second `{` if it starts a trailing capture like `{{name}`.
+                    let after = &input[next_idx + 1..];
+                    literal_lbrace = true;
 
-                    if !is_trailing_capture {
-                        let _ = loop_input.next();
-                        byte_offset += 1;
+                    if !is_trailing_capture(after) {
+                        loop_input.next();
                     }
-                } else {
-                    break;
                 }
+
+                if literal_lbrace {
+                    before.push(c);
+                    continue;
+                }
+
+                if !before.is_empty() {
+                    output.push_str(&fancy_regex::escape(&before));
+                    before.clear();
+                }
+
+                in_column = true;
+                continue;
             }
+
             before.push(c);
+            continue;
         }
 
-        if !before.is_empty() {
-            output.push_str(&fancy_regex::escape(&before));
-        }
-
-        // Look for column as we're now at one
-        let mut column = String::new();
-        while let Some(c) = loop_input.next() {
-            byte_offset += c.len_utf8();
-            if c == '}' {
-                break;
+        if c == '}' {
+            if !column.is_empty() {
+                output.push_str("(?");
+                if column == "_" {
+                    // discard placeholder column(s)
+                    output.push(':');
+                } else {
+                    // create capture group for column
+                    output.push_str("P<");
+                    output.push_str(&column);
+                    output.push('>');
+                }
+                output.push_str(".*?)");
+                column.clear();
             }
-            column.push(c);
 
-            if loop_input.peek().is_none() {
-                return Err(ShellError::DelimiterError {
-                    msg: "Found opening `{` without an associated closing `}`".to_owned(),
-                    span,
-                });
-            }
+            in_column = false;
+            continue;
         }
 
-        if !column.is_empty() {
-            output.push_str("(?");
-            if column == "_" {
-                // discard placeholder column(s)
-                output.push(':');
-            } else {
-                // create capture group for column
-                output.push_str("P<");
-                output.push_str(&column);
-                output.push('>');
-            }
-            output.push_str(".*?)");
+        column.push(c);
+        if loop_input.peek().is_none() {
+            return Err(ShellError::DelimiterError {
+                msg: "Found opening `{` without an associated closing `}`".to_owned(),
+                span,
+            });
         }
+    }
 
-        if before.is_empty() && column.is_empty() {
-            break;
-        }
+    if !before.is_empty() {
+        output.push_str(&fancy_regex::escape(&before));
     }
 
     output.push_str("\\z");
     Ok(output)
+}
+
+/// Returns true when the remainder after the second `{` in `{{` forms a trailing capture.
+///
+/// For example, this returns true for `name}` in `{{name}` and false for `name}x{tail}`.
+fn is_trailing_capture(after: &str) -> bool {
+    after
+        .find(['}', '{'])
+        .is_some_and(|pos| after.as_bytes()[pos] == b'}' && pos + 1 == after.len())
 }
 
 struct ParseIter<I: Iterator<Item = Result<String, ShellError>>> {
