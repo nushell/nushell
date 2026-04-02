@@ -1421,7 +1421,8 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         _ => None,
     };
 
-    // `^` always forces external command parsing.
+    // `^` always forces external command parsing and must bypass declaration
+    // resolution, even when an internal command with the same name exists.
     if call_sigil == Some(b'^') {
         trace!("parsing: forced external call");
         return parse_external_call(working_set, spans);

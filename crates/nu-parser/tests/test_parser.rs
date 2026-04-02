@@ -922,6 +922,25 @@ fn parse_percent_prefixed_internal_call() {
 }
 
 #[test]
+fn parse_caret_prefixed_call_forces_external_parse() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"^ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
+#[test]
 fn parse_percent_prefixed_prefers_builtin_when_custom_shadows_name() {
     let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);

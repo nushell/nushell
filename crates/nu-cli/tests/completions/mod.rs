@@ -662,10 +662,8 @@ fn percent_completion_only_shows_builtins() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "%sli";
     let suggestions = completer.complete(completion_str, completion_str.len());
-
-    assert!(suggestions.iter().any(|s| s.value == "slice"));
-    assert!(!suggestions.iter().any(|s| s.value == "slimy"));
-    assert!(!suggestions.iter().any(|s| s.value == "slalias"));
+    let expected: Vec<_> = vec!["slice"];
+    match_suggestions(&expected, &suggestions);
 }
 
 #[test]
@@ -677,15 +675,8 @@ fn percent_completion_includes_shadowed_builtin() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "%ls";
     let suggestions = completer.complete(completion_str, completion_str.len());
-
-    assert!(
-        suggestions.iter().any(|s| s.value == "ls"),
-        "expected built-in ls completion for `%ls`, got: {:?}",
-        suggestions
-            .iter()
-            .map(|s| s.value.clone())
-            .collect::<Vec<_>>()
-    );
+    let expected: Vec<_> = vec!["ls"];
+    match_suggestions(&expected, &suggestions);
 }
 
 /// Disable external commands except for those start with `^`
