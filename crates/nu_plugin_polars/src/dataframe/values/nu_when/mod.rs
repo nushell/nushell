@@ -2,7 +2,7 @@ mod custom_value;
 
 use core::fmt;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::{ShellError, Value};
 use polars::prelude::{ChainedThen, Then};
 use serde::{Serialize, Serializer};
 use uuid::Uuid;
