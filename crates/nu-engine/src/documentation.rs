@@ -235,6 +235,7 @@ fn highlight_code<'a>(
     RE.replace_all(text, do_try_highlight)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn get_alias_documentation(
     long_desc: &mut String,
     command: &dyn Command,
@@ -272,6 +273,7 @@ fn get_alias_documentation(
     .expect("writing to a String is infallible");
 }
 
+#[allow(clippy::too_many_arguments)]
 fn get_command_documentation(
     long_desc: &mut String,
     command: &dyn Command,
@@ -740,6 +742,7 @@ enum PositionalKind {
     Rest,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn write_positional(
     long_desc: &mut String,
     positional: &PositionalArg,
