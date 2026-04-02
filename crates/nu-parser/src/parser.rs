@@ -3984,7 +3984,7 @@ pub fn parse_full_signature(
                     (
                         parse_signature(
                             working_set,
-                            Span::new(spans[0].start, spans[0].end - 1),
+                            Span::new(spans[0].start, spans[0].end.saturating_sub(1)),
                             is_external,
                         ),
                         1,
