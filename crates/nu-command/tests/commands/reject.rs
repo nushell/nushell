@@ -189,19 +189,19 @@ fn test_works_with_integer_path_and_stream() {
     assert_eq!(actual.out, "[N, s, h, e, l, l]");
 }
 
-enum Metadata {
+enum ExpectTo {
     Keep,
     Drop,
 }
 
 #[rstest]
-#[case::index_only("reject 1", Metadata::Keep)]
-#[case::two_indices("reject 1 0", Metadata::Keep)]
-#[case::index_and_column("reject type 1", Metadata::Keep)]
-#[case::single_column("reject name", Metadata::Drop)]
-#[case::case_insensitive("reject NaMe!", Metadata::Drop)]
-#[case::multiple_columns("reject name type", Metadata::Drop)]
-fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) -> Result {
+#[case::index_only("reject 1", ExpectTo::Keep)]
+#[case::two_indices("reject 1 0", ExpectTo::Keep)]
+#[case::index_and_column("reject type 1", ExpectTo::Keep)]
+#[case::single_column("reject name", ExpectTo::Drop)]
+#[case::case_insensitive("reject NaMe!", ExpectTo::Drop)]
+#[case::multiple_columns("reject name type", ExpectTo::Drop)]
+fn test_path_columns_metadata(#[case] code: &str, #[case] expect_to: ExpectTo) -> Result {
     let in_metadata = Some(
         PipelineMetadata::default()
             .with_path_columns(vec!["name".into()])
@@ -216,11 +216,22 @@ fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) ->
 
     let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
 
-    let target_metadata = match metadata {
-        Metadata::Keep => in_metadata,
-        Metadata::Drop => in_metadata.map(|m| m.with_path_columns(vec![])),
+    let target_metadata = match expect_to {
+        ExpectTo::Keep => in_metadata,
+        ExpectTo::Drop => in_metadata.map(|m| m.with_path_columns(vec![])),
     };
 
     assert_eq!(target_metadata, out_metadata);
+    Ok(())
+}
+
+#[test]
+fn forwards_error_properly() -> Result {
+    let err = test()
+        .run("ls | insert foo { error make { msg: 'boo' } } | reject name")
+        .expect_error()?;
+
+    assert_eq!(&err.into_labeled()?.msg, "boo");
+
     Ok(())
 }
