@@ -128,6 +128,13 @@ jobs:
         run: rustup target add ${{ matrix.target.target }}
         working-directory: ${{ matrix.workspace.path }}
 
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.workspace.path }} -> target
+          cache-all-crates: true
+          cache-workspace-crates: true
+
       - name: cargo fmt
         if: contains(matrix.target.steps, 'fmt') && !contains(matrix.workspace.skip, 'fmt')
         working-directory: ${{ matrix.workspace.path }}
