@@ -1,0 +1,4 @@
+ignore = ["*.md", "docs/**", ".github/**", "LICENSE*", "*.txt", "*.yml", "*.yaml", "*.nu"]
+
+[test]
+cargo = "cargo test -p {package}"
