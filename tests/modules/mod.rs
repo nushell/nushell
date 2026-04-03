@@ -1,5 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::{Result, TestResultExt, test};
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -137,10 +138,10 @@ fn module_public_import_alias() {
 }
 
 #[test]
-fn module_public_import_decl_with_stored_where_condition() {
+fn module_public_import_decl_with_stored_where_condition() -> Result {
     Playground::setup(
         "module_public_import_decl_with_stored_where_condition",
-        |dirs, sandbox| {
+        |dirs, sandbox| -> Result {
             sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
                 "
@@ -160,11 +161,10 @@ fn module_public_import_decl_with_stored_where_condition() {
             "#,
             )]);
 
-            let inp = &["use main.nu helper", "helper | to nuon --raw"];
-
-            let actual = nu!(cwd: dirs.test(), &inp.join("; "));
-
-            assert_eq!(actual.out, "[[a];[1]]");
+            test()
+                .cwd(dirs.test())
+                .run("use main.nu helper; helper | to nuon --raw")
+                .expect_value_eq("[[a];[1]]")
         },
     )
 }
