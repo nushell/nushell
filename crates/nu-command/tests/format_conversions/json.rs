@@ -337,7 +337,7 @@ fn test_tabs_indent_flag() -> Result {
 }
 
 #[test]
-fn test_content_type_metadata() -> Result {
+fn test_from_json_content_type_metadata() -> Result {
     let code = r#"
         '{"a": 1, "b": 2}'
         | metadata set --content-type 'application/json' --path-columns [name]
@@ -349,4 +349,16 @@ fn test_content_type_metadata() -> Result {
     test().run(code).expect_value_eq(test_record! {
         "path_columns" => vec![Value::test_string("name")]
     })
+}
+
+#[test]
+fn test_to_json_content_type_metadata() -> Result {
+    let code = r#"
+        {a: 1 b: 2}
+        | to json
+        | metadata
+        | get content_type
+    "#;
+
+    test().run(code).expect_value_eq("application/json")
 }
