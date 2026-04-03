@@ -1,4 +1,4 @@
-use nu_protocol::{Span, IntoValue};
+use nu_protocol::{IntoValue, Span};
 
 use crate::Value as JsonValue;
 use nu_protocol::Value as NuValue;
@@ -16,10 +16,7 @@ impl IntoValue for JsonValue {
                 Err(_) => NuValue::float(u as f64, span),
             },
             JsonValue::Array(array) => NuValue::list(
-                array
-                    .into_iter()
-                    .map(|x| x.into_value(span))
-                    .collect(),
+                array.into_iter().map(|x| x.into_value(span)).collect(),
                 span,
             ),
             JsonValue::Object(k) => NuValue::record(

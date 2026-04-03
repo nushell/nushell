@@ -121,13 +121,8 @@ impl Command for FromJson {
                 return Ok(Value::nothing(span).into_pipeline_data());
             }
 
-            if strict {
-                Ok(convert_string_to_value_strict(&string_input, span)?
-                    .into_pipeline_data_with_metadata(metadata))
-            } else {
-                Ok(convert_string_to_value(&string_input, span)?
-                    .into_pipeline_data_with_metadata(metadata))
-            }
+            Ok(try_str_to_value(&string_input, span, strict)?
+                .into_pipeline_data_with_metadata(metadata))
         }
     }
 }
@@ -144,24 +139,46 @@ fn read_json_lines(
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
             let line = line.map_err(|err| IoError::new(err, span, None))?;
-            if strict {
-                convert_string_to_value_strict(&line, span)
-            } else {
-                convert_string_to_value(&line, span)
-            }
+            try_str_to_value(&line, span, strict)
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
 
     ListStream::new(iter, span, signals)
 }
 
-pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
-    match nu_json::from_str::<nu_json::Value>(string_input) {
+pub fn try_str_to_value(input: &str, span: Span, strict: bool) -> Result<Value, ShellError> {
+    match strict {
+        true => try_str_to_value_impl(
+            input,
+            span,
+            |s| serde_json::from_str(s),
+            |err| err.is_syntax().then_some((err.line(), err.column())),
+        ),
+        false => try_str_to_value_impl(
+            input,
+            span,
+            |s| nu_json::from_str(s),
+            |err| match err {
+                nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
+                _ => None,
+            },
+        ),
+    }
+}
+
+#[inline]
+fn try_str_to_value_impl<E: std::error::Error>(
+    input: &str,
+    span: Span,
+    parser: impl Fn(&str) -> Result<nu_json::Value, E>,
+    on_syntax_err: impl Fn(&E) -> Option<(usize, usize)>,
+) -> Result<Value, ShellError> {
+    match parser(&input) {
         Ok(value) => Ok(value.into_value(span)),
-        Err(x) => match x {
-            nu_json::Error::Syntax(_, row, col) => {
-                let label = x.to_string();
-                let label_span = Span::from_row_column(row, col, string_input);
+        Err(err) => match on_syntax_err(&err) {
+            Some((row, col)) => {
+                let label = err.to_string();
+                let label_span = Span::from_row_column(row, col, input);
                 Err(ShellError::Generic(
                     GenericError::new(
                         "Error while parsing JSON text",
@@ -169,50 +186,20 @@ pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, 
                         span,
                     )
                     .with_inner([ShellError::OutsideSpannedLabeledError {
-                        src: string_input.into(),
+                        src: input.into(),
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
                     }]),
                 ))
             }
-            x => Err(ShellError::CantConvert {
-                to_type: format!("structured json data ({x})"),
+            None => Err(ShellError::CantConvert {
+                to_type: format!("structured json data ({err})"),
                 from_type: "string".into(),
                 span,
                 help: None,
             }),
         },
-    }
-}
-
-fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
-    match serde_json::from_str::<nu_json::Value>(string_input) {
-        Ok(value) => Ok(value.into_value(span)),
-        Err(err) => Err(if err.is_syntax() {
-            let label = err.to_string();
-            let label_span = Span::from_row_column(err.line(), err.column(), string_input);
-            ShellError::Generic(
-                GenericError::new(
-                    "Error while parsing JSON text",
-                    "error parsing JSON text",
-                    span,
-                )
-                .with_inner([ShellError::OutsideSpannedLabeledError {
-                    src: string_input.into(),
-                    error: "Error while parsing JSON text".into(),
-                    msg: label,
-                    span: label_span,
-                }]),
-            )
-        } else {
-            ShellError::CantConvert {
-                to_type: format!("structured json data ({err})"),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }
-        }),
     }
 }
 

@@ -29,4 +29,4 @@ pub use xlsx::FromXlsx;
 pub use xml::FromXml;
 pub use yaml::{FROM_YAML, FROM_YML, FromYamlLike};
 
-pub(crate) use json::convert_string_to_value as convert_json_string_to_value;
+pub(crate) use json::try_str_to_value as try_json_str_to_value;
