@@ -1,8 +1,5 @@
-use nu_protocol::ParseError;
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
-use nu_test_support::test as nu_test;
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use rstest::rstest;
 
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
@@ -39,37 +36,16 @@ fn alias_hiding_2() {
     assert_eq!(actual.out, "0");
 }
 
-#[test]
-fn alias_fails_with_invalid_name() {
-    let tester = nu_test();
-
-    let err = tester
-        .parse_and_compile(r#" alias 1234 = echo "test" "#)
-        .err()
-        .expect("alias with numeric name should fail");
-    let err = err.parse().expect("expected parse error");
+#[rstest]
+#[case::numeric("1234")]
+#[case::filesize_like("5gib")]
+#[case::hash(r#""te#t""#)]
+#[case::caret("^foo")]
+fn alias_fails_with_invalid_name(#[case] alias: &str) -> Result {
+    let code = format!("alias {alias} = echo 'test'");
+    let err = test().run(code).expect_parse_error()?;
     assert!(matches!(err, ParseError::AliasNotValid(_)));
-
-    let err = tester
-        .parse_and_compile(r#" alias 5gib = echo "test" "#)
-        .err()
-        .expect("alias with filesize-like name should fail");
-    let err = err.parse().expect("expected parse error");
-    assert!(matches!(err, ParseError::AliasNotValid(_)));
-
-    let err = tester
-        .parse_and_compile(r#" alias "te#t" = echo "test" "#)
-        .err()
-        .expect("alias with hash should fail");
-    let err = err.parse().expect("expected parse error");
-    assert!(matches!(err, ParseError::AliasNotValid(_)));
-
-    let err = tester
-        .parse_and_compile(r#" alias ^foo = echo "bar" "#)
-        .err()
-        .expect("alias with caret should fail");
-    let err = err.parse().expect("expected parse error");
-    assert!(matches!(err, ParseError::AliasNotValid(_)));
+    Ok(())
 }
 
 #[test]
