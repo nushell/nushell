@@ -2,7 +2,8 @@ use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ListStream, Signals, TryIntoValue, shell_error::{generic::GenericError, io::IoError}
+    ListStream, Signals, TryIntoValue,
+    shell_error::{generic::GenericError, io::IoError},
 };
 
 #[derive(Clone)]

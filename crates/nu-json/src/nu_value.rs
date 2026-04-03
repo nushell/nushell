@@ -26,13 +26,13 @@ impl TryIntoValue for JsonValue {
                 array
                     .into_iter()
                     .map(|x| x.try_into_value(span))
-                    .collect::<Result<_,_>>()?,
+                    .collect::<Result<_, _>>()?,
                 span,
             ),
             JsonValue::Object(k) => NuValue::record(
                 k.into_iter()
                     .map(|(k, v)| v.try_into_value(span).map(|v| (k, v)))
-                    .collect::<Result<_,_>>()?,
+                    .collect::<Result<_, _>>()?,
                 span,
             ),
         })
