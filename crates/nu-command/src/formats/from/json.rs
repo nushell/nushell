@@ -2,7 +2,7 @@ use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    ListStream, Signals, TryIntoValue,
+    ListStream, Signals,
     shell_error::{generic::GenericError, io::IoError},
 };
 
@@ -157,7 +157,7 @@ fn read_json_lines(
 
 pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match nu_json::from_str::<nu_json::Value>(string_input) {
-        Ok(value) => Ok(value.try_into_value(span)?),
+        Ok(value) => Ok(value.into_value(span)),
         Err(x) => match x {
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
@@ -188,7 +188,7 @@ pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, 
 
 fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
     match serde_json::from_str::<nu_json::Value>(string_input) {
-        Ok(value) => Ok(value.try_into_value(span)?),
+        Ok(value) => Ok(value.into_value(span)),
         Err(err) => Err(if err.is_syntax() {
             let label = err.to_string();
             let label_span = Span::from_row_column(err.line(), err.column(), string_input);
