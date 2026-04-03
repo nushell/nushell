@@ -154,15 +154,10 @@ pub fn try_str_to_value(input: &str, span: Span, strict: bool) -> Result<Value, 
             |s| serde_json::from_str(s),
             |err| err.is_syntax().then_some((err.line(), err.column())),
         ),
-        false => try_str_to_value_impl(
-            input,
-            span,
-            |s| nu_json::from_str(s),
-            |err| match err {
-                nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
-                _ => None,
-            },
-        ),
+        false => try_str_to_value_impl(input, span, nu_json::from_str, |err| match err {
+            nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
+            _ => None,
+        }),
     }
 }
 
@@ -173,7 +168,7 @@ fn try_str_to_value_impl<E: std::error::Error>(
     parser: impl Fn(&str) -> Result<nu_json::Value, E>,
     on_syntax_err: impl Fn(&E) -> Option<(usize, usize)>,
 ) -> Result<Value, ShellError> {
-    match parser(&input) {
+    match parser(input) {
         Ok(value) => Ok(value.into_value(span)),
         Err(err) => match on_syntax_err(&err) {
             Some((row, col)) => {
