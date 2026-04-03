@@ -1,3 +1,4 @@
+use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
 
 #[test]
@@ -333,4 +334,19 @@ fn test_tabs_indent_flag() -> Result {
         .cwd("tests/fixtures/formats")
         .run(code)
         .expect_value_eq(expected_output)
+}
+
+#[test]
+fn test_content_type_metadata() -> Result {
+    let code = r#"
+        '{"a": 1, "b": 2}'
+        | metadata set --content-type 'application/json' --path-columns [name]
+        | from json
+        | metadata
+        | reject span
+    "#;
+
+    test().run(code).expect_value_eq(test_record! {
+        "path_columns" => vec![Value::test_string("name")]
+    })
 }
