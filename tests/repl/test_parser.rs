@@ -457,6 +457,22 @@ fn percent_prefers_builtin_when_custom_shadows_name() -> Result {
         .expect_value_eq(false)
 }
 
+#[test]
+fn percent_help_prefers_builtin_when_alias_shadows_name() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; %cd --help",
+        "Change the current working directory.",
+    )
+}
+
+#[test]
+fn plain_help_keeps_alias_resolution_behavior() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; cd --help",
+        "Returns its arguments, ignoring the piped-in value.",
+    )
+}
+
 #[rstest]
 #[case::unknown_command("%nu --version")]
 #[case::custom_command("def foo [] { 'ok' }; %foo")]
