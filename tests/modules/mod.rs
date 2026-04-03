@@ -143,9 +143,9 @@ fn module_public_import_decl_with_stored_where_condition() {
         |dirs, sandbox| {
             sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "main.nu",
-                r#"
+                "
                 export use mod.nu helper
-            "#,
+            ",
             )]);
 
             sandbox.with_files(&[FileWithContentToBeTrimmed(
