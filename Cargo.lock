@@ -4426,6 +4426,7 @@ dependencies = [
  "fancy-regex",
  "linked-hash-map",
  "nu-path",
+ "nu-protocol",
  "nu-test-support",
  "nu-utils",
  "num-traits",
