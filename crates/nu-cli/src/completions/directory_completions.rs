@@ -1,9 +1,9 @@
 use crate::completions::{
-    Completer, CompletionOptions,
+    Completer,
     completion_common::{AdjustView, adjust_if_intermediate, complete_item},
 };
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, Span, SuggestionKind,
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;

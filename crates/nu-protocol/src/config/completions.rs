@@ -151,3 +151,20 @@ impl UpdateFromValue for CompletionConfig {
         }
     }
 }
+
+#[derive(Clone)]
+pub struct CompletionOptions {
+    pub case_sensitive: bool,
+    pub match_algorithm: CompletionAlgorithm,
+    pub sort: CompletionSort,
+}
+
+impl Default for CompletionOptions {
+    fn default() -> Self {
+        Self {
+            case_sensitive: true,
+            match_algorithm: CompletionAlgorithm::Prefix,
+            sort: Default::default(),
+        }
+    }
+}

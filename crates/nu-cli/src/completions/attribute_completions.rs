@@ -1,7 +1,10 @@
-use super::{SemanticSuggestion, completion_options::NuMatcher};
-use crate::completions::{Completer, CompletionOptions};
+use super::SemanticSuggestion;
+use crate::completions::{
+    Completer,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
@@ -26,22 +29,25 @@ impl Completer for AttributeCompletion {
 
         for (decl_id, name, desc, ty) in attr_commands {
             let name = name.strip_prefix(b"attr ").unwrap_or(&name);
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: String::from_utf8_lossy(name).into_owned(),
-                    description: desc,
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: String::from_utf8_lossy(name).into_owned(),
+                        description: desc,
+                        span: reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        append_whitespace: false,
+                        ..Default::default()
                     },
-                    append_whitespace: false,
-                    ..Default::default()
+                    kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
                 },
-                kind: Some(SuggestionKind::Command(ty, Some(decl_id))),
-            });
+            );
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }
 
@@ -62,25 +68,28 @@ impl Completer for AttributableCompletion {
                 .find_decl(s.as_bytes())
                 .expect("internal error, builtin declaration not found");
             let cmd = working_set.get_decl(decl_id);
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: cmd.name().into(),
-                    description: Some(cmd.description().into()),
-                    span: reedline::Span {
-                        start: span.start - offset,
-                        end: span.end - offset,
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: cmd.name().into(),
+                        description: Some(cmd.description().into()),
+                        span: reedline::Span {
+                            start: span.start - offset,
+                            end: span.end - offset,
+                        },
+                        append_whitespace: true,
+                        ..Default::default()
                     },
-                    append_whitespace: true,
-                    ..Default::default()
+                    kind: Some(SuggestionKind::Command(
+                        cmd.command_type(),
+                        // for snippet completion in LSP
+                        working_set.find_decl(s.as_bytes()),
+                    )),
                 },
-                kind: Some(SuggestionKind::Command(
-                    cmd.command_type(),
-                    // for snippet completion in LSP
-                    working_set.find_decl(s.as_bytes()),
-                )),
-            });
+            );
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

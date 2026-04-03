@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
-use crate::completions::{Completer, CompletionOptions, SemanticSuggestion};
+use crate::completions::{
+    Completer, SemanticSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, Span, SuggestionKind,
+    CompletionOptions, ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, NuMatcher, Span,
+    SuggestionKind,
     engine::{Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
-
-use super::completion_options::NuMatcher;
 
 pub struct VariableCompletion;
 
@@ -64,17 +66,20 @@ impl Completer for VariableCompletion {
         }
 
         for (name, var_id) in variables {
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value: name,
-                    span: current_span,
-                    description: Some(working_set.get_variable(*var_id).ty.to_string()),
-                    ..Suggestion::default()
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value: name,
+                        span: current_span,
+                        description: Some(working_set.get_variable(*var_id).ty.to_string()),
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Variable),
                 },
-                kind: Some(SuggestionKind::Variable),
-            });
+            );
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 }

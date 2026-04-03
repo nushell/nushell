@@ -1,13 +1,16 @@
 use std::collections::HashSet;
 
-use crate::completions::{Completer, CompletionOptions};
+use crate::completions::{
+    Completer,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
+};
 use nu_protocol::{
-    Category, Span, SuggestionKind,
+    Category, CompletionOptions, NuMatcher, Span, SuggestionKind,
     engine::{CommandType, Stack, StateWorkingSet},
 };
 use reedline::Suggestion;
 
-use super::{SemanticSuggestion, completion_options::NuMatcher};
+use super::SemanticSuggestion;
 
 // TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
 pub struct CommandCompletion {
@@ -88,7 +91,7 @@ impl CommandCompletion {
             }
         }
 
-        matcher.suggestion_results()
+        suggestion_results(matcher)
     }
 
     fn is_executable_command(path: impl AsRef<std::path::Path>) -> bool {
@@ -130,24 +133,27 @@ impl Completer for CommandCompletion {
                 if command.signature().category == Category::Removed {
                     return;
                 }
-                let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
-                    suggestion: Suggestion {
-                        value: name.to_string(),
-                        description: Some(command.description().to_string()),
-                        span: sugg_span,
-                        append_whitespace: true,
-                        ..Suggestion::default()
+                let matched = add_semantic_suggestion(
+                    &mut matcher,
+                    SemanticSuggestion {
+                        suggestion: Suggestion {
+                            value: name.to_string(),
+                            description: Some(command.description().to_string()),
+                            span: sugg_span,
+                            append_whitespace: true,
+                            ..Suggestion::default()
+                        },
+                        kind: Some(SuggestionKind::Command(
+                            command.command_type(),
+                            Some(decl_id),
+                        )),
                     },
-                    kind: Some(SuggestionKind::Command(
-                        command.command_type(),
-                        Some(decl_id),
-                    )),
-                });
+                );
                 if matched {
                     internal_suggs.insert(name.to_string());
                 }
             });
-            res.extend(matcher.suggestion_results());
+            res.extend(suggestion_results(matcher));
         }
 
         if self.externals {

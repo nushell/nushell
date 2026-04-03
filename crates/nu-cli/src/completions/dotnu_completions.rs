@@ -1,10 +1,11 @@
 use crate::completions::{
-    Completer, CompletionOptions, SemanticSuggestion, completion_common::FileSuggestion,
-    completion_options::NuMatcher,
+    Completer, SemanticSuggestion,
+    completion_common::FileSuggestion,
+    matcher_helper::{add_semantic_suggestion, suggestion_results},
 };
 use nu_path::expand_tilde;
 use nu_protocol::{
-    Span, SuggestionKind,
+    CompletionOptions, NuMatcher, Span, SuggestionKind,
     engine::{Stack, StateWorkingSet, VirtualPath},
 };
 use reedline::Suggestion;
@@ -49,16 +50,19 @@ impl Completer for DotNuCompletion {
                     .join("\n")
             });
 
-            matcher.add_semantic_suggestion(SemanticSuggestion {
-                suggestion: Suggestion {
-                    value,
-                    description,
-                    span: reedline_span,
-                    append_whitespace: true,
-                    ..Suggestion::default()
+            add_semantic_suggestion(
+                &mut matcher,
+                SemanticSuggestion {
+                    suggestion: Suggestion {
+                        value,
+                        description,
+                        span: reedline_span,
+                        append_whitespace: true,
+                        ..Suggestion::default()
+                    },
+                    kind: Some(SuggestionKind::Module),
                 },
-                kind: Some(SuggestionKind::Module),
-            });
+            );
         }
 
         // Add std virtual paths first
@@ -70,32 +74,38 @@ impl Completer for DotNuCompletion {
                 {
                     for sub_vp_id in sub_paths {
                         let (path, sub_vp) = working_set.get_virtual_path(*sub_vp_id);
-                        matcher.add_semantic_suggestion(SemanticSuggestion {
-                            suggestion: Suggestion {
-                                value: path.into(),
-                                span: reedline_span,
-                                append_whitespace: !matches!(sub_vp, VirtualPath::Dir(_)),
-                                ..Suggestion::default()
+                        add_semantic_suggestion(
+                            &mut matcher,
+                            SemanticSuggestion {
+                                suggestion: Suggestion {
+                                    value: path.into(),
+                                    span: reedline_span,
+                                    append_whitespace: !matches!(sub_vp, VirtualPath::Dir(_)),
+                                    ..Suggestion::default()
+                                },
+                                kind: Some(SuggestionKind::Module),
                             },
-                            kind: Some(SuggestionKind::Module),
-                        });
+                        );
                     }
                 }
             } else {
                 for path in ["std", "std-rfc"] {
-                    matcher.add_semantic_suggestion(SemanticSuggestion {
-                        suggestion: Suggestion {
-                            value: path.into(),
-                            span: reedline_span,
-                            ..Suggestion::default()
+                    add_semantic_suggestion(
+                        &mut matcher,
+                        SemanticSuggestion {
+                            suggestion: Suggestion {
+                                value: path.into(),
+                                span: reedline_span,
+                                ..Suggestion::default()
+                            },
+                            kind: Some(SuggestionKind::Module),
                         },
-                        kind: Some(SuggestionKind::Module),
-                    });
+                    );
                 }
             }
         }
 
-        let mut all_results = matcher.suggestion_results();
+        let mut all_results = suggestion_results(matcher);
 
         // Fetch the lib dirs
         // NOTE: 2 ways to setup `NU_LIB_DIRS`
