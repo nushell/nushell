@@ -231,6 +231,34 @@ fn add_overlay_from_const_module_name_decl() {
 }
 
 #[test]
+fn add_overlay_from_file_with_stored_where_condition() {
+    Playground::setup(
+        "add_overlay_from_file_with_stored_where_condition",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
+
+            let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+            let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(inp));
+
+            assert_eq!(actual.out, "[[a];[1]]");
+            assert_eq!(actual_repl.out, "[[a];[1]]");
+        },
+    );
+}
+
+#[test]
 fn new_overlay_from_const_name() {
     let inp = &[
         "const mod = 'spam'",

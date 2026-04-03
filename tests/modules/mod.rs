@@ -137,6 +137,39 @@ fn module_public_import_alias() {
 }
 
 #[test]
+fn module_public_import_decl_with_stored_where_condition() {
+    Playground::setup(
+        "module_public_import_decl_with_stored_where_condition",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "main.nu",
+                r#"
+                export use mod.nu helper
+            "#,
+            )]);
+
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            let inp = &["use main.nu helper", "helper | to nuon --raw"];
+
+            let actual = nu!(cwd: dirs.test(), &inp.join("; "));
+
+            assert_eq!(actual.out, "[[a];[1]]");
+        },
+    )
+}
+
+#[test]
 fn module_nested_imports() {
     Playground::setup("module_nested_imports", |dirs, sandbox| {
         sandbox

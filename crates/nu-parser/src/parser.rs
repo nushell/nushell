@@ -4035,11 +4035,13 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
         Expr::FullCellPath(ref box_fcp) if box_fcp.head.as_var().is_some_and(|id| id != var_id) => {
             let mut expression = expression;
             expression.ty = Type::Any;
+            working_set.exit_scope();
             return expression;
         }
         Expr::Var(arg_var_id) if arg_var_id != var_id => {
             let mut expression = expression;
             expression.ty = Type::Any;
+            working_set.exit_scope();
             return expression;
         }
         _ => {
@@ -4050,6 +4052,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
                     expression.ty.clone(),
                     expression.span,
                 ));
+                working_set.exit_scope();
                 return Expression::garbage(working_set, expression.span);
             }
 
