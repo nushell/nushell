@@ -520,16 +520,14 @@ fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> 
     }
 }
 
-pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+pub fn parse_external_call(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    call_span: Span,
+) -> Expression {
     trace!("parse external");
 
-    let head_contents = working_set.get_span_contents(spans[0]);
-
-    let head_span = if head_contents.starts_with(b"^") {
-        Span::new(spans[0].start + 1, spans[0].end)
-    } else {
-        spans[0]
-    };
+    let head_span = spans[0];
 
     let head_contents = working_set.get_span_contents(head_span).to_vec();
 
@@ -549,7 +547,7 @@ pub fn parse_external_call(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     Expression::new(
         working_set,
         Expr::ExternalCall(head, args),
-        Span::concat(spans),
+        call_span,
         Type::Any,
     )
 }
@@ -1414,11 +1412,12 @@ pub fn parse_internal_call(
 
 pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span) -> Expression {
     trace!("parsing: call");
+    let call_span = Span::concat(spans);
 
     if spans.is_empty() {
         working_set.error(ParseError::UnknownState(
             "Encountered command with zero spans".into(),
-            Span::concat(spans),
+            call_span,
         ));
         return garbage(working_set, head);
     }
@@ -1429,22 +1428,23 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         _ => None,
     };
 
+    let mut adjusted_spans = Vec::new();
+    let resolution_spans = match call_sigil {
+        Some(b'^') | Some(b'%') => {
+            adjusted_spans.reserve(spans.len());
+            adjusted_spans.push(Span::new(spans[0].start + 1, spans[0].end));
+            adjusted_spans.extend_from_slice(&spans[1..]);
+            adjusted_spans.as_slice()
+        }
+        _ => spans,
+    };
+
     // `^` always forces external command parsing and must bypass declaration
     // resolution, even when an internal command with the same name exists.
     if call_sigil == Some(b'^') {
         trace!("parsing: forced external call");
-        return parse_external_call(working_set, spans);
+        return parse_external_call(working_set, resolution_spans, call_span);
     }
-
-    let mut adjusted_spans = Vec::new();
-    let resolution_spans = if call_sigil == Some(b'%') {
-        adjusted_spans.reserve(spans.len());
-        adjusted_spans.push(Span::new(spans[0].start + 1, spans[0].end));
-        adjusted_spans.extend_from_slice(&spans[1..]);
-        adjusted_spans.as_slice()
-    } else {
-        spans
-    };
 
     let (cmd_start, pos, _name, maybe_decl_id) = if call_sigil == Some(b'%') {
         find_longest_decl_with_command_type(working_set, resolution_spans, CommandType::Builtin)
@@ -1463,9 +1463,9 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
 
                 working_set.error(ParseError::UnknownState(
                     "Incomplete statement".into(),
-                    Span::concat(spans),
+                    call_span,
                 ));
-                return garbage(working_set, Span::concat(spans));
+                return garbage(working_set, call_span);
             }
         }
 
@@ -1522,7 +1522,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         Expression::new(
             working_set,
             Expr::Call(parsed_call.call),
-            Span::concat(spans),
+            call_span,
             parsed_call.output,
         )
     } else {
@@ -1536,7 +1536,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             });
 
             // Preserve expression shape for features like completion while retaining the parse error.
-            return parse_external_call(working_set, spans);
+            return parse_external_call(working_set, spans, call_span);
         }
 
         // We might be parsing left-unbounded range ("..10")
@@ -1555,7 +1555,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         trace!("parsing: external call");
 
         // Otherwise, try external command
-        parse_external_call(working_set, spans)
+        parse_external_call(working_set, spans, call_span)
     }
 }
 
