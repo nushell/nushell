@@ -119,7 +119,7 @@ impl Command for Reduce {
                 .add_arg(value)
                 .add_arg(acc.clone())
                 .run_with_input(PipelineData::value(acc, None))?
-                .into_value(head)?;
+                .try_into_value(head)?;
         }
 
         Ok(acc.with_span(head).into_pipeline_data())

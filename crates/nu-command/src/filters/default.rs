@@ -172,7 +172,7 @@ fn default(
     // and set the default value for the specified record columns
     if !columns.is_empty() {
         if let PipelineData::Value(Value::Record { .. }, _) = input {
-            let record = input.into_value(input_span)?.into_record()?;
+            let record = input.try_into_value(input_span)?.into_record()?;
             fill_record(
                 record,
                 input_span,
@@ -278,7 +278,7 @@ impl DefaultValue {
                 let value = closure
                     .item
                     .run_with_input(PipelineData::empty())?
-                    .into_value(closure.span)?;
+                    .try_into_value(closure.span)?;
                 *self = DefaultValue::Calculated(value.clone());
                 Ok(value)
             }

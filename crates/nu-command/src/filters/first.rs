@@ -212,7 +212,7 @@ fn first_helper(
                             // For single element, limit 1
                             let new_table = table.clone().with_limit(1);
                             let result = new_table.execute(head)?;
-                            let value = result.into_value(head)?;
+                            let value = result.try_into_value(head)?;
                             if let Value::List { vals, .. } = value {
                                 if let Some(val) = vals.into_iter().next() {
                                     Ok(val.into_pipeline_data_with_metadata(input_meta))

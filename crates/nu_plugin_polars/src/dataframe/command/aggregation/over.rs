@@ -89,7 +89,7 @@ impl PluginCommand for Over {
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
 
         let metadata = input.take_metadata();
-        let input_value = input.into_value(call.head)?;
+        let input_value = input.try_into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &input_value)? {
             PolarsPluginObject::NuExpression(expr) => {

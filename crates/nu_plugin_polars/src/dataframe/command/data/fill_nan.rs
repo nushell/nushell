@@ -100,7 +100,7 @@ impl PluginCommand for LazyFillNA {
     ) -> Result<PipelineData, LabeledError> {
         let fill: Value = call.req(0)?;
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {

@@ -64,7 +64,7 @@ impl Command for UrlBuildQuery {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let input_span = input.span().unwrap_or(head);
-        let value = input.into_value(input_span)?;
+        let value = input.try_into_value(input_span)?;
         let span = value.span();
         let output = match value {
             Value::Record { ref val, .. } => record_to_query_string(val, span, head),

@@ -60,7 +60,7 @@ impl Command for Headers {
         let config = &stack.get_config(engine_state);
         let metadata = input.take_metadata();
         let span = input.span().unwrap_or(call.head);
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         let Value::List { vals: table, .. } = value else {
             return Err(ShellError::TypeMismatch {
                 err_message: "not a table".to_string(),

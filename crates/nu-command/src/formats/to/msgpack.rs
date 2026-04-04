@@ -87,7 +87,7 @@ MessagePack: https://msgpack.org/
             .with_content_type(Some("application/x-msgpack".into()));
 
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span)?;
+        let value = input.try_into_value(value_span)?;
         let mut out = vec![];
 
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;

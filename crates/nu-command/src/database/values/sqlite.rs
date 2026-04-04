@@ -87,7 +87,7 @@ impl SQLiteDatabase {
     }
 
     pub fn try_from_pipeline(input: PipelineData, span: Span) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value(value)
     }
 
@@ -1153,7 +1153,7 @@ impl CustomValue for SQLiteQueryBuilder {
     }
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
-        self.execute(span).and_then(|pd| pd.into_value(span))
+        self.execute(span).and_then(|pd| pd.try_into_value(span))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -1355,7 +1355,7 @@ mod test {
 
         let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals);
         let result = table.execute(Span::test_data()).unwrap();
-        let value = result.into_value(Span::test_data()).unwrap();
+        let value = result.try_into_value(Span::test_data()).unwrap();
 
         if let Value::List { vals, .. } = value {
             assert_eq!(vals.len(), 2);
@@ -1388,7 +1388,7 @@ mod test {
 
         let table = SQLiteQueryBuilder::new(db_path, "test".to_string(), signals).with_limit(2);
         let result = table.execute(Span::test_data()).unwrap();
-        let value = result.into_value(Span::test_data()).unwrap();
+        let value = result.try_into_value(Span::test_data()).unwrap();
 
         if let Value::List { vals, .. } = value {
             assert_eq!(vals.len(), 2);
@@ -1427,7 +1427,7 @@ mod test {
             .with_order_by("rowid DESC".to_string())
             .with_limit(2);
         let result = table.execute(Span::test_data()).unwrap();
-        let value = result.into_value(Span::test_data()).unwrap();
+        let value = result.try_into_value(Span::test_data()).unwrap();
 
         if let Value::List { vals, .. } = value {
             assert_eq!(vals.len(), 2);
@@ -1517,7 +1517,7 @@ mod test {
             .with_millis_duration_column("duration".to_string());
 
         let result = table.execute(Span::test_data()).unwrap();
-        let value = result.into_value(Span::test_data()).unwrap();
+        let value = result.try_into_value(Span::test_data()).unwrap();
 
         if let Value::List { vals, .. } = value {
             assert_eq!(vals.len(), 2);

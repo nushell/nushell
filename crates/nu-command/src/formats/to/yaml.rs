@@ -140,7 +140,7 @@ fn to_yaml(
         .unwrap_or_default()
         // Per RFC-9512, application/yaml should be used
         .with_content_type(Some("application/yaml".into()));
-    let value = input.into_value(head)?;
+    let value = input.try_into_value(head)?;
 
     let yaml_value = value_to_yaml_value(engine_state, &value, serialize_types)?;
     match serde_yaml::to_string(&yaml_value) {

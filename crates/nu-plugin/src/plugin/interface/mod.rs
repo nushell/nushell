@@ -924,7 +924,7 @@ impl EngineInterface {
         let input = input.map_or_else(PipelineData::empty, |v| PipelineData::value(v, None));
         let output = self.eval_closure_with_stream(closure, positional, input, true, false)?;
         // Unwrap an error value
-        match output.into_value(closure.span)? {
+        match output.try_into_value(closure.span)? {
             Value::Error { error, .. } => Err(*error),
             value => Ok(value),
         }

@@ -160,7 +160,7 @@ impl PipelineData {
     ///
     /// The type returned here makes no effort to collect a stream, so it may be a different type
     /// than would be returned by [`Value::get_type()`] on the result of
-    /// [`.into_value()`](Self::into_value).
+    /// [`.try_into_value()`](Self::try_into_value).
     ///
     /// Specifically, a `ListStream` results in `list<any>` rather than
     /// the fully complete [`list`](Type::List) type (which would require knowing the contents),
@@ -179,12 +179,12 @@ impl PipelineData {
     ///
     /// This check makes no effort to collect a stream, so it may be a different result
     /// than would be returned by calling [`Value::is_subtype_of()`] on the result of
-    /// [`.into_value()`](Self::into_value).
+    /// [`.try_into_value()`](Self::try_into_value).
     ///
     /// A `ListStream` acts the same as an empty list type: it is a subtype of any [`list`](Type::List)
     /// or [`table`](Type::Table) type. After converting to a value, it may become a more specific type.
     /// For example, a `ListStream` is a subtype of `list<int>` and `list<string>`.
-    /// If calling [`.into_value()`](Self::into_value) results in a `list<int>`,
+    /// If calling [`.try_into_value()`](Self::try_into_value) results in a `list<int>`,
     /// then the value would not be a subtype of `list<string>`, in contrast to the original `ListStream`.
     ///
     /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
@@ -216,7 +216,7 @@ impl PipelineData {
         }
     }
 
-    pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
+    pub fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
         match self {
             PipelineData::Empty => Ok(Value::nothing(span)),
             PipelineData::Value(value, ..) => {
@@ -226,8 +226,8 @@ impl PipelineData {
                     Ok(value)
                 }
             }
-            PipelineData::ListStream(stream, ..) => stream.into_value(),
-            PipelineData::ByteStream(stream, ..) => stream.into_value(),
+            PipelineData::ListStream(stream, ..) => stream.try_into_value(),
+            PipelineData::ByteStream(stream, ..) => stream.try_into_value(),
         }
     }
 
@@ -354,7 +354,8 @@ impl PipelineData {
             OutDest::Value => {
                 let metadata = self.take_metadata();
                 let span = self.span().unwrap_or(Span::unknown());
-                self.into_value(span).map(|val| Self::Value(val, metadata))
+                self.try_into_value(span)
+                    .map(|val| Self::Value(val, metadata))
             }
             OutDest::File(file) => {
                 self.write_to(file.as_ref())?;
@@ -560,7 +561,7 @@ impl PipelineData {
                 Ok(PipelineData::list_stream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
-                Ok(f(stream.into_value()?).into_pipeline_data_with_metadata(metadata))
+                Ok(f(stream.try_into_value()?).into_pipeline_data_with_metadata(metadata))
             }
         }
     }

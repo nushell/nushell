@@ -180,7 +180,7 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
 
     let every = match call.req(0)? {
         // handle Value::Duration input for maximum compatibility

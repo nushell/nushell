@@ -142,7 +142,7 @@ pub(crate) fn explode(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
     let explode_options = ExplodeOptions {
         empty_as_null: call.has_flag("empty-as-null")?,
         keep_nulls: call.has_flag("keep-nulls")?,

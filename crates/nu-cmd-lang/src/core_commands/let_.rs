@@ -83,11 +83,11 @@ impl Command for Let {
                 }
             }
             // Discard input when using = syntax
-            let _ = input.into_value(call.head)?;
+            let _ = input.try_into_value(call.head)?;
             eval_expression::<WithoutDebug>(engine_state, stack, initial_value_expr)?
         } else {
             // Use pipeline input directly when no = is provided
-            input.into_value(call.head)?
+            input.try_into_value(call.head)?
         };
 
         // If the variable is declared `: glob` and the RHS is a string,

@@ -274,7 +274,7 @@ fn command(
         .get_flag::<Spanned<String>>("time-zone")?
         .map(|s| timezone_from_str(&s.item, Some(s.span)))
         .transpose()?;
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
 
     let options = StrptimeOptions {
         format: Some(format.into()),

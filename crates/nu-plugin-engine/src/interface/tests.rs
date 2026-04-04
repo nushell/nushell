@@ -1092,7 +1092,7 @@ fn interface_run() -> Result<(), ShellError> {
 
     assert_eq!(
         Value::test_int(number),
-        result.into_value(Span::test_data())?,
+        result.try_into_value(Span::test_data())?,
     );
     assert!(test.has_unconsumed_write());
     Ok(())
@@ -1202,7 +1202,7 @@ fn interface_prepare_pipeline_data_accepts_normal_values() -> Result<(), ShellEr
         match interface.prepare_pipeline_data(PipelineData::value(value.clone(), None), &state) {
             Ok(data) => assert_eq!(
                 value.get_type(),
-                data.into_value(Span::test_data())?.get_type(),
+                data.try_into_value(Span::test_data())?.get_type(),
             ),
             Err(err) => panic!("failed to accept {value:?}: {err}"),
         }

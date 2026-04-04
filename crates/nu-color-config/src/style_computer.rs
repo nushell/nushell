@@ -59,7 +59,7 @@ impl<'a> StyleComputer<'a> {
                 let result = ClosureEvalOnce::new(self.engine_state, self.stack, closure.clone())
                     .debug(false)
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(*span));
+                    .and_then(|data| data.try_into_value(*span));
 
                 match result {
                     Ok(value) => {

@@ -72,7 +72,7 @@ impl ExternalHinter {
         let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, self.closure.clone())
             .add_arg(Value::record(context, span))
             .run_with_input(PipelineData::empty())
-            .and_then(|data| data.into_value(span));
+            .and_then(|data| data.try_into_value(span));
 
         match result {
             Ok(Value::String { val, .. }) => Ok(Some(HintResult {

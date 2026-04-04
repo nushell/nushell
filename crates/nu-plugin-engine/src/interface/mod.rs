@@ -1033,7 +1033,7 @@ impl PluginInterface {
 
         let call = PluginCall::CustomValueOp(value.map(|cv| cv.without_source()), op);
         match self.plugin_call(call, None)? {
-            PluginCallResponse::PipelineData(out_data) => out_data.into_value(span),
+            PluginCallResponse::PipelineData(out_data) => out_data.try_into_value(span),
             PluginCallResponse::Error(err) => Err(err),
             _ => Err(ShellError::PluginFailedToDecode {
                 msg: format!("Received unexpected response to custom value {op_name}() call"),

@@ -235,7 +235,7 @@ where
 {
     chunk_iter_by(iterator, signals, move |value| {
         match closure.run_with_value(value.clone()) {
-            Ok(data) => data.into_value(head).unwrap_or_else(|error| {
+            Ok(data) => data.try_into_value(head).unwrap_or_else(|error| {
                 Value::error(chain_error_with_input(error, value.is_error(), head), head)
             }),
 

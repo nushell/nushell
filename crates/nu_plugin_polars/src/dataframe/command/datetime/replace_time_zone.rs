@@ -233,7 +233,7 @@ impl PluginCommand for ReplaceTimeZone {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         let ambiguous = match call.get_flag::<Value>("ambiguous")? {
             Some(v @ Value::String { .. }) => {

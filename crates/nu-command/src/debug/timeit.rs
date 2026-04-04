@@ -70,7 +70,7 @@ This command will bubble up any errors encountered when running the closure. The
 
         // Get the start time after all other computation has been done.
         let start_time = Instant::now();
-        let closure_output = closure.run_with_input(input)?.into_value(call.head)?;
+        let closure_output = closure.run_with_input(input)?.try_into_value(call.head)?;
         let time = Value::duration(start_time.elapsed().as_nanos() as i64, call.head);
 
         let output = if include_output {

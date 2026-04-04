@@ -219,7 +219,7 @@ impl Command for Last {
                                     .with_order_by("rowid DESC".to_string())
                                     .with_limit(1);
                                 let result = new_table.execute(head)?;
-                                let value = result.into_value(head)?;
+                                let value = result.try_into_value(head)?;
                                 if let Value::List { vals, .. } = value {
                                     if let Some(val) = vals.into_iter().next() {
                                         Ok(val.into_pipeline_data_with_metadata(metadata))
@@ -243,7 +243,7 @@ impl Command for Last {
                                     .with_order_by("rowid DESC".to_string())
                                     .with_limit(rows as i64);
                                 let result = new_table.execute(head)?;
-                                let value = result.into_value(head)?;
+                                let value = result.try_into_value(head)?;
 
                                 if let Value::List { mut vals, .. } = value {
                                     // Reverse the results to restore original order

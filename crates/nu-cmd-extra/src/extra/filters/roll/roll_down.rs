@@ -57,7 +57,7 @@ impl Command for RollDown {
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
         let metadata = input.take_metadata();
 
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let rotated_value = vertical_rotate_value(value, by, VerticalDirection::Down)?;
 
         Ok(rotated_value.into_pipeline_data().set_metadata(metadata))

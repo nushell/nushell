@@ -1388,7 +1388,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();
@@ -1418,7 +1418,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();
@@ -1447,7 +1447,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();
@@ -1477,7 +1477,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();
@@ -1503,7 +1503,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();
@@ -1536,7 +1536,7 @@ mod tests {
             Span::test_data(),
         )
         .unwrap()
-        .into_value(Span::test_data())
+        .try_into_value(Span::test_data())
         .unwrap()
         .into_string()
         .unwrap();

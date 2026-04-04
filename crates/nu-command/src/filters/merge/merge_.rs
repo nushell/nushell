@@ -94,7 +94,7 @@ repeating this process with row 1, and so on."
         // collect input before typechecking, so tables are detected as such
         let input_span = input.span().unwrap_or(head);
         let metadata = input.take_metadata();
-        let input = input.into_value(input_span)?;
+        let input = input.try_into_value(input_span)?;
 
         typecheck_merge(&input, &merge_value, head)?;
 

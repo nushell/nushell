@@ -164,7 +164,7 @@ impl PluginCommand for Cumulative {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let cum_type: Spanned<String> = call.req(0)?;
         let cum_type = CumulativeType::from_str(&cum_type.item, cum_type.span)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {

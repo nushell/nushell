@@ -121,7 +121,7 @@ impl PluginExecutionContext for PluginExecutionCommandContext<'_> {
                     Value::Closure { val, .. } => {
                         ClosureEvalOnce::new(&self.engine_state, &self.stack, *val)
                             .run_with_input(PipelineData::empty())
-                            .and_then(|data| data.into_value(span))
+                            .and_then(|data| data.try_into_value(span))
                             .unwrap_or_else(|err| Value::error(err, self.call.head))
                     }
                     _ => value.clone(),

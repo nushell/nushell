@@ -124,7 +124,7 @@ pub fn to_delimited_data(
         None => {
             // The columns were not provided. We need to detect them, and in order to do so, we have
             // to convert the input into a value first, so that we can find all of them
-            let value = input.into_value(span)?;
+            let value = input.try_into_value(span)?;
             let columns = match &value {
                 Value::List { vals, .. } => merge_descriptors(vals),
                 Value::Record { val, .. } => val.columns().cloned().collect(),

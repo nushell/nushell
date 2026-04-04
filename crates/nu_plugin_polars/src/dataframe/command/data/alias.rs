@@ -74,7 +74,7 @@ impl PluginCommand for ExprAlias {
 
         let metadata = input.take_metadata();
         // Convert input to Value first to check type
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         let expr = NuExpression::try_from_value(plugin, &value)?;
         let expr: NuExpression = expr.into_polars().alias(alias.as_str()).into();

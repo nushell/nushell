@@ -137,7 +137,7 @@ impl Command for DetectType {
         let display_as_filesize = call.has_flag(engine_state, stack, "prefer-filesize")?;
         let prefer_dmy = call.has_flag(engine_state, stack, "prefer-dmy")?;
         let metadata = input.take_metadata();
-        let val = input.into_value(call.head)?;
+        let val = input.try_into_value(call.head)?;
         process(val, metadata, display_as_filesize, prefer_dmy, span)
     }
 }
@@ -729,7 +729,7 @@ mod test {
         let span = Span::test_data();
         let result = process(Value::string(input, span), None, false, false, span)
             .unwrap()
-            .into_value(span)
+            .try_into_value(span)
             .unwrap();
 
         if let Value::Date { val, .. } = result {
@@ -761,7 +761,7 @@ mod test {
         let span = Span::test_data();
         let result = process(Value::string(input, span), None, false, true, span)
             .unwrap()
-            .into_value(span)
+            .try_into_value(span)
             .unwrap();
 
         if let Value::Date { val, .. } = result {

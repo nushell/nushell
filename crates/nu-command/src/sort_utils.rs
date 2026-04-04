@@ -264,10 +264,10 @@ pub fn compare_key_closure(
 ) -> Result<Ordering, ShellError> {
     let left_key = closure_eval
         .run_with_value(left.clone())?
-        .into_value(span)?;
+        .try_into_value(span)?;
     let right_key = closure_eval
         .run_with_value(right.clone())?
-        .into_value(span)?;
+        .try_into_value(span)?;
     compare_values(&left_key, &right_key, insensitive, natural)
 }
 
@@ -284,7 +284,7 @@ pub fn compare_custom_closure(
             Value::list(vec![left.clone(), right.clone()], span),
             None,
         ))
-        .and_then(|data| data.into_value(span))
+        .and_then(|data| data.try_into_value(span))
         .map(|val| {
             if val.is_true() {
                 Ordering::Less

@@ -45,7 +45,7 @@ impl Command for ClipCopy {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let config = stack.get_config(engine_state);
 
         Self::copy_text(engine_state, stack, &value, call.head, &config)?;

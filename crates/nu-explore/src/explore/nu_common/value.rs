@@ -64,7 +64,7 @@ fn collect_byte_stream(
         },
         Err(stream) => {
             let value = stream
-                .into_value()
+                .try_into_value()
                 .unwrap_or_else(|err| Value::error(err, span));
 
             columns.push("".into());

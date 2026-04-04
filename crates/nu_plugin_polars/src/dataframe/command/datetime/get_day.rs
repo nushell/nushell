@@ -108,7 +108,7 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
 
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),

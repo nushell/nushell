@@ -267,7 +267,7 @@ pub fn eval_expression_with_input<D: DebugContext>(
                     let stack = &mut stack.start_collect_value();
                     // FIXME: protect this collect with ctrl-c
                     input = eval_subexpression::<D>(engine_state, stack, block, input)?
-                        .into_value(*span)?
+                        .try_into_value(*span)?
                         .follow_cell_path(&full_cell_path.tail)?
                         .into_owned()
                         .into_pipeline_data()
@@ -276,21 +276,21 @@ pub fn eval_expression_with_input<D: DebugContext>(
                 }
             }
             _ => {
-                let input_value = input.into_value(expr.span)?;
+                let input_value = input.try_into_value(expr.span)?;
                 stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
                 input = eval_expression::<D>(engine_state, stack, expr)?.into_pipeline_data();
             }
         },
 
         Expr::StringInterpolation(_) | Expr::GlobInterpolation(_, _) => {
-            let input_value = input.into_value(expr.span)?;
+            let input_value = input.try_into_value(expr.span)?;
             stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
             let value = eval_expression::<D>(engine_state, stack, expr)?;
             input = PipelineData::Value(value, None);
         }
 
         _ => {
-            let input_value = input.into_value(expr.span)?;
+            let input_value = input.try_into_value(expr.span)?;
             stack.add_var(nu_protocol::IN_VARIABLE_ID, input_value);
             let value = eval_expression::<D>(engine_state, stack, expr)?;
             input = PipelineData::Value(value, None);
@@ -343,7 +343,7 @@ pub fn eval_collect<D: DebugContext>(
 
     let metadata = input.take_metadata().and_then(|m| m.for_collect());
 
-    let input = input.into_value(span)?;
+    let input = input.try_into_value(span)?;
 
     stack.add_var(var_id, input.clone());
 
@@ -430,7 +430,7 @@ impl Eval for EvalRuntime {
         _: Span,
     ) -> Result<Value, ShellError> {
         // FIXME: protect this collect with ctrl-c
-        eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.into_value(call.head)
+        eval_call::<D>(engine_state, stack, call, PipelineData::empty())?.try_into_value(call.head)
     }
 
     fn eval_external_call(
@@ -442,7 +442,7 @@ impl Eval for EvalRuntime {
     ) -> Result<Value, ShellError> {
         let span = head.span(&engine_state);
         // FIXME: protect this collect with ctrl-c
-        eval_external(engine_state, stack, head, args, PipelineData::empty())?.into_value(span)
+        eval_external(engine_state, stack, head, args, PipelineData::empty())?.try_into_value(span)
     }
 
     fn eval_collect<D: DebugContext>(
@@ -454,7 +454,7 @@ impl Eval for EvalRuntime {
         // It's a little bizarre, but the expression can still have some kind of result even with
         // nothing input
         eval_collect::<D>(engine_state, stack, var_id, expr, PipelineData::empty())?
-            .into_value(expr.span)
+            .try_into_value(expr.span)
     }
 
     fn eval_subexpression<D: DebugContext>(
@@ -465,7 +465,8 @@ impl Eval for EvalRuntime {
     ) -> Result<Value, ShellError> {
         let block = engine_state.get_block(block_id);
         // FIXME: protect this collect with ctrl-c
-        eval_subexpression::<D>(engine_state, stack, block, PipelineData::empty())?.into_value(span)
+        eval_subexpression::<D>(engine_state, stack, block, PipelineData::empty())?
+            .try_into_value(span)
     }
 
     fn regex_match(

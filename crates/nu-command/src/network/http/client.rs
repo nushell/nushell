@@ -347,7 +347,7 @@ fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadat
     let status = Value::int(response.status().as_u16().into(), span);
 
     let headers_value = headers_to_nu(&extract_response_headers(response), span)
-        .and_then(|data| data.into_value(span))
+        .and_then(|data| data.try_into_value(span))
         .unwrap_or(Value::nothing(span));
 
     let urls = Value::list(
@@ -1124,11 +1124,11 @@ pub(crate) fn request_handle_response(
         let response_status = resp.status();
 
         let request_headers_value = headers_to_nu(&headers, span)
-            .and_then(|data| data.into_value(span))
+            .and_then(|data| data.try_into_value(span))
             .unwrap_or(Value::nothing(span));
 
         let response_headers_value = headers_to_nu(&extract_response_headers(&resp), span)
-            .and_then(|data| data.into_value(span))
+            .and_then(|data| data.try_into_value(span))
             .unwrap_or(Value::nothing(span));
 
         let headers = record! {
@@ -1143,7 +1143,7 @@ pub(crate) fn request_handle_response(
                 .collect(),
             span,
         );
-        let body = consume_response_body(resp)?.into_value(span)?;
+        let body = consume_response_body(resp)?.try_into_value(span)?;
 
         let full_response = Value::record(
             record! {

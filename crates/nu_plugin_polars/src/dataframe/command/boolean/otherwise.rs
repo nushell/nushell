@@ -100,7 +100,7 @@ impl PluginCommand for ExprOtherwise {
         let otherwise_predicate = NuExpression::try_from_value(plugin, &otherwise_predicate)?;
 
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let complete: NuExpression = match NuWhen::try_from_value(plugin, &value)?.when_type {
             NuWhenType::Then(then) => then.otherwise(otherwise_predicate.into_polars()).into(),
             NuWhenType::ChainedThen(chained_when) => chained_when

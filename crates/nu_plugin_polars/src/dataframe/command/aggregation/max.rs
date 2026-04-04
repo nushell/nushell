@@ -97,7 +97,7 @@ impl PluginCommand for ExprMax {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_lazy(plugin, engine, call, df.lazy()),
             PolarsPluginObject::NuLazyFrame(lazy) => command_lazy(plugin, engine, call, lazy),

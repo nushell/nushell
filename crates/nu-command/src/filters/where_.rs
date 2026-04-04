@@ -72,7 +72,7 @@ Row conditions cannot be stored in a variable. To pass a condition with a variab
             .filter_map(move |value| {
                 match closure
                     .run_with_value(value.clone())
-                    .and_then(|data| data.into_value(head))
+                    .and_then(|data| data.try_into_value(head))
                 {
                     Ok(cond) => cond.is_true().then_some(value),
                     Err(err) => Some(Value::error(err, head)),

@@ -85,7 +85,7 @@ impl Command for UrlSplitQuery {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let span = value.span();
         let query = value.to_expanded_string("", &stack.get_config(engine_state));
         let table = query_string_to_table(&query, call.head, span)?;

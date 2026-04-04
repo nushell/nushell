@@ -348,7 +348,7 @@ fn run_closure_on_value(closure_eval: &mut ClosureEval, value: Value) -> Value {
 
     closure_eval
         .run_with_value(value)
-        .and_then(|data| data.into_value(span))
+        .and_then(|data| data.try_into_value(span))
         .unwrap_or_else(|err| Value::error(chain_error_with_input(err, is_error, span), span))
 }
 

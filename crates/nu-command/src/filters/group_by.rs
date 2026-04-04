@@ -410,7 +410,7 @@ fn group_closure(
     for value in values {
         let key = closure
             .run_with_value(value.clone())?
-            .into_value(span)?
+            .try_into_value(span)?
             .to_expanded_string(", ", config);
 
         groups.entry(key).or_default().push(value);

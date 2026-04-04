@@ -191,7 +191,7 @@ fn insert_recursive(
                         let value = value.unwrap_or(Value::nothing(head_span));
                         let new_value = ClosureEvalOnce::new(engine_state, stack, *val)
                             .run_with_value(value.clone())?
-                            .into_value(head_span)?;
+                            .try_into_value(head_span)?;
 
                         pre_elems.push(new_value);
                         if !end_of_stream {
@@ -304,7 +304,9 @@ fn insert_value_by_closure(
     span: Span,
     cell_path: &[PathMember],
 ) -> Result<(), ShellError> {
-    let new_value = closure.run_with_value(value.clone())?.into_value(span)?;
+    let new_value = closure
+        .run_with_value(value.clone())?
+        .try_into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 
@@ -326,7 +328,7 @@ fn insert_single_value_by_closure(
     } else {
         value.clone()
     };
-    let new_value = closure.run_with_value(arg)?.into_value(span)?;
+    let new_value = closure.run_with_value(arg)?.try_into_value(span)?;
     value.insert_data_at_cell_path(cell_path, new_value, span)
 }
 

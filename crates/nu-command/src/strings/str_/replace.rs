@@ -281,7 +281,7 @@ fn action(
                         let span = closure.span;
                         let result: Result<Value, ShellError> = closure_eval
                             .run_with_value(Value::string(find.item.clone(), find.span))
-                            .and_then(|result| result.into_value(span));
+                            .and_then(|result| result.try_into_value(span));
                         match result {
                             Ok(Value::String { val, .. }) => Ok(Arc::new(val.into_spanned(span))),
                             Ok(res) => Err((
@@ -363,7 +363,7 @@ fn action(
                             };
                             let result: Result<Value, ShellError> = closure_eval
                                 .run_with_input(PipelineData::value(value, None))
-                                .and_then(|result| result.into_value(span));
+                                .and_then(|result| result.try_into_value(span));
                             match result {
                                 Ok(Value::String { val, .. }) => val.to_string(),
                                 Ok(res) => {

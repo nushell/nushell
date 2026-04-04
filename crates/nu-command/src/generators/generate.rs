@@ -242,7 +242,7 @@ fn parse_closure_result(
 
         Ok(other) => {
             let error = other
-                .into_value(head)
+                .try_into_value(head)
                 .map(|val| {
                     ShellError::Generic(GenericError::new(
                         "Invalid block return",

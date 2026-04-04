@@ -105,7 +105,7 @@ impl PluginCommand for LazyQuantile {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let quantile: f64 = call.req(0)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {

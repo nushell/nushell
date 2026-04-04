@@ -131,7 +131,7 @@ pub fn eval_block(
 
     nu_engine::eval_block::<WithoutDebug>(engine_state, &mut stack, &block, input)
         .map(|p| p.body)
-        .and_then(|data| data.into_value(Span::test_data()))
+        .and_then(|data| data.try_into_value(Span::test_data()))
         .unwrap_or_else(|err| {
             report_shell_error(None, engine_state, &err);
             panic!("test eval error in `{}`: {:?}", "TODO", err)

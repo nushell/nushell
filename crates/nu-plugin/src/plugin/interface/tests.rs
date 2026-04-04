@@ -1055,7 +1055,7 @@ fn interface_eval_closure_with_stream() -> Result<(), ShellError> {
             true,
             false,
         )?
-        .into_value(Span::test_data())?;
+        .try_into_value(Span::test_data())?;
 
     assert_eq!(Value::test_int(2), result);
 

@@ -190,7 +190,7 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         let mut should_filter = true;
 
         // Parse result
-        let suggestions = match result.and_then(|data| data.into_value(span)) {
+        let suggestions = match result.and_then(|data| data.try_into_value(span)) {
             Ok(value) => match &value {
                 Value::Record { val, .. } => {
                     let completions = val
@@ -435,7 +435,7 @@ fn convert_whole_command_completion_results(
     result: Result<PipelineData, nu_protocol::ShellError>,
     command_span: Span,
 ) -> Option<Vec<SemanticSuggestion>> {
-    let value = match result.and_then(|pipeline_data| pipeline_data.into_value(span)) {
+    let value = match result.and_then(|pipeline_data| pipeline_data.try_into_value(span)) {
         Ok(value) => value,
         Err(err) => {
             log::error!(

@@ -120,7 +120,7 @@ impl PluginCommand for SaveDF {
         debug!("file: {}", spanned_file.item);
 
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
 
         check_writing_into_source_file(
             metadata.as_ref(),

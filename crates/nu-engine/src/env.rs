@@ -55,7 +55,7 @@ pub fn convert_env_vars(
             let new_val = ClosureEvalOnce::new(engine_state, stack, conversion.clone())
                 .debug(false)
                 .run_with_value(val.clone())?
-                .into_value(val.span())?;
+                .try_into_value(val.span())?;
 
             stack.add_env_var(key.to_string(), new_val);
         }
@@ -320,7 +320,7 @@ fn get_converted_value(
         ClosureEvalOnce::new(engine_state, stack, conversion.clone())
             .debug(false)
             .run_with_value(orig_val.clone())?
-            .into_value(orig_val.span())?,
+            .try_into_value(orig_val.span())?,
     )
 }
 

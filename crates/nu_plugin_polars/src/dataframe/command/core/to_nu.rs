@@ -105,7 +105,7 @@ fn command(
     call: &EvaluatedCall,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
     match PolarsPluginObject::try_from_value(plugin, &value)? {
         PolarsPluginObject::NuDataFrame(df) => dataframe_command(call, df),
         PolarsPluginObject::NuLazyFrame(lazy) => dataframe_command(call, lazy.collect(call.head)?),

@@ -206,7 +206,7 @@ fn command(
 ) -> Result<PipelineData, ShellError> {
     let format: String = call.req(0)?;
     let not_exact = call.has_flag("not-exact")?;
-    let value = input.into_value(call.head)?;
+    let value = input.try_into_value(call.head)?;
 
     let options = StrptimeOptions {
         format: Some(format.into()),

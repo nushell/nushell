@@ -155,7 +155,7 @@ impl PluginCommand for LazyFilter {
         let expr_value: Value = call.req(0)?;
         let filter_expr = NuExpression::try_from_value(plugin, &expr_value)?;
         let metadata = input.take_metadata();
-        let pipeline_value = input.into_value(call.head)?;
+        let pipeline_value = input.try_into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &pipeline_value)? {
             PolarsPluginObject::NuDataFrame(df) => {

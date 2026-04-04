@@ -131,7 +131,7 @@ the most recent `error make`."
         };
         let show_labels: bool = !call.has_flag(engine_state, stack, "unspanned")?;
 
-        let inners = match ErrorInfo::from_value(input.into_value(call.head)?) {
+        let inners = match ErrorInfo::from_value(input.try_into_value(call.head)?) {
             Ok(v) => vec![v.into_value(call.head)],
             Err(_) => vec![],
         };

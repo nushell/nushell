@@ -118,7 +118,7 @@ impl NuLazyFrame {
         input: PipelineData,
         span: Span,
     ) -> Result<Self, ShellError> {
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         Self::try_from_value_coerce(plugin, &value)
     }
 }

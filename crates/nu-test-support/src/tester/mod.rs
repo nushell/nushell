@@ -323,7 +323,7 @@ impl NuTester {
         pipeline_execution_data: PipelineExecutionData,
     ) -> Result<T, TestError> {
         let pipeline_data = pipeline_execution_data.body;
-        let value = pipeline_data.into_value(Span::test_data())?;
+        let value = pipeline_data.try_into_value(Span::test_data())?;
         let value = T::from_value(value)?;
         Ok(value)
     }

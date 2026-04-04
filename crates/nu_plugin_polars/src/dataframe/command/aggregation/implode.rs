@@ -55,7 +55,7 @@ impl PluginCommand for ExprImplode {
         mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
             _ => Err(cant_convert_err(&value, &[PolarsPluginType::NuExpression])),

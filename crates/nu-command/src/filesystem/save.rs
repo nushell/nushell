@@ -244,7 +244,7 @@ impl Command for Save {
                         .map(|()| PipelineData::empty());
                 }
 
-                let bytes = value_to_bytes(converted.into_value(span)?)?;
+                let bytes = value_to_bytes(converted.try_into_value(span)?)?;
 
                 // Only open file after successful conversion
                 let (mut file, _) =

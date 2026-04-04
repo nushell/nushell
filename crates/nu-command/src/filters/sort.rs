@@ -147,7 +147,7 @@ impl Command for Sort {
 
         let span = input.span().unwrap_or(call.head);
         let metadata = input.take_metadata();
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         let sorted: Value = match value {
             Value::Record { val, .. } => {
                 // Records have two sorting methods, toggled by presence or absence of -v

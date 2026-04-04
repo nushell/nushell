@@ -147,7 +147,7 @@ fn test_into_int_from_u32() -> Result<(), ShellError> {
             "into int from u32",
             PipelineData::value(CustomU32(42).into_value(Span::test_data()), None),
         )?
-        .into_value(Span::test_data())?;
+        .try_into_value(Span::test_data())?;
     assert_eq!(Value::test_int(42), result);
     Ok(())
 }

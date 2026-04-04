@@ -274,7 +274,7 @@ use it in your pipeline."
             } else {
                 // Otherwise, we can spawn a thread with the input value, but we have nowhere to
                 // send an error to other than just trying to print it to stderr.
-                let value = input.into_value(span)?;
+                let value = input.try_into_value(span)?;
                 let value_clone = value.clone();
                 tee_once(stack.clone(), engine_state_arc, move || {
                     eval_block(value_clone.into_pipeline_data_with_metadata(metadata_clone))

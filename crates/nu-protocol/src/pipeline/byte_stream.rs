@@ -658,7 +658,7 @@ impl ByteStream {
     /// If this is an `Unknown` stream, the behavior depends on whether the stream parses as valid
     /// UTF-8 or not. If it does, this is uses the `String` behavior; if not, it uses the `Binary`
     /// behavior.
-    pub fn into_value(self) -> Result<Value, ShellError> {
+    pub fn try_into_value(self) -> Result<Value, ShellError> {
         let span = self.span;
         let trim = self.stream.is_external();
         let value = match self.type_ {

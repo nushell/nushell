@@ -130,7 +130,7 @@ fn try_nu_highlight(
         &(&call).into(),
         Value::string(code_string, head).into_pipeline_data(),
     )
-    .and_then(|pipe| pipe.into_value(head))
+    .and_then(|pipe| pipe.try_into_value(head))
     .and_then(|val| val.coerce_into_string())
     .ok()
 }

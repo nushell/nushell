@@ -197,7 +197,7 @@ impl<'a> EvalContext<'a> {
         #[cfg(not(feature = "os"))]
         let body = self.take_reg(reg_id).body;
         let span = body.span().unwrap_or(fallback_span);
-        body.into_value(span)
+        body.try_into_value(span)
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -850,7 +850,7 @@ fn eval_instruction<D: DebugContext>(
             let mut data = ctx.take_reg(*src_dst).body;
             let metadata = data.take_metadata();
             // Change the span because we're modifying it
-            let mut value = data.into_value(*span)?;
+            let mut value = data.try_into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
@@ -1638,7 +1638,7 @@ fn collect(
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
     }
-    let value = data.into_value(span)?;
+    let value = data.try_into_value(span)?;
     Ok(PipelineData::value(value, metadata))
 }
 

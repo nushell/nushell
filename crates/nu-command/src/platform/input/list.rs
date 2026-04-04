@@ -690,7 +690,7 @@ impl InputList {
                         ClosureEval::new(engine_state, stack, Closure::clone(closure));
                     closure_eval
                         .run_with_value(value.clone())
-                        .and_then(|data| data.into_value(span))
+                        .and_then(|data| data.try_into_value(span))
                         .map(|v| v.to_expanded_string(", ", config))
                         .unwrap_or_else(|_| value.to_expanded_string(", ", config))
                 }

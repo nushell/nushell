@@ -97,7 +97,7 @@ impl PluginCommand for LazyJoinWhere {
         let condition = NuExpression::try_from_value(plugin, &condition)?;
         let condition = condition.into_polars();
 
-        let pipeline_value = input.into_value(call.head)?;
+        let pipeline_value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &pipeline_value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();

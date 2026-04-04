@@ -76,7 +76,7 @@ impl Command for ToNuon {
             .unwrap_or_default()
             .with_content_type(Some("application/x-nuon".into()));
 
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
 
         let config = nuon::ToNuonConfig::default()
             .style(style)

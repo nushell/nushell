@@ -105,7 +105,7 @@ impl Command for MetadataSet {
 
             let result = ClosureEvalOnce::new(engine_state, stack, closure)
                 .run_with_value(metadata_value)?
-                .into_value(head)?;
+                .try_into_value(head)?;
 
             let result_record = result.as_record().map_err(|err| {
                 ShellError::Generic(

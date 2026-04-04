@@ -56,7 +56,7 @@ impl Command for ToJson {
         let span = call.head;
         // allow ranges to expand and turn into array
         let input = input.try_expand_range()?;
-        let value = input.into_value(span)?;
+        let value = input.try_into_value(span)?;
         let ty = value.get_type();
         let json_value = value_to_json_value(engine_state, value, span, serialize_types)?;
 

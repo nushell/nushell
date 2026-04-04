@@ -39,7 +39,7 @@ impl Command for FormatPattern {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
-        let input_val = input.into_value(call.head)?;
+        let input_val = input.try_into_value(call.head)?;
 
         let ops = extract_formatting_operations(pattern, call.head)?;
         let config = stack.get_config(engine_state);

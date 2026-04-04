@@ -224,7 +224,7 @@ pub(crate) fn render_value_as_plain_table_text(
     let input = value.into_pipeline_data();
     let input = CmdInput::parse(engine_state, stack, &call, input)?;
     let output = handle_table_command(input)?;
-    let output = output.into_value(span)?;
+    let output = output.try_into_value(span)?;
     let config = stack.get_config(engine_state);
 
     let text = match output {

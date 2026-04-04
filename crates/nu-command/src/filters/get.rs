@@ -253,7 +253,7 @@ fn action(
 
         let paths = std::iter::once(cell_path).chain(rest);
 
-        let input = input.into_value(span)?;
+        let input = input.try_into_value(span)?;
 
         let mut any_cell_path_is_index = false;
 

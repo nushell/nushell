@@ -32,7 +32,10 @@ pub fn boolean_fold(
 
     for value in input {
         engine_state.signals().check(&head)?;
-        let pred = closure.run_with_value(value)?.into_value(head)?.is_true();
+        let pred = closure
+            .run_with_value(value)?
+            .try_into_value(head)?
+            .is_true();
 
         if pred == accumulator {
             return Ok(Value::bool(accumulator, head).into_pipeline_data());

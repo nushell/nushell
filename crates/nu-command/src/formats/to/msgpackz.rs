@@ -77,7 +77,7 @@ impl Command for ToMsgpackz {
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
 
         let value_span = input.span().unwrap_or(call.head);
-        let value = input.into_value(value_span)?;
+        let value = input.try_into_value(value_span)?;
         let mut out_buf = vec![];
         let mut out = brotli::CompressorWriter::new(
             &mut out_buf,

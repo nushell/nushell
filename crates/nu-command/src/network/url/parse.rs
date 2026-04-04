@@ -54,7 +54,7 @@ impl Command for UrlParse {
         let base: Option<Spanned<String>> = call.get_flag(engine_state, stack, "base")?;
 
         parse(
-            input.into_value(call.head)?,
+            input.try_into_value(call.head)?,
             call.head,
             &stack.get_config(engine_state),
             base.map(|b| b.item),

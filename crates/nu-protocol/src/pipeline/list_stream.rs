@@ -77,7 +77,7 @@ impl ListStream {
     /// Collect the values of a [`ListStream`] into a list [`Value`].
     ///
     /// If any of the values in the stream is a [Value::Error], its inner [ShellError] is returned.
-    pub fn into_value(self) -> Result<Value, ShellError> {
+    pub fn try_into_value(self) -> Result<Value, ShellError> {
         Ok(Value::list(
             self.stream
                 .map(Value::unwrap_error)

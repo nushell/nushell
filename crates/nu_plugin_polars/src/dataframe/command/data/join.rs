@@ -425,7 +425,7 @@ impl PluginCommand for LazyJoin {
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
         let metadata = input.take_metadata();
-        let value = input.into_value(call.head)?;
+        let value = input.try_into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;
         let lazy = lazy.to_polars();
