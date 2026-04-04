@@ -466,6 +466,27 @@ fn percent_help_prefers_builtin_when_alias_shadows_name() -> TestResult {
 }
 
 #[test]
+fn help_percent_prefers_builtin_without_alias() -> TestResult {
+    run_test_contains("help %cd", "Change the current working directory.")
+}
+
+#[test]
+fn help_percent_prefers_builtin_when_alias_shadows_name() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; help %cd",
+        "Change the current working directory.",
+    )
+}
+
+#[test]
+fn help_plain_keeps_alias_resolution_behavior() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; help cd",
+        "Returns its arguments, ignoring the piped-in value.",
+    )
+}
+
+#[test]
 fn plain_help_keeps_alias_resolution_behavior() -> TestResult {
     run_test_contains(
         "alias cd = echo; cd --help",

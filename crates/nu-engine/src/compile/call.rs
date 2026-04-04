@@ -19,6 +19,9 @@ pub(crate) fn compile_call(
     let decl = working_set.get_decl(call.decl_id);
 
     // Check if this call has --help - if so, just redirect to `help`
+    // FIXME: This `<cmd> --help` -> `help <name>` rewrite is a historical detour that
+    // resolves by name again. A future cleanup could theoretically render docs directly from
+    // `call.decl_id` while still preserving custom `help` overrides.
     if call.named_iter().any(|(name, _, _)| name.item == "help") {
         let resolved_help_decl = Some(call.decl_id);
 
