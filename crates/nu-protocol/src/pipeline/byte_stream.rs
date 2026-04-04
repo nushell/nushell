@@ -5,8 +5,7 @@
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
-    IntRange, PipelineData, ShellError, Signals, Span, Type, Value,
-    shell_error::{bridge::ShellErrorBridge, io::IoError},
+    IntRange, PipelineData, ShellError, Signals, Span, TryIntoValue, Type, Value, shell_error::{bridge::ShellErrorBridge, io::IoError}
 };
 use nu_utils::SplitRead as SplitReadInner;
 use serde::{Deserialize, Serialize};
@@ -646,39 +645,6 @@ impl ByteStream {
         }
     }
 
-    /// Collect all the bytes of the [`ByteStream`] into a [`Value`].
-    ///
-    /// If this is a `String` stream, the stream is decoded to UTF-8. If the stream came from an
-    /// external process or file, the trailing new line (`\n` or `\r\n`), if any, is removed from
-    /// the [`String`] prior to being returned.
-    ///
-    /// If this is a `Binary` stream, a [`Value::Binary`] is returned with any trailing new lines
-    /// preserved.
-    ///
-    /// If this is an `Unknown` stream, the behavior depends on whether the stream parses as valid
-    /// UTF-8 or not. If it does, this is uses the `String` behavior; if not, it uses the `Binary`
-    /// behavior.
-    pub fn try_into_value(self) -> Result<Value, ShellError> {
-        let span = self.span;
-        let trim = self.stream.is_external();
-        let value = match self.type_ {
-            // If the type is specified, then the stream should always become that type:
-            ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
-            ByteStreamType::String => Value::string(self.into_string()?, span),
-            // If the type is not specified, then it just depends on whether it parses or not:
-            ByteStreamType::Unknown => match String::from_utf8(self.into_bytes()?) {
-                Ok(mut str) => {
-                    if trim {
-                        trim_end_newline(&mut str);
-                    }
-                    Value::string(str, span)
-                }
-                Err(err) => Value::binary(err.into_bytes(), span),
-            },
-        };
-        Ok(value)
-    }
-
     /// Consume and drop all bytes of the [`ByteStream`].
     pub fn drain(self) -> Result<(), ShellError> {
         match self.stream {
@@ -733,6 +699,40 @@ impl ByteStream {
             }
         }
         Ok(())
+    }
+}
+
+impl TryIntoValue for ByteStream {
+    /// Collect all the bytes of the [`ByteStream`] into a [`Value`].
+    ///
+    /// If this is a `String` stream, the stream is decoded to UTF-8. If the stream came from an
+    /// external process or file, the trailing new line (`\n` or `\r\n`), if any, is removed from
+    /// the [`String`] prior to being returned.
+    ///
+    /// If this is a `Binary` stream, a [`Value::Binary`] is returned with any trailing new lines
+    /// preserved.
+    ///
+    /// If this is an `Unknown` stream, the behavior depends on whether the stream parses as valid
+    /// UTF-8 or not. If it does, this is uses the `String` behavior; if not, it uses the `Binary`
+    /// behavior.
+    fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
+        let trim = self.stream.is_external();
+        let value = match self.type_ {
+            // If the type is specified, then the stream should always become that type:
+            ByteStreamType::Binary => Value::binary(self.into_bytes()?, span),
+            ByteStreamType::String => Value::string(self.into_string()?, span),
+            // If the type is not specified, then it just depends on whether it parses or not:
+            ByteStreamType::Unknown => match String::from_utf8(self.into_bytes()?) {
+                Ok(mut str) => {
+                    if trim {
+                        trim_end_newline(&mut str);
+                    }
+                    Value::string(str, span)
+                }
+                Err(err) => Value::binary(err.into_bytes(), span),
+            },
+        };
+        Ok(value)
     }
 }
 

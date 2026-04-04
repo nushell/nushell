@@ -2,7 +2,7 @@
 //! elements
 //!
 //! For more general infos regarding our pipelining model refer to [`PipelineData`]
-use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
+use crate::{Config, PipelineData, ShellError, Signals, Span, TryIntoValue, Value};
 use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
@@ -74,18 +74,6 @@ impl ListStream {
             .join(separator)
     }
 
-    /// Collect the values of a [`ListStream`] into a list [`Value`].
-    ///
-    /// If any of the values in the stream is a [Value::Error], its inner [ShellError] is returned.
-    pub fn try_into_value(self) -> Result<Value, ShellError> {
-        Ok(Value::list(
-            self.stream
-                .map(Value::unwrap_error)
-                .collect::<Result<_, _>>()?,
-            self.span,
-        ))
-    }
-
     /// Collect the values of a [`ListStream`] into a [`Value::List`], preserving [Value::Error]
     /// items for debugging purposes.
     pub fn into_debug_value(self) -> Value {
@@ -129,6 +117,20 @@ impl ListStream {
     /// to each of the values in the original [`ListStream`].
     pub fn map(self, mapping: impl FnMut(Value) -> Value + Send + 'static) -> Self {
         self.modify(|iter| iter.map(mapping))
+    }
+}
+
+impl TryIntoValue for ListStream {
+    /// Collect the values of a [`ListStream`] into a list [`Value`].
+    ///
+    /// If any of the values in the stream is a [Value::Error], its inner [ShellError] is returned.
+    fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
+        Ok(Value::list(
+            self.stream
+                .map(Value::unwrap_error)
+                .collect::<Result<_, _>>()?,
+            span,
+        ))
     }
 }
 

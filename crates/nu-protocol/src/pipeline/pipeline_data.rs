@@ -2,7 +2,7 @@
 use crate::process::ExitStatusGuard;
 use crate::{
     ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Signals, Span, Type, Value,
+    Range, ShellError, Signals, Span, TryIntoValue, Type, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
@@ -213,21 +213,6 @@ impl PipelineData {
             (PipelineData::Empty, _) => false,
             (PipelineData::ListStream(..), _) => false,
             (PipelineData::ByteStream(..), _) => false,
-        }
-    }
-
-    pub fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
-        match self {
-            PipelineData::Empty => Ok(Value::nothing(span)),
-            PipelineData::Value(value, ..) => {
-                if value.span() == Span::unknown() {
-                    Ok(value.with_span(span))
-                } else {
-                    Ok(value)
-                }
-            }
-            PipelineData::ListStream(stream, ..) => stream.try_into_value(),
-            PipelineData::ByteStream(stream, ..) => stream.try_into_value(),
         }
     }
 
@@ -561,7 +546,8 @@ impl PipelineData {
                 Ok(PipelineData::list_stream(stream.map(f), metadata))
             }
             PipelineData::ByteStream(stream, metadata) => {
-                Ok(f(stream.try_into_value()?).into_pipeline_data_with_metadata(metadata))
+                let span = stream.span();
+                Ok(f(stream.try_into_value(span)?).into_pipeline_data_with_metadata(metadata))
             }
         }
     }
@@ -917,6 +903,29 @@ impl PipelineData {
                     Some(ExitStatusGuard::new(exit_future, ignore_error))
                 }
             },
+        }
+    }
+}
+
+impl TryIntoValue for PipelineData {
+    fn try_into_value(self, span: Span) -> Result<Value, ShellError> {
+        match self {
+            PipelineData::Empty => Ok(Value::nothing(span)),
+            PipelineData::Value(value, ..) => {
+                if value.span() == Span::unknown() {
+                    Ok(value.with_span(span))
+                } else {
+                    Ok(value)
+                }
+            }
+            PipelineData::ListStream(stream, ..) => {
+                let span = stream.span();
+                stream.try_into_value(span)
+            }
+            PipelineData::ByteStream(stream, ..) => {
+                let span = stream.span();
+                stream.try_into_value(span)
+            }
         }
     }
 }
