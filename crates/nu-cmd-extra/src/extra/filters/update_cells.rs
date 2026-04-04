@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{PipelineIterator, engine::Closure};
+use nu_protocol::{PipelineIterator, TryIntoValue, engine::Closure};
 use std::collections::HashSet;
 
 #[derive(Clone)]

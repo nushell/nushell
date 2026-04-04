@@ -83,7 +83,7 @@ fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
 mod test {
     use nu_command::{First, Get};
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::Span;
+    use nu_protocol::{Span, TryIntoValue};
 
     use super::*;
 

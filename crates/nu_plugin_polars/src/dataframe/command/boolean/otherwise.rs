@@ -5,7 +5,8 @@ use crate::{
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, Type, Value,
+    Category, Example, LabeledError, PipelineData, Signature, Span, SyntaxShape, TryIntoValue,
+    Type, Value,
 };
 
 #[derive(Clone)]

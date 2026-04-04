@@ -14,7 +14,8 @@ use nu_plugin_protocol::{
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     BlockId, Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
-    PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
+    PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned,
+    TryIntoValue, Value,
     engine::{Closure, Sequence},
     ir::IrBlock,
 };
@@ -981,7 +982,7 @@ impl EngineInterface {
     /// # Example
     ///
     /// ```rust,no_run
-    /// # use nu_protocol::{Value, ShellError, PipelineData};
+    /// # use nu_protocol::{Value, ShellError, PipelineData, TryIntoValue};
     /// # use nu_plugin::{EngineInterface, EvaluatedCall};
     /// # fn example(engine: &EngineInterface, call: &EvaluatedCall) -> Result<Value, ShellError> {
     /// if let Some(decl_id) = engine.find_decl("scope commands")? {
@@ -992,7 +993,7 @@ impl EngineInterface {
     ///         true,
     ///         false,
     ///     )?;
-    ///     commands.into_value(call.head)
+    ///     commands.try_into_value(call.head)
     /// } else {
     ///     Ok(Value::list(vec![], call.head))
     /// }

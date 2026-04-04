@@ -7,7 +7,7 @@ use crate::values::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value, shell_error::generic::GenericError,
+    SyntaxShape, TryIntoValue, Value, shell_error::generic::GenericError,
 };
 use polars::prelude::{Expr, Literal, df};
 

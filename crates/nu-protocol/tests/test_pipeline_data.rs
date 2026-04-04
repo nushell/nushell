@@ -1,4 +1,4 @@
-use nu_protocol::{IntoPipelineData, Span, Value};
+use nu_protocol::{IntoPipelineData, Span, TryIntoValue, Value};
 
 #[test]
 fn test_convert_pipeline_data_to_value() {

@@ -12,8 +12,8 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     CustomValue, DynamicSuggestion, IntoSpanned, PipelineData, PluginMetadata, PluginSignature,
-    ShellError, SignalAction, Signals, Span, Spanned, Value, ast::Operator, casing::Casing,
-    engine::Sequence, shell_error::generic::GenericError,
+    ShellError, SignalAction, Signals, Span, Spanned, TryIntoValue, Value, ast::Operator,
+    casing::Casing, engine::Sequence, shell_error::generic::GenericError,
 };
 use nu_utils::SharedCow;
 use std::{

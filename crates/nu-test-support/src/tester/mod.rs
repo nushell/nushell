@@ -9,7 +9,7 @@ use std::{
 
 use nu_protocol::{
     CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
-    PipelineExecutionData, ShellError, Span, Value,
+    PipelineExecutionData, ShellError, Span, TryIntoValue, Value,
     ast::Block,
     debugger::WithoutDebug,
     engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},

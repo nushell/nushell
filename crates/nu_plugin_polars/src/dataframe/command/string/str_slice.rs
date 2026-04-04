@@ -10,7 +10,8 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Value,
 };
 use polars::{
     prelude::{Expr, IntoSeries, NamedFrom, Null, StringNameSpaceImpl, lit},

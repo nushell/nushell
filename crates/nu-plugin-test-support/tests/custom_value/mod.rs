@@ -3,7 +3,8 @@ use std::cmp::Ordering;
 use nu_plugin::{EngineInterface, EvaluatedCall, Plugin, SimplePluginCommand};
 use nu_plugin_test_support::PluginTest;
 use nu_protocol::{
-    CustomValue, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value,
+    CustomValue, Example, LabeledError, PipelineData, ShellError, Signature, Span, TryIntoValue,
+    Type, Value,
 };
 
 use serde::{Deserialize, Serialize};

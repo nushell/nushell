@@ -8,7 +8,7 @@ use super::{
 };
 use core::fmt;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{PipelineData, ShellError, Span, Value, record};
+use nu_protocol::{PipelineData, ShellError, Span, TryIntoValue, Value, record};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
 use uuid::Uuid;

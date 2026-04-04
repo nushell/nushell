@@ -17,7 +17,7 @@ use nu_plugin_protocol::{
 use nu_protocol::{
     BlockId, ByteStreamType, CustomValue, DynamicSuggestion, Id, IntoInterruptiblePipelineData,
     IntoSpanned, PipelineData, PipelineMetadata, PluginMetadata, PluginSignature, ShellError,
-    Signals, Span, Spanned, Value,
+    Signals, Span, Spanned, TryIntoValue, Value,
     ast::{Math, Operator},
     engine::Closure,
     shell_error,

@@ -5,7 +5,8 @@
 #[cfg(feature = "os")]
 use crate::process::{ChildPipe, ChildProcess};
 use crate::{
-    IntRange, PipelineData, ShellError, Signals, Span, TryIntoValue, Type, Value, shell_error::{bridge::ShellErrorBridge, io::IoError}
+    IntRange, PipelineData, ShellError, Signals, Span, TryIntoValue, Type, Value,
+    shell_error::{bridge::ShellErrorBridge, io::IoError},
 };
 use nu_utils::SplitRead as SplitReadInner;
 use serde::{Deserialize, Serialize};

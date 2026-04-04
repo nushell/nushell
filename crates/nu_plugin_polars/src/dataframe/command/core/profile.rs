@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Value, record,
-    shell_error::generic::GenericError,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, TryIntoValue, Value,
+    record, shell_error::generic::GenericError,
 };
 
 use crate::{

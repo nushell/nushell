@@ -5,8 +5,8 @@ pub use crate::CallExt;
 pub use nu_protocol::{
     ByteStream, ByteStreamType, Category, Completion, ErrSpan, Example, Flag,
     IntoInterruptiblePipelineData, IntoPipelineData, IntoSpanned, IntoValue, PipelineData,
-    PositionalArg, Record, ShellError, ShellWarning, Signature, Span, Spanned, SyntaxShape, Type,
-    Value,
+    PositionalArg, Record, ShellError, ShellWarning, Signature, Span, Spanned, SyntaxShape,
+    TryIntoValue, Type, Value,
     ast::CellPath,
     engine::{Call, Command, EngineState, Stack, StateWorkingSet},
     record,

@@ -3,9 +3,9 @@ use super::definitions::{
     db_index::DbIndex, db_table::DbTable,
 };
 use nu_protocol::{
-    CustomValue, IntoPipelineData, PipelineData, Record, ShellError, Signals, Span, Spanned, Value,
-    ast, casing::Casing, engine::EngineState, shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    CustomValue, IntoPipelineData, PipelineData, Record, ShellError, Signals, Span, Spanned,
+    TryIntoValue, Value, ast, casing::Casing, engine::EngineState,
+    shell_error::generic::GenericError, shell_error::io::IoError,
 };
 use rusqlite::{
     Connection, Error as SqliteError, OpenFlags, Row, Statement, ToSql, types::ValueRef,

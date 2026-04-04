@@ -4,7 +4,8 @@ use crate::values::{NuExpression, PolarsPluginType};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, Value, record,
+    Category, Example, LabeledError, PipelineData, Signature, SyntaxShape, TryIntoValue, Value,
+    record,
 };
 
 #[derive(Clone)]

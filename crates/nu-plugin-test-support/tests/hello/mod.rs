@@ -2,7 +2,7 @@
 
 use nu_plugin::*;
 use nu_plugin_test_support::PluginTest;
-use nu_protocol::{Example, LabeledError, ShellError, Signature, Type, Value};
+use nu_protocol::{Example, LabeledError, ShellError, Signature, TryIntoValue, Type, Value};
 
 struct HelloPlugin;
 struct Hello;

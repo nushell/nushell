@@ -3,7 +3,7 @@ use crate::eval_ir::eval_ir_block;
 use crate::get_full_help;
 use nu_protocol::{
     BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Span, Value, VarId,
+    ShellError, Span, TryIntoValue, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::DebugContext,
     engine::{Closure, EngineState, Stack},

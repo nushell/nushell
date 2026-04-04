@@ -1,6 +1,6 @@
 use nu_protocol::{
     DynamicSuggestion, Example, IntoSpanned, LabeledError, PipelineData, PluginExample,
-    PluginSignature, ShellError, Signature, Value, engine::ArgType,
+    PluginSignature, ShellError, Signature, TryIntoValue, Value, engine::ArgType,
 };
 
 use crate::{DynamicCompletionCall, EngineInterface, EvaluatedCall, Plugin};

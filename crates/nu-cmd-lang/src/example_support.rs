@@ -1,7 +1,8 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, compile};
 use nu_protocol::{
-    Range, ast::Block, debugger::WithoutDebug, engine::StateWorkingSet, report_shell_error,
+    Range, TryIntoValue, ast::Block, debugger::WithoutDebug, engine::StateWorkingSet,
+    report_shell_error,
 };
 use std::{
     sync::Arc,

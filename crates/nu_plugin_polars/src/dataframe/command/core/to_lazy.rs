@@ -99,7 +99,7 @@ mod tests {
     use std::sync::Arc;
 
     use nu_plugin_test_support::PluginTest;
-    use nu_protocol::{ShellError, Span};
+    use nu_protocol::{ShellError, Span, TryIntoValue};
 
     use super::*;
 

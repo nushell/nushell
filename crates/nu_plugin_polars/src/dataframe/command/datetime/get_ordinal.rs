@@ -8,7 +8,9 @@ use crate::{
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, TryIntoValue,
+};
 use polars::{
     prelude::{DatetimeMethods, IntoSeries, NamedFrom, col},
     series::Series,

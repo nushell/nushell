@@ -4,7 +4,7 @@ use nu_engine::{compile, eval_call};
 use nu_parser::flatten_expression;
 use nu_protocol::{
     BlockId, DeclId, GetSpan, IntoSpanned, PipelineData, Record, ShellError, Span, Spanned,
-    SuggestionKind, Type, Value, VarId,
+    SuggestionKind, TryIntoValue, Type, Value, VarId,
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},

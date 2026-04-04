@@ -1,6 +1,6 @@
 use nu_engine::ClosureEval;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{PipelineData, Record, ShellError, Span, Value, ast::CellPath};
+use nu_protocol::{PipelineData, Record, ShellError, Span, TryIntoValue, Value, ast::CellPath};
 use nu_utils::IgnoreCaseExt;
 use std::cmp::Ordering;
 

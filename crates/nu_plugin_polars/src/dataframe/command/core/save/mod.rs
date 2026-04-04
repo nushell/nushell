@@ -16,7 +16,7 @@ use log::debug;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
-    Signature, Span, Spanned, SyntaxShape, Type,
+    Signature, Span, Spanned, SyntaxShape, TryIntoValue, Type,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 use polars::error::PolarsError;

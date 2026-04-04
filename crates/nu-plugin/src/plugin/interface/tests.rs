@@ -11,7 +11,7 @@ use nu_plugin_protocol::{
 };
 use nu_protocol::{
     BlockId, ByteStreamType, Config, CustomValue, IntoInterruptiblePipelineData, LabeledError,
-    PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, Value, VarId,
+    PipelineData, PluginSignature, ShellError, Signals, Span, Spanned, TryIntoValue, Value, VarId,
     engine::Closure, shell_error,
 };
 use std::{

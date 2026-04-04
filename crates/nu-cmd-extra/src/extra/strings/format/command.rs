@@ -1,7 +1,8 @@
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    Config, ListStream, ast::PathMember, casing::Casing, shell_error::generic::GenericError,
+    Config, ListStream, TryIntoValue, ast::PathMember, casing::Casing,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]

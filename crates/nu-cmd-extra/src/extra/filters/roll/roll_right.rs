@@ -1,5 +1,6 @@
 use super::{HorizontalDirection, horizontal_rotate_value};
 use nu_engine::command_prelude::*;
+use nu_protocol::TryIntoValue;
 
 #[derive(Clone)]
 pub struct RollRight;

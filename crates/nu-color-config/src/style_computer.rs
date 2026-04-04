@@ -2,7 +2,7 @@ use crate::{TextStyle, color_record_to_nustyle, lookup_ansi_color_style, text_st
 use nu_ansi_term::{Color, Style};
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    Span, Value,
+    Span, TryIntoValue, Value,
     engine::{Closure, EngineState, Stack},
     report_shell_error,
 };

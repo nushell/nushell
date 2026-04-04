@@ -8,7 +8,7 @@ pub use operations::Axis;
 
 use indexmap::map::IndexMap;
 use nu_protocol::shell_error::generic::GenericError;
-use nu_protocol::{PipelineData, Record, ShellError, Span, Value, did_you_mean};
+use nu_protocol::{PipelineData, Record, ShellError, Span, TryIntoValue, Value, did_you_mean};
 use polars::prelude::{
     Column as PolarsColumn, DataFrame, DataType, IntoLazy, PolarsObject, Series,
 };

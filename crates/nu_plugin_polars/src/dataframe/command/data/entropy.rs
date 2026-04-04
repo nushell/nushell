@@ -1,6 +1,7 @@
 use nu_plugin::PluginCommand;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue,
 };
 use polars::df;
 

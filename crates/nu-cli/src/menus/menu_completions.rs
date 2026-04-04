@@ -1,6 +1,6 @@
 use nu_engine::eval_block;
 use nu_protocol::{
-    BlockId, IntoPipelineData, Span, Value,
+    BlockId, IntoPipelineData, Span, TryIntoValue, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack},
 };

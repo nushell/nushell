@@ -1,7 +1,9 @@
 use super::NuSpan;
 use anyhow::Result;
 use nu_engine::get_columns;
-use nu_protocol::{ByteStream, ListStream, PipelineData, PipelineMetadata, Value, record};
+use nu_protocol::{
+    ByteStream, ListStream, PipelineData, PipelineMetadata, TryIntoValue, Value, record,
+};
 use std::collections::HashMap;
 
 pub fn collect_pipeline(input: PipelineData) -> Result<(Vec<String>, Vec<Vec<Value>>)> {
@@ -64,7 +66,7 @@ fn collect_byte_stream(
         },
         Err(stream) => {
             let value = stream
-                .try_into_value()
+                .try_into_value(span)
                 .unwrap_or_else(|err| Value::error(err, span));
 
             columns.push("".into());

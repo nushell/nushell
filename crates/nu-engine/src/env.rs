@@ -1,7 +1,7 @@
 use crate::ClosureEvalOnce;
 use nu_path::absolute_with;
 use nu_protocol::{
-    ShellError, Span, Type, Value, VarId,
+    ShellError, Span, TryIntoValue, Type, Value, VarId,
     ast::Expr,
     engine::{Call, EngineState, EnvName, Stack},
     shell_error::generic::GenericError,

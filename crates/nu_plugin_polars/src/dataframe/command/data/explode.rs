@@ -6,7 +6,8 @@ use crate::values::{CustomValueSupport, NuSelector, PolarsPluginObject, PolarsPl
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    TryIntoValue, Value,
 };
 use polars::prelude::{ExplodeOptions, PlSmallStr, Selector};
 

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{ErrorLabel, ErrorSource, FromValue, IntoValue, LabeledError};
+use nu_protocol::{ErrorLabel, ErrorSource, FromValue, IntoValue, LabeledError, TryIntoValue};
 
 #[derive(Clone)]
 pub struct ErrorMake;

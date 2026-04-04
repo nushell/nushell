@@ -3,7 +3,7 @@ use nu_engine::{ClosureEvalOnce, get_eval_block_with_early_return, get_full_help
 use nu_plugin_protocol::EvaluatedCall;
 use nu_protocol::{
     BlockId, Config, DeclId, IntoSpanned, OutDest, PipelineData, PluginIdentity, ShellError,
-    Signals, Span, Spanned, Value,
+    Signals, Span, Spanned, TryIntoValue, Value,
     engine::{Call, Closure, EngineState, Redirection, Stack},
     ir::{self, IrBlock},
     shell_error::generic::GenericError,

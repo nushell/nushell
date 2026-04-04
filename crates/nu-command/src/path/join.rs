@@ -168,11 +168,11 @@ fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineDat
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
         PipelineData::ListStream(stream, metadata) => Ok(PipelineData::value(
-            handle_value(stream.try_into_value()?, args, head),
+            handle_value(stream.try_into_value(head)?, args, head),
             metadata,
         )),
         PipelineData::ByteStream(stream, metadata) => Ok(PipelineData::value(
-            handle_value(stream.try_into_value()?, args, head),
+            handle_value(stream.try_into_value(head)?, args, head),
             metadata,
         )),
         PipelineData::Empty => Err(ShellError::PipelineEmpty { dst_span: head }),

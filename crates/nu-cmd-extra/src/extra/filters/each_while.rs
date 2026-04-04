@@ -1,5 +1,5 @@
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::engine::Closure;
+use nu_protocol::{TryIntoValue, engine::Closure};
 
 #[derive(Clone)]
 pub struct EachWhile;

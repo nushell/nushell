@@ -14,7 +14,7 @@ use nu_dtype::custom_value::NuDataTypeCustomValue;
 use nu_plugin::EngineInterface;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value, ast::Operator,
+    CustomValue, PipelineData, ShellError, Span, Spanned, TryIntoValue, Type, Value, ast::Operator,
 };
 use nu_schema::custom_value::NuSchemaCustomValue;
 use std::{cmp::Ordering, fmt};

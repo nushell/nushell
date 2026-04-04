@@ -2,7 +2,7 @@ use log::error;
 use nu_ansi_term::Style;
 use nu_engine::ClosureEvalOnce;
 use nu_protocol::{
-    PipelineData, Record, Span, Value,
+    PipelineData, Record, Span, TryIntoValue, Value,
     engine::{Closure, EngineState, Stack},
 };
 use reedline::{Hinter, History};

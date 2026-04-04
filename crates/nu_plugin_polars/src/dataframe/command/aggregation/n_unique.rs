@@ -6,8 +6,8 @@ use crate::{
 use crate::values::{Column, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
-    shell_error::generic::GenericError,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, TryIntoValue,
+    Value, shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]

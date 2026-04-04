@@ -2,7 +2,7 @@ use crate::eval_call;
 use fancy_regex::{Captures, Regex};
 use nu_protocol::{
     Category, Config, IntoPipelineData, PipelineData, PositionalArg, Signature, Span, SpanId,
-    Spanned, SyntaxShape, Type, Value,
+    Spanned, SyntaxShape, TryIntoValue, Type, Value,
     ast::{Argument, Call, Expr, Expression, RecordItem},
     debugger::WithoutDebug,
     engine::CommandType,

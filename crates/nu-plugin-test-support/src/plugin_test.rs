@@ -9,7 +9,7 @@ use nu_plugin_engine::{PluginCustomValueWithSource, PluginSource, WithSource};
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     CustomValue, Example, IntoSpanned as _, LabeledError, PipelineData, ShellError, Signals, Span,
-    Value,
+    TryIntoValue, Value,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
@@ -235,10 +235,11 @@ impl PluginTest {
 
                         // Set all of the spans in the value to test_data() to avoid unnecessary
                         // differences when printing
-                        let _: Result<(), Infallible> = value.recurse_mut(&mut |here| {
-                            here.set_span(Span::test_data());
-                            Ok(())
-                        });
+                        let _: Result<(), Infallible> =
+                            value.recurse_mut(&mut |here: &mut Value| {
+                                here.set_span(Span::test_data());
+                                Ok(())
+                            });
 
                         // Check for equality with the result
                         if !self.value_eq(expectation, &value)? {
