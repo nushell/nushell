@@ -1,17 +1,17 @@
 # for examples
 alias "random choice" = choice
 
-# Sample `k` elements from a list
+# Sample `n` elements from a list
 #
 # This function will pick a simple random sample from input without replacement
 # (each element from the input can only be picked once).
 #
-# The sample is treated as a set.  This means that the combined probability of
+# The sample is treated as a set. This means that the combined probability of
 # `[1 2 3 4] | random choice 2` returning `[3, 4]` or `[4, 3]` equals that of
-# `[1, 2]`.  To ensure that all permutations are equally probable, use
+# `[1, 2]`. To ensure that all permutations are equally probable, use
 # `shuffle` or `sort`.
 #
-# The current implementation collects the input stream.  This might change in
+# The current implementation collects the input stream. This might change in
 # the future.
 @example "Pick 2 random items" {
 	[1 2 3 4 5] | random choice 2
@@ -24,10 +24,13 @@ alias "random choice" = choice
 	| histogram
 }
 export def choice [
-	n: int = 1  # number of items to sample
+	n?: int  # number of items to sample
 ]: list -> list {
 	# XXX: this collects the stream
 	let input = $in
+
+	let return_list = $n != null;
+	let n = $n | default 1;
 
 	let len = $input | length
 	if $n > ($input | length) {
@@ -40,12 +43,7 @@ export def choice [
 		}
 	}
 
-	# always return a list, even though `first 1` returns standalone T
-	mut output = $input | if $n == 1 {
-		first | [$in]
-	} else {
-		first $n
-	}
+	mut output = $input | first $n;
 
 	# reservoir sampling, algorithm L
 	# https://doi.org/10.1145/198429.198435
@@ -68,5 +66,8 @@ export def choice [
 		}
 	}
 
-	$output
+	match $return_list {
+		true => $output,
+		false => ($output | first)
+	}
 }
