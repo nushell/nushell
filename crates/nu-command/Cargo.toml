@@ -56,7 +56,7 @@ chrono = { workspace = true, features = [
 ], default-features = false }
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
-crossterm = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
 csv = { workspace = true }
 devicons = { workspace = true }
 digest = { workspace = true, default-features = false }
