@@ -20,4 +20,4 @@ bench = false
 nu-plugin = { path = "../nu-plugin", version = "0.111.1" }
 nu-protocol = { path = "../nu-protocol", version = "0.111.1" }
 
-git2 = "0.20"
+git2 = "0.20.4"
