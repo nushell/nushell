@@ -71,7 +71,11 @@ fn table_mode_to_separator(mode: TableMode) -> char {
         TableMode::Basic | TableMode::BasicCompact | TableMode::Psql | TableMode::Markdown => '|',
         TableMode::AsciiRounded => '|',
         // Modern unicode (single line)
-        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => '│',
+        TableMode::Thin
+        | TableMode::Rounded
+        | TableMode::Single
+        | TableMode::Compact
+        | TableMode::Frameless => '│',
         TableMode::Reinforced | TableMode::Light => '│',
         // Heavy borders
         TableMode::Heavy => '┃',
@@ -93,7 +97,11 @@ fn table_mode_to_header_separator(mode: TableMode) -> (char, char) {
         TableMode::AsciiRounded => ('-', '+'),
         TableMode::Markdown => ('-', '|'),
         // Modern unicode (single line)
-        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => ('─', '┼'),
+        TableMode::Thin
+        | TableMode::Rounded
+        | TableMode::Single
+        | TableMode::Compact
+        | TableMode::Frameless => ('─', '┼'),
         TableMode::Reinforced => ('─', '┼'),
         TableMode::Light => ('─', '─'), // Light has no vertical lines, so no intersection
         // Heavy borders

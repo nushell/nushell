@@ -9,6 +9,7 @@ pub enum TableMode {
     Thin,
     Light,
     Compact,
+    Frameless,
     WithLove,
     CompactDouble,
     #[default]
@@ -35,6 +36,7 @@ impl FromStr for TableMode {
             "thin" => Ok(Self::Thin),
             "light" => Ok(Self::Light),
             "compact" => Ok(Self::Compact),
+            "frameless" => Ok(Self::Frameless),
             "with_love" => Ok(Self::WithLove),
             "compact_double" => Ok(Self::CompactDouble),
             "default" => Ok(TableMode::default()),
