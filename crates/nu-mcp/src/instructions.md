@@ -262,7 +262,7 @@ job spawn { let my_id = job id; ... }
 
 **Auto-promoted jobs:**
 
-Evaluations that run longer than 10 seconds (or when the client cancels) are automatically promoted to background jobs. The evaluation continues running and results are delivered to the main thread's mailbox when complete. The timeout is configurable via `$env.NU_MCP_PROMOTE_AFTER` (e.g., `30sec`, `5sec`).
+Evaluations that run longer than 10 seconds (or when the client cancels) are automatically promoted to background jobs. The evaluation continues running and the **full** (non-truncated) output is delivered to the main thread's mailbox when complete. The timeout is configurable via `$env.NU_MCP_PROMOTE_AFTER` (e.g., `30sec`, `5sec`).
 
 ```nu
 # After promotion, the server returns an error like:
@@ -271,7 +271,7 @@ Evaluations that run longer than 10 seconds (or when the client cancels) are aut
 # Check if the promoted job is still running
 job list
 
-# Retrieve the result (blocks until available)
+# Retrieve the result (blocks until available) — always full output, never truncated
 job recv
 
 # Or with a timeout
@@ -282,6 +282,8 @@ $env.NU_MCP_PROMOTE_AFTER = 30sec
 ```
 
 Promoted jobs appear in `job list` with a description like `mcp: <command>`. They share the jobs table with manually spawned jobs, so `job kill <id>` works to cancel them.
+
+**Important:** Promoted jobs deliver output directly through the mailbox, bypassing `$history`. The `$history` variable is only populated for non-promoted evaluations.
 
 **Common gotchas:**
 - There is no `job ls`. Use `job list`.
