@@ -1,6 +1,3 @@
-use std::sync::Arc;
-use std::time::Duration;
-
 use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::conn::auto::Builder,
@@ -18,6 +15,8 @@ use rmcp::{
     },
 };
 use server::NushellMcpServer;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::runtime::Runtime;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
