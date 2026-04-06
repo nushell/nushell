@@ -760,34 +760,90 @@ fn process_pipeline(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use nu_protocol::Value;
+    use nu_engine::eval_expression;
+    use nu_protocol::{
+        ShellError, Signature, SyntaxShape, Value,
+        engine::{Call, Command as NuCommand, StateWorkingSet},
+        shell_error::io::IoError,
+    };
+    use std::process::{Command as ProcessCommand, Stdio};
 
-    fn response_output(result: &str) -> String {
-        let response = nuon::from_nuon(result, None).expect("response should be valid NUON");
-        let Value::Record { val, .. } = response else {
-            panic!("response should be a record, got: {response:?}");
-        };
-        let output = val
-            .get("output")
-            .expect("response should contain an output field");
-        let Value::String { val, .. } = output else {
-            panic!("output should be a string, got: {output:?}");
-        };
-        val.clone()
-    }
+    #[derive(Clone)]
+    struct TestRunExternal;
 
-    fn nuon_string(input: &str) -> String {
-        let value = nuon::from_nuon(input, None).expect("input should be valid NUON");
-        let Value::String { val, .. } = value else {
-            panic!("input should be a string, got: {value:?}");
-        };
-        val.clone()
+    impl NuCommand for TestRunExternal {
+        fn name(&self) -> &str {
+            "run-external"
+        }
+
+        fn signature(&self) -> Signature {
+            Signature::build("run-external")
+                .rest(
+                    "args",
+                    SyntaxShape::String,
+                    "External command and arguments",
+                )
+                .allows_unknown_args()
+        }
+
+        fn description(&self) -> &str {
+            "Run an external command for test coverage"
+        }
+
+        fn run(
+            &self,
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            let args: Vec<Value> =
+                call.rest_iter_flattened(engine_state, stack, eval_expression::<WithoutDebug>, 0)?;
+            let args = args
+                .into_iter()
+                .map(|value| value.coerce_into_string())
+                .collect::<Result<Vec<_>, ShellError>>()?;
+
+            let mut args = args.into_iter();
+            let program = args.next().ok_or_else(|| ShellError::MissingParameter {
+                param_name: "external command".into(),
+                span: call.head,
+            })?;
+
+            let output = ProcessCommand::new(program)
+                .args(args)
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .output()
+                .map_err(IoError::factory(call.head, None))?;
+
+            let mut combined = Vec::new();
+            combined.extend(output.stdout);
+            if !output.stderr.is_empty() {
+                if !combined.is_empty() {
+                    combined.push(b'\n');
+                }
+                combined.extend(output.stderr);
+            }
+
+            let output_string = String::from_utf8_lossy(&combined).into_owned();
+            Ok(PipelineData::Value(
+                Value::string(output_string, call.head),
+                None,
+            ))
+        }
     }
 
     #[cfg(unix)]
     fn external_engine_state() -> EngineState {
-        let mut engine_state =
-            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+        let mut engine_state = nu_cmd_lang::create_default_context();
+        let mut working_set = StateWorkingSet::new(&engine_state);
+        working_set.add_decl(Box::new(TestRunExternal));
+        engine_state
+            .merge_delta(working_set.render())
+            .expect("should add run-external command");
+
         let cwd = std::env::current_dir().expect("current directory should exist");
         engine_state.add_env_var("PWD".into(), Value::test_string(cwd.to_string_lossy()));
         engine_state.add_env_var(
@@ -1083,6 +1139,56 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn test_failing_external_command_returns_captured_output()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = external_engine_state();
+        let evaluator = Evaluator::new(engine_state);
+
+        let result = evaluator.eval(r#"sh -c 'printf stdout; printf stderr >&2; exit 7'"#)?;
+
+        assert!(
+            result.contains("stdout"),
+            "Expected stdout from external command, got: {result}"
+        );
+        assert!(
+            result.contains("stderr"),
+            "Expected stderr from external command, got: {result}"
+        );
+
+        Ok(())
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_external_command_promotion_respects_promote_after_env() {
+        let engine_state = external_engine_state();
+        let evaluator = Evaluator::new(engine_state);
+
+        evaluator
+            .eval_async(
+                "$env.NU_MCP_PROMOTE_AFTER = 100ms",
+                CancellationToken::new(),
+            )
+            .await
+            .expect("setting promotion timeout should succeed");
+
+        let result = evaluator
+            .eval_async(
+                r#"sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'"#,
+                CancellationToken::new(),
+            )
+            .await;
+
+        let err = result.expect_err("long-running external command should be promoted");
+        assert!(
+            err.message.contains("promoted to background job"),
+            "promotion error should mention background jobs, got: {}",
+            err.message
+        );
+    }
+
     #[test]
     fn test_history_ring_buffer() -> Result<(), Box<dyn std::error::Error>> {
         let engine_state = nu_cmd_lang::create_default_context();
@@ -1158,53 +1264,62 @@ mod tests {
         );
     }
 
-    #[cfg(unix)]
-    #[test]
-    fn test_failing_external_command_returns_captured_output(
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let engine_state = external_engine_state();
-        let evaluator = Evaluator::new(engine_state);
-
-        let result = evaluator.eval(r#"sh -c 'printf stdout; printf stderr >&2; exit 7'"#)?;
-        let output = response_output(&result);
-
-        assert_eq!(output, "stdout\nstderr");
-        Ok(())
-    }
-
-    #[cfg(unix)]
     #[tokio::test]
-    async fn test_promoted_failing_external_command_delivers_captured_output() {
-        let engine_state = external_engine_state();
-        let evaluator = Evaluator::new(engine_state);
+    async fn test_promoted_background_job_sends_full_output() {
+        let mut engine_state = nu_cmd_lang::create_default_context();
+        let history = History::new(&mut engine_state);
+        let state = EvalState {
+            engine_state,
+            stack: Stack::new(),
+            history,
+        };
 
-        evaluator
-            .eval_async("$env.NU_MCP_PROMOTE_AFTER = 100ms", CancellationToken::new())
-            .await
-            .expect("setting promotion timeout should succeed");
+        let (result_tx, result_rx) = oneshot::channel();
+        let (mail_tx, mail_rx) = mpsc::channel();
+        let jobs = Arc::new(SyncMutex::new(Jobs::default()));
+        let description = "mcp: test".to_string();
 
-        let result = evaluator
-            .eval_async(
-                r#"sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'"#,
-                CancellationToken::new(),
-            )
-            .await;
+        let eval_output = EvalOutput {
+            response: "response note".to_string(),
+            full_output: "full background output".to_string(),
+        };
 
-        let err = result.expect_err("long-running external command should be promoted");
+        result_tx
+            .send((state, Ok(eval_output)))
+            .unwrap_or_else(|_| panic!("send background result should succeed"));
+
+        let err = promote_to_background_job(
+            result_rx,
+            Arc::new(AtomicBool::new(false)),
+            jobs,
+            mail_tx,
+            description,
+        )
+        .expect_err("promotion should return an error indicating background job promotion");
+
         assert!(
             err.message.contains("promoted to background job"),
             "promotion error should mention background jobs, got: {}",
             err.message
         );
 
-        tokio::time::sleep(Duration::from_millis(250)).await;
+        let (_tag, pipeline_data) = loop {
+            match mail_rx.try_recv() {
+                Ok(mail) => break mail,
+                Err(std::sync::mpsc::TryRecvError::Empty) => {
+                    tokio::time::sleep(Duration::from_millis(10)).await;
+                }
+                Err(err) => panic!("mailbox receive failed: {err}"),
+            }
+        };
 
-        let received = evaluator
-            .eval_async("job recv --timeout 5sec", CancellationToken::new())
-            .await
-            .expect("job output should be delivered to the main mailbox");
-        let mailbox_payload = nuon_string(&response_output(&received));
+        let value = pipeline_data
+            .into_value(Span::unknown())
+            .expect("mailbox payload should convert to value");
+        let Value::String { val, .. } = value else {
+            panic!("expected string payload, got: {value:?}");
+        };
 
-        assert_eq!(mailbox_payload, "stdout\nstderr");
+        assert_eq!(val, "full background output");
     }
 }
