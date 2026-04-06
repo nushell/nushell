@@ -71,6 +71,19 @@ impl TableTheme {
         Self::new(theme, Style::modern())
     }
 
+    pub fn frameless() -> TableTheme {
+        let hline = HorizontalLine::inherit(Style::modern().remove_left().remove_right());
+        let theme = Style::modern()
+            .remove_left()
+            .remove_right()
+            .remove_bottom()
+            .remove_top()
+            .remove_horizontal()
+            .horizontals([(1, hline)]);
+
+        Self::new(theme, Style::modern())
+    }
+
     pub fn with_love() -> TableTheme {
         let theme = Style::empty()
             .top('❤')

@@ -177,6 +177,7 @@ pub fn load_theme(mode: TableMode) -> TableTheme {
         TableMode::Thin => TableTheme::thin(),
         TableMode::Light => TableTheme::light(),
         TableMode::Compact => TableTheme::compact(),
+        TableMode::Frameless => TableTheme::frameless(),
         TableMode::WithLove => TableTheme::with_love(),
         TableMode::CompactDouble => TableTheme::compact_double(),
         TableMode::Rounded => TableTheme::rounded(),
