@@ -6,6 +6,7 @@ use nu_protocol::{
     engine::{EngineState, Job, Jobs, Mail, Stack, StateWorkingSet, ThreadJob},
 };
 use std::{
+    fmt::Write,
     sync::{Arc, Mutex as SyncMutex, atomic::AtomicBool, mpsc, mpsc::Sender},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
@@ -343,6 +344,115 @@ impl Evaluator {
         })?;
         rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
     }
+
+    pub async fn list_available_commands(&self, find: Option<String>) -> Result<String, String> {
+        let state = self.state.lock().await;
+        let commands: Vec<String> = state
+            .engine_state
+            .get_signatures_and_declids(false)
+            .into_iter()
+            .filter(|(sig, _)| {
+                if let Some(find) = &find {
+                    let find = find.to_lowercase();
+                    let name = sig.name.to_lowercase();
+                    let description = sig.description.to_lowercase();
+                    let search_terms = sig
+                        .search_terms
+                        .iter()
+                        .any(|term| term.to_lowercase().contains(&find));
+
+                    name.contains(&find) || description.contains(&find) || search_terms
+                } else {
+                    true
+                }
+            })
+            .map(|(sig, _)| format!("{} - {}", sig.call_signature(), sig.description))
+            .collect();
+
+        if commands.is_empty() {
+            return Err("No matching commands found".to_string());
+        }
+
+        Ok(commands.join("\n"))
+    }
+
+    pub async fn command_help(&self, command_name: &str) -> Result<String, String> {
+        let state = self.state.lock().await;
+
+        let signature = state
+            .engine_state
+            .get_signatures_and_declids(false)
+            .into_iter()
+            .find_map(|(sig, _)| {
+                if sig.name == command_name {
+                    Some(sig)
+                } else {
+                    None
+                }
+            })
+            .ok_or_else(|| format!("command `{}` not found", command_name))?;
+
+        Ok(format_command_help(&signature))
+    }
+}
+
+fn format_command_help(signature: &nu_protocol::Signature) -> String {
+    let mut output = String::new();
+    let usage = signature.call_signature();
+
+    writeln!(output, "Command: {}", signature.name).ok();
+    writeln!(output, "Usage: {}", usage).ok();
+
+    if !signature.description.is_empty() {
+        writeln!(output, "\nDescription: {}", signature.description).ok();
+    }
+
+    if !signature.extra_description.is_empty() {
+        writeln!(output, "\nDetails: {}", signature.extra_description).ok();
+    }
+
+    if !signature.search_terms.is_empty() {
+        writeln!(
+            output,
+            "\nSearch terms: {}",
+            signature.search_terms.join(", ")
+        )
+        .ok();
+    }
+
+    if !signature.named.is_empty() {
+        writeln!(output, "\nFlags:").ok();
+        for flag in &signature.named {
+            let short = flag.short.map(|s| format!("-{}, ", s)).unwrap_or_default();
+            let arg = flag
+                .arg
+                .as_ref()
+                .map(|shape| format!(" <{shape}>", shape = shape))
+                .unwrap_or_default();
+            writeln!(output, "  {}--{}{}: {}", short, flag.long, arg, flag.desc).ok();
+        }
+    }
+
+    if !signature.required_positional.is_empty()
+        || !signature.optional_positional.is_empty()
+        || signature.rest_positional.is_some()
+    {
+        writeln!(output, "\nParameters:").ok();
+
+        for positional in &signature.required_positional {
+            writeln!(output, "  {}: {}", positional.name, positional.desc).ok();
+        }
+
+        for positional in &signature.optional_positional {
+            writeln!(output, "  [{}]: {}", positional.name, positional.desc).ok();
+        }
+
+        if let Some(rest) = &signature.rest_positional {
+            writeln!(output, "  ...{}: {}", rest.name, rest.desc).ok();
+        }
+    }
+
+    output.trim_end().to_string()
 }
 
 /// Registers a [`ThreadJob`] for a still-running evaluation and spawns a task
