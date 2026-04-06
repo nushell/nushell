@@ -1146,7 +1146,7 @@ mod tests {
         let engine_state = external_engine_state();
         let evaluator = Evaluator::new(engine_state);
 
-        let result = evaluator.eval(r#"sh -c 'printf stdout; printf stderr >&2; exit 7'"#)?;
+        let result = evaluator.eval("sh -c 'printf stdout; printf stderr >&2; exit 7'")?;
 
         assert!(
             result.contains("stdout"),
@@ -1176,7 +1176,7 @@ mod tests {
 
         let result = evaluator
             .eval_async(
-                r#"sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'"#,
+                "sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'",
                 CancellationToken::new(),
             )
             .await;
