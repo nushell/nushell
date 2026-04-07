@@ -155,7 +155,10 @@ fn get_suggestions_by_value(
     }
 }
 
-fn get_suggestions_by_type(ty: &Type, current_span: reedline::Span) -> Vec<SemanticSuggestion> {
+pub(crate) fn get_suggestions_by_type(
+    ty: &Type,
+    current_span: reedline::Span,
+) -> Vec<SemanticSuggestion> {
     match ty {
         Type::Record(fields) | Type::Table(fields) => fields
             .iter()

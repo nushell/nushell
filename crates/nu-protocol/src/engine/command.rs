@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use super::{EngineState, Stack, StateWorkingSet};
 use crate::{
     Alias, BlockId, DeprecationEntry, DynamicCompletionCallRef, DynamicSuggestion, Example,
-    OutDest, PipelineData, ShellError, Signature, Span, Value, engine::Call,
+    OutDest, PipelineData, ShellError, Signature, Span, Type, Value, engine::Call,
 };
 use std::{borrow::Cow, fmt::Display};
 
@@ -167,6 +167,24 @@ pub trait Command: Send + Sync + CommandClone {
 
     fn pipe_redirection(&self) -> (Option<OutDest>, Option<OutDest>) {
         (None, None)
+    }
+
+    /// Infer the output type of this command given a specific call.
+    ///
+    /// This allows commands whose output columns depend on flags (e.g. `ls --long`)
+    /// to provide more accurate type information at parse time. Used by the
+    /// completion system to suggest column names in pipelines.
+    ///
+    /// Returns `None` by default, which falls back to the static `input_output_types`
+    /// from the command's signature.
+    #[allow(unused_variables)]
+    fn infer_output_type(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &crate::ast::Call,
+        input_type: &Type,
+    ) -> Option<Type> {
+        None
     }
 
     // engine_state and stack are required to get completion from plugin.

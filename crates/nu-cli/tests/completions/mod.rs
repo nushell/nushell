@@ -208,6 +208,36 @@ fn misc_command_argument_completions(
     match_suggestions(&expected, &suggestions);
 }
 
+// Tests for pipeline-aware column name completion (e.g. `ls | sort-by <TAB>`)
+// Suggestions come back sorted alphabetically by the matcher.
+#[rstest]
+#[case::ls_sort_by("ls | sort-by ", None, vec!["modified", "name", "size", "type"])]
+#[case::ls_sort_by_prefix("ls | sort-by m", None, vec!["modified"])]
+#[case::ls_select("ls | select ", None, vec!["modified", "name", "size", "type"])]
+fn pipeline_column_completions(
+    #[case] input: &str,
+    #[case] pos: Option<usize>,
+    #[case] expected: Vec<&str>,
+) {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete(input, pos.unwrap_or(input.len()));
+    match_suggestions(&expected, &suggestions);
+}
+
+#[cfg(unix)]
+#[test]
+fn pipeline_column_completions_ls_long_unix() {
+    let (_, _, engine, stack) = new_engine();
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let suggestions = completer.complete("ls -l | sort-by ", 16);
+    let expected = vec![
+        "accessed", "created", "group", "inode", "mode", "modified", "name", "num_links",
+        "readonly", "size", "target", "type", "user",
+    ];
+    match_suggestions(&expected, &suggestions);
+}
+
 #[rstest]
 #[case::command_name("my-c", None, vec!["my-command"])]
 #[case::command_argument("my-command ", None, vec!["cat", "dog", "eel"])]

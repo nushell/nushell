@@ -5,7 +5,7 @@ use crate::completions::{
 };
 use nu_parser::parse;
 use nu_protocol::{
-    CommandWideCompleter, Completion, GetSpan, Signature, Span,
+    CommandWideCompleter, Completion, GetSpan, Signature, Span, Type,
     ast::{
         Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
         Traverse,
@@ -146,6 +146,82 @@ fn strip_placeholder_if_any<'a>(
     (new_span, prefix)
 }
 
+/// Compute the pipeline input type for the element at `pos` within a block.
+///
+/// Walks through all pipelines in the block, finds the pipeline containing `pos`,
+/// then propagates types through all elements preceding `pos` to determine what
+/// type of data flows into the element being completed.
+///
+/// Uses `Command::infer_output_type()` when available for flag-aware inference,
+/// falling back to the command signature's `input_output_types`.
+fn compute_pipeline_input_type(
+    block: &Block,
+    working_set: &StateWorkingSet,
+    pos: usize,
+) -> Option<Type> {
+    for pipeline in &block.pipelines {
+        // Find which element in this pipeline contains `pos`
+        let cursor_element_idx = pipeline
+            .elements
+            .iter()
+            .position(|elem| elem.expr.span.contains(pos));
+
+        let cursor_idx = match cursor_element_idx {
+            Some(idx) if idx == 0 => return None, // first element has no pipeline input
+            Some(idx) => idx,
+            None => continue,
+        };
+
+        // Propagate types through all preceding elements
+        let mut current_type = Type::Any;
+
+        for elem in &pipeline.elements[..cursor_idx] {
+            if elem.redirection.is_some() {
+                current_type = Type::Any;
+                continue;
+            }
+            if let Expr::Call(call) = &elem.expr.expr {
+                let decl = working_set.get_decl(call.decl_id);
+
+                // Try flag-aware inference first
+                if let Some(inferred) =
+                    decl.infer_output_type(working_set, call, &current_type)
+                {
+                    current_type = inferred;
+                    continue;
+                }
+
+                // Fall back to signature's input_output_types
+                let io_types = decl.signature().input_output_types;
+                if io_types.is_empty() {
+                    current_type = Type::Any;
+                } else {
+                    // Collect all possible output types given the current input type
+                    let output_types: Vec<Type> = io_types
+                        .into_iter()
+                        .filter(|(in_type, _)| {
+                            current_type == Type::Any || in_type == &Type::Any || in_type == &current_type
+                        })
+                        .map(|(_, out_type)| out_type)
+                        .collect();
+
+                    current_type = match output_types.len() {
+                        0 => Type::Any,
+                        1 => output_types.into_iter().next().unwrap(),
+                        _ => Type::Any, // multiple possibilities, can't narrow
+                    };
+                }
+            } else {
+                current_type = elem.expr.ty.clone();
+            }
+        }
+
+        return Some(current_type);
+    }
+
+    None
+}
+
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
@@ -249,6 +325,9 @@ impl NuCompleter {
         let Some(text) = contents.get(start_offset..pos) else {
             return vec![];
         };
+        let pipeline_input_type =
+            compute_pipeline_input_type(&block, working_set, pos_to_search);
+
         self.complete_by_expression(
             working_set,
             element_expression,
@@ -256,6 +335,7 @@ impl NuCompleter {
             pos_to_search,
             text,
             extra_placeholder,
+            pipeline_input_type.as_ref(),
         )
     }
 
@@ -275,6 +355,7 @@ impl NuCompleter {
         pos: usize,
         prefix_str: &str,
         strip: bool,
+        pipeline_input_type: Option<&Type>,
     ) -> Vec<SemanticSuggestion> {
         let mut suggestions: Vec<SemanticSuggestion> = vec![];
 
@@ -484,6 +565,7 @@ impl NuCompleter {
                                 arg_idx,
                                 pos,
                                 strip,
+                                pipeline_input_type,
                             };
                             suggestions.splice(
                                 0..0,
@@ -569,6 +651,7 @@ impl NuCompleter {
                                 arg_idx,
                                 pos,
                                 strip,
+                                pipeline_input_type,
                             };
 
                             suggestions.splice(

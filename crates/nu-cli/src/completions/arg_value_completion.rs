@@ -8,10 +8,19 @@ use crate::{
 };
 use nu_parser::parse_module_file_or_dir;
 use nu_protocol::{
-    DynamicCompletionCallRef, Span,
+    DynamicCompletionCallRef, Span, SyntaxShape, Type,
     ast::{Argument, Call, Expr, Expression, ListItem},
     engine::{ArgType, Stack, StateWorkingSet},
 };
+
+/// Check if a SyntaxShape contains CellPath (directly or inside OneOf)
+fn shape_contains_cell_path(shape: &SyntaxShape) -> bool {
+    match shape {
+        SyntaxShape::CellPath => true,
+        SyntaxShape::OneOf(shapes) => shapes.iter().any(|s| shape_contains_cell_path(s)),
+        _ => false,
+    }
+}
 
 pub struct ArgValueCompletion<'a> {
     pub call: &'a Call,
@@ -21,6 +30,7 @@ pub struct ArgValueCompletion<'a> {
     pub arg_idx: usize,
     pub pos: usize,
     pub strip: bool,
+    pub pipeline_input_type: Option<&'a Type>,
 }
 
 impl<'a> Completer for ArgValueCompletion<'a> {
@@ -76,6 +86,31 @@ impl<'a> Completer for ArgValueCompletion<'a> {
             }
             // fallback to type based completion, file completion, etc.
             Ok(None) => (),
+        }
+
+        // Try column name completion from pipeline input type
+        if let Some(input_type) = self.pipeline_input_type {
+            if let ArgType::Positional(positional_arg_index) = self.arg_type {
+                let signature = decl.signature();
+                if let Some(pos_arg) = signature.get_positional(positional_arg_index) {
+                    if shape_contains_cell_path(&pos_arg.shape) {
+                        let suggestions =
+                            super::cell_path_completions::get_suggestions_by_type(
+                                input_type,
+                                reedline::Span {
+                                    start: span.start - offset,
+                                    end: span.end - offset,
+                                },
+                            );
+                        if !suggestions.is_empty() {
+                            for suggestion in suggestions {
+                                matcher.add_semantic_suggestion(suggestion);
+                            }
+                            return matcher.suggestion_results();
+                        }
+                    }
+                }
+            }
         }
 
         let command_head = decl.name();

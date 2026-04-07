@@ -188,6 +188,45 @@ impl Command for Ls {
             .category(Category::FileSystem)
     }
 
+    fn infer_output_type(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &nu_protocol::ast::Call,
+        _input_type: &Type,
+    ) -> Option<Type> {
+        let long = call.has_flag_const(working_set, "long").unwrap_or(false);
+
+        let mut columns: Vec<(String, Type)> = vec![
+            ("name".into(), Type::String),
+            ("type".into(), Type::String),
+        ];
+
+        if long {
+            columns.push(("target".into(), Type::String));
+            columns.push(("readonly".into(), Type::Bool));
+
+            #[cfg(unix)]
+            {
+                columns.push(("mode".into(), Type::String));
+                columns.push(("num_links".into(), Type::Int));
+                columns.push(("inode".into(), Type::Int));
+                columns.push(("user".into(), Type::String));
+                columns.push(("group".into(), Type::String));
+            }
+        }
+
+        columns.push(("size".into(), Type::Filesize));
+
+        if long {
+            columns.push(("created".into(), Type::Date));
+            columns.push(("accessed".into(), Type::Date));
+        }
+
+        columns.push(("modified".into(), Type::Date));
+
+        Some(Type::list(Type::Record(columns.into())))
+    }
+
     fn run(
         &self,
         engine_state: &EngineState,
