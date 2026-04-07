@@ -1292,6 +1292,7 @@ const SUPPORTED_TABLE_MODES: &[&str] = &[
     "compact",
     "compact_double",
     "default",
+    "frameless",
     "heavy",
     "light",
     "none",

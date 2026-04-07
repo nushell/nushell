@@ -25,6 +25,7 @@ const TABLE_MODE_VALUES: &[&str] = &[
     "thin",
     "light",
     "compact",
+    "frameless",
     "with_love",
     "compact_double",
     "default",

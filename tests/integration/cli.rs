@@ -1498,6 +1498,7 @@ fn table_mode_accepts_all_valid_modes() -> TestResult {
         "thin",
         "light",
         "compact",
+        "frameless",
         "with_love",
         "compact_double",
         "default",

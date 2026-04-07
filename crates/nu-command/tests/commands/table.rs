@@ -3059,6 +3059,19 @@ fn table_theme_on_border_compact() {
 }
 
 #[test]
+fn table_theme_on_border_frameless() {
+    assert_eq!(
+        create_theme_output("frameless"),
+        [
+            "─#─┼─a─┼─b─┼───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ",
+            "─#─┼─a─┼─b─┼───────c──────── 0 │ 1 │ 2 │              3  1 │ 4 │ 5 │ [list 3 items] ─#─┼─a─┼─b─┼───────c────────",
+            "─#─┼─a─┼─b─┼─c─ 0 │ 1 │ 2 │ 3 ─#─┼─a─┼─b─┼─c─",
+            "─#─┼─a_looooooong_name─┼─b─┼─c─ 0 │                 1 │ 2 │ 3 ─#─┼─a_looooooong_name─┼─b─┼─c─"
+        ]
+    );
+}
+
+#[test]
 fn table_theme_on_border_compact_double() {
     assert_eq!(
         create_theme_output("compact_double"),
@@ -3616,19 +3629,19 @@ fn table_list() {
     let actual = nu!("table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("ls | table --list");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
     );
 
     let actual = nu!("table --list --theme basic");
     assert_eq!(
         actual.out,
-        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ heavy          ││  5 │ light          ││  6 │ none           ││  7 │ reinforced     ││  8 │ rounded        ││  9 │ thin           ││ 10 │ with_love      ││ 11 │ psql           ││ 12 │ markdown       ││ 13 │ dots           ││ 14 │ restructured   ││ 15 │ ascii_rounded  ││ 16 │ basic_compact  ││ 17 │ single         ││ 18 │ double         │╰────┴────────────────╯"
+        "╭────┬────────────────╮│  0 │ basic          ││  1 │ compact        ││  2 │ compact_double ││  3 │ default        ││  4 │ frameless      ││  5 │ heavy          ││  6 │ light          ││  7 │ none           ││  8 │ reinforced     ││  9 │ rounded        ││ 10 │ thin           ││ 11 │ with_love      ││ 12 │ psql           ││ 13 │ markdown       ││ 14 │ dots           ││ 15 │ restructured   ││ 16 │ ascii_rounded  ││ 17 │ basic_compact  ││ 18 │ single         ││ 19 │ double         │╰────┴────────────────╯"
     );
 }
 

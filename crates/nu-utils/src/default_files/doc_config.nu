@@ -377,7 +377,8 @@ $env.config.footer_mode = 25
 # table.mode (string): Visual border style for tables.
 # One of: "rounded", "basic", "compact", "compact_double", "light", "thin",
 # "with_love", "reinforced", "heavy", "none", "psql", "markdown", "dots",
-# "restructured", "ascii_rounded", "basic_compact", "single", "double".
+# "restructured", "ascii_rounded", "basic_compact", "single", "double",
+# "frameless".
 # Can be overridden with `| table --theme/-t`.
 # Default: "rounded"
 $env.config.table.mode = "rounded"
