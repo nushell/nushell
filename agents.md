@@ -18,6 +18,7 @@
 
 ## PR requirements
 
+- **When creating a pull request, you MUST follow the PR template in `.github/pull_request_template.md`.**
 - Title format: `Fix URL parsing in `http get` (#1234)`
 - Must pass: `nu -c "use toolkit.nu; toolkit check pr"` (fmt, clippy, test, stdlib) Only run when ready, at the very end, because it takes a while to run.
 - Include release notes summary (brief, user-focused)
