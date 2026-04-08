@@ -169,6 +169,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 Ok(out)
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
+            #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
