@@ -168,8 +168,8 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// The default is `false`.
     #[deprecated(
         since = "0.111.1",
-        note = "this is planned to be replaced by another implementation, \
-        plan to have breaking changes using this method"
+        note = "will be replaced by a new custom-value iterator system next release; \
+        avoid new uses unless you need current behavior"
     )]
     fn is_iterable(&self) -> bool {
         false
