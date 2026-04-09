@@ -88,111 +88,25 @@ impl Command for Save {
             });
 
         let from_io_error = IoError::factory(span, path.item.as_path());
+        let save_byte_stream = |stream, metadata| {
+            stream_byte_stream_to_file(
+                stream,
+                ByteStreamSaveContext {
+                    metadata,
+                    path: &path,
+                    stderr_path: stderr_path.as_ref(),
+                    engine_state,
+                    append,
+                    force,
+                    span,
+                    progress,
+                },
+            )
+        };
+
         match input {
             PipelineData::ByteStream(stream, metadata) => {
-                check_saving_to_source_file(metadata.as_ref(), &path, stderr_path.as_ref())?;
-
-                let (file, stderr_file) =
-                    get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
-
-                let size = stream.known_size();
-                let signals = engine_state.signals();
-
-                match stream.into_source() {
-                    ByteStreamSource::Read(read) => {
-                        stream_to_file(read, size, signals, file, span, progress)?;
-                    }
-                    ByteStreamSource::File(source) => {
-                        stream_to_file(source, size, signals, file, span, progress)?;
-                    }
-                    #[cfg(feature = "os")]
-                    ByteStreamSource::Child(mut child) => {
-                        fn write_or_consume_stderr(
-                            stderr: ChildPipe,
-                            file: Option<File>,
-                            span: Span,
-                            signals: &Signals,
-                            progress: bool,
-                        ) -> Result<(), ShellError> {
-                            if let Some(file) = file {
-                                match stderr {
-                                    ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, signals, file, span, progress)
-                                    }
-                                    ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, signals, file, span, progress)
-                                    }
-                                }?
-                            } else {
-                                match stderr {
-                                    ChildPipe::Pipe(mut pipe) => {
-                                        io::copy(&mut pipe, &mut io::stderr())
-                                    }
-                                    ChildPipe::Tee(mut tee) => {
-                                        io::copy(&mut tee, &mut io::stderr())
-                                    }
-                                }
-                                .map_err(|err| IoError::new(err, span, None))?;
-                            }
-                            Ok(())
-                        }
-
-                        match (child.stdout.take(), child.stderr.take()) {
-                            (Some(stdout), stderr) => {
-                                // delegate a thread to redirect stderr to result.
-                                let handler = stderr
-                                    .map(|stderr| {
-                                        let signals = signals.clone();
-                                        thread::Builder::new().name("stderr saver".into()).spawn(
-                                            move || {
-                                                write_or_consume_stderr(
-                                                    stderr,
-                                                    stderr_file,
-                                                    span,
-                                                    &signals,
-                                                    progress,
-                                                )
-                                            },
-                                        )
-                                    })
-                                    .transpose()
-                                    .map_err(&from_io_error)?;
-
-                                let res = match stdout {
-                                    ChildPipe::Pipe(pipe) => {
-                                        stream_to_file(pipe, None, signals, file, span, progress)
-                                    }
-                                    ChildPipe::Tee(tee) => {
-                                        stream_to_file(tee, None, signals, file, span, progress)
-                                    }
-                                };
-                                if let Some(h) = handler {
-                                    h.join().map_err(|err| ShellError::ExternalCommand {
-                                        label: "Fail to receive external commands stderr message"
-                                            .to_string(),
-                                        help: format!("{err:?}"),
-                                        span,
-                                    })??;
-                                }
-                                res?;
-                            }
-                            (None, Some(stderr)) => {
-                                write_or_consume_stderr(
-                                    stderr,
-                                    stderr_file,
-                                    span,
-                                    signals,
-                                    progress,
-                                )?;
-                            }
-                            (None, None) => {}
-                        };
-
-                        child.wait()?;
-                    }
-                }
-
-                Ok(PipelineData::empty())
+                save_byte_stream(stream, metadata.as_ref())
             }
             PipelineData::ListStream(ls, pipeline_metadata)
                 if raw || prepare_path(&path, append, force)?.0.extension().is_none() =>
@@ -242,6 +156,12 @@ impl Command for Save {
                             span,
                         )
                         .map(|()| PipelineData::empty());
+                }
+
+                // If convert_to_extension returned a ByteStream (e.g., from `to csv`), stream it directly
+                // instead of collecting into memory with into_value()
+                if let PipelineData::ByteStream(stream, metadata) = converted {
+                    return save_byte_stream(stream, metadata.as_ref());
                 }
 
                 let bytes = value_to_bytes(converted.into_value(span)?)?;
@@ -521,6 +441,119 @@ fn get_files(
         .transpose()?;
 
     Ok((file, stderr_file))
+}
+
+fn write_or_consume_stderr(
+    stderr: ChildPipe,
+    file: Option<File>,
+    span: Span,
+    signals: &Signals,
+    progress: bool,
+) -> Result<(), ShellError> {
+    if let Some(file) = file {
+        match stderr {
+            ChildPipe::Pipe(pipe) => stream_to_file(pipe, None, signals, file, span, progress),
+            ChildPipe::Tee(tee) => stream_to_file(tee, None, signals, file, span, progress),
+        }?
+    } else {
+        match stderr {
+            ChildPipe::Pipe(mut pipe) => io::copy(&mut pipe, &mut io::stderr()),
+            ChildPipe::Tee(mut tee) => io::copy(&mut tee, &mut io::stderr()),
+        }
+        .map_err(|err| IoError::new(err, span, None))?;
+    }
+    Ok(())
+}
+
+struct ByteStreamSaveContext<'a> {
+    metadata: Option<&'a PipelineMetadata>,
+    path: &'a Spanned<PathBuf>,
+    stderr_path: Option<&'a Spanned<PathBuf>>,
+    engine_state: &'a EngineState,
+    append: bool,
+    force: bool,
+    span: Span,
+    progress: bool,
+}
+
+fn stream_byte_stream_to_file(
+    stream: ByteStream,
+    context: ByteStreamSaveContext<'_>,
+) -> Result<PipelineData, ShellError> {
+    let from_io_error = IoError::factory(context.span, context.path.item.as_path());
+    let span = context.span;
+    let progress = context.progress;
+
+    check_saving_to_source_file(context.metadata, context.path, context.stderr_path)?;
+
+    let (file, stderr_file) = get_files(
+        context.engine_state,
+        context.path,
+        context.stderr_path,
+        context.append,
+        context.force,
+    )?;
+
+    let size = stream.known_size();
+    let signals = context.engine_state.signals();
+
+    match stream.into_source() {
+        ByteStreamSource::Read(read) => {
+            stream_to_file(read, size, signals, file, span, progress)?;
+        }
+        ByteStreamSource::File(source) => {
+            stream_to_file(source, size, signals, file, span, progress)?;
+        }
+        #[cfg(feature = "os")]
+        ByteStreamSource::Child(mut child) => {
+            match (child.stdout.take(), child.stderr.take()) {
+                (Some(stdout), stderr) => {
+                    let handler = stderr
+                        .map(|stderr| {
+                            let signals = signals.clone();
+                            thread::Builder::new()
+                                .name("stderr saver".into())
+                                .spawn(move || {
+                                    write_or_consume_stderr(
+                                        stderr,
+                                        stderr_file,
+                                        span,
+                                        &signals,
+                                        progress,
+                                    )
+                                })
+                        })
+                        .transpose()
+                        .map_err(&from_io_error)?;
+
+                    let res = match stdout {
+                        ChildPipe::Pipe(pipe) => {
+                            stream_to_file(pipe, None, signals, file, span, progress)
+                        }
+                        ChildPipe::Tee(tee) => {
+                            stream_to_file(tee, None, signals, file, span, progress)
+                        }
+                    };
+                    if let Some(h) = handler {
+                        h.join().map_err(|err| ShellError::ExternalCommand {
+                            label: "Fail to receive external commands stderr message".to_string(),
+                            help: format!("{err:?}"),
+                            span,
+                        })??;
+                    }
+                    res?;
+                }
+                (None, Some(stderr)) => {
+                    write_or_consume_stderr(stderr, stderr_file, span, signals, progress)?;
+                }
+                (None, None) => {}
+            };
+
+            child.wait()?;
+        }
+    }
+
+    Ok(PipelineData::empty())
 }
 
 fn stream_to_file(
