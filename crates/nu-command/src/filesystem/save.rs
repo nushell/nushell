@@ -1,3 +1,4 @@
+use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
 use crate::progress_bar;
 use nu_engine::{command_prelude::*, get_eval_block};
 use nu_path::{expand_path_with, is_windows_device_path};
@@ -221,6 +222,18 @@ impl Command for Save {
                     check_saving_to_source_file(input.metadata_ref(), &path, stderr_path.as_ref())?;
                 }
 
+                if let Some(bytes) =
+                    preserve_toml_output(engine_state, &input, &path.item, raw, append, span)?
+                {
+                    let (mut file, _) =
+                        get_files(engine_state, &path, stderr_path.as_ref(), append, force)?;
+
+                    file.write_all(&bytes).map_err(&from_io_error)?;
+                    file.flush().map_err(&from_io_error)?;
+
+                    return Ok(PipelineData::empty());
+                }
+
                 // Try to convert the input pipeline into another type if we know the extension
                 let ext = extract_extension(&input, &path.item, raw);
                 let converted = match ext {
@@ -339,6 +352,37 @@ fn check_saving_to_source_file(
     }
 
     Ok(())
+}
+
+fn preserve_toml_output(
+    engine_state: &EngineState,
+    input: &PipelineData,
+    path: &Path,
+    raw: bool,
+    append: bool,
+    span: Span,
+) -> Result<Option<Vec<u8>>, ShellError> {
+    if raw
+        || append
+        || path
+            .extension()
+            .is_none_or(|extension| extension.to_string_lossy() != "toml")
+    {
+        return Ok(None);
+    }
+
+    let PipelineData::Value(value, metadata) = input else {
+        return Ok(None);
+    };
+    let Some(original_source) = read_toml_source_from_metadata(metadata.as_ref()) else {
+        return Ok(None);
+    };
+
+    match value {
+        Value::Record { .. } => preserve_toml_document(engine_state, value, &original_source, span)
+            .map(|document| Some(document.into_bytes())),
+        _ => Ok(None),
+    }
 }
 
 /// Extract extension for conversion.

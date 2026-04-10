@@ -27,3 +27,4 @@ pub use yaml::{TO_YAML, TO_YML, ToYamlLike};
 
 #[cfg_attr(not(feature = "network"), expect(unused))]
 pub(crate) use json::value_to_json_value;
+pub(crate) use toml::nu_value_to_toml_value;

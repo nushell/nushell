@@ -195,6 +195,88 @@ fn save_failure_not_overrides() {
 }
 
 #[test]
+fn save_preserves_toml_comment_and_inline_table_after_update() {
+    Playground::setup("save_test_10_toml_preservation", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "sample.toml",
+            r#"# keep this comment
+[package]
+name = "demo"
+version = "0.1.0"
+metadata = { repo = "https://example.com", keywords = ["alpha", "beta"] }
+"#,
+        )]);
+
+        let expected_file = dirs.test().join("out.toml");
+
+        nu!(
+            cwd: dirs.test(),
+            "open sample.toml | update package.version '0.2.0' | save -f out.toml",
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(
+            actual,
+            r#"# keep this comment
+[package]
+name = "demo"
+version = "0.2.0"
+metadata = { repo = "https://example.com", keywords = ["alpha", "beta"] }
+"#
+        );
+    })
+}
+
+#[test]
+fn save_preserves_toml_array_of_tables_comments() {
+    Playground::setup("save_test_toml_aot_preservation", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "sample.toml",
+            r#"# project config
+[settings]
+verbose = true
+
+# first item
+[[items]]
+name = "alpha"
+value = 1
+
+# second item
+[[items]]
+name = "beta"
+value = 2
+"#,
+        )]);
+
+        let expected_file = dirs.test().join("out.toml");
+
+        nu!(
+            cwd: dirs.test(),
+            "open sample.toml | update items.0.value 99 | save -f out.toml",
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(
+            actual,
+            r#"# project config
+[settings]
+verbose = true
+
+# first item
+[[items]]
+name = "alpha"
+value = 99
+
+# second item
+[[items]]
+name = "beta"
+value = 2
+"#
+        );
+    })
+}
+
+#[test]
 fn save_append_works_on_stderr() {
     Playground::setup("save_test_11", |dirs, sandbox| {
         sandbox.with_files(&[

@@ -57,7 +57,7 @@ b = [1, 2]' | from toml",
     }
 }
 
-fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value {
+pub(crate) fn convert_toml_datetime_to_value(dt: &Datetime, span: Span) -> Value {
     match &dt.clone() {
         toml::value::Datetime {
             date: Some(_),
@@ -129,7 +129,10 @@ fn convert_toml_to_value(value: &toml::Value, span: Span) -> Value {
     }
 }
 
-pub fn convert_string_to_value(string_input: String, span: Span) -> Result<Value, ShellError> {
+pub(crate) fn convert_string_to_value(
+    string_input: String,
+    span: Span,
+) -> Result<Value, ShellError> {
     let result: Result<toml::Value, toml::de::Error> = toml::from_str(&string_input);
     match result {
         Ok(value) => Ok(convert_toml_to_value(&value, span)),
