@@ -6,12 +6,12 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu-std"
-version = "0.112.1"
+version = "0.112.2"
 
 [dependencies]
-nu-parser = { version = "0.112.1", path = "../nu-parser" }
-nu-protocol = { version = "0.112.1", path = "../nu-protocol", default-features = false }
-nu-engine = { version = "0.112.1", path = "../nu-engine", default-features = false }
+nu-parser = { version = "0.112.2", path = "../nu-parser" }
+nu-protocol = { version = "0.112.2", path = "../nu-protocol", default-features = false }
+nu-engine = { version = "0.112.2", path = "../nu-engine", default-features = false }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 
 log = "0.4"
