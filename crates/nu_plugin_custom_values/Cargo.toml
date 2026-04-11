@@ -21,4 +21,4 @@ serde = { workspace = true }
 typetag = "0.2"
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.112.0" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support" }

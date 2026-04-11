@@ -53,8 +53,8 @@ which = { workspace = true }
 
 [dev-dependencies]
 # doc tests use the "os" feature of `nu-command`
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0", features = ["default"] }
-nu-command = { path = "../nu-command", version = "0.112.0", features = ["default"] }
+nu-cmd-lang = { path = "../nu-cmd-lang", features = ["default"] }
+nu-command = { path = "../nu-command", features = ["default"] }
 
 bytes = { workspace = true }
 rstest = { workspace = true }

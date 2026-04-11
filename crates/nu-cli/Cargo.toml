@@ -19,10 +19,10 @@ path = "tests/main.rs"
 harness = false
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0" }
-nu-command = { path = "../nu-command", version = "0.112.0" }
-nu-std = { path = "../nu-std", version = "0.112.0" }
-nu-test-support = { path = "../nu-test-support", version = "0.112.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang" }
+nu-command = { path = "../nu-command" }
+nu-std = { path = "../nu-std" }
+nu-test-support = { path = "../nu-test-support" }
 rstest = { workspace = true, default-features = false }
 tempfile = { workspace = true }
 

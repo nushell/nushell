@@ -41,4 +41,4 @@ mcp = []
 workspace = true
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang" }

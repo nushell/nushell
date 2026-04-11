@@ -24,4 +24,4 @@ plist = "1.8"
 chrono = "0.4.41" # polars is requiring <= 0.4.41
 
 [dev-dependencies]
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.112.0" }
+nu-plugin-test-support = { path = "../nu-plugin-test-support" }

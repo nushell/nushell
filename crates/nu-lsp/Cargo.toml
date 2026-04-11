@@ -28,11 +28,11 @@ serde_json = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0" }
-nu-command = { path = "../nu-command", version = "0.112.0" }
-nu-engine = { path = "../nu-engine", version = "0.112.0" }
-nu-std = { path = "../nu-std", version = "0.112.0" }
-nu-test-support = { path = "../nu-test-support", version = "0.112.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang" }
+nu-command = { path = "../nu-command" }
+nu-engine = { path = "../nu-engine" }
+nu-std = { path = "../nu-std" }
+nu-test-support = { path = "../nu-test-support" }
 
 assert-json-diff = "2.0"
 rstest = { workspace = true, default-features = false }

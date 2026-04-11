@@ -20,5 +20,3 @@ nu-protocol = { path = "../nu-protocol", version = "0.112.0", features = ["plugi
 nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.112.0" }
 
 itertools = { workspace = true }
-
-[dev-dependencies]

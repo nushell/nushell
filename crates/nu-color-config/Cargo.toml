@@ -24,4 +24,4 @@ nu-ansi-term = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.112.0" }
+nu-test-support = { path = "../nu-test-support" }

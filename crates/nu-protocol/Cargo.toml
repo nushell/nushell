@@ -78,9 +78,10 @@ plugin = [
 sqlite = []
 
 [dev-dependencies]
+nu-test-support = { path = "../nu-test-support", features = ["os"] }
+nu-utils = { path = "../nu-utils" }
+
 serde_json = { workspace = true }
-nu-test-support = { path = "../nu-test-support", version = "0.112.0", features = ["os"] }
-nu-utils = { path = "../nu-utils", version = "0.112.0" }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
 tempfile = { workspace = true }

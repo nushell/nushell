@@ -44,9 +44,9 @@ itertools = { workspace = true }
 mime = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0" }
-nu-command = { path = "../nu-command", version = "0.112.0" }
-nu-test-support = { path = "../nu-test-support", version = "0.112.0" }
+nu-cmd-lang = { path = "../nu-cmd-lang" }
+nu-command = { path = "../nu-command" }
+nu-test-support = { path = "../nu-test-support" }
 
 [build-dependencies]
 nu-protocol = { path = "../nu-protocol", version = "0.112.0", default-features = false }

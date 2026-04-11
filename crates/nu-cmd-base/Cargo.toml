@@ -21,5 +21,3 @@ nu-protocol = { path = "../nu-protocol", version = "0.112.0", default-features =
 
 indexmap = { workspace = true }
 miette = { workspace = true }
-
-[dev-dependencies]
