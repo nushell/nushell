@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu-path"
-version = "0.111.1"
+version = "0.112.0"
 exclude = ["/fuzz"]
 
 [lib]

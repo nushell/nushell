@@ -6,7 +6,7 @@ license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
 rust-version.workspace = true
-version = "0.111.1"
+version = "0.112.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]

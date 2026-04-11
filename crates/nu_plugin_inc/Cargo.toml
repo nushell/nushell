@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu_plugin_inc"
-version = "0.111.1"
+version = "0.112.0"
 
 [lib]
 doctest = false
@@ -17,7 +17,7 @@ name = "nu_plugin_inc"
 bench = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.111.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.111.1", features = ["plugin"] }
+nu-plugin = { path = "../nu-plugin", version = "0.112.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.112.0", features = ["plugin"] }
 
 semver = "1.0"
