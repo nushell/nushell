@@ -176,7 +176,7 @@ ratatui = { version = "0.30", default-features = false, features = [
   #"underline-color" # leave out so we don't bring in termwiz
 ] }
 rayon = "1.11"
-reedline = "0.46.0"
+reedline = "0.47.0"
 rmp = "0.8.15"
 rmp-serde = "1.3.1"
 roxmltree = "0.20.0"
@@ -404,7 +404,7 @@ bench = false
 # To use a development version of a dependency please use a global override here
 # changing versions in each sub-crate of the workspace is tedious
 [patch.crates-io]
-reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
+# reedline = { git = "https://github.com/nushell/reedline", branch = "main" }
 # nu-ansi-term = { git = "https://github.com/nushell/nu-ansi-term.git", branch = "main" }
 
 # Run all benchmarks with `cargo bench`
