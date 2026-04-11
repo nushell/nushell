@@ -6,13 +6,13 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu-test-support-macros"
-version = "0.112.0"
+version = "0.112.1"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-nu-experimental = { path = "../nu-experimental", version = "0.112.0" }
+nu-experimental = { path = "../nu-experimental", version = "0.112.1" }
 
 heck = { workspace = true }
 proc-macro-error2 = { workspace = true }

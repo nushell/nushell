@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu-table"
-version = "0.112.0"
+version = "0.112.1"
 
 [lib]
 bench = false
@@ -15,10 +15,10 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.0", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.112.0", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.112.0", default-features = false }
-nu-color-config = { path = "../nu-color-config", version = "0.112.0" }
+nu-protocol = { path = "../nu-protocol", version = "0.112.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.112.1", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.112.1", default-features = false }
+nu-color-config = { path = "../nu-color-config", version = "0.112.1" }
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }

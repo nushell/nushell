@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu-test-support"
-version = "0.112.0"
+version = "0.112.1"
 
 [lib]
 doctest = false
@@ -27,18 +27,18 @@ network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 [dependencies]
-nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.112.0", default-features = false }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.0", default-features = false }
-nu-command = { path = "../nu-command", version = "0.112.0", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.112.0", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.112.0", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.112.0", default-features = false }
-nu-parser = { path = "../nu-parser", version = "0.112.0", default-features = false }
-nu-path = { path = "../nu-path", version = "0.112.0", default-features = false }
-nu-protocol = { path = "../nu-protocol", version = "0.112.0", default-features = false }
-nu-std = { path = "../nu-std", version = "0.112.0", default-features = false }
-nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.112.0", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.112.0", default-features = false }
+nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.112.1", default-features = false }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.1", default-features = false }
+nu-command = { path = "../nu-command", version = "0.112.1", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.112.1", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.112.1", default-features = false }
+nu-glob = { path = "../nu-glob", version = "0.112.1", default-features = false }
+nu-parser = { path = "../nu-parser", version = "0.112.1", default-features = false }
+nu-path = { path = "../nu-path", version = "0.112.1", default-features = false }
+nu-protocol = { path = "../nu-protocol", version = "0.112.1", default-features = false }
+nu-std = { path = "../nu-std", version = "0.112.1", default-features = false }
+nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.112.1", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.112.1", default-features = false }
 
 itertools = { workspace = true }
 kitest = { workspace = true }
