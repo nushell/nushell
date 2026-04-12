@@ -1,4 +1,5 @@
 use nu_engine::{command_prelude::*, env};
+use nu_protocol::PipelineMetadata;
 use nu_protocol::engine::CommandType;
 use std::collections::HashSet;
 use std::fs;
@@ -332,11 +333,14 @@ fn which(
     // known externals; we just won't find any PATH-based binaries.
     let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
+    let metadata = PipelineMetadata::default().with_path_columns(vec!["path".into()]);
+
     if which_args.applications.is_empty() {
         return Ok(
             list_all_executables(engine_state, &paths, which_args.all, head)
                 .into_iter()
-                .into_pipeline_data(head, engine_state.signals().clone()),
+                .into_pipeline_data(head, engine_state.signals().clone())
+                .set_metadata(Some(metadata)),
         );
     }
 
@@ -347,7 +351,8 @@ fn which(
 
     Ok(output
         .into_iter()
-        .into_pipeline_data(head, engine_state.signals().clone()))
+        .into_pipeline_data(head, engine_state.signals().clone())
+        .set_metadata(Some(metadata)))
 }
 
 #[cfg(test)]
