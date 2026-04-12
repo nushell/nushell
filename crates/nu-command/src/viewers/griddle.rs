@@ -8,6 +8,8 @@ use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions}
 use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
 
+const NAME_COLUMN: &str = "name";
+
 #[derive(Clone)]
 pub struct Griddle;
 
@@ -116,11 +118,11 @@ prints out the list properly."
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
-                let mut items = vec![];
-
-                for (i, (c, v)) in val.into_owned().into_iter().enumerate() {
-                    items.push((i, c, v.to_expanded_string(", ", config)))
-                }
+                let items = val
+                    .get(NAME_COLUMN)
+                    .map(|v| v.to_expanded_string(", ", config))
+                    .into_iter()
+                    .collect();
 
                 Ok(create_grid_output(
                     items,
@@ -179,7 +181,7 @@ prints out the list properly."
 
 #[allow(clippy::too_many_arguments)]
 fn create_grid_output(
-    items: Vec<(usize, String, String)>,
+    items: Vec<String>,
     call: &Call,
     width_param: Option<i64>,
     use_color: bool,
@@ -208,52 +210,49 @@ fn create_grid_output(
         filling: Filling::Text(sep),
     });
 
-    for (_row_index, header, value) in items {
-        // only output value if the header name is 'name'
-        if header == "name" {
-            if use_color {
-                if icons_param {
-                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = cwd.join(no_ansi.as_ref());
-                    let file_icon = icon_for_file(&path, &None);
-                    let ls_colors_style = ls_colors.style_for_path(path);
-                    let icon_style = lookup_ansi_color_style(file_icon.color);
-
-                    let ansi_style = ls_colors_style
-                        .map(Style::to_nu_ansi_term_style)
-                        .unwrap_or_default();
-
-                    let item = format!(
-                        "{} {}",
-                        icon_style.paint(String::from(file_icon.icon)),
-                        ansi_style.paint(value)
-                    );
-
-                    let mut cell = Cell::from(item);
-                    cell.alignment = Alignment::Left;
-                    grid.add(cell);
-                } else {
-                    let no_ansi = nu_utils::strip_ansi_unlikely(&value);
-                    let path = cwd.join(no_ansi.as_ref());
-                    let style = ls_colors.style_for_path(path.clone());
-                    let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
-                    let mut cell = Cell::from(ansi_style.paint(value).to_string());
-                    cell.alignment = Alignment::Left;
-                    grid.add(cell);
-                }
-            } else if icons_param {
+    for value in items {
+        if use_color {
+            if icons_param {
                 let no_ansi = nu_utils::strip_ansi_unlikely(&value);
                 let path = cwd.join(no_ansi.as_ref());
                 let file_icon = icon_for_file(&path, &None);
-                let item = format!("{} {}", String::from(file_icon.icon), value);
+                let ls_colors_style = ls_colors.style_for_path(path);
+                let icon_style = lookup_ansi_color_style(file_icon.color);
+
+                let ansi_style = ls_colors_style
+                    .map(Style::to_nu_ansi_term_style)
+                    .unwrap_or_default();
+
+                let item = format!(
+                    "{} {}",
+                    icon_style.paint(String::from(file_icon.icon)),
+                    ansi_style.paint(value)
+                );
+
                 let mut cell = Cell::from(item);
                 cell.alignment = Alignment::Left;
                 grid.add(cell);
             } else {
-                let mut cell = Cell::from(value);
+                let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+                let path = cwd.join(no_ansi.as_ref());
+                let style = ls_colors.style_for_path(path.clone());
+                let ansi_style = style.map(Style::to_nu_ansi_term_style).unwrap_or_default();
+                let mut cell = Cell::from(ansi_style.paint(value).to_string());
                 cell.alignment = Alignment::Left;
                 grid.add(cell);
             }
+        } else if icons_param {
+            let no_ansi = nu_utils::strip_ansi_unlikely(&value);
+            let path = cwd.join(no_ansi.as_ref());
+            let file_icon = icon_for_file(&path, &None);
+            let item = format!("{} {}", String::from(file_icon.icon), value);
+            let mut cell = Cell::from(item);
+            cell.alignment = Alignment::Left;
+            grid.add(cell);
+        } else {
+            let mut cell = Cell::from(value);
+            cell.alignment = Alignment::Left;
+            grid.add(cell);
         }
     }
 
@@ -275,77 +274,42 @@ fn create_grid_output(
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
-) -> Result<Option<Vec<(usize, String, String)>>, ShellError> {
+) -> Result<Option<Vec<String>>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
-    if let Some(first) = iter.peek() {
-        let mut headers: Vec<String> = first.columns().cloned().collect();
+    let Some(first) = iter.peek() else {
+        return Ok(None);
+    };
 
-        if !headers.is_empty() {
-            headers.insert(0, "#".into());
+    let has_name_header = first.columns().any(|str| str == NAME_COLUMN);
+
+    iter.map(|item| {
+        if let Value::Error { error, .. } = item {
+            return Err(*error);
         }
 
-        let mut data = vec![];
+        let string = if !has_name_header {
+            item.to_expanded_string(", ", config)
+        } else {
+            let result = match &item {
+                Value::Record { val, .. } => val.get(NAME_COLUMN),
+                item => Some(item),
+            };
 
-        for (row_num, item) in iter.enumerate() {
-            if let Value::Error { error, .. } = item {
-                return Err(*error);
-            }
-
-            let mut row = vec![row_num.to_string()];
-
-            if headers.is_empty() {
-                row.push(item.to_expanded_string(", ", config))
-            } else {
-                for header in headers.iter().skip(1) {
-                    let result = match &item {
-                        Value::Record { val, .. } => val.get(header),
-                        item => Some(item),
-                    };
-
-                    match result {
-                        Some(value) => {
-                            if let Value::Error { error, .. } = item {
-                                return Err(*error);
-                            }
-                            row.push(value.to_expanded_string(", ", config));
-                        }
-                        None => row.push(String::new()),
+            match result {
+                Some(value) => {
+                    if let Value::Error { error, .. } = item {
+                        return Err(*error);
                     }
+                    value.to_expanded_string(", ", config)
                 }
+                None => String::new(),
             }
+        };
 
-            data.push(row);
-        }
-
-        let mut h: Vec<String> = headers.into_iter().collect();
-
-        // This is just a list
-        if h.is_empty() {
-            // let's fake the header
-            h.push("#".to_string());
-            h.push("name".to_string());
-        }
-
-        // this tuple is (row_index, header_name, value)
-        let mut interleaved = vec![];
-        for (i, v) in data.into_iter().enumerate() {
-            for (n, s) in v.into_iter().enumerate() {
-                if h.len() == 1 {
-                    // always get the 1th element since this is a simple list
-                    // and we hacked the header above because it was empty
-                    // 0th element is an index, 1th element is the value
-                    interleaved.push((i, h[1].clone(), s))
-                } else {
-                    interleaved.push((i, h[n].clone(), s))
-                }
-            }
-        }
-
-        Ok(Some(interleaved))
-    } else {
-        Ok(None)
-    }
+        Ok(Some(string))
+    })
+    .collect()
 }
 
 #[cfg(test)]
