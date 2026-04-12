@@ -20,15 +20,15 @@ fn grid_errors_with_few_columns() -> Result {
 #[case::record_with_no_name("{test: no_name} | grid", "")]
 #[case::record_with_name("{name: test} | grid", "test\n")]
 #[case::list_whose_first_element_is_not_record(
-    "[a 33 {name: in_the_middle} null {record: without_nam} [ijkl {name: e}]] | grid",
-    "a │ 33 │ {name: in_the_middle} │  │ {record: without_nam} │ [ijkl, {name: e}]\n"
+    "[a 33 {name: in_the_middle} null {record: without_name} [ijkl {name: e}]] | grid",
+    "a │ 33 │ {name: in_the_middle} │  │ {record: without_name} │ [ijkl, {name: e}]\n"
 )]
 #[case::list_whose_first_element_is_record_with_name_columns(
-    "[{name: test} a 33 {name: in_the_middle} null {record: without_nam} [ijkl {name: e}]] | grid",
+    "[{name: test} a 33 {name: in_the_middle} null {record: without_name} [ijkl {name: e}]] | grid",
     "test │ a │ 33 │ in_the_middle │  │  │ [ijkl, {name: e}]\n"
 )]
 #[case::list_whose_first_element_is_record_without_name_columns(
-    "[{test: name} a 33 {name: in_the_middle} null {record: without_nam} [ijkl {name: e}]] | grid",
+    "[{test: name} a 33 {name: in_the_middle} null {record: without_name} [ijkl {name: e}]] | grid",
     ""
 )]
 fn test_output(#[case] code: &str, #[case] expected: &str) -> Result {
