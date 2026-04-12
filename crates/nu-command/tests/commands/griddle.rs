@@ -8,7 +8,8 @@ fn grid_errors_with_few_columns() -> Result {
         .expect_shell_error()?
         .generic_error()?;
 
-    Ok(assert_eq!(&error, "Couldn't fit grid into 5 columns"))
+    assert_eq!(&error, "Couldn't fit grid into 5 columns");
+    Ok(())
 }
 
 #[rstest]
@@ -33,5 +34,6 @@ fn grid_errors_with_few_columns() -> Result {
 )]
 fn test_output(#[case] code: &str, #[case] expected: &str) -> Result {
     let output: String = test().run(code)?;
-    Ok(assert_eq!(&output, expected))
+    assert_eq!(&output, expected);
+    Ok(())
 }
