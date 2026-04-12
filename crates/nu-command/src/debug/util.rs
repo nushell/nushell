@@ -14,8 +14,6 @@ pub fn extend_record_with_metadata(
     }) = metadata
     {
         match data_source {
-            #[allow(deprecated)]
-            DataSource::Ls => record.push("source", Value::string("ls", head)),
             DataSource::HtmlThemes => {
                 record.push("source", Value::string("into html --list", head))
             }
@@ -52,8 +50,6 @@ pub fn parse_metadata_from_record(record: &Record) -> PipelineMetadata {
             "source" => {
                 if let Ok(s) = value.as_str() {
                     metadata.data_source = match s {
-                        #[allow(deprecated)]
-                        "ls" => DataSource::Ls,
                         "into html --list" => DataSource::HtmlThemes,
                         _ => DataSource::FilePath(PathBuf::from(s)),
                     };

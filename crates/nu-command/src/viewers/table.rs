@@ -601,15 +601,9 @@ fn handle_record(
     let config = input.get_config();
 
     if let Some(PipelineMetadata {
-        data_source,
-        mut path_columns,
-        ..
+        mut path_columns, ..
     }) = metadata
     {
-        #[allow(deprecated)]
-        if data_source == DataSource::Ls {
-            path_columns.push(String::from("name"));
-        }
         // Remove duplicates
         path_columns.sort_unstable();
         path_columns.dedup();
@@ -796,15 +790,9 @@ fn handle_row_stream(
         };
 
         let PipelineMetadata {
-            data_source,
-            mut path_columns,
-            ..
+            mut path_columns, ..
         } = metadata;
 
-        #[allow(deprecated)]
-        if data_source == DataSource::Ls {
-            path_columns.push(String::from("name"));
-        }
         // Remove duplicates
         path_columns.sort_unstable();
         path_columns.dedup();

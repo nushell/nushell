@@ -4,7 +4,7 @@ use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, Signals,
+    NuGlob, PipelineMetadata, Signals,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 use pathdiff::diff_paths;
@@ -231,8 +231,6 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
                             path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
@@ -258,8 +256,6 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
                             path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
