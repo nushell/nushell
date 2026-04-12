@@ -281,7 +281,12 @@ fn convert_to_list(
         return Ok(None);
     };
 
-    let has_name_header = first.columns().any(|str| str == NAME_COLUMN);
+    let headers = first.columns().collect::<Vec<_>>();
+    let has_name_header = headers.iter().any(|&str| str == NAME_COLUMN);
+
+    if !headers.is_empty() && !has_name_header {
+        return Ok(None);
+    }
 
     iter.map(|item| {
         if let Value::Error { error, .. } = item {
