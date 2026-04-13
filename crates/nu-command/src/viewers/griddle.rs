@@ -50,12 +50,10 @@ impl Command for Griddle {
     }
 
     fn extra_description(&self) -> &str {
-        "grid was built to give a concise gridded layout for ls. however,
-it determines what to put in the grid by looking for a column named
-'name'. this works great for tables and records but for lists we
-need to do something different. such as with '[one two three] | grid'
-it creates a fake column called 'name' for these values so that it
-prints out the list properly."
+        "`grid` was built to give a concise gridded layout for ls. It
+prints every items of the list in a grid layout. However, for table
+or record, it determines what to put in the grid by looking for a
+column named 'name'. This is subject to change in the future."
     }
 
     fn run(
