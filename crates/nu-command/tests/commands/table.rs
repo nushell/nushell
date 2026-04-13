@@ -4082,3 +4082,24 @@ fn metadata_path_columns_multiple_with_icons() {
     let expected = "\u{1b}[39m╭───┬────────┬────────────╮\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m#\u{1b}[0m \u{1b}[39m│\u{1b}[0m  \u{1b}[1;32mdir\u{1b}[0m   \u{1b}[39m│\u{1b}[0m    \u{1b}[1;32mfile\u{1b}[0m    \u{1b}[39m│\u{1b}[0m\u{1b}[39m├───┼────────┼────────────┤\u{1b}[0m\u{1b}[39m│\u{1b}[0m \u{1b}[1;32m0\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;126;142;168m\u{f115}\u{1b}[0m  \u{1b}[38;5;81msrc\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m \u{1b}[39m\u{1b}[38;2;222;165;132m\u{e68b}\u{1b}[0m  \u{1b}[38;5;48mmain.rs\u{1b}[0m\u{1b}[0m \u{1b}[39m│\u{1b}[0m\u{1b}[39m╰───┴────────┴────────────╯\u{1b}[0m";
     assert_eq!(actual.out, expected);
 }
+
+#[test]
+fn table_strips_dangerous_ansi_sequences_from_string_data() {
+    // Dangerous ANSI sequences (cursor movement, screen clearing) should be
+    // stripped from table output to prevent terminal injection (issue #12725).
+    // Color sequences (SGR) are preserved since they are used internally.
+    let actual = nu!(
+        r#"$env.config.use_ansi_coloring = false; [[name]; [$"(ansi cursor_up)visible"]] | table --width=80"#
+    );
+    // The cursor-up sequence should be stripped
+    assert!(
+        !actual.out.contains("\x1b[A"),
+        "Dangerous ANSI sequences should be stripped from table output, got: {}",
+        actual.out,
+    );
+    assert!(
+        actual.out.contains("visible"),
+        "The text content should be preserved, got: {}",
+        actual.out,
+    );
+}

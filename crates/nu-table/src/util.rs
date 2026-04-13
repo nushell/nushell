@@ -62,25 +62,9 @@ pub fn string_truncate(text: &str, width: usize) -> String {
 }
 
 pub fn clean_charset(text: &str) -> String {
-    // TODO: We could make an optimization to take a String and modify it
-    //       We could check if there was any changes and if not make no allocations at all and don't change the origin.
-    //       Why it's not done...
-    //       Cause I am not sure how the `if` in a loop will affect performance.
-    //       So it's better be profiled, but likely the optimization be worth it.
-    //       At least because it's a base case where we won't change anything....
-
     // allocating at least the text size,
     // in most cases the buf will be a copy of text anyhow.
-    //
-    // but yes sometimes we will alloc more then necessary.
-    // We could shrink it but...it will be another realloc which make no scense.
     let mut buf = String::with_capacity(text.len());
-
-    // note: (Left just in case)
-    // note: This check could be added in order to cope with emojie issue.
-    // if c < ' ' && c != '\u{1b}' {
-    //    continue;
-    // }
 
     for c in text.chars() {
         match c {
@@ -97,7 +81,77 @@ pub fn clean_charset(text: &str) -> String {
         }
     }
 
-    buf
+    // Security: Strip dangerous ANSI escape sequences from user data to prevent
+    // terminal injection attacks (see https://github.com/nushell/nushell/issues/12725).
+    //
+    // We only strip non-color sequences (cursor movement, screen clearing, etc.)
+    // while preserving SGR color/style sequences (ESC[...m) since those are used
+    // intentionally by Nushell for LS_COLORS and other internal styling.
+    // Fast path: skip if no ESC byte (0x1B) is present.
+    if buf.as_bytes().contains(&0x1B) {
+        strip_dangerous_ansi_sequences(&buf)
+    } else {
+        buf
+    }
+}
+
+/// Strip dangerous (non-color) ANSI escape sequences while preserving SGR
+/// color/style sequences (CSI ... m).
+///
+/// This removes cursor movement, screen clearing, scrolling, and other
+/// potentially dangerous terminal control sequences that could be used for
+/// terminal injection attacks. Color sequences (those ending with 'm') are
+/// preserved because Nushell uses them internally for LS_COLORS styling.
+fn strip_dangerous_ansi_sequences(text: &str) -> String {
+    let mut result = String::with_capacity(text.len());
+    let mut chars = text.char_indices().peekable();
+
+    while let Some((i, c)) = chars.next() {
+        if c == '\x1b' {
+            // Check for CSI sequence: ESC[
+            if chars.peek().is_some_and(|&(_, next)| next == '[') {
+                chars.next(); // consume '['
+                // Collect parameter bytes and find the final byte
+                if chars.peek().is_none() {
+                    // ESC[ at end of string — skip it
+                    continue;
+                }
+                let mut final_byte = None;
+                while let Some(&(_, ch)) = chars.peek() {
+                    if ch.is_ascii_alphabetic() || ch == '@' || ch == '`' {
+                        final_byte = Some(ch);
+                        chars.next(); // consume final byte
+                        break;
+                    }
+                    chars.next(); // consume parameter/intermediate bytes
+                }
+                // Only preserve SGR sequences (final byte 'm' = color/style)
+                if final_byte == Some('m') {
+                    result.push_str(&text[i..chars.peek().map_or(text.len(), |&(p, _)| p)]);
+                }
+                // All other CSI sequences (cursor movement, clear screen, etc.) are dropped
+            } else if chars.peek().is_some_and(|&(_, next)| next == ']') {
+                // OSC sequence: ESC] ... ST — skip entirely
+                chars.next(); // consume ']'
+                while let Some((_, ch)) = chars.next() {
+                    if ch == '\x07' {
+                        break; // BEL terminates OSC
+                    }
+                    if ch == '\x1b' && chars.peek().is_some_and(|&(_, next)| next == '\\') {
+                        chars.next(); // consume '\\'
+                        break; // ST terminates OSC
+                    }
+                }
+            } else {
+                // Other ESC sequences (e.g., ESC followed by single char) — skip
+                chars.next(); // consume the byte after ESC
+            }
+        } else {
+            result.push(c);
+        }
+    }
+
+    result
 }
 
 pub fn colorize_space(data: &mut [Vec<Text<String>>], style_computer: &StyleComputer<'_>) {
@@ -180,4 +234,85 @@ pub fn convert_style(style: nu_ansi_term::Style) -> Color {
 
 pub fn is_color_empty(c: &Color) -> bool {
     c.get_prefix().is_empty() && c.get_suffix().is_empty()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clean_charset_preserves_color_sequences() {
+        // SGR color sequences (ending with 'm') should be preserved since
+        // Nushell uses them for LS_COLORS and internal styling.
+        let input = "\x1b[31mred text\x1b[0m";
+        let result = clean_charset(input);
+        assert_eq!(result, "\x1b[31mred text\x1b[0m");
+    }
+
+    #[test]
+    fn clean_charset_strips_cursor_movement() {
+        // Cursor movement: ESC[H (cursor home) — dangerous, should be stripped
+        let input = "\x1b[Hmalicious content";
+        let result = clean_charset(input);
+        assert_eq!(result, "malicious content");
+    }
+
+    #[test]
+    fn clean_charset_strips_screen_clear() {
+        // Screen clear: ESC[2J — dangerous, should be stripped
+        let input = "\x1b[2Jmalicious content";
+        let result = clean_charset(input);
+        assert_eq!(result, "malicious content");
+    }
+
+    #[test]
+    fn clean_charset_strips_cursor_up() {
+        // Cursor up: ESC[5A — dangerous, should be stripped
+        let input = "visible\x1b[5Ahidden overwrite";
+        let result = clean_charset(input);
+        assert_eq!(result, "visiblehidden overwrite");
+    }
+
+    #[test]
+    fn clean_charset_strips_osc_sequences() {
+        // OSC title change: ESC]0;title BEL — dangerous, should be stripped
+        let input = "\x1b]0;evil title\x07normal text";
+        let result = clean_charset(input);
+        assert_eq!(result, "normal text");
+    }
+
+    #[test]
+    fn clean_charset_preserves_plain_text() {
+        let input = "hello world";
+        let result = clean_charset(input);
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn clean_charset_still_converts_tabs_to_spaces() {
+        let input = "col1\tcol2";
+        let result = clean_charset(input);
+        assert_eq!(result, "col1    col2");
+    }
+
+    #[test]
+    fn clean_charset_still_removes_carriage_returns() {
+        let input = "line1\r\nline2";
+        let result = clean_charset(input);
+        assert_eq!(result, "line1\nline2");
+    }
+
+    #[test]
+    fn clean_charset_strips_dangerous_preserves_color_mixed() {
+        // Mix of color (safe) and cursor movement (dangerous)
+        let input = "\x1b[31mred\x1b[0m\x1b[2J\x1b[Hevil";
+        let result = clean_charset(input);
+        assert_eq!(result, "\x1b[31mred\x1b[0mevil");
+    }
+
+    #[test]
+    fn clean_charset_handles_empty_string() {
+        let result = clean_charset("");
+        assert_eq!(result, "");
+    }
 }
