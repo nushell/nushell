@@ -18,6 +18,7 @@ use kitest::{
     filter::DefaultFilter,
     formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
     group::TestGroupBTreeMap,
+    ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
 
@@ -85,12 +86,18 @@ pub fn main() -> ExitCode {
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
 
+    let ignore = match args.include_ignored {
+        false => DefaultIgnore::Default,
+        true => DefaultIgnore::IncludeIgnored,
+    };
+
     let harness = kitest::harness(TESTS.deref())
         .with_grouper(Grouper::default())
         .with_group_runner(GroupRunner::default())
         .with_groups(TestGroupBTreeMap::default())
         .with_runner(runner)
-        .with_filter(filter);
+        .with_filter(filter)
+        .with_ignore(ignore);
 
     let pretty_formatter = PrettyFormatter::default()
         .with_color_setting(args.color)
