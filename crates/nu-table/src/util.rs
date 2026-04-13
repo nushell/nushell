@@ -118,7 +118,7 @@ fn strip_dangerous_ansi_sequences(text: &str) -> String {
                 }
                 let mut final_byte = None;
                 while let Some(&(_, ch)) = chars.peek() {
-                    if ch.is_ascii_alphabetic() || ch == '@' || ch == '`' {
+                    if ('@'..='~').contains(&ch) {
                         final_byte = Some(ch);
                         chars.next(); // consume final byte
                         break;
