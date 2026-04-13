@@ -315,4 +315,112 @@ mod tests {
         let result = clean_charset("");
         assert_eq!(result, "");
     }
+
+    #[test]
+    fn clean_charset_exhaustive_csi_filter() {
+        // Loop through all CSI final bytes to prove exactly which are kept vs stripped.
+        // CSI sequences end with an ASCII letter or '@' or '`'.
+        // Only 'm' (SGR — colors/styles) should be preserved.
+        let csi_final_bytes: Vec<char> = ('@'..='~').collect(); // ASCII 0x40..0x7E
+
+        for &final_byte in &csi_final_bytes {
+            let input = format!("before\x1b[1{final_byte}after");
+            let result = clean_charset(&input);
+
+            if final_byte == 'm' {
+                assert_eq!(
+                    result, input,
+                    "SGR sequence (final byte '{final_byte}') should be PRESERVED"
+                );
+            } else {
+                assert_eq!(
+                    result, "beforeafter",
+                    "CSI sequence (final byte '{final_byte}') should be STRIPPED"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn clean_charset_exhaustive_dangerous_sequences() {
+        // Comprehensive list of known dangerous escape sequences and their categories.
+        let stripped: Vec<(&str, &str)> = vec![
+            // Cursor movement
+            ("\x1b[A", "Cursor Up"),
+            ("\x1b[B", "Cursor Down"),
+            ("\x1b[C", "Cursor Forward"),
+            ("\x1b[D", "Cursor Back"),
+            ("\x1b[E", "Cursor Next Line"),
+            ("\x1b[F", "Cursor Previous Line"),
+            ("\x1b[G", "Cursor Horizontal Absolute"),
+            ("\x1b[H", "Cursor Position"),
+            ("\x1b[5A", "Cursor Up 5"),
+            ("\x1b[10;20H", "Cursor to row 10 col 20"),
+            // Erase
+            ("\x1b[J", "Erase in Display"),
+            ("\x1b[2J", "Erase Entire Screen"),
+            ("\x1b[K", "Erase in Line"),
+            ("\x1b[2K", "Erase Entire Line"),
+            // Scroll
+            ("\x1b[S", "Scroll Up"),
+            ("\x1b[T", "Scroll Down"),
+            ("\x1b[3S", "Scroll Up 3"),
+            // Other CSI
+            ("\x1b[6n", "Device Status Report"),
+            ("\x1b[s", "Save Cursor Position"),
+            ("\x1b[u", "Restore Cursor Position"),
+            ("\x1b[?25l", "Hide Cursor"),
+            ("\x1b[?25h", "Show Cursor"),
+            ("\x1b[L", "Insert Lines"),
+            ("\x1b[P", "Delete Characters"),
+            ("\x1b[@", "Insert Characters"),
+            // OSC sequences
+            ("\x1b]0;title\x07", "Set Window Title (BEL)"),
+            ("\x1b]0;title\x1b\\", "Set Window Title (ST)"),
+            ("\x1b]52;c;data\x07", "Clipboard Write (BEL)"),
+            ("\x1b]52;c;data\x1b\\", "Clipboard Write (ST)"),
+            ("\x1b]8;;http://evil.com\x07", "Hyperlink (BEL)"),
+            // Two-byte ESC sequences
+            ("\x1b7", "Save Cursor (DEC)"),
+            ("\x1b8", "Restore Cursor (DEC)"),
+            ("\x1bD", "Index"),
+            ("\x1bM", "Reverse Index"),
+            ("\x1bc", "Reset Terminal (RIS)"),
+        ];
+
+        for (seq, name) in &stripped {
+            let input = format!("before{seq}after");
+            let result = clean_charset(&input);
+            assert_eq!(
+                result, "beforeafter",
+                "{name} ({seq:?}) should be STRIPPED"
+            );
+        }
+
+        // SGR sequences that MUST be preserved
+        let preserved: Vec<(&str, &str)> = vec![
+            ("\x1b[0m", "Reset"),
+            ("\x1b[1m", "Bold"),
+            ("\x1b[2m", "Dim"),
+            ("\x1b[3m", "Italic"),
+            ("\x1b[4m", "Underline"),
+            ("\x1b[7m", "Reverse"),
+            ("\x1b[9m", "Strikethrough"),
+            ("\x1b[31m", "Red Foreground"),
+            ("\x1b[42m", "Green Background"),
+            ("\x1b[38;5;196m", "256-color Red"),
+            ("\x1b[48;5;21m", "256-color Blue Background"),
+            ("\x1b[38;2;255;0;0m", "24-bit RGB Red"),
+            ("\x1b[1;31;42m", "Bold + Red FG + Green BG"),
+        ];
+
+        for (seq, name) in &preserved {
+            let input = format!("before{seq}after");
+            let result = clean_charset(&input);
+            assert_eq!(
+                result, input,
+                "{name} ({seq:?}) should be PRESERVED"
+            );
+        }
+    }
 }
