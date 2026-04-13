@@ -13,6 +13,7 @@ fn grid_errors_with_few_columns() -> Result {
 }
 
 #[rstest]
+#[case::empty_record("{} | grid", "")]
 #[case::list_of_string("[a b c] | grid", "a │ b │ c\n")]
 #[case::list_of_various_data_types(
     "[a bc 1 23 true false null {key: value} [list]] | grid",
@@ -35,5 +36,11 @@ fn grid_errors_with_few_columns() -> Result {
 fn test_output(#[case] code: &str, #[case] expected: &str) -> Result {
     let output: String = test().run(code)?;
     assert_eq!(&output, expected);
+    Ok(())
+}
+
+#[test]
+fn empty_list_returns_nothing() -> Result {
+    let _: () = test().run("[] | grid")?;
     Ok(())
 }
