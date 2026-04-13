@@ -267,4 +267,20 @@ mod tests {
                 .expect_value_eq("ok")
         })
     }
+
+    #[test]
+    fn evaluate_file_arg_with_various_character_escape_properly() -> Result {
+        Playground::setup("evaluate_file_newline_arg", |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "test.nu",
+                "def main [...args: string] { $args | to json }",
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .add_nu_to_path()
+                .run(r#"nu test.nu a "" b "c\nd" "e f" "[" "}" | from json"#)
+                .expect_value_eq(["a", "", "b", "c\nd", "e f", "[", "}"])
+        })
+    }
 }
