@@ -12,6 +12,10 @@ fn grid_errors_with_few_columns() -> Result {
     Ok(())
 }
 
+// These tests are mostly temporary to ensure the behaviour don't change after a refactor.
+// For example, `grid` command should only return strings as it is defined in its command signature
+// and there are some other inconsistencies.
+
 #[rstest]
 #[case::empty_record("{} | grid", "")]
 #[case::list_of_string("[a b c] | grid", "a │ b │ c\n")]
