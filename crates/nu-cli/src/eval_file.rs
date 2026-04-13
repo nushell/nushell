@@ -1,7 +1,7 @@
 use crate::util::{eval_source, print_pipeline};
 use log::{info, trace};
 use nu_engine::eval_block;
-use nu_parser::{escape_for_script_arg, parse};
+use nu_parser::parse;
 use nu_path::absolute_with;
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
@@ -190,18 +190,13 @@ pub fn evaluate_file(
         // Invoke the main command with arguments. Keep using `main` as the internal command name
         // so the parser reliably resolves it; the block's signature was already rewritten to the
         // script filename above, so help messages will show the correct `script.nu`-qualified name.
-        // Newline/CR/tab characters are escaped to preserve them inside the string.
-        let args = format!(
-            "main {}",
-            args.iter()
-                .map(|arg| escape_for_script_arg(arg))
-                .collect::<Vec<_>>()
-                .join(" ")
-        );
+        // The CLI parser has already escaped script arguments via `args_to_script`, so we must not
+        // escape them again here or we would double-quote values like `"arg 2"`.
+        let command_line = format!("main {}", args.join(" "));
         eval_source(
             engine_state,
             stack,
-            args.as_bytes(),
+            command_line.as_bytes(),
             "<commandline>",
             input,
             true,
@@ -226,18 +221,49 @@ mod tests {
     use nu_test_support::prelude::*;
 
     #[test]
-    fn evaluate_file_arg_with_newline_does_not_split_commands() -> Result {
+    fn evaluate_file_arg_with_newline_does_not_split_commands2() -> Result {
         Playground::setup("evaluate_file_newline_arg", |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
                 "test.nu",
-                "def main [...args: string] { print ...($args) }",
+                r#"def main [...args: string] {
+  let token3 = $args | get 2
+
+  if $token3 starts-with '"' or $token3 ends-with '"' {
+    "error"
+  } else {
+    "ok"
+  }
+}"#,
             )]);
 
-            // If newline escaping regresses, command parsing fails before returning "ok".
             test()
                 .cwd(dirs.test())
                 .add_nu_to_path()
-                .run("nu test.nu a b \"c\\nd\"; 'ok'")
+                .run(r#"nu test.nu a b "c\nd"; 'ok'"#)
+                .expect_value_eq("ok")
+        })
+    }
+
+    #[test]
+    fn evaluate_file_quoted_space_arg_is_passed_without_extra_quotes() -> Result {
+        Playground::setup("evaluate_file_quoted_space_arg", |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "test.nu",
+                r#"def main [...args: string] {
+  let token3 = $args | get 1
+
+  if $token3 starts-with '"' or $token3 ends-with '"' {
+    "error"
+  } else {
+    "ok"
+  }
+}"#,
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .add_nu_to_path()
+                .run(r#"nu test.nu arg1 "arg 2"; 'ok'"#)
                 .expect_value_eq("ok")
         })
     }
