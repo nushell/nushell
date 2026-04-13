@@ -391,10 +391,7 @@ mod tests {
         for (seq, name) in &stripped {
             let input = format!("before{seq}after");
             let result = clean_charset(&input);
-            assert_eq!(
-                result, "beforeafter",
-                "{name} ({seq:?}) should be STRIPPED"
-            );
+            assert_eq!(result, "beforeafter", "{name} ({seq:?}) should be STRIPPED");
         }
 
         // SGR sequences that MUST be preserved
@@ -417,10 +414,7 @@ mod tests {
         for (seq, name) in &preserved {
             let input = format!("before{seq}after");
             let result = clean_charset(&input);
-            assert_eq!(
-                result, input,
-                "{name} ({seq:?}) should be PRESERVED"
-            );
+            assert_eq!(result, input, "{name} ({seq:?}) should be PRESERVED");
         }
     }
 }
