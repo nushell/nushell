@@ -2567,6 +2567,11 @@ impl<'a> SelectWidget<'a> {
         if self.first_render || self.width_changed || self.mode != SelectMode::Multi {
             return false;
         }
+        // If the cursor also moved (e.g. Tab toggles and navigates), a full redraw
+        // is needed so the ">" indicator follows the cursor.
+        if self.cursor != self.prev_cursor {
+            return false;
+        }
         if let Some(toggled) = self.toggled_item {
             // Check if toggled item is visible
             let visible_start = self.scroll_offset;
