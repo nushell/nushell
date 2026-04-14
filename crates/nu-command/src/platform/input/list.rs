@@ -1553,6 +1553,16 @@ impl<'a> SelectWidget<'a> {
             KeyCode::Esc => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
 
+            // Tab: navigate down (mirrors single/multi mode behavior)
+            KeyCode::Tab | KeyCode::Char('\t') => {
+                self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::BackTab => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
+
             // List navigation
             KeyCode::Up | KeyCode::Char('p' | 'P') if ctrl => {
                 self.navigate_up();
