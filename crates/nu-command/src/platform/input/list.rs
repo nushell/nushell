@@ -1533,10 +1533,12 @@ impl<'a> SelectWidget<'a> {
                 KeyAction::Continue
             }
             KeyCode::Tab => {
+                self.toggle_current();
                 self.navigate_down();
                 KeyAction::Continue
             }
             KeyCode::BackTab => {
+                self.toggle_current();
                 self.navigate_up();
                 KeyAction::Continue
             }
