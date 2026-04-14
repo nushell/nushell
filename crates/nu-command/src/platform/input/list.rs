@@ -1990,8 +1990,17 @@ impl<'a> SelectWidget<'a> {
             self.cursor -= 1;
             self.adjust_scroll_up();
         } else if list_len > 0 {
-            // Wrap to bottom
-            self.cursor = list_len - 1;
+            // Wrap to bottom: drain the full stream first so we land on the true last item.
+            if self.pending_stream.is_some() {
+                self.drain_pending_stream();
+                if !self.filter_text.is_empty() {
+                    self.update_filter();
+                } else if !self.refined {
+                    self.filtered_indices = (0..self.items.len()).collect();
+                }
+            }
+            let list_len = self.current_list_len();
+            self.cursor = list_len.saturating_sub(1);
             self.adjust_scroll_down();
         }
     }
@@ -2052,6 +2061,15 @@ impl<'a> SelectWidget<'a> {
 
     /// Navigate to the end of the list
     fn navigate_end(&mut self) {
+        // Drain the full stream so End lands on the true last item.
+        if self.pending_stream.is_some() {
+            self.drain_pending_stream();
+            if !self.filter_text.is_empty() {
+                self.update_filter();
+            } else if !self.refined {
+                self.filtered_indices = (0..self.items.len()).collect();
+            }
+        }
         self.cursor = self.current_list_len().saturating_sub(1);
         self.adjust_scroll_down();
     }
