@@ -269,8 +269,8 @@ mod tests {
     }
 
     #[test]
-    fn evaluate_file_arg_with_various_character_escape_properly() -> Result {
-        Playground::setup("evaluate_file_newline_arg", |dirs, sandbox| {
+    fn evaluate_file_arg_with_various_characters_escape_properly() -> Result {
+        Playground::setup("evaluate_file_various_characters", |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
                 "test.nu",
                 "def main [...args: string] { $args | to json }",
