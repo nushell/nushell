@@ -3406,14 +3406,14 @@ checksum = "bbd2bcb4c963f2ddae06a2efc7e9f3591312473c50c6685e1f298068316e66fe"
 
 [[package]]
 name = "lean_string"
-version = "0.5.1"
+version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "962df00ba70ac8d5ca5c064e17e5c3d090c087fd8d21aa45096c716b169da514"
+checksum = "385ba1b8a25159d816b62eea948cf3c6b38c5050c92ca901c570deead00316e5"
 dependencies = [
  "castaway",
  "itoa",
  "ryu",
- "serde",
+ "serde_core",
 ]
 
 [[package]]

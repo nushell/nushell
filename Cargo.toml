@@ -122,7 +122,7 @@ interprocess = "2.4.0"
 is_executable = "1.0.5"
 itertools = "0.14"
 kitest = "0.5.0"
-lean_string = { version = "0.5.1", features = ["serde"] }
+lean_string = { version = "0.6.0", features = ["serde"] }
 lexopt = "0.3.2"
 libc = "0.2.184"
 libproc = "0.14.11"
