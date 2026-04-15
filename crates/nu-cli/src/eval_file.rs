@@ -228,11 +228,14 @@ mod tests {
                 "def main [...args: string] { $args | to json }",
             )]);
 
+            let args = r#"a "" b "c\nd" "e f" "[" "}" "\"" '"'"#;
+            let expected = ["a", "", "b", "c\nd", "e f", "[", "}", "\"", "\""];
+
             test()
                 .cwd(dirs.test())
                 .add_nu_to_path()
-                .run(r#"nu test.nu a "" b "c\nd" "e f" "[" "}" | from json"#)
-                .expect_value_eq(["a", "", "b", "c\nd", "e f", "[", "}"])
+                .run(format!("nu test.nu {args} | from json"))
+                .expect_value_eq(expected)
         })
     }
 }
