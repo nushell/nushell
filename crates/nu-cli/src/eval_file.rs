@@ -228,8 +228,8 @@ mod tests {
                 "def main [...args: string] { $args | to json }",
             )]);
 
-            let args = r#"a "" b "c\nd" "e f" "[" "}" "\"" '"'"#;
-            let expected = ["a", "", "b", "c\nd", "e f", "[", "}", "\"", "\""];
+            let args = r#"a "" b "c\nd" "e f" ] "[" "}" "{" "\"" '"'"#;
+            let expected = ["a", "", "b", "c\nd", "e f", "]", "[", "}", "{", "\"", "\""];
 
             test()
                 .cwd(dirs.test())
