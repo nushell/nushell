@@ -11,7 +11,9 @@ let highlight1 = $env.config.color_config?.banner_highlight1? | default "green"
 let highlight2 = $env.config.color_config?.banner_highlight2? | default "purple"
 let dt = (datetime-diff (date now) 2019-05-10T09:59:12-07:00)
 let ver = (version)
-let startup_time = $"(ansi $highlight1)(ansi attr_bold)Startup Time: (ansi reset)(ansi $foreground)($nu.startup-time)(ansi reset)"
+# `$nu.startup-time` is unset (-1ns) until the REPL finishes initializing; `banner` can run earlier from config.nu.
+let startup_time_text = if $nu.startup-time < 0ns { "N/A" } else { $nu.startup-time }
+let startup_time = $"(ansi $highlight1)(ansi attr_bold)Startup Time: (ansi reset)(ansi $foreground)($startup_time_text)(ansi reset)"
 
 let banner_msg = match $short {
     true => $"($startup_time)(char eol)"
