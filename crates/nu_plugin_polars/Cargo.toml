@@ -47,7 +47,7 @@ log.workspace = true
 uuid = { version = "1.23", features = ["v4", "serde"] }
 
 # Do to a compile error with polars, this included to force the raw dependency
-hashbrown = { version = "0.16", features = ["rayon", "serde"] }
+hashbrown = { version = "0.17", features = ["rayon", "serde"] }
 
 # Cloud support
 aws-config = { version = "1.8", features = ["sso"] }
