@@ -6,7 +6,7 @@ edition.workspace = true
 license = "MIT"
 name = "nu-engine"
 rust-version.workspace = true
-version = "0.112.2"
+version = "0.112.3"
 
 [lib]
 bench = false
@@ -15,11 +15,11 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.2", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.112.2" }
-nu-path = { path = "../nu-path", version = "0.112.2" }
-nu-glob = { path = "../nu-glob", version = "0.112.2" }
-nu-utils = { path = "../nu-utils", version = "0.112.2", default-features = false }
+nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+nu-path = { path = "../nu-path", version = "0.112.3" }
+nu-glob = { path = "../nu-glob", version = "0.112.3" }
+nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
 fancy-regex = { workspace = true }
 log = { workspace = true }
 

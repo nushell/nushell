@@ -6,7 +6,7 @@ license = "MIT"
 name = "nu-cmd-base"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-base"
 rust-version.workspace = true
-version = "0.112.2"
+version = "0.112.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -14,10 +14,10 @@ version = "0.112.2"
 workspace = true
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.112.2", default-features = false }
-nu-parser = { path = "../nu-parser", version = "0.112.2" }
-nu-path = { path = "../nu-path", version = "0.112.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.2", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
+nu-parser = { path = "../nu-parser", version = "0.112.3" }
+nu-path = { path = "../nu-path", version = "0.112.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
 
 indexmap = { workspace = true }
 miette = { workspace = true }

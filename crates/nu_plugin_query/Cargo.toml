@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu_plugin_query"
-version = "0.112.2"
+version = "0.112.3"
 
 [lib]
 doctest = false
@@ -17,8 +17,8 @@ name = "nu_plugin_query"
 bench = false
 
 [dependencies]
-nu-plugin = { path = "../nu-plugin", version = "0.112.2" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.2" }
+nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
 
 gjson = "0.8.1"
 scraper = { default-features = false, version = "0.26" }

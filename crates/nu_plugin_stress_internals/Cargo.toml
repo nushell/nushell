@@ -6,7 +6,7 @@ edition.workspace = true
 rust-version.workspace = true
 license = "MIT"
 name = "nu_plugin_stress_internals"
-version = "0.112.2"
+version = "0.112.3"
 publish = false
 
 [[bin]]
