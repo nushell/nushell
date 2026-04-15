@@ -43,7 +43,9 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
-        if !matches!(input, PipelineData::Empty)
+        // Empty streams are sometimes collected into `null` / nothing rather than
+        // `PipelineData::Empty`. Treat that like absent input for this check (#16600).
+        if !pipeline_input_absent_when_metadata_arg_given(&input)
             && let Some(arg_expr) = arg
         {
             return Err(ShellError::IncompatibleParameters {
@@ -114,6 +116,14 @@ impl Command for Metadata {
                 result: None,
             },
         ]
+    }
+}
+
+fn pipeline_input_absent_when_metadata_arg_given(input: &PipelineData) -> bool {
+    match input {
+        PipelineData::Empty => true,
+        PipelineData::Value(val, _) => val.is_nothing(),
+        PipelineData::ListStream(_, _) | PipelineData::ByteStream(_, _) => false,
     }
 }
 
