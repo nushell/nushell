@@ -8,7 +8,7 @@ const GRADIENT_ATLAST: [Rgb; 3] = [
     Rgb::new(0x4b, 0xc0, 0xc8),
 ];
 
-const GRADIENT_CRISTAL: [Rgb; 2] = [Rgb::new(0xbd, 0xff, 0xf3), Rgb::new(0x5a, 0xc2, 0x9a)];
+const GRADIENT_CRYSTAL: [Rgb; 2] = [Rgb::new(0xbd, 0xff, 0xf3), Rgb::new(0x5a, 0xc2, 0x9a)];
 
 const GRADIENT_TEEN: [Rgb; 3] = [
     Rgb::new(0x77, 0xa1, 0xd3),
@@ -86,7 +86,7 @@ const GRADIENT_INSTAGRAM: [Rgb; 3] = [
 
 static NAMED_GRADIENTS: [(&str, &[Rgb]); 15] = [
     ("atlast", &GRADIENT_ATLAST),
-    ("cristal", &GRADIENT_CRISTAL),
+    ("crystal", &GRADIENT_CRYSTAL),
     ("teen", &GRADIENT_TEEN),
     ("mind", &GRADIENT_MIND),
     ("morning", &GRADIENT_MORNING),
