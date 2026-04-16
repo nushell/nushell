@@ -45,6 +45,7 @@ const TABLE_MODE_VALUES: &[&str] = &[
 const ERROR_STYLE_VALUES: &[&str] = &["fancy", "plain", "short"];
 const LOG_LEVEL_VALUES: &[&str] = &["error", "warn", "info", "debug", "trace"];
 const LOG_TARGET_VALUES: &[&str] = &["stdout", "stderr", "mixed", "file"];
+#[cfg(feature = "mcp")]
 const MCP_TRANSPORT_VALUES: &[&str] = &["stdio", "http"];
 const TEST_BIN_VALUES: &[&str] = &[
     "echo_env",
@@ -870,6 +871,7 @@ fn parse_int_value(parser: &mut lexopt::Parser, name: &str) -> Result<i64, CliEr
     })
 }
 
+#[cfg(feature = "mcp")]
 // Parse and validate a TCP port number.
 fn parse_port_value(parser: &mut lexopt::Parser, name: &str) -> Result<u16, CliError> {
     let value = parse_int_value(parser, name)?;
