@@ -43,19 +43,6 @@ impl Command for Metadata {
         let arg = call.positional_nth(stack, 0);
         let head = call.head;
 
-        // Empty streams are sometimes collected into `null` / nothing rather than
-        // `PipelineData::Empty`. Treat that like absent input for this check (#16600).
-        if !pipeline_input_absent_when_metadata_arg_given(&input)
-            && let Some(arg_expr) = arg
-        {
-            return Err(ShellError::IncompatibleParameters {
-                left_message: "pipeline input was provided".into(),
-                left_span: head,
-                right_message: "but a positional metadata expression was also given".into(),
-                right_span: arg_expr.span,
-            });
-        }
-
         match arg {
             Some(Expression {
                 expr: Expr::FullCellPath(full_cell_path),
@@ -116,14 +103,6 @@ impl Command for Metadata {
                 result: None,
             },
         ]
-    }
-}
-
-fn pipeline_input_absent_when_metadata_arg_given(input: &PipelineData) -> bool {
-    match input {
-        PipelineData::Empty => true,
-        PipelineData::Value(val, _) => val.is_nothing(),
-        PipelineData::ListStream(_, _) | PipelineData::ByteStream(_, _) => false,
     }
 }
 
