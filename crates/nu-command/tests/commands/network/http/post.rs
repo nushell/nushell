@@ -128,6 +128,28 @@ fn http_post_json_list_is_success() -> Result {
 }
 
 #[test]
+fn http_post_preserves_explicit_json_variant_content_type() -> Result {
+    let mut server = Server::new();
+
+    let mock = server
+        .mock("POST", "/")
+        .match_header("content-type", "application/json-patch+json")
+        .match_body(Matcher::Regex(
+            r#"(?s)^\[\s*\{\s*"foo"\s*:\s*"bar"\s*\}\s*\]$"#.to_string(),
+        ))
+        .create();
+
+    let code = format!(
+        r#"http post -t 'application/json-patch+json' {url} [{{foo: "bar"}}]"#,
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq("")?;
+    mock.assert();
+    Ok(())
+}
+
+#[test]
 fn http_post_json_int_is_success() -> Result {
     let mut server = Server::new();
 

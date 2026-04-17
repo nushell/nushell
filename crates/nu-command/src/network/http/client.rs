@@ -26,7 +26,6 @@ use nu_protocol::{
         network::{DnsError, DnsErrorKind, NetworkError},
     },
 };
-use serde_json::Value as JsonValue;
 use std::{
     collections::HashMap,
     io::{self, Cursor, Read},
@@ -72,13 +71,54 @@ pub enum BodyType {
 impl From<Option<ContentType>> for BodyType {
     fn from(content_type: Option<ContentType>) -> Self {
         match content_type {
-            Some(it) if it.contains("application/json") => BodyType::Json,
-            Some(it) if it.contains("application/x-www-form-urlencoded") => BodyType::Form,
-            Some(it) if it.contains("multipart/form-data") => BodyType::Multipart,
+            Some(it)
+                if it
+                    .split(';')
+                    .next()
+                    .map(str::trim)
+                    .is_some_and(|mime_type| {
+                        mime_type.eq_ignore_ascii_case("application/json")
+                            || mime_type.ends_with("+json")
+                    }) =>
+            {
+                BodyType::Json
+            }
+            Some(it)
+                if it
+                    .split(';')
+                    .next()
+                    .map(str::trim)
+                    .is_some_and(|mime_type| {
+                        mime_type.eq_ignore_ascii_case("application/x-www-form-urlencoded")
+                    }) =>
+            {
+                BodyType::Form
+            }
+            Some(it)
+                if it
+                    .split(';')
+                    .next()
+                    .map(str::trim)
+                    .is_some_and(|mime_type| {
+                        mime_type.eq_ignore_ascii_case("multipart/form-data")
+                    }) =>
+            {
+                BodyType::Multipart
+            }
             Some(it) => BodyType::Unknown(Some(it)),
             None => BodyType::Unknown(None),
         }
     }
+}
+
+fn should_preserve_json_content_type(content_type: &str) -> bool {
+    content_type
+        .split(';')
+        .next()
+        .map(str::trim)
+        .is_some_and(|mime_type| {
+            !mime_type.eq_ignore_ascii_case("application/json") && mime_type.ends_with("+json")
+        })
 }
 
 trait GetHeader {
@@ -469,9 +509,6 @@ pub fn send_request(
         .unwrap_or_default()
         .to_string()
         .into_spanned(request_span);
-    // hard code serialize_types to false because closures probably shouldn't be
-    // deserialized for send_request but it's required by send_json_request
-    let serialize_types = false;
     let response = match body {
         HttpBody::ByteStream(byte_stream) => {
             let req = if let Some(content_type) = content_type {
@@ -485,7 +522,7 @@ pub fn send_request(
             send_cancellable_request_bytes(request_url.as_str(), req, byte_stream, span, signals)
         }
         HttpBody::Value(body) => {
-            let body_type = BodyType::from(content_type);
+            let body_type = BodyType::from(content_type.clone());
 
             // We should set the content_type if there is one available
             // when the content type is unknown
@@ -505,9 +542,9 @@ pub fn send_request(
                     request_url.as_str(),
                     body,
                     req,
+                    content_type,
                     span,
                     signals,
-                    serialize_types,
                 ),
                 BodyType::Form => send_form_request(request_url.as_str(), body, req, span, signals),
                 BodyType::Multipart => {
@@ -530,43 +567,59 @@ fn send_json_request(
     request_url: Spanned<&str>,
     body: Value,
     req: RequestBuilder<WithBody>,
+    content_type: Option<String>,
     span: Span,
     signals: &Signals,
-    serialize_types: bool,
 ) -> Result<Response, ShellErrorOrRequestError> {
-    match body {
+    // Closures probably shouldn't be serialized into JSON request bodies.
+    let serialize_types = false;
+    let data = match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(engine_state, body, span, serialize_types)?;
-            send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
+            value_to_json_value(engine_state, body, span, serialize_types)?
         }
         // If the body type is string, assume it is string json content.
         // If parsing fails, just send the raw string
         Value::String { val: s, .. } => {
-            if let Ok(jvalue) = serde_json::from_str::<JsonValue>(&s) {
-                send_cancellable_request(
-                    request_url,
-                    Box::new(|| req.send_json(jvalue)),
-                    span,
-                    signals,
-                )
+            if let Ok(jvalue) = nu_json::from_str::<nu_json::Value>(&s) {
+                jvalue
             } else {
-                let data = serde_json::from_str(&s).unwrap_or_else(|_| nu_json::Value::String(s));
-                send_cancellable_request(
-                    request_url,
-                    Box::new(|| req.send_json(data)),
-                    span,
-                    signals,
-                )
+                nu_json::Value::String(s)
             }
         }
-        _ => Err(ShellErrorOrRequestError::ShellError(
-            ShellError::TypeMismatch {
-                err_message: format!(
-                    "Accepted types: [int, float, list, string, record]. Check: {HTTP_DOCS}"
-                ),
-                span: body.span(),
-            },
-        )),
+        _ => {
+            return Err(ShellErrorOrRequestError::ShellError(
+                ShellError::TypeMismatch {
+                    err_message: format!(
+                        "Accepted types: [int, float, list, string, record]. Check: {HTTP_DOCS}"
+                    ),
+                    span: body.span(),
+                },
+            ));
+        }
+    };
+
+    if let Some(content_type) = content_type.filter(|it| should_preserve_json_content_type(it)) {
+        let data = serde_json::to_vec(&data).map_err(|err| {
+            ShellErrorOrRequestError::ShellError(ShellError::Generic(GenericError::new(
+                "Failed to serialize JSON request body",
+                err.to_string(),
+                span,
+            )))
+        })?;
+        let req = req.header("Content-Type", &content_type);
+        send_cancellable_request(
+            request_url,
+            Box::new(move || req.send(&data)),
+            span,
+            signals,
+        )
+    } else {
+        send_cancellable_request(
+            request_url,
+            Box::new(move || req.send_json(data)),
+            span,
+            signals,
+        )
     }
 }
 
@@ -1280,6 +1333,12 @@ mod test {
         let json_with_charset = Some("application/json; charset=utf-8".to_string());
         assert_eq!(BodyType::Json, BodyType::from(json_with_charset));
 
+        let json_patch = Some("application/json-patch+json".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(json_patch));
+
+        let merge_patch = Some("application/merge-patch+json".to_string());
+        assert_eq!(BodyType::Json, BodyType::from(merge_patch));
+
         let form = Some("application/x-www-form-urlencoded".to_string());
         assert_eq!(BodyType::Form, BodyType::from(form));
 
@@ -1291,6 +1350,20 @@ mod test {
 
         let none = None;
         assert_eq!(BodyType::Unknown(none.clone()), BodyType::from(none));
+    }
+
+    #[test]
+    fn test_should_preserve_json_content_type() {
+        assert!(!should_preserve_json_content_type("application/json"));
+        assert!(!should_preserve_json_content_type(
+            "application/json; charset=utf-8"
+        ));
+        assert!(should_preserve_json_content_type(
+            "application/json-patch+json"
+        ));
+        assert!(should_preserve_json_content_type(
+            "application/merge-patch+json"
+        ));
     }
 
     #[test]

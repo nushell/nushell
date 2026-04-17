@@ -1,6 +1,6 @@
 use std::{thread, time::Duration};
 
-use mockito::Server;
+use mockito::{Matcher, Server};
 use nu_protocol::shell_error;
 use nu_test_support::prelude::*;
 
@@ -68,6 +68,28 @@ fn http_patch_failed_due_to_unexpected_body() -> Result {
         }
         err => Err(err.into()),
     }
+}
+
+#[test]
+fn http_patch_preserves_explicit_json_variant_content_type() -> Result {
+    let mut server = Server::new();
+
+    let mock = server
+        .mock("PATCH", "/")
+        .match_header("content-type", "application/merge-patch+json")
+        .match_body(Matcher::Regex(
+            r#"(?s)^\{\s*"foo"\s*:\s*"bar"\s*\}$"#.to_string(),
+        ))
+        .create();
+
+    let code = format!(
+        "http patch -t 'application/merge-patch+json' {url} {{foo: 'bar'}}",
+        url = server.url()
+    );
+
+    test().run(code).expect_value_eq("")?;
+    mock.assert();
+    Ok(())
 }
 
 #[test]
