@@ -176,9 +176,15 @@ pub(crate) fn shell_error_to_mcp_error(
 /// Maximum length for job descriptions shown in `job list`.
 const JOB_DESCRIPTION_MAX_LEN: usize = 40;
 
-/// How long an evaluation can run before being auto-promoted to a background job.
-/// Overridden via `NU_MCP_PROMOTE_AFTER` env var (e.g. `30sec`, `5sec`).
-const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(10);
+/// How long an evaluation can run before being auto-promoted to a background
+/// job. Overridden per-call via the `timeout_secs` tool param or globally via
+/// the `NU_MCP_PROMOTE_AFTER` env var.
+///
+/// 2 minutes is deliberate: a shorter default (we had 10s) made Claude Opus 4.7
+/// give up on nushell because everyday commands kept getting shoved into the
+/// background. Keep the happy path synchronous; callers who know a command is
+/// long-running can still widen the window per-call.
+const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(120);
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
 ///
@@ -281,15 +287,22 @@ impl Evaluator {
     }
 
     /// Evaluates nushell source code, promoting to a background job on
-    /// cancellation or if the evaluation exceeds `NU_MCP_PROMOTE_AFTER` (default 10s).
+    /// cancellation or if the evaluation exceeds its promote-after timeout.
+    ///
+    /// Timeout precedence (first wins):
+    /// 1. `timeout_override` — per-call value from the MCP tool parameter.
+    /// 2. `NU_MCP_PROMOTE_AFTER` env var on the persistent stack.
+    /// 3. [`DEFAULT_PROMOTE_AFTER`] (2 minutes).
     pub async fn eval_async(
         &self,
         nu_source: &str,
         ct: CancellationToken,
+        timeout_override: Option<Duration>,
     ) -> Result<String, rmcp::ErrorData> {
         let (forked_state, interrupt, promote_after) = {
             let state = self.state.lock().await;
-            let timeout = promote_timeout(&state.engine_state, &state.stack);
+            let timeout = timeout_override
+                .unwrap_or_else(|| promote_timeout(&state.engine_state, &state.stack));
             let (forked, interrupt) = state.fork();
             (forked, interrupt, timeout)
         };
@@ -342,7 +355,7 @@ impl Evaluator {
                 None,
             )
         })?;
-        rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
+        rt.block_on(self.eval_async(nu_source, CancellationToken::new(), None))
     }
 
     pub async fn list_available_commands(&self, find: Option<String>) -> Result<String, String> {
@@ -654,7 +667,9 @@ fn eval_on_state(
 /// Returns the duration after which a running evaluation is auto-promoted
 /// to a background job.
 ///
-/// Defaults to 10s. Can be overridden via `NU_MCP_PROMOTE_AFTER` env var.
+/// Defaults to [`DEFAULT_PROMOTE_AFTER`] (2 minutes). Can be overridden via
+/// `NU_MCP_PROMOTE_AFTER` env var, or per-call via the tool's `timeout_secs`
+/// parameter (which wins over the env var).
 fn promote_timeout(engine_state: &EngineState, stack: &Stack) -> Duration {
     stack
         .get_env_var(engine_state, "NU_MCP_PROMOTE_AFTER")
@@ -1170,6 +1185,7 @@ mod tests {
             .eval_async(
                 "$env.NU_MCP_PROMOTE_AFTER = 100ms",
                 CancellationToken::new(),
+                None,
             )
             .await
             .expect("setting promotion timeout should succeed");
@@ -1178,6 +1194,7 @@ mod tests {
             .eval_async(
                 "sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'",
                 CancellationToken::new(),
+                None,
             )
             .await;
 
@@ -1233,7 +1250,7 @@ mod tests {
 
         // Set a variable first
         evaluator
-            .eval_async("let x = 1", CancellationToken::new())
+            .eval_async("let x = 1", CancellationToken::new(), None)
             .await
             .unwrap();
 
@@ -1245,7 +1262,7 @@ mod tests {
         ct_clone.cancel();
 
         // Should be promoted to a background job, not just discarded
-        let result = evaluator.eval_async("let x = 999", ct).await;
+        let result = evaluator.eval_async("let x = 999", ct, None).await;
         assert!(result.is_err(), "Cancelled evaluation should error");
         let err_msg = result.unwrap_err().message.to_string();
         assert!(
@@ -1255,7 +1272,7 @@ mod tests {
 
         // Original variable should still be 1 (forked state not committed)
         let result = evaluator
-            .eval_async("$x", CancellationToken::new())
+            .eval_async("$x", CancellationToken::new(), None)
             .await
             .unwrap();
         assert!(

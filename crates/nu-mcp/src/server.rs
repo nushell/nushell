@@ -10,6 +10,7 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use std::time::Duration;
 
 pub struct NushellMcpServer {
     tool_router: ToolRouter<Self>,
@@ -56,10 +57,16 @@ By default all available commands will be returned. To find a specific command b
     async fn evaluate(
         &self,
         ctx: RequestContext<RoleServer>,
-        Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
+        Parameters(NuSourceRequest {
+            input,
+            timeout_secs,
+        }): Parameters<NuSourceRequest>,
     ) -> Result<String, String> {
+        let timeout_override = timeout_secs
+            .filter(|secs| secs.is_finite() && *secs > 0.0)
+            .map(Duration::from_secs_f64);
         self.evaluator
-            .eval_async(&input, ctx.ct)
+            .eval_async(&input, ctx.ct, timeout_override)
             .await
             .map_err(|err| err.message.to_string())
     }
@@ -81,6 +88,13 @@ struct CommandNameRequest {
 struct NuSourceRequest {
     #[schemars(description = "The Nushell source code to evaluate")]
     input: String,
+    /// Seconds before this call is promoted to a background job. See the tool
+    /// description for details and precedence rules.
+    #[schemars(
+        description = "Seconds before this call is promoted to a background job (default 120). Set higher for long builds/tests."
+    )]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    timeout_secs: Option<f64>,
 }
 
 #[tool_handler]
@@ -244,6 +258,7 @@ mod tests {
                 ctx,
                 Parameters(NuSourceRequest {
                     input: "5 + 2".to_string(),
+                    timeout_secs: None,
                 }),
             )
             .await
@@ -269,6 +284,7 @@ mod tests {
                 make_request_context(3),
                 Parameters(NuSourceRequest {
                     input: "1".to_string(),
+                    timeout_secs: None,
                 }),
             )
             .await
@@ -283,6 +299,7 @@ mod tests {
                 make_request_context(4),
                 Parameters(NuSourceRequest {
                     input: "2".to_string(),
+                    timeout_secs: None,
                 }),
             )
             .await
