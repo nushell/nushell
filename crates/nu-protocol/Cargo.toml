@@ -48,7 +48,7 @@ serde_json = { workspace = true }
 strum = { workspace = true }
 strum_macros = { workspace = true }
 thiserror = { workspace = true }
-typetag = "0.2"
+typetag = { workspace = true }
 os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
 log = { workspace = true }
 web-time = { workspace = true }

@@ -13,6 +13,8 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::generic::GenericError};
 use rmp::decode::{self as mp, ValueReadError};
 
+use crate::formats::msgpack_ext_type::MsgpackExtensionType;
+
 /// Max recursion depth
 const MAX_DEPTH: usize = 50;
 
@@ -453,15 +455,14 @@ fn read_ext(input: &mut impl io::Read, len: usize, span: Span) -> Result<Value, 
             let secs = input.read_i64::<BigEndian>().err_span(span)?;
             make_date(secs, nanos, span)
         }
-        _ => Err(ShellError::Generic(
-            GenericError::new(
-                "Unknown MessagePack extension",
-                format!("encountered extension type {ty}, length {len}"),
+        (ty, len) => {
+            let mut data = vec![0; len];
+            input.read_exact(&mut data).err_span(span)?;
+            Ok(Value::custom(
+                Box::new(MsgpackExtensionType { ty, data }),
                 span,
-            )
-            .with_help("only the timestamp extension (-1) is supported"),
-        )
-        .into()),
+            ))
+        }
     }
 }
 

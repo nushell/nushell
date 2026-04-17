@@ -4367,6 +4367,7 @@ dependencies = [
  "toml 1.1.0+spec-1.1.0",
  "toml_edit",
  "trash",
+ "typetag",
  "umask",
  "unicode-segmentation",
  "unicode-width 0.2.2",
