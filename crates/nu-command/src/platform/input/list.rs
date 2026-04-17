@@ -1538,8 +1538,8 @@ impl<'a> SelectWidget<'a> {
                 KeyAction::Continue
             }
             KeyCode::BackTab => {
-                self.toggle_current();
                 self.navigate_up();
+                self.toggle_current();
                 KeyAction::Continue
             }
             _ => KeyAction::Continue,
@@ -1790,8 +1790,8 @@ impl<'a> SelectWidget<'a> {
 
             // Shift-Tab: Toggle selection and move up
             KeyCode::BackTab => {
-                self.toggle_current_fuzzy();
                 self.navigate_up();
+                self.toggle_current_fuzzy();
                 KeyAction::Continue
             }
 
