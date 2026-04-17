@@ -13,6 +13,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub struct NushellMcpServer {
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
     evaluator: Evaluator,
 }

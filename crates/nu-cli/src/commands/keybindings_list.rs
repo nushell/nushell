@@ -1,11 +1,10 @@
+use crate::reedline_config::{display_edit_command, display_reedline_event};
 use nu_engine::command_prelude::*;
 use reedline::{
-    EditCommandDiscriminants, ReedlineEventDiscriminants, get_reedline_keybinding_modifiers,
-    get_reedline_keycodes, get_reedline_prompt_edit_modes,
+    EditCommandDiscriminants, PromptEditModeDiscriminants, ReedlineEventDiscriminants,
+    get_reedline_keybinding_modifiers, get_reedline_keycodes,
 };
-use strum::VariantArray;
-
-use crate::reedline_config::{display_edit_command, display_reedline_event};
+use strum::{IntoEnumIterator, VariantArray};
 
 #[derive(Clone)]
 pub struct KeybindingsList;
@@ -82,15 +81,21 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
         "modifiers" => get_reedline_keybinding_modifiers().sorted(),
         "keycodes" => get_reedline_keycodes().sorted(),
         "edits" => get_reedline_edit_commands().sorted(),
-        "modes" => get_reedline_prompt_edit_modes().sorted(),
+        "modes" => PromptEditModeDiscriminants::iter()
+            .map(|mode| format!("{:?}", mode))
+            .collect::<Vec<_>>()
+            .sorted(),
         "events" => get_reedline_reedline_events().sorted(),
         _ => Vec::new(),
     };
 
     values
-        .iter()
-        .map(|edit| edit.split('\n'))
-        .flat_map(|edit| edit.map(|edit| convert_to_record(edit, entry_type, span)))
+        .into_iter()
+        .flat_map(|edit| {
+            edit.split('\n')
+                .map(|edit| convert_to_record(edit, entry_type, span))
+                .collect::<Vec<_>>()
+        })
         .collect()
 }
 

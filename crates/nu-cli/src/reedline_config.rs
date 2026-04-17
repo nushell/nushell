@@ -1232,6 +1232,8 @@ fn edit_from_record(
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
+        Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
+        Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
         Ok(ECD::ReplaceChar) => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value)?;
@@ -1449,6 +1451,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
         ECD::InsertNewline => "InsertNewline",
+        ECD::InsertNewlineAbove => "InsertNewlineAbove",
+        ECD::InsertNewlineBelow => "InsertNewlineBelow",
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",

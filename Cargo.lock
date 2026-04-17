@@ -3384,6 +3384,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "keybindings"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19a726307ed87e05155c31329676130e6a237e62dda80211f7e1ed811e47630f"
+dependencies = [
+ "textwrap",
+ "unicode-segmentation",
+ "unicode-width 0.1.14",
+]
+
+[[package]]
 name = "kitest"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6862,14 +6873,14 @@ dependencies = [
 [[package]]
 name = "reedline"
 version = "0.47.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2066729dce9fecd28d1c6850a159ee68719130f149b22467c362353e16994e90"
+source = "git+https://github.com/nushell/reedline?branch=main#4ffb1d345a8e26f74427f963be7bae7600e591a8"
 dependencies = [
  "arboard",
  "chrono",
  "crossterm",
  "fd-lock",
  "itertools 0.13.0",
+ "keybindings",
  "nu-ansi-term",
  "rusqlite",
  "serde",
@@ -7777,6 +7788,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
 
 [[package]]
+name = "smawk"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7c388c1b5e93756d0c740965c41e8822f866621d41acbdf6336a6a168f8840c"
+
+[[package]]
 name = "smol_str"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8222,6 +8239,7 @@ version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c13547615a44dc9c452a8a534638acdf07120d4b6847c8178705da06306a3057"
 dependencies = [
+ "smawk",
  "unicode-linebreak",
  "unicode-width 0.2.2",
 ]
