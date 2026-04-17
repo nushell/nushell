@@ -159,8 +159,8 @@ mod tests {
             .as_str()
             .expect("instructions should be a string");
         assert!(
-            instructions.contains("Nushell native commands"),
-            "instructions should document command discovery"
+            instructions.contains("list_commands") && instructions.contains("command_help"),
+            "instructions should point at the command discovery tools (list_commands / command_help)"
         );
 
         let server_info = json
