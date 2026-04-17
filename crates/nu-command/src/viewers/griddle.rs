@@ -283,7 +283,7 @@ fn convert_to_list(
     let has_name_header = headers.iter().any(|&str| str == NAME_COLUMN);
 
     if !headers.is_empty() && !has_name_header {
-        return Ok(None);
+        return Ok(Some(vec![]));
     }
 
     iter.map(|item| {
