@@ -183,7 +183,7 @@ impl Command for Input {
         let mut buf = String::new();
 
         match line_editor.read_line(&prompt) {
-            Ok(Signal::Success(buffer)) => {
+            Ok(Signal::Success(buffer) | Signal::HostCommand(buffer)) => {
                 buf.push_str(&buffer);
             }
             Ok(Signal::CtrlC) => {

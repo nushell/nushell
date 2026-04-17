@@ -560,7 +560,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let line_editor_input_time = Instant::now();
     match input {
-        Ok(Signal::Success(repl_cmd_line_text)) => {
+        Ok(Signal::Success(repl_cmd_line_text) | Signal::HostCommand(repl_cmd_line_text)) => {
             let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
                 #[cfg(feature = "sqlite")]
                 Some(HistoryFileFormat::Sqlite) => true,
