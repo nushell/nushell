@@ -9,10 +9,10 @@ If you need to run a long lived command, background it - e.g. `job spawn { uvico
 this tool does not run indefinitely.
 
 Calls that run longer than the promote-after timeout are auto-promoted to a background job; the
-tool then errors with a job id and you must `job recv` to collect the result. Precedence: the
-`timeout_secs` parameter (seconds) wins over `$env.NU_MCP_PROMOTE_AFTER`, which wins over the
-built-in default (120s). Pass a larger `timeout_secs` for known long-running commands so they stay
-synchronous.
+tool then errors with a job id and you must `job recv` to collect the result. The timeout defaults
+to 120s and can be overridden by setting `$env.NU_MCP_PROMOTE_AFTER` (a duration, e.g. `10min`) on
+the persistent stack. Bump it before a known long-running command so it stays synchronous; the
+setting persists across subsequent calls until you change it again.
 
 Command Equivalents to Bash:
 

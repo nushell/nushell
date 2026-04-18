@@ -177,13 +177,13 @@ pub(crate) fn shell_error_to_mcp_error(
 const JOB_DESCRIPTION_MAX_LEN: usize = 40;
 
 /// How long an evaluation can run before being auto-promoted to a background
-/// job. Overridden per-call via the `timeout_secs` tool param or globally via
-/// the `NU_MCP_PROMOTE_AFTER` env var.
+/// job. Overridden via the `NU_MCP_PROMOTE_AFTER` env var on the persistent
+/// stack.
 ///
 /// 2 minutes is deliberate: a shorter default (we had 10s) made Claude Opus 4.7
 /// give up on nushell because everyday commands kept getting shoved into the
 /// background. Keep the happy path synchronous; callers who know a command is
-/// long-running can still widen the window per-call.
+/// long-running can widen the window by setting `$env.NU_MCP_PROMOTE_AFTER`.
 const DEFAULT_PROMOTE_AFTER: Duration = Duration::from_secs(120);
 
 /// Evaluates Nushell code in a persistent REPL-style context for MCP.
@@ -289,20 +289,17 @@ impl Evaluator {
     /// Evaluates nushell source code, promoting to a background job on
     /// cancellation or if the evaluation exceeds its promote-after timeout.
     ///
-    /// Timeout precedence (first wins):
-    /// 1. `timeout_override` — per-call value from the MCP tool parameter.
-    /// 2. `NU_MCP_PROMOTE_AFTER` env var on the persistent stack.
-    /// 3. [`DEFAULT_PROMOTE_AFTER`] (2 minutes).
+    /// Timeout resolution:
+    /// 1. `NU_MCP_PROMOTE_AFTER` env var on the persistent stack.
+    /// 2. [`DEFAULT_PROMOTE_AFTER`] (2 minutes).
     pub async fn eval_async(
         &self,
         nu_source: &str,
         ct: CancellationToken,
-        timeout_override: Option<Duration>,
     ) -> Result<String, rmcp::ErrorData> {
         let (forked_state, interrupt, promote_after) = {
             let state = self.state.lock().await;
-            let timeout = timeout_override
-                .unwrap_or_else(|| promote_timeout(&state.engine_state, &state.stack));
+            let timeout = promote_timeout(&state.engine_state, &state.stack);
             let (forked, interrupt) = state.fork();
             (forked, interrupt, timeout)
         };
@@ -355,7 +352,7 @@ impl Evaluator {
                 None,
             )
         })?;
-        rt.block_on(self.eval_async(nu_source, CancellationToken::new(), None))
+        rt.block_on(self.eval_async(nu_source, CancellationToken::new()))
     }
 
     pub async fn list_available_commands(&self, find: Option<String>) -> Result<String, String> {
@@ -668,8 +665,7 @@ fn eval_on_state(
 /// to a background job.
 ///
 /// Defaults to [`DEFAULT_PROMOTE_AFTER`] (2 minutes). Can be overridden via
-/// `NU_MCP_PROMOTE_AFTER` env var, or per-call via the tool's `timeout_secs`
-/// parameter (which wins over the env var).
+/// `NU_MCP_PROMOTE_AFTER` env var on the persistent stack.
 fn promote_timeout(engine_state: &EngineState, stack: &Stack) -> Duration {
     stack
         .get_env_var(engine_state, "NU_MCP_PROMOTE_AFTER")
@@ -1175,6 +1171,63 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn promote_timeout_defaults_when_env_var_unset() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        let state = evaluator.state.lock().await;
+        assert_eq!(
+            promote_timeout(&state.engine_state, &state.stack),
+            DEFAULT_PROMOTE_AFTER,
+            "without NU_MCP_PROMOTE_AFTER the default 2-minute timeout should apply"
+        );
+    }
+
+    #[tokio::test]
+    async fn promote_timeout_reads_nu_mcp_promote_after_env_var() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        evaluator
+            .eval_async(
+                "$env.NU_MCP_PROMOTE_AFTER = 750ms",
+                CancellationToken::new(),
+            )
+            .await
+            .expect("setting NU_MCP_PROMOTE_AFTER should succeed");
+
+        let state = evaluator.state.lock().await;
+        assert_eq!(
+            promote_timeout(&state.engine_state, &state.stack),
+            Duration::from_millis(750),
+            "promote_timeout should honor NU_MCP_PROMOTE_AFTER on the persistent stack"
+        );
+    }
+
+    #[tokio::test]
+    async fn promote_timeout_ignores_malformed_env_var() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        // A non-duration value must not override the default; otherwise a typo
+        // could silently disable promotion entirely.
+        evaluator
+            .eval_async(
+                "$env.NU_MCP_PROMOTE_AFTER = 'not-a-duration'",
+                CancellationToken::new(),
+            )
+            .await
+            .expect("setting NU_MCP_PROMOTE_AFTER to a string should succeed");
+
+        let state = evaluator.state.lock().await;
+        assert_eq!(
+            promote_timeout(&state.engine_state, &state.stack),
+            DEFAULT_PROMOTE_AFTER,
+            "malformed NU_MCP_PROMOTE_AFTER should fall back to the default"
+        );
+    }
+
     #[cfg(unix)]
     #[tokio::test]
     async fn test_external_command_promotion_respects_promote_after_env() {
@@ -1185,7 +1238,6 @@ mod tests {
             .eval_async(
                 "$env.NU_MCP_PROMOTE_AFTER = 100ms",
                 CancellationToken::new(),
-                None,
             )
             .await
             .expect("setting promotion timeout should succeed");
@@ -1194,7 +1246,6 @@ mod tests {
             .eval_async(
                 "sh -c 'sleep 0.2; printf stdout; printf stderr >&2; exit 7'",
                 CancellationToken::new(),
-                None,
             )
             .await;
 
@@ -1250,7 +1301,7 @@ mod tests {
 
         // Set a variable first
         evaluator
-            .eval_async("let x = 1", CancellationToken::new(), None)
+            .eval_async("let x = 1", CancellationToken::new())
             .await
             .unwrap();
 
@@ -1262,7 +1313,7 @@ mod tests {
         ct_clone.cancel();
 
         // Should be promoted to a background job, not just discarded
-        let result = evaluator.eval_async("let x = 999", ct, None).await;
+        let result = evaluator.eval_async("let x = 999", ct).await;
         assert!(result.is_err(), "Cancelled evaluation should error");
         let err_msg = result.unwrap_err().message.to_string();
         assert!(
@@ -1272,7 +1323,7 @@ mod tests {
 
         // Original variable should still be 1 (forked state not committed)
         let result = evaluator
-            .eval_async("$x", CancellationToken::new(), None)
+            .eval_async("$x", CancellationToken::new())
             .await
             .unwrap();
         assert!(

@@ -70,11 +70,15 @@ Limits (configurable via env):
 - `NU_MCP_OUTPUT_LIMIT` — response truncation threshold, default `10kb`. Set to
   `0b` to disable truncation entirely. The full value is always in `$history`
   regardless of this setting.
+- `NU_MCP_PROMOTE_AFTER` — how long a call may run before being auto-promoted to
+  a background job, default `120sec`. Bump it before a known long-running
+  command to keep it synchronous.
 
 ```nu
 $env.NU_MCP_OUTPUT_LIMIT = 50kb     # bigger inline responses
 $env.NU_MCP_OUTPUT_LIMIT = 0b       # never truncate
 $env.NU_MCP_HISTORY_LIMIT = 200     # remember more entries
+$env.NU_MCP_PROMOTE_AFTER = 10min   # don't promote this session's long builds
 ```
 
 ## Structured Output — prefer native commands
