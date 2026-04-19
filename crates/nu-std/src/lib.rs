@@ -138,6 +138,7 @@ pub fn load_standard_library(
             "std-rfc/xml",
             include_str!("../std-rfc/xml/mod.nu"),
         ),
+        ("mod.nu", "std-rfc/pb", include_str!("../std-rfc/pb/mod.nu")),
     ];
 
     for (filename, std_rfc_subdir_name, content) in std_rfc_submodules.drain(..) {
