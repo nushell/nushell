@@ -3,6 +3,7 @@
 
 use std::io;
 
+use crate::formats::msgpack_ext_type::MsgpackExtensionType;
 use byteorder::{BigEndian, WriteBytesExt};
 use nu_engine::command_prelude::*;
 use nu_protocol::{
@@ -283,14 +284,26 @@ pub(crate) fn write_value(
             mp::write_bin(out, val).err_span(span)?;
         }
         Value::Custom { val, .. } => {
-            write_value(
-                out,
-                &val.to_base_value(span)?,
-                depth,
-                engine_state,
-                call_span,
-                serialize_types,
-            )?;
+            if let Some(MsgpackExtensionType { ty, data }) =
+                val.as_any().downcast_ref::<MsgpackExtensionType>()
+            {
+                let len = data
+                    .len()
+                    .try_into()
+                    .map_err(io::Error::other)
+                    .err_span(span)?;
+                mp::write_ext_meta(out, len, *ty).err_span(span)?;
+                out.write_all(&data[..len as usize]).err_span(span)?;
+            } else {
+                write_value(
+                    out,
+                    &val.to_base_value(span)?,
+                    depth,
+                    engine_state,
+                    call_span,
+                    serialize_types,
+                )?;
+            }
         }
     }
     Ok(())
