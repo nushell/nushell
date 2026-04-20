@@ -50,3 +50,36 @@ fn protocol_info_compatible_with_nightly() -> Result<(), ShellError> {
     assert!(ver_1_2_3.is_compatible_with(&ver_1_1_0)?);
     Ok(())
 }
+
+#[test]
+fn protocol_info_default_uses_protocol_version_constant() {
+    assert_eq!(ProtocolInfo::default().version, PLUGIN_PROTOCOL_VERSION);
+}
+
+#[test]
+fn protocol_info_default_is_compatible_with_same_protocol_major() -> Result<(), ShellError> {
+    let current = ProtocolInfo::default();
+    let compatible = ProtocolInfo {
+        protocol: Protocol::NuPlugin,
+        version: "0.93.1".into(),
+        features: vec![],
+    };
+
+    assert!(current.is_compatible_with(&compatible)?);
+    assert!(compatible.is_compatible_with(&current)?);
+    Ok(())
+}
+
+#[test]
+fn protocol_info_default_rejects_incompatible_major() -> Result<(), ShellError> {
+    let current = ProtocolInfo::default();
+    let incompatible = ProtocolInfo {
+        protocol: Protocol::NuPlugin,
+        version: "1.0.0".into(),
+        features: vec![],
+    };
+
+    assert!(!current.is_compatible_with(&incompatible)?);
+    assert!(!incompatible.is_compatible_with(&current)?);
+    Ok(())
+}

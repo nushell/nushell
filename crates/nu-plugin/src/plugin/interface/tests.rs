@@ -266,7 +266,7 @@ fn manager_consume_sets_protocol_info_on_hello() -> Result<(), ShellError> {
 }
 
 #[test]
-fn manager_consume_errors_on_wrong_nushell_version() -> Result<(), ShellError> {
+fn manager_consume_errors_on_wrong_protocol_version() -> Result<(), ShellError> {
     let mut manager = TestCase::new().engine();
 
     let info = ProtocolInfo {
@@ -275,9 +275,15 @@ fn manager_consume_errors_on_wrong_nushell_version() -> Result<(), ShellError> {
         features: vec![],
     };
 
-    manager
+    let err = manager
         .consume(PluginInput::Hello(info))
         .expect_err("version 0.0.0 should cause an error");
+
+    let err_text = format!("{err:?}");
+    assert!(
+        err_text.contains("not compatible"),
+        "expected compatibility failure, got: {err_text}"
+    );
     Ok(())
 }
 

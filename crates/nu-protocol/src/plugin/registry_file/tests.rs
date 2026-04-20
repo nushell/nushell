@@ -14,6 +14,8 @@ fn foo_plugin() -> PluginRegistryItem {
         data: PluginRegistryItemData::Valid {
             metadata: PluginMetadata {
                 version: Some("0.1.0".into()),
+                protocol_version: Some("0.93.0".into()),
+                nushell_version: Some(env!("CARGO_PKG_VERSION").into()),
             },
             commands: vec![PluginSignature {
                 sig: Signature::new("foo")
@@ -42,6 +44,8 @@ fn bar_plugin() -> PluginRegistryItem {
         data: PluginRegistryItemData::Valid {
             metadata: PluginMetadata {
                 version: Some("0.2.0".into()),
+                protocol_version: Some("0.93.0".into()),
+                nushell_version: Some(env!("CARGO_PKG_VERSION").into()),
             },
             commands: vec![PluginSignature {
                 sig: Signature::new("bar")
