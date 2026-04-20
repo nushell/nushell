@@ -65,8 +65,11 @@ impl Plugin for CustomValuePlugin {
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
         // HandleCustomValue depends on the plugin state to get.
-        let custom_value_any = custom_value.item.as_ref() as &dyn std::any::Any;
-        if let Some(handle) = custom_value_any.downcast_ref::<HandleCustomValue>() {
+        if let Some(handle) = custom_value
+            .item
+            .as_any()
+            .downcast_ref::<HandleCustomValue>()
+        {
             Ok(self
                 .handles
                 .lock()
@@ -88,12 +91,9 @@ impl Plugin for CustomValuePlugin {
         custom_value: Box<dyn CustomValue>,
     ) -> Result<(), LabeledError> {
         // This is how we implement our drop behavior.
-        if let Some(drop_check) =
-            (custom_value.as_ref() as &dyn std::any::Any).downcast_ref::<DropCheckValue>()
-        {
+        if let Some(drop_check) = custom_value.as_any().downcast_ref::<DropCheckValue>() {
             drop_check.notify();
-        } else if let Some(handle) =
-            (custom_value.as_ref() as &dyn std::any::Any).downcast_ref::<HandleCustomValue>()
+        } else if let Some(handle) = custom_value.as_any().downcast_ref::<HandleCustomValue>()
             && let Ok(mut handles) = self.handles.lock()
         {
             handles.remove(&handle.0);

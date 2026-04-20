@@ -359,8 +359,10 @@ macro_rules! generate_tests {
                 ) => {
                     assert_eq!(span, returned_value.span());
 
-                    if let Some(plugin_val) = (returned_value.as_custom_value().unwrap()
-                        as &dyn std::any::Any)
+                    if let Some(plugin_val) = returned_value
+                        .as_custom_value()
+                        .unwrap()
+                        .as_any()
                         .downcast_ref::<PluginCustomValue>()
                     {
                         assert_eq!(name, plugin_val.name());

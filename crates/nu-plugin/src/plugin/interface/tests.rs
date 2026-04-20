@@ -476,7 +476,9 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
             assert_eq!(1, call.call.named.len());
 
             for arg in call.call.positional {
-                let custom_value: &TestCustomValue = (arg.as_custom_value()? as &dyn std::any::Any)
+                let custom_value: &TestCustomValue = arg
+                    .as_custom_value()?
+                    .as_any()
                     .downcast_ref()
                     .expect("positional arg is not TestCustomValue");
                 assert_eq!(expected_test_custom_value(), *custom_value, "positional");
@@ -487,10 +489,9 @@ fn manager_consume_call_run_deserializes_custom_values_in_args() -> Result<(), S
                 let custom_value: &TestCustomValue = val
                     .as_ref()
                     .unwrap_or_else(|| panic!("found empty named argument: {key}"))
-                    .as_custom_value()
-                    .map(|custom_value| {
-                        (custom_value as &dyn std::any::Any).downcast_ref::<TestCustomValue>()
-                    })?
+                    .as_custom_value()?
+                    .as_any()
+                    .downcast_ref()
                     .unwrap_or_else(|| panic!("named arg {key} is not TestCustomValue"));
                 assert_eq!(expected_test_custom_value(), *custom_value, "named: {key}");
             }
@@ -591,7 +592,9 @@ fn manager_prepare_pipeline_data_deserializes_custom_values() -> Result<(), Shel
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &TestCustomValue = (value.as_custom_value()? as &dyn std::any::Any)
+    let custom_value: &TestCustomValue = value
+        .as_custom_value()?
+        .as_any()
         .downcast_ref()
         .expect("custom value is not a TestCustomValue, probably not deserialized");
 
@@ -615,7 +618,9 @@ fn manager_prepare_pipeline_data_deserializes_custom_values_in_streams() -> Resu
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &TestCustomValue = (value.as_custom_value()? as &dyn std::any::Any)
+    let custom_value: &TestCustomValue = value
+        .as_custom_value()?
+        .as_any()
         .downcast_ref()
         .expect("custom value is not a TestCustomValue, probably not deserialized");
 
@@ -1106,7 +1111,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values() -> Result<(), Shel
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &PluginCustomValue = (value.as_custom_value()? as &dyn std::any::Any)
+    let custom_value: &PluginCustomValue = value
+        .as_custom_value()?
+        .as_any()
         .downcast_ref()
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
@@ -1133,7 +1140,9 @@ fn interface_prepare_pipeline_data_serializes_custom_values_in_streams() -> Resu
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &PluginCustomValue = (value.as_custom_value()? as &dyn std::any::Any)
+    let custom_value: &PluginCustomValue = value
+        .as_custom_value()?
+        .as_any()
         .downcast_ref()
         .expect("custom value is not a PluginCustomValue, probably not serialized");
 
@@ -1163,6 +1172,14 @@ impl CustomValue for CantSerialize {
 
     fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
         unimplemented!()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }
 

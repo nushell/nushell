@@ -5,7 +5,7 @@ use nu_protocol::{
     casing::Casing,
 };
 use serde::{Deserialize, Serialize};
-use std::{any::Any, cmp::Ordering};
+use std::cmp::Ordering;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct CoolCustomValue {
@@ -27,7 +27,7 @@ impl CoolCustomValue {
         let span = value.span();
         match value {
             Value::Custom { val, .. } => {
-                if let Some(cool) = (val.as_ref() as &dyn Any).downcast_ref::<Self>() {
+                if let Some(cool) = val.as_any().downcast_ref::<Self>() {
                     Ok(cool.clone())
                 } else {
                     Err(ShellError::CantConvert {
@@ -108,7 +108,7 @@ impl CustomValue for CoolCustomValue {
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         if let Value::Custom { val, .. } = other {
-            (val.as_ref() as &dyn Any)
+            val.as_any()
                 .downcast_ref()
                 .and_then(|other: &CoolCustomValue| PartialOrd::partial_cmp(self, other))
         } else {
@@ -129,7 +129,7 @@ impl CustomValue for CoolCustomValue {
                 if let Some(right) = right
                     .as_custom_value()
                     .ok()
-                    .and_then(|c| (c as &dyn Any).downcast_ref::<CoolCustomValue>())
+                    .and_then(|c| c.as_any().downcast_ref::<CoolCustomValue>())
                 {
                     Ok(Value::custom(
                         Box::new(CoolCustomValue {
@@ -155,5 +155,13 @@ impl CustomValue for CoolCustomValue {
                 help: None,
             }),
         }
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 }

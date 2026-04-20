@@ -65,20 +65,18 @@ impl SQLiteDatabase {
     pub fn try_from_value(value: Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::Custom { val, .. } => {
-                match (val.as_ref() as &dyn std::any::Any).downcast_ref::<Self>() {
-                    Some(db) => Ok(Self {
-                        path: db.path.clone(),
-                        signals: db.signals.clone(),
-                    }),
-                    None => Err(ShellError::CantConvert {
-                        to_type: "database".into(),
-                        from_type: "non-database".into(),
-                        span,
-                        help: None,
-                    }),
-                }
-            }
+            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
+                Some(db) => Ok(Self {
+                    path: db.path.clone(),
+                    signals: db.signals.clone(),
+                }),
+                None => Err(ShellError::CantConvert {
+                    to_type: "database".into(),
+                    from_type: "non-database".into(),
+                    span,
+                    help: None,
+                }),
+            },
             x => Err(ShellError::CantConvert {
                 to_type: "database".into(),
                 from_type: x.get_type().to_string(),
@@ -366,6 +364,14 @@ impl CustomValue for SQLiteDatabase {
         let db = open_sqlite_db(&self.path, span)?;
         read_entire_sqlite_db(db, span, &self.signals)
             .map_err(|e| e.into_shell_error(span, "Failed to read from SQLite database"))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn follow_path_int(
@@ -1148,6 +1154,14 @@ impl CustomValue for SQLiteQueryBuilder {
 
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         self.execute(span).and_then(|pd| pd.into_value(span))
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     fn follow_path_int(

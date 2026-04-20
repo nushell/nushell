@@ -1273,7 +1273,9 @@ impl CurrentCallState {
 
         // Check whether we need to keep it
         if let Some(keep_tx) = &self.keep_plugin_custom_values_tx
-            && let Some(custom_value) = (custom_value.item.as_ref() as &dyn std::any::Any)
+            && let Some(custom_value) = custom_value
+                .item
+                .as_any()
                 .downcast_ref::<PluginCustomValueWithSource>()
             && custom_value.notify_on_drop()
         {

@@ -19,6 +19,14 @@ impl CustomValue for TestCustomValue {
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
         Ok(Value::int(self.0 as i64, span))
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
 }
 
 /// A [`TestCustomValue`] serialized as a [`PluginCustomValue`].

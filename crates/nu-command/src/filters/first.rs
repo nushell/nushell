@@ -207,9 +207,7 @@ fn first_helper(
                     internal_span,
                     ..
                 } => {
-                    if let Some(table) = (custom_val.as_ref() as &dyn std::any::Any)
-                        .downcast_ref::<SQLiteQueryBuilder>()
-                    {
+                    if let Some(table) = custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>() {
                         if return_single_element {
                             // For single element, limit 1
                             let new_table = table.clone().with_limit(1);

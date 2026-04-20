@@ -1,4 +1,4 @@
-use std::{any::Any, cmp::Ordering, path::Path, sync::Arc};
+use std::{cmp::Ordering, path::Path, sync::Arc};
 
 use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
@@ -82,8 +82,7 @@ impl PluginCustomValueWithSource {
 
     /// Add a [`PluginSource`] to the given [`CustomValue`] if it is a [`PluginCustomValue`].
     pub fn add_source(value: &mut Box<dyn CustomValue>, source: &Arc<PluginSource>) {
-        if let Some(custom_value) = (value.as_ref() as &dyn Any).downcast_ref::<PluginCustomValue>()
-        {
+        if let Some(custom_value) = value.as_any().downcast_ref::<PluginCustomValue>() {
             *value = Box::new(custom_value.clone().with_source(source.clone()));
         }
     }
@@ -99,9 +98,7 @@ impl PluginCustomValueWithSource {
     /// Remove a [`PluginSource`] from the given [`CustomValue`] if it is a
     /// [`PluginCustomValueWithSource`]. This will turn it back into a [`PluginCustomValue`].
     pub fn remove_source(value: &mut Box<dyn CustomValue>) {
-        if let Some(custom_value) =
-            (value.as_ref() as &dyn Any).downcast_ref::<PluginCustomValueWithSource>()
-        {
+        if let Some(custom_value) = value.as_any().downcast_ref::<PluginCustomValueWithSource>() {
             *value = Box::new(custom_value.clone().without_source());
         }
     }
@@ -134,8 +131,10 @@ impl PluginCustomValueWithSource {
         value: Spanned<&dyn CustomValue>,
         source: &PluginSource,
     ) -> Result<(), ShellError> {
-        if let Some(custom_value) =
-            (value.item as &dyn Any).downcast_ref::<PluginCustomValueWithSource>()
+        if let Some(custom_value) = value
+            .item
+            .as_any()
+            .downcast_ref::<PluginCustomValueWithSource>()
         {
             custom_value.verify_source(value.span, source)
         } else {
@@ -256,6 +255,14 @@ impl CustomValue for PluginCustomValueWithSource {
     ) -> Result<(), ShellError> {
         self.get_plugin(Some(value_span), "save")?
             .custom_value_save(self.clone().into_spanned(value_span), path, save_span)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
     }
 
     #[doc(hidden)]

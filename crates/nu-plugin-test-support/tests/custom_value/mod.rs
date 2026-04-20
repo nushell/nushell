@@ -31,11 +31,19 @@ impl CustomValue for CustomU32 {
         Ok(Value::int(self.0 as i64, span))
     }
 
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         other
             .as_custom_value()
             .ok()
-            .and_then(|cv| (cv as &dyn std::any::Any).downcast_ref::<CustomU32>())
+            .and_then(|cv| cv.as_any().downcast_ref::<CustomU32>())
             .and_then(|other_u32| PartialOrd::partial_cmp(self, other_u32))
     }
 }
@@ -115,8 +123,9 @@ impl SimplePluginCommand for IntoIntFromU32 {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        let custom_value = input.as_custom_value()?;
-        let value: &CustomU32 = (custom_value as &dyn std::any::Any)
+        let value: &CustomU32 = input
+            .as_custom_value()?
+            .as_any()
             .downcast_ref()
             .ok_or_else(|| ShellError::TypeMismatch {
                 err_message: "expected CustomU32".into(),

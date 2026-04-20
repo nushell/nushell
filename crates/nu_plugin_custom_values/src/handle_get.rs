@@ -28,9 +28,10 @@ impl SimplePluginCommand for HandleGet {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        let custom_value = input.as_custom_value()?;
-        if let Some(handle) =
-            (custom_value as &dyn std::any::Any).downcast_ref::<HandleCustomValue>()
+        if let Some(handle) = input
+            .as_custom_value()?
+            .as_any()
+            .downcast_ref::<HandleCustomValue>()
         {
             // Find the handle
             let value = plugin

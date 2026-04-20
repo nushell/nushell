@@ -86,7 +86,7 @@ impl CustomValueSupport for NuDataType {
         let span = value.span();
         match value {
             Value::Custom { val, .. } => {
-                if let Some(cv) = (val.as_ref() as &dyn std::any::Any).downcast_ref::<Self::CV>() {
+                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
                 } else {
                     Err(ShellError::CantConvert {

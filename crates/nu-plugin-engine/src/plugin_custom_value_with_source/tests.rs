@@ -18,7 +18,8 @@ fn add_source_in_at_root() -> Result<(), ShellError> {
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 
     let custom_value = val.as_custom_value()?;
-    let plugin_custom_value: &PluginCustomValueWithSource = (custom_value as &dyn std::any::Any)
+    let plugin_custom_value: &PluginCustomValueWithSource = custom_value
+        .as_any()
         .downcast_ref()
         .expect("not PluginCustomValueWithSource");
     assert_eq!(
@@ -57,8 +58,8 @@ fn add_source_in_nested_record() -> Result<(), ShellError> {
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 
     check_record_custom_values(&val, &["foo", "bar"], |key, custom_value| {
-        let plugin_custom_value: &PluginCustomValueWithSource = (custom_value
-            as &dyn std::any::Any)
+        let plugin_custom_value: &PluginCustomValueWithSource = custom_value
+            .as_any()
             .downcast_ref()
             .unwrap_or_else(|| panic!("'{key}' not PluginCustomValueWithSource"));
         assert_eq!(
@@ -96,8 +97,8 @@ fn add_source_in_nested_list() -> Result<(), ShellError> {
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValueWithSource = (custom_value
-            as &dyn std::any::Any)
+        let plugin_custom_value: &PluginCustomValueWithSource = custom_value
+            .as_any()
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValueWithSource"));
         assert_eq!(
@@ -143,8 +144,8 @@ fn add_source_in_nested_closure() -> Result<(), ShellError> {
     PluginCustomValueWithSource::add_source_in(&mut val, &source)?;
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValueWithSource = (custom_value
-            as &dyn std::any::Any)
+        let plugin_custom_value: &PluginCustomValueWithSource = custom_value
+            .as_any()
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValueWithSource"));
         assert_eq!(

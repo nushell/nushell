@@ -17,7 +17,7 @@ use nu_protocol::{
     CustomValue, PipelineData, ShellError, Span, Spanned, Type, Value, ast::Operator,
 };
 use nu_schema::custom_value::NuSchemaCustomValue;
-use std::{any::Any, cmp::Ordering, fmt};
+use std::{cmp::Ordering, fmt};
 use uuid::Uuid;
 
 pub use file_type::PolarsFileType;
@@ -244,33 +244,21 @@ impl CustomValueType {
         val: Box<dyn CustomValue>,
         span: Span,
     ) -> Result<CustomValueType, ShellError> {
-        if let Some(df_cv) = (val.as_ref() as &dyn Any).downcast_ref::<NuDataFrameCustomValue>() {
+        if let Some(df_cv) = val.as_any().downcast_ref::<NuDataFrameCustomValue>() {
             Ok(CustomValueType::NuDataFrame(df_cv.clone()))
-        } else if let Some(lf_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuLazyFrameCustomValue>()
-        {
+        } else if let Some(lf_cv) = val.as_any().downcast_ref::<NuLazyFrameCustomValue>() {
             Ok(CustomValueType::NuLazyFrame(lf_cv.clone()))
-        } else if let Some(e_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuExpressionCustomValue>()
-        {
+        } else if let Some(e_cv) = val.as_any().downcast_ref::<NuExpressionCustomValue>() {
             Ok(CustomValueType::NuExpression(e_cv.clone()))
-        } else if let Some(lg_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuLazyGroupByCustomValue>()
-        {
+        } else if let Some(lg_cv) = val.as_any().downcast_ref::<NuLazyGroupByCustomValue>() {
             Ok(CustomValueType::NuLazyGroupBy(lg_cv.clone()))
-        } else if let Some(w_cv) = (val.as_ref() as &dyn Any).downcast_ref::<NuWhenCustomValue>() {
+        } else if let Some(w_cv) = val.as_any().downcast_ref::<NuWhenCustomValue>() {
             Ok(CustomValueType::NuWhen(w_cv.clone()))
-        } else if let Some(dt_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuDataTypeCustomValue>()
-        {
+        } else if let Some(dt_cv) = val.as_any().downcast_ref::<NuDataTypeCustomValue>() {
             Ok(CustomValueType::NuDataType(dt_cv.clone()))
-        } else if let Some(schema_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuSchemaCustomValue>()
-        {
+        } else if let Some(schema_cv) = val.as_any().downcast_ref::<NuSchemaCustomValue>() {
             Ok(CustomValueType::NuSchema(schema_cv.clone()))
-        } else if let Some(selector_cv) =
-            (val.as_ref() as &dyn Any).downcast_ref::<NuSelectorCustomValue>()
-        {
+        } else if let Some(selector_cv) = val.as_any().downcast_ref::<NuSelectorCustomValue>() {
             Ok(CustomValueType::NuSelector(selector_cv.clone()))
         } else {
             Err(ShellError::CantConvert {
@@ -401,7 +389,7 @@ pub trait CustomValueSupport: Cacheable {
 
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
         if let Value::Custom { val, .. } = value {
-            if let Some(cv) = (val.as_ref() as &dyn Any).downcast_ref::<Self::CV>() {
+            if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
                 Self::try_from_custom_value(plugin, cv)
             } else {
                 Err(ShellError::CantConvert {
@@ -432,9 +420,7 @@ pub trait CustomValueSupport: Cacheable {
 
     fn can_downcast(value: &Value) -> bool {
         if let Value::Custom { val, .. } = value {
-            (val.as_ref() as &dyn Any)
-                .downcast_ref::<Self::CV>()
-                .is_some()
+            val.as_any().downcast_ref::<Self::CV>().is_some()
         } else {
             false
         }
