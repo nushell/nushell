@@ -4,7 +4,7 @@ use crate::*;
 ///
 /// - Accessing a field in a record is cheap, just a simple search and you get a reference to the
 ///   value.
-/// - Accessing an row in a list is even cheaper, just an array access and you get a reference to
+/// - Accessing a row in a list is even cheaper, just an array access and you get a reference to
 ///   the value.
 /// - Accessing a **column** in a table is expensive, it requires accessing the relevant field in
 ///   all rows, and creating a new list to store those value. This uses more computation and more
