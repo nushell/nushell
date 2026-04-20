@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::{cmp::Ordering, fmt, path::Path};
 
 use crate::shell_error::generic::GenericError;
@@ -5,7 +6,7 @@ use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casin
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
-pub trait CustomValue: fmt::Debug + Send + Sync {
+pub trait CustomValue: fmt::Debug + Send + Sync + Any {
     /// Custom `Clone` implementation
     ///
     /// This can reemit a `Value::Custom(Self, span)` or materialize another representation
