@@ -6,6 +6,7 @@ use rstest::rstest;
 #[derive(Debug, FromValue, PartialEq)]
 struct PeekRecord {
     r#type: String,
+    stream: bool,
     value: Option<Vec<Value>>,
 }
 
@@ -22,7 +23,8 @@ fn peek_works_with_list_stream() -> Result {
     assert_eq!(
         peek_record,
         PeekRecord {
-            r#type: "list (stream)".into(),
+            r#type: "list".into(),
+            stream: true,
             value: Some(
                 [1, 2]
                     .into_iter()
@@ -39,9 +41,9 @@ fn peek_works_with_list_stream() -> Result {
 }
 
 #[rstest]
-#[case::binary("random binary 16b | peek 2", ByteStreamType::Binary, PeekRecord {r#type: "binary (stream)".into(), value: None})]
-#[case::string("random chars --length 16 | peek 2", ByteStreamType::String, PeekRecord {r#type: "string (stream)".into(), value: None})]
-#[case::unknown("open --raw cp/existing_file.txt | peek 2", ByteStreamType::Unknown, PeekRecord {r#type: "byte stream".into(), value: None})]
+#[case::binary("random binary 16b | peek 2", ByteStreamType::Binary, PeekRecord {r#type: "binary".into(), stream: true, value: None})]
+#[case::string("random chars --length 16 | peek 2", ByteStreamType::String, PeekRecord {r#type: "string".into(), stream: true, value: None})]
+#[case::unknown("open --raw cp/existing_file.txt | peek 2", ByteStreamType::Unknown, PeekRecord {r#type: "byte stream".into(), stream: true, value: None})]
 fn peek_with_byte_streams(
     #[case] code: &str,
     #[case] byte_stream_type: ByteStreamType,

@@ -45,7 +45,7 @@ impl Command for Peek {
 
         match input {
             PipelineData::Empty => {
-                let metadata = add_peek_metadata(None, "empty", None, call.head);
+                let metadata = add_peek_metadata(None, "empty", false, None, call.head);
                 Ok(Value::nothing(call.head).into_pipeline_data_with_metadata(metadata))
             }
             PipelineData::Value(val, metadata) => match &val {
@@ -57,11 +57,11 @@ impl Command for Peek {
                             .collect::<Vec<_>>()
                             .into_value(call.head)
                     });
-                    let metadata = add_peek_metadata(metadata, "list", peeked, call.head);
+                    let metadata = add_peek_metadata(metadata, "list", false, peeked, call.head);
                     Ok(PipelineData::value(val, metadata))
                 }
                 _ => {
-                    let metadata = add_peek_metadata(metadata, "value", None, call.head);
+                    let metadata = add_peek_metadata(metadata, "value", false, None, call.head);
                     Ok(PipelineData::value(val, metadata))
                 }
             },
@@ -78,7 +78,8 @@ impl Command for Peek {
 
                 let metadata = add_peek_metadata(
                     metadata,
-                    "list (stream)",
+                    "list",
+                    true,
                     elems.map(|x| x.into_value(call.head)),
                     call.head,
                 );
@@ -88,7 +89,12 @@ impl Command for Peek {
             PipelineData::ByteStream(byte_stream, pipeline_metadata) => {
                 let metadata = add_peek_metadata(
                     pipeline_metadata,
-                    byte_stream.type_().describe(),
+                    match byte_stream.type_() {
+                        ByteStreamType::Binary => "binary",
+                        ByteStreamType::String => "string",
+                        ByteStreamType::Unknown => "byte stream",
+                    },
+                    true,
                     None,
                     call.head,
                 );
@@ -103,7 +109,8 @@ impl Command for Peek {
                 description: "Peek the first 2 elements of a stream.",
                 example: "seq 1 5 | peek 2 | metadata | $in.peek",
                 result: Some(test_record! {
-                    "type" => "list (stream)",
+                    "type" => "list",
+                    "stream" => true,
                     "value" => [1, 2],
                 }),
             },
@@ -112,6 +119,7 @@ impl Command for Peek {
                 example: "[1, 2, 3] | peek 1 | metadata | $in.peek",
                 result: Some(test_record! {
                     "type" => "list",
+                    "stream" => false,
                     "value" => [1],
                 }),
             },
@@ -119,14 +127,16 @@ impl Command for Peek {
                 description: "Peeking non-list values won't return any values.",
                 example: "'hello' | peek 1 | metadata | $in.peek",
                 result: Some(test_record! {
-                    "type" => "value"
+                    "type" => "value",
+                    "stream" => false,
                 }),
             },
             Example {
                 description: "Peeking non-list streams (text streams, binary streams, external byte streams) won't return any values.",
                 example: "[0x[11] 0x[13 15]] | bytes collect | peek | metadata | $in.peek",
                 result: Some(test_record! {
-                    "type" => "binary (stream)"
+                    "type" => "binary",
+                    "stream" => true,
                 }),
             },
         ]
@@ -136,6 +146,7 @@ impl Command for Peek {
 fn add_peek_metadata(
     mut metadata: Option<PipelineMetadata>,
     r#type: &str,
+    stream: bool,
     value: Option<Value>,
     span: Span,
 ) -> Option<PipelineMetadata> {
@@ -143,6 +154,7 @@ fn add_peek_metadata(
     let record_handle = record.as_mut().case_sensitive();
 
     record_handle.insert("type", r#type.into_value(span));
+    record_handle.insert("stream", stream.into_value(span));
     if let Some(value) = value {
         record_handle.insert("value", value);
     }
