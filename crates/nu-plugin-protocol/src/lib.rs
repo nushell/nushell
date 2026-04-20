@@ -37,7 +37,7 @@ use std::{collections::HashMap, path::PathBuf};
 pub use evaluated_call::EvaluatedCall;
 pub use plugin_custom_value::PluginCustomValue;
 #[allow(unused_imports)] // may be unused by compile flags
-pub use protocol_info::{Feature, Protocol, ProtocolInfo};
+pub use protocol_info::{Feature, PLUGIN_PROTOCOL_VERSION, Protocol, ProtocolInfo};
 
 /// A sequential identifier for a stream
 pub type StreamId = usize;

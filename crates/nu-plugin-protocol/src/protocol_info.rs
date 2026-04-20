@@ -2,6 +2,14 @@ use nu_protocol::ShellError;
 use semver::Prerelease;
 use serde::{Deserialize, Serialize};
 
+/// The canonical version of the plugin protocol.
+///
+/// This version describes the wire protocol and compatibility contract, not the full
+/// Nushell workspace or package version. Only bump this when the plugin protocol itself
+/// changes in a way that affects engine/plugin compatibility. Version 0.93.0 is the last
+/// big change to the plugin protocol that Devyn made around April 2024.
+pub const PLUGIN_PROTOCOL_VERSION: &str = "0.93.0";
+
 /// Protocol information, sent as a `Hello` message on initialization. This determines the
 /// compatibility of the plugin and engine. They are considered to be compatible if the lower
 /// version is semver compatible with the higher one.
@@ -22,7 +30,7 @@ impl Default for ProtocolInfo {
     fn default() -> ProtocolInfo {
         ProtocolInfo {
             protocol: Protocol::NuPlugin,
-            version: env!("CARGO_PKG_VERSION").into(),
+            version: PLUGIN_PROTOCOL_VERSION.into(),
             features: default_features(),
         }
     }
