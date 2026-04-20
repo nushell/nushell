@@ -1,7 +1,7 @@
 #![allow(clippy::result_large_err)]
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, shell_error::io::IoError};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, path::Path};
+use std::{any::Any, cmp::Ordering, path::Path};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SecondCustomValue {
@@ -22,7 +22,7 @@ impl SecondCustomValue {
     pub fn try_from_value(value: &Value) -> Result<Self, ShellError> {
         let span = value.span();
         match value {
-            Value::Custom { val, .. } => match val.as_any().downcast_ref::<Self>() {
+            Value::Custom { val, .. } => match (val.as_ref() as &dyn Any).downcast_ref::<Self>() {
                 Some(value) => Ok(value.clone()),
                 None => Err(ShellError::CantConvert {
                     to_type: "cool".into(),
@@ -63,20 +63,12 @@ impl CustomValue for SecondCustomValue {
 
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         if let Value::Custom { val, .. } = other {
-            val.as_any()
+            (val.as_ref() as &dyn Any)
                 .downcast_ref()
                 .and_then(|other: &SecondCustomValue| PartialOrd::partial_cmp(self, other))
         } else {
             None
         }
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
-        self
     }
 
     fn save(&self, path: Spanned<&Path>, _: Span, save_span: Span) -> Result<(), ShellError> {

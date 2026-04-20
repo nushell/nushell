@@ -75,7 +75,8 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
     #[cfg(feature = "sqlite")]
     // Pushdown optimization: handle 'length' on SQLiteQueryBuilder using COUNT(*)
     if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
-        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+        && let Some(table) =
+            (val.as_ref() as &dyn std::any::Any).downcast_ref::<SQLiteQueryBuilder>()
     {
         let count = table.count(call.head)?;
         return Ok(Value::int(count, call.head).into_pipeline_data());
@@ -90,10 +91,11 @@ fn length_row(call: &Call, input: PipelineData) -> Result<PipelineData, ShellErr
         }
         #[cfg(feature = "sqlite")]
         PipelineData::Value(Value::Custom { val, .. }, ..)
-            if val.as_any().downcast_ref::<SQLiteQueryBuilder>().is_some() =>
+            if (val.as_ref() as &dyn std::any::Any)
+                .downcast_ref::<SQLiteQueryBuilder>()
+                .is_some() =>
         {
-            let table = val
-                .as_any()
+            let table = (val.as_ref() as &dyn std::any::Any)
                 .downcast_ref::<SQLiteQueryBuilder>()
                 .expect("already checked");
             let count = table.count(call.head)?;

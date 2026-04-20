@@ -656,9 +656,8 @@ fn manager_prepare_pipeline_data_adds_source_to_values() -> Result<(), ShellErro
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &PluginCustomValueWithSource = value
-        .as_custom_value()?
-        .as_any()
+    let custom_value: &PluginCustomValueWithSource = (value.as_custom_value()?
+        as &dyn std::any::Any)
         .downcast_ref()
         .expect("{value:?} is not a PluginCustomValueWithSource");
 
@@ -682,9 +681,8 @@ fn manager_prepare_pipeline_data_adds_source_to_list_streams() -> Result<(), She
         .into_iter()
         .next()
         .expect("prepared pipeline data is empty");
-    let custom_value: &PluginCustomValueWithSource = value
-        .as_custom_value()?
-        .as_any()
+    let custom_value: &PluginCustomValueWithSource = (value.as_custom_value()?
+        as &dyn std::any::Any)
         .downcast_ref()
         .expect("{value:?} is not a PluginCustomValueWithSource");
 
@@ -1347,14 +1345,6 @@ impl CustomValue for DropCustomVal {
 
     fn to_base_value(&self, _span: Span) -> Result<Value, ShellError> {
         unimplemented!()
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
-        self
     }
 
     fn notify_plugin_on_drop(&self) -> bool {

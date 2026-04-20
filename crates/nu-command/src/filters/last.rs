@@ -209,8 +209,8 @@ impl Command for Last {
                         internal_span,
                         ..
                     } => {
-                        if let Some(table) =
-                            custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+                        if let Some(table) = (custom_val.as_ref() as &dyn std::any::Any)
+                            .downcast_ref::<SQLiteQueryBuilder>()
                         {
                             if return_single_element {
                                 // For single element, ORDER BY rowid DESC LIMIT 1

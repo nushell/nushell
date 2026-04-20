@@ -276,7 +276,8 @@ fn select(
     #[cfg(feature = "sqlite")]
     // Pushdown optimization: handle 'select' on SQLiteQueryBuilder for lazy column selection
     if let PipelineData::Value(Value::Custom { val, .. }, ..) = &input
-        && let Some(table) = val.as_any().downcast_ref::<SQLiteQueryBuilder>()
+        && let Some(table) =
+            (val.as_ref() as &dyn std::any::Any).downcast_ref::<SQLiteQueryBuilder>()
     {
         // Push down only simple single-segment string paths; everything else
         // falls back to the generic in-memory selection path below.

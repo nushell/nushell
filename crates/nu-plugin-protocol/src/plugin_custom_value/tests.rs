@@ -66,8 +66,7 @@ fn serialize_deserialize() -> Result<(), ShellError> {
     let serialized = PluginCustomValue::serialize_from_custom_value(&original_value, span)?;
     assert_eq!(original_value.type_name(), serialized.name());
     let deserialized = serialized.deserialize_to_custom_value(span)?;
-    let downcasted = deserialized
-        .as_any()
+    let downcasted = (deserialized.as_ref() as &dyn std::any::Any)
         .downcast_ref::<TestCustomValue>()
         .expect("failed to downcast: not TestCustomValue");
     assert_eq!(original_value, *downcasted);
@@ -97,7 +96,9 @@ fn serialize_in_root() -> Result<(), ShellError> {
     assert_eq!(span, val.span());
 
     let custom_value = val.as_custom_value()?;
-    if let Some(plugin_custom_value) = custom_value.as_any().downcast_ref::<PluginCustomValue>() {
+    if let Some(plugin_custom_value) =
+        (custom_value as &dyn std::any::Any).downcast_ref::<PluginCustomValue>()
+    {
         assert_eq!("TestCustomValue", plugin_custom_value.name());
         assert_eq!(
             test_plugin_custom_value().data(),
@@ -119,8 +120,7 @@ fn serialize_in_record() -> Result<(), ShellError> {
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     check_record_custom_values(&val, &["foo", "bar"], |key, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
+        let plugin_custom_value: &PluginCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("'{key}' not PluginCustomValue"));
         assert_eq!(
@@ -139,8 +139,7 @@ fn serialize_in_list() -> Result<(), ShellError> {
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
+        let plugin_custom_value: &PluginCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
         assert_eq!(
@@ -165,8 +164,7 @@ fn serialize_in_closure() -> Result<(), ShellError> {
     PluginCustomValue::serialize_custom_values_in(&mut val)?;
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let plugin_custom_value: &PluginCustomValue = custom_value
-            .as_any()
+        let plugin_custom_value: &PluginCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not PluginCustomValue"));
         assert_eq!(
@@ -187,7 +185,9 @@ fn deserialize_in_root() -> Result<(), ShellError> {
     assert_eq!(span, val.span());
 
     let custom_value = val.as_custom_value()?;
-    if let Some(test_custom_value) = custom_value.as_any().downcast_ref::<TestCustomValue>() {
+    if let Some(test_custom_value) =
+        (custom_value as &dyn std::any::Any).downcast_ref::<TestCustomValue>()
+    {
         assert_eq!(expected_test_custom_value(), *test_custom_value);
     } else {
         panic!("Failed to downcast to TestCustomValue");
@@ -205,8 +205,7 @@ fn deserialize_in_record() -> Result<(), ShellError> {
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_record_custom_values(&val, &["foo", "bar"], |key, custom_value| {
-        let test_custom_value: &TestCustomValue = custom_value
-            .as_any()
+        let test_custom_value: &TestCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("'{key}' not TestCustomValue"));
         assert_eq!(
@@ -225,8 +224,7 @@ fn deserialize_in_list() -> Result<(), ShellError> {
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_list_custom_values(&val, 0..=1, |index, custom_value| {
-        let test_custom_value: &TestCustomValue = custom_value
-            .as_any()
+        let test_custom_value: &TestCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not TestCustomValue"));
         assert_eq!(
@@ -251,8 +249,7 @@ fn deserialize_in_closure() -> Result<(), ShellError> {
     PluginCustomValue::deserialize_custom_values_in(&mut val)?;
 
     check_closure_custom_values(&val, 0..=1, |index, custom_value| {
-        let test_custom_value: &TestCustomValue = custom_value
-            .as_any()
+        let test_custom_value: &TestCustomValue = (custom_value as &dyn std::any::Any)
             .downcast_ref()
             .unwrap_or_else(|| panic!("[{index}] not TestCustomValue"));
         assert_eq!(

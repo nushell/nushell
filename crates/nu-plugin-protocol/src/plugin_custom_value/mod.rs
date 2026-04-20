@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, path::Path};
+use std::{any::Any, cmp::Ordering, path::Path};
 
 use nu_protocol::{CustomValue, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing};
 use nu_utils::SharedCow;
@@ -101,14 +101,6 @@ impl CustomValue for PluginCustomValue {
     ) -> Result<(), ShellError> {
         panic!("save() not available on plugin custom value without source");
     }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
-        self
-    }
 }
 
 impl PluginCustomValue {
@@ -182,7 +174,10 @@ impl PluginCustomValue {
             let span = value.span();
             match value {
                 Value::Custom { val, .. } => {
-                    if val.as_any().downcast_ref::<PluginCustomValue>().is_some() {
+                    if (val as &dyn Any)
+                        .downcast_ref::<PluginCustomValue>()
+                        .is_some()
+                    {
                         // Already a PluginCustomValue
                         Ok(())
                     } else {
@@ -203,7 +198,7 @@ impl PluginCustomValue {
             let span = value.span();
             match value {
                 Value::Custom { val, .. } => {
-                    if let Some(val) = val.as_any().downcast_ref::<PluginCustomValue>() {
+                    if let Some(val) = (val as &dyn Any).downcast_ref::<PluginCustomValue>() {
                         let deserialized = val.deserialize_to_custom_value(span)?;
                         *value = Value::custom(deserialized, span);
                         Ok(())

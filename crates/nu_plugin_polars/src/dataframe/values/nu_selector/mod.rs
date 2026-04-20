@@ -133,9 +133,11 @@ impl CustomValueSupport for NuSelector {
             Value::Custom {
                 val, internal_span, ..
             } => {
-                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                if let Some(cv) = (val.as_ref() as &dyn std::any::Any).downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
-                } else if let Some(cv) = val.as_any().downcast_ref::<NuExpressionCustomValue>() {
+                } else if let Some(cv) =
+                    (val.as_ref() as &dyn std::any::Any).downcast_ref::<NuExpressionCustomValue>()
+                {
                     let expr = NuExpression::try_from_custom_value(plugin, cv)?;
                     let selector = expr.into_polars().try_into_selector().map_err(|e| {
                         ShellError::Generic(GenericError::new(e.to_string(), "", *internal_span))

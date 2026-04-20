@@ -542,9 +542,11 @@ impl CustomValueSupport for NuExpression {
     fn try_from_value(plugin: &PolarsPlugin, value: &Value) -> Result<Self, ShellError> {
         match value {
             Value::Custom { val, .. } => {
-                if let Some(cv) = val.as_any().downcast_ref::<Self::CV>() {
+                if let Some(cv) = (val.as_ref() as &dyn std::any::Any).downcast_ref::<Self::CV>() {
                     Self::try_from_custom_value(plugin, cv)
-                } else if let Some(cv) = val.as_any().downcast_ref::<NuSelectorCustomValue>() {
+                } else if let Some(cv) =
+                    (val.as_ref() as &dyn std::any::Any).downcast_ref::<NuSelectorCustomValue>()
+                {
                     let selector = NuSelector::try_from_custom_value(plugin, cv)?;
                     Ok(selector.into_expr())
                 } else {
@@ -604,7 +606,9 @@ impl CustomValueSupport for NuExpression {
 
     fn can_downcast(value: &Value) -> bool {
         match value {
-            Value::Custom { val, .. } => val.as_any().downcast_ref::<Self::CV>().is_some(),
+            Value::Custom { val, .. } => (val.as_ref() as &dyn std::any::Any)
+                .downcast_ref::<Self::CV>()
+                .is_some(),
             Value::List { vals, .. } => vals.iter().all(Self::can_downcast),
             Value::Record { val, .. } => val.iter().all(|(_, value)| Self::can_downcast(value)),
             Value::String { .. } | Value::Int { .. } | Value::Bool { .. } | Value::Float { .. } => {

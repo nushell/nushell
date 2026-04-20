@@ -26,12 +26,6 @@ pub trait CustomValue: fmt::Debug + Send + Sync + Any {
     /// Value representations that already exist in nushell
     fn to_base_value(&self, span: Span) -> Result<Value, ShellError>;
 
-    /// Any representation used to downcast object to its original type
-    fn as_any(&self) -> &dyn std::any::Any;
-
-    /// Any representation used to downcast object to its original type (mutable reference)
-    fn as_mut_any(&mut self) -> &mut dyn std::any::Any;
-
     /// Follow cell path by numeric index (e.g. rows).
     ///
     /// Let `$val` be the custom value then these are the fields passed to this method:
