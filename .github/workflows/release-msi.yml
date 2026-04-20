@@ -87,9 +87,11 @@ jobs:
     - name: Download Release Archives
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_TAG: ${{ inputs.tag }}
+        REPO: ${{ github.repository }}
       run: >-
-        gh release download ${{ inputs.tag }}
-        --repo ${{ github.repository }}
+        gh release download "$RELEASE_TAG"
+        --repo "$REPO"
         --pattern '*'
         --dir release
     - name: Create Checksums
