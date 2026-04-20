@@ -268,14 +268,17 @@ fn try_catch_finally() {
         nu!("try { 1 / 0 } catch { 1 / 0; print 'inside catch' } finally { print 'this finally' }");
     assert!(actual.out.contains("this finally"));
     assert!(!actual.out.contains("inside catch"));
-    assert!(!actual.err.contains("division by zero"));
+    assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn try_finally() {
+    let actual = nu!("try { 0 } finally { 3 }");
+    assert_eq!(actual.out, "0");
+
     let actual = nu!("try { 1 / 0 } finally { print 'this finally' }");
     assert!(actual.out.contains("this finally"));
-    assert!(!actual.err.contains("division by zero"));
+    assert!(actual.err.contains("division by zero"));
 
     let actual = nu!("try { print 'inside try' } finally { print 'this finally' }");
     assert!(actual.out.contains("inside try"));
@@ -307,11 +310,12 @@ fn return_statement_in_finally_should_be_used() {
 #[test]
 fn try_finally_with_variable() {
     // try failed with finally
-    let actual = nu!("try { 1 / 0 } finally {|x| $x.msg }");
+    let actual = nu!("try { 1 / 0 } finally {|x| print $x.msg }");
     assert_eq!(actual.out, "Division by zero.");
 
-    let actual = nu!("try { 3 } finally {|x| $x == 3 }");
-    assert_eq!(actual.out, "true");
+    let actual = nu!("try { 3 } finally {|x| print ($x == 3) }");
+    assert!(actual.out.contains("true"));
+    assert!(actual.out.ends_with('3'));
 }
 
 #[test]
@@ -345,11 +349,12 @@ fn try_abort_not_run_finally() {
 #[test]
 fn catch_finally_with_variable() {
     // try catch with finally
-    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| $x == 33}");
-    assert_eq!(actual.out, "true");
+    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| print ($x == 33) }");
+    assert!(actual.out.contains("true"));
+    assert!(actual.out.ends_with("33"));
 
     let actual = nu!(
-        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}"
+        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| print ($x.msg == 'err in catch')}"
     );
     assert_eq!(actual.out, "true");
 }

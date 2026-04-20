@@ -677,15 +677,11 @@ pub(crate) fn compile_try(
 
     // This is the finally part.
     if let Some(finally_part) = finally_type {
+        // Preserve the value produced by `try`/`catch`: `finally` can observe it
+        // but its own pipeline result should not replace the overall `try` expression result.
+        let preserved_result_reg = builder.clone_reg(io_reg, call.head)?;
         if let Some(var_id) = finally_part.var_id {
-            let value_reg = builder.next_register()?;
-            builder.push(
-                Instruction::Clone {
-                    dst: value_reg,
-                    src: io_reg,
-                }
-                .into_spanned(call.head),
-            )?;
+            let value_reg = builder.clone_reg(io_reg, call.head)?;
             builder.push(
                 Instruction::StoreVariable {
                     var_id,
@@ -701,6 +697,13 @@ pub(crate) fn compile_try(
             redirect_modes,
             Some(io_reg),
             io_reg,
+        )?;
+        builder.push(
+            Instruction::Move {
+                dst: io_reg,
+                src: preserved_result_reg,
+            }
+            .into_spanned(call.head),
         )?;
     }
 

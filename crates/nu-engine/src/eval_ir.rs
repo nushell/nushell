@@ -281,8 +281,13 @@ fn eval_ir_block_impl<D: DebugContext>(
                 } else if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
+                    prepare_error_handler(
+                        ctx,
+                        always_run_handler,
+                        Some(err.clone().into_spanned(*span)),
+                    );
                     pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
