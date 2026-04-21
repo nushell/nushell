@@ -458,6 +458,14 @@ fn percent_prefers_builtin_when_custom_shadows_name() -> Result {
 }
 
 #[test]
+fn percent_prefers_builtin_inside_same_name_wrapper() -> TestResult {
+    run_test_contains(
+        "def ls [] { %ls | move name --last }; ls | describe",
+        "table",
+    )
+}
+
+#[test]
 fn percent_help_prefers_builtin_when_alias_shadows_name() -> TestResult {
     run_test_contains(
         "alias cd = echo; %cd --help",
