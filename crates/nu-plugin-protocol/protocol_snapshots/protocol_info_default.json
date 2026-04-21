@@ -1,0 +1,9 @@
+{
+  "protocol": "nu-plugin",
+  "version": "0.93.0",
+  "features": [
+    {
+      "name": "LocalSocket"
+    }
+  ]
+}

@@ -1,0 +1,1793 @@
+{
+  "$defs": {
+    "ByteStreamInfoSchema": {
+      "properties": {
+        "id": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineMetadataSchema"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        },
+        "type": {
+          "$ref": "#/$defs/ByteStreamTypeSchema"
+        }
+      },
+      "required": [
+        "id",
+        "span",
+        "type"
+      ],
+      "type": "object"
+    },
+    "ByteStreamTypeSchema": {
+      "enum": [
+        "Binary",
+        "String",
+        "Unknown"
+      ],
+      "type": "string"
+    },
+    "CallInfoSchema": {
+      "properties": {
+        "call": {
+          "$ref": "#/$defs/EvaluatedCallSchema"
+        },
+        "input": {
+          "$ref": "#/$defs/PipelineDataHeaderSchema"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "call",
+        "input"
+      ],
+      "type": "object"
+    },
+    "CasingSchema": {
+      "enum": [
+        "Sensitive",
+        "Insensitive"
+      ],
+      "type": "string"
+    },
+    "CustomValueOpSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "ToBaseValue",
+            "Dropped"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "FollowPathInt": {
+              "properties": {
+                "index": {
+                  "$ref": "#/$defs/SpannedSchema3"
+                },
+                "optional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "index",
+                "optional"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "FollowPathInt"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "FollowPathString": {
+              "properties": {
+                "casing": {
+                  "$ref": "#/$defs/CasingSchema"
+                },
+                "column_name": {
+                  "$ref": "#/$defs/SpannedSchema"
+                },
+                "optional": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "column_name",
+                "optional",
+                "casing"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "FollowPathString"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "PartialCmp": {
+              "$ref": "#/$defs/ValueSchema"
+            }
+          },
+          "required": [
+            "PartialCmp"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Operation": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/SpannedSchema4"
+                },
+                {
+                  "$ref": "#/$defs/ValueSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Operation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Save": {
+              "properties": {
+                "path": {
+                  "$ref": "#/$defs/SpannedSchema"
+                },
+                "save_call_span": {
+                  "$ref": "#/$defs/SpanSchema"
+                }
+              },
+              "required": [
+                "path",
+                "save_call_span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Save"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DataSourceSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "Ls",
+            "HtmlThemes",
+            "None"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "FilePath": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "FilePath"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "DynamicCompletionCallSchema": {
+      "properties": {
+        "call": true,
+        "pos": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "strip": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "call",
+        "strip",
+        "pos"
+      ],
+      "type": "object"
+    },
+    "EngineCallResponseSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Error": true
+          },
+          "required": [
+            "Error"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "PipelineData": {
+              "$ref": "#/$defs/PipelineDataHeaderSchema"
+            }
+          },
+          "required": [
+            "PipelineData"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Config": true
+          },
+          "required": [
+            "Config"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ValueMap": {
+              "additionalProperties": {
+                "$ref": "#/$defs/ValueSchema"
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "ValueMap"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Identifier": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Identifier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "IrBlock": true
+          },
+          "required": [
+            "IrBlock"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "EngineCallSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "GetConfig",
+            "GetPluginConfig",
+            "GetEnvVars",
+            "GetCurrentDir",
+            "GetHelp",
+            "EnterForeground",
+            "LeaveForeground"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "GetEnvVar": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "GetEnvVar"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "AddEnvVar": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/$defs/ValueSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "AddEnvVar"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "GetSpanContents": {
+              "$ref": "#/$defs/SpanSchema"
+            }
+          },
+          "required": [
+            "GetSpanContents"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "EvalClosure": {
+              "properties": {
+                "closure": {
+                  "$ref": "#/$defs/SpannedSchema4"
+                },
+                "input": {
+                  "$ref": "#/$defs/PipelineDataHeaderSchema"
+                },
+                "positional": {
+                  "items": {
+                    "$ref": "#/$defs/ValueSchema"
+                  },
+                  "type": "array"
+                },
+                "redirect_stderr": {
+                  "type": "boolean"
+                },
+                "redirect_stdout": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "closure",
+                "positional",
+                "input",
+                "redirect_stdout",
+                "redirect_stderr"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "EvalClosure"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "FindDecl": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "FindDecl"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "GetBlockIR": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "GetBlockIR"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "CallDecl": {
+              "properties": {
+                "call": {
+                  "$ref": "#/$defs/EvaluatedCallSchema"
+                },
+                "decl_id": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "input": {
+                  "$ref": "#/$defs/PipelineDataHeaderSchema"
+                },
+                "redirect_stderr": {
+                  "type": "boolean"
+                },
+                "redirect_stdout": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "decl_id",
+                "call",
+                "input",
+                "redirect_stdout",
+                "redirect_stderr"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "CallDecl"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "EvaluatedCallSchema": {
+      "properties": {
+        "head": {
+          "$ref": "#/$defs/SpanSchema"
+        },
+        "named": {
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/SpannedSchema"
+              },
+              {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ValueSchema"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "positional": {
+          "items": {
+            "$ref": "#/$defs/ValueSchema"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "head",
+        "positional",
+        "named"
+      ],
+      "type": "object"
+    },
+    "FeatureSchema": {
+      "oneOf": [
+        {
+          "properties": {
+            "name": {
+              "const": "LocalSocket",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "GetCompletionArgTypeSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Flag": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Flag"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Positional": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Positional"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "GetCompletionInfoSchema": {
+      "properties": {
+        "arg_type": {
+          "$ref": "#/$defs/GetCompletionArgTypeSchema"
+        },
+        "call": {
+          "$ref": "#/$defs/DynamicCompletionCallSchema"
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "arg_type",
+        "call"
+      ],
+      "type": "object"
+    },
+    "ListStreamInfoSchema": {
+      "properties": {
+        "id": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "metadata": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PipelineMetadataSchema"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        }
+      },
+      "required": [
+        "id",
+        "span"
+      ],
+      "type": "object"
+    },
+    "OrderingSchema": {
+      "enum": [
+        "Less",
+        "Equal",
+        "Greater"
+      ],
+      "type": "string"
+    },
+    "PipelineDataHeaderSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "Empty"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Value": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/ValueSchema"
+                },
+                {
+                  "anyOf": [
+                    {
+                      "$ref": "#/$defs/PipelineMetadataSchema"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Value"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ListStream": {
+              "$ref": "#/$defs/ListStreamInfoSchema"
+            }
+          },
+          "required": [
+            "ListStream"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "ByteStream": {
+              "$ref": "#/$defs/ByteStreamInfoSchema"
+            }
+          },
+          "required": [
+            "ByteStream"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PipelineMetadataSchema": {
+      "properties": {
+        "content_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "custom": {
+          "default": null
+        },
+        "data_source": {
+          "$ref": "#/$defs/DataSourceSchema"
+        },
+        "path_columns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "data_source",
+        "path_columns"
+      ],
+      "type": "object"
+    },
+    "PluginCallResponseSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "Ok"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Error": true
+          },
+          "required": [
+            "Error"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Metadata": true
+          },
+          "required": [
+            "Metadata"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Signature": {
+              "items": true,
+              "type": "array"
+            }
+          },
+          "required": [
+            "Signature"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Ordering": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/OrderingSchema"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "Ordering"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "CompletionItems": {
+              "items": true,
+              "type": [
+                "array",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "CompletionItems"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "PipelineData": {
+              "$ref": "#/$defs/PipelineDataHeaderSchema"
+            }
+          },
+          "required": [
+            "PipelineData"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PluginCallSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "Metadata",
+            "Signature"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Run": {
+              "$ref": "#/$defs/CallInfoSchema"
+            }
+          },
+          "required": [
+            "Run"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "GetCompletion": {
+              "$ref": "#/$defs/GetCompletionInfoSchema"
+            }
+          },
+          "required": [
+            "GetCompletion"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "CustomValueOp": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "$ref": "#/$defs/SpannedSchema2"
+                },
+                {
+                  "$ref": "#/$defs/CustomValueOpSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "CustomValueOp"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PluginCustomValueSchema": {
+      "properties": {
+        "data": {
+          "items": {
+            "format": "uint8",
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": "array"
+        },
+        "name": {
+          "type": "string"
+        },
+        "notify_on_drop": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "data"
+      ],
+      "type": "object"
+    },
+    "PluginInputSchema": {
+      "oneOf": [
+        {
+          "enum": [
+            "Goodbye"
+          ],
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Hello": {
+              "$ref": "#/$defs/ProtocolInfoSchema"
+            }
+          },
+          "required": [
+            "Hello"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Call": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/$defs/PluginCallSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Call"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "EngineCallResponse": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/$defs/EngineCallResponseSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "EngineCallResponse"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Data": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/$defs/StreamDataSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "End": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "End"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Drop": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Drop"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Ack": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Ack"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Signal": {
+              "$ref": "#/$defs/SignalActionSchema"
+            }
+          },
+          "required": [
+            "Signal"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PluginOptionSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "GcDisabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "GcDisabled"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "PluginOutputSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Hello": {
+              "$ref": "#/$defs/ProtocolInfoSchema"
+            }
+          },
+          "required": [
+            "Hello"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Option": {
+              "$ref": "#/$defs/PluginOptionSchema"
+            }
+          },
+          "required": [
+            "Option"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "CallResponse": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/$defs/PluginCallResponseSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "CallResponse"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "EngineCall": {
+              "properties": {
+                "call": {
+                  "$ref": "#/$defs/EngineCallSchema"
+                },
+                "context": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "context",
+                "id",
+                "call"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "EngineCall"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Data": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "format": "uint",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "$ref": "#/$defs/StreamDataSchema"
+                }
+              ],
+              "type": "array"
+            }
+          },
+          "required": [
+            "Data"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "End": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "End"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Drop": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Drop"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Ack": {
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Ack"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ProtocolInfoSchema": {
+      "properties": {
+        "features": {
+          "items": {
+            "$ref": "#/$defs/FeatureSchema"
+          },
+          "type": "array"
+        },
+        "protocol": {
+          "$ref": "#/$defs/ProtocolSchema"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "protocol",
+        "version",
+        "features"
+      ],
+      "type": "object"
+    },
+    "ProtocolSchema": {
+      "enum": [
+        "nu-plugin"
+      ],
+      "type": "string"
+    },
+    "ResultBytesSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Ok": {
+              "items": {
+                "format": "uint8",
+                "maximum": 255,
+                "minimum": 0,
+                "type": "integer"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Ok"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Err": true
+          },
+          "required": [
+            "Err"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "SignalActionSchema": {
+      "enum": [
+        "Interrupt",
+        "Reset"
+      ],
+      "type": "string"
+    },
+    "SpanSchema": {
+      "properties": {
+        "end": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "start": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "SpannedSchema": {
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        }
+      },
+      "required": [
+        "item",
+        "span"
+      ],
+      "type": "object"
+    },
+    "SpannedSchema2": {
+      "properties": {
+        "item": {
+          "$ref": "#/$defs/PluginCustomValueSchema"
+        },
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        }
+      },
+      "required": [
+        "item",
+        "span"
+      ],
+      "type": "object"
+    },
+    "SpannedSchema3": {
+      "properties": {
+        "item": {
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        }
+      },
+      "required": [
+        "item",
+        "span"
+      ],
+      "type": "object"
+    },
+    "SpannedSchema4": {
+      "properties": {
+        "item": true,
+        "span": {
+          "$ref": "#/$defs/SpanSchema"
+        }
+      },
+      "required": [
+        "item",
+        "span"
+      ],
+      "type": "object"
+    },
+    "StreamDataSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "List": {
+              "$ref": "#/$defs/ValueSchema"
+            }
+          },
+          "required": [
+            "List"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Raw": {
+              "$ref": "#/$defs/ResultBytesSchema"
+            }
+          },
+          "required": [
+            "Raw"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ValueSchema": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Bool": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Bool"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Int": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Int"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Float": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Float"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "String": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "String"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Glob": {
+              "properties": {
+                "no_expand": {
+                  "type": "boolean"
+                },
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "val",
+                "no_expand",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Glob"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Filesize": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Filesize"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Duration": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "format": "int64",
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Duration"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Date": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Date"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Range": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Range"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Record": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Record"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "List": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "vals": {
+                  "items": {
+                    "$ref": "#/$defs/ValueSchema"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "vals",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "List"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Closure": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Closure"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Error": {
+              "properties": {
+                "error": true,
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                }
+              },
+              "required": [
+                "error",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Error"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Binary": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": {
+                  "items": {
+                    "format": "uint8",
+                    "maximum": 255,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Binary"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "CellPath": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "CellPath"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Custom": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                },
+                "val": true
+              },
+              "required": [
+                "val",
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Custom"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "Nothing": {
+              "properties": {
+                "span": {
+                  "$ref": "#/$defs/SpanSchema"
+                }
+              },
+              "required": [
+                "span"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Nothing"
+          ],
+          "type": "object"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "plugin_input": {
+      "$ref": "#/$defs/PluginInputSchema"
+    },
+    "plugin_output": {
+      "$ref": "#/$defs/PluginOutputSchema"
+    },
+    "protocol_info": {
+      "$ref": "#/$defs/ProtocolInfoSchema"
+    }
+  },
+  "required": [
+    "plugin_input",
+    "plugin_output",
+    "protocol_info"
+  ],
+  "title": "PluginProtocolSchemaDocument",
+  "type": "object"
+}

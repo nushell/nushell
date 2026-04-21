@@ -2,7 +2,7 @@
 use crate::shell_error::generic::GenericError;
 use crate::{FromValue, IntoValue, ShellError, SpanId, Value, record};
 use miette::SourceSpan;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, ser::SerializeStruct};
 use std::{fmt, ops::Deref};
 
 pub trait GetSpan {
@@ -10,7 +10,7 @@ pub trait GetSpan {
 }
 
 /// A spanned area of interest, generic over what kind of thing is of interest
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Spanned<T> {
     pub item: T,
     pub span: Span,
@@ -137,7 +137,7 @@ impl<T> IntoSpanned for T {
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
-#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
@@ -329,6 +329,74 @@ impl Span {
             .into_iter()
             .reduce(Self::merge)
             .unwrap_or(Self::unknown())
+    }
+}
+
+#[derive(Deserialize)]
+struct SpannedDef<T> {
+    item: T,
+    span: Span,
+}
+
+#[derive(Deserialize)]
+struct SpanDef {
+    start: usize,
+    end: usize,
+}
+
+impl<T> Serialize for Spanned<T>
+where
+    T: Serialize,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Spanned", 2)?;
+        state.serialize_field("item", &self.item)?;
+        state.serialize_field("span", &self.span)?;
+        state.end()
+    }
+}
+
+impl<'de, T> Deserialize<'de> for Spanned<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let def = SpannedDef::deserialize(deserializer)?;
+        Ok(Self {
+            item: def.item,
+            span: def.span,
+        })
+    }
+}
+
+impl Serialize for Span {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("Span", 2)?;
+        state.serialize_field("start", &self.start)?;
+        state.serialize_field("end", &self.end)?;
+        state.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for Span {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let def = SpanDef::deserialize(deserializer)?;
+        Ok(Self {
+            start: def.start,
+            end: def.end,
+        })
     }
 }
 

@@ -1,6 +1,5 @@
 use nu_protocol::ShellError;
 use semver::Prerelease;
-use serde::{Deserialize, Serialize};
 
 /// The canonical version of the plugin protocol.
 ///
@@ -13,7 +12,7 @@ pub const PLUGIN_PROTOCOL_VERSION: &str = "0.93.0";
 /// Protocol information, sent as a `Hello` message on initialization. This determines the
 /// compatibility of the plugin and engine. They are considered to be compatible if the lower
 /// version is semver compatible with the higher one.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ProtocolInfo {
     /// The name of the protocol being implemented. Only one protocol is supported. This field
     /// can be safely ignored, because not matching is a deserialization error
@@ -76,10 +75,9 @@ impl ProtocolInfo {
 }
 
 /// Indicates the protocol in use. Only one protocol is supported.
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub enum Protocol {
     /// Serializes to the value `"nu-plugin"`
-    #[serde(rename = "nu-plugin")]
     #[default]
     NuPlugin,
 }
@@ -90,8 +88,7 @@ pub enum Protocol {
 ///
 /// Optional features should not be used by the protocol if they are not present in the
 /// [`ProtocolInfo`] sent by the other side.
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "name")]
+#[derive(Debug, Clone)]
 pub enum Feature {
     /// The plugin supports running with a local socket passed via `--local-socket` instead of
     /// stdio.
@@ -100,7 +97,6 @@ pub enum Feature {
     /// A feature that was not recognized on deserialization. Attempting to serialize this feature
     /// is an error. Matching against it may only be used if necessary to determine whether
     /// unsupported features are present.
-    #[serde(other, skip_serializing)]
     Unknown,
 }
 
