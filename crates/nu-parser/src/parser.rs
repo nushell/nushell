@@ -5474,6 +5474,10 @@ pub fn parse_value(
         return garbage(working_set, span);
     }
 
+    if let SyntaxShape::OneOf(possible_shapes) = shape {
+        return parse_oneof(working_set, &[span], &mut 0, possible_shapes, false);
+    }
+
     match bytes[0] {
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
@@ -5487,15 +5491,7 @@ pub fn parse_value(
             | SyntaxShape::String
             | SyntaxShape::GlobPattern
             | SyntaxShape::ExternalArgument => {}
-            SyntaxShape::OneOf(possible_shapes) => {
-                if !possible_shapes
-                    .iter()
-                    .any(|s| matches!(s, SyntaxShape::List(_)))
-                {
-                    working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                    return Expression::garbage(working_set, span);
-                }
-            }
+
             _ => {
                 working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
                 return Expression::garbage(working_set, span);
@@ -5564,9 +5560,6 @@ pub fn parse_value(
         }
 
         SyntaxShape::ExternalArgument => parse_regular_external_arg(working_set, span),
-        SyntaxShape::OneOf(possible_shapes) => {
-            parse_oneof(working_set, &[span], &mut 0, possible_shapes, false)
-        }
 
         SyntaxShape::Any => {
             if bytes.starts_with(b"[") {
