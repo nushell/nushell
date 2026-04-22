@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::{Arguments, Debug, Display},
+    fmt::{Arguments, Display},
     hash::Hash,
     ops::Deref,
 };
