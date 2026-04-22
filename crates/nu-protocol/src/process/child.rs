@@ -194,15 +194,13 @@ impl ExitStatusFuture {
     }
 }
 
+#[derive(derive_more::Debug)]
 pub enum ChildPipe {
+    #[debug("ChildPipe::Pipe")]
     Pipe(PipeReader),
-    Tee(Box<dyn Read + Send + 'static>),
-}
 
-impl Debug for ChildPipe {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ChildPipe").finish()
-    }
+    #[debug("ChildPipe::Tee")]
+    Tee(Box<dyn Read + Send + 'static>),
 }
 
 impl From<PipeReader> for ChildPipe {
@@ -230,6 +228,8 @@ pub struct ChildProcess {
 }
 
 /// A wrapper for a closure that runs once the shell finishes waiting on the process.
+#[derive(derive_more::Debug)]
+#[debug("<wait_callback>")]
 pub struct PostWaitCallback(pub Box<dyn FnOnce(ForegroundWaitStatus) + Send>);
 
 impl PostWaitCallback {
@@ -274,12 +274,6 @@ impl PostWaitCallback {
                 }
             }
         })
-    }
-}
-
-impl Debug for PostWaitCallback {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<wait_callback>")
     }
 }
 

@@ -4767,6 +4767,7 @@ name = "nu-test-support"
 version = "0.112.3"
 dependencies = [
  "bytes",
+ "derive_more 2.1.1",
  "gatekeeper",
  "itertools 0.14.0",
  "kitest",
@@ -4812,6 +4813,7 @@ dependencies = [
  "byteyarn",
  "crossterm",
  "crossterm_winapi",
+ "derive_more 2.1.1",
  "fancy-regex",
  "lean_string",
  "log",

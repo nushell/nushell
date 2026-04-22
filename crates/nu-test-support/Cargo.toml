@@ -40,6 +40,7 @@ nu-std = { path = "../nu-std", version = "0.112.3", default-features = false }
 nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.112.3", default-features = false }
 nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
 
+derive_more = { workspace = true }
 itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }

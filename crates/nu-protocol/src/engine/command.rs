@@ -8,7 +8,7 @@ use crate::{
 use std::{
     any::Any,
     borrow::Cow,
-    fmt::{self, Debug, Display},
+    fmt::{Debug, Display},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
