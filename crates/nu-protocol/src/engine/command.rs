@@ -5,7 +5,11 @@ use crate::{
     Alias, BlockId, DeprecationEntry, DynamicCompletionCallRef, DynamicSuggestion, Example,
     OutDest, PipelineData, ShellError, Signature, Span, Value, engine::Call,
 };
-use std::{any::Any, borrow::Cow, fmt::Display};
+use std::{
+    any::Any,
+    borrow::Cow,
+    fmt::{self, Debug, Display},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgType<'a> {

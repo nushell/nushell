@@ -1717,6 +1717,7 @@ dependencies = [
  "quote",
  "rustc_version",
  "syn 2.0.117",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -4674,6 +4675,7 @@ dependencies = [
  "bytes",
  "chrono",
  "chrono-humanize",
+ "derive_more 2.1.1",
  "dirs",
  "dirs-sys",
  "fancy-regex",
