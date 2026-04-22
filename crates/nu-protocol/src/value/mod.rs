@@ -280,13 +280,9 @@ impl Clone for Value {
 
 /// Describes the type of mutation to perform when traversing a cell path.
 enum CellPathMutation {
-    /// Set the value whether or not the path exists (create intermediaries).
     Upsert,
-    /// Set the value only if the path already exists.
     Update,
-    /// Set the value only if the path does NOT exist (error on existing columns).
     Insert { head_span: Span },
-    /// Remove the element identified by `member` once we reach the parent.
     Remove { member: PathMember },
 }
 
@@ -1283,6 +1279,7 @@ impl Value {
             },
         )
     }
+
     pub fn insert_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -1292,7 +1289,7 @@ impl Value {
         self.mutate_data_at_cell_path(cell_path, new_val, &CellPathMutation::Insert { head_span })
     }
 
-    /// Remove a single member from this value (the leaf operation for `CellPathMutation::Remove`).
+    /// Leaf operation for `CellPathMutation::Remove`
     fn remove_member(&mut self, member: &PathMember) -> Result<(), ShellError> {
         let v_span = self.span();
         match member {
@@ -1377,6 +1374,55 @@ impl Value {
         }
     }
 
+    fn mutate_record_at_string_member(
+        record: &mut Record,
+        member: &PathMember,
+        src_span: Span,
+        path: &[PathMember],
+        new_val: Value,
+        action: &CellPathMutation,
+    ) -> Result<(), ShellError> {
+        let PathMember::String {
+            val: col_name,
+            span,
+            casing,
+            optional,
+        } = member
+        else {
+            return Err(ShellError::NushellFailed {
+                msg: "mutate_record_at_string_member called with non-String PathMember".into(),
+            });
+        };
+        if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
+            if path.is_empty() && matches!(action, CellPathMutation::Insert { .. }) {
+                return Err(ShellError::ColumnAlreadyExists {
+                    col_name: col_name.to_owned(),
+                    span: *span,
+                    src_span,
+                });
+            }
+            val.mutate_data_at_cell_path(path, new_val, action)
+        } else {
+            match action {
+                CellPathMutation::Update | CellPathMutation::Remove { .. } => {
+                    if !optional {
+                        return Err(ShellError::CantFindColumn {
+                            col_name: col_name.to_owned(),
+                            span: Some(*span),
+                            src_span,
+                        });
+                    }
+                    Ok(())
+                }
+                _ => {
+                    let new_col = Value::with_data_at_cell_path(path, new_val)?;
+                    record.push(col_name, new_col);
+                    Ok(())
+                }
+            }
+        }
+    }
+
     fn mutate_data_at_cell_path(
         &mut self,
         cell_path: &[PathMember],
@@ -1398,8 +1444,8 @@ impl Value {
             PathMember::String {
                 val: col_name,
                 span,
-                casing,
                 optional,
+                ..
             } => match self {
                 Value::List { vals, .. } => {
                     if !matches!(action, CellPathMutation::Remove { .. })
@@ -1411,43 +1457,14 @@ impl Value {
                             let v_span = val.span();
                             match val {
                                 Value::Record { val: record, .. } => {
-                                    let record = record.to_mut();
-                                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
-                                        if path.is_empty()
-                                            && matches!(action, CellPathMutation::Insert { .. })
-                                        {
-                                            return Err(ShellError::ColumnAlreadyExists {
-                                                col_name: col_name.clone(),
-                                                span: *span,
-                                                src_span: v_span,
-                                            });
-                                        }
-                                        val.mutate_data_at_cell_path(
-                                            path,
-                                            new_val.clone(),
-                                            action,
-                                        )?;
-                                    } else {
-                                        match action {
-                                            CellPathMutation::Update
-                                            | CellPathMutation::Remove { .. } => {
-                                                if !*optional {
-                                                    return Err(ShellError::CantFindColumn {
-                                                        col_name: col_name.clone(),
-                                                        span: Some(*span),
-                                                        src_span: v_span,
-                                                    });
-                                                }
-                                            }
-                                            _ => {
-                                                let new_col = Value::with_data_at_cell_path(
-                                                    path,
-                                                    new_val.clone(),
-                                                )?;
-                                                record.push(col_name, new_col);
-                                            }
-                                        }
-                                    }
+                                    Self::mutate_record_at_string_member(
+                                        record.to_mut(),
+                                        member,
+                                        v_span,
+                                        path,
+                                        new_val.clone(),
+                                        action,
+                                    )?;
                                 }
                                 Value::Error { error, .. } => return Err(*error.clone()),
                                 v => match action {
@@ -1481,33 +1498,14 @@ impl Value {
                     }
                 }
                 Value::Record { val: record, .. } => {
-                    let record = record.to_mut();
-                    if let Some(val) = record.cased_mut(*casing).get_mut(col_name) {
-                        if path.is_empty() && matches!(action, CellPathMutation::Insert { .. }) {
-                            return Err(ShellError::ColumnAlreadyExists {
-                                col_name: col_name.clone(),
-                                span: *span,
-                                src_span: v_span,
-                            });
-                        }
-                        val.mutate_data_at_cell_path(path, new_val, action)?;
-                    } else {
-                        match action {
-                            CellPathMutation::Update | CellPathMutation::Remove { .. } => {
-                                if !*optional {
-                                    return Err(ShellError::CantFindColumn {
-                                        col_name: col_name.clone(),
-                                        span: Some(*span),
-                                        src_span: v_span,
-                                    });
-                                }
-                            }
-                            _ => {
-                                let new_col = Value::with_data_at_cell_path(path, new_val.clone())?;
-                                record.push(col_name, new_col);
-                            }
-                        }
-                    }
+                    Self::mutate_record_at_string_member(
+                        record.to_mut(),
+                        member,
+                        v_span,
+                        path,
+                        new_val,
+                        action,
+                    )?;
                 }
                 Value::Error { error, .. } => return Err(*error.clone()),
                 v => match action {
