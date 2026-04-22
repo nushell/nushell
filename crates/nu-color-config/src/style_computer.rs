@@ -6,10 +6,7 @@ use nu_protocol::{
     engine::{Closure, EngineState, Stack},
     report_shell_error,
 };
-use std::{
-    collections::HashMap,
-    fmt::Debug,
-};
+use std::{collections::HashMap, fmt::Debug};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
