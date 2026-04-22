@@ -4148,7 +4148,7 @@ mod tests {
     mod at_cell_path {
         use crate::casing::Casing;
 
-        use crate::{IntoValue, Span};
+        use crate::{IntoValue, ShellError, Span};
 
         use super::super::PathMember;
         use super::*;
@@ -4298,6 +4298,418 @@ mod tests {
                     ])
                 )
                 .into_value(span)
+            );
+        }
+
+        #[test]
+        fn update_existing_record_field() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.update_data_at_cell_path(
+                &[PathMember::test_string(
+                    "a".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(val, record!("a" => Value::test_int(2)).into_value(span));
+        }
+
+        #[test]
+        fn update_existing_list_element() {
+            let mut val = Value::test_list(vec![Value::test_int(10), Value::test_int(20)]);
+            let res = val
+                .update_data_at_cell_path(&[PathMember::test_int(1, false)], Value::test_int(99));
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![Value::test_int(10), Value::test_int(99)])
+            );
+        }
+
+        #[test]
+        fn update_missing_record_field_errors() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.update_data_at_cell_path(
+                &[PathMember::test_string(
+                    "b".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+            );
+            assert!(matches!(res, Err(ShellError::CantFindColumn { .. })));
+        }
+
+        #[test]
+        fn update_out_of_bounds_list_errors() {
+            let mut val = Value::test_list(vec![Value::test_int(1)]);
+            let res =
+                val.update_data_at_cell_path(&[PathMember::test_int(5, false)], Value::test_int(2));
+            assert!(matches!(res, Err(ShellError::AccessBeyondEnd { .. })));
+        }
+
+        #[test]
+        fn update_empty_list_errors() {
+            let mut val = Value::test_list(vec![]);
+            let res =
+                val.update_data_at_cell_path(&[PathMember::test_int(0, false)], Value::test_int(2));
+            assert!(matches!(res, Err(ShellError::AccessEmptyContent { .. })));
+        }
+
+        #[test]
+        fn update_optional_missing_field_ok() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.update_data_at_cell_path(
+                &[PathMember::test_string("z".into(), true, Casing::Sensitive)],
+                Value::test_int(2),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(val, record!("a" => Value::test_int(1)).into_value(span));
+        }
+
+        #[test]
+        fn update_optional_out_of_bounds_ok() {
+            let mut val = Value::test_list(vec![Value::test_int(1)]);
+            let res =
+                val.update_data_at_cell_path(&[PathMember::test_int(5, true)], Value::test_int(2));
+            assert_eq!(res, Ok(()));
+            assert_eq!(val, Value::test_list(vec![Value::test_int(1)]));
+        }
+
+        #[test]
+        fn update_nested_record_field() {
+            let span = Span::test_data();
+            let mut val = record!(
+                "a" => record!("b" => Value::test_int(1)).into_value(span)
+            )
+            .into_value(span);
+            let res = val.update_data_at_cell_path(
+                &[
+                    PathMember::test_string("a".into(), false, Casing::Sensitive),
+                    PathMember::test_string("b".into(), false, Casing::Sensitive),
+                ],
+                Value::test_int(99),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                record!(
+                    "a" => record!("b" => Value::test_int(99)).into_value(span)
+                )
+                .into_value(span)
+            );
+        }
+
+        #[test]
+        fn update_in_table() {
+            let span = Span::test_data();
+            let mut val = Value::test_list(vec![
+                record!("x" => Value::test_int(1)).into_value(span),
+                record!("x" => Value::test_int(2)).into_value(span),
+            ]);
+            let res = val.update_data_at_cell_path(
+                &[PathMember::test_string(
+                    "x".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(0),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![
+                    record!("x" => Value::test_int(0)).into_value(span),
+                    record!("x" => Value::test_int(0)).into_value(span),
+                ])
+            );
+        }
+
+        #[test]
+        fn remove_record_column() {
+            let span = Span::test_data();
+            let mut val =
+                record!("a" => Value::test_int(1), "b" => Value::test_int(2)).into_value(span);
+            let res = val.remove_data_at_cell_path(&[PathMember::test_string(
+                "a".into(),
+                false,
+                Casing::Sensitive,
+            )]);
+            assert_eq!(res, Ok(()));
+            assert_eq!(val, record!("b" => Value::test_int(2)).into_value(span));
+        }
+
+        #[test]
+        fn remove_list_element() {
+            let mut val = Value::test_list(vec![
+                Value::test_int(10),
+                Value::test_int(20),
+                Value::test_int(30),
+            ]);
+            let res = val.remove_data_at_cell_path(&[PathMember::test_int(1, false)]);
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![Value::test_int(10), Value::test_int(30)])
+            );
+        }
+
+        #[test]
+        fn remove_nested_field() {
+            let span = Span::test_data();
+            let mut val = record!(
+                "a" => record!("b" => Value::test_int(1), "c" => Value::test_int(2)).into_value(span)
+            )
+            .into_value(span);
+            let res = val.remove_data_at_cell_path(&[
+                PathMember::test_string("a".into(), false, Casing::Sensitive),
+                PathMember::test_string("b".into(), false, Casing::Sensitive),
+            ]);
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                record!(
+                    "a" => record!("c" => Value::test_int(2)).into_value(span)
+                )
+                .into_value(span)
+            );
+        }
+
+        #[test]
+        fn remove_column_from_table() {
+            let span = Span::test_data();
+            let mut val = Value::test_list(vec![
+                record!("x" => Value::test_int(1), "y" => Value::test_int(2)).into_value(span),
+                record!("x" => Value::test_int(3), "y" => Value::test_int(4)).into_value(span),
+            ]);
+            let res = val.remove_data_at_cell_path(&[PathMember::test_string(
+                "x".into(),
+                false,
+                Casing::Sensitive,
+            )]);
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![
+                    record!("y" => Value::test_int(2)).into_value(span),
+                    record!("y" => Value::test_int(4)).into_value(span),
+                ])
+            );
+        }
+
+        #[test]
+        fn upsert_overwrite_existing_record_field() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.upsert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "a".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(99),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(val, record!("a" => Value::test_int(99)).into_value(span));
+        }
+
+        #[test]
+        fn upsert_overwrite_existing_list_element() {
+            let mut val = Value::test_list(vec![Value::test_int(10), Value::test_int(20)]);
+            let res = val
+                .upsert_data_at_cell_path(&[PathMember::test_int(0, false)], Value::test_int(99));
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![Value::test_int(99), Value::test_int(20)])
+            );
+        }
+
+        #[test]
+        fn upsert_creates_new_record_field() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.upsert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "b".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                record!("a" => Value::test_int(1), "b" => Value::test_int(2)).into_value(span)
+            );
+        }
+
+        #[test]
+        fn upsert_appends_to_list() {
+            let mut val = Value::test_list(vec![Value::test_int(1)]);
+            let res =
+                val.upsert_data_at_cell_path(&[PathMember::test_int(1, false)], Value::test_int(2));
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![Value::test_int(1), Value::test_int(2)])
+            );
+        }
+
+        #[test]
+        fn upsert_in_table() {
+            let span = Span::test_data();
+            let mut val = Value::test_list(vec![
+                record!("x" => Value::test_int(1)).into_value(span),
+                record!("x" => Value::test_int(2)).into_value(span),
+            ]);
+            let res = val.upsert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "x".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(0),
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![
+                    record!("x" => Value::test_int(0)).into_value(span),
+                    record!("x" => Value::test_int(0)).into_value(span),
+                ])
+            );
+        }
+
+        #[test]
+        fn insert_new_record_field() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "b".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                record!("a" => Value::test_int(1), "b" => Value::test_int(2)).into_value(span)
+            );
+        }
+
+        #[test]
+        fn insert_existing_record_field_errors() {
+            let span = Span::test_data();
+            let mut val = record!("a" => Value::test_int(1)).into_value(span);
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "a".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+                span,
+            );
+            assert!(matches!(res, Err(ShellError::ColumnAlreadyExists { .. })));
+        }
+
+        #[test]
+        fn insert_at_existing_list_index_shifts() {
+            let mut val = Value::test_list(vec![Value::test_int(1), Value::test_int(2)]);
+            let span = Span::test_data();
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_int(0, false)],
+                Value::test_int(99),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![
+                    Value::test_int(99),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ])
+            );
+        }
+
+        #[test]
+        fn insert_appends_at_end_of_list() {
+            let mut val = Value::test_list(vec![Value::test_int(1)]);
+            let span = Span::test_data();
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_int(1, false)],
+                Value::test_int(2),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![Value::test_int(1), Value::test_int(2)])
+            );
+        }
+
+        #[test]
+        fn insert_beyond_end_errors() {
+            let mut val = Value::test_list(vec![Value::test_int(1)]);
+            let span = Span::test_data();
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_int(5, false)],
+                Value::test_int(2),
+                span,
+            );
+            assert!(matches!(
+                res,
+                Err(ShellError::InsertAfterNextFreeIndex { .. })
+            ));
+        }
+
+        #[test]
+        fn insert_existing_column_in_table_errors() {
+            let span = Span::test_data();
+            let mut val =
+                Value::test_list(vec![record!("x" => Value::test_int(1)).into_value(span)]);
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "x".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(0),
+                span,
+            );
+            assert!(matches!(res, Err(ShellError::ColumnAlreadyExists { .. })));
+        }
+
+        #[test]
+        fn insert_new_column_in_table() {
+            let span = Span::test_data();
+            let mut val =
+                Value::test_list(vec![record!("x" => Value::test_int(1)).into_value(span)]);
+            let res = val.insert_data_at_cell_path(
+                &[PathMember::test_string(
+                    "y".into(),
+                    false,
+                    Casing::Sensitive,
+                )],
+                Value::test_int(2),
+                span,
+            );
+            assert_eq!(res, Ok(()));
+            assert_eq!(
+                val,
+                Value::test_list(vec![
+                    record!("x" => Value::test_int(1), "y" => Value::test_int(2)).into_value(span),
+                ])
             );
         }
     }
