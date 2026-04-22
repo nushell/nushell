@@ -25,7 +25,7 @@ alias "random choice" = choice
 }
 export def choice [
 	n?: int  # number of items to sample
-]: list -> list {
+]: [list -> list, list -> any] {
 	# XXX: this collects the stream
 	let input = $in
 
