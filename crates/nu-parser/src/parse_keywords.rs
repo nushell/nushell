@@ -20,7 +20,7 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
+    engine::{CommandType, DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
     shell_error::generic::GenericError,
@@ -253,7 +253,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         signature.allows_unknown_args = true;
     }
 
-    let decl = signature.predeclare();
+    let command_type = if def_type_name == b"extern" {
+        CommandType::External
+    } else {
+        CommandType::Custom
+    };
+
+    let decl = signature.predeclare_with_command_type(command_type);
 
     if working_set.add_predecl(decl).is_some() {
         working_set.error(ParseError::DuplicateCommandDef(spans[name_pos]));

@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 use nu_protocol::{
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
     engine::{Call, Closure, Command, EngineState, Stack},
@@ -49,7 +49,12 @@ impl Command for MetadataAccess {
         }
 
         let eval = get_eval_block_with_early_return(engine_state);
-        eval(engine_state, &mut callee_stack, block, input).map(|p| p.body)
+        let result = eval(engine_state, &mut callee_stack, block, input).map(|p| p.body);
+
+        // Merge the block's environment to the current stack
+        redirect_env(engine_state, caller_stack, &callee_stack);
+
+        result
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

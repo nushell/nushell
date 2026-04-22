@@ -18,8 +18,9 @@ miette = { workspace = true }
 nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["plugin"] }
 nu-engine = { path = "../nu-engine", version = "0.112.3" }
 nu-parser = { path = "../nu-parser", version = "0.112.3" }
+nuon = { path = "../nuon", version = "0.112.3" }
 
-rmcp = { version = "1.3.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
+rmcp = { version = "1.5.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
 schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
@@ -30,7 +31,6 @@ tracing = { version = "0.1.44", features = ["log"] }
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 bytes = { workspace = true }
 indoc = "2.0.7"
-nuon = { path = "../nuon", version = "0.112.3" }
 chrono = { workspace = true }
 
 [features]
