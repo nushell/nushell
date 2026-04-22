@@ -71,6 +71,7 @@ impl PluginCommand for ExprCol {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -86,6 +87,7 @@ impl PluginCommand for ExprCol {
                             Column::new("c".to_string(), vec![Value::test_float(6.6)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -102,6 +104,7 @@ impl PluginCommand for ExprCol {
                             Column::new("c".to_string(), vec![Value::test_float(3.3)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -134,9 +137,9 @@ impl PluginCommand for ExprCol {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let mut names: Vec<String> = vec![call.req(0)?];
         names.extend(call.rest(1)?);
 

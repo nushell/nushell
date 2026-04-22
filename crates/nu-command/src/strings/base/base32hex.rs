@@ -1,6 +1,7 @@
 use nu_engine::command_prelude::*;
 
-const EXTRA_USAGE: &str = r"This command uses an alternative Base32 alphabet, defined in RFC 4648, section 7.
+const EXTRA_USAGE: &str =
+    "This command uses an alternative Base32 alphabet, defined in RFC 4648, section 7.
 
 Note this command will collect stream input.";
 
@@ -114,7 +115,7 @@ impl Command for EncodeBase32Hex {
         vec![
             Example {
                 description: "Encode a binary value",
-                example: r#"0x[57 6E AD] | encode base32hex"#,
+                example: "0x[57 6E AD] | encode base32hex",
                 result: Some(Value::test_string("ATNAQ===")),
             },
             Example {
@@ -171,11 +172,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples_decode() {
-        crate::test_examples(DecodeBase32Hex)
+    fn test_examples_decode() -> nu_test_support::Result {
+        nu_test_support::test().examples(DecodeBase32Hex)
     }
     #[test]
-    fn test_examples_encode() {
-        crate::test_examples(EncodeBase32Hex)
+    fn test_examples_encode() -> nu_test_support::Result {
+        nu_test_support::test().examples(EncodeBase32Hex)
     }
 }

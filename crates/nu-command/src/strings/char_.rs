@@ -1,23 +1,9 @@
 use indexmap::{IndexMap, indexmap};
 use nu_engine::command_prelude::*;
-
 use nu_protocol::{Parameter, Signals};
+use nu_utils::consts::{ENV_PATH_SEPARATOR_CHAR, LINE_SEPARATOR_STR};
 use std::collections::HashSet;
 use std::sync::LazyLock;
-
-// Character used to separate directories in a Path Environment variable on windows is ";"
-#[cfg(target_family = "windows")]
-const ENV_PATH_SEPARATOR_CHAR: char = ';';
-// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
-#[cfg(not(target_family = "windows"))]
-const ENV_PATH_SEPARATOR_CHAR: char = ':';
-
-// Character used to separate directories in a Path Environment variable on windows is ";"
-#[cfg(target_family = "windows")]
-const LINE_SEPARATOR_CHAR: &str = "\r\n";
-// Character used to separate directories in a Path Environment variable on linux/mac/unix is ":"
-#[cfg(not(target_family = "windows"))]
-const LINE_SEPARATOR_CHAR: char = '\n';
 
 #[derive(Clone)]
 pub struct Char;
@@ -66,9 +52,9 @@ static CHAR_MAP: LazyLock<IndexMap<&'static str, String>> = LazyLock::new(|| {
         "path_sep" => std::path::MAIN_SEPARATOR.to_string(),
         "psep" => std::path::MAIN_SEPARATOR.to_string(),
         "separator" => std::path::MAIN_SEPARATOR.to_string(),
-        "eol" => LINE_SEPARATOR_CHAR.to_string(),
-        "lsep" => LINE_SEPARATOR_CHAR.to_string(),
-        "line_sep" => LINE_SEPARATOR_CHAR.to_string(),
+        "eol" => LINE_SEPARATOR_STR.to_string(),
+        "lsep" => LINE_SEPARATOR_STR.to_string(),
+        "line_sep" => LINE_SEPARATOR_STR.to_string(),
         "esep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "env_sep" => ENV_PATH_SEPARATOR_CHAR.to_string(),
         "tilde" => '~'.to_string(),                                // ~
@@ -224,32 +210,32 @@ impl Command for Char {
         vec![
             Example {
                 description: "Output newline",
-                example: r#"char newline"#,
+                example: "char newline",
                 result: Some(Value::test_string("\n")),
             },
             Example {
                 description: "List available characters",
-                example: r#"char --list"#,
+                example: "char --list",
                 result: None,
             },
             Example {
                 description: "Output prompt character, newline and a hamburger menu character",
-                example: r#"(char prompt) + (char newline) + (char hamburger)"#,
+                example: "(char prompt) + (char newline) + (char hamburger)",
                 result: Some(Value::test_string("\u{25b6}\n\u{2261}")),
             },
             Example {
                 description: "Output Unicode character",
-                example: r#"char --unicode 1f378"#,
+                example: "char --unicode 1f378",
                 result: Some(Value::test_string("\u{1f378}")),
             },
             Example {
                 description: "Create Unicode from integer codepoint values",
-                example: r#"char --integer (0x60 + 1) (0x60 + 2)"#,
+                example: "char --integer (0x60 + 1) (0x60 + 2)",
                 result: Some(Value::test_string("ab")),
             },
             Example {
                 description: "Output multi-byte Unicode character",
-                example: r#"char --unicode 1F468 200D 1F466 200D 1F466"#,
+                example: "char --unicode 1F468 200D 1F466 200D 1F466",
                 result: Some(Value::test_string(
                     "\u{1F468}\u{200D}\u{1F466}\u{200D}\u{1F466}",
                 )),
@@ -456,9 +442,7 @@ mod tests {
     use super::Char;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-
-        test_examples(Char {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test().examples(Char)
     }
 }

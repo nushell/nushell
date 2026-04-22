@@ -76,12 +76,12 @@ drwxr-xr-x  4 root root 4.0K Mar 20 08:18 ~
 -rw-r--r--  1 root root 3.0K Mar 20 07:23 ~asdf
 ""#;
 
-    let expected = r#"[
+    let expected = "[
     ['column0', 'column1', 'column2', 'column3', 'column4', 'column5', 'column7', 'column8'];
     ['drwxr-xr-x', '2', 'root', 'root', '4.0K', 'Mar 20', '08:28', '='],
     ['drwxr-xr-x', '4', 'root', 'root', '4.0K', 'Mar 20', '08:18', '~'],
     ['-rw-r--r--',  '1', 'root', 'root', '3.0K', 'Mar 20', '07:23', '~asdf']
-]"#;
+]";
 
     let range = "5..6";
     let cmd = format!("({body} | detect columns -c {range} -s 1 --no-headers) == {expected}",);
@@ -121,7 +121,7 @@ fn detect_columns_preserves_original_content_on_mismatch() {
 
     // All rows should be in the "data" column when detection fails (6 lines total)
     let out = nu!(format!(
-        r#"{} | detect columns | get data | length"#,
+        "{} | detect columns | get data | length",
         iptab_sample
     ));
     assert_eq!(out.out, "6", "All rows should be in the data column");
@@ -170,7 +170,7 @@ val1 val2 val3""#;
     // Without flag: separator line causes column mismatch, so all rows go to "data"
     // (including the first line which is used as header attempt)
     let out = nu!(format!(
-        r#"{} | detect columns | get data? | length"#,
+        "{} | detect columns | get data? | length",
         simple_sample
     ));
     // Header is "col1 col2 col3" (3 cols), separator is "----+----+----" (1 col),
@@ -182,7 +182,7 @@ val1 val2 val3""#;
 
     // With --ignore-box-chars flag: the separator line is ignored
     let out2 = nu!(format!(
-        r#"{} | detect columns --ignore-box-chars | get col1 | first"#,
+        "{} | detect columns --ignore-box-chars | get col1 | first",
         simple_sample
     ));
     assert_eq!(
@@ -196,8 +196,9 @@ val1 val2 val3""#;
 // The command should complete successfully and provide the expected field.
 #[test]
 fn detect_columns_no_panic_with_multibyte_data() {
-    let input = r#"Name                   Id                                 Version      Match     Source
-katharsis              arghena.katharsis                  1.0.0-canar… Tag: rust winget"#;
+    let input =
+        "Name                   Id                                 Version      Match     Source
+katharsis              arghena.katharsis                  1.0.0-canar… Tag: rust winget";
 
     let out = nu!(format!(
         "$'{input}' | detect columns --ignore-box-chars | get Version | first"

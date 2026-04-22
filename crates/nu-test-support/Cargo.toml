@@ -2,10 +2,11 @@
 authors = ["The Nushell Project Developers"]
 description = "Support for writing Nushell tests"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-test-support"
-edition = "2024"
+edition.workspace = true
+rust-version.workspace = true
 license = "MIT"
 name = "nu-test-support"
-version = "0.111.1"
+version = "0.112.3"
 
 [lib]
 doctest = false
@@ -14,26 +15,50 @@ bench = false
 [lints]
 workspace = true
 
-[dependencies]
-nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.111.1", default-features = false }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1", default-features = false }
-nu-command = { path = "../nu-command", version = "0.111.1", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.111.1", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.111.1", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.111.1", default-features = false }
-nu-parser = { path = "../nu-parser", version = "0.111.1", default-features = false }
-nu-path = { path = "../nu-path", version = "0.111.1", default-features = false }
-nu-protocol = { path = "../nu-protocol", version = "0.111.1", default-features = false }
-nu-std = { path = "../nu-std", version = "0.111.1", default-features = false }
-nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.111.1", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.111.1", default-features = false }
+[features]
+os = [
+  "nu-cmd-lang/os",
+  "nu-command/os",
+  "nu-engine/os",
+  "nu-protocol/os",
+  "nu-utils/os",
+]
+network = ["nu-command/network"]
+rustls-tls = ["nu-command/rustls-tls"]
 
+[dependencies]
+nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.112.3", default-features = false }
+nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.3", default-features = false }
+nu-command = { path = "../nu-command", version = "0.112.3", default-features = false }
+nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3", default-features = false }
+nu-glob = { path = "../nu-glob", version = "0.112.3", default-features = false }
+nu-parser = { path = "../nu-parser", version = "0.112.3", default-features = false }
+nu-path = { path = "../nu-path", version = "0.112.3", default-features = false }
+nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
+nu-std = { path = "../nu-std", version = "0.112.3", default-features = false }
+nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.112.3", default-features = false }
+nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+
+derive_more = { workspace = true }
 itertools = { workspace = true }
 kitest = { workspace = true }
 lexopt = { workspace = true }
 linkme = { workspace = true }
 nu-ansi-term = { workspace = true }
 num-format = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 which = { workspace = true }
+
+[dev-dependencies]
+# doc tests use the "os" feature of `nu-command`
+nu-cmd-lang = { path = "../nu-cmd-lang", features = ["default"] }
+nu-command = { path = "../nu-command", features = ["default"] }
+
+bytes = { workspace = true }
+rstest = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+gatekeeper = { workspace = true }

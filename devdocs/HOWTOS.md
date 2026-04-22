@@ -13,11 +13,11 @@
     - if not check if it would be responsible to use the older version for your requirements
     - else point out the future work necessary to reconcile this and add a duplication
     - (you can check with `cargo tree --duplicates`)
-- Git dependencies can not be published as a release, thus are only to be used to to pull in critical new development/fixes on an existing dependencies. (PRs including a new dependency as a git dependency **will be postponed** until a version is released on crates.io!)
+- Git dependencies cannot be published to crates.io, so they should only be used to pull in critical new development/fixes for an existing dependency. (PRs including a new dependency as a git dependency **will be postponed** until a version is released on crates.io!)
 - Specify the full semver string of the version you added and tested ("major.minor.patch") this ensures if cargo would downgrade the version, no features or critical bug fixes are missing.
 - try to specify the minimal required set of [features](https://doc.rust-lang.org/cargo/reference/features.html)
 - **If** the dependencies is used in more than one crate in the workspace add the version specification to the [`workspace.dependencies`](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#inheriting-a-dependency-from-a-workspace) in the root `Cargo.toml` and simply inherit it with `cratename = { workspace = true }`
-- (**If adding a dependency referring to a crate inside the nushell workspace**) make sure the addition does not cause a circular dependency structure. Otherwise it can not be published. (We also consider the `dev-dependencies` with our [script to check the crate release order](https://github.com/nushell/nu_scripts/blame/main/make_release/nu_deps.nu) )
+- (**If adding a dependency referring to a crate inside the nushell workspace**) make sure the addition does not cause a circular dependency structure. Otherwise it cannot be published to crates.io. (We also consider the `dev-dependencies` with our [script to check the crate release order](https://github.com/nushell/nu_scripts/blame/main/make_release/nu_deps.nu) )
 
 
 ## Creating a new crate

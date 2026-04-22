@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::{ParseError, ShellError, Spanned};
+use crate::{ParseError, ShellError, Spanned, shell_error::generic::GenericError};
 
 /// Error when an invalid plugin filename was encountered.
 #[derive(Debug, Clone)]
@@ -24,13 +24,14 @@ impl From<Spanned<InvalidPluginFilename>> for ParseError {
 
 impl From<Spanned<InvalidPluginFilename>> for ShellError {
     fn from(error: Spanned<InvalidPluginFilename>) -> ShellError {
-        ShellError::GenericError {
-            error: format!("Invalid plugin filename: {}", error.item.0.display()),
-            msg: "not a valid plugin filename".into(),
-            span: Some(error.span),
-            help: Some("valid Nushell plugin filenames must start with `nu_plugin_`".into()),
-            inner: vec![],
-        }
+        ShellError::Generic(
+            GenericError::new(
+                format!("Invalid plugin filename: {}", error.item.0.display()),
+                "not a valid plugin filename",
+                error.span,
+            )
+            .with_help("valid Nushell plugin filenames must start with `nu_plugin_`"),
+        )
     }
 }
 
@@ -104,7 +105,7 @@ impl PluginIdentity {
     #[cfg(not(windows))]
     #[doc(hidden)]
     pub fn new_fake(name: &str) -> PluginIdentity {
-        PluginIdentity::new(format!(r"/fake/path/nu_plugin_{name}"), None)
+        PluginIdentity::new(format!("/fake/path/nu_plugin_{name}"), None)
             .expect("fake plugin identity path is invalid")
     }
 

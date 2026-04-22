@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use std::path::PathBuf;
 use uucore::{localized_help_template, translate};
 
@@ -115,13 +116,10 @@ impl Command for Mktemp {
                 .into_string()
                 .map_err(|_| ShellError::NonUtf8 { span })?,
             Err(error) => {
-                return Err(ShellError::GenericError {
-                    error: format!("{error}"),
-                    msg: translate!(&error.to_string()),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new_internal(
+                    format!("{error}"),
+                    translate!(&error.to_string()),
+                )));
             }
         };
         Ok(PipelineData::value(Value::string(res, span), None))

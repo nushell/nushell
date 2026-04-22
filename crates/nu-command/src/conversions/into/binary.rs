@@ -36,11 +36,12 @@ impl Command for IntoBinary {
             ])
             .allow_variants_without_examples(true) // TODO: supply exhaustive examples
             .switch("compact", "Output without padding zeros.", Some('c'))
-            .named(
-                "endian",
-                SyntaxShape::String,
-                "Byte encode endian. Does not affect string, date or binary. In containers, only individual elements are affected. Available options: native(default), little, big.",
-                Some('e'),
+            .param(
+                Flag::new("endian")
+                    .short('e')
+                    .arg(SyntaxShape::String)
+                    .desc("Byte encode endian. Does not affect string, date or binary. In containers, only individual elements are affected. Available options: native(default), little, big.")
+                    .completion(Completion::new_list(&["native", "little", "big"])),
             )
             .rest(
                 "rest",
@@ -286,10 +287,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(IntoBinary {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(IntoBinary)
     }
 
     #[rstest]

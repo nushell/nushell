@@ -1,5 +1,6 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Reduce;
@@ -48,7 +49,7 @@ impl Command for Reduce {
             },
             Example {
                 example: "[ 1 2 3 4 ] | reduce {|it, acc| $acc - $it }",
-                description: r#"`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4)."#,
+                description: "`reduce` accumulates value from left to right, equivalent to (((1 - 2) - 3) - 4).",
                 result: Some(Value::test_int(-8)),
             },
             Example {
@@ -82,7 +83,7 @@ impl Command for Reduce {
                 result: Some(Value::test_string("StrStrStr")),
             },
             Example {
-                example: r#"[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}"#,
+                example: "[{a: 1} {b: 2} {c: 3}] | reduce {|it| merge $it}",
                 description: "Merge multiple records together, making use of the fact that the accumulated value is also supplied as pipeline input to the closure.",
                 result: Some(Value::test_record(record!(
                     "a" => Value::test_int(1),
@@ -106,15 +107,9 @@ impl Command for Reduce {
 
         let mut iter = input.into_iter();
 
-        let mut acc = fold
-            .or_else(|| iter.next())
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Expected input".into(),
-                msg: "needs input".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![],
-            })?;
+        let mut acc = fold.or_else(|| iter.next()).ok_or_else(|| {
+            ShellError::Generic(GenericError::new("Expected input", "needs input", head))
+        })?;
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -136,9 +131,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::{Merge, test_examples_with_commands};
-
-        test_examples_with_commands(Reduce {}, &[&Merge])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Reduce)
     }
 }

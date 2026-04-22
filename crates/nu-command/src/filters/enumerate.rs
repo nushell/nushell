@@ -25,7 +25,7 @@ impl Command for Enumerate {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Add an index to each element of a list.",
-            example: r#"[a, b, c] | enumerate "#,
+            example: "[a, b, c] | enumerate ",
             result: Some(Value::test_list(vec![
                 Value::test_record(record! {
                     "index" =>  Value::test_int(0),
@@ -48,10 +48,10 @@ impl Command for Enumerate {
         engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         Ok(input
             .into_iter()
@@ -74,9 +74,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Enumerate {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Enumerate)
     }
 }

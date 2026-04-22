@@ -3,12 +3,12 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open appveyor.yml
         | to yaml
         | from yaml
         | get environment.global.PROJECT_NAME
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -18,12 +18,12 @@ fn table_to_yaml_text_and_from_yaml_text_back_into_table() -> Result {
 
 #[test]
 fn table_to_yml_text_and_from_yml_text_back_into_table() -> Result {
-    let code = r#"
+    let code = "
         open appveyor.yml
         | to yml
         | from yml
         | get environment.global.PROJECT_NAME
-    "#;
+    ";
 
     test()
         .cwd("tests/fixtures/formats")
@@ -59,11 +59,34 @@ fn convert_dict_to_yaml_with_integer_floats_key() -> Result {
 }
 
 #[test]
-#[ignore]
-fn convert_bool_to_yaml_in_yaml_spec_1_2() -> Result {
-    let code = "[y n no On OFF True true false] | to yaml";
+fn convert_yaml_11_booleans_are_quoted_in_output() -> Result {
+    let code = "[y n no On OFF] | to yaml";
 
     test()
         .run(code)
-        .expect_value_eq("- 'y'- 'n'- 'no'- 'On'- 'OFF'- 'True'- true- false")
+        .expect_value_eq("- 'y'\n- 'n'\n- 'no'\n- 'On'\n- 'OFF'\n")
+}
+
+#[test]
+fn convert_issue_16072_strings_are_quoted_in_output() -> Result {
+    let code = r#"
+        '{
+            "value": "off",
+            "path": "/dev/stdout",
+            "listen": "0.0.0.0:8444,0.0.0.0:8445 ssl"
+        }'
+        | from json
+        | to yaml
+    "#;
+
+    test().run(code).expect_value_eq(
+        "value: 'off'\npath: '/dev/stdout'\nlisten: '0.0.0.0:8444,0.0.0.0:8445 ssl'\n",
+    )
+}
+
+#[test]
+fn convert_strings_with_colons_are_not_corrupted() -> Result {
+    let code = "{addr: 'on:80'} | to yaml";
+
+    test().run(code).expect_value_eq("addr: 'on:80'\n")
 }

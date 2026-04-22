@@ -10,11 +10,11 @@ mod simple {
         Playground::setup("parse_test_simple_1", |dirs, sandbox| {
             sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
-                r#"
+                "
                     VAR1=Cheese
                     VAR2=JTParsed
                     VAR3=NushellSecretIngredient
-                "#,
+                ",
             )]);
 
             let actual = nu!(cwd: dirs.test(), r#"
@@ -38,6 +38,38 @@ mod simple {
             | get name.0
         "#);
         assert_eq!(actual.out, "123");
+    }
+
+    #[test]
+    fn char_lbrace_before_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""1234{56" | parse $'{a}(char lbrace){b}' | get a.0"#)
+            .expect_value_eq("1234")
+    }
+
+    #[test]
+    fn double_brace_at_end_matches_literal_brace_with_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{hello" | parse "{{foo}" | get foo.0"#)
+            .expect_value_eq("hello")
+    }
+
+    #[test]
+    fn double_brace_at_end_does_not_match_without_brace_in_input() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""hello" | parse "{{foo}" | length"#)
+            .expect_value_eq(0)
+    }
+
+    #[test]
+    fn double_brace_with_suffix_before_capture_stays_literal() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{foo}x123" | parse "{{foo}x{bar}" | get bar.0"#)
+            .expect_value_eq("123")
     }
 
     #[test]
@@ -99,10 +131,10 @@ mod regex {
     fn nushell_git_log_oneline<'a>() -> Vec<Stub<'a>> {
         vec![Stub::FileWithContentToBeTrimmed(
             "nushell_git_log_oneline.txt",
-            r#"
+            "
                 ae87582c Fix missing invocation errors (#1846)
                 b89976da let format access variables also (#1842)
-            "#,
+            ",
         )]
     }
 

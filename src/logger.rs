@@ -1,5 +1,6 @@
 use log::{Level, LevelFilter, SetLoggerError};
 use nu_protocol::ShellError;
+use nu_protocol::shell_error::generic::GenericError;
 use simplelog::{
     Color, ColorChoice, Config, ConfigBuilder, LevelPadding, TermLogger, TerminalMode, WriteLogger,
     format_description,
@@ -44,13 +45,10 @@ pub fn logger(
             let file_path = if let Some(p) = custom_file.as_ref() {
                 p
             } else {
-                return Err(ShellError::GenericError {
-                    error: "logger misconfigured".into(),
-                    msg: "log target is file but no path was provided".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new_internal(
+                    "logger misconfigured",
+                    "log target is file but no path was provided",
+                )));
             };
 
             let path = Path::new(file_path).to_path_buf();
@@ -134,23 +132,17 @@ pub fn configure(
     // Require an explicit log file when the target is "file".
     if let LogTarget::File = log_target {
         if custom_file.is_none() {
-            return Err(ShellError::GenericError {
-                error: "missing log file".into(),
-                msg: "--log-target file requires --log-file".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new_internal(
+                "missing log file",
+                "--log-target file requires --log-file",
+            )));
         }
     } else if custom_file.is_some() {
         // If the target isn't file, providing a custom log file makes no sense.
-        return Err(ShellError::GenericError {
-            error: "log file without file target".into(),
-            msg: "--log-file requires --log-target file".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new_internal(
+            "log file without file target",
+            "--log-file requires --log-target file",
+        )));
     }
 
     // Only TermLogger supports color output

@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Category, Example, PipelineData, ShellError, Signature, SyntaxShape};
 use polars::prelude::PlSmallStr;
 
@@ -56,9 +57,9 @@ impl PluginCommand for CutSeries {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, nu_protocol::LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(|e| e.into())
             .map(|pd| pd.set_metadata(metadata))
@@ -86,12 +87,12 @@ fn command(
     let include_breaks = call.has_flag("include_breaks")?;
 
     let new_series = polars_ops::series::cut(&series, breaks, labels, left_closed, include_breaks)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error cutting series".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error cutting series",
+                e.to_string(),
+                call.head,
+            ))
         })?;
 
     NuDataFrame::try_from_series(new_series, call.head)?.to_pipeline_data(plugin, engine, call.head)

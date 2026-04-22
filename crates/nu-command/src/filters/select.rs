@@ -3,7 +3,7 @@ use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing,
+    casing::Casing, shell_error::generic::GenericError,
 };
 use std::collections::BTreeSet;
 
@@ -57,9 +57,9 @@ impl Command for Select {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This differs from `get` in that, rather than accessing the given value in the data structure,
+        "This differs from `get` in that, rather than accessing the given value in the data structure,
 it removes all non-selected values from the structure. Hence, using `select` on a table will
-produce a table, a list will produce a list, and a record will produce a record."#
+produce a table, a list will produce a list, and a record will produce a record."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -207,7 +207,7 @@ produce a table, a list will produce a list, and a record will produce a record.
             },
             Example {
                 description: "Select multiple columns by spreading a list.",
-                example: r#"let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols"#,
+                example: "let cols = [name type]; [[name type size]; [Cargo.toml toml 1kb] [Cargo.lock toml 2kb]] | select ...$cols",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "name" => Value::test_string("Cargo.toml"),
@@ -227,7 +227,7 @@ fn select(
     engine_state: &EngineState,
     call_span: Span,
     columns: Vec<CellPath>,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
@@ -238,13 +238,11 @@ fn select(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Select only allows row numbers for rows".into(),
-                        msg: "extra after row number".into(),
-                        span: Some(*span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Select only allows row numbers for rows",
+                        "extra after row number",
+                        *span,
+                    )));
                 }
                 unique_rows.insert(*val);
             }
@@ -258,7 +256,7 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {
@@ -399,9 +397,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Select)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Select)
     }
 }

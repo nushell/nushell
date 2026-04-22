@@ -13,9 +13,10 @@ use nu_protocol::{
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, EditCommandDiscriminants, IdeMenu,
-    Keybindings, ListMenu, MenuBuilder, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
-    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection,
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
+    Keybindings, ListMenu, MenuBuilder, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
+    ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope, TextObjectType,
+    TraversalDirection, default_emacs_keybindings, default_vi_insert_keybindings,
+    default_vi_normal_keybindings,
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -757,21 +758,17 @@ fn add_keybinding(
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
 ) -> Result<(), ShellError> {
+    use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
     match &mode {
-        Value::String { val, .. } => match val.as_str() {
-            str if str.eq_ignore_ascii_case("emacs") => {
-                add_parsed_keybinding(emacs_keybindings, keybinding, config)
-            }
-            str if str.eq_ignore_ascii_case("vi_insert") => {
-                add_parsed_keybinding(insert_keybindings, keybinding, config)
-            }
-            str if str.eq_ignore_ascii_case("vi_normal") => {
-                add_parsed_keybinding(normal_keybindings, keybinding, config)
-            }
-            str => Err(ShellError::InvalidValue {
+        // When updating this implementation, also update `display_edit_mode` function
+        Value::String { val, .. } => match PEMD::from_str(val) {
+            Ok(PEMD::Emacs) => add_parsed_keybinding(emacs_keybindings, keybinding, config),
+            Ok(PEMD::ViInsert) => add_parsed_keybinding(insert_keybindings, keybinding, config),
+            Ok(PEMD::ViNormal) => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
                 valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
-                actual: format!("'{str}'"),
+                actual: format!("'{val}'"),
                 span,
             }),
         },
@@ -794,6 +791,16 @@ fn add_keybinding(
             actual: v.get_type(),
             span: v.span(),
         }),
+    }
+}
+
+// This is displayed in `keybindings list` command
+pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<String> {
+    match mode {
+        PromptEditModeDiscriminants::Emacs => Some("emacs".into()),
+        PromptEditModeDiscriminants::ViNormal => Some("vi_normal".into()),
+        PromptEditModeDiscriminants::ViInsert => Some("vi_insert".into()),
+        PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
 }
 
@@ -1011,6 +1018,7 @@ fn event_from_record(
     span: Span,
 ) -> Result<ReedlineEvent, ShellError> {
     use ReedlineEventDiscriminants as RED;
+    // When updating this implementation, also update `display_reedline_event` function
     let event = match RED::from_str(name) {
         Ok(RED::None) => ReedlineEvent::None,
         Ok(RED::HistoryHintComplete) => ReedlineEvent::HistoryHintComplete,
@@ -1091,7 +1099,7 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Submit => "Submit",
         RED::SubmitOrNewline => "SubmitOrNewline",
         RED::Esc => "Esc",
-        RED::Edit => "Edit: <EditCommand> or Edit: <EditCommand> value: <string>",
+        RED::Edit => "event: { edit: <edit> }",
         RED::Repaint => "Repaint",
         RED::PreviousHistory => "PreviousHistory",
         RED::Up => "Up",
@@ -1102,9 +1110,9 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::Left => "Left",
         RED::NextHistory => "NextHistory",
         RED::SearchHistory => "SearchHistory",
-        RED::Multiple => "Multiple[ {{ ReedLineEvents, }} ]",
-        RED::UntilFound => "UntilFound [ {{ ReedLineEvents, }} ]",
-        RED::Menu => "Menu Name: <string>",
+        RED::Multiple => "event: { send: list<event> }",
+        RED::UntilFound => "event: { until: list<event> }",
+        RED::Menu => "Menu name: <string>",
         RED::MenuNext => "MenuNext",
         RED::MenuPrevious => "MenuPrevious",
         RED::MenuUp => "MenuUp",
@@ -1113,9 +1121,10 @@ pub(crate) fn display_reedline_event(event: ReedlineEventDiscriminants) -> Optio
         RED::MenuRight => "MenuRight",
         RED::MenuPageNext => "MenuPageNext",
         RED::MenuPagePrevious => "MenuPagePrevious",
-        RED::ExecuteHostCommand => "ExecuteHostCommand",
+        RED::ExecuteHostCommand => "ExecuteHostCommand cmd: <string>",
         RED::OpenEditor => "OpenEditor",
         RED::ViChangeMode => "ViChangeMode mode: <string>",
+        // Non-sensical for user configuration
         RED::Mouse | RED::Resize => return None,
     })
 }
@@ -1127,6 +1136,7 @@ fn edit_from_record(
     span: Span,
 ) -> Result<EditCommand, ShellError> {
     use EditCommandDiscriminants as ECD;
+    // When updating this implementation, also update `display_edit_command` function
     let edit = match ECD::from_str(name) {
         Ok(ECD::MoveToStart) => EditCommand::MoveToStart {
             select: extract_value("select", record, span)
@@ -1149,6 +1159,16 @@ fn edit_from_record(
                 .unwrap_or(false),
         },
         Ok(ECD::MoveToLineEnd) => EditCommand::MoveToLineEnd {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        Ok(ECD::MoveLineUp) => EditCommand::MoveLineUp {
+            select: extract_value("select", record, span)
+                .and_then(|value| value.as_bool())
+                .unwrap_or(false),
+        },
+        Ok(ECD::MoveLineDown) => EditCommand::MoveLineDown {
             select: extract_value("select", record, span)
                 .and_then(|value| value.as_bool())
                 .unwrap_or(false),
@@ -1219,6 +1239,8 @@ fn edit_from_record(
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
+        Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
+        Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
         Ok(ECD::ReplaceChar) => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value)?;
@@ -1235,14 +1257,14 @@ fn edit_from_record(
         Ok(ECD::CutCurrentLine) => EditCommand::CutCurrentLine,
         Ok(ECD::CutFromStart) => EditCommand::CutFromStart,
         Ok(ECD::CutFromStartLinewise) => EditCommand::CutFromStartLinewise {
-            leave_blank_line: extract_value("value", record, span)
+            leave_blank_line: extract_value("keep_line", record, span)
                 .and_then(|value| value.as_bool())?,
         },
         Ok(ECD::CutFromLineStart) => EditCommand::CutFromLineStart,
         Ok(ECD::CutFromLineNonBlankStart) => EditCommand::CutFromLineNonBlankStart,
         Ok(ECD::CutToEnd) => EditCommand::CutToEnd,
         Ok(ECD::CutToEndLinewise) => EditCommand::CutToEndLinewise {
-            leave_blank_line: extract_value("value", record, span)
+            leave_blank_line: extract_value("keep_line", record, span)
                 .and_then(|value| value.as_bool())?,
         },
         Ok(ECD::CutToLineEnd) => EditCommand::CutToLineEnd,
@@ -1414,27 +1436,31 @@ fn edit_from_record(
 pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'static str> {
     use EditCommandDiscriminants as ECD;
     Some(match edit {
-        ECD::MoveToStart => "MoveToStart Optional[select: <bool>]",
-        ECD::MoveToLineStart => "MoveToLineStart Optional[select: <bool>]",
-        ECD::MoveToLineNonBlankStart => "MoveToLineNonBlankStart Optional[select: <bool>]",
-        ECD::MoveToEnd => "MoveToEnd Optional[select: <bool>]",
-        ECD::MoveToLineEnd => "MoveToLineEnd Optional[select: <bool>]",
-        ECD::MoveLeft => "MoveLeft Optional[select: <bool>]",
-        ECD::MoveRight => "MoveRight Optional[select: <bool>]",
-        ECD::MoveWordLeft => "MoveWordLeft Optional[select: <bool>]",
-        ECD::MoveBigWordLeft => "MoveBigWordLeft Optional[select: <bool>]",
-        ECD::MoveWordRight => "MoveWordRight Optional[select: <bool>]",
-        ECD::MoveWordRightEnd => "MoveWordRightEnd Optional[select: <bool>]",
-        ECD::MoveBigWordRightEnd => "MoveBigWordRightEnd Optional[select: <bool>]",
-        ECD::MoveWordRightStart => "MoveWordRightStart Optional[select: <bool>]",
-        ECD::MoveBigWordRightStart => "MoveBigWordRightStart Optional[select: <bool>]",
-        ECD::MoveToPosition => "MoveToPosition  Value: <int>, Optional[select: <bool>]",
-        ECD::MoveLeftUntil => "MoveLeftUntil Value: <char>, Optional[select: <bool>]",
-        ECD::MoveLeftBefore => "MoveLeftBefore Value: <char>, Optional[select: <bool>]",
-        ECD::InsertChar => "InsertChar  Value: <char>",
-        ECD::InsertString => "InsertString Value: <string>",
+        ECD::MoveToStart => "MoveToStart select?: <bool>",
+        ECD::MoveToLineStart => "MoveToLineStart select?: <bool>",
+        ECD::MoveToLineNonBlankStart => "MoveToLineNonBlankStart select?: <bool>",
+        ECD::MoveToEnd => "MoveToEnd select?: <bool>",
+        ECD::MoveToLineEnd => "MoveToLineEnd select?: <bool>",
+        ECD::MoveLineUp => "MoveLineUp select?: <bool>",
+        ECD::MoveLineDown => "MoveLineDown select?: <bool>",
+        ECD::MoveLeft => "MoveLeft select?: <bool>",
+        ECD::MoveRight => "MoveRight select?: <bool>",
+        ECD::MoveWordLeft => "MoveWordLeft select?: <bool>",
+        ECD::MoveBigWordLeft => "MoveBigWordLeft select?: <bool>",
+        ECD::MoveWordRight => "MoveWordRight select?: <bool>",
+        ECD::MoveWordRightEnd => "MoveWordRightEnd select?: <bool>",
+        ECD::MoveBigWordRightEnd => "MoveBigWordRightEnd select?: <bool>",
+        ECD::MoveWordRightStart => "MoveWordRightStart select?: <bool>",
+        ECD::MoveBigWordRightStart => "MoveBigWordRightStart select?: <bool>",
+        ECD::MoveToPosition => "MoveToPosition value: <int>, select?: <bool>",
+        ECD::MoveLeftUntil => "MoveLeftUntil value: <char>, select?: <bool>",
+        ECD::MoveLeftBefore => "MoveLeftBefore value: <char>, select?: <bool>",
+        ECD::InsertChar => "InsertChar value: <char>",
+        ECD::InsertString => "InsertString value: <string>",
         ECD::InsertNewline => "InsertNewline",
-        ECD::ReplaceChar => "ReplaceChar <char>",
+        ECD::InsertNewlineAbove => "InsertNewlineAbove",
+        ECD::InsertNewlineBelow => "InsertNewlineBelow",
+        ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",
         ECD::CutChar => "CutChar",
@@ -1445,11 +1471,11 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::Complete => "Complete",
         ECD::CutCurrentLine => "CutCurrentLine",
         ECD::CutFromStart => "CutFromStart",
-        ECD::CutFromStartLinewise => "CutFromStartLinewise Value: <bool>",
+        ECD::CutFromStartLinewise => "CutFromStartLinewise keep_line: <bool>",
         ECD::CutFromLineStart => "CutFromLineStart",
         ECD::CutFromLineNonBlankStart => "CutFromLineNonBlankStart",
         ECD::CutToEnd => "CutToEnd",
-        ECD::CutToEndLinewise => "CutToEndLinewise Value: <bool>",
+        ECD::CutToEndLinewise => "CutToEndLinewise keep_line: <bool>",
         ECD::CutToLineEnd => "CutToLineEnd",
         ECD::KillLine => "KillLine",
         ECD::CutWordLeft => "CutWordLeft",
@@ -1468,12 +1494,12 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::SwapGraphemes => "SwapGraphemes",
         ECD::Undo => "Undo",
         ECD::Redo => "Redo",
-        ECD::CutRightUntil => "CutRightUntil Value: <char>",
-        ECD::CutRightBefore => "CutRightBefore Value: <char>",
-        ECD::MoveRightUntil => "MoveRightUntil Value: <char>",
-        ECD::MoveRightBefore => "MoveRightBefore Value: <char>",
-        ECD::CutLeftUntil => "CutLeftUntil Value: <char>",
-        ECD::CutLeftBefore => "CutLeftBefore Value: <char>",
+        ECD::CutRightUntil => "CutRightUntil value: <char>",
+        ECD::CutRightBefore => "CutRightBefore value: <char>",
+        ECD::MoveRightUntil => "MoveRightUntil value: <char>",
+        ECD::MoveRightBefore => "MoveRightBefore value: <char>",
+        ECD::CutLeftUntil => "CutLeftUntil value: <char>",
+        ECD::CutLeftBefore => "CutLeftBefore value: <char>",
         ECD::SelectAll => "SelectAll",
         ECD::CutSelection => "CutSelection",
         ECD::CopySelection => "CopySelection",
@@ -1494,10 +1520,10 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopyBigWordRightToNext => "CopyBigWordRightToNext",
         ECD::CopyLeft => "CopyLeft",
         ECD::CopyRight => "CopyRight",
-        ECD::CopyRightUntil => "CopyRightUntil Value: <char>",
-        ECD::CopyRightBefore => "CopyRightBefore Value: <char>",
-        ECD::CopyLeftUntil => "CopyLeftUntil Value: <char>",
-        ECD::CopyLeftBefore => "CopyLeftBefore Value: <char>",
+        ECD::CopyRightUntil => "CopyRightUntil value: <char>",
+        ECD::CopyRightBefore => "CopyRightBefore value: <char>",
+        ECD::CopyLeftUntil => "CopyLeftUntil value: <char>",
+        ECD::CopyLeftBefore => "CopyLeftBefore value: <char>",
         ECD::SwapCursorAndAnchor => "SwapCursorAndAnchor",
         #[cfg(feature = "system-clipboard")]
         ECD::CutSelectionSystem => "CutSelectionSystem",
@@ -1505,12 +1531,12 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopySelectionSystem => "CopySelectionSystem",
         #[cfg(feature = "system-clipboard")]
         ECD::PasteSystem => "PasteSystem",
-        ECD::CutInsidePair => "CutInsidePair Value: <char> <char>",
-        ECD::CopyInsidePair => "CopyInsidePair Value: <char> <char>",
-        ECD::CutAroundPair => "CutAroundPair Value: <char> <char>",
-        ECD::CopyAroundPair => "CopyAroundPair Value: <char> <char>",
-        ECD::CutTextObject => "CutTextObject Value: <TextObject>",
-        ECD::CopyTextObject => "CopyTextObject Value: <TextObject>",
+        ECD::CutInsidePair => "CutInsidePair left: <char>, right <char>",
+        ECD::CopyInsidePair => "CopyInsidePair left: <char>, right <char>",
+        ECD::CutAroundPair => "CutAroundPair left: <char>, right <char>",
+        ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
+        ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
+        ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
         ECD::ReplaceChars => return None,
     })
 }

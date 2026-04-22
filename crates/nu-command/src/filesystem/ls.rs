@@ -4,8 +4,8 @@ use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, Signals,
-    shell_error::{self, io::IoError},
+    NuGlob, PipelineMetadata, Signals,
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use pathdiff::diff_paths;
 use rayon::prelude::*;
@@ -231,8 +231,6 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
                             path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
@@ -258,8 +256,6 @@ impl Command for Ls {
                         call_span,
                         engine_state.signals().clone(),
                         PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
                             path_columns: vec!["name".to_string()],
                             ..Default::default()
                         },
@@ -330,17 +326,17 @@ fn ls_for_one_pattern(
     signals: Signals,
     cwd: PathBuf,
 ) -> Result<PipelineData, ShellError> {
-    fn create_pool(num_threads: usize) -> Result<rayon::ThreadPool, ShellError> {
+    fn create_pool(num_threads: usize, call_span: Span) -> Result<rayon::ThreadPool, ShellError> {
         match rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
             .build()
         {
-            Err(e) => Err(e).map_err(|e| ShellError::GenericError {
-                error: "Error creating thread pool".into(),
-                msg: e.to_string(),
-                span: Some(Span::unknown()),
-                help: None,
-                inner: vec![],
+            Err(e) => Err(e).map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error creating thread pool",
+                    e.to_string(),
+                    call_span,
+                ))
             }),
             Ok(pool) => Ok(pool),
         }
@@ -459,13 +455,14 @@ fn ls_for_one_pattern(
     let no_matches = paths_peek.peek().is_none();
     signals.check(&call_span)?;
     if no_matches {
-        return Err(ShellError::GenericError {
-            error: format!("No matches found for {:?}", path.item),
-            msg: "Pattern, file or folder not found".into(),
-            span: Some(p_tag),
-            help: Some("no matches found".into()),
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(
+            GenericError::new(
+                format!("No matches found for {:?}", path.item),
+                "Pattern, file or folder not found",
+                p_tag,
+            )
+            .with_help("no matches found"),
+        ));
     }
 
     let hidden_dirs = Arc::new(Mutex::new(Vec::new()));
@@ -483,9 +480,9 @@ fn ls_for_one_pattern(
                 )
             })?
             .get();
-        create_pool(count)?
+        create_pool(count, call_span)?
     } else {
-        create_pool(1)?
+        create_pool(1, call_span)?
     };
 
     pool.install(|| {
@@ -549,12 +546,12 @@ fn ls_for_one_pattern(
                         } else {
                             Some(path.to_string_lossy().to_string())
                         }
-                        .ok_or_else(|| ShellError::GenericError {
-                            error: format!("Invalid file name: {:}", path.to_string_lossy()),
-                            msg: "invalid file name".into(),
-                            span: Some(call_span),
-                            help: None,
-                            inner: vec![],
+                        .ok_or_else(|| {
+                            ShellError::Generic(GenericError::new(
+                                format!("Invalid file name: {:}", path.to_string_lossy()),
+                                "invalid file name",
+                                call_span,
+                            ))
                         });
 
                         match display_name {
@@ -590,20 +587,20 @@ fn ls_for_one_pattern(
                     Err(err) => Some(Value::error(err, call_span)),
                 })
                 .try_for_each(|stream| {
-                    tx.send(stream).map_err(|e| ShellError::GenericError {
-                        error: "Error streaming data".into(),
-                        msg: e.to_string(),
-                        span: Some(call_span),
-                        help: None,
-                        inner: vec![],
+                    tx.send(stream).map_err(|e| {
+                        ShellError::Generic(GenericError::new(
+                            "Error streaming data",
+                            e.to_string(),
+                            call_span,
+                        ))
                     })
                 })
-                .map_err(|err| ShellError::GenericError {
-                    error: "Unable to create a rayon pool".into(),
-                    msg: err.to_string(),
-                    span: Some(call_span),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new(
+                        "Unable to create a rayon pool",
+                        err.to_string(),
+                        call_span,
+                    ))
                 });
 
             if let Err(error) = result {

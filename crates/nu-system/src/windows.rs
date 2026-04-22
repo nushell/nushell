@@ -8,6 +8,7 @@ use libc::c_void;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 
+use nu_utils::time::Instant;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -19,7 +20,6 @@ use std::ptr::null_mut;
 use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
-use web_time::Instant;
 
 use windows::core::{PCWSTR, PWSTR};
 

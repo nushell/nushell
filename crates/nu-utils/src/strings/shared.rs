@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::{Arguments, Debug, Display},
+    fmt::{Arguments, Display},
     hash::Hash,
     ops::Deref,
 };
@@ -37,6 +37,8 @@ use serde::{Deserialize, Serialize};
 ///   
 /// Internally, `SharedString` is powered by [`lean_string::LeanString`], which provides the
 /// underlying implementation for these optimizations.
+#[derive(derive_more::Debug, Clone, Default)]
+#[debug("{_0:?}")]
 pub struct SharedString(lean_string::LeanString);
 
 const _: () = const {
@@ -109,27 +111,6 @@ impl Borrow<str> for SharedString {
     #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl Clone for SharedString {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl Debug for SharedString {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl Default for SharedString {
-    #[inline]
-    fn default() -> Self {
-        Self(Default::default())
     }
 }
 

@@ -105,7 +105,7 @@ stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {fro
         let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
         let params_value: Value = call
             .get_flag(engine_state, stack, "params")?
-            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+            .unwrap_or_else(|| Value::nothing(call.head));
 
         let params = nu_value_to_params(engine_state, params_value, call.head)?;
 
@@ -117,15 +117,11 @@ stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {fro
 
 #[cfg(test)]
 mod test {
-    use crate::{StorCreate, StorInsert, StorOpen};
-
     use super::*;
 
     #[ignore = "stor db does not persist changes between pipelines"]
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(QueryDb {}, &[&StorOpen, &StorCreate, &StorInsert])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(QueryDb)
     }
 }

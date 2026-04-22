@@ -173,7 +173,8 @@ impl PreparedServerCommunication {
             PreparedServerCommunication::LocalSocket { listener, .. } => {
                 use interprocess::local_socket::ListenerNonblockingMode;
                 use interprocess::local_socket::traits::{Listener, Stream};
-                use std::time::{Duration, Instant};
+                use nu_utils::time::Instant;
+                use std::time::Duration;
 
                 const RETRY_PERIOD: Duration = Duration::from_millis(1);
                 const TIMEOUT: Duration = Duration::from_secs(10);

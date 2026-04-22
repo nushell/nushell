@@ -1,6 +1,6 @@
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
-use web_time::Instant;
+use nu_utils::time::Instant;
 
 #[derive(Clone)]
 pub struct TimeIt;
@@ -129,10 +129,7 @@ This command will bubble up any errors encountered when running the closure. The
 fn test_time_block() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_block", |dirs, _| {
-        let inp = [
-            r#"[2 3 4] | timeit {to nuon | save foo.txt }"#,
-            "open foo.txt",
-        ];
+        let inp = ["[2 3 4] | timeit {to nuon | save foo.txt }", "open foo.txt"];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));
         assert_eq!(actual_repl.err, "");
         assert_eq!(actual_repl.out, "[2, 3, 4]");
@@ -144,7 +141,7 @@ fn test_time_block_2() {
     use nu_test_support::{nu, nu_repl_code, playground::Playground};
     Playground::setup("test_time_block", |dirs, _| {
         let inp = [
-            r#"[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }"#,
+            "[2 3 4] | timeit {{result: $in} | to nuon | save foo.txt }",
             "open foo.txt",
         ];
         let actual_repl = nu!(cwd: dirs.test(), nu_repl_code(&inp));

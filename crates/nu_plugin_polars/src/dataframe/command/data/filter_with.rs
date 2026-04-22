@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -59,6 +60,7 @@ impl PluginCommand for FilterWith {
                             Column::new("b".to_string(), vec![Value::test_int(2)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -74,6 +76,7 @@ impl PluginCommand for FilterWith {
                             Column::new("b".to_string(), vec![Value::test_int(4)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -87,9 +90,9 @@ impl PluginCommand for FilterWith {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
@@ -122,24 +125,19 @@ fn command_eager(
     } else {
         let mask = NuDataFrame::try_from_value_coerce(plugin, &mask_value, mask_span)?
             .as_series(mask_span)?;
-        let mask = mask.bool().map_err(|e| ShellError::GenericError {
-            error: "Error casting to bool".into(),
-            msg: e.to_string(),
-            span: Some(mask_span),
-            help: Some("Perhaps you want to use a series with booleans as mask".into()),
-            inner: vec![],
+        let mask = mask.bool().map_err(|e| {
+            ShellError::Generic(
+                GenericError::new("Error casting to bool", e.to_string(), mask_span)
+                    .with_help("Perhaps you want to use a series with booleans as mask"),
+            )
         })?;
 
-        let polars_df = df
-            .as_ref()
-            .filter(mask)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error filtering dataframe".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: Some("The only allowed column types for dummies are String or Int".into()),
-                inner: vec![],
-            })?;
+        let polars_df = df.as_ref().filter(mask).map_err(|e| {
+            ShellError::Generic(
+                GenericError::new("Error filtering dataframe", e.to_string(), call.head)
+                    .with_help("The only allowed column types for dummies are String or Int"),
+            )
+        })?;
         let df = NuDataFrame::new(df.from_lazy, polars_df);
         df.to_pipeline_data(plugin, engine, call.head)
     }

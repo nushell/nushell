@@ -2142,6 +2142,17 @@ impl Value {
         ]
     }
 
+    /// Assert that this value is equal to another value.
+    ///
+    /// # Panic
+    /// This function is meant for testing purposes and will panic if these two values are not
+    /// equal.
+    #[track_caller]
+    pub fn assert_eq(&self, other: impl IntoValue) {
+        let other = other.into_value(Span::test_data());
+        assert_eq!(self, &other)
+    }
+
     /// inject signals from engine_state so iterating the value
     /// itself can be interrupted.
     pub fn inject_signals(&mut self, engine_state: &EngineState) {

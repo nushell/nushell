@@ -50,20 +50,17 @@ fn def_twice_should_fail() -> TestResult {
 
 #[test]
 fn missing_parameters() -> TestResult {
-    fail_test(r#"def foo {}"#, "expected [ or (")
+    fail_test("def foo {}", "expected [ or (")
 }
 
 #[test]
 fn flag_param_value() -> TestResult {
-    run_test(
-        r#"def foo [--bob: int] { $bob + 100 }; foo --bob 55"#,
-        "155",
-    )
+    run_test("def foo [--bob: int] { $bob + 100 }; foo --bob 55", "155")
 }
 
 #[test]
 fn do_rest_args() -> TestResult {
-    run_test(r#"(do { |...rest| $rest } 1 2).1 + 10"#, "12")
+    run_test("(do { |...rest| $rest } 1 2).1 + 10", "12")
 }
 
 #[test]
@@ -104,7 +101,7 @@ fn custom_switch2() -> TestResult {
 #[test]
 fn custom_switch3() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=false"#,
+        "def florb [ --dry-run ] { $dry_run }; florb --dry-run=false",
         "false",
     )
 }
@@ -112,20 +109,20 @@ fn custom_switch3() -> TestResult {
 #[test]
 fn custom_switch4() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run=true"#,
+        "def florb [ --dry-run ] { $dry_run }; florb --dry-run=true",
         "true",
     )
 }
 
 #[test]
 fn custom_switch5() -> TestResult {
-    run_test(r#"def florb [ --dry-run ] { $dry_run }; florb"#, "false")
+    run_test("def florb [ --dry-run ] { $dry_run }; florb", "false")
 }
 
 #[test]
 fn custom_switch6() -> TestResult {
     run_test(
-        r#"def florb [ --dry-run ] { $dry_run }; florb --dry-run"#,
+        "def florb [ --dry-run ] { $dry_run }; florb --dry-run",
         "true",
     )
 }
@@ -224,9 +221,9 @@ fn override_table_eval_file() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_recursion_does_not_panic() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def bang [] { bang }; bang
-        "#);
+        ");
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 
@@ -236,23 +233,23 @@ fn infinite_recursion_does_not_panic() {
 #[cfg(not(target_os = "windows"))]
 #[test]
 fn infinite_mutual_recursion_does_not_panic() {
-    let actual = nu!(r#"
+    let actual = nu!("
             def bang [] { def boom [] { bang }; boom }; bang
-        "#);
+        ");
     assert!(actual.err.contains("Recursion limit (50) reached"));
 }
 
 #[test]
 fn type_check_for_during_eval() -> TestResult {
     fail_test(
-        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer"#,
+        "def spam [foo: string] { $foo | describe }; def outer [--foo: string] { spam $foo }; outer",
         "can't convert nothing to string",
     )
 }
 #[test]
 fn type_check_for_during_eval2() -> TestResult {
     fail_test(
-        r#"def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer"#,
+        "def spam [foo: string] { $foo | describe }; def outer [--foo: any] { spam $foo }; outer",
         "can't convert nothing to string",
     )
 }
@@ -260,11 +257,11 @@ fn type_check_for_during_eval2() -> TestResult {
 #[test]
 fn empty_list_matches_list_type() -> TestResult {
     let _ = run_test(
-        r#"def spam [foo: list<int>] { echo $foo }; spam [] | length"#,
+        "def spam [foo: list<int>] { echo $foo }; spam [] | length",
         "0",
     );
     run_test(
-        r#"def spam [foo: list<string>] { echo $foo }; spam [] | length"#,
+        "def spam [foo: list<string>] { echo $foo }; spam [] | length",
         "0",
     )
 }
@@ -286,7 +283,7 @@ fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
     #[cfg(not(windows))]
     let expected = "../bar";
     run_test(
-        r#"def spam [foo: path] { echo $foo }; spam foo/.../bar"#,
+        "def spam [foo: path] { echo $foo }; spam foo/.../bar",
         expected,
     )
 }
@@ -294,11 +291,11 @@ fn path_argument_dont_make_absolute_if_unquoted() -> TestResult {
 #[test]
 fn dont_allow_implicit_casting_between_glob_and_string() -> TestResult {
     let _ = fail_test(
-        r#"def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f"#,
+        "def spam [foo: string] { echo $foo }; let f: glob = 'aa'; spam $f",
         "expected string, found glob",
     );
     run_test(
-        r#"def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f"#,
+        "def spam [foo: glob] { echo $foo }; let f = 'aa'; spam $f",
         "aa",
     )
 }

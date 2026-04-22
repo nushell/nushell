@@ -461,7 +461,14 @@ fn table_insert_footer_if(t: &mut NuTable) {
 }
 
 fn table_truncate(t: &mut NuTable, termwidth: usize) -> Option<WidthEstimation> {
-    let widths = maybe_truncate_columns(&mut t.data, t.widths.clone(), &t.config, termwidth);
+    let truncate_by_head = is_header_on_border(t);
+    let widths = maybe_truncate_columns(
+        &mut t.data,
+        t.widths.clone(),
+        &t.config,
+        termwidth,
+        truncate_by_head,
+    );
     if widths.needed.is_empty() {
         return None;
     }
@@ -831,13 +838,16 @@ fn maybe_truncate_columns(
     widths: Vec<usize>,
     cfg: &TableConfig,
     termwidth: usize,
+    truncate_by_head: bool,
 ) -> WidthEstimation {
     const TERMWIDTH_THRESHOLD: usize = 120;
 
     let pad = cfg.indent.left + cfg.indent.right;
     let preserve_content = termwidth > TERMWIDTH_THRESHOLD;
 
-    if preserve_content {
+    if truncate_by_head {
+        truncate_columns_by_head(data, widths, &cfg.theme, pad, termwidth)
+    } else if preserve_content {
         truncate_columns_by_columns(data, widths, &cfg.theme, pad, termwidth)
     } else {
         truncate_columns_by_content(data, widths, &cfg.theme, pad, termwidth)
@@ -1089,6 +1099,122 @@ fn truncate_columns_by_columns(
     }
 
     if available >= trailing_column_width + vertical {
+        truncate_rows(data, truncate_pos);
+
+        push_empty_column(data);
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, true, true);
+    }
+
+    truncate_rows(data, truncate_pos - 1);
+    let w = widths.pop().expect("ok");
+    width -= w;
+
+    push_empty_column(data);
+    widths.push(trailing_column_width);
+    width += trailing_column_width;
+
+    WidthEstimation::new(widths_original, widths, width, true, true)
+}
+
+// VERSION where we are showing AS MANY COLUMNS AS POSSIBLE solely based on first column.
+fn truncate_columns_by_head(
+    data: &mut Vec<Vec<NuRecordsValue>>,
+    widths: Vec<usize>,
+    theme: &TableTheme,
+    pad: usize,
+    termwidth: usize,
+) -> WidthEstimation {
+    const TRAILING_COLUMN_WIDTH: usize = EMPTY_COLUMN_TEXT_WIDTH;
+
+    let trailing_column_width = TRAILING_COLUMN_WIDTH + pad;
+
+    let count_columns = data[0].len();
+
+    let config = create_config(theme, false, None);
+    let widths_original = widths;
+    let mut widths = vec![];
+
+    let borders = config.get_borders();
+    let vertical = borders.has_vertical() as usize;
+
+    let mut width = borders.has_left() as usize + borders.has_right() as usize;
+    let mut truncate_pos = 0;
+
+    for (i, &column_width) in widths_original.iter().enumerate() {
+        let head_width = NuRecordsValue::width(&data[0][i]) + pad;
+        let vertical_width = if i > 0 { vertical } else { 0 };
+
+        let mut use_width = column_width;
+        let mut next_move = use_width + vertical_width;
+        if width + next_move > termwidth {
+            use_width = head_width;
+            next_move = use_width + vertical_width;
+            if width + next_move > termwidth {
+                break;
+            }
+        }
+
+        widths.push(use_width);
+        width += next_move;
+        truncate_pos += 1;
+    }
+
+    if truncate_pos == 0 {
+        return WidthEstimation::new(widths_original, widths, width, false, false);
+    }
+
+    let mut available = termwidth - width;
+
+    if available > 0 {
+        for i in 0..truncate_pos {
+            let used_width = widths[i];
+            let col_width = widths_original[i];
+            if used_width < col_width {
+                let need = col_width - used_width;
+                let take = min(available, need);
+                available -= take;
+
+                widths[i] += take;
+                width += take;
+
+                if available == 0 {
+                    break;
+                }
+            }
+        }
+    }
+
+    if truncate_pos == count_columns {
+        return WidthEstimation::new(widths_original, widths, width, true, false);
+    }
+
+    if available >= trailing_column_width + vertical {
+        truncate_rows(data, truncate_pos);
+
+        push_empty_column(data);
+        widths.push(trailing_column_width);
+        width += trailing_column_width + vertical;
+
+        return WidthEstimation::new(widths_original, widths, width, true, true);
+    }
+
+    // NOTE: we must check if some columns are bigger than head_width
+    //       and cut width from them first.
+    //       rather than removing last column.
+    //
+    //       We intentionally check only last column.
+    //       Although space could be given from any column.
+    let last_column_width = widths[truncate_pos - 1];
+    let last_column_width_min = NuRecordsValue::width(&data[0][truncate_pos - 1]) + pad;
+    let last_column_width_free = last_column_width - last_column_width_min;
+    if available + last_column_width_free >= trailing_column_width + vertical {
+        let use_width = trailing_column_width + vertical - available;
+        widths[truncate_pos - 1] -= use_width;
+        width -= use_width;
+
         truncate_rows(data, truncate_pos);
 
         push_empty_column(data);

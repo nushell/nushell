@@ -223,7 +223,7 @@ mod tests {
         script.push("lsp/no_such_file.nu");
         let script = path_to_uri(&script);
 
-        let file_content = r#"def foo [] {}; foo"#;
+        let file_content = "def foo [] {}; foo";
         let _ = open(
             &client_connection,
             script.clone(),

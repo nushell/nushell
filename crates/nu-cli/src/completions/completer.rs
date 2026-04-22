@@ -6,15 +6,12 @@ use crate::completions::{
 use nu_parser::parse;
 use nu_protocol::{
     CommandWideCompleter, Completion, GetSpan, Signature, Span,
-    ast::{
-        Argument, Block, Expr, Expression, FindMapResult, PipelineRedirection, RedirectionTarget,
-        Traverse,
-    },
+    ast::{Argument, Block, Expr, Expression, PipelineRedirection, RedirectionTarget, Traverse},
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::borrow::Cow;
 use std::sync::Arc;
+use std::{borrow::Cow, ops::ControlFlow};
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
@@ -26,12 +23,13 @@ fn find_pipeline_element_by_position<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
-) -> FindMapResult<&'a Expression> {
+) -> ControlFlow<Option<&'a Expression>> {
     // skip the entire expression if the position is not in it
     if !expr.span.contains(pos) {
-        return FindMapResult::Stop;
+        return ControlFlow::Break(None);
     }
     let closure = |expr: &'a Expression| find_pipeline_element_by_position(expr, working_set, pos);
+    let found = |x| ControlFlow::Break(Some(x));
     match &expr.expr {
         Expr::RowCondition(block_id)
         | Expr::Subexpression(block_id)
@@ -40,17 +38,15 @@ fn find_pipeline_element_by_position<'a>(
             let block = working_set.get_block(*block_id);
             // check redirection target for sub blocks before diving recursively into them
             check_redirection_in_block(block.as_ref(), pos)
-                .map(FindMapResult::Found)
-                .unwrap_or_default()
+                .map(found)
+                .unwrap_or(ControlFlow::Continue(()))
         }
         Expr::Call(call) => call
             .arguments
             .iter()
             .find_map(|arg| arg.expr().and_then(|e| e.find_map(working_set, &closure)))
-            // if no inner call/external_call found, then this is the inner-most one
-            .or(Some(expr))
-            .map(FindMapResult::Found)
-            .unwrap_or_default(),
+            .map(found)
+            .unwrap_or(found(expr)),
         Expr::ExternalCall(head, arguments) => arguments
             .iter()
             .find_map(|arg| arg.expr().find_map(working_set, &closure))
@@ -66,38 +62,34 @@ fn find_pipeline_element_by_position<'a>(
                     None
                 }
             })
-            .or(Some(expr))
-            .map(FindMapResult::Found)
-            .unwrap_or_default(),
+            .map(found)
+            .unwrap_or(found(expr)),
         // complete the operator
         Expr::BinaryOp(lhs, _, rhs) => lhs
             .find_map(working_set, &closure)
             .or_else(|| rhs.find_map(working_set, &closure))
-            .or(Some(expr))
-            .map(FindMapResult::Found)
-            .unwrap_or_default(),
+            .map(found)
+            .unwrap_or(found(expr)),
         Expr::FullCellPath(fcp) => fcp
             .head
             .find_map(working_set, &closure)
-            .map(FindMapResult::Found)
+            .map(found)
             // e.g. use std/util [<tab>
             .or_else(|| {
                 (fcp.head.span.contains(pos) && matches!(fcp.head.expr, Expr::List(_)))
-                    .then_some(FindMapResult::Continue)
+                    .then_some(ControlFlow::Continue(()))
             })
-            .or(Some(FindMapResult::Found(expr)))
-            .unwrap_or_default(),
-        Expr::Var(_) => FindMapResult::Found(expr),
+            .unwrap_or(found(expr)),
+        Expr::Var(_) => found(expr),
         Expr::AttributeBlock(ab) => ab
             .attributes
             .iter()
             .map(|attr| &attr.expr)
             .chain(Some(ab.item.as_ref()))
             .find_map(|expr| expr.find_map(working_set, &closure))
-            .or(Some(expr))
-            .map(FindMapResult::Found)
-            .unwrap_or_default(),
-        _ => FindMapResult::Continue,
+            .map(found)
+            .unwrap_or(found(expr)),
+        _ => ControlFlow::Continue(()),
     }
 }
 
@@ -302,7 +294,7 @@ impl NuCompleter {
                         full_cell_path,
                         position: if strip { pos - 1 } else { pos },
                     };
-                    let ctx = Context::new(working_set, Span::unknown(), &[], offset);
+                    let ctx = Context::new(working_set, element_expression.span, &[], offset);
                     return self.process_completion(&mut cell_path_completer, &ctx);
                 }
             }
@@ -340,18 +332,25 @@ impl NuCompleter {
             // e.g. `def "foo -f --ff bar"`, complete by line text
             // instead of relying on the parsing result in that case
             Expr::Call(_) | Expr::ExternalCall(_, _) => {
-                let need_externals = !prefix_str.contains(' ');
-                let need_internals = !prefix_str.starts_with('^');
+                let force_external = prefix_str.starts_with('^');
+                let force_internal = prefix_str.starts_with('%');
+                let force_builtins_only = force_internal;
+
+                let need_externals = !prefix_str.contains(' ') && !force_internal;
+                let need_internals = !force_external;
                 let mut span = element_expression.span;
-                if !need_internals {
+                if force_external || force_internal {
                     span.start += 1;
                 };
                 suggestions.extend(self.command_completion_helper(
                     working_set,
                     span,
                     offset,
-                    need_internals,
-                    need_externals,
+                    CommandCompletionOptions {
+                        internals: need_internals,
+                        externals: need_externals,
+                        builtins_only: force_builtins_only,
+                    },
                     strip,
                 ))
             }
@@ -407,7 +406,7 @@ impl NuCompleter {
                     // 1. Flag name: 2 sources combined:
                     //    * Signature based internal flags
                     //    * Command-wide external flags
-                    // 2. Flag value/positional: try the followings in order:
+                    // 2. Flag value/positional: try the following in order:
                     //    1. Custom completion
                     //    2. Command-wide completion
                     //    3. Dynamic completion defined in trait `Command`
@@ -588,8 +587,11 @@ impl NuCompleter {
                                     working_set,
                                     span,
                                     offset,
-                                    true,
-                                    true,
+                                    CommandCompletionOptions {
+                                        internals: true,
+                                        externals: true,
+                                        builtins_only: false,
+                                    },
                                     strip,
                                 );
                                 // flags of sudo/doas can still be completed by external completer
@@ -667,14 +669,15 @@ impl NuCompleter {
         working_set: &StateWorkingSet,
         span: Span,
         offset: usize,
-        internals: bool,
-        externals: bool,
+        options: CommandCompletionOptions,
         strip: bool,
     ) -> Vec<SemanticSuggestion> {
         let config = self.engine_state.get_config();
         let mut command_completions = CommandCompletion {
-            internals,
-            externals: !internals || (externals && config.completions.external.enable),
+            internals: options.internals,
+            externals: !options.internals
+                || (options.externals && config.completions.external.enable),
+            builtins_only: options.builtins_only,
         };
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
@@ -754,6 +757,12 @@ impl NuCompleter {
             &options,
         )
     }
+}
+
+struct CommandCompletionOptions {
+    internals: bool,
+    externals: bool,
+    builtins_only: bool,
 }
 
 impl ReedlineCompleter for NuCompleter {

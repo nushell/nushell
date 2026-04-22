@@ -45,11 +45,11 @@ fn errors_if_given_unknown_column_name() {
 "#;
 
     let actual = nu!(format!(
-        r#"
+        "
             '{sample}'
             | from json
             | group-by {{|| get nu.releases.missing_column }}
-        "#
+        "
     ));
     assert!(actual.err.contains("cannot find column"));
 }
@@ -71,7 +71,7 @@ fn errors_if_column_not_found() {
 #[test]
 fn group_by_on_empty_list_returns_empty_record() {
     let actual = nu!("[[a b]; [1 2]] | where false | group-by a | to nuon --raw");
-    let expected = r#"{}"#;
+    let expected = "{}";
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, expected);
 }
@@ -79,7 +79,7 @@ fn group_by_on_empty_list_returns_empty_record() {
 #[test]
 fn group_by_to_table_on_empty_list_returns_empty_list() {
     let actual = nu!("[[a b]; [1 2]] | where false | group-by --to-table a | to nuon --raw");
-    let expected = r#"[]"#;
+    let expected = "[]";
     assert!(actual.err.is_empty());
     assert_eq!(actual.out, expected);
 }
@@ -89,4 +89,26 @@ fn optional_cell_path_works() {
     let actual = nu!("[{foo: 123}, {foo: 234}, {bar: 345}] | group-by foo? | to nuon");
     let expected = r#"{"123": [[foo]; [123]], "234": [[foo]; [234]]}"#;
     assert_eq!(actual.out, expected)
+}
+
+#[test]
+fn group_by_compound_values_are_grouped_distinctly() {
+    // Regression test for grouping by list values.
+    let actual = nu!("
+        let data = [[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]];
+        $data | group-by v | columns | length
+    ");
+    assert_eq!(actual.out, "4");
+
+    // Every distinct list value should produce a separate group with exactly 1 row.
+    let actual = nu!("
+        let data = [[k v]; [a [2 1]] [b [1 2]] [c [3]] [d [2]]];
+        $data
+        | group-by v
+        | values
+        | each { |items| $items | length }
+        | uniq
+        | first
+    ");
+    assert_eq!(actual.out, "1");
 }

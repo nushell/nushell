@@ -4,14 +4,14 @@ use nu_test_support::nu;
 fn early_return_if_true() {
     let actual = nu!("def foo [x] { if true { return 2 }; $x }; foo 100");
 
-    assert_eq!(actual.out, r#"2"#);
+    assert_eq!(actual.out, "2");
 }
 
 #[test]
 fn early_return_if_false() {
     let actual = nu!("def foo [x] { if false { return 2 }; $x }; foo 100");
 
-    assert_eq!(actual.out, r#"100"#);
+    assert_eq!(actual.out, "100");
 }
 
 #[test]

@@ -228,11 +228,22 @@ fn get_json_error() {
 
 #[test]
 fn pipefail_works() {
+    // the print 'bbb' should not run because the previous command failed
+    // So no output should be printed
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "nu --testbin fail | lines | length; print 'bbb'"
+    );
+    assert_eq!(actual.out, "")
+}
+
+#[test]
+fn let_ignores_pipefail() {
     let actual = nu!(
         experimental: vec!["pipefail".to_string()],
         "try { let x = nu --testbin fail | lines | length; print $x } catch {|e| print $e.exit_code}"
     );
-    assert_eq!(actual.out, "1")
+    assert_eq!(actual.out, "0")
 }
 
 #[test]
@@ -257,14 +268,17 @@ fn try_catch_finally() {
         nu!("try { 1 / 0 } catch { 1 / 0; print 'inside catch' } finally { print 'this finally' }");
     assert!(actual.out.contains("this finally"));
     assert!(!actual.out.contains("inside catch"));
-    assert!(!actual.err.contains("division by zero"));
+    assert!(actual.err.contains("division by zero"));
 }
 
 #[test]
 fn try_finally() {
+    let actual = nu!("try { 0 } finally { 3 }");
+    assert_eq!(actual.out, "0");
+
     let actual = nu!("try { 1 / 0 } finally { print 'this finally' }");
     assert!(actual.out.contains("this finally"));
-    assert!(!actual.err.contains("division by zero"));
+    assert!(actual.err.contains("division by zero"));
 
     let actual = nu!("try { print 'inside try' } finally { print 'this finally' }");
     assert!(actual.out.contains("inside try"));
@@ -296,11 +310,12 @@ fn return_statement_in_finally_should_be_used() {
 #[test]
 fn try_finally_with_variable() {
     // try failed with finally
-    let actual = nu!("try { 1 / 0 } finally {|x| $x.msg }");
+    let actual = nu!("try { 1 / 0 } finally {|x| print $x.msg }");
     assert_eq!(actual.out, "Division by zero.");
 
-    let actual = nu!("try { 3 } finally {|x| $x == 3 }");
-    assert_eq!(actual.out, "true");
+    let actual = nu!("try { 3 } finally {|x| print ($x == 3) }");
+    assert!(actual.out.contains("true"));
+    assert!(actual.out.ends_with('3'));
 }
 
 #[test]
@@ -310,7 +325,7 @@ fn try_exit_runs_finally() {
     assert_eq!(actual.status.code(), Some(3));
 
     // nested try with exit should run all finally block
-    let actual = nu!(r#"
+    let actual = nu!("
     try {
         try {
             exit 3
@@ -319,7 +334,7 @@ fn try_exit_runs_finally() {
         }
     } finally {
         print 'outer finally'
-    }"#);
+    }");
     assert!(actual.out.contains("inner finally"));
     assert!(actual.out.contains("outer finally"));
     assert_eq!(actual.status.code(), Some(3));
@@ -334,11 +349,63 @@ fn try_abort_not_run_finally() {
 #[test]
 fn catch_finally_with_variable() {
     // try catch with finally
-    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| $x == 33}");
-    assert_eq!(actual.out, "true");
+    let actual = nu!("try { 1 / 0 } catch { 33 } finally {|x| print ($x == 33) }");
+    assert!(actual.out.contains("true"));
+    assert!(actual.out.ends_with("33"));
 
     let actual = nu!(
-        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| $x.msg == 'err in catch'}"
+        "try { 1 / 0 } catch { 33; error make 'err in catch' } finally {|x| print ($x.msg == 'err in catch')}"
     );
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn finally_should_not_run_before_try_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "
+        with-env { FOO: 'bar' } {
+            try { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_before_catch_finished() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "
+        with-env { FOO: 'bar' } {
+            try { 1 / 0 } catch { nu --testbin echo_env FOO } finally { print 'bb' }
+        }
+        "
+    );
+    assert_eq!(actual.out, "barbb")
+}
+
+#[test]
+fn finally_should_not_run_twice_when_error_in_finally() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        try {
+            ^true
+        } finally {
+            print "inside finally"
+            error make -u "oh no"
+        }
+        "#
+    );
+    assert_eq!(actual.out, "inside finally")
+}
+
+#[test]
+fn try_wont_generate_extra_output() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        "try { nu --testbin fail | is-empty } catch { 'here' }"
+    );
+    assert_eq!(actual.out, "here")
 }

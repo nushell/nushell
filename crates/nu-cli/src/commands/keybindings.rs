@@ -19,10 +19,10 @@ impl Command for Keybindings {
     }
 
     fn extra_description(&self) -> &str {
-        r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message.
 
 For more information on input and keybindings, check:
-  https://www.nushell.sh/book/line_editor.html"#
+  https://www.nushell.sh/book/line_editor.html"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -36,6 +36,10 @@ For more information on input and keybindings, check:
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
+        Ok(Value::string(
+            get_full_help(self, engine_state, stack, call.head),
+            call.head,
+        )
+        .into_pipeline_data())
     }
 }

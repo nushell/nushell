@@ -83,6 +83,9 @@ impl fmt::Display for FmtInstruction<'_> {
             Instruction::Collect { src_dst } => {
                 write!(f, "{:WIDTH$} {src_dst}", "collect")
             }
+            Instruction::TryCollect { src_dst } => {
+                write!(f, "{:WIDTH$} {src_dst}", "try-collect")
+            }
             Instruction::Span { src_dst } => {
                 write!(f, "{:WIDTH$} {src_dst}", "span")
             }

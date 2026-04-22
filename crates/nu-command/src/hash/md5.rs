@@ -1,5 +1,5 @@
 use super::generic_digest::{GenericDigest, HashDigest};
-use ::md5::Md5;
+use md5::Md5;
 use nu_protocol::{Example, Span, Value};
 
 pub type HashMd5 = GenericDigest<Md5>;
@@ -45,8 +45,8 @@ mod tests {
     use crate::hash::generic_digest::{self, Arguments};
 
     #[test]
-    fn test_examples() {
-        crate::test_examples(HashMd5::default())
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(HashMd5::default())
     }
 
     #[test]

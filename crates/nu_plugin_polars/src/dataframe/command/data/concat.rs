@@ -5,6 +5,7 @@ use crate::{
 
 use crate::values::NuDataFrame;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
     Value,
@@ -99,9 +100,9 @@ impl PluginCommand for ConcatDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let maybe_df = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head).ok();
         command_lazy(plugin, engine, call, maybe_df)
             .map_err(LabeledError::from)
@@ -128,13 +129,11 @@ fn command_lazy(
         .collect::<Result<Vec<LazyFrame>, ShellError>>()?;
 
     if dataframes.is_empty() {
-        Err(ShellError::GenericError {
-            error: "At least one other dataframe must be provided".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })
+        Err(ShellError::Generic(GenericError::new(
+            "At least one other dataframe must be provided",
+            "",
+            call.head,
+        )))
     } else {
         if let Some(lazy) = maybe_lazy.as_ref() {
             dataframes.insert(0, lazy.to_polars());
@@ -150,12 +149,12 @@ fn command_lazy(
         };
 
         let res: NuLazyFrame = polars::prelude::concat(&dataframes, args)
-            .map_err(|e| ShellError::GenericError {
-                error: format!("Failed to concatenate dataframes: {e}"),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    format!("Failed to concatenate dataframes: {e}"),
+                    "",
+                    call.head,
+                ))
             })?
             .into();
 

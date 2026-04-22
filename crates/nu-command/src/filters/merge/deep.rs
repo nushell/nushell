@@ -14,7 +14,7 @@ impl Command for MergeDeep {
     }
 
     fn extra_description(&self) -> &str {
-        r#"The way that key-value pairs which exist in both the input and the argument are merged depends on their types.
+        "The way that key-value pairs which exist in both the input and the argument are merged depends on their types.
 
 Scalar values (like numbers and strings) in the input are overwritten by the corresponding value from the argument.
 Records in the input are merged similarly to the merge command, but recursing rather than overwriting inner records.
@@ -23,7 +23,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
   - table: Merges tables element-wise, similarly to the merge command. Non-table lists are overwritten.
   - overwrite: Lists and tables are overwritten with their corresponding value from the argument, similarly to scalars.
   - append: Lists and tables in the input are appended with the corresponding list from the argument.
-  - prepend: Lists and tables in the input are prepended with the corresponding list from the argument."#
+  - prepend: Lists and tables in the input are prepended with the corresponding list from the argument."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -74,7 +74,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 })),
             },
             Example {
-                example: r#"[{columnA: 0, columnB: [{B1: 1}]}] | merge deep [{columnB: [{B2: 2}]}]"#,
+                example: "[{columnA: 0, columnB: [{B1: 1}]}] | merge deep [{columnB: [{B2: 2}]}]",
                 description: "Merge two tables",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "columnA" => Value::test_int(0),
@@ -87,7 +87,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 })])),
             },
             Example {
-                example: r#"{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]}"#,
+                example: "{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]}",
                 description: "Merge two records and their inner tables",
                 result: Some(Value::test_record(record! {
                     "inner" => Value::test_list(vec![
@@ -102,7 +102,7 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
                 })),
             },
             Example {
-                example: r#"{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]} --strategy=append"#,
+                example: "{inner: [{a: 1}, {b: 2}]} | merge deep {inner: [{c: 3}]} --strategy=append",
                 description: "Merge two records, appending their inner tables",
                 result: Some(Value::test_record(record! {
                     "inner" => Value::test_list(vec![
@@ -126,15 +126,15 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
         let strategy_flag: Option<String> = call.get_flag(engine_state, stack, "strategy")?;
-        let metadata = input.metadata();
 
         // collect input before typechecking, so tables are detected as such
         let input_span = input.span().unwrap_or(head);
+        let metadata = input.take_metadata();
         let input = input.into_value(input_span)?;
 
         let strategy = match strategy_flag.as_deref() {
@@ -163,9 +163,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(MergeDeep {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MergeDeep)
     }
 }

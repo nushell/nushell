@@ -14,20 +14,20 @@ fn nu_highlight_where_row_condition() {
 
 #[test]
 fn nu_highlight_aliased_external_resolved() {
-    let actual = nu!(r#"$env.config.highlight_resolved_externals = true
+    let actual = nu!("$env.config.highlight_resolved_externals = true
         $env.config.color_config.shape_external_resolved = '#ffffff'
         alias fff = ^rustc
-        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external_resolved)"#);
+        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external_resolved)");
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn nu_highlight_aliased_external_unresolved() {
-    let actual = nu!(r#"$env.config.highlight_resolved_externals = true
+    let actual = nu!("$env.config.highlight_resolved_externals = true
         $env.config.color_config.shape_external = '#ffffff'
         alias fff = ^nonexist
-        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external)"#);
+        ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external)");
 
     assert_eq!(actual.out, "true");
 }

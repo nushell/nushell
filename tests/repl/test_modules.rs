@@ -4,7 +4,7 @@ use rstest::rstest;
 #[test]
 fn module_def_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo a"#,
+        "module foo { export def a [] { 1 }; def b [] { 2 } }; use foo; foo a",
         "1",
     )
 }
@@ -12,7 +12,7 @@ fn module_def_imports_1() -> TestResult {
 #[test]
 fn module_def_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { 2 } }; use foo a; a"#,
+        "module foo { export def a [] { 1 }; def b [] { 2 } }; use foo a; a",
         "1",
     )
 }
@@ -20,7 +20,7 @@ fn module_def_imports_2() -> TestResult {
 #[test]
 fn module_def_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo *; b"#,
+        "module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo *; b",
         "2",
     )
 }
@@ -28,7 +28,7 @@ fn module_def_imports_3() -> TestResult {
 #[test]
 fn module_def_imports_4() -> TestResult {
     fail_test(
-        r#"module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo c"#,
+        "module foo { export def a [] { 1 }; export def b [] { 2 } }; use foo c",
         "not find import",
     )
 }
@@ -36,7 +36,7 @@ fn module_def_imports_4() -> TestResult {
 #[test]
 fn module_def_imports_5() -> TestResult {
     run_test(
-        r#"module foo { export def a [] { 1 }; def b [] { '2' }; export def c [] { '3' } }; use foo [a, c]; c"#,
+        "module foo { export def a [] { 1 }; def b [] { '2' }; export def c [] { '3' } }; use foo [a, c]; c",
         "3",
     )
 }
@@ -44,7 +44,7 @@ fn module_def_imports_5() -> TestResult {
 #[test]
 fn module_env_imports_1() -> TestResult {
     run_test(
-        r#"module foo { export-env { $env.a = '1' } }; use foo; $env.a"#,
+        "module foo { export-env { $env.a = '1' } }; use foo; $env.a",
         "1",
     )
 }
@@ -52,7 +52,7 @@ fn module_env_imports_1() -> TestResult {
 #[test]
 fn module_env_imports_2() -> TestResult {
     run_test(
-        r#"module foo { export-env { $env.a = '1'; $env.b = '2' } }; use foo; $env.b"#,
+        "module foo { export-env { $env.a = '1'; $env.b = '2' } }; use foo; $env.b",
         "2",
     )
 }
@@ -60,7 +60,7 @@ fn module_env_imports_2() -> TestResult {
 #[test]
 fn module_env_imports_3() -> TestResult {
     run_test(
-        r#"module foo { export-env { $env.a = '1' }; export-env { $env.b = '2' }; export-env {$env.c = '3'} }; use foo; $env.c"#,
+        "module foo { export-env { $env.a = '1' }; export-env { $env.b = '2' }; export-env {$env.c = '3'} }; use foo; $env.c",
         "3",
     )
 }
@@ -84,7 +84,7 @@ fn module_def_and_env_imports_2() -> TestResult {
 #[test]
 fn module_def_import_uses_internal_command() -> TestResult {
     run_test(
-        r#"module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo a"#,
+        "module foo { def b [] { 2 }; export def a [] { b }  }; use foo; foo a",
         "2",
     )
 }
@@ -108,32 +108,29 @@ fn multi_word_imports() -> TestResult {
 #[test]
 fn export_alias() -> TestResult {
     run_test(
-        r#"module foo { export alias hi = echo hello }; use foo hi; hi"#,
+        "module foo { export alias hi = echo hello }; use foo hi; hi",
         "hello",
     )
 }
 
 #[test]
 fn export_consts() -> TestResult {
+    run_test("module spam { export const b = 3; }; use spam b; $b", "3")?;
     run_test(
-        r#"module spam { export const b = 3; }; use spam b; $b"#,
-        "3",
-    )?;
-    run_test(
-        r#"module spam { export const b: int = 3; }; use spam b; $b"#,
+        "module spam { export const b: int = 3; }; use spam b; $b",
         "3",
     )
 }
 
 #[test]
 fn dont_export_module_name_as_a_variable() -> TestResult {
-    fail_test(r#"module spam { }; use spam; $spam"#, "variable not found")
+    fail_test("module spam { }; use spam; $spam", "variable not found")
 }
 
 #[test]
 fn func_use_consts() -> TestResult {
     run_test(
-        r#"module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "module spam { const b = 3; export def c [] { $b } }; use spam; spam c",
         "3",
     )
 }
@@ -141,11 +138,11 @@ fn func_use_consts() -> TestResult {
 #[test]
 fn export_module_which_defined_const() -> TestResult {
     run_test(
-        r#"module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "module spam { export const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c",
         "7",
     )?;
     fail_test(
-        r#"module spam { export const b = 3; export const c = 4 }; use spam; $b"#,
+        "module spam { export const b = 3; export const c = 4 }; use spam; $b",
         "variable not found",
     )
 }
@@ -175,7 +172,7 @@ fn use_module_with_invalid_var_name(#[case] name: &str) -> TestResult {
 #[test]
 fn cannot_export_private_const() -> TestResult {
     fail_test(
-        r#"module spam { const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c"#,
+        "module spam { const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c",
         "cannot find column 'b'",
     )
 }
@@ -183,11 +180,11 @@ fn cannot_export_private_const() -> TestResult {
 #[test]
 fn test_lexical_binding() -> TestResult {
     run_test(
-        r#"module spam { const b = 3; export def c [] { $b } }; use spam c; const b = 4; c"#,
+        "module spam { const b = 3; export def c [] { $b } }; use spam c; const b = 4; c",
         "3",
     )?;
     run_test(
-        r#"const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c"#,
+        "const b = 4; module spam { const b = 3; export def c [] { $b } }; use spam; spam c",
         "3",
     )
 }

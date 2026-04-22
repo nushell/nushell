@@ -165,6 +165,18 @@ impl Command for IntoDuration {
                 result: Some(Value::test_duration(7 * 60 * NS_PER_SEC)),
             },
             Example {
+                description: "Convert `hh:mm:ss`-style string to duration",
+                example: "'3:34:00' | into duration",
+                result: Some(Value::test_duration(3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)),
+            },
+            Example {
+                description: "Convert `hh:mm:ss.f`-style string to duration",
+                example: "'2:45:31.2' | into duration",
+                result: Some(Value::test_duration(
+                    2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS,
+                )),
+            },
+            Example {
                 description: "Convert a number of ns to duration.",
                 example: "1_234_567 | into duration",
                 result: Some(Value::test_duration(1_234_567)),
@@ -220,7 +232,85 @@ fn compound_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
     Ok(duration_ns)
 }
 
+// Try to parse a string formatted as `hh:mm:ss` with an optional fractional
+// seconds component using 1 to 9 digits of sub-second precision.
+fn parse_clock_duration(s: &str, span: Span) -> Result<Option<i64>, ShellError> {
+    if !s.contains(':') {
+        return Ok(None);
+    }
+
+    // helper for consistent error messaging
+    fn clock_format_error(span: Span) -> ShellError {
+        ShellError::IncorrectValue {
+            msg: "invalid clock-style duration; please use hh:mm:ss with optional .f up to .fffffffff"
+                .to_string(),
+            val_span: span,
+            call_span: span,
+        }
+    }
+
+    fn clock_range_error(span: Span) -> ShellError {
+        ShellError::IncorrectValue {
+            msg: "invalid clock-style duration; hours must be >= 0 and minutes/seconds must be >= 0 and < 60"
+                .to_string(),
+            val_span: span,
+            call_span: span,
+        }
+    }
+
+    let parts: Vec<&str> = s.split(':').collect();
+
+    if parts.len() != 3 {
+        return Err(clock_format_error(span));
+    }
+
+    let hours = parts[0]
+        .parse::<i64>()
+        .map_err(|_| clock_format_error(span))?;
+    let minutes = parts[1]
+        .parse::<i64>()
+        .map_err(|_| clock_format_error(span))?;
+
+    let (seconds_part, fractional_part) = match parts[2].split_once('.') {
+        Some((seconds, fractional)) => (seconds, Some(fractional)),
+        None => (parts[2], None),
+    };
+
+    let seconds = seconds_part
+        .parse::<i64>()
+        .map_err(|_| clock_format_error(span))?;
+
+    let fractional_ns = match fractional_part {
+        Some(fractional) if fractional.chars().all(|c| c.is_ascii_digit()) => {
+            if fractional.is_empty() || fractional.len() > 9 {
+                return Err(clock_format_error(span));
+            }
+
+            let scale = 10_i64.pow((9 - fractional.len()) as u32);
+            fractional
+                .parse::<i64>()
+                .map(|value| value * scale)
+                .map_err(|_| clock_format_error(span))?
+        }
+        Some(_) => return Err(clock_format_error(span)),
+        None => 0,
+    };
+
+    if hours < 0 || minutes >= 60 || seconds >= 60 || minutes < 0 || seconds < 0 {
+        return Err(clock_range_error(span));
+    }
+
+    Ok(Some(
+        hours * NS_PER_HOUR + minutes * NS_PER_MINUTE + seconds * NS_PER_SEC + fractional_ns,
+    ))
+}
+
 fn string_to_duration(s: &str, span: Span) -> Result<i64, ShellError> {
+    // first try the newly added clock-style parser
+    if let Some(parsed) = parse_clock_duration(s, span)? {
+        return Ok(parsed);
+    }
+
     if let Some(Ok(expression)) = parse_unit_value(
         s.as_bytes(),
         span,
@@ -433,10 +523,8 @@ mod test {
     use rstest::rstest;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(IntoDuration {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(IntoDuration)
     }
 
     const NS_PER_SEC: i64 = 1_000_000_000;
@@ -454,6 +542,20 @@ mod test {
     #[case("3wk", 3 * NS_PER_WEEK)]
     #[case("86hr 26ns", 86 * 3600 * NS_PER_SEC + 26)] // compound duration string
     #[case("14ns 3hr 17sec", 14 + 3 * NS_PER_HOUR + 17 * NS_PER_SEC)] // compound string with units in random order
+    #[case("3:34:00", 3 * NS_PER_HOUR + 34 * NS_PER_MINUTE)]
+    #[case("2:45:31.2", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 200 * NS_PER_MS)]
+    #[case("2:45:31.23", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 230 * NS_PER_MS)]
+    #[case("2:45:31.2345", 2 * NS_PER_HOUR + 45 * NS_PER_MINUTE + 31 * NS_PER_SEC + 234 * NS_PER_MS + 500 * NS_PER_US)]
+    #[case("16:59:58.235", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS)]
+    #[case("16:59:58.235123", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US)]
+    #[case("16:59:58.235123456", 16 * NS_PER_HOUR + 59 * NS_PER_MINUTE + 58 * NS_PER_SEC + 235 * NS_PER_MS + 123 * NS_PER_US + 456)]
+    // decimal with unit should bypass clock parser and succeed
+    #[case("78.797877879789789sec",
+        NS_PER_MINUTE // 1 * NS_PER_MINUTE
+        + 18 * NS_PER_SEC
+        + 797 * NS_PER_MS
+        + 877 * NS_PER_US
+        + 879)]
 
     fn turns_string_to_duration(#[case] phrase: &str, #[case] expected_duration_val: i64) {
         let args = Arguments {
@@ -473,6 +575,87 @@ mod test {
             other => {
                 panic!("Expected Value::Duration, observed {other:?}");
             }
+        }
+    }
+
+    #[test]
+    fn invalid_clock_string() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        // two‑field string must fail with helpful message
+        let actual = action(&Value::test_string("1:02"), &args, Span::test_data());
+        match actual {
+            Value::Error { error, .. } => {
+                if let ShellError::IncorrectValue { msg, .. } = *error {
+                    assert!(msg.contains("hh:mm:ss"), "msg was {msg}");
+                } else {
+                    panic!("wrong error variant: {error:?}");
+                }
+            }
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn invalid_clock_string_with_out_of_range_fields() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(&Value::test_string("3:99:00"), &args, Span::test_data());
+        match actual {
+            Value::Error { error, .. } => {
+                if let ShellError::IncorrectValue { msg, .. } = *error {
+                    assert!(msg.contains("hours must be >= 0"), "msg was {msg}");
+                } else {
+                    panic!("wrong error variant: {error:?}");
+                }
+            }
+            other => panic!("expected error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn clock_parser_nonclock_decimal() {
+        let span = Span::test_data();
+        let parsed = parse_clock_duration("78.797877879789789sec", span).unwrap();
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn invalid_clock_string_with_bad_fraction_precision() {
+        let args = Arguments {
+            unit: Some(Spanned {
+                item: Unit::Nanosecond,
+                span: Span::test_data(),
+            }),
+            cell_paths: None,
+        };
+
+        let actual = action(
+            &Value::test_string("16:59:58.1234567890"),
+            &args,
+            Span::test_data(),
+        );
+        match actual {
+            Value::Error { error, .. } => {
+                if let ShellError::IncorrectValue { msg, .. } = *error {
+                    assert!(msg.contains("hh:mm:ss"), "msg was {msg}");
+                } else {
+                    panic!("wrong error variant: {error:?}");
+                }
+            }
+            other => panic!("expected error, got {other:?}"),
         }
     }
 }

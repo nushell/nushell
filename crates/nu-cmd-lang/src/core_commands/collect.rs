@@ -30,10 +30,10 @@ impl Command for Collect {
     }
 
     fn extra_description(&self) -> &str {
-        r#"If provided, run a closure with the collected value as input.
+        "If provided, run a closure with the collected value as input.
 
 The entire stream will be collected into one value in memory, so if the stream
-is particularly large, this can cause high memory usage."#
+is particularly large, this can cause high memory usage."
     }
 
     fn command_type(&self) -> CommandType {
@@ -74,12 +74,9 @@ is particularly large, this can cause high memory usage."#
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::Do;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(Collect {}, &[&Do {}])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Collect)
     }
 }

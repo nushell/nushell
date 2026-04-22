@@ -23,15 +23,15 @@ impl Command for ExportExtern {
             )
             .required(
                 "params",
-                SyntaxShape::Signature,
+                SyntaxShape::ExternalSignature,
                 "The parameters for the external command signature.",
             )
             .category(Category::Core)
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -51,7 +51,7 @@ impl Command for ExportExtern {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Export the signature for an external command.",
-            example: r#"export extern echo [text: string]"#,
+            example: "export extern echo [text: string]",
             result: None,
         }]
     }

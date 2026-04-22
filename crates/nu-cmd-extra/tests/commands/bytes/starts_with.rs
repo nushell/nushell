@@ -21,36 +21,36 @@ fn basic_string_fails() {
 
 #[test]
 fn short_stream_binary() {
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101]
-        "#);
+        ");
 
     assert_eq!(actual.out, "true");
 }
 
 #[test]
 fn short_stream_mismatch() {
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[010203]) 5 | bytes starts-with 0x[010204]
-        "#);
+        ");
 
     assert_eq!(actual.out, "false");
 }
 
 #[test]
 fn short_stream_binary_overflow() {
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[01]) 5 | bytes starts-with 0x[010101010101]
-        "#);
+        ");
 
     assert_eq!(actual.out, "false");
 }
 
 #[test]
 fn long_stream_binary() {
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[01]) 32768 | bytes starts-with 0x[010101]
-        "#);
+        ");
 
     assert_eq!(actual.out, "true");
 }
@@ -58,9 +58,9 @@ fn long_stream_binary() {
 #[test]
 fn long_stream_binary_overflow() {
     // .. ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[01]) 32768 | bytes starts-with (0..32768 | each {|| 0x[01] } | bytes collect)
-        "#);
+        ");
 
     assert_eq!(actual.out, "false");
 }
@@ -68,9 +68,9 @@ fn long_stream_binary_overflow() {
 #[test]
 fn long_stream_binary_exact() {
     // ranges are inclusive..inclusive, so we don't need to +1 to check for an overflow
-    let actual = nu!(r#"
+    let actual = nu!("
             nu --testbin repeater (0x[01020304]) 8192 | bytes starts-with (0..<8192 | each {|| 0x[01020304] } | bytes collect)
-        "#);
+        ");
 
     assert_eq!(actual.out, "true");
 }

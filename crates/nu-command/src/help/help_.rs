@@ -1,5 +1,6 @@
 use crate::help::{help_aliases, help_commands, help_modules};
-use nu_engine::command_prelude::*;
+use nu_engine::{HELP_DECL_ID_PARSER_INFO, command_prelude::*, get_full_help};
+use nu_protocol::{DeclId, ast::Expr, engine::CommandType};
 
 #[derive(Clone)]
 pub struct Help;
@@ -47,6 +48,38 @@ There already is an alternative `help` command in the standard library you can t
         let find: Option<Spanned<String>> = call.get_flag(engine_state, stack, "find")?;
         let rest: Vec<Spanned<String>> = call.rest(engine_state, stack, 0)?;
 
+        if let Some(resolved_decl_id) = resolved_help_decl_id(call, stack, engine_state) {
+            return Ok(help_for_decl_id(
+                engine_state,
+                stack,
+                head,
+                resolved_decl_id,
+            ));
+        }
+
+        // `help %cmd` is parsed as a string argument, so `%` must be handled here.
+        if find.is_none()
+            && let Some(name) = builtin_help_lookup_name(&rest)
+        {
+            if let Some(decl_id) = find_builtin_decl_id(engine_state, &name) {
+                return Ok(help_for_decl_id(engine_state, stack, head, decl_id));
+            }
+
+            return Err(ShellError::NotFound {
+                span: Span::merge_many(rest.iter().map(|s| s.span)),
+            });
+        }
+
+        fn help_for_decl_id(
+            engine_state: &EngineState,
+            stack: &mut Stack,
+            head: Span,
+            decl_id: DeclId,
+        ) -> PipelineData {
+            let decl = engine_state.get_decl(decl_id);
+            let help = get_full_help(decl, engine_state, stack, head);
+            Value::string(help, head).into_pipeline_data()
+        }
         if rest.is_empty() && find.is_none() {
             let msg = r#"Welcome to Nushell.
 
@@ -123,4 +156,50 @@ You can also learn more at https://www.nushell.sh/book/"#;
             },
         ]
     }
+}
+
+// `compile_call` rewrites `<cmd> --help` to `help <name>`. This helper restores the original
+// resolved declaration identity from parser info so help output stays tied to the original call.
+fn resolved_help_decl_id(call: &Call, stack: &Stack, engine_state: &EngineState) -> Option<DeclId> {
+    call.get_parser_info(stack, HELP_DECL_ID_PARSER_INFO)
+        .and_then(|expr| match expr.expr {
+            Expr::Int(id) => usize::try_from(id).ok().map(DeclId::new),
+            _ => None,
+        })
+        .filter(|decl_id| decl_id.get() < engine_state.num_decls())
+}
+
+// For plain `help`, treat `%` on the first token as a built-in resolution request and normalize
+// the command name to be looked up (for example `%str join` -> `str join`).
+fn builtin_help_lookup_name(rest: &[Spanned<String>]) -> Option<String> {
+    let (first, tail) = rest.split_first()?;
+    let first = first.item.strip_prefix('%')?;
+
+    let mut name = String::new();
+    if !first.is_empty() {
+        name.push_str(first);
+    }
+
+    for item in tail {
+        if !name.is_empty() {
+            name.push(' ');
+        }
+        name.push_str(&item.item);
+    }
+
+    Some(name)
+}
+
+// Mirror parser-side `%` behavior by selecting only declarations with command type `Builtin`.
+fn find_builtin_decl_id(engine_state: &EngineState, name: &str) -> Option<DeclId> {
+    for idx in (0..engine_state.num_decls()).rev() {
+        let decl_id = DeclId::new(idx);
+        let decl = engine_state.get_decl(decl_id);
+
+        if decl.command_type() == CommandType::Builtin && decl.name() == name {
+            return Some(decl_id);
+        }
+    }
+
+    None
 }

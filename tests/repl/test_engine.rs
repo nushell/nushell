@@ -60,38 +60,35 @@ fn in_variable_3() -> TestResult {
 
 #[test]
 fn in_variable_4() -> TestResult {
-    run_test(r#"3 | do { $in }"#, "3")
+    run_test("3 | do { $in }", "3")
 }
 
 #[test]
 fn in_variable_5() -> TestResult {
-    run_test(r#"3 | if $in > 2 { $in - 10 } else { $in * 10 }"#, "-7")
+    run_test("3 | if $in > 2 { $in - 10 } else { $in * 10 }", "-7")
 }
 
 #[test]
 fn in_variable_6() -> TestResult {
-    run_test(r#"3 | if $in > 6 { $in - 10 } else { $in * 10 }"#, "30")
+    run_test("3 | if $in > 6 { $in - 10 } else { $in * 10 }", "30")
 }
 
 #[test]
 fn in_and_if_else() -> TestResult {
-    run_test(
-        r#"[1, 2, 3] | if false {} else if true { $in | length }"#,
-        "3",
-    )
+    run_test("[1, 2, 3] | if false {} else if true { $in | length }", "3")
 }
 
 #[test]
 fn in_with_closure() -> TestResult {
     // Can use $in twice
-    run_test(r#"3 | do { let x = $in; let y = $in; $x + $y }"#, "6")
+    run_test("3 | do { let x = $in; let y = $in; $x + $y }", "6")
 }
 
 #[test]
 fn in_with_custom_command() -> TestResult {
     // Can use $in twice
     run_test(
-        r#"def foo [] { let x = $in; let y = $in; $x + $y }; 3 | foo"#,
+        "def foo [] { let x = $in; let y = $in; $x + $y }; 3 | foo",
         "6",
     )
 }
@@ -99,7 +96,7 @@ fn in_with_custom_command() -> TestResult {
 #[test]
 fn in_used_twice_and_also_in_pipeline() -> TestResult {
     run_test(
-        r#"3 | do { let x = $in; let y = $in; $x + $y | $in * 4 }"#,
+        "3 | do { let x = $in; let y = $in; $x + $y | $in * 4 }",
         "24",
     )
 }
@@ -107,17 +104,17 @@ fn in_used_twice_and_also_in_pipeline() -> TestResult {
 // #13441
 #[test]
 fn in_used_in_range_from() -> TestResult {
-    run_test(r#"6 | $in..10 | math sum"#, "40")
+    run_test("6 | $in..10 | math sum", "40")
 }
 #[test]
 fn in_used_in_range_to() -> TestResult {
-    run_test(r#"6 | 3..$in | math sum"#, "18")
+    run_test("6 | 3..$in | math sum", "18")
 }
 
 #[test]
 fn help_works_with_missing_requirements() -> TestResult {
-    fail_test(r#"each"#, "missing_positional")?;
-    run_test_contains(r#"each --help"#, "Usage")
+    fail_test("each", "missing_positional")?;
+    run_test_contains("each --help", "Usage")
 }
 
 #[rstest]
@@ -131,8 +128,8 @@ fn scope_variable(
 ) -> TestResult {
     let get_var_info =
         format!(r#"{var_decl}; scope variables | where name == "{exp_name}" | first"#);
-    run_test(&format!(r#"{get_var_info} | get type"#), exp_type)?;
-    run_test(&format!(r#"{get_var_info} | get value"#), exp_value)
+    run_test(&format!("{get_var_info} | get type"), exp_type)?;
+    run_test(&format!("{get_var_info} | get value"), exp_value)
 }
 
 #[rstest]
@@ -162,7 +159,7 @@ fn earlier_errors() -> TestResult {
 #[test]
 fn missing_flags_are_nothing() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo"#,
+        "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo",
         "110",
     )
 }
@@ -170,7 +167,7 @@ fn missing_flags_are_nothing() -> TestResult {
 #[test]
 fn missing_flags_are_nothing2() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 90"#,
+        "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 90",
         "190",
     )
 }
@@ -178,7 +175,7 @@ fn missing_flags_are_nothing2() -> TestResult {
 #[test]
 fn missing_flags_are_nothing3() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -b 45"#,
+        "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -b 45",
         "55",
     )
 }
@@ -186,7 +183,7 @@ fn missing_flags_are_nothing3() -> TestResult {
 #[test]
 fn missing_flags_are_nothing4() -> TestResult {
     run_test(
-        r#"def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000"#,
+        "def foo [--aaa(-a): int, --bbb(-b): int] { (if $aaa == null { 10 } else { $aaa }) + (if $bbb == null { 100 } else { $bbb }) }; foo -a 3 -b 10000",
         "10003",
     )
 }
@@ -194,7 +191,7 @@ fn missing_flags_are_nothing4() -> TestResult {
 #[test]
 fn proper_variable_captures() -> TestResult {
     run_test(
-        r#"def foo [x] { let y = 100; { || $y + $x } }; do (foo 23)"#,
+        "def foo [x] { let y = 100; { || $y + $x } }; do (foo 23)",
         "123",
     )
 }
@@ -202,7 +199,7 @@ fn proper_variable_captures() -> TestResult {
 #[test]
 fn proper_variable_captures_with_calls() -> TestResult {
     run_test(
-        r#"def foo [] { let y = 60; def bar [] { $y }; {|| bar } }; do (foo)"#,
+        "def foo [] { let y = 60; def bar [] { $y }; {|| bar } }; do (foo)",
         "60",
     )
 }
@@ -210,24 +207,24 @@ fn proper_variable_captures_with_calls() -> TestResult {
 #[test]
 fn proper_variable_captures_with_nesting() -> TestResult {
     run_test(
-        r#"def foo [x] { let z = 100; def bar [y] { $y - $x + $z } ; { |z| bar $z } }; do (foo 11) 13"#,
+        "def foo [x] { let z = 100; def bar [y] { $y - $x + $z } ; { |z| bar $z } }; do (foo 11) 13",
         "102",
     )
 }
 
 #[test]
 fn divide_duration() -> TestResult {
-    run_test(r#"4ms / 4ms"#, "1.0")
+    run_test("4ms / 4ms", "1.0")
 }
 
 #[test]
 fn divide_filesize() -> TestResult {
-    run_test(r#"4mb / 4mb"#, "1.0")
+    run_test("4mb / 4mb", "1.0")
 }
 
 #[test]
 fn date_comparison() -> TestResult {
-    run_test(r#"(date now) < ((date now) + 2min)"#, "true")
+    run_test("(date now) < ((date now) + 2min)", "true")
 }
 
 #[test]
@@ -241,7 +238,7 @@ fn let_sees_input() -> TestResult {
 #[test]
 fn let_sees_in_variable() -> TestResult {
     run_test(
-        r#"def c [] { let x = $in.name; $x | str length }; {name: bob, size: 100 } | c"#,
+        "def c [] { let x = $in.name; $x | str length }; {name: bob, size: 100 } | c",
         "3",
     )
 }
@@ -249,7 +246,7 @@ fn let_sees_in_variable() -> TestResult {
 #[test]
 fn let_sees_in_variable2() -> TestResult {
     run_test(
-        r#"def c [] { let x = ($in | str length); $x }; 'bob' | c"#,
+        "def c [] { let x = ($in | str length); $x }; 'bob' | c",
         "3",
     )
 }
@@ -315,22 +312,22 @@ fn with_env_shorthand_nested_quotes() -> TestResult {
 #[test]
 fn test_redirection_stderr() -> TestResult {
     // try a nonsense binary
-    run_test(r#"do -i { asdjw4j5cnaabw44rd }; echo done"#, "done")
+    run_test("do -i { asdjw4j5cnaabw44rd }; echo done", "done")
 }
 
 #[test]
 fn datetime_literal() -> TestResult {
-    run_test(r#"(date now) - 2019-08-23 > 1hr"#, "true")
+    run_test("(date now) - 2019-08-23 > 1hr", "true")
 }
 
 #[test]
 fn shortcircuiting_and() -> TestResult {
-    run_test(r#"false and (5 / 0; false)"#, "false")
+    run_test("false and (5 / 0; false)", "false")
 }
 
 #[test]
 fn shortcircuiting_or() -> TestResult {
-    run_test(r#"true or (5 / 0; false)"#, "true")
+    run_test("true or (5 / 0; false)", "true")
 }
 
 #[test]
@@ -340,63 +337,63 @@ fn nonshortcircuiting_xor() -> TestResult {
 
 #[test]
 fn open_ended_range() -> TestResult {
-    run_test(r#"1.. | first 100000 | length"#, "100000")
+    run_test("1.. | first 100000 | length", "100000")
 }
 
 #[test]
 fn default_value1() -> TestResult {
-    run_test(r#"def foo [x = 3] { $x }; foo"#, "3")
+    run_test("def foo [x = 3] { $x }; foo", "3")
 }
 
 #[test]
 fn default_value2() -> TestResult {
-    run_test(r#"def foo [x: int = 3] { $x }; foo"#, "3")
+    run_test("def foo [x: int = 3] { $x }; foo", "3")
 }
 
 #[test]
 fn default_value3() -> TestResult {
-    run_test(r#"def foo [--x = 3] { $x }; foo"#, "3")
+    run_test("def foo [--x = 3] { $x }; foo", "3")
 }
 
 #[test]
 fn default_value4() -> TestResult {
-    run_test(r#"def foo [--x: int = 3] { $x }; foo"#, "3")
+    run_test("def foo [--x: int = 3] { $x }; foo", "3")
 }
 
 #[test]
 fn default_value5() -> TestResult {
-    run_test(r#"def foo [x = 3] { $x }; foo 10"#, "10")
+    run_test("def foo [x = 3] { $x }; foo 10", "10")
 }
 
 #[test]
 fn default_value6() -> TestResult {
-    run_test(r#"def foo [x: int = 3] { $x }; foo 10"#, "10")
+    run_test("def foo [x: int = 3] { $x }; foo 10", "10")
 }
 
 #[test]
 fn default_value7() -> TestResult {
-    run_test(r#"def foo [--x = 3] { $x }; foo --x 10"#, "10")
+    run_test("def foo [--x = 3] { $x }; foo --x 10", "10")
 }
 
 #[test]
 fn default_value8() -> TestResult {
-    run_test(r#"def foo [--x: int = 3] { $x }; foo --x 10"#, "10")
+    run_test("def foo [--x: int = 3] { $x }; foo --x 10", "10")
 }
 
 #[test]
 fn default_value9() -> TestResult {
-    fail_test(r#"def foo [--x = 3] { $x }; foo --x a"#, "expected int")
+    fail_test("def foo [--x = 3] { $x }; foo --x a", "expected int")
 }
 
 #[test]
 fn default_value10() -> TestResult {
-    fail_test(r#"def foo [x = 3] { $x }; foo a"#, "expected int")
+    fail_test("def foo [x = 3] { $x }; foo a", "expected int")
 }
 
 #[test]
 fn default_value11() -> TestResult {
     fail_test(
-        r#"def foo [x = 3, y] { $x }; foo a"#,
+        "def foo [x = 3, y] { $x }; foo a",
         "after optional parameter",
     )
 }
@@ -416,7 +413,7 @@ fn default_value_constant1() -> TestResult {
 
 #[test]
 fn default_value_constant2() -> TestResult {
-    run_test(r#"def foo [secs = 1sec] { $secs }; foo"#, "1sec")
+    run_test("def foo [secs = 1sec] { $secs }; foo", "1sec")
 }
 
 #[test]
@@ -427,22 +424,19 @@ fn default_value_constant3() -> TestResult {
 #[test]
 fn default_value_not_constant2() -> TestResult {
     fail_test(
-        r#"def foo [x = (loop { break })] { $x }; foo"#,
+        "def foo [x = (loop { break })] { $x }; foo",
         "expected a constant",
     )
 }
 
 #[test]
 fn loose_each() -> TestResult {
-    run_test(
-        r#"[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum"#,
-        "7",
-    )
+    run_test("[[1, 2, 3], [4, 5, 6]] | each {|| $in.1 } | math sum", "7")
 }
 
 #[test]
 fn in_means_input() -> TestResult {
-    run_test(r#"def shl [] { $in * 2 }; 2 | shl"#, "4")
+    run_test("def shl [] { $in * 2 }; 2 | shl", "4")
 }
 
 #[test]
@@ -455,16 +449,13 @@ fn in_iteration() -> TestResult {
 
 #[test]
 fn reusable_in() -> TestResult {
-    run_test(
-        r#"[1, 2, 3, 4] | take (($in | length) - 1) | math sum"#,
-        "6",
-    )
+    run_test("[1, 2, 3, 4] | take (($in | length) - 1) | math sum", "6")
 }
 
 #[test]
 fn better_operator_spans() -> TestResult {
     run_test(
-        r#"metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end"#,
+        "metadata ({foo: 10} | (20 - $in.foo)) | get span | $in.start < $in.end",
         "true",
     )
 }
@@ -472,25 +463,25 @@ fn better_operator_spans() -> TestResult {
 #[test]
 fn call_rest_arg_span() -> TestResult {
     run_test(
-        r#"let l = [2, 3]; def foo [...rest] { metadata $rest | view span $in.span.start $in.span.end }; foo 1 ...$l"#,
+        "let l = [2, 3]; def foo [...rest] { metadata $rest | view span $in.span.start $in.span.end }; foo 1 ...$l",
         "1 ...$l",
     )
 }
 
 #[test]
 fn range_right_exclusive() -> TestResult {
-    run_test(r#"[1, 4, 5, 8, 9] | slice 1..<3 | math sum"#, "9")
+    run_test("[1, 4, 5, 8, 9] | slice 1..<3 | math sum", "9")
 }
 
 /// Issue #7872
 #[test]
 fn assignment_to_in_var_no_panic() -> TestResult {
-    fail_test(r#"$in = 3"#, "needs to be a mutable variable")
+    fail_test("$in = 3", "needs to be a mutable variable")
 }
 
 #[test]
 fn assignment_to_env_no_panic() -> TestResult {
-    fail_test(r#"$env = 3"#, "cannot_replace_env")
+    fail_test("$env = 3", "cannot_replace_env")
 }
 
 #[test]
@@ -504,7 +495,7 @@ fn short_flags() -> TestResult {
 #[test]
 fn short_flags_1() -> TestResult {
     run_test(
-        r#"def foobar [-a: string, -b: string, -s: int] { if ( $s == 0 ) { echo $'($b)($a)' }}; foobar -a test -b case -s 0  "#,
+        "def foobar [-a: string, -b: string, -s: int] { if ( $s == 0 ) { echo $'($b)($a)' }}; foobar -a test -b case -s 0  ",
         "casetest",
     )
 }

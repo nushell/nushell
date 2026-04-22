@@ -158,10 +158,10 @@ mod tests {
 
     #[rstest]
     #[case::full(
-        r#"# Renders some updated greeting message
+        "# Renders some updated greeting message
 def hello [] {}
 
-hello"#,
+hello",
         None
     )]
     #[case::partial(

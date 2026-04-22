@@ -7,6 +7,7 @@ use crate::values::{Column, NuDataFrame, NuExpression};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -54,6 +55,7 @@ impl PluginCommand for NUnique {
                             vec![Value::test_int(4)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -72,9 +74,9 @@ impl PluginCommand for NUnique {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command(plugin, engine, call, df),
@@ -105,22 +107,20 @@ fn command(
     call: &EvaluatedCall,
     df: NuDataFrame,
 ) -> Result<PipelineData, ShellError> {
-    let res = df
-        .as_series(call.head)?
-        .n_unique()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error counting unique values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let res = df.as_series(call.head)?.n_unique().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error counting unique values",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
 
     let value = Value::int(res as i64, call.head);
 
     let df = NuDataFrame::try_from_columns(
         vec![Column::new("count_unique".to_string(), vec![value])],
         None,
+        call.head,
     )?;
     df.to_pipeline_data(plugin, engine, call.head)
 }

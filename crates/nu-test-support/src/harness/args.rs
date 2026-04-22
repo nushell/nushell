@@ -10,6 +10,7 @@ pub struct Args {
     pub format: Format,
     pub help: bool,
     pub ignored: bool,
+    pub include_ignored: bool,
     pub list: bool,
     pub no_capture: bool,
     pub skip: Vec<String>,
@@ -31,6 +32,7 @@ impl Default for Args {
             format: Format::Pretty,
             help: false,
             ignored: false,
+            include_ignored: false,
             list: false,
             no_capture: false,
             skip: Vec::new(),
@@ -77,6 +79,7 @@ impl Args {
                 }
                 Long("help") => parse_flag(&mut parser, &mut args.help)?,
                 Long("ignored") => parse_flag(&mut parser, &mut args.ignored)?,
+                Long("include-ignored") => parse_flag(&mut parser, &mut args.include_ignored)?,
                 Long("list") => parse_flag(&mut parser, &mut args.list)?,
                 Long("nocapture" | "no-capture") => parse_flag(&mut parser, &mut args.no_capture)?,
                 Long("skip") => args.skip.push(parser.value()?.parse()?),
@@ -114,6 +117,7 @@ impl Args {
         line!("  --format <pretty|terse>      Choose output style");
         line!("  --help                       Show this help text");
         line!("  --ignored                    Run only ignored tests");
+        line!("  --include-ignored            Include ignored tests");
         line!("  --list                       List tests without running them");
         line!("  --nocapture                  Print test output directly");
         line!("  --skip <FILTER>              Skip matching tests, can be used multiple times");

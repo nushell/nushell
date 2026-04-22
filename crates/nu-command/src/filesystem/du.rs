@@ -30,6 +30,10 @@ impl Command for Du {
         "Find disk usage sizes of specified items."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["disk", "usage", "size", "space"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("du")
             .input_output_types(vec![(Type::Nothing, Type::table())])
@@ -206,7 +210,7 @@ fn du_for_one_pattern(
         None => nu_engine::glob_from(
             &Spanned {
                 item: NuGlob::Expand("*".into()),
-                span: Span::unknown(),
+                span,
             },
             current_dir,
             span,
@@ -252,8 +256,7 @@ mod tests {
     use super::Du;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(Du {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test().examples(Du)
     }
 }

@@ -8,8 +8,10 @@ use std::{
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 #[derive(Debug)]
 pub struct ProcessInfo {

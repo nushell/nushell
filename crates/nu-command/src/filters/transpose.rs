@@ -1,4 +1,5 @@
 use nu_engine::{column::get_columns, command_prelude::*};
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Transpose;
@@ -133,7 +134,7 @@ pub fn transpose(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let name = call.head;
     let args = TransposeArgs {
@@ -172,7 +173,7 @@ pub fn transpose(
         });
     }
 
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let input: Vec<_> = input.into_iter().collect();
 
     // Ensure error values are propagated and non-record values are rejected
@@ -205,33 +206,27 @@ pub fn transpose(
                         if let Ok(s) = x.coerce_string() {
                             headers.push(s);
                         } else {
-                            return Err(ShellError::GenericError {
-                                error: "Header row needs string headers".into(),
-                                msg: "used non-string headers".into(),
-                                span: Some(name),
-                                help: None,
-                                inner: vec![],
-                            });
+                            return Err(ShellError::Generic(GenericError::new(
+                                "Header row needs string headers",
+                                "used non-string headers",
+                                name,
+                            )));
                         }
                     }
                     _ => {
-                        return Err(ShellError::GenericError {
-                            error: "Header row is incomplete and can't be used".into(),
-                            msg: "using incomplete header row".into(),
-                            span: Some(name),
-                            help: None,
-                            inner: vec![],
-                        });
+                        return Err(ShellError::Generic(GenericError::new(
+                            "Header row is incomplete and can't be used",
+                            "using incomplete header row",
+                            name,
+                        )));
                     }
                 }
             } else {
-                return Err(ShellError::GenericError {
-                    error: "Header row is incomplete and can't be used".into(),
-                    msg: "using incomplete header row".into(),
-                    span: Some(name),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Header row is incomplete and can't be used",
+                    "using incomplete header row",
+                    name,
+                )));
             }
         }
     } else {
@@ -313,9 +308,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Transpose {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Transpose)
     }
 }

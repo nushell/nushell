@@ -1,5 +1,5 @@
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use std::fmt;
+use std::{borrow::Cow, fmt};
 
 // This module includes the progress bar used to show the progress when using the command `save`
 // Eventually it would be nice to find a better place for it.
@@ -47,7 +47,7 @@ impl NuProgressBar {
         self.pb.set_position(bytes_processed);
     }
 
-    pub fn abandoned_msg(&self, msg: String) {
+    pub fn abandoned_msg(&self, msg: impl Into<Cow<'static, str>>) {
         self.pb.abandon_with_message(msg);
     }
 }

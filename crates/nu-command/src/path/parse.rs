@@ -37,8 +37,8 @@ impl Command for PathParse {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Each path is split into a table with 'parent', 'stem' and 'extension' fields.
-On Windows, an extra 'prefix' column is added."#
+        "Each path is split into a table with 'parent', 'stem' and 'extension' fields.
+On Windows, an extra 'prefix' column is added."
     }
 
     fn is_const(&self) -> bool {
@@ -142,7 +142,7 @@ On Windows, an extra 'prefix' column is added."#
         vec![
             Example {
                 description: "Parse a path.",
-                example: r"'/home/viking/spam.txt' | path parse",
+                example: "'/home/viking/spam.txt' | path parse",
                 result: Some(Value::test_record(record! {
                         "parent" =>    Value::test_string("/home/viking"),
                         "stem" =>      Value::test_string("spam"),
@@ -151,12 +151,12 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Replace a complex extension.",
-                example: r"'/home/viking/spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
+                example: "'/home/viking/spam.tar.gz' | path parse --extension tar.gz | upsert extension { 'txt' }",
                 result: None,
             },
             Example {
                 description: "Ignore the extension.",
-                example: r"'/etc/conf.d' | path parse --extension ''",
+                example: "'/etc/conf.d' | path parse --extension ''",
                 result: Some(Value::test_record(record! {
                         "parent" =>    Value::test_string("/etc"),
                         "stem" =>      Value::test_string("conf.d"),
@@ -165,7 +165,7 @@ On Windows, an extra 'prefix' column is added."#
             },
             Example {
                 description: "Parse all paths in a list.",
-                example: r"[ /home/viking.d /home/spam.txt ] | path parse",
+                example: "[ /home/viking.d /home/spam.txt ] | path parse",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "parent" =>    Value::test_string("/home"),
@@ -249,9 +249,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(PathParse {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(PathParse)
     }
 }

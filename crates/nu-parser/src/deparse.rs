@@ -1,10 +1,14 @@
 use nu_utils::escape_quote_string;
 
 fn string_should_be_quoted(input: &str) -> bool {
-    input.starts_with('$')
+    input.is_empty()
+        || input.starts_with('$')
         || input.chars().any(|c| {
-            c == ' '
+            c.is_whitespace()
                 || c == '('
+                || c == '['
+                || c == '{'
+                || c == '}'
                 || c == '\''
                 || c == '`'
                 || c == '"'
@@ -69,6 +73,11 @@ mod test {
         for (input, expected) in cases {
             assert_eq!(escape_for_script_arg(input).as_str(), expected);
         }
+    }
+
+    #[test]
+    fn test_quote_newline() {
+        assert_eq!(escape_for_script_arg("c\nd"), format!("\"c\nd\""));
     }
 
     #[test]

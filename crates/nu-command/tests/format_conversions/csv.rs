@@ -14,11 +14,11 @@ fn table_to_csv_text() -> Result {
     Playground::setup("filter_to_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
-            r#"
+            "
                 importer,shipper,tariff_item,name,origin
                 Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
                 Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -44,11 +44,11 @@ fn table_to_csv_text_skipping_headers_after_conversion() -> Result {
     Playground::setup("filter_to_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "csv_text_sample.txt",
-            r#"
+            "
                 importer,shipper,tariff_item,name,origin
                 Plasticos Rival,Reverte,2509000000,Calcium carbonate,Spain
                 Tigre Ecuador,OMYA Andina,3824909999,Calcium carbonate,Colombia
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -80,20 +80,20 @@ fn infers_types() -> Result {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_cuatro_mosqueteros.csv",
-            r#"
+            "
                 first_name,last_name,rusty_luck,d
                 Andrés,Robalino,1,d
                 JT,Turner,1,d
                 Yehuda,Katz,1,d
                 Jason,Gedge,1,d
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_cuatro_mosqueteros.csv
             | where rusty_luck > 0
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(4)
     })
@@ -104,20 +104,20 @@ fn from_csv_text_to_table() -> Result {
     Playground::setup("filter_from_csv_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name,last_name,rusty_luck
                 Andrés,Robalino,1
                 JT,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_tres_caballeros.txt
             | from csv
             | get rusty_luck
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
@@ -128,12 +128,12 @@ fn from_csv_text_with_separator_to_table() -> Result {
     Playground::setup("filter_from_csv_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name;last_name;rusty_luck
                 Andrés;Robalino;1
                 JT;Turner;1
                 Yehuda;Katz;1
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -152,20 +152,20 @@ fn from_csv_text_with_tab_separator_to_table() -> Result {
     Playground::setup("filter_from_csv_test_4", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name	last_name	rusty_luck
                 Andrés	Robalino	1
                 JT	Turner	1
                 Yehuda	Katz	1
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_tres_caballeros.txt
             | from csv --separator (char tab)
             | get rusty_luck
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
@@ -177,7 +177,7 @@ fn from_csv_text_with_comments_to_table() -> Result {
     Playground::setup("filter_from_csv_test_5", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 # This is a comment
                 first_name,last_name,rusty_luck
                 # This one too
@@ -185,7 +185,7 @@ fn from_csv_text_with_comments_to_table() -> Result {
                 Jonathan,Turner,1
                 Yehuda,Katz,1
                 # This one also
-            "#,
+            ",
         )]);
 
         let code = r##"
@@ -204,12 +204,12 @@ fn from_csv_text_with_custom_quotes_to_table() -> Result {
     Playground::setup("filter_from_csv_test_6", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name,last_name,rusty_luck
                 'And''rés',Robalino,1
                 Jonathan,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -255,19 +255,19 @@ fn from_csv_text_skipping_headers_to_table() -> Result {
     Playground::setup("filter_from_csv_test_8", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_amigos.txt",
-            r#"
+            "
                 Andrés,Robalino,1
                 JT,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_tres_amigos.txt
             | from csv --noheaders
             | get column2
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(3)
     })
@@ -278,21 +278,21 @@ fn from_csv_text_with_missing_columns_to_table() -> Result {
     Playground::setup("filter_from_csv_test_9", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name,last_name,rusty_luck
                 Andrés,Robalino
                 Jonathan,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_tres_caballeros.txt
             | from csv --flexible
             | get -o rusty_luck
             | compact
             | length
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq(2)
     })
@@ -303,12 +303,12 @@ fn from_csv_text_with_multiple_char_separator() -> Result {
     Playground::setup("filter_from_csv_test_10", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name,last_name,rusty_luck
                 Andrés,Robalino,1
                 Jonathan,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -332,18 +332,18 @@ fn from_csv_text_with_wrong_type_separator() -> Result {
     Playground::setup("filter_from_csv_test_11", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name,last_name,rusty_luck
                 Andrés,Robalino,1
                 Jonathan,Turner,1
                 Yehuda,Katz,1
-            "#,
+            ",
         )]);
 
-        let code = r#"
+        let code = "
             open los_tres_caballeros.txt
             | from csv --separator ('123' | into int)
-        "#;
+        ";
 
         let outcome = test().cwd(dirs.test()).run(code).expect_error()?;
         match outcome {
@@ -361,10 +361,10 @@ fn from_csv_text_with_wrong_type_separator() -> Result {
 
 #[test]
 fn table_with_record_error() -> Result {
-    let code = r#"
+    let code = "
         [[a b]; [1 2] [3 {a: 1 b: 2}]]
         | to csv
-    "#;
+    ";
 
     let outcome = test().run(code).expect_error()?;
     assert!(matches!(outcome, ShellError::CantConvert { .. }));
@@ -373,10 +373,10 @@ fn table_with_record_error() -> Result {
 
 #[test]
 fn list_not_table_parse_time_error() -> Result {
-    let code = r#"
+    let code = "
         [{a: 1 b: 2} {a: 3 b: 4} 1]
         | to csv
-    "#;
+    ";
 
     let outcome = test().run(code).expect_parse_error()?;
     assert!(matches!(outcome, ParseError::InputMismatch { .. }));
@@ -385,10 +385,10 @@ fn list_not_table_parse_time_error() -> Result {
 
 #[test]
 fn list_not_table_runtime_error() -> Result {
-    let code = r#"
+    let code = "
         echo [{a: 1 b: 2} {a: 3 b: 4} 1]
         | to csv
-    "#;
+    ";
 
     let outcome = test().run(code).expect_shell_error()?;
     assert!(matches!(
@@ -400,9 +400,9 @@ fn list_not_table_runtime_error() -> Result {
 
 #[test]
 fn string_to_csv_error() -> Result {
-    let code = r#"
+    let code = "
         'qwe' | to csv
-    "#;
+    ";
 
     let outcome = test().run(code).expect_parse_error()?;
     assert!(matches!(outcome, ParseError::InputMismatch(..)));
@@ -414,12 +414,12 @@ fn parses_csv_with_unicode_sep() -> Result {
     Playground::setup("filter_from_csv_unicode_sep_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_name;last_name;rusty_luck
                 Andrés;Robalino;1
                 JT;Turner;1
                 Yehuda;Katz;1
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -438,12 +438,12 @@ fn parses_csv_with_unicode_x1f_sep() -> Result {
     Playground::setup("filter_from_csv_unicode_sep_x1f_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "los_tres_caballeros.txt",
-            r#"
+            "
                 first_namelast_namerusty_luck
                 AndrésRobalino1
                 JTTurner1
                 YehudaKatz1
-            "#,
+            ",
         )]);
 
         let code = r#"
@@ -473,4 +473,74 @@ fn from_csv_test_flexible_missing_vals() -> Result {
     "#;
 
     test().run(code).expect_value_eq("[1]")
+}
+
+#[test]
+fn streaming_heterogeneous_table_fails_with_explicit_error() -> Result {
+    // Heterogeneous tables streamed without explicit columns should fail with a clear error
+    // instead of silently dropping columns
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | to csv
+    ";
+
+    let outcome = test().run(code).expect_shell_error()?;
+    assert!(
+        outcome.to_string().contains("streamed csv schema changed"),
+        "Expected schema drift error, got: {}",
+        outcome
+    );
+    Ok(())
+}
+
+#[test]
+fn streaming_heterogeneous_table_with_explicit_columns_works() -> Result {
+    // Heterogeneous tables with explicit columns should work correctly (fill missing with empty)
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | to csv --columns [a b]
+    ";
+
+    test().run(code).expect_value_eq("a,b\n1,\n2,20\n3,30\n")
+}
+
+#[test]
+fn materialized_heterogeneous_table_preserved() -> Result {
+    // Materialized (collected) heterogeneous tables should still use old merge_descriptors semantics
+    // which computes union of all columns
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | collect | to csv
+    ";
+
+    test().run(code).expect_value_eq("a,b\n1,\n2,20\n3,30\n")
+}
+
+#[test]
+fn empty_stream_with_explicit_columns_still_writes_header() -> Result {
+    let code = "
+        1..3
+        | where {|i| $i > 10 }
+        | wrap a
+        | to csv --columns [a]
+        | lines
+        | to nuon
+    ";
+
+    test().run(code).expect_value_eq("[a]")
 }

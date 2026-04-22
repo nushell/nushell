@@ -1,6 +1,7 @@
 use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use nu_utils::locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string};
 use std::fmt::{Display, Write};
@@ -46,7 +47,7 @@ impl Command for FormatDate {
         vec![
             Example {
                 description: "Format a given date-time using the default format (RFC 2822).",
-                example: r#"'2021-10-22 20:00:12 +01:00' | into datetime | format date"#,
+                example: "'2021-10-22 20:00:12 +01:00' | into datetime | format date",
                 result: Some(Value::string(
                     "Fri, 22 Oct 2021 20:00:12 +0100".to_string(),
                     Span::test_data(),
@@ -255,13 +256,14 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                     val.to_rfc2822()
                 } else {
                     return Value::error(
-                        ShellError::GenericError {
-                            error: "Can't convert date to RFC 2822 format.".into(),
-                            msg: "the RFC 2822 format only supports years 0 through 9999".into(),
-                            span: Some(val_span),
-                            help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
-                            inner: vec![],
-                        },
+                        ShellError::Generic(
+                            GenericError::new(
+                                "Can't convert date to RFC 2822 format.",
+                                "the RFC 2822 format only supports years 0 through 9999",
+                                val_span,
+                            )
+                            .with_help(r#"use the RFC 3339 format option: "%+""#),
+                        ),
                         span,
                     );
                 }
@@ -277,14 +279,14 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                             x.to_rfc2822()
                         } else {
                             return Value::error(
-                                ShellError::GenericError {
-                                    error: "Can't convert date to RFC 2822 format.".into(),
-                                    msg: "the RFC 2822 format only supports years 0 through 9999"
-                                        .into(),
-                                    span: Some(val_span),
-                                    help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
-                                    inner: vec![],
-                                },
+                                ShellError::Generic(
+                                    GenericError::new(
+                                        "Can't convert date to RFC 2822 format.",
+                                        "the RFC 2822 format only supports years 0 through 9999",
+                                        val_span,
+                                    )
+                                    .with_help(r#"use the RFC 3339 format option: "%+""#),
+                                ),
                                 span,
                             );
                         }
@@ -311,9 +313,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(FormatDate {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(FormatDate)
     }
 }

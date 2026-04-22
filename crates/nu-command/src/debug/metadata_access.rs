@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return};
+use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
 use nu_protocol::{
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
     engine::{Call, Closure, Command, EngineState, Stack},
@@ -49,16 +49,21 @@ impl Command for MetadataAccess {
         }
 
         let eval = get_eval_block_with_early_return(engine_state);
-        eval(engine_state, &mut callee_stack, block, input).map(|p| p.body)
+        let result = eval(engine_state, &mut callee_stack, block, input).map(|p| p.body);
+
+        // Merge the block's environment to the current stack
+        redirect_env(engine_state, caller_stack, &callee_stack);
+
+        result
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Access metadata and data from a stream together.",
-            example: r#"{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}"#,
+            example: "{foo: bar} | to json --raw | metadata access {|meta| {in: $in, content: $meta.content_type}}",
             result: Some(Value::test_record(record! {
                 "in" => Value::test_string(r#"{"foo":"bar"}"#),
-                "content" => Value::test_string(r#"application/json"#)
+                "content" => Value::test_string("application/json")
             })),
         }]
     }
@@ -66,14 +71,10 @@ impl Command for MetadataAccess {
 
 #[cfg(test)]
 mod test {
-    use crate::ToJson;
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples_with_commands;
-
-        test_examples_with_commands(MetadataAccess {}, &[&ToJson])
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MetadataAccess)
     }
 }

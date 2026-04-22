@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use crate::util::{canonicalize_possible_filename_arg, modify_plugin_file};
 
@@ -38,7 +39,7 @@ impl Command for PluginRm {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This does not remove the plugin commands from the current scope or from `plugin
 list` in the current shell. It instead removes the plugin from the plugin
 registry file (by default, `$nu.plugin-path`). The changes will be apparent the
@@ -46,7 +47,7 @@ next time `nu` is launched with that plugin registry file.
 
 This can be useful for removing an invalid plugin signature, if it can't be
 fixed with `plugin add`.
-"#
+"
         .trim()
     }
 
@@ -98,13 +99,11 @@ fixed with `plugin add`.
             } else if force {
                 Ok(())
             } else {
-                Err(ShellError::GenericError {
-                    error: format!("Failed to remove the `{}` plugin", name.item),
-                    msg: "couldn't find a plugin with this name in the registry file".into(),
-                    span: Some(name.span),
-                    help: None,
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(GenericError::new(
+                    format!("Failed to remove the `{}` plugin", name.item),
+                    "couldn't find a plugin with this name in the registry file",
+                    name.span,
+                )))
             }
         })?;
 

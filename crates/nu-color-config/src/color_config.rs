@@ -140,7 +140,7 @@ mod tests {
         // Test case 3: some values are valid
         let record = record! {
             "bg" =>      Value::test_string("green"),
-            "invalid" => Value::nothing(Span::unknown()),
+            "invalid" => Value::nothing(Span::test_data()),
         };
         let expected_style = NuStyle {
             bg: Some("green".to_string()),
@@ -154,7 +154,7 @@ mod tests {
     fn test_parse_map_entry() {
         let mut hm = HashMap::new();
         let key = "test_key".to_owned();
-        let value = Value::string("red", Span::unknown());
+        let value = Value::string("red", Span::test_data());
         parse_map_entry(&mut hm, &key, &value);
         assert_eq!(hm.get(&key), Some(&lookup_ansi_color_style("red")));
     }

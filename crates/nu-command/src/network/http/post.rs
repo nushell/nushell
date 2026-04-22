@@ -5,6 +5,7 @@ use crate::network::http::client::{
     request_handle_response, request_set_timeout, send_request,
 };
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct HttpPost;
@@ -159,7 +160,7 @@ impl Command for HttpPost {
             },
             Example {
                 description: "Get the response status code.",
-                example: r#"http post https://www.example.com 'body' | metadata | get http_response.status"#,
+                example: "http post https://www.example.com 'body' | metadata | get http_response.status",
                 result: None,
             },
             Example {
@@ -209,13 +210,11 @@ pub fn run_post(
         .or_else(|| maybe_metadata.and_then(|m| m.content_type));
 
     let Some(data) = data else {
-        return Err(ShellError::GenericError {
-            error: "Data must be provided either through pipeline or positional argument".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Data must be provided either through pipeline or positional argument",
+            "",
+            call.head,
+        )));
     };
 
     let args = Arguments {
@@ -311,9 +310,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(HttpPost {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(HttpPost)
     }
 }

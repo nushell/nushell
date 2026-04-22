@@ -2,16 +2,16 @@ use chrono::{DateTime, FixedOffset};
 use nu_path::AbsolutePathBuf;
 use nu_protocol::{Span, Value, ast::PathMember, casing::Casing, engine::EngineState, record};
 use nu_test_support::{
-    fs::{Stub, line_ending},
+    fs::Stub,
     nu,
     playground::{Dirs, Playground},
 };
 use rand::{
-    Rng, SeedableRng,
+    SeedableRng,
     distr::{Alphanumeric, SampleString, StandardUniform},
-    prelude::Distribution,
+    prelude::*,
     random_range,
-    rngs::StdRng,
+    rngs::{StdRng, SysRng},
 };
 use std::io::Write;
 
@@ -325,7 +325,7 @@ fn into_sqlite_big_insert() {
                 .upsert_cell_path(
                     &[PathMember::String {
                         val: "somedate".into(),
-                        span: Span::unknown(),
+                        span: Span::test_data(),
                         optional: false,
                         casing: Casing::Sensitive,
                     }],
@@ -339,11 +339,11 @@ fn into_sqlite_big_insert() {
                 &engine_state,
                 &value,
                 nuon::ToNuonConfig::default()
-                    .span(Some(Span::unknown()))
+                    .span(Some(Span::test_data()))
                     .serialize_types(serialize_types),
             )
             .unwrap()
-                + &line_ending();
+                + nu_utils::consts::LINE_SEPARATOR_STR;
 
             nuon_file.write_all(nuon.as_bytes()).unwrap();
             expected_rows.push(row);
@@ -365,7 +365,7 @@ fn into_sqlite_big_insert() {
 #[test]
 fn into_sqlite_empty() {
     Playground::setup("empty", |dirs, _| {
-        insert_test_rows(&dirs, r#"[]"#, Some("SELECT * FROM sqlite_schema;"), vec![]);
+        insert_test_rows(&dirs, "[]", Some("SELECT * FROM sqlite_schema;"), vec![]);
     });
 }
 
@@ -384,7 +384,9 @@ struct TestRow(
 
 impl TestRow {
     pub fn random() -> Self {
-        StdRng::from_os_rng().sample(StandardUniform)
+        StdRng::try_from_rng(&mut SysRng)
+            .expect("OS RNG unavailable")
+            .sample(StandardUniform)
     }
 }
 
@@ -392,17 +394,17 @@ impl From<TestRow> for Value {
     fn from(row: TestRow) -> Self {
         Value::record(
             record! {
-                "somebool" => Value::bool(row.0, Span::unknown()),
-                "someint" => Value::int(row.1, Span::unknown()),
-                "somefloat" => Value::float(row.2, Span::unknown()),
-                "somefilesize" => Value::filesize(row.3, Span::unknown()),
-                "someduration" => Value::duration(row.4, Span::unknown()),
-                "somedate" => Value::date(row.5, Span::unknown()),
-                "somestring" => Value::string(row.6, Span::unknown()),
-                "somebinary" => Value::binary(row.7, Span::unknown()),
-                "somenull" => Value::nothing(Span::unknown()),
+                "somebool" => Value::bool(row.0, Span::test_data()),
+                "someint" => Value::int(row.1, Span::test_data()),
+                "somefloat" => Value::float(row.2, Span::test_data()),
+                "somefilesize" => Value::filesize(row.3, Span::test_data()),
+                "someduration" => Value::duration(row.4, Span::test_data()),
+                "somedate" => Value::date(row.5, Span::test_data()),
+                "somestring" => Value::string(row.6, Span::test_data()),
+                "somebinary" => Value::binary(row.7, Span::test_data()),
+                "somenull" => Value::nothing(Span::test_data()),
             },
-            Span::unknown(),
+            Span::test_data(),
         )
     }
 }
@@ -438,7 +440,7 @@ impl TryFrom<&rusqlite::Row<'_>> for TestRow {
 impl Distribution<TestRow> for StandardUniform {
     fn sample<R>(&self, rng: &mut R) -> TestRow
     where
-        R: rand::Rng + ?Sized,
+        R: rand::RngExt + ?Sized,
     {
         let dt = DateTime::from_timestamp_millis(random_range(0..2324252554000))
             .unwrap()

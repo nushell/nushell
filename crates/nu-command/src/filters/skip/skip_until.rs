@@ -72,14 +72,14 @@ impl Command for SkipUntil {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
         let mut closure = ClosureEval::new(engine_state, stack, closure);
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         Ok(input
             .into_iter_strict(head)?
             .skip_while(move |value| {
@@ -98,9 +98,7 @@ mod tests {
     use crate::SkipUntil;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SkipUntil)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(SkipUntil)
     }
 }

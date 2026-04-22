@@ -1,0 +1,6 @@
+allow-unwrap-in-tests = true 
+
+[[disallowed-types]]
+path = "std::time::Instant"
+reason = "WASM panics if used, use instead"
+replacement = "nu_utils::time::Instant"

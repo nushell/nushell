@@ -12,6 +12,7 @@ use nu_utils::downcast;
 
 use crate::{harness::group::RUN_TEST_GROUP_IN_SERIAL, tester::TestError};
 
+#[derive(Debug)]
 pub struct Extra {
     pub run_in_serial: bool,
     pub experimental_options: &'static [(&'static ExperimentalOption, bool)],

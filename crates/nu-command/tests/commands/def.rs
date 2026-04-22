@@ -1,5 +1,5 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 use std::fs;
 
 #[test]
@@ -12,10 +12,10 @@ fn def_with_trailing_comma() {
 #[test]
 fn def_with_comment() {
     Playground::setup("def_with_comment", |dirs, _| {
-        let data = r#"
+        let data = "
 #My echo
 export def e [arg] {echo $arg}
-            "#;
+            ";
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
@@ -29,18 +29,18 @@ export def e [arg] {echo $arg}
 #[test]
 fn def_with_param_comment() {
     Playground::setup("def_with_param_comment", |dirs, _| {
-        let data = r#"
+        let data = "
 export def e [
 param:string #My cool attractive param
 ] {echo $param};
-            "#;
+            ";
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
             "use def_test e; help e"
         );
 
-        assert!(actual.out.contains(r#"My cool attractive param"#));
+        assert!(actual.out.contains("My cool attractive param"));
     })
 }
 
@@ -127,45 +127,43 @@ fn def_errors_with_multiple_commas() {
     assert!(actual.err.contains("expected parameter"));
 }
 
-#[test]
-fn def_fails_with_invalid_name() {
-    let err_msg = "command name can't be a number, a filesize, or contain a hash # or caret ^";
-    let actual = nu!(r#"def 1234 = echo "test""#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!(r#"def 5gib = echo "test""#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!("def ^foo [] {}");
-    assert!(actual.err.contains(err_msg));
+#[rstest]
+#[case::numeric("1234")]
+#[case::filesize_like("5gib")]
+#[case::caret("^foo")]
+fn def_fails_with_invalid_name(#[case] alias: &str) -> Result {
+    let code = format!("def {alias} = echo 'test'");
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::CommandDefNotValid(_)));
+    Ok(())
 }
 
 #[test]
 fn def_with_list() {
     Playground::setup("def_with_list", |dirs, _| {
-        let data = r#"
+        let data = "
 def e [
 param: list
 ] {echo $param};
-            "#;
+            ";
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
             "source def_test; e [one] | to json -r"
         );
 
-        assert!(actual.out.contains(r#"one"#));
+        assert!(actual.out.contains("one"));
     })
 }
 
 #[test]
 fn def_with_default_list() {
     Playground::setup("def_with_default_list", |dirs, _| {
-        let data = r#"
+        let data = "
 def f [
 param: list = [one]
 ] {echo $param};
-            "#;
+            ";
         fs::write(dirs.root().join("def_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
@@ -210,13 +208,13 @@ fn def_wrapped_with_block() {
 
 #[test]
 fn def_wrapped_from_module() {
-    let actual = nu!(r#"module spam {
+    let actual = nu!("module spam {
             export def --wrapped my-echo [...rest] { nu --testbin cococo ...$rest }
         }
 
         use spam
         spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
-        "#);
+        ");
 
     assert!(
         actual
@@ -327,7 +325,7 @@ fn def_recursive_func_should_work() {
     let actual = nu!("def bar [] { let x = 1; ($x | foo) }; def foo [] { foo }");
     assert!(actual.err.is_empty());
 
-    let actual = nu!(r#"
+    let actual = nu!("
 def recursive [c: int] {
     if ($c == 0) { return }
     if ($c mod 2 > 0) {
@@ -335,7 +333,7 @@ def recursive [c: int] {
     } else {
         recursive ($c - 1)
     }
-}"#);
+}");
     assert!(actual.err.is_empty());
 }
 
@@ -344,7 +342,7 @@ fn export_def_recursive_func_should_work() {
     let actual = nu!("export def bar [] { let x = 1; ($x | foo) }; export def foo [] { foo }");
     assert!(actual.err.is_empty());
 
-    let actual = nu!(r#"
+    let actual = nu!("
 export def recursive [c: int] {
     if ($c == 0) { return }
     if ($c mod 2 > 0) {
@@ -352,6 +350,6 @@ export def recursive [c: int] {
     } else {
         recursive ($c - 1)
     }
-}"#);
+}");
     assert!(actual.err.is_empty());
 }

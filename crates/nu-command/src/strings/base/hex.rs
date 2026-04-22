@@ -83,7 +83,7 @@ impl Command for EncodeHex {
         vec![
             Example {
                 description: "Encode a binary value",
-                example: r#"0x[C3 06] | encode hex"#,
+                example: "0x[C3 06] | encode hex",
                 result: Some(Value::test_string("C306")),
             },
             Example {
@@ -93,7 +93,7 @@ impl Command for EncodeHex {
             },
             Example {
                 description: "Output a Lowercase version of the encoding",
-                example: r#"0x[AD EF] | encode hex --lower"#,
+                example: "0x[AD EF] | encode hex --lower",
                 result: Some(Value::test_string("adef")),
             },
         ]
@@ -140,12 +140,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples_decode() {
-        crate::test_examples(DecodeHex)
+    fn test_examples_decode() -> nu_test_support::Result {
+        nu_test_support::test().examples(DecodeHex)
     }
 
     #[test]
-    fn test_examples_encode() {
-        crate::test_examples(EncodeHex)
+    fn test_examples_encode() -> nu_test_support::Result {
+        nu_test_support::test().examples(EncodeHex)
     }
 }

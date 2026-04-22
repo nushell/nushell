@@ -55,13 +55,8 @@ impl Command for ToNuon {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let metadata = input
-            .metadata()
-            .unwrap_or_default()
-            .with_content_type(Some("application/x-nuon".into()));
-
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
         let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
@@ -76,6 +71,11 @@ impl Command for ToNuon {
         };
 
         let span = call.head;
+        let metadata = input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-nuon".into()));
+
         let value = input.into_value(span)?;
 
         let config = nuon::ToNuonConfig::default()
@@ -152,10 +152,9 @@ mod test {
     use crate::{Get, Metadata};
 
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::ToNuon;
-        use crate::test_examples;
-        test_examples(ToNuon {})
+        nu_test_support::test().examples(ToNuon)
     }
 
     #[test]

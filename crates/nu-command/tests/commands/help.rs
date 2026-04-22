@@ -40,10 +40,10 @@ fn help_alias_description_1() {
     Playground::setup("help_alias_description_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 alias SPAM = print 'spam'
-            "#,
+            ",
         )]);
 
         let code = &[
@@ -72,10 +72,10 @@ fn help_alias_description_3() {
     Playground::setup("help_alias_description_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 alias SPAM = print 'spam' # line2
-            "#,
+            ",
         )]);
 
         let code = &[
@@ -94,10 +94,10 @@ fn help_alias_name() {
     Playground::setup("help_alias_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 alias SPAM = print 'spam' # line2
-            "#,
+            ",
         )]);
 
         let code = &["source spam.nu", "help aliases SPAM"];
@@ -115,10 +115,10 @@ fn help_alias_name_f() {
     Playground::setup("help_alias_name_f", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 alias SPAM = print 'spam' # line2
-            "#,
+            ",
         )]);
 
         let code = &["source spam.nu", "help aliases -f SPAM | get 0.description"];
@@ -134,10 +134,10 @@ fn help_export_alias_name_single_word() {
     Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 export alias SPAM = print 'spam' # line2
-            "#,
+            ",
         )]);
 
         let code = &["use spam.nu SPAM", "help aliases SPAM"];
@@ -155,10 +155,10 @@ fn help_export_alias_name_multi_word() {
     Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 export alias SPAM = print 'spam' # line2
-            "#,
+            ",
         )]);
 
         let code = &["use spam.nu", "help aliases spam SPAM"];
@@ -176,12 +176,12 @@ fn help_module_description_1() {
     Playground::setup("help_module_description", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 module SPAM {
                     # line2
                 } #line3
-            "#,
+            ",
         )]);
 
         let code = &[
@@ -201,12 +201,12 @@ fn help_module_name() {
     Playground::setup("help_module_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # line1
                 module SPAM {
                     # line2
                 } #line3
-            "#,
+            ",
         )]);
 
         let code = &["source spam.nu", "help modules SPAM"];
@@ -224,12 +224,12 @@ fn help_module_sorted_decls() {
     Playground::setup("help_module_sorted_decls", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 module SPAM {
                     export def z [] {}
                     export def a [] {}
                 }
-            "#,
+            ",
         )]);
 
         let code = &["source spam.nu", "help modules SPAM"];
@@ -244,12 +244,12 @@ fn help_module_sorted_aliases() {
     Playground::setup("help_module_sorted_aliases", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 module SPAM {
                     export alias z = echo 'z'
                     export alias a = echo 'a'
                 }
-            "#,
+            ",
         )]);
 
         let code = &["source spam.nu", "help modules SPAM"];
@@ -266,7 +266,7 @@ fn help_description_extra_description_command() {
         |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
                 "spam.nu",
-                r#"
+                "
                 # module_line1
                 #
                 # module_line2
@@ -275,7 +275,7 @@ fn help_description_extra_description_command() {
                 #
                 # def_line2
                 export def foo [] {}
-            "#,
+            ",
             )]);
 
             let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
@@ -306,7 +306,7 @@ fn help_description_extra_description_alias() {
         |dirs, sandbox| {
             sandbox.with_files(&[FileWithContent(
                 "spam.nu",
-                r#"
+                "
                 # module_line1
                 #
                 # module_line2
@@ -315,7 +315,7 @@ fn help_description_extra_description_alias() {
                 #
                 # alias_line2
                 export alias bar = echo 'bar'
-            "#,
+            ",
             )]);
 
             let actual = nu!(cwd: dirs.test(), "use spam.nu *; help modules spam");
@@ -342,9 +342,9 @@ fn help_description_extra_description_alias() {
 #[test]
 fn help_modules_main_1() {
     let inp = &[
-        r#"module spam {
+        "module spam {
             export def main [] { 'foo' };
-        }"#,
+        }",
         "help spam",
     ];
 
@@ -356,9 +356,9 @@ fn help_modules_main_1() {
 #[test]
 fn help_modules_main_2() {
     let inp = &[
-        r#"module spam {
+        "module spam {
             export def main [] { 'foo' };
-        }"#,
+        }",
         "help modules | where name == spam | get 0.commands.0.name",
     ];
 
@@ -370,7 +370,7 @@ fn help_modules_main_2() {
 #[test]
 fn help_shows_module_qualified_usage() {
     let inp = &[
-        r#"module spam { export def prefix [p:string] { $p } }"#,
+        "module spam { export def prefix [p:string] { $p } }",
         "use spam",
         "help spam prefix",
     ];
@@ -386,10 +386,10 @@ fn help_commands_shows_overlay_name_for_module_decls() {
     Playground::setup("help_overlay_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "spam.nu",
-            r#"
+            "
                 # exported function
                 export def prefix [prefix: string] { $prefix }
-            "#,
+            ",
         )]);
 
         let code = &[
@@ -407,7 +407,7 @@ fn help_commands_shows_overlay_name_for_module_decls() {
 #[ignore = "run this test only when experimental option native-clip is set"]
 fn clip_command_shows_module_qualified_decls_after_use() {
     // Ensure running `clip` shows module-qualified subcommands like `clip prefix` after `use std/clip`.
-    let actual = nu_with_std!(r#"use std/clip; clip"#);
+    let actual = nu_with_std!("use std/clip; clip");
     assert!(
         actual.out.contains("clip prefix"),
         "help for `clip` must include `clip prefix`, got:\n{}",

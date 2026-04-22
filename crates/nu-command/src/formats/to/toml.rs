@@ -1,3 +1,4 @@
+use crate::formats::{preserve_toml_document, read_toml_source_from_metadata};
 use chrono::{DateTime, Datelike, FixedOffset, Timelike};
 use nu_engine::command_prelude::*;
 use nu_protocol::{PipelineMetadata, ast::PathMember};
@@ -28,7 +29,7 @@ impl Command for ToToml {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Outputs an TOML string representing the contents of this record.",
-            example: r#"{foo: 1 bar: 'qwe'} | to toml"#,
+            example: "{foo: 1 bar: 'qwe'} | to toml",
             result: Some(Value::test_string("foo = 1\nbar = \"qwe\"\n")),
         }]
     }
@@ -49,7 +50,7 @@ impl Command for ToToml {
 
 // Helper method to recursively convert nu_protocol::Value -> toml::Value
 // This shouldn't be called at the top-level
-fn helper(
+pub(crate) fn nu_value_to_toml_value(
     engine_state: &EngineState,
     v: &Value,
     serialize_types: bool,
@@ -66,7 +67,10 @@ fn helper(
         Value::Record { val, .. } => {
             let mut m = toml::map::Map::new();
             for (k, v) in &**val {
-                m.insert(k.clone(), helper(engine_state, v, serialize_types)?);
+                m.insert(
+                    k.clone(),
+                    nu_value_to_toml_value(engine_state, v, serialize_types)?,
+                );
             }
             toml::Value::Table(m)
         }
@@ -118,7 +122,11 @@ fn toml_list(
     let mut out = vec![];
 
     for value in input {
-        out.push(helper(engine_state, value, serialize_types)?);
+        out.push(nu_value_to_toml_value(
+            engine_state,
+            value,
+            serialize_types,
+        )?);
     }
 
     Ok(out)
@@ -160,7 +168,9 @@ fn value_to_toml_value(
     serialize_types: bool,
 ) -> Result<toml::Value, ShellError> {
     match v {
-        Value::Record { .. } | Value::Closure { .. } => helper(engine_state, v, serialize_types),
+        Value::Record { .. } | Value::Closure { .. } => {
+            nu_value_to_toml_value(engine_state, v, serialize_types)
+        }
         // Propagate existing errors
         Value::Error { error, .. } => Err(*error.clone()),
         _ => Err(ShellError::UnsupportedInput {
@@ -174,12 +184,25 @@ fn value_to_toml_value(
 
 fn to_toml(
     engine_state: &EngineState,
-    input: PipelineData,
+    mut input: PipelineData,
     span: Span,
     serialize_types: bool,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let value = input.into_value(span)?;
+
+    if !serialize_types
+        && let Some(original_source) = read_toml_source_from_metadata(metadata.as_ref())
+        && let Value::Record { .. } = &value
+        && let Ok(preserved) = preserve_toml_document(engine_state, &value, &original_source, span)
+    {
+        let new_md = Some(
+            metadata
+                .unwrap_or_default()
+                .with_content_type(Some("text/x-toml".into())),
+        );
+        return Ok(Value::string(preserved, span).into_pipeline_data_with_metadata(new_md));
+    }
 
     let toml_value = value_to_toml_value(engine_state, &value, span, serialize_types)?;
     match toml_value {
@@ -216,8 +239,8 @@ fn to_toml_datetime(datetime: &DateTime<FixedOffset>) -> toml::value::Datetime {
         // methods return values less than 65'000
         hour: datetime.hour() as u8,
         minute: datetime.minute() as u8,
-        second: datetime.second() as u8,
-        nanosecond: datetime.nanosecond(),
+        second: Some(datetime.second() as u8),
+        nanosecond: Some(datetime.nanosecond()),
     };
 
     let offset = toml::value::Offset::Custom {
@@ -239,10 +262,8 @@ mod tests {
     use chrono::TimeZone;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ToToml {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ToToml)
     }
 
     #[test]
@@ -267,13 +288,13 @@ mod tests {
             time: Some(toml::value::Time {
                 hour: 10,
                 minute: 12,
-                second: 44,
-                nanosecond: 0,
+                second: Some(44),
+                nanosecond: Some(0),
             }),
             offset: Some(toml::value::Offset::Custom { minutes: 120 }),
         });
 
-        let result = helper(&engine_state, &test_date, serialize_types);
+        let result = nu_value_to_toml_value(&engine_state, &test_date, serialize_types);
 
         assert!(result.is_ok_and(|res| res == reference_date));
     }

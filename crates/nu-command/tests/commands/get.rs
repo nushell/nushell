@@ -1,6 +1,9 @@
+use nu_protocol::{IntoPipelineData, PipelineMetadata, test_record};
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 
 #[test]
 fn simple_get_record() {
@@ -10,7 +13,7 @@ fn simple_get_record() {
 
 #[test]
 fn simple_get_list() {
-    let actual = nu!(r#"([{foo: 'bar'}] | get foo) == [bar]"#);
+    let actual = nu!("([{foo: 'bar'}] | get foo) == [bar]");
     assert_eq!(actual.out, "true");
 }
 
@@ -200,13 +203,45 @@ fn ignore_errors_works() {
 
 #[test]
 fn ignore_multiple() {
-    let actual = nu!(r#"[[a];[b]] | get -o c d | to nuon"#);
+    let actual = nu!("[[a];[b]] | get -o c d | to nuon");
 
     assert_eq!(actual.out, "[[null], [null]]");
 }
 
 #[test]
 fn test_const() {
-    let actual = nu!(r#"const x = [1 2 3] | get 1; $x"#);
+    let actual = nu!("const x = [1 2 3] | get 1; $x");
     assert_eq!(actual.out, "2");
+}
+
+enum Metadata {
+    Keep,
+    Drop,
+}
+
+#[rstest]
+#[case::index_only("get 1", Metadata::Keep)]
+#[case::two_indices("get 1 0", Metadata::Keep)]
+#[case::index_and_column("get name 1", Metadata::Keep)]
+#[case::single_column("get name", Metadata::Drop)]
+#[case::cellpath_with_multiple_members("get 1.name", Metadata::Drop)]
+#[case::multiple_columns("get name type", Metadata::Drop)]
+fn test_path_columns_metadata(#[case] code: &str, #[case] metadata: Metadata) -> Result {
+    let in_metadata = Some(PipelineMetadata::default().with_path_columns(vec!["name".into()]));
+
+    let data = Value::test_list(vec![
+        test_record! { "name" => "Cargo.toml", "type" => "file" },
+        test_record! { "name" => "src",        "type" => "dir" },
+    ])
+    .into_pipeline_data_with_metadata(in_metadata.clone());
+
+    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
+
+    let target_metadata = match metadata {
+        Metadata::Keep => in_metadata,
+        Metadata::Drop => Some(PipelineMetadata::default()),
+    };
+
+    assert_eq!(target_metadata, out_metadata);
+    Ok(())
 }

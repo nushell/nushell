@@ -14,55 +14,55 @@ fn parses_single_path_prefix() -> Result {
 
 #[test]
 fn parses_single_path_parent() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.txt'
         | path parse
         | get parent
-    "#;
+    ";
 
     test().cwd("tests").run(code).expect_value_eq("home/viking")
 }
 
 #[test]
 fn parses_single_path_stem() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.txt'
         | path parse
         | get stem
-    "#;
+    ";
 
     test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
 fn parses_custom_extension_gets_extension() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.tar.gz'
         | path parse --extension tar.gz
         | get extension
-    "#;
+    ";
 
     test().cwd("tests").run(code).expect_value_eq("tar.gz")
 }
 
 #[test]
 fn parses_custom_extension_gets_stem() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.tar.gz'
         | path parse --extension tar.gz
         | get stem
-    "#;
+    ";
 
     test().cwd("tests").run(code).expect_value_eq("spam")
 }
 
 #[test]
 fn parses_ignoring_extension_gets_extension() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.tar.gz'
         | path parse --extension ''
         | get extension
-    "#;
+    ";
 
     test().cwd("tests").run(code).expect_value_eq("")
 }
@@ -80,13 +80,13 @@ fn parses_ignoring_extension_gets_stem() -> Result {
 
 #[test]
 fn parses_into_correct_number_of_columns() -> Result {
-    let code = r#"
+    let code = "
         echo 'home/viking/spam.txt'
         | path parse
         | transpose
         | get column0
         | length
-    "#;
+    ";
 
     #[cfg(windows)]
     let expected = 4;

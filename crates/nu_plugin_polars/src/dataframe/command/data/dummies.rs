@@ -1,6 +1,7 @@
 use crate::values::{NuDataFrame, PolarsPluginType};
 use crate::{PolarsPlugin, values::CustomValueSupport};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::{prelude::*, series::Series};
 
@@ -99,12 +100,11 @@ fn command(
     let polars_df = df
         .as_ref()
         .to_dummies(separator.as_deref(), drop_first, drop_nulls)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error calculating dummies".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: Some("The only allowed column types for dummies are String or Int".into()),
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(
+                GenericError::new("Error calculating dummies", e.to_string(), call.head)
+                    .with_help("The only allowed column types for dummies are String or Int"),
+            )
         })?;
 
     let df: NuDataFrame = polars_df.into();

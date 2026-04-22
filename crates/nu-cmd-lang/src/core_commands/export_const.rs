@@ -31,8 +31,8 @@ impl Command for ExportConst {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -52,11 +52,11 @@ impl Command for ExportConst {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Re-export a constant from another module.",
-            example: r#"module spam { export const foo = 3; }
+            example: "module spam { export const foo = 3; }
     module eggs { export use spam foo }
     use eggs foo
     foo
-            "#,
+            ",
             result: Some(Value::test_int(3)),
         }]
     }

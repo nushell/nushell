@@ -9,6 +9,7 @@ use crate::{
 use crate::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -72,6 +73,7 @@ impl PluginCommand for Unique {
                     NuDataFrame::try_from_columns(
                         vec![Column::new("0".to_string(), vec![Value::test_int(2)])],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -97,6 +99,7 @@ impl PluginCommand for Unique {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -125,6 +128,7 @@ impl PluginCommand for Unique {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -143,6 +147,7 @@ impl PluginCommand for Unique {
                             vec![Value::test_int(1), Value::test_int(2)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -161,6 +166,7 @@ impl PluginCommand for Unique {
                             vec![Value::test_int(2), Value::test_int(1)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -174,9 +180,9 @@ impl PluginCommand for Unique {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
@@ -213,12 +219,11 @@ fn command_eager(
 ) -> Result<PipelineData, ShellError> {
     let series = df.as_series(call.head)?;
 
-    let res = series.unique().map_err(|e| ShellError::GenericError {
-        error: "Error calculating unique values".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: Some("The str-slice command can only be used with string columns".into()),
-        inner: vec![],
+    let res = series.unique().map_err(|e| {
+        ShellError::Generic(
+            GenericError::new("Error calculating unique values", e.to_string(), call.head)
+                .with_help("The str-slice command can only be used with string columns"),
+        )
     })?;
 
     let df = NuDataFrame::try_from_series_vec(vec![res.into_series()], call.head)?;

@@ -1,11 +1,10 @@
+use crate::reedline_config::{display_edit_command, display_edit_mode, display_reedline_event};
 use nu_engine::command_prelude::*;
 use reedline::{
-    EditCommandDiscriminants, ReedlineEventDiscriminants, get_reedline_keybinding_modifiers,
-    get_reedline_keycodes, get_reedline_prompt_edit_modes,
+    EditCommandDiscriminants, PromptEditModeDiscriminants, ReedlineEventDiscriminants,
+    get_reedline_keybinding_modifiers, get_reedline_keycodes,
 };
-use strum::VariantArray;
-
-use crate::reedline_config::{display_edit_command, display_reedline_event};
+use strum::IntoEnumIterator;
 
 #[derive(Clone)]
 pub struct KeybindingsList;
@@ -88,27 +87,30 @@ fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
     };
 
     values
-        .iter()
-        .map(|edit| edit.split('\n'))
-        .flat_map(|edit| edit.map(|edit| convert_to_record(edit, entry_type, span)))
+        .into_iter()
+        .map(|edit| convert_to_record(edit, entry_type, span))
         .collect()
 }
 
 fn get_reedline_edit_commands() -> Vec<String> {
-    EditCommandDiscriminants::VARIANTS
-        .iter()
-        .filter_map(|edit| display_edit_command(*edit).map(|s| s.to_string()))
+    EditCommandDiscriminants::iter()
+        .filter_map(|edit| display_edit_command(edit).map(|s| s.to_string()))
+        .collect()
+}
+
+fn get_reedline_prompt_edit_modes() -> Vec<String> {
+    PromptEditModeDiscriminants::iter()
+        .filter_map(display_edit_mode)
         .collect()
 }
 
 fn get_reedline_reedline_events() -> Vec<String> {
-    ReedlineEventDiscriminants::VARIANTS
-        .iter()
-        .filter_map(|event| display_reedline_event(*event).map(|s| s.to_string()))
+    ReedlineEventDiscriminants::iter()
+        .filter_map(|event| display_reedline_event(event).map(|s| s.to_string()))
         .collect()
 }
 
-fn convert_to_record(edit: &str, entry_type: &str, span: Span) -> Value {
+fn convert_to_record(edit: String, entry_type: &str, span: Span) -> Value {
     Value::record(
         record! {
             "type" => Value::string(entry_type, span),

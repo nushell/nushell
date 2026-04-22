@@ -673,7 +673,7 @@ fn external_error_with_backtrace() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] { if $x == 3 { nu --testbin --fail }};def b [] {a 1; a 3; a 2}; b"#);
+            "def a [x] { if $x == 3 { nu --testbin --fail }};def b [] {a 1; a 3; a 2}; b");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -686,7 +686,7 @@ fn external_error_with_backtrace() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"nu --testbin --fail"#);
+            "nu --testbin --fail");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -713,7 +713,7 @@ fn bad_config_file_restrict_cmd_running_with_commands() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"print bbb"#);
+            "print bbb");
         assert!(actual.err.contains("Command `errorcmd` not found"));
         assert!(!actual.out.contains("bbb"));
         assert!(!actual.status.success());

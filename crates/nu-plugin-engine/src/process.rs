@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, MutexGuard, atomic::AtomicU32};
 
-use nu_protocol::{ShellError, Span};
+use nu_protocol::{ShellError, Span, shell_error::generic::GenericError};
 use nu_system::ForegroundGuard;
 
 /// Provides a utility interface for a plugin interface to manage the process the plugin is running
@@ -53,29 +53,27 @@ impl PluginProcess {
         let mut mutable = self.lock_mutable()?;
         if mutable.foreground_guard.is_none() {
             let guard = ForegroundGuard::new(pid, pipeline_state).map_err(|err| {
-                ShellError::GenericError {
-                    error: "Failed to enter foreground".into(),
-                    msg: err.to_string(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }
+                ShellError::Generic(GenericError::new(
+                    "Failed to enter foreground",
+                    err.to_string(),
+                    span,
+                ))
             })?;
             let pgrp = guard.pgrp();
             mutable.foreground_guard = Some(guard);
             Ok(pgrp)
         } else {
-            Err(ShellError::GenericError {
-                error: "Can't enter foreground".into(),
-                msg: "this plugin is already running in the foreground".into(),
-                span: Some(span),
-                help: Some(
+            Err(ShellError::Generic(
+                GenericError::new(
+                    "Can't enter foreground",
+                    "this plugin is already running in the foreground",
+                    span,
+                )
+                .with_help(
                     "you may be trying to run the command in parallel, or this may be a bug in \
-                        the plugin"
-                        .into(),
+                        the plugin",
                 ),
-                inner: vec![],
-            })
+            ))
         }
     }
 

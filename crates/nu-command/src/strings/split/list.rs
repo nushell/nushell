@@ -1,5 +1,6 @@
 use fancy_regex::Regex;
 use nu_engine::{ClosureEval, command_prelude::*};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{FromValue, Signals};
 
 #[derive(Clone)]
@@ -121,7 +122,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of chars into lists based on multiple characters.",
-                example: r"[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
+                example: "[a, b, c, d, a, e, f, g] | split list --regex '(b|e)'",
                 result: Some(Value::list(
                     vec![
                         Value::list(vec![Value::test_string("a")], Span::test_data()),
@@ -143,7 +144,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers on multiples of 3.",
-                example: r"[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
+                example: "[1 2 3 4 5 6 7 8 9 10] | split list {|e| $e mod 3 == 0 }",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
                     Value::test_list(vec![Value::test_int(4), Value::test_int(5)]),
@@ -153,7 +154,7 @@ impl Command for SubCommand {
             },
             Example {
                 description: "Split a list of numbers into lists ending with 0.",
-                example: r"[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
+                example: "[1 2 0 3 4 5 0 6 0 0 7] | split list --split after 0",
                 result: Some(Value::test_list(vec![
                     Value::test_list(vec![
                         Value::test_int(1),
@@ -246,15 +247,16 @@ impl Matcher {
     pub fn new(regex: bool, lhs: Value) -> Result<Self, ShellError> {
         if regex {
             Ok(Matcher::Regex(Regex::new(&lhs.coerce_str()?).map_err(
-                |e| ShellError::GenericError {
-                    error: "Error with regular expression".into(),
-                    msg: e.to_string(),
-                    span: match lhs {
-                        Value::Error { .. } => None,
-                        _ => Some(lhs.span()),
-                    },
-                    help: None,
-                    inner: vec![],
+                |e| {
+                    let span = match lhs {
+                        Value::Error { .. } => Span::unknown(),
+                        _ => lhs.span(),
+                    };
+                    ShellError::Generic(GenericError::new(
+                        "Error with regular expression",
+                        e.to_string(),
+                        span,
+                    ))
                 },
             )?))
         } else {
@@ -278,7 +280,7 @@ impl Matcher {
             Matcher::Direct(lhs) => rhs == lhs,
             Matcher::Closure(closure) => closure
                 .run_with_value(rhs.clone())
-                .and_then(|data| data.into_value(Span::unknown()))
+                .and_then(|data| data.into_value(rhs.span()))
                 .map(|value| value.is_true())
                 .unwrap_or(false),
         })
@@ -386,9 +388,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SubCommand {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(SubCommand)
     }
 }

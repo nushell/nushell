@@ -1,5 +1,6 @@
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::engine::Closure;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct Generate;
@@ -32,7 +33,7 @@ impl Command for Generate {
     }
 
     fn extra_description(&self) -> &str {
-        r#"The generator closure accepts a single argument and returns a record
+        "The generator closure accepts a single argument and returns a record
 containing two optional keys: 'out' and 'next'. Each invocation, the 'out'
 value, if present, is added to the stream. If a 'next' key is present, it is
 used as the next argument to the closure, otherwise generation stops.
@@ -40,7 +41,7 @@ used as the next argument to the closure, otherwise generation stops.
 Additionally, if an input stream is provided, the generator closure accepts two
 arguments. On each invocation an element of the input stream is provided as the
 first argument. The second argument is the `next` value from the last invocation.
-In this case, generation also stops when the input stream stops."#
+In this case, generation also stops when the input stream stops."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -170,16 +171,16 @@ fn get_initial_state(
                     .clone()
                     .expect("Already checked default value"))
             } else {
-                Err(ShellError::GenericError {
-                    error: "The initial value is missing".to_string(),
-                    msg: "Missing initial value".to_string(),
-                    span: Some(span),
-                    help: Some(
-                        "Provide an <initial> value as an argument to generate, or assign a default value to the closure parameter"
-                            .to_string(),
+                Err(ShellError::Generic(
+                    GenericError::new(
+                        "The initial value is missing",
+                        "Missing initial value",
+                        span,
+                    )
+                    .with_help(
+                        "Provide an <initial> value as an argument to generate, or assign a default value to the closure parameter",
                     ),
-                    inner: vec![],
-                })
+                ))
             }
         }
     }
@@ -209,13 +210,11 @@ fn parse_closure_result(
                         } else if k.eq_ignore_ascii_case("next") {
                             next = Some(v);
                         } else {
-                            let error = ShellError::GenericError {
-                                error: "Invalid block return".into(),
-                                msg: format!("Unexpected record key '{k}'"),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            };
+                            let error = ShellError::Generic(GenericError::new(
+                                "Invalid block return",
+                                format!("Unexpected record key '{k}'"),
+                                span,
+                            ));
                             err = Some(Value::error(error, head));
                             break;
                         }
@@ -230,13 +229,11 @@ fn parse_closure_result(
 
                 // some other value -> error and stop
                 _ => {
-                    let error = ShellError::GenericError {
-                        error: "Invalid block return".into(),
-                        msg: format!("Expected record, found {}", value.get_type()),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    };
+                    let error = ShellError::Generic(GenericError::new(
+                        "Invalid block return",
+                        format!("Expected record, found {}", value.get_type()),
+                        span,
+                    ));
 
                     (Some(Value::error(error, head)), None)
                 }
@@ -246,12 +243,12 @@ fn parse_closure_result(
         Ok(other) => {
             let error = other
                 .into_value(head)
-                .map(|val| ShellError::GenericError {
-                    error: "Invalid block return".into(),
-                    msg: format!("Expected record, found {}", val.get_type()),
-                    span: Some(val.span()),
-                    help: None,
-                    inner: vec![],
+                .map(|val| {
+                    ShellError::Generic(GenericError::new(
+                        "Invalid block return",
+                        format!("Expected record, found {}", val.get_type()),
+                        val.span(),
+                    ))
                 })
                 .unwrap_or_else(|err| err);
 
@@ -268,9 +265,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Generate {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Generate)
     }
 }

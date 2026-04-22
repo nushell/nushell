@@ -131,11 +131,11 @@ fn flatten_pipeline_element_into(
     pipeline_element: &PipelineElement,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
+    flatten_expression_into(working_set, &pipeline_element.expr, output);
+
     if let Some(span) = pipeline_element.pipe {
         output.push((span, FlatShape::Pipe));
     }
-
-    flatten_expression_into(working_set, &pipeline_element.expr, output);
 
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
         match redirection {

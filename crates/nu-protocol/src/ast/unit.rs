@@ -1,4 +1,6 @@
-use crate::{Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value};
+use crate::{
+    Filesize, FilesizeUnit, IntoValue, ShellError, Span, Value, shell_error::generic::GenericError,
+};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::str::FromStr;
@@ -39,13 +41,11 @@ pub enum Unit {
 fn duration_mul_and_check(size: i64, factor: i64, span: Span) -> Result<Value, ShellError> {
     match size.checked_mul(factor) {
         Some(val) => Ok(Value::duration(val, span)),
-        None => Err(ShellError::GenericError {
-            error: "duration too large".into(),
-            msg: "duration too large".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }),
+        None => Err(ShellError::Generic(GenericError::new(
+            "duration too large",
+            "duration too large",
+            span,
+        ))),
     }
 }
 
@@ -56,13 +56,11 @@ impl Unit {
                 if let Some(filesize) = Filesize::from_unit(size, unit) {
                     Ok(filesize.into_value(span))
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "filesize too large".into(),
-                        msg: "filesize too large".into(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "filesize too large",
+                        "filesize too large",
+                        span,
+                    )))
                 }
             }
             Unit::Nanosecond => Ok(Value::duration(size, span)),

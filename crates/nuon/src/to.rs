@@ -236,33 +236,54 @@ fn value_to_string(
                         format!("{idt}{string}")
                     })
                     .collect();
-                let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
 
-                let mut table_output = vec![];
-                for val in vals {
-                    let mut row = vec![];
+                let record_rows = |fmt_row: &dyn Fn(Vec<String>) -> String| {
+                    vals.iter()
+                        .filter_map(|val| {
+                            let Value::Record { val, .. } = val else {
+                                return None;
+                            };
+                            Some(
+                                val.values()
+                                    .map(|v| {
+                                        value_to_string_without_quotes(
+                                            engine_state,
+                                            v,
+                                            span,
+                                            depth + 2,
+                                            indent,
+                                            options,
+                                        )
+                                    })
+                                    .collect::<Result<Vec<_>, _>>()
+                                    .map(fmt_row),
+                            )
+                        })
+                        .collect::<Result<Vec<_>, _>>()
+                };
 
-                    if let Value::Record { val, .. } = val {
-                        for val in val.values() {
-                            row.push(value_to_string_without_quotes(
-                                engine_state,
-                                val,
-                                span,
-                                depth + 2,
-                                indent,
-                                options,
-                            )?);
-                        }
-                    }
+                if indent.is_some_and(|i| !i.is_empty()) {
+                    let header_row = format!("[{}];", headers.join(", "));
 
-                    table_output.push(row.join(&format!(",{sep}{nl}{idt_pt}")));
+                    let value_rows = record_rows(&|row| format!("[{}]", row.join(", ")))?
+                        .join(&format!(",{nl}{idt_po}"));
+
+                    Ok(format!(
+                        "[{nl}{idt_po}{}{sep}{nl}{idt_po}{}{nl}{idt}]",
+                        header_row, value_rows
+                    ))
+                } else {
+                    let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
+
+                    let table_output =
+                        record_rows(&|row| row.join(&format!(",{sep}{nl}{idt_pt}")))?
+                            .join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"));
+
+                    Ok(format!(
+                        "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
+                        headers_output, table_output
+                    ))
                 }
-
-                Ok(format!(
-                    "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
-                    headers_output,
-                    table_output.join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"))
-                ))
             } else if is_table && options.list_of_records {
                 let mut collection = vec![];
                 let row_indent = if indent == Some("") { Some("") } else { None };

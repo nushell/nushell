@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{Value, record};
 use uucore::{localized_help_template, translate};
 
@@ -21,8 +22,7 @@ impl Command for UName {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        // add other terms?
-        vec!["system", "coreutils"]
+        vec!["system", "coreutils", "systeminfo"]
     }
 
     fn is_const(&self) -> bool {
@@ -74,12 +74,12 @@ fn run_uname(call: &Call) -> Result<PipelineData, ShellError> {
         hardware_platform: false,
         os: false,
     };
-    let output = uu_uname::UNameOutput::new(&opts).map_err(|e| ShellError::GenericError {
-        error: format!("{e}"),
-        msg: translate!(&e.to_string()),
-        span: None,
-        help: None,
-        inner: Vec::new(),
+    let output = uu_uname::UNameOutput::new(&opts).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            format!("{e}"),
+            translate!(&e.to_string()),
+            span,
+        ))
     })?;
     let outputs = [
         output.kernel_name,

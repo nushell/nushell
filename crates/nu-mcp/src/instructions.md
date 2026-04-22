@@ -1,241 +1,266 @@
-The nushell extension gives you run nushell specific commands and other shell commands.
-This extension should be preferred over other tools for running shell commands as it can run both nushell commands and other shell commands.
+The nushell extension runs nushell and external shell commands. Prefer it over
+any other shell tool — nushell's structured pipelines let you filter results
+without re-running the command.
+
+## THE RULE
+
+**Never cap output inside a pipeline you are running for the first time.** No
+`head`, `tail`, `first N`, `last N`, `take N`, `head -c`, `-n 5`, or any other
+size-limiter in the pipe. This rule is unconditional. `where` does not license
+capping. "I'm already filtering" does not license capping. "The output might be
+huge" does not license capping.
+
+Every evaluation's full result is captured in `$history` automatically. The
+tool response you see may be truncated to fit the inline size limit, but
+nothing is lost — you always get a `history_index` you can use to slice the
+full result afterwards. You cannot flood context by running a large command.
+Stop trying to help.
+
+```nu
+# BAD — all of these cap the live pipeline
+ls **/*.rs | first 20
+cargo build o+e>| tail -50
+curl https://api.example.com/huge.json | head -c 500
+rg foo crates/ | lines | where $it =~ "err" | first 30   # where is fine, first 30 is not
+
+# GOOD — run once, slice afterwards
+cargo build | complete
+# response: { history_index: 7, ... }
+# `complete` captures { stdout, stderr, exit_code } as separate columns —
+# don't merge streams unless you have a reason to.
+$history.7.stderr | lines | where $it =~ '^error'
+$history.7.stderr | lines | where $it =~ '^error' | skip 30 | first 30   # paging a saved result is fine
+```
+
+`complete` already gives you `stdout` and `stderr` as distinct columns. Reach
+for `o+e>| complete` only when you specifically want the interleaved ordering
+(e.g. a build log where the stderr warnings need to stay adjacent to the
+stdout lines they precede). Default to plain `| complete` and keep the streams
+separate — it's almost always what you want.
+
+The only time you should cap inside the command is when **generation itself**
+costs something real — a remote API that bills per byte, a paid model call,
+etc. Local commands: just run them.
 
 ## Response Format
 
-Every evaluation returns a structured record with:
-- `cwd`: The current working directory after the command executes
-- `history_index`: The 0-based index of this result in the history
-- `timestamp`: When the command was executed (datetime)
-- `output`: The command output (when not truncated)
-- `note`: Present instead of `output` when truncated, indicates where to find full result
+Every evaluation returns a NUON record:
+- `cwd` — current working directory after the command
+- `history_index` — 0-based index into `$history` for this result. **This is
+  your handle for re-slicing later.** Read it out of the response.
+- `timestamp` — datetime when executed
+- `output` — the command output (when it fits under the limit)
+- `note` — present **instead of** `output` when truncated; tells you the history index
 
-## History Variable
+When you see `note`, the response is truncated but `$history.<that_index>` has
+the full, untruncated result.
 
-The `$history` variable is a `list<any>` storing all previous command outputs. Access previous results by index:
-- `$history.0` - first command output
-- `$history.1` - second command output
-- `$history | last` - most recent output
+## `$history` — the ring buffer
 
-**Ring Buffer Behavior**: History is limited to 100 entries by default. When the limit is reached,
-oldest entries are evicted. Configure via `$env.NU_MCP_HISTORY_LIMIT` (e.g., `$env.NU_MCP_HISTORY_LIMIT = 50`).
+`$history: list<any>` stores every prior evaluation's output. **Use the stable
+index from the response, not `| last`** — each new evaluation pushes its own
+entry, so `$history | last` on a second call refers to itself, not to the
+command you originally ran.
 
-Large outputs are stored in `$history` but may be truncated in the response.
-To enable truncation, set `$env.NU_MCP_OUTPUT_LIMIT` to a filesize (e.g., `$env.NU_MCP_OUTPUT_LIMIT = 10kb`).
-
-Example workflow:
 ```nu
-# First command returns large table
-ls **/*
-# Response: {cwd: "/path", history_index: 0, timestamp: 2025-01-01T12:00:00, note: "output truncated, full result in $history.0"}
+$history.7           # full result of the evaluation whose response had history_index: 7
+$history.0           # first command's output
+$history | length    # number of entries currently held
 
-# Access and filter the full result
-$history.0 | where name =~ ".rs"
+# `$history | last` is only correct *before* you run anything else. As a habit
+# it teaches the wrong reflex. Always re-index by the explicit history_index.
 ```
 
-## Structured Output
+Limits (configurable via env):
+- `NU_MCP_HISTORY_LIMIT` — max entries, default `100`. When exceeded the oldest
+  entry is evicted (ring-buffer semantics — indices do not shift, older ones
+  simply become unavailable).
+- `NU_MCP_OUTPUT_LIMIT` — response truncation threshold, default `10kb`. Set to
+  `0b` to disable truncation entirely. The full value is always in `$history`
+  regardless of this setting.
+- `NU_MCP_PROMOTE_AFTER` — how long a call may run before being auto-promoted to
+  a background job, default `120sec`. Bump it before a known long-running
+  command to keep it synchronous.
 
-Native nushell commands return structured content in NUON format (no need to pipe to `| to json`).
-Native nushell commands can be discovered by using the list_commands tool.
-Prefer nushell native commands where possible as they provide structured data in a pipeline, versus text output.
-To discover the input (stdin) and output (stdout) types of a command, flags, and positional arguments use the command_help tool.
-
-Nushell native commands will return structured content. Piping of commands that return a table, list, or record to `to text` will return plain text.
-In order to find out what columns are available use the `columns` command. For example `ps | columns` will return the columns available from the `ps` command.
-
-**String interpolation:** Use `$"...(expr)..."` syntax. Variables/expressions must be in parentheses inside `$"..."` strings.
 ```nu
-# BAD - regular strings don't interpolate variables
-let name = "world"; echo "hello $name"   # Prints literal: hello $name
-
-# GOOD - use $"..." with parentheses around expressions
-let name = "world"; echo $"hello ($name)"       # Prints: hello world
-ls $"($env.HOME)/Documents"                     # Expands path correctly
-cargo build $"--jobs=(sys cpu | length)"        # Dynamic flag value
+$env.NU_MCP_OUTPUT_LIMIT = 50kb     # bigger inline responses
+$env.NU_MCP_OUTPUT_LIMIT = 0b       # never truncate
+$env.NU_MCP_HISTORY_LIMIT = 200     # remember more entries
+$env.NU_MCP_PROMOTE_AFTER = 10min   # don't promote this session's long builds
 ```
 
-**Command-line flags with variables:** When building flags that include variable values, the entire flag must be an interpolated string.
+## Structured Output — prefer native commands
+
+Native nushell commands return structured NUON (records/tables/lists) — do NOT
+pipe them to `| to json`, they already are structured. Use `list_commands` to
+discover commands and `command_help` to see flags / input / output types.
+
 ```nu
-# BAD - mixing bash-style and nushell syntax
-mysql -p"$env.DATABASE_PASSWORD" mydb           # ERROR: $env not expanded
-mysql -p $env.DATABASE_PASSWORD mydb            # ERROR: password becomes separate arg
-
-# GOOD - entire flag as interpolated string
-mysql $"-p($env.DATABASE_PASSWORD)" mydb        # Password correctly embedded
-curl -H $"Authorization: Bearer ($token)"       # Header with variable
-
-# GOOD - alternative: use flag=value syntax if supported
-mysql $"--password=($env.DATABASE_PASSWORD)" mydb
+ps | columns                    # see what columns are available
+ls | where size > 1mb | get name
+sys cpu | length                # record has a length like any other
 ```
 
-**String types:** Nushell has several string formats. Inside any quoted string, `*` and other special characters are literal.
+External commands return a `string`. Parse with `from json` / `from yaml` /
+`from csv` / `lines` / `split column` as needed.
 
-| Format | Syntax | Escapes | Use case |
-|--------|--------|---------|----------|
-| Single-quoted | `'hello'` | None | Simple strings, Windows paths |
-| Double-quoted | `"hello\n"` | `\n \t \" \\` etc. | Strings needing escape sequences |
-| Raw string | `r#'hello'#` | None | Strings with `'` or `"`, multi-line |
-| Bare word | `hello` | None | Command arguments (word chars only) |
-| Backtick | `` `hello world` `` | None | Paths/args with spaces, globs |
-| Interpolated | `$"($var)"` | Depends on quotes | Embedding variables/expressions |
+## String literals
+
+| Form                | Example                | Escapes | Use case |
+|---------------------|------------------------|---------|----------|
+| Single-quoted       | `'hello'`              | none    | literal, Windows paths, SQL |
+| Double-quoted       | `"a\nb"`               | `\n \t \" \\` | strings needing escapes |
+| Raw                 | `r#'he said "hi"'#`    | none    | mixed quotes, multi-line |
+| Bare word           | `hello`                | none    | command args (word chars only) |
+| Backtick            | `` `my file.txt` ``    | none    | paths/globs with spaces |
+| Interpolated        | `$"x=($var)"`          | per-quote | embedding variables |
+
+Interpolation requires `$"..."` (or `$'...'`) **and** parentheses around the
+expression:
 
 ```nu
-# Single-quoted: completely literal
-'C:\path\to\file'                               # Backslashes literal
-'SELECT * FROM users'                           # * is literal
-
-# Double-quoted: C-style escapes
-"Line one\nLine two"                            # \n = newline
-"Say \"hello\""                                 # \" = literal quote
-
-# Raw strings: literal, can contain single quotes
-r#'It's a "test"'#                              # No escaping needed
-r##'Contains r#'nested'#'##                     # Add more # to nest
-
-# Bare words: unquoted, only "word" characters
-print hello                                     # hello is a string
-[foo bar baz]                                   # list of strings
-
-# Backtick strings: bare words with spaces, useful for paths/globs
-ls `./my directory`                             # Path with space
-ls `**/*.rs`                                    # Glob pattern
-
-# Interpolation: $"..." (with escapes) or $'...' (literal)
 let name = "world"
-$"Hello ($name)!"                               # => Hello world!
-$'Path: ($env.HOME)'                            # Single-quoted interpolation
-$"2 + 2 = (2 + 2)"                              # Expressions work too
+"hello $name"          # literal: "hello $name"   ← WRONG
+$"hello ($name)"       # "hello world"            ← RIGHT
 ```
 
-**Prefer raw strings** (`r#'...'#`) for multi-line content or when mixing quote styles to avoid escaping.
+Flags with embedded variables — the **whole** flag must be one interpolated
+string, or use `--key=value`:
 
-**ANSI escape codes:** Use `ansi strip` to remove ANSI color/formatting codes from output. Do NOT use `\u001b` or similar unicode escapes - nushell doesn't support that syntax.
 ```nu
-# BAD - nushell doesn't support \uXXXX unicode escapes
-$output | str replace -a "\u001b" ""        # ERROR: invalid unicode escape
-
-# GOOD - use ansi strip to remove ANSI codes
-$output | ansi strip                         # Removes all ANSI escape sequences
-^rg pattern | ansi strip                     # Strip colors from external command output
-
-# To produce special characters, use the char command
-char escape                                  # ESC character (0x1b)
-char newline                                 # Newline
-char tab                                     # Tab
+# BAD
+mysql -p $env.PASSWORD db       # becomes two separate args
+# GOOD
+mysql $"-p($env.PASSWORD)" db
+mysql $"--password=($env.PASSWORD)" db
 ```
 
-**Stderr redirection:** Use `o+e>` or `out+err>` instead of bash-style `2>&1`.
-```nu
-# BAD - bash syntax doesn't work in nushell
-command 2>&1                                    # ERROR: use 'out+err>' instead
-command 2>/dev/null                             # ERROR: not valid nushell
+Use `char escape` / `char newline` / `char tab` for control characters — nushell
+does **not** support `\uXXXX` escapes in strings. Strip ANSI color codes with
+`ansi strip`, not regex replacement.
 
-# GOOD - nushell redirection syntax
-command o+e>| other_command                     # Redirect stderr to stdout, pipe
-command o+e>| ignore                            # Discard both stdout and stderr
+## Redirection — no `2>&1`
+
+Nushell uses its own redirection syntax:
+
+| Bash                       | Nushell                    |
+|----------------------------|----------------------------|
+| `cmd > file`               | `cmd o> file`              |
+| `cmd >> file`              | `cmd o>> file`             |
+| `cmd > /dev/null`          | `cmd \| ignore`            |
+| `cmd 2>&1`                 | `cmd o+e>\| next_cmd`      |
+| `cmd > /dev/null 2>&1`     | `cmd o+e>\| ignore`        |
+| `cmd \| tee log \| other`  | `cmd \| tee { save log } \| other` |
+
+## Bash → Nushell quick reference
+
+| Bash                               | Nushell                                      |
+|------------------------------------|----------------------------------------------|
+| `mkdir -p path`                    | `mkdir path`                                 |
+| `rm -rf path`                      | `rm -r path`                                 |
+| `cat file`                         | `open --raw file`                            |
+| `grep pat`                         | `where $it =~ pat` / `find pat`              |
+| `sed 's/a/b/'`                     | `str replace a b`                            |
+| `head -5` / `tail -5`              | `first 5` / `last 5`  *(only on a saved `$history.N` — never on the live pipeline)* |
+| `for f in *.md; do ...; done`      | `ls *.md \| each { \|r\| ... }`              |
+| `$(cmd)`                           | `(cmd)` in expressions, `...(cmd)` to splat  |
+| `echo $PATH`                       | `$env.PATH` (Unix) / `$env.Path` (Windows)   |
+| `echo $?`                          | `$env.LAST_EXIT_CODE`                        |
+| `FOO=bar ./bin`                    | `FOO=bar ./bin`                              |
+| `type foo`                         | `which foo`                                  |
+| `cmd1 && cmd2`                     | `cmd1; cmd2`                                 |
+| line continuation `\`              | wrap in `( ... )`                            |
+
+## HTTP — already parsed
+
+`http get|post|put|...` auto-parses JSON responses based on `Content-Type`. Do
+NOT pipe to `from json`.
+
+```nu
+http get https://api.example.com/users | get 0.name    # just works
+http get -H {Authorization: $"Bearer ($token)"} $url
+http post -t application/json $url {key: "value"}
+http post -H {X-API-Key: $key} $url (bytes build)      # empty body
+http get --raw $url | from json                        # opt out of auto-parse
 ```
 
-HTTP request examples:
+Note: `-t json` does **not** work — pass the full MIME type (`application/json`).
+
+## Parallelism
+
+`par-each` runs closures across threads; use it whenever order doesn't matter
+and the work is non-trivial.
+
 ```nu
-# GET request
-http get https://api.example.com/data
-
-# POST with JSON body
-http post --content-type application/json https://api.example.com/endpoint {foo: "bar", baz: 123}
-
-# POST with custom headers and empty body
-http post https://api.example.com/sync -H {X-API-Key: "secret"} (bytes build)
-
-# POST with headers and JSON body
-http post --content-type application/json https://api.example.com/data -H {Authorization: "Bearer token"} {key: "value"}
+ls **/*.rs | par-each { |f| open $f.name | lines | length }
+ls **/*.log | par-each --threads 8 { |f| $f | ... }
 ```
 
-**Parallel iteration:** Prefer `par-each` over `each` for better performance. `par-each` runs closures in parallel across multiple threads.
+Use plain `each` when order must be preserved or side effects must be serial.
+
+## Globs and file discovery
+
+Prefer `glob` over `find` / `ls -r`: nushell's `ls **/*` traverses hidden
+directories too, which blows up output. Use `command_help glob` for details.
+
+## Polars (if loaded)
+
+For parquet/jsonl/ndjson/csv/avro, `polars` is dramatically faster than native
+nushell or external tools. Start with `plugin use polars`.
+
 ```nu
-# BAD - sequential processing
-ls **/*.rs | each { |f| wc -l $f.name }
-
-# GOOD - parallel processing (much faster for I/O or CPU-bound work)
-ls **/*.rs | par-each { |f| wc -l $f.name }
-
-# GOOD - with thread count control
-ls **/*.rs | par-each --threads 8 { |f| wc -l $f.name }
+polars open data.parquet | polars select name status | polars save out.parquet
+ps | polars into-df | polars collect
+polars open x.parquet | polars into-nu            # back to nushell table
 ```
 
-**When to use `each` instead:**
-- Order must be preserved exactly (par-each returns results in completion order)
-- Side effects must happen sequentially
-- Very small lists where parallelization overhead exceeds benefit
+## Long-running commands and background jobs
 
-## Background Jobs
-
-Use `job spawn` to run commands in the background. This is the idiomatic nushell replacement for bash's `command &`.
+Evaluations that run longer than the promote-after threshold (or are cancelled
+by the client) are auto-promoted to background jobs. The full (non-truncated)
+output is delivered to the main thread's mailbox on completion. See the
+`evaluate` tool description for the default and how to override it.
 
 ```nu
-# Spawn a background job (returns job ID immediately)
-job spawn { sleep 5sec; echo "done" }
+# You'll see an error like:
+# "Operation promoted to background job (id: 1). Use `job list` to see it and `job recv` to get the result."
 
-# Spawn with a descriptive tag
-job spawn --tag "web-server" { uvicorn main:app }
-
-# List all running background jobs
-job list
-
-# Kill a background job by ID
-job kill 1
+job list                         # check if still running
+job recv                         # blocks until the result arrives (FULL output)
+job recv --timeout 60sec         # bounded wait
+job kill 1                       # cancel
 ```
 
-**Getting output from background jobs:** Use the mailbox system with `job send` and `job recv`.
-`job recv` reads from the *current job's mailbox* only. It does not take a job ID.
-The main thread always has job ID `0`, so background jobs should `job send 0`.
+Promoted jobs bypass `$history` — their full output arrives via `job recv`, not
+as a history entry.
+
+For manual backgrounding:
 
 ```nu
-# Spawn job that sends result back to main thread
-job spawn { ls | job send 0 }
+job spawn { uvicorn main:app }
+job spawn --tag web-server { ... }
 
-# Wait and receive the result
-job recv
-
-# One-liner version
+# get a result back to the main thread (id 0)
 job spawn { ls | job send 0 }; job recv
+job spawn { some-cmd | job send 0 }; job recv --timeout 5sec
+job spawn { ^nc -vz -w5 host 5432 o+e>| job send 0 }; job recv --timeout 10sec
 
-# With timeout (to avoid blocking forever)
-job spawn { some-command | job send 0 }; job recv --timeout 5sec
-
-# Capture stderr too (external command)
-job spawn { ^nc -vz -w 5 51.81.221.204 5432 o+e>| job send 0 }; job recv --timeout 10sec
+# tagged messages — only received when you filter by the same tag
+job spawn { "done" | job send 0 --tag 1 }
+job recv --tag 1
 ```
 
-**Inter-job communication and tags:** Jobs can send messages to each other using tags as filters.
-Tags are integers. `job send --tag N` attaches a tag to the message.
-`job recv --tag N` only receives messages with that exact tag.
-Untagged messages are only received by `job recv` without a `--tag` filter.
+Gotchas: there is no `job ls` (use `job list`). `job recv` reads only the
+current job's mailbox and takes no id. `job send` always takes a target id;
+the main thread is `0`.
 
-```nu
-# Send with a tag for filtering
-job spawn { "result" | job send 0 --tag 1 }
-job recv --tag 1    # Only receives messages with tag 1
+## Other quick tips
 
-# Get current job's ID from within a job
-job spawn { let my_id = job id; ... }
-```
-
-**Job management commands:**
-- `job spawn { ... }` - Start a background job, returns job ID
-- `job list` - List all running jobs
-- `job kill <id>` - Terminate a job
-- `job send <id>` - Send data to a job's mailbox
-- `job recv` - Receive data from mailbox (blocks until message arrives)
-- `job id` - Get current job's ID
-- `job tag <id> <tag>` - Add/change a job's description tag
-
-**Common gotchas:**
-- There is no `job ls`. Use `job list`.
-- `job recv` does not accept a job id or `--id`. It only reads from the current job's mailbox.
- - `job send` always takes a target job id. The main thread id is `0`.
- - `job recv --tag N` will ignore untagged messages and messages with other tags.
-
-To find a nushell command or to see all available commands use the list_commands tool.
-To learn more about how to use a command, use the command_help tool.
-You can use the eval tool to run any command that would work on the relevant operating system.
-Use the eval tool as needed to locate files or interact with the project.
+- Use `detect columns` to structure columnar CLI output (e.g.
+  `launchctl list | detect columns`, `df | detect columns`) instead of hand-rolled
+  `parse` patterns.
+- Variables and env changes persist across tool calls (REPL semantics). Set
+  `let x = ...` or `$env.FOO = ...` in one call, read it in the next.
+- External processes do **not** inherit `let`-bound variables — only
+  environment variables.
+- `use list_commands` to search and `command_help <name>` for signatures.

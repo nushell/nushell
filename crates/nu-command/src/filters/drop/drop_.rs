@@ -74,10 +74,10 @@ impl Command for Drop {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
         let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
 
@@ -101,9 +101,7 @@ mod test {
     use crate::Drop;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Drop {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Drop)
     }
 }

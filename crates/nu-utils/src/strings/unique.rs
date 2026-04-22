@@ -1,6 +1,6 @@
 use std::{
     borrow::Borrow,
-    fmt::{Arguments, Debug, Display},
+    fmt::{Arguments, Display},
     hash::Hash,
     ops::Deref,
 };
@@ -37,6 +37,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// Internally, `UniqueString` is powered by [`byteyarn::Yarn`], which provides the
 /// underlying implementation for these optimizations.
+#[derive(derive_more::Debug, Clone, Default)]
+#[debug("{_0:?}")]
 pub struct UniqueString(byteyarn::Yarn);
 
 const _: () = const {
@@ -106,27 +108,6 @@ impl Borrow<str> for UniqueString {
     #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
-    }
-}
-
-impl Clone for UniqueString {
-    #[inline]
-    fn clone(&self) -> Self {
-        Self(self.0.clone())
-    }
-}
-
-impl Debug for UniqueString {
-    #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Debug::fmt(&self.0, f)
-    }
-}
-
-impl Default for UniqueString {
-    #[inline]
-    fn default() -> Self {
-        Self(Default::default())
     }
 }
 

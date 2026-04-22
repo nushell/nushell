@@ -320,9 +320,9 @@ fn move_files_using_glob_two_parents_up_using_multiple_dots() {
 
         nu!(
             cwd: dirs.test().join("foo/bar"),
-            r#"
+            "
                 mv * ...
-            "#
+            "
         );
 
         let files = &[
@@ -349,9 +349,9 @@ fn move_file_from_two_parents_up_using_multiple_dots_to_current_dir() {
 
         nu!(
             cwd: dirs.test().join("foo/bar"),
-            r#"
+            "
                 mv .../hello_there .
-            "#
+            "
         );
 
         let expected = dirs.test().join("foo/bar/hello_there");
@@ -382,9 +382,9 @@ fn mv_ignores_ansi() {
         sandbox.with_files(&[EmptyFile("test.txt")]);
         let actual = nu!(
              cwd: sandbox.cwd(),
-            r#"
+            "
                  ls | find test | mv $in.0.name success.txt; ls | $in.0.name
-            "#
+            "
         );
 
         assert_eq!(actual.out, "success.txt");
@@ -400,9 +400,9 @@ fn mv_directory_with_same_name() {
         let cwd = sandbox.cwd().join("testdir");
         let actual = nu!(
             cwd: cwd,
-            r#"
+            "
                  mv testdir ..
-            "#
+            "
         );
 
         assert!(actual.err.contains("Directory not empty"));
@@ -638,7 +638,7 @@ fn mv_with_cd() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            r#"do { cd tmp_dir; let f = 'file.txt'; mv $f .. }; open file.txt"#,
+            "do { cd tmp_dir; let f = 'file.txt'; mv $f .. }; open file.txt",
         );
         assert!(actual.out.contains("body"));
     });

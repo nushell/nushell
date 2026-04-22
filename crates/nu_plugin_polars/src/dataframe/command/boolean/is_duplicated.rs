@@ -8,6 +8,7 @@ use super::super::super::values::{Column, NuDataFrame};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 use polars::prelude::IntoSeries;
 
@@ -60,6 +61,7 @@ impl PluginCommand for IsDuplicated {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -81,6 +83,7 @@ impl PluginCommand for IsDuplicated {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -94,9 +97,9 @@ impl PluginCommand for IsDuplicated {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -114,12 +117,12 @@ fn command(
     let mut res = df
         .as_ref()
         .is_duplicated()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error finding duplicates".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error finding duplicates",
+                e.to_string(),
+                call.head,
+            ))
         })?
         .into_series();
 

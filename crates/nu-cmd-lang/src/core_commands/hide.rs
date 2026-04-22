@@ -26,10 +26,10 @@ impl Command for Hide {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Definitions are hidden by priority: First aliases, then custom commands.
+        "Definitions are hidden by priority: First aliases, then custom commands.
 
 This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -54,12 +54,12 @@ This command is a parser keyword. For details, check:
         vec![
             Example {
                 description: "Hide the alias just defined.",
-                example: r#"alias lll = ls -l; hide lll"#,
+                example: "alias lll = ls -l; hide lll",
                 result: None,
             },
             Example {
                 description: "Hide a custom command.",
-                example: r#"def say-hi [] { echo 'Hi!' }; hide say-hi"#,
+                example: "def say-hi [] { echo 'Hi!' }; hide say-hi",
                 result: None,
             },
         ]

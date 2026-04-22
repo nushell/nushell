@@ -1,11 +1,18 @@
 Execute a command in the nushell.
-This will return the output and error concatenated into a single string, as
-you would see from running on the command line. There will also be an indication
-of if the command succeeded or failed.
+Successful evaluations return a structured NUON record string with metadata fields
+including `cwd`, `history_index`, `timestamp`, and either `output` or `note`.
+When evaluation fails, the MCP tool response is marked as an error and the content
+contains a structured NUON error record.
 
 Avoid commands that produce a large amount of output, and consider piping those outputs to files.
 If you need to run a long lived command, background it - e.g. `job spawn { uvicorn main:app }` so that
 this tool does not run indefinitely.
+
+Calls that run longer than the promote-after timeout are auto-promoted to a background job; the
+tool then errors with a job id and you must `job recv` to collect the result. The timeout defaults
+to 120s and can be overridden by setting `$env.NU_MCP_PROMOTE_AFTER` (a duration, e.g. `10min`) on
+the persistent stack. Bump it before a known long-running command so it stays synchronous; the
+setting persists across subsequent calls until you change it again.
 
 Command Equivalents to Bash:
 

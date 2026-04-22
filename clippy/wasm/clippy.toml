@@ -1,3 +1,0 @@
-[[disallowed-types]]
-path = "std::time::Instant"
-reason = "WASM panics if used, use `web_time::Instant` instead"

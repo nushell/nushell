@@ -5,7 +5,11 @@ use crate::{
     Alias, BlockId, DeprecationEntry, DynamicCompletionCallRef, DynamicSuggestion, Example,
     OutDest, PipelineData, ShellError, Signature, Span, Value, engine::Call,
 };
-use std::{borrow::Cow, fmt::Display};
+use std::{
+    any::Any,
+    borrow::Cow,
+    fmt::{Debug, Display},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArgType<'a> {
@@ -49,7 +53,7 @@ impl Display for CommandType {
     }
 }
 
-pub trait Command: Send + Sync + CommandClone {
+pub trait Command: Send + Sync + CommandClone + Any {
     fn name(&self) -> &str;
 
     fn signature(&self) -> Signature;

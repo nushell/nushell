@@ -131,17 +131,17 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let result = match input {
-            empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
-                return Ok(empty);
+            PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
+                return Ok(input.set_metadata(metadata));
             }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
@@ -169,6 +169,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                 Ok(out)
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
+            #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -194,7 +195,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             }
             PipelineData::ByteStream(stream, ..) => {
                 let Some(chunks) = stream.chunks() else {
-                    return Ok(PipelineData::empty().set_metadata(metadata));
+                    return Ok(PipelineData::empty());
                 };
 
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
@@ -250,9 +251,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Each {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Each)
     }
 }

@@ -23,6 +23,11 @@ fn record_single_field_optional_success() -> TestResult {
 }
 
 #[test]
+fn empty_record_optional_field_is_null() -> TestResult {
+    run_test("{}.foo? | to nuon", "null")
+}
+
+#[test]
 fn get_works_with_cell_path_success() -> TestResult {
     run_test("{foo: 'bar'} | get foo?", "bar")
 }

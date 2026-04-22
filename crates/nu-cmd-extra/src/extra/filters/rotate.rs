@@ -142,9 +142,9 @@ pub fn rotate(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
     let input_span = input.span().unwrap_or(call.head);
     let mut values = input.into_iter().collect::<Vec<_>>();
@@ -282,9 +282,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Rotate)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Rotate)
     }
 }

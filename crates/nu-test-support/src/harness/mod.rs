@@ -18,6 +18,7 @@ use kitest::{
     filter::DefaultFilter,
     formatter::{pretty::PrettyFormatter, terse::TerseFormatter},
     group::TestGroupBTreeMap,
+    ignore::DefaultIgnore,
 };
 use nu_ansi_term::Color;
 
@@ -37,6 +38,7 @@ pub mod macros {
     pub use kitest::{dbg, eprint, eprintln, print, println};
     pub use linkme::distributed_slice as collect_test;
     pub use nu_test_support_macros::test;
+    pub use nu_utils::module_path_without_crate;
 }
 
 pub const DEFAULT_THREAD_COUNT_MUL: NonZeroUsize = NonZeroUsize::new(4).unwrap();
@@ -71,6 +73,9 @@ pub fn main() -> ExitCode {
         kitest::capture::CAPTURE_OUTPUT_MACROS.store(false, Ordering::Relaxed);
     }
 
+    #[cfg(all(feature = "rustls-tls", feature = "network"))]
+    nu_command::tls::CRYPTO_PROVIDER.default();
+
     let runner = TestRunner::default()
         .with_thread_count(args.test_threads.unwrap_or(*DEFAULT_THREAD_COUNT))
         .with_exact(args.exact);
@@ -81,12 +86,18 @@ pub fn main() -> ExitCode {
         .with_skip(args.skip)
         .with_only_ignored(args.ignored);
 
+    let ignore = match args.include_ignored {
+        false => DefaultIgnore::Default,
+        true => DefaultIgnore::IncludeIgnored,
+    };
+
     let harness = kitest::harness(TESTS.deref())
         .with_grouper(Grouper::default())
         .with_group_runner(GroupRunner::default())
         .with_groups(TestGroupBTreeMap::default())
         .with_runner(runner)
-        .with_filter(filter);
+        .with_filter(filter)
+        .with_ignore(ignore);
 
     let pretty_formatter = PrettyFormatter::default()
         .with_color_setting(args.color)

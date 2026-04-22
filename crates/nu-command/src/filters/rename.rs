@@ -102,7 +102,7 @@ fn rename(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
     let columns: Vec<String> = call.rest(engine_state, stack, 0)?;
@@ -139,7 +139,7 @@ fn rename(
 
     let mut closure = closure.map(|closure| ClosureEval::new(engine_state, stack, closure));
 
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     input
         .map(
             move |item| {
@@ -238,9 +238,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Rename {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Rename)
     }
 }

@@ -1,7 +1,7 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Type,
-    Value,
+    Value, shell_error::generic::GenericError,
 };
 use polars::{prelude::NamedFrom, series::Series};
 use uuid::Uuid;
@@ -79,12 +79,12 @@ impl PluginCommand for CacheGet {
 }
 
 fn as_uuid(s: &str, span: Span) -> Result<Uuid, ShellError> {
-    Uuid::parse_str(s).map_err(|e| ShellError::GenericError {
-        error: format!("Failed to convert key string to UUID: {e}"),
-        msg: "".into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
+    Uuid::parse_str(s).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            format!("Failed to convert key string to UUID: {e}"),
+            "",
+            span,
+        ))
     })
 }
 

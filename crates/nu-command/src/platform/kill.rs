@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_system::build_kill_command;
 use std::process::Stdio;
 
@@ -40,7 +41,7 @@ impl Command for Kill {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["stop", "end", "close"]
+        vec!["stop", "end", "close", "taskkill"]
     }
 
     fn run(
@@ -98,32 +99,29 @@ impl Command for Kill {
                 .stderr(Stdio::null());
         }
 
-        let output = cmd.output().map_err(|e| ShellError::GenericError {
-            error: "failed to execute shell command".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        let output = cmd.output().map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "failed to execute shell command",
+                e.to_string(),
+                call.head,
+            ))
         })?;
 
         if !quiet && !output.status.success() {
-            return Err(ShellError::GenericError {
-                error: "process didn't terminate successfully".into(),
-                msg: String::from_utf8(output.stderr).unwrap_or_default(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "process didn't terminate successfully",
+                String::from_utf8(output.stderr).unwrap_or_default(),
+                call.head,
+            )));
         }
 
-        let mut output =
-            String::from_utf8(output.stdout).map_err(|e| ShellError::GenericError {
-                error: "failed to convert output to string".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+        let mut output = String::from_utf8(output.stdout).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "failed to convert output to string",
+                e.to_string(),
+                call.head,
+            ))
+        })?;
 
         output.truncate(output.trim_end().len());
 
@@ -161,8 +159,7 @@ mod tests {
     use super::Kill;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        test_examples(Kill {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test().examples(Kill)
     }
 }

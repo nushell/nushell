@@ -19,7 +19,7 @@ impl Command for Path {
     }
 
     fn extra_description(&self) -> &str {
-        r#"You must use one of the following subcommands. Using this command as-is will only produce this help message.
+        "You must use one of the following subcommands. Using this command as-is will only produce this help message.
 
 There are three ways to represent a path:
 
@@ -32,7 +32,7 @@ There are three ways to represent a path:
 
 All subcommands accept all three variants as an input. Furthermore, the 'path
 join' subcommand can be used to join the structured path or path parts back into
-the path literal."#
+the path literal."
     }
 
     fn run(
@@ -42,6 +42,10 @@ the path literal."#
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
+        Ok(Value::string(
+            get_full_help(self, engine_state, stack, call.head),
+            call.head,
+        )
+        .into_pipeline_data())
     }
 }

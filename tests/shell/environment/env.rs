@@ -90,7 +90,7 @@ fn env_assignment_with_if() {
 
 #[test]
 fn env_assignment_with_match() {
-    let actual = nu!(r#"$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR"#);
+    let actual = nu!("$env.FOOBAR = match 1 { 1 => { 'yes!' }, _ => { 'no!' } }; $env.FOOBAR");
     assert_eq!(actual.out, "yes!");
 }
 
@@ -220,11 +220,11 @@ fn std_log_env_vars_are_not_overridden() {
 #[test]
 fn std_log_env_vars_have_defaults() {
     let actual = nu_with_std!(
-        r#"
+        "
             use std/log
             print -e $env.NU_LOG_FORMAT
             print -e $env.NU_LOG_DATE_FORMAT
-        "#
+        "
     );
     assert!(actual.err.contains("%MSG%"));
     assert!(actual.err.contains("%Y-"));
@@ -250,8 +250,8 @@ fn env_shlvl_commandstring_does_not_increment() {
 // We've also learned that `-e 'exit'` is not enough to
 // prevent failures entirely. For now we're going to ignore
 // these tests until we can find a better solution.
-#[ignore = "Causing hangs when both tests overlap"]
 #[test]
+#[serial]
 fn env_shlvl_in_repl() {
     let actual = nu!(r#"
         $env.SHLVL = 5
@@ -261,8 +261,8 @@ fn env_shlvl_in_repl() {
     assert!(actual.out.ends_with("SHLVL:6"));
 }
 
-#[ignore = "Causing hangs when both tests overlap"]
 #[test]
+#[serial]
 fn env_shlvl_in_exec_repl() {
     let actual = nu!(r#"
         $env.SHLVL = 29

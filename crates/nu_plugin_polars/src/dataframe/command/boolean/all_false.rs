@@ -4,6 +4,7 @@ use crate::values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -47,6 +48,7 @@ impl PluginCommand for AllFalse {
                             vec![Value::test_bool(true)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -64,6 +66,7 @@ impl PluginCommand for AllFalse {
                             vec![Value::test_bool(false)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -77,9 +80,9 @@ impl PluginCommand for AllFalse {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -95,12 +98,12 @@ fn command(
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
     let series = df.as_series(call.head)?;
-    let bool = series.bool().map_err(|_| ShellError::GenericError {
-        error: "Error converting to bool".into(),
-        msg: "all-false only works with series of type bool".into(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let bool = series.bool().map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "Error converting to bool",
+            "all-false only works with series of type bool",
+            call.head,
+        ))
     })?;
 
     let value = Value::bool(!bool.any(), call.head);
@@ -108,6 +111,7 @@ fn command(
     let df = NuDataFrame::try_from_columns(
         vec![Column::new("all_false".to_string(), vec![value])],
         None,
+        call.head,
     )?;
     df.to_pipeline_data(plugin, engine, call.head)
 }

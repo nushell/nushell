@@ -20,9 +20,10 @@ use nu_protocol::{
         ImportPatternMember, Pipeline, PipelineElement,
     },
     category_from_string,
-    engine::{DEFAULT_OVERLAY_NAME, StateWorkingSet},
+    engine::{CommandType, DEFAULT_OVERLAY_NAME, StateWorkingSet},
     eval_const::eval_constant,
     parser_path::ParserPath,
+    shell_error::generic::GenericError,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -191,6 +192,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
 
     if name.contains('#')
         || name.contains('^')
+        || name.contains('%')
         || name.parse::<bytesize::ByteSize>().is_ok()
         || name.parse::<f64>().is_ok()
     {
@@ -233,7 +235,11 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     // The second time is when we actually parse the body itworking_set.
     // We can't reuse the first time because the variables that are created during parse_signature
     // are lost when we exit the scope below.
-    let sig = parse_full_signature(working_set, &spans[signature_pos..]);
+    let sig = parse_full_signature(
+        working_set,
+        &spans[signature_pos..],
+        def_type_name == b"extern",
+    );
     working_set.parse_errors.truncate(starting_error_count);
     working_set.exit_scope();
 
@@ -247,7 +253,13 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
         signature.allows_unknown_args = true;
     }
 
-    let decl = signature.predeclare();
+    let command_type = if def_type_name == b"extern" {
+        CommandType::External
+    } else {
+        CommandType::Custom
+    };
+
+    let decl = signature.predeclare_with_command_type(command_type);
 
     if working_set.add_predecl(decl).is_some() {
         working_set.error(ParseError::DuplicateCommandDef(spans[name_pos]));
@@ -970,13 +982,14 @@ fn handle_special_attributes(
             "example" => match CustomExample::from_value(value) {
                 Ok(example) => examples.push(example),
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_example".into(),
-                        msg: "Value couldn't be converted to an example".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr example` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_example",
+                            "Value couldn't be converted to an example",
+                            val_span,
+                        )
+                        .with_help("Is `attr example` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -985,13 +998,14 @@ fn handle_special_attributes(
                     search_terms.append(&mut terms);
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_search_terms".into(),
-                        msg: "Value couldn't be converted to search-terms".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr search-terms` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_search_terms",
+                            "Value couldn't be converted to search-terms",
+                            val_span,
+                        )
+                        .with_help("Is `attr search-terms` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1000,13 +1014,14 @@ fn handle_special_attributes(
                     category.push_str(&term);
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_category".into(),
-                        msg: "Value couldn't be converted to category".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr category` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_category",
+                            "Value couldn't be converted to category",
+                            val_span,
+                        )
+                        .with_help("Is `attr category` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1021,13 +1036,14 @@ fn handle_special_attributes(
                     }
                 }
                 Err(_) => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_completer".into(),
-                        msg: "Value couldn't be converted to a completer".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr complete` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_completer",
+                            "Value couldn't be converted to a completer",
+                            val_span,
+                        )
+                        .with_help("Is `attr complete` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1036,13 +1052,14 @@ fn handle_special_attributes(
                     signature.complete = Some(CommandWideCompleter::External);
                 }
                 _ => {
-                    let e = ShellError::GenericError {
-                        error: "nu::shell::invalid_completer".into(),
-                        msg: "This attribute shouldn't return anything".into(),
-                        span: Some(val_span),
-                        help: Some("Is `attr complete` shadowed?".into()),
-                        inner: vec![],
-                    };
+                    let e = ShellError::Generic(
+                        GenericError::new(
+                            "nu::shell::invalid_completer",
+                            "This attribute shouldn't return anything",
+                            val_span,
+                        )
+                        .with_help("Is `attr complete` shadowed?"),
+                    );
                     working_set.error(e.wrap(working_set, val_span));
                 }
             },
@@ -1175,6 +1192,7 @@ pub fn parse_alias(
         let alias_name = if let Some(name) = alias_name_expr.as_string() {
             if name.contains('#')
                 || name.contains('^')
+                || name.contains('%')
                 || name.parse::<bytesize::ByteSize>().is_ok()
                 || name.parse::<f64>().is_ok()
             {
@@ -2101,7 +2119,7 @@ fn parse_module_file(
         return None;
     };
 
-    let file_id = working_set.add_file(path.path().to_string_lossy().to_string(), &contents);
+    let file_id = working_set.add_file(&path.path().to_string_lossy(), &contents);
     let new_span = working_set.get_span_for_file(file_id);
 
     // Check if we've parsed the module before.

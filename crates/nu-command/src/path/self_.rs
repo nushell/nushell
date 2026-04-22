@@ -2,7 +2,7 @@ use nu_engine::command_prelude::*;
 use nu_path::expand_path_with;
 use nu_protocol::{
     engine::StateWorkingSet,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 
 #[derive(Clone)]
@@ -40,13 +40,14 @@ impl Command for PathSelf {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Err(ShellError::GenericError {
-            error: "this command can only run during parse-time".into(),
-            msg: "can't run after parse-time".into(),
-            span: Some(call.head),
-            help: Some("try assigning this command's output to a const variable".into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "this command can only run during parse-time",
+                "can't run after parse-time",
+                call.head,
+            )
+            .with_help("try assigning this command's output to a const variable"),
+        ))
     }
 
     fn run_const(
@@ -97,12 +98,12 @@ impl Command for PathSelf {
         vec![
             Example {
                 description: "Get the path of the current file.",
-                example: r#"const current_file = path self"#,
+                example: "const current_file = path self",
                 result: None,
             },
             Example {
                 description: "Get the path of the directory containing the current file.",
-                example: r#"const current_file = path self ."#,
+                example: "const current_file = path self .",
                 result: None,
             },
             #[cfg(windows)]
@@ -114,7 +115,7 @@ impl Command for PathSelf {
             #[cfg(not(windows))]
             Example {
                 description: "Get the absolute form of a path relative to the current file.",
-                example: r#"const current_file = path self ../foo"#,
+                example: "const current_file = path self ../foo",
                 result: None,
             },
         ]
@@ -126,9 +127,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(PathSelf {})
+    #[ignore = "`path self` fails at parse time already"]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(PathSelf)
     }
 }

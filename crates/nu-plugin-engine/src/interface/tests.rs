@@ -1141,7 +1141,7 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
         call: DynamicCompletionCall {
             call: nu_protocol::ast::Call {
                 decl_id: Id::new(3),
-                head: Span::unknown(),
+                head: Span::test_data(),
                 arguments: vec![],
                 parser_info: HashMap::new(),
             },
@@ -1163,7 +1163,7 @@ fn interface_get_dynamic_completion() -> Result<(), ShellError> {
         call: DynamicCompletionCall {
             call: nu_protocol::ast::Call {
                 decl_id: Id::new(3),
-                head: Span::unknown(),
+                head: Span::test_data(),
                 arguments: vec![],
                 parser_info: HashMap::new(),
             },

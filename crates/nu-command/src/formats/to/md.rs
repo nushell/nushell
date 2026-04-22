@@ -216,16 +216,18 @@ impl Command for ToMd {
 }
 
 fn to_md(
-    input: PipelineData,
+    mut input: PipelineData,
     options: ToMdOptions,
     config: &Config,
     head: Span,
 ) -> Result<PipelineData, ShellError> {
     // text/markdown became a valid mimetype with rfc7763
-    let metadata = input
-        .metadata()
-        .unwrap_or_default()
-        .with_content_type(Some("text/markdown".into()));
+    let metadata = Some(
+        input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("text/markdown".into())),
+    );
 
     // Collect input to check if it's a simple list (no records/tables)
     let values: Vec<Value> = input.into_iter().collect();
@@ -255,7 +257,7 @@ fn to_md(
             .join("")
             .trim()
             .to_string();
-        return Ok(Value::string(result, head).into_pipeline_data_with_metadata(Some(metadata)));
+        return Ok(Value::string(result, head).into_pipeline_data_with_metadata(metadata));
     }
 
     // For tables/records, use the grouping logic
@@ -326,7 +328,7 @@ fn to_md(
                 .trim(),
             head,
         )
-        .into_pipeline_data_with_metadata(Some(metadata)));
+        .into_pipeline_data_with_metadata(metadata));
     }
     Ok(Value::string(
         table(
@@ -339,7 +341,7 @@ fn to_md(
         ),
         head,
     )
-    .into_pipeline_data_with_metadata(Some(metadata)))
+    .into_pipeline_data_with_metadata(metadata))
 }
 
 /// Formats a single list item with the appropriate list marker based on list_style
@@ -756,10 +758,8 @@ mod tests {
     }
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ToMd {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ToMd)
     }
 
     #[test]
@@ -833,13 +833,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | country |
             | --- |
             | Ecuador |
             | New Zealand |
             | USA |
-            "#)
+            ")
         );
 
         assert_eq!(
@@ -851,13 +851,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | country     |
             | ----------- |
             | Ecuador     |
             | New Zealand |
             | USA         |
-            "#)
+            ")
         );
     }
 
@@ -883,12 +883,12 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             |  | foo |
             | --- | --- |
             | 1 | 2 |
             | 3 | 4 |
-            "#)
+            ")
         );
     }
 
@@ -918,13 +918,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- | --- |
             | 1 | 2 |
             | 3 | 4 |
             | 5 |  |
-            "#)
+            ")
         );
     }
 
@@ -972,13 +972,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- |:---:|
             | 1   |  2  |
             | 3   |  4  |
             | 5   |  6  |
-            "#)
+            ")
         );
 
         // Without pretty
@@ -991,13 +991,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- |:---:|
             | 1 | 2 |
             | 3 | 4 |
             | 5 | 6 |
-            "#)
+            ")
         );
     }
 
@@ -1029,13 +1029,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | foo | bar |
             | --- | --- |
             | 1   | 2   |
             | 3   | 4   |
             | 5   | 6   |
-            "#)
+            ")
         );
     }
 
@@ -1094,13 +1094,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | command | input |  output  |
             |:-------:| ----- |:--------:|
             |   ls    | .     | file.txt |
             |  echo   | 'hi'  |    hi    |
             |   cp    | a.txt |  b.txt   |
-            "#)
+            ")
         );
     }
 
@@ -1147,13 +1147,13 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | name    | age |
             | ------- | --- |
             | Alice   | 30  |
             | Bob     | 5   |
             | Charlie | 20  |
-            "#)
+            ")
         );
     }
 
@@ -1195,12 +1195,12 @@ mod tests {
                 false,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | k          |             v              |
             | ---------- |:--------------------------:|
             | version    |          0.104.1           |
             | build_time | 2025-05-28 11:00:45 +01:00 |
-            "#)
+            ")
         );
     }
 
@@ -1342,11 +1342,11 @@ mod tests {
                 true,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | tag | code |
             | --- | --- |
             | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
-            "#)
+            ")
         );
 
         assert_eq!(
@@ -1358,11 +1358,11 @@ mod tests {
                 true,
                 &Config::default()
             ),
-            one(r#"
+            one("
             | tag   | code                                                                                                                                                                                                                                                                                                                                    |
             | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
             | table | &lt;table&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Chris&lt;&#x2f;td&gt;&lt;td&gt;HTML tables&lt;&#x2f;td&gt;&lt;td&gt;22&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;tr&gt;&lt;td scope=&quot;row&quot;&gt;Dennis&lt;&#x2f;td&gt;&lt;td&gt;Web accessibility&lt;&#x2f;td&gt;&lt;td&gt;45&lt;&#x2f;td&gt;&lt;&#x2f;tr&gt;&lt;&#x2f;table&gt; |
-            "#)
+            ")
         );
     }
 

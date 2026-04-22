@@ -1,3 +1,4 @@
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 
 // Default value used when selecting rows from dataframe
@@ -12,12 +13,12 @@ pub(crate) fn convert_columns(
     // First column span
     let mut col_span = columns
         .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Empty column list".into(),
-            msg: "Empty list found for command".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
+        .ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Empty column list",
+                "Empty list found for command",
+                span,
+            ))
         })?
         .span();
 
@@ -30,13 +31,11 @@ pub(crate) fn convert_columns(
                     col_span = col_span.merge(span);
                     Ok(Spanned { item: val, span })
                 }
-                _ => Err(ShellError::GenericError {
-                    error: "Incorrect column format".into(),
-                    msg: "Only string as column name".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
+                _ => Err(ShellError::Generic(GenericError::new(
+                    "Incorrect column format",
+                    "Only string as column name",
+                    span,
+                ))),
             }
         })
         .collect::<Result<Vec<Spanned<String>>, _>>()?;
@@ -53,12 +52,12 @@ pub(crate) fn convert_columns_string(
     // First column span
     let mut col_span = columns
         .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Empty column list".into(),
-            msg: "Empty list found for command".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
+        .ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Empty column list",
+                "Empty list found for command",
+                span,
+            ))
         })
         .map(|v| v.span())?;
 
@@ -71,13 +70,11 @@ pub(crate) fn convert_columns_string(
                     col_span = col_span.merge(span);
                     Ok(val)
                 }
-                _ => Err(ShellError::GenericError {
-                    error: "Incorrect column format".into(),
-                    msg: "Only string as column name".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                }),
+                _ => Err(ShellError::Generic(GenericError::new(
+                    "Incorrect column format",
+                    "Only string as column name",
+                    span,
+                ))),
             }
         })
         .collect::<Result<Vec<String>, _>>()?;

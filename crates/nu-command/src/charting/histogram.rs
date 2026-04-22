@@ -221,9 +221,18 @@ fn run_histogram(
         }
     }
 
+    let forbidden_colun_names = ["count", "quantile", "percentage", freq_column.as_str()];
     let value_column_name = column_name
         .map(|x| x.item)
+        .map(|name| {
+            if forbidden_colun_names.contains(&name.as_str()) {
+                "value".to_string()
+            } else {
+                name
+            }
+        })
         .unwrap_or_else(|| "value".to_string());
+
     Ok(histogram_impl(
         inputs,
         &value_column_name,
@@ -287,9 +296,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Histogram)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Histogram)
     }
 }

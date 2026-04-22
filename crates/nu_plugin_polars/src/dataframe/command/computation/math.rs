@@ -7,7 +7,7 @@ use crate::values::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Value,
+    SyntaxShape, Value, shell_error::generic::GenericError,
 };
 use polars::prelude::{Expr, Literal, df};
 
@@ -35,13 +35,10 @@ impl FunctionType {
             "sign" => Ok(Self::Sign),
             "sin" => Ok(Self::Sin),
             "sqrt" => Ok(Self::Sqrt),
-            _ => Err(ShellError::GenericError {
-                error: "Invalid function name".into(),
-                msg: "".into(),
-                span: Some(span),
-                help: Some("See description for accepted functions".into()),
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(
+                GenericError::new("Invalid function name", "", span)
+                    .with_help("See description for accepted functions"),
+            )),
         }
     }
 
@@ -180,9 +177,9 @@ impl PluginCommand for ExprMath {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let func_type: Spanned<String> = call.req(0)?;
         let func_type = FunctionType::from_str(&func_type.item, func_type.span)?;
@@ -220,14 +217,11 @@ fn command_expr(
         FunctionType::Dot => {
             let expr: Expr = match call.rest::<Value>(1)?.first() {
                 None => {
-                    return Err(ShellError::GenericError {
-                        error: "Second expression to compute dot product with must be provided"
-                            .into(),
-                        msg: "".into(),
-                        span: Some(call.head),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Second expression to compute dot product with must be provided",
+                        "",
+                        call.head,
+                    )));
                 }
                 Some(value) => NuExpression::try_from_value(plugin, value)?.into_polars(),
             };

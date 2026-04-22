@@ -81,7 +81,7 @@ impl Command for UpdateCells {
                 })])),
             },
             Example {
-                example: r#"{a: 1, b: 2, c: 3} | update cells { $in + 10 }"#,
+                example: "{a: 1, b: 2, c: 3} | update cells { $in + 10 }",
                 description: "Update each value in a record.",
                 result: Some(Value::test_record(record! {
                     "a" => Value::test_int(11),
@@ -112,8 +112,6 @@ impl Command for UpdateCells {
             None => None,
         };
 
-        let metadata = input.metadata();
-
         let span = input.span();
         match input {
             PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
@@ -128,14 +126,17 @@ impl Command for UpdateCells {
                 );
                 Ok(input)
             }
-            _ => Ok(UpdateCellIterator {
-                iter: input.into_iter(),
-                closure: ClosureEval::new(engine_state, stack, closure),
-                columns,
-                span: head,
+            _ => {
+                let metadata = input.take_metadata();
+                Ok(UpdateCellIterator {
+                    iter: input.into_iter(),
+                    closure: ClosureEval::new(engine_state, stack, closure),
+                    columns,
+                    span: head,
+                }
+                .into_pipeline_data(head, engine_state.signals().clone())
+                .set_metadata(metadata))
             }
-            .into_pipeline_data(head, engine_state.signals().clone())
-            .set_metadata(metadata)),
         }
     }
 }
@@ -196,9 +197,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(UpdateCells {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(UpdateCells)
     }
 }

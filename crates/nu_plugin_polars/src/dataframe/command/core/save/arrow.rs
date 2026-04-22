@@ -2,7 +2,7 @@ use std::{fs::File, sync::Arc};
 
 use log::debug;
 use nu_plugin::EvaluatedCall;
-use nu_protocol::ShellError;
+use nu_protocol::{ShellError, shell_error::generic::GenericError};
 use polars::prelude::{FileWriteFormat, IpcWriter, IpcWriterOptions, SerWriter, UnifiedSinkArgs};
 
 use crate::{
@@ -39,22 +39,22 @@ pub(crate) fn command_lazy(
 pub(crate) fn command_eager(df: &NuDataFrame, resource: Resource) -> Result<(), ShellError> {
     let file_span = resource.span;
     let file_path = resource.as_path_buf();
-    let mut file = File::create(file_path).map_err(|e| ShellError::GenericError {
-        error: format!("Error with file name: {e}"),
-        msg: "".into(),
-        span: Some(file_span),
-        help: None,
-        inner: vec![],
+    let mut file = File::create(file_path).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            format!("Error with file name: {e}"),
+            "",
+            file_span,
+        ))
     })?;
 
     IpcWriter::new(&mut file)
         .finish(&mut df.to_polars())
-        .map_err(|e| ShellError::GenericError {
-            error: "Error saving file".into(),
-            msg: e.to_string(),
-            span: Some(file_span),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error saving file",
+                e.to_string(),
+                file_span,
+            ))
         })?;
     Ok(())
 }

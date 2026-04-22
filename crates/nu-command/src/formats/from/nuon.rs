@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct FromNuon;
@@ -59,13 +60,14 @@ impl Command for FromNuon {
         match nuon::from_nuon(&string_input, Some(head)) {
             Ok(result) => Ok(result
                 .into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None)))),
-            Err(err) => Err(ShellError::GenericError {
-                error: "error when loading nuon text".into(),
-                msg: "could not load nuon text".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![err],
-            }),
+            Err(err) => Err(ShellError::Generic(
+                GenericError::new(
+                    "error when loading nuon text",
+                    "could not load nuon text",
+                    head,
+                )
+                .with_inner([err]),
+            )),
         }
     }
 }
@@ -80,10 +82,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(FromNuon {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(FromNuon)
     }
 
     #[test]
@@ -104,7 +104,7 @@ mod test {
             .merge_delta(delta)
             .expect("Error merging delta");
 
-        let cmd = r#"'[[a, b]; [1, 2]]' | metadata set --content-type 'application/x-nuon' --path-columns [name] | from nuon | metadata | reject span | $in"#;
+        let cmd = "'[[a, b]; [1, 2]]' | metadata set --content-type 'application/x-nuon' --path-columns [name] | from nuon | metadata | reject span | $in";
         let result = eval_pipeline_without_terminal_expression(
             cmd,
             std::env::temp_dir().as_ref(),

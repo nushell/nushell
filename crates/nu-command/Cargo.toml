@@ -1,11 +1,12 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell's built-in commands"
-edition = "2024"
+edition.workspace = true
 license = "MIT"
 name = "nu-command"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-command"
-version = "0.111.1"
+rust-version.workspace = true
+version = "0.112.3"
 autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,21 +25,21 @@ workspace = true
 
 [dependencies]
 nu-ansi-term = { workspace = true }
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.111.1" }
-nu-color-config = { path = "../nu-color-config", version = "0.111.1" }
-nu-engine = { path = "../nu-engine", version = "0.111.1", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.111.1" }
-nu-glob = { path = "../nu-glob", version = "0.111.1" }
-nu-json = { path = "../nu-json", version = "0.111.1" }
-nu-parser = { path = "../nu-parser", version = "0.111.1" }
-nu-path = { path = "../nu-path", version = "0.111.1" }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.111.1" }
-nu-protocol = { path = "../nu-protocol", version = "0.111.1", default-features = false }
-nu-system = { path = "../nu-system", version = "0.111.1" }
-nu-table = { path = "../nu-table", version = "0.111.1" }
-nu-term-grid = { path = "../nu-term-grid", version = "0.111.1" }
-nu-utils = { path = "../nu-utils", version = "0.111.1", default-features = false }
-nuon = { path = "../nuon", version = "0.111.1" }
+nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
+nu-color-config = { path = "../nu-color-config", version = "0.112.3" }
+nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+nu-glob = { path = "../nu-glob", version = "0.112.3" }
+nu-json = { path = "../nu-json", version = "0.112.3", features = ["nu-protocol"] }
+nu-parser = { path = "../nu-parser", version = "0.112.3" }
+nu-path = { path = "../nu-path", version = "0.112.3" }
+nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.112.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
+nu-system = { path = "../nu-system", version = "0.112.3" }
+nu-table = { path = "../nu-table", version = "0.112.3" }
+nu-term-grid = { path = "../nu-term-grid", version = "0.112.3" }
+nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nuon = { path = "../nuon", version = "0.112.3" }
 
 alphanumeric-sort = { workspace = true }
 base64 = { workspace = true }
@@ -55,7 +56,7 @@ chrono = { workspace = true, features = [
 ], default-features = false }
 chrono-humanize = { workspace = true }
 chrono-tz = { workspace = true }
-crossterm = { workspace = true, optional = true }
+crossterm = { workspace = true, optional = true, features = ["use-dev-tty"] }
 csv = { workspace = true }
 devicons = { workspace = true }
 digest = { workspace = true, default-features = false }
@@ -78,6 +79,7 @@ lscolors = { workspace = true, default-features = false, features = [
 md5 = { workspace = true }
 mime = { workspace = true }
 mime_guess = { workspace = true }
+mq-markdown = { workspace = true }
 multipart-rs = { workspace = true, optional = true }
 native-tls = { workspace = true, optional = true }
 notify-debouncer-full = { workspace = true, default-features = false, optional = true }
@@ -115,6 +117,7 @@ sysinfo = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
 titlecase = { workspace = true }
 toml = { workspace = true, features = ["preserve_order"] }
+toml_edit = { workspace = true }
 unicode-segmentation = { workspace = true }
 update-informer = { workspace = true, optional = true }
 ureq = { workspace = true, default-features = false, features = [
@@ -212,7 +215,7 @@ os = [
 # The dependencies listed below need 'getrandom'.
 # They work with JS (usually with wasm-bindgen) or regular OS support.
 # Hence they are also put under the 'os' feature to avoid repetition.
-js = ["getrandom", "getrandom/js", "rand", "uuid"]
+js = ["getrandom", "getrandom/wasm_js", "rand", "uuid"]
 
 # These dependencies require networking capabilities, especially the http
 # interface requires openssl which is not easy to embed into wasm,
@@ -220,6 +223,7 @@ js = ["getrandom", "getrandom/js", "rand", "uuid"]
 network = [
 	"dns-lookup",
 	"multipart-rs",
+	"nu-test-support/network",
 	"update-informer",
 	"ureq",
 	"uuid",
@@ -231,9 +235,10 @@ native-tls = [
 	"ureq/native-tls",
 ]
 rustls-tls = [
-	"dep:rustls",
 	"dep:rustls-native-certs",
+	"dep:rustls",
 	"dep:webpki-roots",
+	"nu-test-support/rustls-tls",
 	"update-informer/rustls-tls",
 	"ureq/rustls",
 ]
@@ -243,8 +248,8 @@ sqlite = ["rusqlite"]
 trash-support = ["trash"]
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1" }
-nu-test-support = { path = "../nu-test-support", version = "0.111.1" }
+nu-cmd-lang = { path = "../nu-cmd-lang" }
+nu-test-support = { path = "../nu-test-support" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }

@@ -35,7 +35,7 @@ use std::os::windows::io::AsRawSocket;
 use nu_protocol::HandlerGuard;
 use ureq::Error;
 use ureq::unversioned::transport::{
-    Buffers, ConnectionDetails, Connector, LazyBuffers, NextTimeout, Transport,
+    Buffers, ConnectionDetails, Connector, Either, LazyBuffers, NextTimeout, Transport,
 };
 
 /// Callback invoked when a connection is established.
@@ -64,13 +64,20 @@ impl fmt::Debug for InterruptibleTcpConnector {
 }
 
 impl<In: Transport> Connector<In> for InterruptibleTcpConnector {
-    type Out = InterruptibleTcpTransport;
+    type Out = Either<In, InterruptibleTcpTransport>;
 
     fn connect(
         &self,
         details: &ConnectionDetails,
-        _chained: Option<In>,
+        chained: Option<In>,
     ) -> Result<Option<Self::Out>, Error> {
+        if chained.is_some() {
+            // Like the `TcpConnector` of `ureq`, we check for chained and use that connection
+            // instead.
+            // This allows SOCKS proxy connections.
+            return Ok(chained.map(Either::A));
+        }
+
         let stream = try_connect(details)?;
 
         let (guard, closed) = self
@@ -85,9 +92,9 @@ impl<In: Transport> Connector<In> for InterruptibleTcpConnector {
             details.config.output_buffer_size(),
         );
 
-        Ok(Some(InterruptibleTcpTransport::new(
+        Ok(Some(Either::B(InterruptibleTcpTransport::new(
             stream, buffers, guard, closed,
-        )))
+        ))))
     }
 }
 
@@ -326,10 +333,11 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
 mod tests {
     use super::*;
     use nu_protocol::{Handlers, SignalAction};
+    use nu_utils::time::Instant;
     use std::io::Write;
     use std::net::TcpListener;
     use std::thread;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     #[test]
     fn test_interrupt_unblocks_read() {

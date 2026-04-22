@@ -14,10 +14,10 @@ impl Command for JobFlush {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This command removes all messages in the mailbox of the current job.
 If a message is received while this command is executing, it may also be discarded.
-"#
+"
     }
 
     fn signature(&self) -> nu_protocol::Signature {

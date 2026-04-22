@@ -28,7 +28,7 @@ impl PluginCommand for Lowercase {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            example: r#"[Hello wORLD] | lowercase"#,
+            example: "[Hello wORLD] | lowercase",
             description: "Lowercase a list of strings",
             result: Some(Value::test_list(vec![
                 Value::test_string("hello"),

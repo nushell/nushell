@@ -1,7 +1,7 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn condition_is_met() {
+fn condition_is_met() -> Result {
     let sample = r#"[
         ["Chicken Collection", "29/04/2020", "30/04/2020", "31/04/2020"];
         ["Yellow Chickens", "", "", ""],
@@ -21,7 +21,7 @@ fn condition_is_met() {
         [Yehuda, 1, 1, 3]
     ]"#;
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"
             {sample}
             | skip 1
@@ -30,14 +30,15 @@ fn condition_is_met() {
             | get "31/04/2020"
             | math sum
         "#
-    ));
+    );
 
-    assert_eq!(actual.out, "4");
+    test().run(code).expect_value_eq(4)
 }
 
 #[test]
-fn fail_on_non_iterator() {
-    let actual = nu!("1 | take while {|row| $row == 2}");
-
-    assert!(actual.err.contains("command doesn't support"));
+fn fail_on_non_iterator() -> Result {
+    let code = "1 | take while {|row| $row == 2}";
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::InputMismatch(..)));
+    Ok(())
 }

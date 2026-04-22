@@ -3,7 +3,7 @@ use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
     NuGlob,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
@@ -52,7 +52,7 @@ impl Command for UMv {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["move", "file", "files", "coreutils"]
+        vec!["move", "file", "files", "coreutils", "rename", "ren"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -109,27 +109,22 @@ impl Command for UMv {
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "Missing file operand".into(),
-                msg: "Missing file operand".into(),
-                span: Some(call.head),
-                help: Some("Please provide source and destination paths".into()),
-                inner: Vec::new(),
-            });
+            return Err(ShellError::Generic(
+                GenericError::new("Missing file operand", "Missing file operand", call.head)
+                    .with_help("Please provide source and destination paths"),
+            ));
         }
         if paths.len() == 1 {
             // expand path for better error message
-            return Err(ShellError::GenericError {
-                error: "Missing destination path".into(),
-                msg: format!(
+            return Err(ShellError::Generic(GenericError::new(
+                "Missing destination path",
+                format!(
                     "Missing destination path operand after {}",
                     expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
                         .to_string_lossy()
                 ),
-                span: Some(paths[0].span),
-                help: None,
-                inner: Vec::new(),
-            });
+                paths[0].span,
+            )));
         }
 
         // Do not glob target
@@ -214,13 +209,10 @@ impl Command for UMv {
             context: None,
         };
         if let Err(error) = uu_mv::mv(&files, &options) {
-            return Err(ShellError::GenericError {
-                error: format!("{error}"),
-                msg: translate!(&error.to_string()),
-                span: None,
-                help: None,
-                inner: Vec::new(),
-            });
+            return Err(ShellError::Generic(GenericError::new_internal(
+                format!("{error}"),
+                translate!(&error.to_string()),
+            )));
         }
         Ok(PipelineData::empty())
     }

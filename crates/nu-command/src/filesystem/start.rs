@@ -1,6 +1,6 @@
 use itertools::Itertools;
 use nu_engine::{command_prelude::*, env_to_strings};
-use nu_protocol::ShellError;
+use nu_protocol::{ShellError, shell_error::generic::GenericError};
 use std::{
     ffi::{OsStr, OsString},
     process::Stdio,
@@ -57,13 +57,14 @@ impl Command for Start {
             return Ok(PipelineData::empty());
         }
         // If neither file nor URL, return an error
-        Err(ShellError::GenericError {
-            error: format!("Cannot find file or URL: {}", &path.item),
-            msg: "".into(),
-            span: Some(path.span),
-            help: Some("Ensure the path or URL is correct and try again.".into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                format!("Cannot find file or URL: {}", &path.item),
+                "",
+                path.span,
+            )
+            .with_help("Ensure the path or URL is correct and try again."),
+        ))
     }
     fn examples(&self) -> Vec<nu_protocol::Example<'_>> {
         vec![

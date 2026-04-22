@@ -74,6 +74,7 @@ impl PluginCommand for SelectorFirst {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -91,9 +92,9 @@ impl PluginCommand for SelectorFirst {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let n: Option<i64> = call.opt(0)?;
 
         let selector = match n {

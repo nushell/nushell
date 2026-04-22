@@ -76,6 +76,7 @@ impl PluginCommand for AppendDF {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -107,6 +108,7 @@ impl PluginCommand for AppendDF {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

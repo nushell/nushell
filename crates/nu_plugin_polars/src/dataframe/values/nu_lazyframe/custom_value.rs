@@ -60,9 +60,10 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
         let lazy = NuLazyFrame::try_from_custom_value(plugin, self)?;
-        lazy.base_value(Span::unknown())
+        lazy.base_value(span)
     }
 
     fn id(&self) -> &Uuid {
@@ -79,7 +80,8 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         _engine: &EngineInterface,
         other_value: Value,
     ) -> Result<Option<Ordering>, ShellError> {
-        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
+        let eager =
+            NuLazyFrame::try_from_custom_value(plugin, self)?.collect(other_value.span())?;
         let other = NuDataFrame::try_from_value_coerce(plugin, &other_value, other_value.span())?;
         let res = eager.is_equal(&other);
         Ok(res)
@@ -93,7 +95,7 @@ impl PolarsPluginCustomValue for NuLazyFrameCustomValue {
         operator: nu_protocol::Spanned<nu_protocol::ast::Operator>,
         right: Value,
     ) -> Result<Value, ShellError> {
-        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(Span::unknown())?;
+        let eager = NuLazyFrame::try_from_custom_value(plugin, self)?.collect(lhs_span)?;
         Ok(eager
             .compute_with_value(plugin, lhs_span, operator.item, operator.span, &right)?
             .cache(plugin, engine, lhs_span)?

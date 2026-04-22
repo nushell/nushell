@@ -1,4 +1,5 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
+use crate::shell_error::generic::GenericError;
 use crate::{FromValue, IntoValue, ShellError, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -136,10 +137,23 @@ impl<T> IntoSpanned for T {
 /// Spans are a global offset across all seen files, which are cached in the engine's state. The start and
 /// end offset together make the inclusive start/exclusive end pair for where to underline to highlight
 /// a given point of interest.
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct Span {
     pub start: usize,
     pub end: usize,
+}
+
+impl fmt::Debug for Span {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        const TEST_DATA: Span = Span::test_data();
+        const UNKNOWN: Span = Span::unknown();
+
+        match *self {
+            TEST_DATA => write!(f, "Span(TEST)"),
+            UNKNOWN => write!(f, "Span(UNKNOWN)"),
+            Span { start, end } => write!(f, "Span[{start}..{end}]"),
+        }
+    }
 }
 
 impl Span {
@@ -334,35 +348,29 @@ impl FromValue for Span {
         match rec {
             Ok(val) => {
                 let Some(pre_start) = val.get("start") else {
-                    return Err(ShellError::GenericError {
-                        error: "Unable to parse Span.".into(),
-                        msg: "`start` must be an `int`".into(),
-                        span: Some(value.span()),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Unable to parse Span.",
+                        "`start` must be an `int`",
+                        value.span(),
+                    )));
                 };
                 let Some(pre_end) = val.get("end") else {
-                    return Err(ShellError::GenericError {
-                        error: "Unable to parse Span.".into(),
-                        msg: "`end` must be an `int`".into(),
-                        span: Some(value.span()),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Unable to parse Span.",
+                        "`end` must be an `int`",
+                        value.span(),
+                    )));
                 };
                 let start = pre_start.as_int()? as usize;
                 let end = pre_end.as_int()? as usize;
                 if start <= end {
                     Ok(Self::new(start, end))
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Unable to parse Span.".into(),
-                        msg: "`end` must not be less than `start`".into(),
-                        span: Some(value.span()),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Unable to parse Span.",
+                        "`end` must not be less than `start`",
+                        value.span(),
+                    )))
                 }
             }
             _ => Err(ShellError::TypeMismatch {
@@ -382,7 +390,7 @@ impl From<Span> for SourceSpan {
 /// An extension trait for [`Result`], which adds a span to the error type.
 ///
 /// This trait might be removed later, since the old [`Spanned<std::io::Error>`] to
-/// [`ShellError`](crate::ShellError) conversion was replaced by
+/// [`ShellError`] conversion was replaced by
 /// [`IoError`](crate::shell_error::io::IoError).
 pub trait ErrSpan {
     type Result;

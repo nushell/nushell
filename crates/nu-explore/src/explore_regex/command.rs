@@ -28,6 +28,7 @@
 use crate::explore_regex::app::App;
 use crate::explore_regex::ui::run_app_loop;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -63,8 +64,8 @@ impl Command for ExploreRegex {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
-Supports AltGr key combinations for international keyboard layouts."#
+        "Press `Ctrl-Q` to quit and provide constructed regular expression as the output.
+Supports AltGr key combinations for international keyboard layouts."
     }
 
     fn run(
@@ -88,12 +89,12 @@ Supports AltGr key combinations for international keyboard layouts."#
         vec![
             Example {
                 description: "Explore a regular expression interactively",
-                example: r#"explore regex"#,
+                example: "explore regex",
                 result: None,
             },
             Example {
                 description: "Explore a regular expression interactively with sample text",
-                example: r#"open -r Cargo.toml | explore regex"#,
+                example: "open -r Cargo.toml | explore regex",
                 result: None,
             },
         ]
@@ -102,13 +103,11 @@ Supports AltGr key combinations for international keyboard layouts."#
 
 /// Converts a terminal/IO error into a ShellError with consistent formatting.
 fn terminal_error(error: &str, cause: impl std::fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: error.into(),
-        msg: format!("terminal error: {cause}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        error.to_string(),
+        format!("terminal error: {cause}"),
+        span,
+    ))
 }
 
 fn execute_regex_app(span: Span, string_input: String) -> Result<String, ShellError> {

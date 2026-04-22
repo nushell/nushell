@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 use rusqlite::params_from_iter;
 
 #[derive(Clone)]
@@ -109,13 +110,11 @@ fn handle(
     // Check for conflicting use of both pipeline input and flag
     if let Some(record) = data_record {
         if !matches!(input, PipelineData::Empty) {
-            return Err(ShellError::GenericError {
-                error: "Pipeline and Flag both being used".into(),
-                msg: "Use either pipeline input or '--data-record' parameter".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Pipeline and Flag both being used",
+                "Use either pipeline input or '--data-record' parameter",
+                span,
+            )));
         }
         return Ok(vec![record]);
     }
@@ -148,7 +147,7 @@ fn handle(
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
                 wrong_type: other.get_type().to_string(),
-                dst_span: Span::unknown(),
+                dst_span: span,
                 src_span: other.span(),
             }),
         })
@@ -196,13 +195,11 @@ fn process(
 
     if let Ok(conn) = db.open_connection() {
         conn.execute(&create_stmt, params_from_iter(params))
-            .map_err(|err| ShellError::GenericError {
-                error: "Failed to insert using the SQLite connection in memory from insert.rs."
-                    .into(),
-                msg: err.to_string(),
-                span: Some(Span::test_data()),
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to insert using the SQLite connection in memory from insert.rs.",
+                    err.to_string(),
+                ))
             })?;
     };
     // dbg!(db.clone());
@@ -216,10 +213,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StorInsert {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StorInsert)
     }
 
     #[test]
@@ -242,7 +237,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_with_simple_parameters".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert("int_column".to_string(), Value::test_int(42));
         columns.insert("real_column".to_string(), Value::test_float(3.1));
@@ -280,7 +275,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_process_string_with_space".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -308,7 +303,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_string_too_long".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -336,7 +331,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_param_is_wrong_type".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "int_column".to_string(),
@@ -364,7 +359,7 @@ mod test {
         conn.execute(create_stmt, [])
             .expect("Failed to create table as part of test.");
         let table_name = Some("test_errors_when_column_doesnt_exist".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "not_a_column".to_string(),
@@ -384,7 +379,7 @@ mod test {
         ));
 
         let table_name = Some("test_errors_when_table_doesnt_exist".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let mut columns = Record::new();
         columns.insert(
             "str_column".to_string(),
@@ -432,7 +427,7 @@ mod test {
         let result = process(
             &EngineState::new(),
             Some("test_insert_json".to_owned()),
-            Span::unknown(),
+            Span::test_data(),
             &db,
             row,
         );

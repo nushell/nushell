@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -711,11 +711,11 @@ pub fn parse_attribute_block_check_spans() {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let source = br#"
+    let source = b"
     @foo a 1 2
     @bar b 3 4
     echo baz
-    "#;
+    ";
     let block = parse(&mut working_set, None, source, true);
 
     // There SHOULD be errors here, we're using nonexistent commands
@@ -894,6 +894,109 @@ pub fn parse_if_in_const_expression() {
     assert!(error.contains(")"));
 }
 
+#[test]
+fn parse_percent_prefixed_internal_call() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_caret_prefixed_call_forces_external_parse() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"^ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
+#[test]
+fn parse_percent_prefixed_prefers_builtin_when_custom_shadows_name() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    working_set.add_decl(Box::new(LsCustom));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+            assert_eq!(
+                decl.command_type(),
+                nu_protocol::engine::CommandType::Builtin
+            );
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_unknown_command_does_not_fallback_to_external() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%nu --version", true);
+
+    assert!(!working_set.parse_errors.is_empty());
+    assert!(
+        working_set.parse_errors.iter().any(|err| {
+            matches!(
+                err,
+                ParseError::LabeledErrorWithHelp { error, .. }
+                if error.contains("percent sigil requires a built-in command")
+            )
+        }),
+        "Unexpected parse errors: {:?}",
+        working_set.parse_errors
+    );
+
+    // Keep expression shape for completion while retaining parse-time failure semantics.
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1004,12 +1107,12 @@ pub fn test_external_call_head_glob(
 
 #[rstest]
 #[case(
-    r##"^r#'foo-external-call'#"##,
+    "^r#'foo-external-call'#",
     "foo-external-call",
     "raw string with caret"
 )]
 #[case(
-    r##"^r#'foo/external-call'#"##,
+    "^r#'foo/external-call'#",
     "foo/external-call",
     "raw string with forward slash and caret"
 )]
@@ -1050,12 +1153,12 @@ pub fn test_external_call_head_raw_string(
 )]
 #[case(
     r#"^"foo external call""#,
-    r#"foo external call"#,
+    "foo external call",
     "double quote with caret"
 )]
 #[case(
     r#"^"foo/external call""#,
-    r#"foo/external call"#,
+    "foo/external call",
     "double quote with forward slash and caret"
 )]
 #[case(
@@ -1082,14 +1185,14 @@ pub fn test_external_call_head_string(
 }
 
 #[rstest]
-#[case(r"~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case("~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(
     r"~\.foo(2)\(1)",
     4,
     false,
     "unquoted interpolated string with backslash"
 )]
-#[case(r"^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
+#[case("^~/.foo/(1)", 2, false, "unquoted interpolated string with caret")]
 #[case(r#"^$"~/.foo/(1)""#, 2, true, "quoted interpolated string with caret")]
 pub fn test_external_call_head_interpolated_string(
     #[case] input: &str,
@@ -1134,32 +1237,28 @@ pub fn test_external_call_head_interpolated_string(
 )]
 #[case(
     r#"^foo --flag="value""#,
-    r#"--flag=value"#,
+    "--flag=value",
     "flag value with double quote"
 )]
+#[case("^foo --flag='value'", "--flag=value", "flag value with single quote")]
 #[case(
-    r#"^foo --flag='value'"#,
-    r#"--flag=value"#,
-    "flag value with single quote"
-)]
-#[case(
-    r#"^foo {a:1,b:'c',c:'d'}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "^foo {a:1,b:'c',c:'d'}",
+    "{a:1,b:c,c:d}",
     "value with many inner single quotes"
 )]
 #[case(
     r#"^foo {a:1,b:"c",c:"d"}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "{a:1,b:c,c:d}",
     "value with many double quotes"
 )]
 #[case(
     r#"^foo {a:1,b:'c',c:"d"}"#,
-    r#"{a:1,b:c,c:d}"#,
+    "{a:1,b:c,c:d}",
     "value with single quote and double quote"
 )]
 #[case(
-    r#"^foo `hello world`"#,
-    r#"hello world"#,
+    "^foo `hello world`",
+    "hello world",
     "value is surrounded by backtick quote"
 )]
 #[case(
@@ -1168,7 +1267,7 @@ pub fn test_external_call_head_interpolated_string(
     "value is surrounded by backtick quote, with inner double quote"
 )]
 #[case(
-    r#"^foo `'hello world'`"#,
+    "^foo `'hello world'`",
     "'hello world'",
     "value is surrounded by backtick quote, with inner single quote"
 )]
@@ -1201,9 +1300,9 @@ pub fn test_external_call_arg_glob(#[case] input: &str, #[case] expected: &str, 
 }
 
 #[rstest]
-#[case(r##"^foo r#'foo-external-call'#"##, "foo-external-call", "raw string")]
+#[case("^foo r#'foo-external-call'#", "foo-external-call", "raw string")]
 #[case(
-    r##"^foo r#'foo/external-call'#"##,
+    "^foo r#'foo/external-call'#",
     "foo/external-call",
     "raw string with forward slash"
 )]
@@ -1255,10 +1354,10 @@ pub fn test_external_call_arg_raw_string(
     r"foo\external call",
     "single quote with backslash"
 )]
-#[case(r#"^foo "foo external call""#, r#"foo external call"#, "double quote")]
+#[case(r#"^foo "foo external call""#, "foo external call", "double quote")]
 #[case(
     r#"^foo "foo/external call""#,
-    r#"foo/external call"#,
+    "foo/external call",
     "double quote with forward slash"
 )]
 #[case(
@@ -1300,7 +1399,7 @@ pub fn test_external_call_arg_string(
 }
 
 #[rstest]
-#[case(r"^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
+#[case("^foo ~/.foo/(1)", 2, false, "unquoted interpolated string")]
 #[case(r#"^foo $"~/.foo/(1)""#, 2, true, "quoted interpolated string")]
 pub fn test_external_call_arg_interpolated_string(
     #[case] input: &str,
@@ -1333,7 +1432,7 @@ pub fn test_external_call_arg_interpolated_string(
 
 #[test]
 fn test_external_call_argument_spread() {
-    let input = r"^foo ...[a b c]";
+    let input = "^foo ...[a b c]";
     let tag = "spread";
 
     test_external_call(input, tag, |name, args| {
@@ -1819,7 +1918,22 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let _ = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            let block = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            assert_eq!(block.len(), 1);
+
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::StringInterpolation(expressions) => {
+                    expressions.iter().map(|e| &e.expr).collect()
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
 
             assert!(
                 working_set.parse_errors.iter().any(
@@ -2203,7 +2317,8 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        engine::{Call, CommandType},
     };
 
     #[derive(Clone)]
@@ -2330,6 +2445,37 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct LsCustom;
+
+    impl Command for LsCustom {
+        fn name(&self) -> &str {
+            "ls"
+        }
+
+        fn description(&self) -> &str {
+            "Mock custom ls command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn command_type(&self) -> CommandType {
+            CommandType::Custom
         }
 
         fn run(
@@ -2760,7 +2906,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let input = r#"ls | group-by name"#;
+        let input = "ls | group-by name";
 
         let block = parse(&mut working_set, None, input.as_bytes(), true);
 
@@ -2885,9 +3031,9 @@ mod input_types {
 
         for prefix in ["let ", "mut ", "mut foo = 1; $"] {
             let input = format!(
-                r#"{prefix}foo = 1 |
+                "{prefix}foo = 1 |
                 # comment
-                dummy"#
+                dummy"
             );
             let block = parse(&mut working_set, None, input.as_bytes(), true);
             let last_expr = &block.pipelines.last().unwrap().elements[0].expr.expr;
@@ -2917,11 +3063,11 @@ mod input_types {
 
         let mut working_set = StateWorkingSet::new(&engine_state);
         let inputs = vec![
-            r#"let a = 'b'; ($a == 'b') or ($a == 'b')"#,
-            r#"let a = 'b'; ($a == 'b') or ($a == 'b') and ($a == 'b')"#,
-            r#"let a = 1; ($a == 1) or ($a == 2) and ($a == 3)"#,
-            r#"let a = 'b'; if ($a == 'b') or ($a == 'b') { true } else { false }"#,
-            r#"let a = 1; if ($a == 1) or ($a > 0) { true } else { false }"#,
+            "let a = 'b'; ($a == 'b') or ($a == 'b')",
+            "let a = 'b'; ($a == 'b') or ($a == 'b') and ($a == 'b')",
+            "let a = 1; ($a == 1) or ($a == 2) and ($a == 3)",
+            "let a = 'b'; if ($a == 'b') or ($a == 'b') { true } else { false }",
+            "let a = 1; if ($a == 1) or ($a > 0) { true } else { false }",
         ];
 
         for input in inputs {
@@ -2938,7 +3084,7 @@ mod input_types {
         add_declarations(&mut engine_state);
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let inputs = [r#"if true { || print hi }"#, r#"if true { |x| $x }"#];
+        let inputs = ["if true { || print hi }", "if true { |x| $x }"];
 
         for input in inputs {
             parse(&mut working_set, None, input.as_bytes(), true);

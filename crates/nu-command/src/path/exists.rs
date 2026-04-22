@@ -37,9 +37,9 @@ impl Command for PathExists {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This only checks if it is possible to either `open` or `cd` to the given path.
+        "This only checks if it is possible to either `open` or `cd` to the given path.
 If you need to distinguish dirs and files, please use `path type`.
-Also note that if you don't have a permission to a directory of a path, false will be returned"#
+Also note that if you don't have a permission to a directory of a path, false will be returned"
     }
 
     fn is_const(&self) -> bool {
@@ -161,9 +161,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(PathExists {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(PathExists)
     }
 }

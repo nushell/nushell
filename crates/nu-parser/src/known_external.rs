@@ -62,17 +62,24 @@ impl Command for KnownExternal {
 
         let command = engine_state.get_decl(decl_id);
 
-        let extern_name = if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
-            String::from_utf8_lossy(name_bytes)
-        } else {
+        // Prefer reverse lookup so module imports keep a qualified name (e.g. `cargo add`).
+        // When an `alias` shadows the extern's name, lookup fails — fall back to the name
+        let extern_name_str =
+            if let Some(name_bytes) = engine_state.find_decl_name(call.decl_id, &[]) {
+                String::from_utf8_lossy(name_bytes).into_owned()
+            } else {
+                self.name().to_string()
+            };
+
+        let extern_name: Vec<_> = extern_name_str.split_whitespace().collect();
+
+        if extern_name.is_empty() {
             return Err(ShellError::NushellFailedSpanned {
                 msg: "known external name not found".to_string(),
                 label: "could not find name for this command".to_string(),
                 span: call.head,
             });
-        };
-
-        let extern_name: Vec<_> = extern_name.split(' ').collect();
+        }
 
         match &call.inner {
             CallImpl::AstRef(call) => {

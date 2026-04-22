@@ -249,10 +249,8 @@ mod tests {
     use super::{Arguments, StrIndexOf, action};
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrIndexOf {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StrIndexOf)
     }
 
     #[test]

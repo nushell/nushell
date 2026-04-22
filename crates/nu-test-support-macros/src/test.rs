@@ -43,6 +43,9 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
     });
 
     quote! {
+        #[::core::prelude::v1::test]
+        fn #fn_ident() {}
+
         mod #fn_ident {
             use super::*;
             use ::nu_test_support::harness::{
@@ -56,6 +59,8 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                 TestResult,
             };
 
+            const MODULE_PATH_WITHOUT_CRATE: &str = ::nu_test_support::module_path_without_crate!();
+
             fn wrapper() -> TestResult {
                 ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident())
             }
@@ -66,7 +71,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                 Test::new(
                     TestFnHandle::from_const_fn(wrapper),
                     TestMeta {
-                        name: Cow::Borrowed(module_path!()),
+                        name: Cow::Borrowed(MODULE_PATH_WITHOUT_CRATE),
                         ignore: #ignore_status,
                         should_panic: #panic_expectation,
                         origin: ::nu_test_support::harness::origin!(),

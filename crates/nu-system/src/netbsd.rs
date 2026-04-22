@@ -6,8 +6,10 @@ use std::{
     io,
     mem::{self, MaybeUninit},
     ptr,
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 #[cfg(target_os = "netbsd")]
 type KInfoProc = libc::kinfo_proc2;

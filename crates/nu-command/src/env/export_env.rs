@@ -25,8 +25,8 @@ impl Command for ExportEnv {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -70,12 +70,12 @@ impl Command for ExportEnv {
         vec![
             Example {
                 description: "Set an environment variable.",
-                example: r#"export-env { $env.SPAM = 'eggs' }"#,
+                example: "export-env { $env.SPAM = 'eggs' }",
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {
                 description: "Set an environment variable and examine its value.",
-                example: r#"export-env { $env.SPAM = 'eggs' }; $env.SPAM"#,
+                example: "export-env { $env.SPAM = 'eggs' }; $env.SPAM",
                 result: Some(Value::test_string("eggs")),
             },
         ]
@@ -87,9 +87,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ExportEnv {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ExportEnv)
     }
 }

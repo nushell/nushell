@@ -15,3 +15,6 @@ pub mod error;
 pub mod ser;
 mod util;
 pub mod value;
+
+#[cfg(feature = "nu-protocol")]
+mod nu_value;

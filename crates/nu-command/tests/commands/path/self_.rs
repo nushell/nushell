@@ -10,7 +10,7 @@ fn self_path_const() -> Result {
             .within("scripts")
             .with_files(&[Stub::FileWithContentToBeTrimmed(
                 "foo.nu",
-                r#"
+                "
                     export const paths = {
                         self: (path self),
                         dir: (path self .),
@@ -18,10 +18,10 @@ fn self_path_const() -> Result {
                         parent_dir: (path self ..),
                         cousin: (path self ../cousin),
                     }
-                "#,
+                ",
             )]);
 
-        let code = r#"use scripts/foo.nu; $foo.paths | values | str join (char nul)"#;
+        let code = "use scripts/foo.nu; $foo.paths | values | str join (char nul)";
         let outcome: String = test().cwd(dirs.test()).run(code)?;
         let (self_, dir, sibling, parent_dir, cousin) = outcome
             .split('\0')

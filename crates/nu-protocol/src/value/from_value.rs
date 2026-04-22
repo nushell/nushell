@@ -3,6 +3,7 @@ use crate::{
     ast::{CellPath, PathMember},
     casing::Casing,
     engine::Closure,
+    shell_error::generic::GenericError,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -10,6 +11,7 @@ use std::{
     borrow::Cow,
     cmp::Ordering,
     collections::{HashMap, VecDeque},
+    ffi::OsString,
     fmt,
     num::{
         NonZeroI8, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroIsize, NonZeroU16, NonZeroU32,
@@ -378,13 +380,11 @@ macro_rules! impl_from_value_for_uint {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
                             #[allow(unreachable_patterns)] // u64 will max out the i64 number range
-                            n => Err(ShellError::GenericError {
-                                error: "Integer too large".to_string(),
-                                msg: format!("{n} is larger than {MAX}"),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            }),
+                            n => Err(ShellError::Generic(GenericError::new(
+                                "Integer too large",
+                                format!("{n} is larger than {MAX}"),
+                                span,
+                            ))),
                         }
                     }
                     v => Err(ShellError::CantConvert {
@@ -507,6 +507,27 @@ impl FromValue for PathBuf {
     }
 
     fn expected_type() -> Type {
+        Type::String
+    }
+}
+
+// `OsString` is used in flags and other uutils
+impl FromValue for OsString {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        match v {
+            Value::String { val, .. } => Ok(OsString::from(val)),
+            Value::CellPath { val, .. } => Ok(OsString::from(val.to_string())),
+            v => Err(ShellError::CantConvert {
+                to_type: Self::expected_type().to_string(),
+                from_type: v.get_type().to_string(),
+                span: v.span(),
+                help: None,
+            }),
+        }
+    }
+
+    fn expected_type() -> Type {
+        // Using `String` here because the underlying representation is text.
         Type::String
     }
 }
@@ -867,28 +888,30 @@ impl FromValue for bytes::Bytes {
 
 // Use generics with `fmt::Display` to allow passing different kinds of integer
 fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too small".to_string(),
-        msg: format!("{int} is smaller than {min}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too small",
+        format!("{int} is smaller than {min}"),
+        span,
+    ))
 }
 
 fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too large".to_string(),
-        msg: format!("{int} is larger than {max}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too large",
+        format!("{int} is larger than {max}"),
+        span,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{FromValue, IntoValue, Record, Span, Type, Value, engine::Closure};
+    use crate::{
+        FromValue, IntoValue, Record, Span, Type, Value,
+        ast::{CellPath, PathMember},
+        casing::Casing,
+        engine::Closure,
+    };
+    use std::ffi::OsString;
     use std::ops::Deref;
 
     #[test]
@@ -932,5 +955,32 @@ mod tests {
 
         assert!(Vec::<u8>::from_value(vec![u8::MIN as i32 - 1].into_value(span)).is_err());
         assert!(Vec::<u8>::from_value(vec![u8::MAX as i32 + 1].into_value(span)).is_err());
+    }
+
+    #[test]
+    fn from_value_os_string() {
+        let span = Span::test_data();
+        let expected = OsString::from("hello");
+
+        // simple string
+        assert_eq!(
+            OsString::from_value(Value::test_string("hello".to_string())).unwrap(),
+            expected
+        );
+
+        // cell path is treated as a string via `CellPath::to_string` which includes
+        // the leading `$.`.  This matches the behaviour of `String::from_value`.
+        let cp_val = Value::test_cell_path(CellPath {
+            members: vec![PathMember::String {
+                val: "hello".into(),
+                span,
+                optional: false,
+                casing: Casing::Sensitive,
+            }],
+        });
+        assert_eq!(
+            OsString::from_value(cp_val).unwrap(),
+            OsString::from("$.hello")
+        );
     }
 }

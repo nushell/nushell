@@ -6,13 +6,16 @@ use crate::{
     engine::{Stack, StateWorkingSet},
     format_cli_error, record,
 };
+use generic::GenericError;
 use job::JobError;
 use miette::{Diagnostic, LabeledSpan, NamedSource};
+use nu_utils::location::Location;
 use serde::{Deserialize, Serialize};
-use std::num::NonZeroI32;
+use std::{error::Error as StdError, num::NonZeroI32, sync::Arc};
 use thiserror::Error;
 
 pub mod bridge;
+pub mod generic;
 pub mod io;
 pub mod job;
 pub mod network;
@@ -463,8 +466,8 @@ pub enum ShellError {
     #[diagnostic(
             code(nu::shell::env_var_not_a_string),
             help(
-                r#"The '{envvar_name}' environment variable must be a string or be convertible to a string.
-    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."#
+                "The '{envvar_name}' environment variable must be a string or be convertible to a string.
+    Either make sure '{envvar_name}' is a string, or add a 'to_string' entry for it in ENV_CONVERSIONS."
             )
         )]
     EnvVarNotAString {
@@ -482,7 +485,7 @@ pub enum ShellError {
     #[diagnostic(
         code(nu::shell::automatic_env_var_set_manually),
         help(
-            r#"The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."#
+            "The environment variable '{envvar_name}' is set automatically by Nushell and cannot be set manually."
         )
     )]
     AutomaticEnvVarSetManually {
@@ -500,7 +503,7 @@ pub enum ShellError {
     #[error("Cannot replace environment.")]
     #[diagnostic(
         code(nu::shell::cannot_replace_env),
-        help(r#"Assigning a value to '$env' is not allowed."#)
+        help("Assigning a value to '$env' is not allowed.")
     )]
     CannotReplaceEnv {
         #[label("setting '$env' not allowed")]
@@ -1040,6 +1043,7 @@ pub enum ShellError {
     /// This is a generic error type used for different situations.
     #[error("{error}")]
     #[diagnostic(code(nu::shell::error))]
+    #[deprecated(since = "0.111.1", note = "use `ShellError::Generic` instead")]
     GenericError {
         error: String,
         msg: String,
@@ -1050,6 +1054,11 @@ pub enum ShellError {
         #[related]
         inner: Vec<ShellError>,
     },
+
+    /// This is a generic error type used for different situations.
+    #[error(transparent)]
+    #[diagnostic(transparent)]
+    Generic(#[from] generic::GenericError),
 
     /// This is a generic error type used for different situations.
     #[error("{error}")]
@@ -1550,13 +1559,11 @@ impl FromValue for ShellError {
                     })?
                     .clone(),
             ),
-            Value::Nothing { internal_span } => Ok(Self::GenericError {
-                error: "error".into(),
-                msg: "is nothing".into(),
-                span: Some(internal_span),
-                help: None,
-                inner: vec![],
-            }),
+            Value::Nothing { internal_span } => Ok(Self::Generic(GenericError::new(
+                "error",
+                "is nothing",
+                internal_span,
+            ))),
             _ => Err(ShellError::CantConvert {
                 to_type: Self::expected_type().to_string(),
                 from_type: v.get_type().to_string(),
@@ -1569,25 +1576,19 @@ impl FromValue for ShellError {
 
 impl From<Box<dyn std::error::Error>> for ShellError {
     fn from(error: Box<dyn std::error::Error>) -> ShellError {
-        ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new_internal(
+            format!("{error:?}"),
+            error.to_string(),
+        ))
     }
 }
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for ShellError {
     fn from(error: Box<dyn std::error::Error + Send + Sync>) -> ShellError {
-        ShellError::GenericError {
-            error: format!("{error:?}"),
-            msg: error.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new_internal(
+            format!("{error:?}"),
+            error.to_string(),
+        ))
     }
 }
 
@@ -1664,6 +1665,46 @@ fn shell_error_serialize_roundtrip() {
         original_error.help().map(|c| c.to_string()),
         deserialized.help().map(|c| c.to_string())
     );
+}
+
+/// Represents where an error originated.
+///
+/// Most user-facing errors should point to a [`Span`].
+/// When no user span is available (for internal errors), store a
+/// [`Location`] string instead.
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum ErrorSite {
+    /// A span in user-provided Nushell code.
+    Span(Span),
+
+    /// A [`Location`] string from Rust code where the error originated.
+    ///
+    /// For usage with [`miette`] it's easier to hold a string here instead of a [`Location`].
+    Location(String),
+}
+
+impl From<Span> for ErrorSite {
+    fn from(span: Span) -> Self {
+        Self::Span(span)
+    }
+}
+
+impl From<Location> for ErrorSite {
+    fn from(location: Location) -> Self {
+        Self::Location(location.to_string())
+    }
+}
+
+// TODO: implement further chaining than just one
+#[derive(Debug, Error, Clone, Diagnostic)]
+#[error(transparent)]
+pub struct ErrorSource(Arc<dyn StdError + Send + Sync>);
+
+impl PartialEq for ErrorSource {
+    fn eq(&self, other: &Self) -> bool {
+        // TODO: implement this less wasteful
+        self.0.to_string() == other.0.to_string()
+    }
 }
 
 #[cfg(test)]

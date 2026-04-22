@@ -1,5 +1,6 @@
 use fancy_regex::{Regex, escape};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct SplitColumn;
@@ -98,7 +99,7 @@ impl Command for SplitColumn {
             },
             Example {
                 description: "Split into columns, last column may contain the delimiter.",
-                example: r"['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
+                example: "['author: Salina Yoon' r#'title: Where's Ellie?: A Hide-and-Seek Book'#] | split column --number 2 ': ' key value",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "key" => Value::test_string("author"),
@@ -184,12 +185,12 @@ fn split_column(
         let escaped = escape(&args.separator.item);
         Regex::new(&escaped)
     }
-    .map_err(|e| ShellError::GenericError {
-        error: "Error with regular expression".into(),
-        msg: e.to_string(),
-        span: Some(args.separator.span),
-        help: None,
-        inner: vec![],
+    .map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error with regular expression",
+            e.to_string(),
+            args.separator.span,
+        ))
     })?;
 
     input.flat_map(
@@ -273,9 +274,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(SplitColumn {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(SplitColumn)
     }
 }

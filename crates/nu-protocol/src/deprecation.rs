@@ -129,7 +129,7 @@ impl DeprecationEntry {
             DeprecationType::Flag(flag) => call
                 .get_named_arg(flag)
                 .map(|arg| arg.span)
-                .unwrap_or(Span::unknown()),
+                .unwrap_or_else(|| call.span()),
         }
     }
 

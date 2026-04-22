@@ -252,9 +252,10 @@ mod tests {
     #[test]
     fn test_interrupt_unblocks_read() {
         use nu_protocol::{Handlers, SignalAction};
+        use nu_utils::time::Instant;
         use std::io::Write;
         use std::thread;
-        use std::time::{Duration, Instant};
+        use std::time::Duration;
 
         #[cfg(unix)]
         use std::os::unix::net::UnixListener;

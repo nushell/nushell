@@ -73,7 +73,7 @@ impl Command for StrKebabCase {
             },
             Example {
                 description: "convert a column from a table to kebab-case",
-                example: r#"[[lang, gems]; [nuTest, 100]] | str kebab-case lang"#,
+                example: "[[lang, gems]; [nuTest, 100]] | str kebab-case lang",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "lang" =>  Value::test_string("nu-test"),
                     "gems" =>  Value::test_int(100),
@@ -87,9 +87,7 @@ impl Command for StrKebabCase {
 mod tests {
     use super::*;
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrKebabCase {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StrKebabCase)
     }
 }

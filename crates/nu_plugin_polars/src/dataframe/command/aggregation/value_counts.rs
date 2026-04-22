@@ -4,6 +4,7 @@ use crate::values::{CustomValueSupport, NuDataFrame, PolarsPluginType};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
+    shell_error::generic::GenericError,
 };
 
 use polars::df;
@@ -78,9 +79,9 @@ impl PluginCommand for ValueCount {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -102,12 +103,15 @@ fn command(
 
     let res = series
         .value_counts(sort, parallel, column.into(), normalize)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error calculating value counts values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: Some("The str-slice command can only be used with string columns".into()),
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(
+                GenericError::new(
+                    "Error calculating value counts values",
+                    e.to_string(),
+                    call.head,
+                )
+                .with_help("The str-slice command can only be used with string columns"),
+            )
         })?;
 
     let df: NuDataFrame = res.into();

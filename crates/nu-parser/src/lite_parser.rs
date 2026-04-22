@@ -332,8 +332,8 @@ pub fn lite_parse(
                             error = error
                                 .or(Some(ParseError::Expected("redirection target", token.span)));
                             command.push(span);
-                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
+                            pipeline.push(&mut command);
                         }
                         TokenContents::Eol => {
                             error = error
@@ -433,8 +433,8 @@ pub fn lite_parse(
                             {
                                 error = error.or(Some(err));
                             }
-                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
+                            pipeline.push(&mut command);
                         }
                         TokenContents::OutErrGreaterPipe => {
                             let target = LiteRedirectionTarget::Pipe {
@@ -445,12 +445,12 @@ pub fn lite_parse(
                             {
                                 error = error.or(Some(err));
                             }
-                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
+                            pipeline.push(&mut command);
                         }
                         TokenContents::Pipe => {
-                            pipeline.push(&mut command);
                             command.pipe = Some(token.span);
+                            pipeline.push(&mut command);
                         }
                         TokenContents::Eol => {
                             // Handle `[Command] [Pipe] ([Comment] | [Eol])+ [Command]`

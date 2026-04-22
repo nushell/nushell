@@ -8,6 +8,7 @@ use nu_protocol::{
     process::check_exit_status_future,
     report_error::report_compile_error,
     report_parse_error, report_parse_warning,
+    shell_error::generic::GenericError,
 };
 use std::sync::Arc;
 
@@ -41,13 +42,11 @@ pub fn evaluate_commands(
                 Arc::make_mut(&mut engine_state.config).error_style = e_style;
             }
             Err(err) => {
-                return Err(ShellError::GenericError {
-                    error: "Invalid value for `--error-style`".into(),
-                    msg: err.into(),
-                    span: Some(e_style.span()),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Invalid value for `--error-style`",
+                    err.to_string(),
+                    e_style.span(),
+                )));
             }
         }
     }

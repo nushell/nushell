@@ -14,11 +14,11 @@ impl Command for Merge {
     }
 
     fn extra_description(&self) -> &str {
-        r#"You may provide a column structure to merge
+        "You may provide a column structure to merge
 
 When merging tables, row 0 of the input table is overwritten
 with values from row 0 of the provided table, then
-repeating this process with row 1, and so on."#
+repeating this process with row 1, and so on."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -86,14 +86,14 @@ repeating this process with row 1, and so on."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let merge_value: Value = call.req(engine_state, stack, 0)?;
-        let metadata = input.metadata();
 
         // collect input before typechecking, so tables are detected as such
         let input_span = input.span().unwrap_or(head);
+        let metadata = input.take_metadata();
         let input = input.into_value(input_span)?;
 
         typecheck_merge(&input, &merge_value, head)?;
@@ -108,9 +108,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Merge {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Merge)
     }
 }

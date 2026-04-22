@@ -10,6 +10,7 @@ use nu_protocol::{
 };
 use nu_utils::IgnoreCaseExt;
 use nu_utils::get_ls_colors;
+use std::fmt::Write;
 use std::path::{Component, MAIN_SEPARATOR as SEP, Path, PathBuf, is_separator};
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -91,8 +92,7 @@ fn complete_rec(
             let entry_name = entry.file_name().to_string_lossy().into_owned();
             let entry_isdir = entry.path().is_dir();
             let mut built = built.clone();
-            // Symlinks to directories shouldn't have a trailing slash (#13275)
-            built.isdir = entry_isdir && !entry.path().is_symlink();
+            built.isdir = entry_isdir;
 
             if !want_directory || entry_isdir {
                 if enable_exact_match && !multiple_exact_matches && has_more {
@@ -221,7 +221,7 @@ pub fn complete_item(
 
     // Handle the trailing dot case
     if cleaned_partial.ends_with(&format!("{path_separator}.")) {
-        partial.push_str(&format!("{path_separator}."));
+        write!(partial, "{path_separator}.").expect("writing to a String is infallible");
     }
 
     let cwd_pathbufs: Vec<_> = cwds

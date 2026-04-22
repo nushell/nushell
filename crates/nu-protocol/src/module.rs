@@ -471,6 +471,7 @@ fn is_identifier_byte(b: u8) -> bool {
         && b != b'-'
         && b != b'*'
         && b != b'^'
+        && b != b'%'
         && b != b'/'
         && b != b'='
         && b != b'!'

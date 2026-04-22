@@ -10,7 +10,8 @@ use nu_protocol::{
 use nu_std::load_standard_library;
 use std::{
     collections::HashMap,
-    io::{self, BufRead, Read, Write},
+    fmt::Write,
+    io::{self, BufRead, Read, Write as IoWrite},
     sync::Arc,
 };
 
@@ -83,9 +84,9 @@ impl TestBin for EchoEnvMixed {
 
         if args.len() != 3 {
             panic!(
-                r#"Usage examples:
+                "Usage examples:
 * nu --testbin echo_env_mixed out-err FOO BAR
-* nu --testbin echo_env_mixed err-out FOO BAR"#
+* nu --testbin echo_env_mixed err-out FOO BAR"
             )
         }
         match args[0].as_str() {
@@ -504,7 +505,7 @@ pub fn show_help(dispatcher: &std::collections::HashMap<String, Box<dyn TestBin>
 
 /// Return a formatted help listing suitable for inclusion in usage output.
 ///
-/// The indentation matches the layout used by [`cli_help_text`] in `command.rs`, so callers can simply append it after the `--testbin` description.
+/// The indentation matches the layout used by `cli_help_text` in [`commands`](crate::command) module, so callers can simply append it after the `--testbin` description.
 pub fn help_list() -> String {
     let dispatcher = new_testbin_dispatcher();
     let mut pairs: Vec<_> = dispatcher.iter().collect();
@@ -515,9 +516,11 @@ pub fn help_list() -> String {
         let help = test_bin.help();
         // use bright cyan for the subcommand and dark gray for the description,
         // matching the styling used elsewhere in the CLI help output.
-        out.push_str(&format!(
-            "      {HELP_SUBCMD_COLOR}{name}{RESET_COLOR} -> {HELP_DESC_COLOR}{help}{RESET_COLOR}\n",
-        ));
+        writeln!(
+            out,
+            "      {HELP_SUBCMD_COLOR}{name}{RESET_COLOR} -> {HELP_DESC_COLOR}{help}{RESET_COLOR}",
+        )
+        .expect("writing to a String is infallible");
     }
     out
 }

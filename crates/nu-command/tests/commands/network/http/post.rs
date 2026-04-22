@@ -1,64 +1,72 @@
 use std::{thread, time::Duration};
 
 use mockito::{Matcher, Server, ServerOpts};
-use nu_test_support::nu;
+use nu_protocol::shell_error;
+use nu_test_support::prelude::*;
 
 #[test]
-fn http_post_is_success() {
+fn http_post_is_success() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("POST", "/").match_body("foo").create();
-
-    let actual = nu!(format!(r#"http post {url} "foo""#, url = server.url()));
-
-    assert!(actual.out.is_empty())
+    let code = format!(r#"http post {url} "foo""#, url = server.url());
+    test().run(code).expect_value_eq("")
 }
 #[test]
-fn http_post_is_success_pipeline() {
+fn http_post_is_success_pipeline() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("POST", "/").match_body("foo").create();
-
-    let actual = nu!(format!(r#""foo" | http post {url}"#, url = server.url()));
-
-    assert!(actual.out.is_empty())
+    let code = format!(r#""foo" | http post {url}"#, url = server.url());
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn http_post_failed_due_to_server_error() {
+fn http_post_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
 
     let _mock = server.mock("POST", "/").with_status(400).create();
 
-    let actual = nu!(format!(r#"http post {url} "body""#, url = server.url()));
-
-    assert!(actual.err.contains("Bad request (400)"))
+    let code = format!(r#"http post {url} "body""#, url = server.url());
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::NetworkFailure { msg, .. } => {
+            assert_contains("Bad request (400)", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn http_post_failed_due_to_missing_body() {
+fn http_post_failed_due_to_missing_body() -> Result {
     let mut server = Server::new();
 
     let _mock = server.mock("POST", "/").create();
 
-    let actual = nu!(format!(r#"http post {url}"#, url = server.url()));
-
-    assert!(
-        actual
-            .err
-            .contains("Data must be provided either through pipeline or positional argument")
-    )
+    let code = format!("http post {url}", url = server.url());
+    let err = test().run(code).expect_shell_error()?.generic_error()?;
+    assert_eq!(
+        err,
+        "Data must be provided either through pipeline or positional argument"
+    );
+    Ok(())
 }
 
 #[test]
-fn http_post_failed_due_to_unexpected_body() {
+fn http_post_failed_due_to_unexpected_body() -> Result {
     let mut server = Server::new();
 
     let _mock = server.mock("POST", "/").match_body("foo").create();
 
-    let actual = nu!(format!(r#"http post {url} "bar""#, url = server.url()));
+    let code = format!(r#"http post {url} "bar""#, url = server.url());
+    let err = test().run(code).expect_shell_error()?;
 
-    assert!(actual.err.contains("Cannot make request"))
+    match err {
+        ShellError::NetworkFailure { msg, .. } => {
+            assert_contains("Cannot make request", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 const JSON: &str = r#"{
@@ -66,33 +74,35 @@ const JSON: &str = r#"{
 }"#;
 
 #[test]
-fn http_post_json_is_success() {
+fn http_post_json_is_success() -> Result {
     let mut server = Server::new();
 
     let mock = server.mock("POST", "/").match_body(JSON).create();
 
-    let actual = nu!(format!(
-        r#"http post -t 'application/json' {url} {{foo: 'bar'}}"#,
+    let code = format!(
+        "http post -t 'application/json' {url} {{foo: 'bar'}}",
         url = server.url()
-    ));
+    );
 
+    test().run(code).expect_value_eq("")?;
     mock.assert();
-    assert!(actual.out.is_empty(), "Unexpected output {:?}", actual.out)
+    Ok(())
 }
 
 #[test]
-fn http_post_json_string_is_success() {
+fn http_post_json_string_is_success() -> Result {
     let mut server = Server::new();
 
     let mock = server.mock("POST", "/").match_body(JSON).create();
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"http post -t 'application/json' {url} '{{"foo":"bar"}}'"#,
         url = server.url()
-    ));
+    );
 
+    test().run(code).expect_value_eq("")?;
     mock.assert();
-    assert!(actual.out.is_empty())
+    Ok(())
 }
 
 const JSON_LIST: &str = r#"[
@@ -102,52 +112,55 @@ const JSON_LIST: &str = r#"[
 ]"#;
 
 #[test]
-fn http_post_json_list_is_success() {
+fn http_post_json_list_is_success() -> Result {
     let mut server = Server::new();
 
     let mock = server.mock("POST", "/").match_body(JSON_LIST).create();
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"http post -t 'application/json' {url} [{{foo: "bar"}}]"#,
         url = server.url()
-    ));
+    );
 
+    test().run(code).expect_value_eq("")?;
     mock.assert();
-    assert!(actual.out.is_empty())
+    Ok(())
 }
 
 #[test]
-fn http_post_json_int_is_success() {
+fn http_post_json_int_is_success() -> Result {
     let mut server = Server::new();
 
-    let mock = server.mock("POST", "/").match_body(r#"50"#).create();
+    let mock = server.mock("POST", "/").match_body("50").create();
 
-    let actual = nu!(format!(
-        r#"http post -t 'application/json' {url} 50"#,
+    let code = format!(
+        "http post -t 'application/json' {url} 50",
         url = server.url()
-    ));
+    );
 
+    test().run(code).expect_value_eq("")?;
     mock.assert();
-    assert!(actual.out.is_empty())
+    Ok(())
 }
 
 #[test]
-fn http_post_json_raw_string_is_success() {
+fn http_post_json_raw_string_is_success() -> Result {
     let mut server = Server::new();
 
     let mock = server.mock("POST", "/").match_body(r#""test""#).create();
 
-    let actual = nu!(format!(
+    let code = format!(
         r#"http post -t 'application/json' {url} "test""#,
         url = server.url()
-    ));
+    );
 
+    test().run(code).expect_value_eq("")?;
     mock.assert();
-    assert!(actual.out.is_empty())
+    Ok(())
 }
 
 #[test]
-fn http_post_follows_redirect() {
+fn http_post_follows_redirect() -> Result {
     let mut server = Server::new();
 
     let _mock = server.mock("GET", "/bar").with_body("bar").create();
@@ -157,13 +170,12 @@ fn http_post_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!("http post {url}/foo postbody", url = server.url()));
-
-    assert_eq!(&actual.out, "bar");
+    let code = format!("http post {url}/foo postbody", url = server.url());
+    test().run(code).expect_value_eq("bar")
 }
 
 #[test]
-fn http_post_redirect_mode_manual() {
+fn http_post_redirect_mode_manual() -> Result {
     let mut server = Server::new();
 
     let _mock = server
@@ -173,16 +185,15 @@ fn http_post_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http post --redirect-mode manual {url}/foo postbody",
         url = server.url()
-    ));
-
-    assert_eq!(&actual.out, "foo");
+    );
+    test().run(code).expect_value_eq("foo")
 }
 
 #[test]
-fn http_post_redirect_mode_error() {
+fn http_post_redirect_mode_error() -> Result {
     let mut server = Server::new();
 
     let _mock = server
@@ -192,18 +203,25 @@ fn http_post_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http post --redirect-mode error {url}/foo postbody",
         url = server.url()
-    ));
+    );
 
-    assert!(&actual.err.contains("nu::shell::network_failure"));
-    assert!(&actual.err.contains(
-        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
-    ));
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::NetworkFailure { msg, .. } => {
+            assert_eq!(
+                msg,
+                "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 #[test]
-fn http_post_multipart_is_success() {
+fn http_post_multipart_is_success() -> Result {
     let mut server = Server::new_with_opts(ServerOpts {
         assert_on_drop: true,
         ..Default::default()
@@ -216,23 +234,23 @@ fn http_post_multipart_is_success() {
         )
         .match_body(Matcher::AllOf(vec![
             Matcher::Regex(r#"(?m)^Content-Disposition: form-data; name="foo""#.to_string()),
-            Matcher::Regex(r#"(?m)^Content-Type: application/octet-stream"#.to_string()),
-            Matcher::Regex(r#"(?m)^Content-Length: 3"#.to_string()),
-            Matcher::Regex(r#"(?m)^bar"#.to_string()),
+            Matcher::Regex("(?m)^Content-Type: application/octet-stream".to_string()),
+            Matcher::Regex("(?m)^Content-Length: 3".to_string()),
+            Matcher::Regex("(?m)^bar".to_string()),
         ]))
         .with_status(200)
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http post --content-type multipart/form-data {url} {{foo: ('bar' | into binary) }}",
         url = server.url()
-    ));
+    );
 
-    assert!(actual.out.is_empty())
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn http_post_timeout() {
+fn http_post_timeout() -> Result {
     let mut server = Server::new();
     let _mock = server
         .mock("POST", "/")
@@ -242,11 +260,14 @@ fn http_post_timeout() {
         })
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http post --max-time 100ms {url} postbody",
         url = server.url()
+    );
+    let err = test().run(code).expect_io_error()?;
+    assert!(matches!(
+        err.kind,
+        shell_error::io::ErrorKind::Std(std::io::ErrorKind::TimedOut, ..)
     ));
-
-    assert!(&actual.err.contains("nu::shell::io::timed_out"));
-    assert!(&actual.err.contains("Timed out"));
+    Ok(())
 }

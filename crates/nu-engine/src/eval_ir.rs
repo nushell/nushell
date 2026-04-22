@@ -15,6 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -86,13 +87,25 @@ pub fn eval_ir_block<D: DebugContext>(
         result
     } else {
         // FIXME blocks having IR should not be optional
-        Err(ShellError::GenericError {
-            error: "Can't evaluate block in IR mode".into(),
-            msg: "block is missing compiled representation".into(),
-            span: block.span,
-            help: Some("the IrBlock is probably missing due to a compilation error".into()),
-            inner: vec![],
-        })
+        let error = if let Some(span) = block.span {
+            ShellError::Generic(
+                GenericError::new(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                    span,
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        } else {
+            ShellError::Generic(
+                GenericError::new_internal(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        };
+        Err(error)
     }
 }
 
@@ -170,18 +183,21 @@ impl<'a> EvalContext<'a> {
     }
 
     /// Take and implicitly collect a register to a value
+    ///
+    /// It doesn't check exit status when collecting.
     fn collect_reg(&mut self, reg_id: RegId, fallback_span: Span) -> Result<Value, ShellError> {
-        // NOTE: in collect, it maybe good to pick the inner PipelineData
-        // directly, and drop the ExitStatus queue.
-        let data = self.take_reg(reg_id);
-        let body = data.body;
-        let span = body.span().unwrap_or(fallback_span);
-        let result = body.into_value(span);
+        // NOTE: collect_reg is used to collect the reg to a variable.
+        // So it's good to pick the inner PipelineData directly, and drop the ExitStatus queue.
         #[cfg(feature = "os")]
-        if nu_experimental::PIPE_FAIL.get() {
-            check_exit_status_future(data.exit)?
-        }
-        result
+        let body = {
+            let mut data = self.take_reg(reg_id);
+            data.exit.clear();
+            data.body
+        };
+        #[cfg(not(feature = "os"))]
+        let body = self.take_reg(reg_id).body;
+        let span = body.span().unwrap_or(fallback_span);
+        body.into_value(span)
     }
 
     /// Get a string from data or produce evaluation error if it's invalid UTF-8
@@ -265,8 +281,13 @@ fn eval_ir_block_impl<D: DebugContext>(
                 } else if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
+                    prepare_error_handler(
+                        ctx,
+                        always_run_handler,
+                        Some(err.clone().into_spanned(*span)),
+                    );
                     pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -366,6 +387,18 @@ fn eval_instruction<D: DebugContext>(
         }
         Instruction::Collect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
+            #[cfg(feature = "os")]
+            let value = collect(data, *span, true)?;
+            #[cfg(not(feature = "os"))]
+            let value = collect(data, *span)?;
+            ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
+            Ok(Continue)
+        }
+        Instruction::TryCollect { src_dst } => {
+            let data = ctx.take_reg(*src_dst);
+            #[cfg(feature = "os")]
+            let value = collect(data, *span, false)?;
+            #[cfg(not(feature = "os"))]
             let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
@@ -555,13 +588,11 @@ fn eval_instruction<D: DebugContext>(
             {
                 Ok(Continue)
             }
-            _ => Err(ShellError::GenericError {
-                error: "Can't redirect stderr of internal command output".into(),
-                msg: "piping stderr only works on external commands".into(),
-                span: Some(*span),
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new(
+                "Can't redirect stderr of internal command output",
+                "piping stderr only works on external commands",
+                *span,
+            ))),
         },
         Instruction::OpenFile {
             file_num,
@@ -821,10 +852,10 @@ fn eval_instruction<D: DebugContext>(
             path,
             new_value,
         } => {
-            let data = ctx.take_reg(*src_dst);
-            let metadata = data.metadata();
+            let mut data = ctx.take_reg(*src_dst).body;
+            let metadata = data.take_metadata();
             // Change the span because we're modifying it
-            let mut value = data.body.into_value(*span)?;
+            let mut value = data.into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
@@ -910,7 +941,7 @@ fn eval_instruction<D: DebugContext>(
             dst,
             stream,
             end_index,
-        } => eval_iterate(ctx, *dst, *stream, *end_index),
+        } => eval_iterate(ctx, *dst, *stream, *end_index, *span),
         Instruction::OnError { index } => {
             ctx.stack.error_handlers.push(ErrorHandler {
                 handler_index: *index,
@@ -1491,7 +1522,7 @@ fn check_input_types(
             exp_input_type: expected_string,
             wrong_type: input.get_type().to_string(),
             dst_span: head,
-            src_span: input.span().unwrap_or(Span::unknown()),
+            src_span: input.span().unwrap_or(head),
         }),
         // expected_string didn't generate properly, so we can't show the proper error
         (_, None) => Err(ShellError::NushellFailed {
@@ -1598,15 +1629,21 @@ fn get_env_var_name<'a>(ctx: &mut EvalContext<'_>, key: &'a str) -> Cow<'a, str>
 /// Helper to collect values into [`PipelineData`], preserving original span and metadata
 ///
 /// The metadata is removed if it is the file data source, as that's just meant to mark streams.
-fn collect(pipe: PipelineExecutionData, fallback_span: Span) -> Result<PipelineData, ShellError> {
-    let data = pipe.body;
+///
+/// It doesn't check pipefail if `ignore_error` is true.
+fn collect(
+    pipe: PipelineExecutionData,
+    fallback_span: Span,
+    #[cfg(feature = "os")] ignore_error: bool,
+) -> Result<PipelineData, ShellError> {
+    let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.metadata().and_then(|m| m.for_collect());
-    let value = data.into_value(span)?;
+    let metadata = data.take_metadata().and_then(|m| m.for_collect());
     #[cfg(feature = "os")]
-    if nu_experimental::PIPE_FAIL.get() {
-        check_exit_status_future(pipe.exit)?
+    if nu_experimental::PIPE_FAIL.get() && !ignore_error {
+        check_exit_status_future(pipe.exit)?;
     }
+    let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
 }
 
@@ -1752,6 +1789,7 @@ fn eval_iterate(
     dst: RegId,
     stream: RegId,
     end_index: usize,
+    span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let mut data = ctx.take_reg(stream);
     if let PipelineData::ListStream(list_stream, _) = &mut data.body {
@@ -1767,8 +1805,8 @@ fn eval_iterate(
     } else {
         // Convert the PipelineData to an iterator, and wrap it in a ListStream so it can be
         // iterated on
-        let metadata = data.metadata();
-        let span = data.span().unwrap_or(Span::unknown());
+        let metadata = data.body.take_metadata();
+        let span = data.span().unwrap_or(span);
         ctx.put_reg(
             stream,
             PipelineExecutionData::from(PipelineData::list_stream(
@@ -1776,7 +1814,7 @@ fn eval_iterate(
                 metadata,
             )),
         );
-        eval_iterate(ctx, dst, stream, end_index)
+        eval_iterate(ctx, dst, stream, end_index, span)
     }
 }
 

@@ -23,18 +23,6 @@ pub fn file_contents_binary(full_path: impl AsRef<AbsolutePath>) -> Vec<u8> {
     contents
 }
 
-pub fn line_ending() -> String {
-    #[cfg(windows)]
-    {
-        String::from("\r\n")
-    }
-
-    #[cfg(not(windows))]
-    {
-        String::from("\n")
-    }
-}
-
 pub fn files_exist_at(files: &[impl AsRef<Path>], path: impl AsRef<AbsolutePath>) -> bool {
     let path = path.as_ref();
     files.iter().all(|f| path.join(f.as_ref()).exists())
@@ -47,7 +35,7 @@ pub fn executable_path() -> AbsolutePathBuf {
 }
 
 pub fn installed_nu_path() -> AbsolutePathBuf {
-    let path = std::env::var_os(crate::NATIVE_PATH_ENV_VAR);
+    let path = std::env::var_os(nu_utils::consts::NATIVE_PATH_ENV_VAR);
     if let Ok(path) = which::which_in("nu", path, ".") {
         AbsolutePathBuf::try_from(path).expect("installed nushell path is absolute")
     } else {

@@ -8,6 +8,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
+    shell_error::generic::GenericError,
 };
 use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
@@ -162,12 +163,12 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     arguments: vec![
                         Argument::Positional(Expression::new_unknown(
                             Expr::String(self.line.clone()),
-                            Span::unknown(),
+                            span,
                             Type::String,
                         )),
                         Argument::Positional(Expression::new_unknown(
                             Expr::Int(self.line_pos as i64),
-                            Span::unknown(),
+                            span,
                             Type::Int,
                         )),
                     ],
@@ -406,7 +407,7 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         let mut engine_state = working_set.permanent_state.clone();
         let _ = engine_state.merge_delta(working_set.delta.clone());
 
-        let result = nu_engine::eval_block::<WithoutDebug>(
+        let result = nu_engine::eval_block_with_early_return::<WithoutDebug>(
             &engine_state,
             &mut callee_stack,
             &block,
@@ -439,13 +440,13 @@ fn convert_whole_command_completion_results(
         Err(err) => {
             log::error!(
                 "{}",
-                ShellError::GenericError {
-                    error: "nu::shell::completion".into(),
-                    msg: "failed to eval completer block".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![err],
-                }
+                ShellError::Generic(
+                    GenericError::new_internal(
+                        "nu::shell::completion",
+                        "failed to eval completer block",
+                    )
+                    .with_inner([err]),
+                )
             );
             return Some(vec![]);
         }
@@ -462,13 +463,10 @@ fn convert_whole_command_completion_results(
         _ => {
             log::error!(
                 "{}",
-                ShellError::GenericError {
-                    error: "nu::shell::completion".into(),
-                    msg: "completer returned invalid value of type".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new_internal(
+                    "nu::shell::completion",
+                    "completer returned invalid value of type",
+                )),
             );
             Some(vec![])
         }

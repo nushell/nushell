@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::Config;
+use nu_protocol::{Config, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct Headers;
@@ -56,9 +56,9 @@ impl Command for Headers {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let config = &stack.get_config(engine_state);
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let span = input.span().unwrap_or(call.head);
         let value = input.into_value(span)?;
         let Value::List { vals: table, .. } = value else {
@@ -82,12 +82,12 @@ fn extract_headers(
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
     table
         .first()
-        .ok_or_else(|| ShellError::GenericError {
-            error: "Found empty list".into(),
-            msg: "unable to extract headers".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
+        .ok_or_else(|| {
+            ShellError::Generic(GenericError::new(
+                "Found empty list",
+                "unable to extract headers",
+                span,
+            ))
         })
         .and_then(Value::as_record)
         .and_then(|record| {
@@ -172,9 +172,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Headers {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Headers)
     }
 }

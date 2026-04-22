@@ -48,7 +48,7 @@ fn save_append_will_create_file_if_not_exists() {
 
         nu!(
             cwd: dirs.root(),
-            r#"'hello' | save --raw --append save_test_3/new-file.txt"#,
+            "'hello' | save --raw --append save_test_3/new-file.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -74,7 +74,7 @@ fn save_append_will_not_overwrite_content() {
 
         nu!(
             cwd: dirs.root(),
-            r#"'world' | save --append save_test_4/new-file.txt"#,
+            "'world' | save --append save_test_4/new-file.txt",
         );
 
         let actual = file_contents(expected_file);
@@ -145,7 +145,7 @@ fn save_string_and_stream_as_raw() {
         let actual = file_contents(expected_file);
         assert_eq!(
             actual,
-            r#"<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"#
+            "<!DOCTYPE html><html><body><a href='http://example.org/'>Example</a></body></html>"
         )
     })
 }
@@ -191,6 +191,88 @@ fn save_failure_not_overrides() {
         );
         let actual = file_contents(expected_file);
         assert_eq!(actual, "Old content");
+    })
+}
+
+#[test]
+fn save_preserves_toml_comment_and_inline_table_after_update() {
+    Playground::setup("save_test_10_toml_preservation", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "sample.toml",
+            r#"# keep this comment
+[package]
+name = "demo"
+version = "0.1.0"
+metadata = { repo = "https://example.com", keywords = ["alpha", "beta"] }
+"#,
+        )]);
+
+        let expected_file = dirs.test().join("out.toml");
+
+        nu!(
+            cwd: dirs.test(),
+            "open sample.toml | update package.version '0.2.0' | save -f out.toml",
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(
+            actual,
+            r#"# keep this comment
+[package]
+name = "demo"
+version = "0.2.0"
+metadata = { repo = "https://example.com", keywords = ["alpha", "beta"] }
+"#
+        );
+    })
+}
+
+#[test]
+fn save_preserves_toml_array_of_tables_comments() {
+    Playground::setup("save_test_toml_aot_preservation", |dirs, sandbox| {
+        sandbox.with_files(&[Stub::FileWithContent(
+            "sample.toml",
+            r#"# project config
+[settings]
+verbose = true
+
+# first item
+[[items]]
+name = "alpha"
+value = 1
+
+# second item
+[[items]]
+name = "beta"
+value = 2
+"#,
+        )]);
+
+        let expected_file = dirs.test().join("out.toml");
+
+        nu!(
+            cwd: dirs.test(),
+            "open sample.toml | update items.0.value 99 | save -f out.toml",
+        );
+
+        let actual = file_contents(expected_file);
+        assert_eq!(
+            actual,
+            r#"# project config
+[settings]
+verbose = true
+
+# first item
+[[items]]
+name = "alpha"
+value = 99
+
+# second item
+[[items]]
+name = "beta"
+value = 2
+"#
+        );
     })
 }
 
@@ -320,7 +402,7 @@ fn save_file_correct_relative_path() {
 
         nu!(
             cwd: dirs.test(),
-            r#"use test.nu; test"#
+            "use test.nu; test"
         );
 
         let actual = file_contents(expected_file);
@@ -521,7 +603,7 @@ fn save_missing_parent_dir() {
 
         let actual = nu!(
             cwd: dirs.root(),
-            r#"'hello' | save save_test_24/foobar/hello.txt"#,
+            "'hello' | save save_test_24/foobar/hello.txt",
         );
 
         assert!(actual.err.contains("nu::shell::io::directory_not_found"));
@@ -539,7 +621,7 @@ fn save_missing_ancestor_dir() {
 
         let actual = nu!(
             cwd: dirs.root(),
-            r#"'hello' | save save_test_24/foo/bar/baz/hello.txt"#,
+            "'hello' | save save_test_24/foo/bar/baz/hello.txt",
         );
 
         assert!(actual.err.contains("nu::shell::io::directory_not_found"));
@@ -554,4 +636,100 @@ fn force_save_to_dir() {
         "#);
 
     assert!(actual.err.contains("nu::shell::io::is_a_directory"));
+}
+
+#[test]
+fn save_table_to_csv_with_explicit_columns() {
+    Playground::setup("save_table_csv", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("test.csv");
+
+        nu!(
+            cwd: dirs.root(),
+            "[[a b]; [1 2] [3 4]] | to csv --columns [a b] | save -f save_table_csv/test.csv",
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("a,b"));
+        assert!(actual.contains("1,2"));
+        assert!(actual.contains("3,4"));
+    })
+}
+
+#[test]
+fn save_table_to_csv_without_explicit_columns() {
+    Playground::setup("save_table_csv_auto", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("test.csv");
+
+        nu!(
+            cwd: dirs.root(),
+            "[[a b]; [1 2] [3 4]] | to csv | save -f save_table_csv_auto/test.csv",
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("a,b"));
+        assert!(actual.contains("1,2"));
+        assert!(actual.contains("3,4"));
+    })
+}
+
+#[test]
+fn save_record_to_csv() {
+    Playground::setup("save_record_csv", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("test.csv");
+
+        nu!(
+            cwd: dirs.root(),
+            "{a: 1, b: 2} | to csv | save -f save_record_csv/test.csv",
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("a,b"));
+        assert!(actual.contains("1,2"));
+    })
+}
+
+#[test]
+fn save_table_to_tsv() {
+    Playground::setup("save_table_tsv", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("test.tsv");
+
+        nu!(
+            cwd: dirs.root(),
+            "[[a b]; [1 2] [3 4]] | to tsv | save -f save_table_tsv/test.tsv",
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("a\tb"));
+        assert!(actual.contains("1\t2"));
+        assert!(actual.contains("3\t4"));
+    })
+}
+
+#[test]
+fn save_streaming_list_stream_to_csv() {
+    // Exercises the streaming path (ListStream -> ByteStream -> save) rather than
+    // the materialized table path, ensuring rows are streamed to disk progressively.
+    Playground::setup("save_streaming_csv", |dirs, sandbox| {
+        sandbox.with_files(&[]);
+
+        let expected_file = dirs.test().join("test.csv");
+
+        nu!(
+            cwd: dirs.root(),
+            "1..5 | each { |i| {a: $i, b: ($i * 10)} } | to csv | save -f save_streaming_csv/test.csv",
+        );
+
+        let actual = file_contents(expected_file);
+        assert!(actual.contains("a,b"));
+        assert!(actual.contains("1,10"));
+        assert!(actual.contains("5,50"));
+    })
 }

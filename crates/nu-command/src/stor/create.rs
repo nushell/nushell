@@ -1,5 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct StorCreate;
@@ -92,28 +94,36 @@ fn process(
                 for (column_name, column_datatype) in record {
                     match column_datatype.coerce_str()?.to_lowercase().as_ref() {
                         "int" => {
-                            create_stmt.push_str(&format!("{column_name} INTEGER, "));
+                            write!(create_stmt, "{column_name} INTEGER, ")
+                                .expect("writing to a String is infallible");
                         }
                         "float" => {
-                            create_stmt.push_str(&format!("{column_name} REAL, "));
+                            write!(create_stmt, "{column_name} REAL, ")
+                                .expect("writing to a String is infallible");
                         }
                         "str" => {
-                            create_stmt.push_str(&format!("{column_name} VARCHAR(255), "));
+                            write!(create_stmt, "{column_name} VARCHAR(255), ")
+                                .expect("writing to a String is infallible");
                         }
 
                         "bool" => {
-                            create_stmt.push_str(&format!("{column_name} BOOLEAN, "));
+                            write!(create_stmt, "{column_name} BOOLEAN, ")
+                                .expect("writing to a String is infallible");
                         }
                         "datetime" => {
-                            create_stmt.push_str(&format!(
+                            write!(
+                                create_stmt,
                                 "{column_name} DATETIME DEFAULT(STRFTIME('%Y-%m-%d %H:%M:%f', 'NOW')), "
-                            ));
+                            )
+                            .expect("writing to a String is infallible");
                         }
                         "json" => {
-                            create_stmt.push_str(&format!("{column_name} JSON, "));
+                            write!(create_stmt, "{column_name} JSON, ")
+                                .expect("writing to a String is infallible");
                         }
                         "jsonb" => {
-                            create_stmt.push_str(&format!("{column_name} JSONB, "));
+                            write!(create_stmt, "{column_name} JSONB, ")
+                                .expect("writing to a String is infallible");
                         }
 
                         _ => {
@@ -134,14 +144,12 @@ fn process(
 
                 // dbg!(&create_stmt);
 
-                conn.execute(&create_stmt, [])
-                    .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from create".into(),
-                        msg: err.to_string(),
-                        span: Some(Span::test_data()),
-                        help: None,
-                        inner: vec![],
-                    })?;
+                conn.execute(&create_stmt, []).map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to open SQLite connection in memory from create",
+                        err.to_string(),
+                    ))
+                })?;
             }
             None => {
                 return Err(ShellError::MissingParameter {
@@ -161,16 +169,14 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StorCreate {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StorCreate)
     }
 
     #[test]
     fn test_process_with_valid_parameters() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -189,7 +195,7 @@ mod test {
     #[test]
     fn test_process_with_missing_table_name() {
         let table_name = None;
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -214,7 +220,7 @@ mod test {
     #[test]
     fn test_process_with_missing_columns() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -234,7 +240,7 @@ mod test {
     #[test]
     fn test_process_with_unsupported_column_data_type() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),

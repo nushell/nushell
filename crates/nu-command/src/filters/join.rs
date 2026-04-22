@@ -83,9 +83,9 @@ impl Command for Join {
         call: &Call,
         input: PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let table_2: Value = call.req(engine_state, stack, 0)?;
         let l_on: Value = call.req(engine_state, stack, 1)?;
         let r_on: Value = call
@@ -468,9 +468,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Join {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Join)
     }
 }

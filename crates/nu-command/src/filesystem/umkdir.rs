@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::NuGlob;
+use nu_protocol::{NuGlob, shell_error::generic::GenericError};
 use uu_mkdir::mkdir;
 use uucore::{localized_help_template, translate};
 
@@ -29,7 +29,14 @@ impl Command for UMkdir {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["directory", "folder", "create", "make_dirs", "coreutils"]
+        vec![
+            "directory",
+            "folder",
+            "create",
+            "make_dirs",
+            "coreutils",
+            "md",
+        ]
     }
 
     fn signature(&self) -> Signature {
@@ -85,13 +92,10 @@ impl Command for UMkdir {
         let mut verbose_out = String::new();
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
-                return Err(ShellError::GenericError {
-                    error: format!("{error}"),
-                    msg: translate!(&error.to_string()),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new_internal(
+                    format!("{error}"),
+                    translate!(&error.to_string()),
+                )));
             }
             if is_verbose {
                 verbose_out.push_str(

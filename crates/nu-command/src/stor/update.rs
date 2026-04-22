@@ -1,7 +1,9 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase, values_to_sql};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 use rusqlite::params_from_iter;
+use std::fmt::Write;
 
 #[derive(Clone)]
 pub struct StorUpdate;
@@ -118,33 +120,29 @@ fn handle(
         PipelineData::Value(value, ..) => {
             // Since input is being used, check if the data record parameter is used too
             if update_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--update-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Pipeline and Flag both being used",
+                    "Use either pipeline input or '--update-record' parameter",
+                    span,
+                )));
             }
             match value {
                 Value::Record { val, .. } => Ok(val.into_owned()),
                 val => Err(ShellError::OnlySupportsThisInputType {
                     exp_input_type: "record".into(),
                     wrong_type: val.get_type().to_string(),
-                    dst_span: Span::unknown(),
+                    dst_span: span,
                     src_span: val.span(),
                 }),
             }
         }
         _ => {
             if update_record.is_some() {
-                return Err(ShellError::GenericError {
-                    error: "Pipeline and Flag both being used".into(),
-                    msg: "Use either pipeline input or '--update-record' parameter".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Pipeline and Flag both being used",
+                    "Use either pipeline input or '--update-record' parameter",
+                    span,
+                )));
             }
             Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record".into(),
@@ -186,7 +184,8 @@ fn process(
         // --and and --or flags as well as supporting ==, !=, <>, is null, is not null, etc.
         // and other sql syntax. So, for now, just type a sql where clause as a string.
         if let Some(where_clause) = where_clause_opt {
-            update_stmt.push_str(&format!(" WHERE {}", where_clause.item));
+            write!(update_stmt, " WHERE {}", where_clause.item)
+                .expect("writing to a String is infallible");
         }
         // dbg!(&update_stmt);
 
@@ -194,12 +193,11 @@ fn process(
         let params = values_to_sql(engine_state, record.values().cloned(), span)?;
 
         conn.execute(&update_stmt, params_from_iter(params))
-            .map_err(|err| ShellError::GenericError {
-                error: "Failed to open SQLite connection in memory from update".into(),
-                msg: err.to_string(),
-                span: Some(Span::test_data()),
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to open SQLite connection in memory from update",
+                    err.to_string(),
+                ))
             })?;
     }
     // dbg!(db.clone());
@@ -211,9 +209,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StorUpdate {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StorUpdate)
     }
 }

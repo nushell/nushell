@@ -73,7 +73,7 @@ impl Command for StrCamelCase {
             },
             Example {
                 description: "convert a column from a table to camelCase",
-                example: r#"[[lang, gems]; [nu_test, 100]] | str camel-case lang"#,
+                example: "[[lang, gems]; [nu_test, 100]] | str camel-case lang",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "lang" => Value::test_string("nuTest"),
                     "gems" => Value::test_int(100),
@@ -88,9 +88,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrCamelCase {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StrCamelCase)
     }
 }

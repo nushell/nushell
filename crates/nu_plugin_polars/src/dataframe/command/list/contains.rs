@@ -8,6 +8,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -64,6 +65,7 @@ impl PluginCommand for ListContains {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -85,6 +87,7 @@ impl PluginCommand for ListContains {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -106,6 +109,7 @@ impl PluginCommand for ListContains {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -119,9 +123,9 @@ impl PluginCommand for ListContains {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
@@ -150,13 +154,11 @@ fn command_expr(
     let single_expression = match expressions.as_slice() {
         [single] => single.clone(),
         _ => {
-            return Err(ShellError::GenericError {
-                error: "Expected a single polars expression".into(),
-                msg: "Requires a single polars expressions or column name as argument".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Expected a single polars expression",
+                "Requires a single polars expressions or column name as argument",
+                call.head,
+            )));
         }
     };
     let res: NuExpression = expr

@@ -1,80 +1,100 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn discards_rows_where_given_column_is_empty() {
-    let sample_json = r#"{
-        "amigos": [
-            {"name":   "Yehuda", "rusty_luck": 1},
-            {"name": "JT", "rusty_luck": 1},
-            {"name":   "Andres", "rusty_luck": 1},
-            {"name":"GorbyPuff"}
-        ]
-    }"#;
+fn discards_rows_where_given_column_is_empty() -> Result {
+    #[derive(Debug, IntoValue)]
+    struct Amigo {
+        name: &'static str,
+        rusty_luck: Option<u32>,
+    }
 
-    let actual = nu!(format!(
-        "
-            {sample_json}
-            | get amigos
-            | compact rusty_luck
-            | length
-        "
-    ));
+    #[derive(Debug, IntoValue)]
+    struct Input {
+        amigos: Vec<Amigo>,
+    }
 
-    assert_eq!(actual.out, "3");
+    #[rustfmt::skip]
+    let input = Input {
+        amigos: vec![
+        Amigo { name: "Yehuda",    rusty_luck: Some(1) },
+        Amigo { name: "JT",        rusty_luck: Some(1) },
+        Amigo { name: "Andres",    rusty_luck: Some(1) },
+        Amigo { name: "GorbyPuff", rusty_luck: None    },
+    ]};
+
+    let code = "
+        $in
+        | get amigos
+        | compact rusty_luck
+        | length
+    ";
+
+    test().run_with_data(code, input).expect_value_eq(3)
 }
 #[test]
-fn discards_empty_rows_by_default() {
-    let actual = nu!(r#"
-            echo "[1,2,3,14,null]"
-            | from json
-            | compact
-            | length
-        "#);
+fn discards_empty_rows_by_default() -> Result {
+    let code = "
+        $in
+        | compact
+        | length
+    ";
 
-    assert_eq!(actual.out, "4");
-}
-
-#[test]
-fn discard_empty_list_in_table() {
-    let actual = nu!(r#"
-       [["a", "b"]; ["c", "d"], ["h", []]] | compact -e b | length
-    "#);
-
-    assert_eq!(actual.out, "1");
-}
-
-#[test]
-fn discard_empty_record_in_table() {
-    let actual = nu!(r#"
-       [["a", "b"]; ["c", "d"], ["h", {}]] | compact -e b | length
-    "#);
-
-    assert_eq!(actual.out, "1");
+    test()
+        .run_with_data(code, (1, 2, 3, 14, ()))
+        .expect_value_eq(4)
 }
 
 #[test]
-fn dont_discard_empty_record_in_table_if_column_not_set() {
-    let actual = nu!(r#"
-       [["a", "b"]; ["c", "d"], ["h", {}]] | compact -e | length
-    "#);
+fn discard_empty_list_in_table() -> Result {
+    let code = r#"
+       [["a", "b"]; ["c", "d"], ["h", []]] 
+       | compact -e b 
+       | length
+    "#;
 
-    assert_eq!(actual.out, "2");
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn dont_discard_empty_list_in_table_if_column_not_set() {
-    let actual = nu!(r#"
-       [["a", "b"]; ["c", "d"], ["h", []]] | compact -e | length
-    "#);
+fn discard_empty_record_in_table() -> Result {
+    let code = r#"
+       [["a", "b"]; ["c", "d"], ["h", {}]] 
+       | compact -e b 
+       | length
+    "#;
 
-    assert_eq!(actual.out, "2");
+    test().run(code).expect_value_eq(1)
 }
 
 #[test]
-fn dont_discard_null_in_table_if_column_not_set() {
-    let actual = nu!(r#"
-       [["a", "b"]; ["c", "d"], ["h", null]] | compact -e | length
-    "#);
+fn dont_discard_empty_record_in_table_if_column_not_set() -> Result {
+    let code = r#"
+       [["a", "b"]; ["c", "d"], ["h", {}]] 
+       | compact -e 
+       | length
+    "#;
 
-    assert_eq!(actual.out, "2");
+    test().run(code).expect_value_eq(2)
+}
+
+#[test]
+fn dont_discard_empty_list_in_table_if_column_not_set() -> Result {
+    let code = r#"
+       [["a", "b"]; ["c", "d"], ["h", []]] 
+       | compact -e 
+       | length
+    "#;
+
+    test().run(code).expect_value_eq(2)
+}
+
+#[test]
+fn dont_discard_null_in_table_if_column_not_set() -> Result {
+    let code = r#"
+       [["a", "b"]; ["c", "d"], ["h", null]] 
+       | compact -e 
+       | length
+    "#;
+
+    test().run(code).expect_value_eq(2)
 }

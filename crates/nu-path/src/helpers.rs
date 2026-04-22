@@ -114,7 +114,7 @@ mod test_is_windows_device_path {
     #[cfg_attr(not(windows), ignore = "only for Windows")]
     #[test]
     fn reserved_device_name() {
-        assert!(is_windows_device_path(Path::new(r"NUL")))
+        assert!(is_windows_device_path(Path::new("NUL")))
     }
 
     #[cfg_attr(not(windows), ignore = "only for Windows")]

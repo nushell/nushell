@@ -1,7 +1,6 @@
-use std::fmt::Display;
-
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 use rstest::rstest;
+use std::fmt::Display;
 
 struct Strategy<'a>(Option<&'a str>);
 
@@ -56,8 +55,9 @@ fn merge_deep_tests<'a>(
     #[case] left: &str,
     #[case] right: &str,
     #[case] expected: &str,
-) {
+) -> Result {
     let strategy = Strategy(strategy.into());
-    let actual = nu!(format!("{left} | merge deep {strategy} {right} | to nuon"));
-    assert_eq!(actual.out, expected)
+    test()
+        .run(format!("{left} | merge deep {strategy} {right} | to nuon"))
+        .expect_value_eq(expected)
 }

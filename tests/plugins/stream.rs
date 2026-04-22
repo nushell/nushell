@@ -158,13 +158,13 @@ fn collect_bytes_big_stream() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         plugin: ("nu_plugin_example"),
-        r#"(
+        "(
             seq 1 10000 |
                 each {|i| ($i | into string) ++ (char newline) } |
                 example collect-bytes |
                 lines |
                 length
-        )"#
+        )"
     );
 
     assert_eq!(actual.out, "10000");
@@ -193,8 +193,9 @@ fn generate_sequence() {
 }
 
 #[rstest]
-#[serial]
 #[timeout(std::time::Duration::from_secs(6))]
+#[nu_test_support::test]
+#[serial]
 fn echo_interactivity_on_slow_pipelines() {
     // This test works by putting 0 on the upstream immediately, followed by 1 after 10 seconds.
     // If values aren't streamed to the plugin as they become available, `example echo` won't emit
@@ -203,7 +204,7 @@ fn echo_interactivity_on_slow_pipelines() {
     let actual = nu_with_plugins!(
         cwd: "tests/fixtures/formats",
         plugin: ("nu_plugin_example"),
-        r#"[1] | each { |n| sleep 10sec; $n } | prepend 0 | example echo | first"#
+        "[1] | each { |n| sleep 10sec; $n } | prepend 0 | example echo | first"
     );
     assert_eq!(actual.out, "0");
 }

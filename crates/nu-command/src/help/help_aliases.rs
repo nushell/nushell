@@ -80,6 +80,7 @@ pub fn help_aliases(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 
@@ -109,7 +110,7 @@ pub fn help_aliases(
             });
         };
 
-        let help = get_full_help(alias, engine_state, stack);
+        let help = get_full_help(alias, engine_state, stack, call.head);
 
         Ok(Value::string(help, call.head).into_pipeline_data())
     }
@@ -125,9 +126,8 @@ fn build_help_aliases(engine_state: &EngineState, stack: &Stack, span: Span) -> 
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpAliases;
-        use crate::test_examples;
-        test_examples(HelpAliases {})
+        nu_test_support::test().examples(HelpAliases)
     }
 }

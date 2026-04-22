@@ -275,11 +275,11 @@ pub fn test_max_end_inclusive() {
 
 fn create_range(start: i64, end: i64, inclusion: RangeInclusion) -> IntRange {
     IntRange::new(
-        Value::int(start, Span::unknown()),
+        Value::int(start, Span::test_data()),
         Value::nothing(Span::test_data()),
-        Value::int(end, Span::unknown()),
+        Value::int(end, Span::test_data()),
         inclusion,
-        Span::unknown(),
+        Span::test_data(),
     )
     .unwrap()
 }

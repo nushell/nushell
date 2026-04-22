@@ -1,13 +1,12 @@
-use std::sync::Arc;
-
+use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
+use crate::HELP_DECL_ID_PARSER_INFO;
 use nu_protocol::{
-    IntoSpanned, RegId, Span, Spanned,
-    ast::{Argument, Call, Expression, ExternalArgument},
-    engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet},
+    DeclId, IntoSpanned, RegId, Span, Spanned, Type,
+    ast::{Argument, Call, Expr, Expression, ExternalArgument},
+    engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID, StateWorkingSet, UNKNOWN_SPAN_ID},
     ir::{Instruction, IrAstRef, Literal},
 };
-
-use super::{BlockBuilder, CompileError, RedirectModes, compile_expression, keyword::*};
+use std::sync::Arc;
 
 pub(crate) fn compile_call(
     working_set: &StateWorkingSet,
@@ -20,7 +19,12 @@ pub(crate) fn compile_call(
     let decl = working_set.get_decl(call.decl_id);
 
     // Check if this call has --help - if so, just redirect to `help`
+    // FIXME: This `<cmd> --help` -> `help <name>` rewrite is a historical detour that
+    // resolves by name again. A future cleanup could theoretically render docs directly from
+    // `call.decl_id` while still preserving custom `help` overrides.
     if call.named_iter().any(|(name, _, _)| name.item == "help") {
+        let resolved_help_decl = Some(call.decl_id);
+
         let decl_name = decl.name();
         // Prefer the overlay-visible name (e.g. "spam prefix" for module-qualified lookups).
         // However, if the block's own signature name was rewritten (e.g. "main" → "script.nu"
@@ -44,7 +48,13 @@ pub(crate) fn compile_call(
                 .and_then(|name| std::str::from_utf8(name).ok())
                 .unwrap_or(decl_name) // fall back to decl's name
         };
-        return compile_help(working_set, builder, name.into_spanned(call.head), io_reg);
+        return compile_help(
+            working_set,
+            builder,
+            name.into_spanned(call.head),
+            resolved_help_decl,
+            io_reg,
+        );
     }
 
     // Try to figure out if this is a keyword call like `if`, and handle those specially
@@ -322,6 +332,7 @@ pub(crate) fn compile_help(
     working_set: &StateWorkingSet<'_>,
     builder: &mut BlockBuilder,
     decl_name: Spanned<&str>,
+    resolved_help_decl: Option<DeclId>,
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     let help_command_id =
@@ -337,6 +348,19 @@ pub(crate) fn compile_help(
 
     builder.push(Instruction::PushPositional { src: name_literal }.into_spanned(decl_name.span))?;
 
+    if let Some(resolved_help_decl) =
+        resolved_help_decl.and_then(|decl_id| help_decl_parser_info_expr(decl_id, decl_name.span))
+    {
+        let parser_info_name = builder.data(HELP_DECL_ID_PARSER_INFO)?;
+        builder.push(
+            Instruction::PushParserInfo {
+                name: parser_info_name,
+                info: Box::new(resolved_help_decl),
+            }
+            .into_spanned(decl_name.span),
+        )?;
+    }
+
     builder.push(
         Instruction::Call {
             decl_id: help_command_id,
@@ -346,6 +370,17 @@ pub(crate) fn compile_help(
     )?;
 
     Ok(())
+}
+
+// When compile_call rewrites `<cmd> --help` to `help <name>`, preserve the already-resolved
+// declaration identity so help output reflects the original command resolution.
+fn help_decl_parser_info_expr(decl_id: DeclId, span: Span) -> Option<Expression> {
+    i64::try_from(decl_id.get()).ok().map(|decl_id| Expression {
+        expr: Expr::Int(decl_id),
+        span,
+        span_id: UNKNOWN_SPAN_ID,
+        ty: Type::Int,
+    })
 }
 
 pub(crate) fn compile_external_call(

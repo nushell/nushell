@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used)]
+
 mod into_config;
 mod pipeline;
 mod test_config;

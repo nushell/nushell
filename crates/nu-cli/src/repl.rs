@@ -8,6 +8,7 @@ use crate::prompt_update::{
 use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
+    hints::ExternalHinter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
@@ -30,6 +31,7 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
 };
+use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf,
@@ -49,7 +51,7 @@ use std::{
     panic::{AssertUnwindSafe, catch_unwind},
     path::{Path, PathBuf},
     sync::Arc,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use sysinfo::System;
 
@@ -93,7 +95,7 @@ pub fn evaluate_repl(
 
     let nu_prompt = NushellPrompt::new();
 
-    // seed env vars
+    // Seed env vars — no source span exists at REPL startup
     unique_stack.add_env_var(
         "CMD_DURATION_MS".into(),
         Value::string("0823", Span::unknown()),
@@ -160,7 +162,7 @@ pub fn evaluate_repl(
                 eval_source(
                     engine_state,
                     &mut unique_stack,
-                    r#"banner --short"#.as_bytes(),
+                    "banner --short".as_bytes(),
                     "show short banner",
                     PipelineData::empty(),
                     false,
@@ -170,7 +172,7 @@ pub fn evaluate_repl(
                 eval_source(
                     engine_state,
                     &mut unique_stack,
-                    r#"banner"#.as_bytes(),
+                    "banner".as_bytes(),
                     "show_banner",
                     PipelineData::empty(),
                     false,
@@ -275,6 +277,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
         })
         .collect();
 
+    // No source span available — this is an internal REPL helper for vscode integration
     String::from_utf8(bytes).map_err(|err| ShellError::CantConvert {
         to_type: "string".to_string(),
         from_type: "bytes".to_string(),
@@ -286,7 +289,7 @@ fn escape_special_vscode_bytes(input: &str) -> Result<String, ShellError> {
 }
 
 fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Reedline> {
-    let mut start_time = std::time::Instant::now();
+    let mut start_time = Instant::now();
     let mut line_editor = Reedline::create();
 
     // Now that reedline is created, get the history session id and store it in engine_state
@@ -294,7 +297,7 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
     perf!("setup reedline", start_time, use_color);
 
     if let Some(history) = engine_state.history_config() {
-        start_time = std::time::Instant::now();
+        start_time = Instant::now();
 
         line_editor = setup_history(engine_state, line_editor, history)?;
 
@@ -320,7 +323,7 @@ struct LoopContext<'a> {
 fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     use nu_cmd_base::hook;
     use reedline::Signal;
-    let loop_start_time = std::time::Instant::now();
+    let loop_start_time = Instant::now();
 
     let LoopContext {
         engine_state,
@@ -333,7 +336,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         hostname,
     } = ctx;
 
-    let mut start_time = std::time::Instant::now();
+    let mut start_time = Instant::now();
     // Before doing anything, merge the environment from the previous REPL iteration into the
     // permanent state.
     if let Err(err) = engine_state.merge_env(&mut stack) {
@@ -341,11 +344,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
     perf!("merge env", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     engine_state.reset_signals();
     perf!("reset signals", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     // Check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
@@ -357,7 +360,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
     perf!("env-change hook", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     // Next, right before we start our prompt and take input from the user, fire the "pre_prompt" hook
     if let Err(err) = hook::eval_hooks(
         engine_state,
@@ -373,7 +376,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let engine_reference = Arc::new(engine_state.clone());
     let config = stack.get_config(engine_state);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     // Find the configured cursor shapes for each mode
     let cursor_config = CursorConfig {
         vi_insert: map_nucursorshape_to_cursorshape(config.cursor_shape.vi_insert),
@@ -382,7 +385,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     };
     perf!("get config/cursor config", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     // at this line we have cloned the state for the completer and the transient prompt
     // until we drop those, we cannot use the stack in the REPL loop itself
     // See STACK-REFERENCE to see where we have taken a reference
@@ -439,20 +442,28 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let style_computer = StyleComputer::from_config(engine_state, &stack_arc);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     line_editor = if config.use_ansi_coloring.get(engine_state) && config.show_hints {
-        line_editor.with_hinter(Box::new({
-            // As of Nov 2022, "hints" color_config closures only get `null` passed in.
-            let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
-            CwdAwareHinter::default().with_style(style)
-        }))
+        // As of Nov 2022, "hints" color_config closures only get `null` passed in.
+        // No meaningful span — this is a synthetic null value for style computation.
+        let style = style_computer.compute("hints", &Value::nothing(Span::unknown()));
+        if let Some(closure) = config.hinter.closure.as_ref() {
+            line_editor.with_hinter(Box::new(ExternalHinter::new(
+                engine_reference.clone(),
+                stack_arc.clone(),
+                closure.clone(),
+                style,
+            )))
+        } else {
+            line_editor.with_hinter(Box::new(CwdAwareHinter::default().with_style(style)))
+        }
     } else {
         line_editor.disable_hints()
     };
 
     perf!("reedline coloring/style_computer", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     trace!("adding menus");
     line_editor =
         add_menus(line_editor, engine_reference, &stack_arc, config).unwrap_or_else(|e| {
@@ -462,7 +473,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("reedline adding menus", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
+    // No call span available in the REPL loop for editor lookup
     let buffer_editor = get_editor(engine_state, &stack_arc, Span::unknown());
 
     line_editor = if let Ok((cmd, args)) = buffer_editor {
@@ -480,7 +492,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reedline buffer_editor", start_time, use_color);
 
     if let Some(history) = engine_state.history_config() {
-        start_time = std::time::Instant::now();
+        start_time = Instant::now();
+
+        line_editor = line_editor
+            .with_history_exclusion_prefix(history.ignore_space_prefixed.then_some(" ".into()));
+
         if history.sync_on_enter
             && let Err(e) = line_editor.sync_history()
         {
@@ -490,13 +506,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         perf!("sync_history", start_time, use_color);
     }
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     // Changing the line editor based on the found keybindings
     line_editor = setup_keybindings(engine_state, line_editor);
 
     perf!("keybindings", start_time, use_color);
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     let config = &engine_state.get_config().clone();
     prompt_update::update_prompt(
         config,
@@ -515,7 +531,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     *entry_num += 1;
 
-    start_time = std::time::Instant::now();
+    start_time = Instant::now();
     line_editor = line_editor.with_transient_prompt(transient_prompt);
     let input = line_editor.read_line(nu_prompt);
     // we got our inputs, we can now drop our stack references
@@ -542,9 +558,9 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("line_editor setup", start_time, use_color);
 
-    let line_editor_input_time = std::time::Instant::now();
+    let line_editor_input_time = Instant::now();
     match input {
-        Ok(Signal::Success(repl_cmd_line_text)) => {
+        Ok(Signal::Success(repl_cmd_line_text) | Signal::HostCommand(repl_cmd_line_text)) => {
             let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
                 #[cfg(feature = "sqlite")]
                 Some(HistoryFileFormat::Sqlite) => true,
@@ -669,6 +685,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             }
             let cmd_duration = cmd_execution_start_time.elapsed();
 
+            // No source span for REPL-generated timing values
             stack.add_env_var(
                 "CMD_DURATION_MS".into(),
                 Value::string(format!("{}", cmd_duration.as_millis()), Span::unknown()),
@@ -737,6 +754,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             // if cleanup_exit didn't exit, we should keep running
             return (true, stack, line_editor);
         }
+        // TODO: handle other signals like Signal::ExternalBreak
+        Ok(_) => {}
         Err(err) => {
             let message = err.to_string();
             if !message.contains("duration") {
@@ -863,7 +882,10 @@ fn parse_operation(
     }
 
     let path = nu_path::expand_path_with(&orig, &cwd, true);
-    if looks_like_path(&orig) && path.is_dir() && tokens.0.len() == 1 {
+    if (engine_state.get_config().auto_cd_implicit || looks_like_path(&orig))
+        && path.is_dir()
+        && tokens.0.len() == 1
+    {
         Ok(ReplOperation::AutoCd {
             cwd,
             target: path,
@@ -916,7 +938,7 @@ fn do_auto_cd(
         return;
     }
 
-    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), Span::unknown()));
+    stack.add_env_var("OLDPWD".into(), Value::string(cwd.clone(), span));
 
     //FIXME: this only changes the current scope, but instead this environment variable
     //should probably be a block that loads the information from the state in the overlay
@@ -954,7 +976,7 @@ fn do_auto_cd(
         "NUSHELL_LAST_SHELL".into(),
         Value::int(last_shell as i64, span),
     );
-    stack.set_last_exit_code(0, Span::unknown());
+    stack.set_last_exit_code(0, span);
 }
 
 ///
@@ -1266,6 +1288,7 @@ fn update_line_editor_history(
     line_editor: Reedline,
     history_session_id: Option<HistorySessionId>,
 ) -> Result<Reedline, ErrReport> {
+    let ignore_space_prefixed = history.ignore_space_prefixed;
     let history: Box<dyn reedline::History> = match history.file_format {
         HistoryFileFormat::Plaintext => Box::new(
             FileBackedHistory::with_file(history.max_size as usize, history_path)
@@ -1291,7 +1314,7 @@ fn update_line_editor_history(
     };
     let line_editor = line_editor
         .with_history_session_id(history_session_id)
-        .with_history_exclusion_prefix(Some(" ".into()))
+        .with_history_exclusion_prefix(ignore_space_prefixed.then_some(" ".into()))
         .with_history(history);
 
     store_history_id_in_engine(engine_state, &line_editor);
@@ -1710,7 +1733,7 @@ mod test_auto_cd {
 
     #[test]
     fn escape_vscode_semicolon_test() {
-        let input = r#"now;is"#;
+        let input = "now;is";
         let expected = r#"now\x3Bis"#;
         let actual = escape_special_vscode_bytes(input).unwrap();
         assert_eq!(expected, actual);

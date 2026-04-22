@@ -14,7 +14,7 @@ impl Command for JobSend {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This command sends a message to a background job, which can then read sent messages
 in a first-in-first-out fashion with `job recv`. When it does so, it may additionally specify a numeric filter tag,
 in which case it will only read messages sent with the exact same filter tag.
@@ -23,7 +23,7 @@ In particular, the id 0 refers to the main/initial nushell thread.
 A message can be any nushell value, and streams are always collected before being sent.
 
 This command never blocks.
-"#
+"
     }
 
     fn signature(&self) -> nu_protocol::Signature {

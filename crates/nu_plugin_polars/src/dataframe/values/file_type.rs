@@ -1,3 +1,4 @@
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -24,13 +25,11 @@ impl PolarsFileType {
             .collect::<Vec<&'static str>>()
             .join(", ");
 
-        ShellError::GenericError {
-            error: format!("Unsupported type {extension} expected {type_string}"),
-            msg: "".into(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        }
+        ShellError::Generic(GenericError::new(
+            format!("Unsupported type {extension} expected {type_string}"),
+            "",
+            span,
+        ))
     }
 
     pub fn to_str(&self) -> &'static str {

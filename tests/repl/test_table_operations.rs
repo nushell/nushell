@@ -150,36 +150,33 @@ fn command_drop_column_1() -> TestResult {
 
 #[test]
 fn record_1() -> TestResult {
-    run_test(r#"{'a': 'b'} | get a"#, "b")
+    run_test("{'a': 'b'} | get a", "b")
 }
 
 #[test]
 fn record_2() -> TestResult {
-    run_test(r#"{'b': 'c'}.b"#, "c")
+    run_test("{'b': 'c'}.b", "c")
 }
 
 #[test]
 fn where_on_ranges() -> TestResult {
-    run_test(r#"1..10 | where $it > 8 | math sum"#, "19")
+    run_test("1..10 | where $it > 8 | math sum", "19")
 }
 
 #[test]
 fn index_on_list() -> TestResult {
-    run_test(r#"[1, 2, 3].1"#, "2")
+    run_test("[1, 2, 3].1", "2")
 }
 
 #[test]
 fn update_cell_path_1() -> TestResult {
-    run_test(
-        r#"[[name, size]; [a, 1.1]] | into int size | get size.0"#,
-        "1",
-    )
+    run_test("[[name, size]; [a, 1.1]] | into int size | get size.0", "1")
 }
 
 #[test]
 fn missing_column_errors() -> TestResult {
     fail_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null"#,
+        "[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null",
         "cannot find column",
     )
 }
@@ -188,7 +185,7 @@ fn missing_column_errors() -> TestResult {
 fn missing_optional_column_fills_in_nothing() -> TestResult {
     // The empty value will be replaced with null because of the ?
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == null"#,
+        "[ { name: ABC, size: 20 }, { name: HIJ } ].size?.1 == null",
         "true",
     )
 }
@@ -197,7 +194,7 @@ fn missing_optional_column_fills_in_nothing() -> TestResult {
 fn missing_required_row_fails() -> TestResult {
     // .3 will fail if there is no 3rd row
     fail_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3"#,
+        "[ { name: ABC, size: 20 }, { name: HIJ } ].3",
         "", // we just care if it errors
     )
 }
@@ -206,7 +203,7 @@ fn missing_required_row_fails() -> TestResult {
 fn missing_optional_row_fills_in_nothing() -> TestResult {
     // ?.3 will return null if there is no 3rd row
     run_test(
-        r#"[ { name: ABC, size: 20 }, { name: HIJ } ].3? == null"#,
+        "[ { name: ABC, size: 20 }, { name: HIJ } ].3? == null",
         "true",
     )
 }
@@ -234,21 +231,18 @@ fn split_column() -> TestResult {
 
 #[test]
 fn wrap() -> TestResult {
-    run_test(r#"([1, 2, 3] | wrap foo).foo.1"#, "2")
+    run_test("([1, 2, 3] | wrap foo).foo.1", "2")
 }
 
 #[test]
 fn get() -> TestResult {
-    run_test(
-        r#"[[name, grade]; [Alice, A], [Betty, B]] | get grade.1"#,
-        "B",
-    )
+    run_test("[[name, grade]; [Alice, A], [Betty, B]] | get grade.1", "B")
 }
 
 #[test]
 fn select_1() -> TestResult {
     run_test(
-        r#"([[name, age]; [a, 1], [b, 2]]) | select name | get 1 | get name"#,
+        "([[name, age]; [a, 1], [b, 2]]) | select name | get 1 | get name",
         "b",
     )
 }
@@ -256,33 +250,33 @@ fn select_1() -> TestResult {
 #[test]
 fn select_2() -> TestResult {
     run_test(
-        r#"[[name, age]; [a, 1] [b, 2]] | get 1 | select age | get age"#,
+        "[[name, age]; [a, 1] [b, 2]] | get 1 | select age | get age",
         "2",
     )
 }
 
 #[test]
 fn update_will_insert() -> TestResult {
-    run_test(r#"{} | upsert a b | get a"#, "b")
+    run_test("{} | upsert a b | get a", "b")
 }
 
 #[test]
 fn length_for_columns() -> TestResult {
     run_test(
-        r#"[[name,age,grade]; [bill,20,a] [a b c]] | columns | length"#,
+        "[[name,age,grade]; [bill,20,a] [a b c]] | columns | length",
         "3",
     )
 }
 
 #[test]
 fn length_for_rows() -> TestResult {
-    run_test(r#"[[name,age,grade]; [bill,20,a] [a b c]] | length"#, "2")
+    run_test("[[name,age,grade]; [bill,20,a] [a b c]] | length", "2")
 }
 
 #[test]
 fn length_defaulted_columns() -> TestResult {
     run_test(
-        r#"[[name, age]; [test, 10]] | default 11 age | get 0 | columns | length"#,
+        "[[name, age]; [test, 10]] | default 11 age | get 0 | columns | length",
         "2",
     )
 }
@@ -307,7 +301,7 @@ fn nullify_holes() -> TestResult {
 #[test]
 fn get_with_insensitive_cellpath() -> TestResult {
     run_test(
-        r#"[[name, age]; [a, 1] [b, 2]] | get NAmE! | select 0 | get 0"#,
+        "[[name, age]; [a, 1] [b, 2]] | get NAmE! | select 0 | get 0",
         "a",
     )
 }
@@ -333,10 +327,10 @@ fn ignore_case_flag() -> TestResult {
             | select --ignore-case origin
             | to nuon --raw
         "#,
-        r#"[[origin];[World]]"#,
+        "[[origin];[World]]",
     )?;
     run_test(
-        r#"{A: {B: 3, C: 5}} | reject --ignore-case a.b | to nuon --raw"#,
+        "{A: {B: 3, C: 5}} | reject --ignore-case a.b | to nuon --raw",
         "{A:{C:5}}",
     )
 }

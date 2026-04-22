@@ -6,12 +6,13 @@ use crate::{
 };
 use log::debug;
 use nu_utils::perf;
+use nu_utils::time::Instant;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, DataSource, Example, LabeledError, PipelineData, PipelineMetadata, ShellError,
     Signature, Span, Spanned, SyntaxShape, Type, Value,
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 
 use std::{fs::File, io::BufReader, num::NonZeroUsize, path::PathBuf, sync::Arc};
@@ -169,13 +170,12 @@ fn command(
     let is_eager = call.has_flag("eager")?;
 
     if is_eager && resource.cloud_options.is_some() {
-        return Err(ShellError::GenericError {
-            error: "Cloud URLs are not supported with --eager".into(),
-            msg: "".into(),
-            span: call.get_flag_span("eager"),
-            help: Some("Remove flag".into()),
-            inner: vec![],
-        });
+        let error = match call.get_flag_span("eager") {
+            Some(span) => GenericError::new("Cloud URLs are not supported with --eager", "", span),
+            None => GenericError::new_internal("Cloud URLs are not supported with --eager", ""),
+        }
+        .with_help("Remove flag");
+        return Err(ShellError::Generic(error));
     }
 
     let hive_options = build_hive_options(plugin, call)?;
@@ -237,12 +237,12 @@ fn from_parquet(
             ..Default::default()
         };
         let df: NuLazyFrame = LazyFrame::scan_parquet(resource.path, args)
-            .map_err(|e| ShellError::GenericError {
-                error: "Parquet reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Parquet reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -251,12 +251,12 @@ fn from_parquet(
         let columns: Option<Vec<String>> = call.get_flag("columns")?;
         let file_span = resource.span;
         let path: PathBuf = resource.as_path_buf();
-        let r = File::open(&path).map_err(|e| ShellError::GenericError {
-            error: "Error opening file".into(),
-            msg: e.to_string(),
-            span: Some(file_span),
-            help: None,
-            inner: vec![],
+        let r = File::open(&path).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error opening file",
+                e.to_string(),
+                file_span,
+            ))
         })?;
         let reader = ParquetReader::new(r);
 
@@ -267,12 +267,12 @@ fn from_parquet(
 
         let df: NuDataFrame = reader
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: "Parquet reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Parquet reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -294,12 +294,12 @@ fn from_avro(
     let columns: Option<Vec<String>> = call.get_flag("columns")?;
     let file_span = resource.span;
     let path: PathBuf = resource.as_path_buf();
-    let r = File::open(&path).map_err(|e| ShellError::GenericError {
-        error: "Error opening file".into(),
-        msg: e.to_string(),
-        span: Some(file_span),
-        help: None,
-        inner: vec![],
+    let r = File::open(&path).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error opening file",
+            e.to_string(),
+            file_span,
+        ))
     })?;
     let reader = AvroReader::new(r);
 
@@ -310,12 +310,12 @@ fn from_avro(
 
     let df: NuDataFrame = reader
         .finish()
-        .map_err(|e| ShellError::GenericError {
-            error: "Avro reader error".into(),
-            msg: format!("{e:?}"),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Avro reader error",
+                format!("{e:?}"),
+                call.head,
+            ))
         })?
         .into();
 
@@ -342,12 +342,12 @@ fn from_arrow(
         };
 
         let df: NuLazyFrame = LazyFrame::scan_ipc(resource.path, IpcScanOptions::default(), args)
-            .map_err(|e| ShellError::GenericError {
-                error: "IPC reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "IPC reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -357,12 +357,12 @@ fn from_arrow(
 
         let file_span = resource.span;
         let path: PathBuf = resource.as_path_buf();
-        let r = File::open(&path).map_err(|e| ShellError::GenericError {
-            error: "Error opening file".into(),
-            msg: e.to_string(),
-            span: Some(file_span),
-            help: None,
-            inner: vec![],
+        let r = File::open(&path).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error opening file",
+                e.to_string(),
+                file_span,
+            ))
         })?;
         let reader = IpcReader::new(r);
 
@@ -373,12 +373,12 @@ fn from_arrow(
 
         let df: NuDataFrame = reader
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: "IPC reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "IPC reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -398,12 +398,12 @@ fn from_json(
         return Err(cloud_not_supported(PolarsFileType::Json, file_span));
     }
     let path: PathBuf = resource.as_path_buf();
-    let file = File::open(&path).map_err(|e| ShellError::GenericError {
-        error: "Error opening file".into(),
-        msg: e.to_string(),
-        span: Some(file_span),
-        help: None,
-        inner: vec![],
+    let file = File::open(&path).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error opening file",
+            e.to_string(),
+            file_span,
+        ))
     })?;
     let maybe_schema = call
         .get_flag("schema")?
@@ -420,12 +420,12 @@ fn from_json(
 
     let df: NuDataFrame = reader
         .finish()
-        .map_err(|e| ShellError::GenericError {
-            error: "Json reader error".into(),
-            msg: format!("{e:?}"),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Json reader error",
+                format!("{e:?}"),
+                call.head,
+            ))
         })?
         .into();
 
@@ -448,19 +448,19 @@ fn from_ndjson(
         );
     let maybe_schema = get_schema(plugin, call)?;
     if !is_eager {
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df = LazyJsonLineReader::new(resource.path)
             .with_infer_schema_length(Some(infer_schema))
             .with_schema(maybe_schema.map(|s| s.into()))
             .with_cloud_options(resource.cloud_options.clone())
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: format!("NDJSON reader error: {e}"),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    format!("NDJSON reader error: {e}"),
+                    "",
+                    call.head,
+                ))
             })?;
 
         perf!("Lazy NDJSON dataframe open", start_time, engine.use_color());
@@ -470,12 +470,12 @@ fn from_ndjson(
     } else {
         let file_span = resource.span;
         let path: PathBuf = resource.as_path_buf();
-        let file = File::open(&path).map_err(|e| ShellError::GenericError {
-            error: "Error opening file".into(),
-            msg: e.to_string(),
-            span: Some(file_span),
-            help: None,
-            inner: vec![],
+        let file = File::open(&path).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error opening file",
+                e.to_string(),
+                file_span,
+            ))
         })?;
         let buf_reader = BufReader::new(file);
         let reader = JsonReader::new(buf_reader)
@@ -487,16 +487,16 @@ fn from_ndjson(
             None => reader,
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df: NuDataFrame = reader
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: "Json lines reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Json lines reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -539,13 +539,11 @@ fn from_csv(
             },
             Some(d) => {
                 if d.item.len() != 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Incorrect delimiter".into(),
-                        msg: "Delimiter has to be one character".into(),
-                        span: Some(d.span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Incorrect delimiter",
+                        "Delimiter has to be one character",
+                        d.span,
+                    )));
                 } else {
                     let delimiter = match d.item.chars().next() {
                         Some(d) => d as u8,
@@ -567,15 +565,15 @@ fn from_csv(
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: "CSV reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "CSV reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?
             .into();
 
@@ -584,7 +582,7 @@ fn from_csv(
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let file_span = resource.span;
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
             .with_infer_schema_length(Some(infer_schema))
@@ -607,20 +605,20 @@ fn from_csv(
                     .with_truncate_ragged_lines(truncate_ragged_lines)
             })
             .try_into_reader_with_file_path(Some(resource.as_path_buf()))
-            .map_err(|e| ShellError::GenericError {
-                error: "Error creating CSV reader".into(),
-                msg: e.to_string(),
-                span: Some(file_span),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error creating CSV reader",
+                    e.to_string(),
+                    file_span,
+                ))
             })?
             .finish()
-            .map_err(|e| ShellError::GenericError {
-                error: "CSV reader error".into(),
-                msg: format!("{e:?}"),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "CSV reader error",
+                    format!("{e:?}"),
+                    call.head,
+                ))
             })?;
 
         perf!("Eager CSV dataframe open", start_time, engine.use_color());
@@ -631,16 +629,14 @@ fn from_csv(
 }
 
 fn cloud_not_supported(file_type: PolarsFileType, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: format!(
+    ShellError::Generic(GenericError::new(
+        format!(
             "Cloud operations not supported for file type {}",
             file_type.to_str()
         ),
-        msg: "".into(),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+        "",
+        span,
+    ))
 }
 
 fn build_hive_options(

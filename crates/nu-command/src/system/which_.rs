@@ -201,6 +201,7 @@ fn list_all_executables(
     engine_state: &EngineState,
     paths: impl AsRef<OsStr>,
     all: bool,
+    span: Span,
 ) -> Vec<Value> {
     let decls = engine_state.get_decls_sorted(false);
 
@@ -227,7 +228,7 @@ fn list_all_executables(
             decl.command_type(),
             definition,
             file,
-            Span::unknown(),
+            span,
         ));
     }
 
@@ -255,7 +256,7 @@ fn list_all_executables(
                 CommandType::External,
                 None,
                 Some(full_path),
-                Span::unknown(),
+                span,
             ))
         });
 
@@ -332,9 +333,11 @@ fn which(
     let paths = env::path_str(engine_state, stack, head).unwrap_or_default();
 
     if which_args.applications.is_empty() {
-        return Ok(list_all_executables(engine_state, &paths, which_args.all)
-            .into_iter()
-            .into_pipeline_data(head, engine_state.signals().clone()));
+        return Ok(
+            list_all_executables(engine_state, &paths, which_args.all, head)
+                .into_iter()
+                .into_pipeline_data(head, engine_state.signals().clone()),
+        );
     }
 
     for app in which_args.applications {
@@ -352,8 +355,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        crate::test_examples(Which)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Which)
     }
 }
 

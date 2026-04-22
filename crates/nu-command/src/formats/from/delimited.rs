@@ -90,10 +90,10 @@ pub(super) struct DelimitedReaderConfig {
 
 pub(super) fn from_delimited_data(
     config: DelimitedReaderConfig,
-    input: PipelineData,
+    mut input: PipelineData,
     name: Span,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata().map(|md| md.with_content_type(None));
+    let metadata = input.take_metadata().map(|md| md.with_content_type(None));
     match input {
         PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(value, ..) => {

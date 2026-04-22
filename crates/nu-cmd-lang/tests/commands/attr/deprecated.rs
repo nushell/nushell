@@ -8,10 +8,10 @@ pub fn test_deprecated_attribute() {
     let mut working_set = StateWorkingSet::new(&engine_state);
 
     // test deprecation with no message
-    let source = br#"
+    let source = b"
     @deprecated
     def foo [] {}
-    "#;
+    ";
     let _ = parse(&mut working_set, None, source, false);
 
     // there should be no warning until the command is called
@@ -82,11 +82,11 @@ pub fn test_deprecated_attribute_since_remove() {
     let engine_state = nu_cmd_lang::create_default_context();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let source = br#"
+    let source = b"
     @deprecated --since 0.10000.0 --remove 1.0
     def old-command [] {}
     old-command
-    "#;
+    ";
     let _ = parse(&mut working_set, None, source, false);
 
     assert!(working_set.parse_errors.is_empty());

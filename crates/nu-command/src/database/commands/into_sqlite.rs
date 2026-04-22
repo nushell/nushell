@@ -5,7 +5,7 @@ use crate::{
 use nu_engine::command_prelude::*;
 
 use itertools::Itertools;
-use nu_protocol::Signals;
+use nu_protocol::{Signals, shell_error::generic::GenericError};
 use std::{borrow::Cow, path::Path};
 
 pub const DEFAULT_TABLE_NAME: &str = "main";
@@ -150,12 +150,12 @@ impl Table {
         let table_count: u64 = self
             .conn
             .query_row(&table_exists_query, [], |row| row.get(0))
-            .map_err(|err| ShellError::GenericError {
-                error: format!("{err:#?}"),
-                msg: format!("{err:#?}"),
-                span: Some(self.span),
-                help: None,
-                inner: Vec::new(),
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new(
+                    format!("{err:#?}"),
+                    format!("{err:#?}"),
+                    self.span,
+                ))
             })?;
 
         if table_count == 0 {
@@ -179,26 +179,22 @@ If this is undesirable, you can create the table first with your desired schema.
             );
 
             // execute the statement
-            self.conn
-                .execute(&create_statement, [])
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to create table".into(),
-                    msg: err.to_string(),
-                    span: Some(self.span),
-                    help: None,
-                    inner: Vec::new(),
-                })?;
+            self.conn.execute(&create_statement, []).map_err(|err| {
+                ShellError::Generic(GenericError::new(
+                    "Failed to create table",
+                    err.to_string(),
+                    self.span,
+                ))
+            })?;
         }
 
-        self.conn
-            .transaction()
-            .map_err(|err| ShellError::GenericError {
-                error: "Failed to open transaction".into(),
-                msg: err.to_string(),
-                span: Some(self.span),
-                help: None,
-                inner: Vec::new(),
-            })
+        self.conn.transaction().map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "Failed to open transaction",
+                err.to_string(),
+                self.span,
+            ))
+        })
     }
 }
 
@@ -259,13 +255,11 @@ fn insert_in_transaction(
     };
 
     if first_val.is_empty() {
-        Err(ShellError::GenericError {
-            error: "Failed to create table".into(),
-            msg: "Cannot create table without columns".to_string(),
-            span: Some(span),
-            help: None,
-            inner: vec![],
-        })?;
+        Err(ShellError::Generic(GenericError::new(
+            "Failed to create table",
+            "Cannot create table without columns",
+            span,
+        )))?;
     }
 
     let table_name = table.name().clone();
@@ -273,12 +267,11 @@ fn insert_in_transaction(
 
     for stream_value in stream {
         if let Err(err) = signals.check(&span) {
-            tx.rollback().map_err(|e| ShellError::GenericError {
-                error: "Failed to rollback SQLite transaction".into(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: Vec::new(),
+            tx.rollback().map_err(|e| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to rollback SQLite transaction",
+                    e.to_string(),
+                ))
             })?;
             return Err(err);
         }
@@ -293,37 +286,30 @@ fn insert_in_transaction(
             Itertools::intersperse(itertools::repeat_n("?", val.len()), ", ").collect::<String>(),
         );
 
-        let mut insert_statement =
-            tx.prepare(&insert_statement)
-                .map_err(|e| ShellError::GenericError {
-                    error: "Failed to prepare SQLite statement".into(),
-                    msg: e.to_string(),
-                    span: None,
-                    help: None,
-                    inner: Vec::new(),
-                })?;
+        let mut insert_statement = tx.prepare(&insert_statement).map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to prepare SQLite statement",
+                e.to_string(),
+            ))
+        })?;
 
         let result = insert_value(engine_state, stream_value, span, &mut insert_statement);
 
-        insert_statement
-            .finalize()
-            .map_err(|e| ShellError::GenericError {
-                error: "Failed to finalize SQLite prepared statement".into(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: Vec::new(),
-            })?;
+        insert_statement.finalize().map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                "Failed to finalize SQLite prepared statement",
+                e.to_string(),
+            ))
+        })?;
 
         result?
     }
 
-    tx.commit().map_err(|e| ShellError::GenericError {
-        error: "Failed to commit SQLite transaction".into(),
-        msg: e.to_string(),
-        span: None,
-        help: None,
-        inner: Vec::new(),
+    tx.commit().map_err(|e| {
+        ShellError::Generic(GenericError::new_internal(
+            "Failed to commit SQLite transaction",
+            e.to_string(),
+        ))
     })?;
 
     Ok(Value::nothing(span))
@@ -342,12 +328,12 @@ fn insert_value(
 
             insert_statement
                 .execute(rusqlite::params_from_iter(sql_vals))
-                .map_err(|e| ShellError::GenericError {
-                    error: "Failed to execute SQLite statement".into(),
-                    msg: e.to_string(),
-                    span: Some(call_span),
-                    help: None,
-                    inner: Vec::new(),
+                .map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Failed to execute SQLite statement",
+                        e.to_string(),
+                        call_span,
+                    ))
                 })?;
 
             Ok(())

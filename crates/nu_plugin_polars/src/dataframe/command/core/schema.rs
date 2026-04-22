@@ -4,6 +4,7 @@ use crate::{
 };
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Type, Value, record,
 };
@@ -51,7 +52,7 @@ impl PluginCommand for SchemaCmd {
         input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
         if call.has_flag("datatype-list")? {
-            Ok(PipelineData::value(datatype_list(Span::unknown()), None))
+            Ok(PipelineData::value(datatype_list(call.head), None))
         } else {
             command(plugin, engine, call, input).map_err(LabeledError::from)
         }
@@ -75,13 +76,11 @@ fn command(
             let value = schema.base_value(call.head)?;
             Ok(PipelineData::value(value, None))
         }
-        _ => Err(ShellError::GenericError {
-            error: "Must be a dataframe or lazy dataframe".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Must be a dataframe or lazy dataframe",
+            "",
+            call.head,
+        ))),
     }
 }
 

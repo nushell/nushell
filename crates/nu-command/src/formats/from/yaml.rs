@@ -243,7 +243,7 @@ mod test {
             },
             TestCase {
                 description: "Double Curly Braces Without Quotes.",
-                input: r#"value: {{ something }}"#,
+                input: "value: {{ something }}",
                 expected: Ok(Value::test_record(record! {
                     "value" => Value::test_string("{{ something }}"),
                 })),
@@ -269,11 +269,9 @@ mod test {
     }
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(FROM_YAML);
-        test_examples(FROM_YML);
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(FROM_YAML)?;
+        nu_test_support::test().examples(FROM_YML)
     }
 
     #[test]

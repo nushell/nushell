@@ -4,6 +4,7 @@ use nu_plugin_core::util::with_custom_values_in;
 use nu_plugin_protocol::PluginCustomValue;
 use nu_protocol::{
     CustomValue, IntoSpanned, ShellError, Span, Spanned, Value, ast::Operator, casing::Casing,
+    shell_error::generic::GenericError,
 };
 use serde::Serialize;
 
@@ -48,15 +49,28 @@ impl PluginCustomValueWithSource {
 
     /// Helper to get the plugin to implement an op
     fn get_plugin(&self, span: Option<Span>, for_op: &str) -> Result<PluginInterface, ShellError> {
-        let wrap_err = |err: ShellError| ShellError::GenericError {
-            error: format!(
-                "Unable to spawn plugin `{}` to {for_op}",
-                self.source.name()
-            ),
-            msg: err.to_string(),
-            span,
-            help: None,
-            inner: vec![err],
+        let wrap_err = |err: ShellError| {
+            let error = if let Some(span) = span {
+                GenericError::new(
+                    format!(
+                        "Unable to spawn plugin `{}` to {for_op}",
+                        self.source.name()
+                    ),
+                    err.to_string(),
+                    span,
+                )
+                .with_inner([err])
+            } else {
+                GenericError::new_internal(
+                    format!(
+                        "Unable to spawn plugin `{}` to {for_op}",
+                        self.source.name()
+                    ),
+                    err.to_string(),
+                )
+                .with_inner([err])
+            };
+            ShellError::Generic(error)
         };
 
         self.source
@@ -205,9 +219,7 @@ impl CustomValue for PluginCustomValueWithSource {
     fn partial_cmp(&self, other: &Value) -> Option<Ordering> {
         self.get_plugin(Some(other.span()), "perform comparison")
             .and_then(|plugin| {
-                // We're passing Span::unknown() here because we don't have one, and it probably
-                // shouldn't matter here and is just a consequence of the API
-                plugin.custom_value_partial_cmp(self.clone(), other.clone())
+                plugin.custom_value_partial_cmp(self.clone(), other.clone(), other.span())
             })
             .unwrap_or_else(|err| {
                 // We can't do anything with the error other than log it.

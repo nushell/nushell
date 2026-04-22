@@ -27,8 +27,8 @@ impl Command for ExportModule {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -64,9 +64,7 @@ impl Command for ExportModule {
 mod test {
     use super::*;
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ExportModule {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ExportModule)
     }
 }
