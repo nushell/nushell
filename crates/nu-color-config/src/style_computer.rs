@@ -8,7 +8,7 @@ use nu_protocol::{
 };
 use std::{
     collections::HashMap,
-    fmt::{Debug, Formatter, Result},
+    fmt::Debug,
 };
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
