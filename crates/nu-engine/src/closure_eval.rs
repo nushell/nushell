@@ -143,9 +143,8 @@ impl ClosureEval {
     /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data())`.
     pub fn run_with_value(&mut self, value: Value) -> Result<PipelineData, ShellError> {
         self.call_eval
-            .add_positional(&self.block.signature, Cow::Borrowed(&value))?
-            .with_env(&self.env_vars, &self.env_hidden)
-            .run(&self.engine_state, &self.block, value.into_pipeline_data())
+            .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
+        self.run_with_input(value.into_pipeline_data())
     }
 }
 
