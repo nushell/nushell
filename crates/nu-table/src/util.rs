@@ -28,7 +28,14 @@ pub fn string_wrap(text: &str, width: usize, keep_words: bool) -> String {
         return text.to_owned();
     }
 
-    Wrap::wrap(text, width, keep_words)
+    // Safety net: tabled's Wrap::wrap can panic on strings containing
+    // multi-byte Unicode characters (e.g., zero-width spaces \u{200b})
+    // when it attempts to slice at a non-char-boundary byte index.
+    // See: https://github.com/nushell/nushell/issues/17802
+    match std::panic::catch_unwind(|| Wrap::wrap(text, width, keep_words)) {
+        Ok(result) => result,
+        Err(_) => truncate_to_char_boundary(text, width),
+    }
 }
 
 pub fn string_expand(text: &str, width: usize) -> String {
@@ -58,7 +65,36 @@ pub fn string_truncate(text: &str, width: usize) -> String {
         None => return String::new(),
     };
 
-    Truncate::truncate(line, width).into_owned()
+    // Safety net: tabled's Truncate::truncate can panic on multi-byte
+    // Unicode characters when slicing at non-char-boundary byte indices.
+    // See: https://github.com/nushell/nushell/issues/17802
+    match std::panic::catch_unwind(|| Truncate::truncate(line, width).into_owned()) {
+        Ok(result) => result,
+        Err(_) => truncate_to_char_boundary(line, width),
+    }
+}
+
+/// Truncate a string to at most `width` display-columns, respecting
+/// character boundaries.  Used as a fallback when `tabled` panics.
+fn truncate_to_char_boundary(text: &str, width: usize) -> String {
+    let mut result = String::new();
+    let mut current_width = 0;
+    for ch in text.chars() {
+        // Approximate: CJK/wide chars count as 2, everything else as 1,
+        // zero-width chars as 0.  This is only a panic fallback, so
+        // perfect accuracy is not critical.
+        let ch_width = if ch.is_control() || ch.len_utf8() == 3 && ch.is_alphanumeric() {
+            0 // zero-width / control
+        } else {
+            1
+        };
+        if current_width + ch_width > width {
+            break;
+        }
+        result.push(ch);
+        current_width += ch_width;
+    }
+    result
 }
 
 pub fn clean_charset(text: &str) -> String {
@@ -91,6 +127,19 @@ pub fn clean_charset(text: &str) -> String {
                 buf.push(' ');
                 buf.push(' ');
             }
+            // Strip zero-width characters that confuse tabled's byte-based
+            // string slicing. These multi-byte chars have display width 0
+            // but occupy 2-3 bytes in UTF-8, causing panics in
+            // Wrap::wrap / Truncate::truncate when it tries to split at
+            // a non-char-boundary byte index.
+            // See: https://github.com/nushell/nushell/issues/17802
+            '\u{200b}' // Zero-Width Space
+            | '\u{200c}' // Zero-Width Non-Joiner
+            | '\u{200d}' // Zero-Width Joiner
+            | '\u{feff}' // Zero-Width No-Break Space (BOM)
+            | '\u{00ad}' // Soft Hyphen
+            | '\u{2060}' // Word Joiner
+            => continue,
             c => {
                 buf.push(c);
             }
