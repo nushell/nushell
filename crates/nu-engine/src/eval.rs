@@ -205,7 +205,7 @@ impl CallEval {
             } else {
                 return Err(ShellError::MissingParameter {
                     param_name: param.name.to_string(),
-                    span: self.callee_span.to_owned(),
+                    span: self.callee_span,
                 });
             }
         }
@@ -213,7 +213,7 @@ impl CallEval {
             let span = if let Some(rest_item) = self.rest_args.first() {
                 rest_item.span()
             } else {
-                self.callee_span.to_owned()
+                self.callee_span
             };
             self.callee_stack.add_var(
                 rest_positional
