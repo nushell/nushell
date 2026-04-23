@@ -1,4 +1,4 @@
-use nu_engine::{command_prelude::*, get_eval_block_with_early_return, redirect_env};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::{
     PipelineData, ShellError, Signature, SyntaxShape, Type, Value,
     engine::{Call, Closure, Command, EngineState, Stack},
@@ -37,24 +37,11 @@ impl Command for MetadataAccess {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let closure: Closure = call.req(engine_state, caller_stack, 0)?;
-        let block = engine_state.get_block(closure.block_id);
-
-        // `ClosureEvalOnce` is not used as it uses `Stack::captures_to_stack` rather than
-        // `Stack::captures_to_stack_preserve_out_dest`. This command shouldn't collect streams
-        let mut callee_stack = caller_stack.captures_to_stack_preserve_out_dest(closure.captures);
         let metadata_record = Value::record(build_metadata_record(&input, call.head), call.head);
 
-        if let Some(var_id) = block.signature.get_positional(0).and_then(|var| var.var_id) {
-            callee_stack.add_var(var_id, metadata_record)
-        }
-
-        let eval = get_eval_block_with_early_return(engine_state);
-        let result = eval(engine_state, &mut callee_stack, block, input).map(|p| p.body);
-
-        // Merge the block's environment to the current stack
-        redirect_env(engine_state, caller_stack, &callee_stack);
-
-        result
+        ClosureEvalOnce::new_env_preserve_out_dest(engine_state, caller_stack, closure)
+            .add_arg(metadata_record)?
+            .run_with_input(input)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
