@@ -64,7 +64,7 @@ fn md_combined() -> Result {
 
 #[test]
 fn from_md_ast_first_node_type() -> Result {
-    let code = "'# Title' | from md | get 0.type";
+    let code = "'# Title' | from md --verbose | get 0.type";
 
     test().run(code).expect_value_eq("h1")
 }
@@ -74,14 +74,14 @@ fn from_md_ast_frontmatter_node() -> Result {
     let code = "'---
 title: Demo
 ---
-# Heading' | from md | get 0.type";
+# Heading' | from md --verbose | get 0.type";
 
     test().run(code).expect_value_eq("yaml")
 }
 
 #[test]
 fn from_md_ast_has_position() -> Result {
-    let code = "'# Title' | from md | get 0.position.start.line";
+    let code = "'# Title' | from md --verbose | get 0.position.start.line";
 
     test().run(code).expect_value_eq(1)
 }
@@ -89,7 +89,31 @@ fn from_md_ast_has_position() -> Result {
 #[test]
 fn from_md_ast_preserves_interline_text_value() -> Result {
     let code = r#""[a](https://a)
-[b](https://b)" | from md | get 1.attrs.value | str length"#;
+[b](https://b)" | from md --verbose | get 1.attrs.value | str length"#;
 
     test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn from_md_reduced_promotes_heading_text_node() -> Result {
+    let code = "'# Title' | from md | get 0.element";
+
+    test().run(code).expect_value_eq("text")
+}
+
+#[test]
+fn from_md_reduced_inherits_parent_attributes() -> Result {
+    // Parent h1 carries depth/level; the promoted text child inherits them.
+    let code = "'# Title' | from md | get 0.attributes.depth";
+
+    test().run(code).expect_value_eq(1)
+}
+
+#[test]
+fn from_md_reduced_merges_parent_and_child_attributes() -> Result {
+    // A code fence: parent carries `lang`, child (text) carries no extra attrs.
+    // Verifies parent attribute survives on the promoted child row.
+    let code = "\"```rust\nhello\n```\" | from md | get 0.attributes.lang";
+
+    test().run(code).expect_value_eq("rust")
 }
