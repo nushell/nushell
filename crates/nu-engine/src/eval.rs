@@ -128,22 +128,29 @@ impl CallEval {
         value: Option<Cow<Value>>,
     ) -> Result<&mut Self, ShellError> {
         let named = signature.named.iter().find(|named| {
-            (short.is_some() && short == named.short.map(|x| x.to_string())) || long == named.long
+            long == named.long
+                || short
+                    .as_deref()
+                    .zip(named.short)
+                    .is_some_and(|(arg, param)| {
+                        let mut buf = [0; 4];
+                        param.encode_utf8(&mut buf) == arg
+                    })
         });
+
         if let Some(named) = named {
             let var_id = named
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
-            if let Some(val) = value {
-                self.callee_stack.add_var(var_id, val.into_owned());
-            } else if let Some(val) = &named.default_value {
-                self.callee_stack.add_var(var_id, val.to_owned());
-            } else {
-                self.callee_stack
-                    .add_var(var_id, Value::bool(true, self.head_span));
-            }
+
+            let value = value
+                .or_else(|| named.default_value.as_ref().map(Cow::Borrowed))
+                .unwrap_or_else(|| Cow::Owned(Value::bool(true, self.head_span)));
+
+            self.callee_stack.add_var(var_id, value.into_owned());
             self.named_args.push(long.to_string());
         }
+
         Ok(self)
     }
 
