@@ -258,7 +258,12 @@ fn merge_attrs(parent: Option<Value>, child: Option<Value>, span: Span) -> Optio
     match (parent, child) {
         (None, child) => child,
         (parent, None) => parent,
-        (Some(Value::Record { val: parent_rec, .. }), Some(Value::Record { val: child_rec, .. })) => {
+        (
+            Some(Value::Record {
+                val: parent_rec, ..
+            }),
+            Some(Value::Record { val: child_rec, .. }),
+        ) => {
             let mut merged = (*parent_rec).clone();
             for (key, val) in child_rec.iter() {
                 if let Some(existing) = merged.get_mut(key) {
