@@ -195,14 +195,15 @@ impl CallEval {
     /// Add default and rest values to the stack, raise error on
     /// missing parameters.
     fn finalize_arguments(&mut self, signature: &Signature) -> Result<(), ShellError> {
-        for (param, required) in signature
+        let remaining_positionals = signature
             .required_positional
             .iter()
             .map(|p| (p, true))
             .chain(signature.optional_positional.iter().map(|p| (p, false)))
             // skip positional args added with add_positional
-            .skip(self.arg_index)
-        {
+            .skip(self.arg_index);
+
+        for (param, required) in remaining_positionals {
             let var_id = param
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
@@ -223,11 +224,12 @@ impl CallEval {
         }
 
         if let Some(rest_positional) = &signature.rest_positional {
-            let span = if let Some(rest_item) = self.rest_args.first() {
-                rest_item.span()
-            } else {
-                self.callee_span
-            };
+            let span = self
+                .rest_args
+                .first()
+                .map(|x| x.span())
+                .unwrap_or(self.callee_span);
+
             self.callee_stack.add_var(
                 rest_positional
                     .var_id
@@ -257,6 +259,7 @@ impl CallEval {
                 self.callee_stack.add_var(var_id, value);
             }
         }
+
         Ok(())
     }
 }
