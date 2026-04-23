@@ -211,6 +211,7 @@ impl CallEval {
                 });
             }
         }
+
         if let Some(rest_positional) = &signature.rest_positional {
             let span = if let Some(rest_item) = self.rest_args.first() {
                 rest_item.span()
@@ -224,21 +225,26 @@ impl CallEval {
                 Value::list(self.rest_args.to_owned(), span),
             );
         }
-        for named in signature.named.iter() {
+
+        let remaining_flags = signature
+            .named
+            .iter()
+            // Skip provided flags
+            .filter(|flag| !self.named_args.contains(&flag.long))
             // Ignore named arguments without var_id.
             // There is some code in nu_cli::completions that relies on this behavior of `eval_call`.
-            if let Some(var_id) = named.var_id {
-                if !self.named_args.contains(&named.long) {
-                    if named.arg.is_none() {
-                        self.callee_stack
-                            .add_var(var_id, Value::bool(false, self.head_span));
-                    } else if let Some(value) = named.default_value.clone() {
-                        self.callee_stack.add_var(var_id, value);
-                    } else {
-                        self.callee_stack
-                            .add_var(var_id, Value::nothing(self.head_span))
-                    }
-                }
+            .filter_map(|flag| Some((flag.var_id?, flag)));
+
+        for (var_id, flag) in remaining_flags {
+            if flag.arg.is_none() {
+                self.callee_stack
+                    .add_var(var_id, Value::bool(false, self.head_span));
+            } else {
+                let value = flag
+                    .default_value
+                    .clone()
+                    .unwrap_or(Value::nothing(self.head_span));
+                self.callee_stack.add_var(var_id, value);
             }
         }
         Ok(())
