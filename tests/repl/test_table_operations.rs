@@ -177,7 +177,7 @@ fn update_cell_path_1() -> TestResult {
 fn missing_column_errors() -> TestResult {
     fail_test(
         "[ { name: ABC, size: 20 }, { name: HIJ } ].size.1 == null",
-        "cannot find column",
+        "column 'size' is missing in one or more values",
     )
 }
 

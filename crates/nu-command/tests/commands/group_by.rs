@@ -51,7 +51,7 @@ fn errors_if_given_unknown_column_name() {
             | group-by {{|| get nu.releases.missing_column }}
         "
     ));
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("column 'missing_column' is missing"));
 }
 
 #[test]
