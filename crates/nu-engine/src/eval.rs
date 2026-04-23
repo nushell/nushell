@@ -185,23 +185,25 @@ impl CallEval {
     /// Add default and rest values to the stack, raise error on
     /// missing parameters.
     fn finalize_arguments(&mut self, signature: &Signature) -> Result<(), ShellError> {
-        for (num, (param, required)) in signature
+        for (param, required) in signature
             .required_positional
             .iter()
             .map(|p| (p, true))
             .chain(signature.optional_positional.iter().map(|p| (p, false)))
-            .enumerate()
+            // skip positional args added with add_positional
+            .skip(self.arg_index)
         {
             let var_id = param
                 .var_id
                 .expect("internal error: all custom parameters must have var_ids");
-            if num < self.arg_index {
-                // parameter has been added by add_positional
-            } else if let Some(value) = &param.default_value {
-                self.callee_stack.add_var(var_id, value.to_owned());
-            } else if !required {
-                self.callee_stack
-                    .add_var(var_id, Value::nothing(self.callee_span.to_owned()));
+
+            let maybe_value = param
+                .default_value
+                .clone()
+                .or((!required).then_some(Value::nothing(self.callee_span)));
+
+            if let Some(value) = maybe_value {
+                self.callee_stack.add_var(var_id, value);
             } else {
                 return Err(ShellError::MissingParameter {
                     param_name: param.name.to_string(),
