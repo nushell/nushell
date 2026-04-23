@@ -64,55 +64,58 @@ impl CallEval {
         signature: &Signature,
         value: Cow<Value>,
     ) -> Result<&mut Self, ShellError> {
-        let maybe_param = if self.arg_index < signature.required_positional.len() {
-            signature.required_positional.get(self.arg_index)
-        } else if self.arg_index
-            < (signature.required_positional.len() + signature.optional_positional.len())
+        let maybe_param = match self
+            .arg_index
+            .checked_sub(signature.required_positional.len())
         {
-            signature
-                .optional_positional
-                .get(self.arg_index - signature.required_positional.len())
-        } else {
-            None
+            // arg_index < required_len
+            None => signature.required_positional.get(self.arg_index),
+            // required_len <= arg_index < (required_len + optional_len)
+            Some(opt_idx) if opt_idx < signature.optional_positional.len() => {
+                signature.optional_positional.get(opt_idx)
+            }
+            // (required_len + optional_len) <= arg_index
+            _ => None,
         };
+
         if let Some(param) = maybe_param {
             let param_type = param.shape.to_type();
-            if value.is_subtype_of(&param_type) {
-                let var_id = param
-                    .var_id
-                    .expect("internal error: all custom parameters must have var_ids");
-                self.callee_stack.add_var(var_id, value.into_owned());
-                self.arg_index += 1;
-                Ok(self)
-            } else {
-                Err(ShellError::CantConvert {
+            if !value.is_subtype_of(&param_type) {
+                return Err(ShellError::CantConvert {
                     to_type: param_type.to_string(),
                     from_type: value.get_type().to_string(),
                     span: value.span(),
                     help: None,
-                })
+                });
             }
+
+            let var_id = param
+                .var_id
+                .expect("internal error: all custom parameters must have var_ids");
+            self.callee_stack.add_var(var_id, value.into_owned());
+            self.arg_index += 1;
+            Ok(self)
         } else {
             // assign arg to rest params
-            if let Some(rest_positional) = &signature.rest_positional {
-                let param_type = rest_positional.shape.to_type();
-                if value.is_subtype_of(&param_type) {
-                    self.rest_args.push(value.into_owned());
-                    Ok(self)
-                } else {
-                    Err(ShellError::CantConvert {
-                        to_type: param_type.to_string(),
-                        from_type: value.get_type().to_string(),
-                        span: value.span(),
-                        help: None,
-                    })
-                }
-            } else {
+            let Some(rest_positional) = &signature.rest_positional else {
                 // We do not consider it an error if more arguments
                 // are added than the closure takes. This makes it possible
                 // to omit any unused arguments in the closure definition.
-                Ok(self)
+                return Ok(self);
+            };
+
+            let param_type = rest_positional.shape.to_type();
+            if !value.is_subtype_of(&param_type) {
+                return Err(ShellError::CantConvert {
+                    to_type: param_type.to_string(),
+                    from_type: value.get_type().to_string(),
+                    span: value.span(),
+                    help: None,
+                });
             }
+
+            self.rest_args.push(value.into_owned());
+            Ok(self)
         }
     }
 
