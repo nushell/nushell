@@ -143,31 +143,28 @@ impl Command for Watch {
             }
         };
 
-        let (tx, rx) = channel();
-
-        let mut debouncer = new_debouncer(debounce_duration, None, tx).map_err(|err| {
-            ShellError::Generic(GenericError::new(
-                "Failed to create watcher",
-                err.to_string(),
-                call.head,
-            ))
-        })?;
-
-        if let Err(err) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::Generic(GenericError::new(
-                "Failed to create watcher",
-                err.to_string(),
-                call.head,
-            )));
-        }
-        // need to cache to make sure that rename event works.
-        debouncer.cache().add_root(&path, recursive_mode);
+        let iter = {
+            let (tx, rx) = channel();
+            let mut debouncer = new_debouncer(debounce_duration, None, tx)
+                .and_then(|mut debouncer| {
+                    debouncer.watcher().watch(&path, recursive_mode)?;
+                    Ok(debouncer)
+                })
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new(
+                        "Failed to create watcher",
+                        err.to_string(),
+                        call.head,
+                    ))
+                })?;
+            // need to cache to make sure that rename event works.
+            debouncer.cache().add_root(&path, recursive_mode);
+            WatchIterator::new(debouncer, rx, engine_state.signals().clone())
+        };
 
         if !quiet {
             eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
         }
-
-        let iter = WatchIterator::new(debouncer, rx, engine_state.signals().clone());
 
         fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
             let Some(glob) = glob else { return true };
