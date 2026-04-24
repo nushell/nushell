@@ -174,9 +174,9 @@ impl PluginCommand for SelectorAlpha {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         let ascii_only = call.has_flag("ascii-only")?;
         let ignore_spaces = call.has_flag("ignore-spaces")?;
