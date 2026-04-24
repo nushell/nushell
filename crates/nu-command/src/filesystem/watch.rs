@@ -116,8 +116,8 @@ impl Command for Watch {
             .get_flag(engine_state, stack, "debounce")?
             .unwrap_or(DEFAULT_WATCH_DEBOUNCE_DURATION);
 
-        let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
-        let glob_pattern = glob_flag
+        let glob_pattern = call
+            .get_flag::<Spanned<String>>(engine_state, stack, "glob")?
             .map(|glob| {
                 let absolute_path = path.join(glob.item);
                 if verbose {
