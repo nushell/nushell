@@ -166,16 +166,6 @@ impl Command for Watch {
             eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
         }
 
-        fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
-            let Some(glob) = glob else { return true };
-            let path = ev
-                .path
-                .as_deref()
-                .or(ev.new_path.as_deref())
-                .expect("at least one of path or new_path should be present");
-            glob.matches_path(path)
-        }
-
         if let Some(closure) = closure {
             let mut closure = ClosureEval::new(engine_state, stack, closure);
 
@@ -253,6 +243,16 @@ impl Command for Watch {
             },
         ]
     }
+}
+
+fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
+    let Some(glob) = glob else { return true };
+    let path = ev
+        .path
+        .as_deref()
+        .or(ev.new_path.as_deref())
+        .expect("at least one of path or new_path should be present");
+    glob.matches_path(path)
 }
 
 #[derive(IntoValue)]
