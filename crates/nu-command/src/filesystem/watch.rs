@@ -15,8 +15,10 @@ use notify_debouncer_full::{
 
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    Signals, engine::Closure, report_shell_error, shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    Signals,
+    engine::Closure,
+    report_shell_error, report_shell_warning,
+    shell_error::{generic::GenericError, io::IoError},
 };
 
 // durations chosen mostly arbitrarily
@@ -60,7 +62,7 @@ impl Command for Watch {
             .optional(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order (deprecated).",
             )
             .named(
                 "debounce",
@@ -162,6 +164,21 @@ impl Command for Watch {
         };
 
         if let Some(closure) = closure {
+            report_shell_warning(
+                Some(stack),
+                engine_state,
+                &ShellWarning::Deprecated {
+                    dep_type: "Argument".into(),
+                    label: "remove this".into(),
+                    span: closure.span,
+                    help: "Since 0.113.0, running a closure with `watch` is deprecated. \
+                            Instead, use `watch` as the source of a `for` loop."
+                        .to_string()
+                        .into(),
+                    report_mode: nu_protocol::ReportMode::FirstUse,
+                },
+            );
+
             run_closure(
                 engine_state,
                 stack,
