@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, RecvTimeoutError, channel},
     time::Duration,
 };
@@ -93,7 +93,6 @@ impl Command for Watch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-
         let path = {
             let cwd = engine_state.cwd_as_string(Some(stack))?;
             let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
@@ -109,7 +108,7 @@ impl Command for Watch {
                 ))
             })?
         };
-        let closure: Option<Closure> = call.opt(engine_state, stack, 1)?;
+        let closure: Option<Spanned<Closure>> = call.opt(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
         let debounce_duration: Duration = call
@@ -162,37 +161,18 @@ impl Command for Watch {
             WatchIterator::new(debouncer, rx, engine_state.signals().clone())
         };
 
-        if !quiet {
-            eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
-        }
-
         if let Some(closure) = closure {
-            let mut closure = ClosureEval::new(engine_state, stack, closure);
-
-            for events in iter {
-                for event in events? {
-                    let matches_glob = glob_filter(glob_pattern.as_ref(), &event);
-
-                    if verbose && glob_pattern.is_some() {
-                        eprintln!("Matches glob: {matches_glob}");
-                    }
-
-                    if matches_glob {
-                        let result = closure
-                            .add_arg(event.operation.into_value(head))?
-                            .add_arg(event.path.into_value(head))?
-                            .add_arg(event.new_path.into_value(head))?
-                            .run_with_input(PipelineData::empty());
-
-                        match result {
-                            Ok(val) => val.print_table(engine_state, stack, false, false)?,
-                            Err(err) => report_shell_error(Some(stack), engine_state, &err),
-                        };
-                    }
-                }
-            }
-
-            Ok(PipelineData::empty())
+            run_closure(
+                engine_state,
+                stack,
+                head,
+                quiet,
+                verbose,
+                &path,
+                glob_pattern,
+                iter,
+                closure.item,
+            )
         } else {
             let out = iter
                 .flat_map(|e| match e {
@@ -253,6 +233,50 @@ fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
         .or(ev.new_path.as_deref())
         .expect("at least one of path or new_path should be present");
     glob.matches_path(path)
+}
+
+#[allow(clippy::too_many_arguments)]
+#[inline]
+fn run_closure(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    head: Span,
+    quiet: bool,
+    verbose: bool,
+    path: &Path,
+    glob_pattern: Option<nu_glob::Pattern>,
+    iter: WatchIterator,
+    closure: Closure,
+) -> Result<PipelineData, ShellError> {
+    if !quiet {
+        eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+    }
+
+    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    for events in iter {
+        for event in events? {
+            let matches_glob = glob_filter(glob_pattern.as_ref(), &event);
+
+            if verbose && glob_pattern.is_some() {
+                eprintln!("Matches glob: {matches_glob}");
+            }
+
+            if matches_glob {
+                let result = closure
+                    .add_arg(event.operation.into_value(head))?
+                    .add_arg(event.path.into_value(head))?
+                    .add_arg(event.new_path.into_value(head))?
+                    .run_with_input(PipelineData::empty());
+
+                match result {
+                    Ok(val) => val.print_table(engine_state, stack, false, false)?,
+                    Err(err) => report_shell_error(Some(stack), engine_state, &err),
+                };
+            }
+        }
+    }
+
+    Ok(PipelineData::empty())
 }
 
 #[derive(IntoValue)]
