@@ -93,21 +93,22 @@ impl Command for Watch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let cwd = engine_state.cwd_as_string(Some(stack))?;
-        let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
 
-        let path_no_whitespace = path_arg
-            .item
-            .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
+        let path = {
+            let cwd = engine_state.cwd_as_string(Some(stack))?;
+            let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+            let path_no_whitespace = path_arg
+                .item
+                .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-        let path = nu_path::absolute_with(path_no_whitespace, cwd).map_err(|err| {
-            ShellError::Io(IoError::new(
-                err,
-                path_arg.span,
-                PathBuf::from(path_no_whitespace),
-            ))
-        })?;
-
+            nu_path::absolute_with(path_no_whitespace, cwd).map_err(|err| {
+                ShellError::Io(IoError::new(
+                    err,
+                    path_arg.span,
+                    PathBuf::from(path_no_whitespace),
+                ))
+            })?
+        };
         let closure: Option<Closure> = call.opt(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
