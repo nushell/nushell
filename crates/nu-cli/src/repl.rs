@@ -876,7 +876,7 @@ fn parse_operation(
         .cwd(Some(stack))
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    let mut orig = s.clone();
+    let mut orig = s.trim().to_string();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
     }
