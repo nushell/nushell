@@ -238,4 +238,47 @@ mod regex {
             assert_eq!(actual.out, "1000");
         })
     }
+
+    #[test]
+    fn parse_multiline_collects_byte_stream() {
+        Playground::setup("parse_test_multiline_stream_1", |dirs, sandbox| {
+            sandbox.with_files(&[Stub::FileWithContent(
+                "worktree.txt",
+                "worktree /tmp/repo/.worktrees/topic\nHEAD abc123\nbranch refs/heads/topic",
+            )]);
+
+            let actual: String = nu_test_support::prelude::test()
+                .cwd(dirs.test())
+                .run(
+                    r#"open --raw worktree.txt
+                    | parse --multiline --regex 'worktree (?P<path>[^\n]+)\nHEAD [^\n]+\nbranch refs/heads/(?P<branch>[^\n]+)'
+                    | get 0
+                    | get branch"#,
+                )
+                .expect("nu command failed");
+
+            assert_eq!(actual, "topic");
+        })
+    }
+
+    #[test]
+    fn parse_multiline_is_opt_in_for_byte_streams() {
+        Playground::setup("parse_test_multiline_stream_2", |dirs, sandbox| {
+            sandbox.with_files(&[Stub::FileWithContent(
+                "worktree.txt",
+                "worktree /tmp/repo/.worktrees/topic\nHEAD abc123\nbranch refs/heads/topic",
+            )]);
+
+            let actual: bool = nu_test_support::prelude::test()
+                .cwd(dirs.test())
+                .run(
+                    r#"open --raw worktree.txt
+                    | parse --regex 'worktree (?P<path>[^\n]+)\nHEAD [^\n]+\nbranch refs/heads/(?P<branch>[^\n]+)'
+                    | is-empty"#,
+                )
+                .expect("nu command failed");
+
+            assert!(actual);
+        })
+    }
 }

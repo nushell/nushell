@@ -21,7 +21,7 @@ impl Command for Parse {
     }
 
     fn extra_description(&self) -> &str {
-        "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression."
+        "The parse command always uses regular expressions even when you use a simple pattern. If a simple pattern is supplied, parse will transform that pattern into a regular expression. By default, byte stream input is parsed line-by-line. Use --multiline to parse byte stream input as a single string."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -32,6 +32,11 @@ impl Command for Parse {
                 (Type::List(Box::new(Type::Any)), Type::table()),
             ])
             .switch("regex", "Use full regex syntax for patterns.", Some('r'))
+            .switch(
+                "multiline",
+                "Parse byte stream input as a single multi-line string.",
+                Some('m'),
+            )
             .named(
                 "backtrack",
                 SyntaxShape::Int,
@@ -72,6 +77,14 @@ impl Command for Parse {
                 example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("bar"),
+                })])),
+            },
+            Example {
+                description: "Parse a multi-line string as a single regex input.",
+                example: r#""key: one\nvalue: two" | parse --multiline --regex 'key: (?P<key>\w+)\nvalue: (?P<value>\w+)'"#,
+                result: Some(Value::test_list(vec![Value::test_record(record! {
+                    "key" => Value::test_string("one"),
+                    "value" => Value::test_string("two"),
                 })])),
             },
             Example {
@@ -127,10 +140,19 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req(engine_state, stack, 0)?;
         let regex: bool = call.has_flag(engine_state, stack, "regex")?;
+        let multiline: bool = call.has_flag(engine_state, stack, "multiline")?;
         let backtrack_limit: usize = call
             .get_flag(engine_state, stack, "backtrack")?
             .unwrap_or(1_000_000); // 1_000_000 is fancy_regex default
-        operate(engine_state, pattern, regex, backtrack_limit, call, input)
+        operate(
+            engine_state,
+            pattern,
+            regex,
+            multiline,
+            backtrack_limit,
+            call,
+            input,
+        )
     }
 
     fn run_const(
@@ -141,6 +163,7 @@ impl Command for Parse {
     ) -> Result<PipelineData, ShellError> {
         let pattern: Spanned<String> = call.req_const(working_set, 0)?;
         let regex: bool = call.has_flag_const(working_set, "regex")?;
+        let multiline: bool = call.has_flag_const(working_set, "multiline")?;
         let backtrack_limit: usize = call
             .get_flag_const(working_set, "backtrack")?
             .unwrap_or(1_000_000);
@@ -148,6 +171,7 @@ impl Command for Parse {
             working_set.permanent(),
             pattern,
             regex,
+            multiline,
             backtrack_limit,
             call,
             input,
@@ -159,6 +183,7 @@ fn operate(
     engine_state: &EngineState,
     pattern: Spanned<String>,
     regex: bool,
+    multiline: bool,
     backtrack_limit: usize,
     call: &Call,
     input: PipelineData,
@@ -199,11 +224,7 @@ fn operate(
         PipelineData::Empty => Ok(PipelineData::empty()),
         PipelineData::Value(value, ..) => match value {
             Value::String { val, .. } => {
-                let captures = regex
-                    .captures_iter(&val)
-                    .map(|captures| captures_to_value(captures, &columns, head))
-                    .collect::<Result<_, _>>()?;
-
+                let captures = captures_to_values(&regex, &columns, &val, head)?;
                 Ok(Value::list(captures, head).into_pipeline_data())
             }
             Value::List { vals, .. } => {
@@ -259,7 +280,12 @@ fn operate(
             })
             .into()),
         PipelineData::ByteStream(stream, ..) => {
-            if let Some(lines) = stream.lines() {
+            if multiline {
+                let span = stream.span();
+                let input = stream.into_string()?;
+                let captures = captures_to_values(&regex, &columns, &input, span)?;
+                Ok(Value::list(captures, span).into_pipeline_data())
+            } else if let Some(lines) = stream.lines() {
                 let iter = ParseIter {
                     captures: VecDeque::new(),
                     regex,
@@ -275,6 +301,18 @@ fn operate(
             }
         }
     }
+}
+
+fn captures_to_values(
+    regex: &Regex,
+    columns: &[String],
+    input: &str,
+    span: Span,
+) -> Result<Vec<Value>, ShellError> {
+    regex
+        .captures_iter(input)
+        .map(|captures| captures_to_value(captures, columns, span))
+        .collect()
 }
 
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
