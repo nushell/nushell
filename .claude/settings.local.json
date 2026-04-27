@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(awk '{print $2}')",
+      "Bash(cargo build *)",
+      "Bash(cargo test *)",
+      "Bash(wait)",
+      "Bash(nu -c \"use toolkit.nu; toolkit fmt\")",
+      "Bash(nu -c \"use toolkit.nu; toolkit clippy\")",
+      "Bash(git *)"
+    ]
+  }
+}
