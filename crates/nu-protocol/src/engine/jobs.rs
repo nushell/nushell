@@ -231,24 +231,33 @@ impl Job {
     }
 }
 
-#[derive(Debug)]
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
     pub description: Option<String>,
+    /// Opaque streaming state (e.g. `FrozenPipelineState`) carried across freeze/resume cycles.
+    ///
+    /// Stored as `Box<dyn Any + Send>` to avoid a dependency cycle between `nu-protocol`
+    /// and `nu-engine`.  The concrete type is `nu_engine::FrozenPipelineState`.
+    pub pipeline_state: Option<Box<dyn std::any::Any + Send>>,
+}
+
+impl std::fmt::Debug for FrozenJob {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FrozenJob")
+            .field("unfreeze", &self.unfreeze)
+            .field("description", &self.description)
+            .field(
+                "pipeline_state",
+                &self.pipeline_state.as_ref().map(|_| "<opaque>"),
+            )
+            .finish()
+    }
 }
 
 impl FrozenJob {
     pub fn kill(&self) -> shell_error::io::Result<()> {
-        #[cfg(unix)]
-        {
-            Ok(kill_by_pid(self.unfreeze.pid() as i64)?)
-        }
-
-        // it doesn't happen outside unix.
-        #[cfg(not(unix))]
-        {
-            Ok(())
-        }
+        self.unfreeze.kill();
+        Ok(())
     }
 }
 

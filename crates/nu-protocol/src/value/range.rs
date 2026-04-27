@@ -284,6 +284,7 @@ mod int_range {
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(current) = self.current {
+                self.signals.wait_if_suspended();
                 let not_end = match (self.step < 0, self.end) {
                     (true, Bound::Included(end)) => current >= end,
                     (true, Bound::Excluded(end)) => current > end,
@@ -558,6 +559,7 @@ mod float_range {
 
         fn next(&mut self) -> Option<Self::Item> {
             if let Some(iter) = self.iter {
+                self.signals.wait_if_suspended();
                 let current = self.start + self.step * iter as f64;
 
                 let not_end = match (self.step < 0.0, self.end) {
