@@ -166,9 +166,10 @@ impl CommandThread {
 
     /// Consume this `CommandThread` into a [`FrozenPipelineState`].
     ///
-    /// `output_rx` is intentionally dropped here — it is only needed before streaming
-    /// starts, and all callers of this method have either already received the
-    /// `WorkerOutput::Streaming` message or are discarding it (Phase 1 freeze).
+    /// `output_rx` is preserved so that `job_unfreeze` can receive the worker's eventual
+    /// result message.  For Phase 1 freezes (Ctrl+Z before any output), `output_rx` still
+    /// has its message pending; for Streaming-path callers, `output_rx` is already empty
+    /// (message already consumed) but including it is harmless.
     ///
     /// The worker thread is detached but exits naturally when channels disconnect or
     /// the interrupt flag is set.
@@ -177,8 +178,8 @@ impl CommandThread {
         span: Span,
         metadata: Option<PipelineMetadata>,
     ) -> FrozenPipelineState {
-        // output_rx is dropped here on purpose.
         FrozenPipelineState {
+            output_rx: Some(self.output_rx),
             value_rx: self.value_rx,
             frozen_rx: self.frozen_rx,
             suspend_state: self.suspend_state,

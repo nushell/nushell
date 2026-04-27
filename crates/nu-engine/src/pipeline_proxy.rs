@@ -11,12 +11,20 @@ use nu_protocol::{
 };
 use nu_system::{SIGTSTP_FLAG, SuspendState, UnfreezeHandle};
 
+use crate::command_thread::WorkerOutput;
+
 /// Streaming state preserved across a freeze/resume cycle.
 ///
 /// Stored inside [`FrozenJob::pipeline_state`] as `Box<dyn Any + Send>`.
 /// On `job unfreeze`, this is downcast back to `FrozenPipelineState` and used
 /// to construct a new [`PipelineProxy`].
 pub struct FrozenPipelineState {
+    /// Present only for Phase 1 freezes (Ctrl+Z before the worker sent any output).
+    ///
+    /// On unfreeze, `job_unfreeze` polls this to learn whether the eventual result
+    /// is `Immediate` (returns it directly) or `Streaming` (creates a proxy).
+    /// `None` for mid-stream freezes, where streaming has already started.
+    pub output_rx: Option<mpsc::Receiver<WorkerOutput>>,
     pub value_rx: mpsc::Receiver<Value>,
     pub frozen_rx: mpsc::Receiver<()>,
     pub suspend_state: Arc<SuspendState>,
@@ -114,6 +122,8 @@ impl Iterator for PipelineProxy {
                         let frozen_rx = self.frozen_rx.take().expect("frozen_rx must be Some");
 
                         let frozen_state = FrozenPipelineState {
+                            // Mid-stream freeze: streaming already started, no output_rx needed.
+                            output_rx: None,
                             value_rx,
                             frozen_rx,
                             suspend_state: self.suspend_state.clone(),
