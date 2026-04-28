@@ -1,5 +1,6 @@
 use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use rstest::rstest;
 
 #[test]
 fn table_to_json_text_and_from_json_text_back_into_table() -> Result {
@@ -119,13 +120,14 @@ fn from_json_text_objects_is_stream() -> Result {
             "#,
         )]);
 
-        let code = "
-            open katz.txt
-            | from json -o
-            | describe -n
-        ";
+        let code = "open katz.txt | from json -o";
+        let nu_protocol::PipelineData::ListStream(_, _) =
+            test().cwd(dirs.test()).run_raw(code)?.body
+        else {
+            panic!("Output must be a stream");
+        };
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("stream")
+        Ok(())
     })
 }
 
@@ -211,32 +213,27 @@ fn table_to_json_text_strict() -> Result {
     })
 }
 
-#[test]
-fn top_level_values_from_json() -> Result {
-    let mut tester = test();
-    for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        tester
-            .run_with_data("from json | to json", value)
-            .expect_value_eq(value)?;
-        tester
-            .run_with_data("from json | describe", value)
-            .expect_value_eq(type_name)?;
-    }
-    Ok(())
+#[rstest]
+#[case("null", ())]
+#[case("true", true)]
+#[case("false", false)]
+fn top_level_values_from_json(#[case] json: &str, #[case] expected: impl IntoValue) -> Result {
+    test()
+        .run_with_data("from json", json)
+        .expect_value_eq(expected)
 }
 
-#[test]
-fn top_level_values_from_json_strict() -> Result {
-    let mut tester = test();
-    for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        tester
-            .run_with_data("from json -s | to json", value)
-            .expect_value_eq(value)?;
-        tester
-            .run_with_data("from json -s | describe", value)
-            .expect_value_eq(type_name)?;
-    }
-    Ok(())
+#[rstest]
+#[case("null", ())]
+#[case("true", true)]
+#[case("false", false)]
+fn top_level_values_from_json_strict(
+    #[case] json: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test()
+        .run_with_data("from json --strict", json)
+        .expect_value_eq(expected)
 }
 
 #[test]

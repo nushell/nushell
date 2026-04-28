@@ -1,5 +1,5 @@
 use nu_protocol::test_record;
-use nu_test_support::prelude::*;
+use nu_test_support::{fs::fixtures, prelude::*};
 
 #[test]
 fn all() -> Result {
@@ -30,7 +30,7 @@ fn compute_sum_of_individual_row() -> Result {
         ("mem", 3032375296.),
         ("virtual", 102579965952.),
     ];
-    let mut tester = test().cwd("tests/fixtures/formats");
+    let mut tester = test().cwd(fixtures().join("formats"));
     for (column_name, expected_value) in answers_for_columns {
         let () = tester.run_with_data("let column = into cell-path", [column_name])?;
         let code = "
@@ -61,7 +61,7 @@ fn compute_sum_of_table() -> Result {
     };
 
     test()
-        .cwd("tests/fixtures/formats")
+        .cwd(fixtures().join("formats"))
         .run(code)
         .expect_value_eq(expected)
 }
@@ -69,7 +69,7 @@ fn compute_sum_of_table() -> Result {
 #[test]
 fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
     let outcome = test()
-        .cwd("tests/fixtures/formats")
+        .cwd(fixtures().join("formats"))
         .run("open sample-sys-output.json | math sum")
         .expect_shell_error()?;
     match outcome {

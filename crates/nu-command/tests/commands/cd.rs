@@ -1,3 +1,5 @@
+use std::os::unix::ffi::OsStrExt;
+
 use nu_protocol::{shell_error, test_record};
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
@@ -44,7 +46,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
         test()
             .cwd(dirs.test())
-            .run_with_data("cd $in; $env.PWD", dirs.formats().display().to_string())
+            .run_with_data("cd $in; $env.PWD", dirs.formats())
             .expect_value_eq(dirs.formats())
     })
 }
@@ -52,15 +54,18 @@ fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
-        let path = format!(
-            "{}{}",
-            dirs.formats().display(),
-            std::path::MAIN_SEPARATOR_STR
-        );
+        let dir = {
+            let mut dir = dirs.formats();
+            // It works and is unlikely to break, but is not explicitly documented behavior
+            // Also Path::with_trailing_sep is unstable
+            dir.push("");
+            assert!(dir.as_os_str().as_bytes().ends_with(b"/"));
+            dir
+        };
 
         test()
             .cwd(dirs.test())
-            .run_with_data("cd $in; $env.PWD", path)
+            .run_with_data("cd $in; $env.PWD", dir)
             .expect_value_eq(dirs.formats())
     })
 }

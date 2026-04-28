@@ -8,7 +8,7 @@ fn http_get_is_success() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_body("foo").create();
     test()
-        .run_with_data("let url = $in; http get $url", server.url())
+        .run_with_data("http get $in", server.url())
         .expect_value_eq("foo")
 }
 
@@ -17,7 +17,7 @@ fn http_get_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
     let _mock = server.mock("GET", "/").with_status(400).create();
     let err = test()
-        .run_with_data("let url = $in; http get $url", server.url())
+        .run_with_data("http get $in", server.url())
         .expect_shell_error()?;
     match err {
         ShellError::NetworkFailure { msg, .. } => {
@@ -39,7 +39,7 @@ fn http_get_with_accept_errors() -> Result {
         .create();
 
     test()
-        .run_with_data("let url = $in; http get -e $url", server.url())
+        .run_with_data("http get -e $in", server.url())
         .expect_value_eq("error body")
 }
 
@@ -59,8 +59,7 @@ fn http_get_with_accept_errors_and_full_raw_response() -> Result {
         body: String,
     }
 
-    let response: Response =
-        test().run_with_data("let url = $in; http get -e -f $url", server.url())?;
+    let response: Response = test().run_with_data("http get -e -f $in", server.url())?;
     assert_eq!(response.status, 400);
     assert_eq!(response.body, "error body");
     Ok(())
@@ -88,8 +87,7 @@ fn http_get_with_accept_errors_and_full_json_response() -> Result {
         msg: String,
     }
 
-    let response: Response =
-        test().run_with_data("let url = $in; http get -e -f $url", server.url())?;
+    let response: Response = test().run_with_data("http get -e -f $in", server.url())?;
     assert_eq!(response.status, 400);
     assert_eq!(response.body.msg, "error body");
     Ok(())
@@ -112,13 +110,11 @@ fn http_get_with_custom_headers_as_records() -> Result {
         .create();
 
     let _: String = test().run_with_data(
-        "let url = $in; http get -H {content-type: application/json} $url",
+        "http get -H {content-type: application/json} $in",
         server.url(),
     )?;
-    let _: String = test().run_with_data(
-        "let url = $in; http get -H {content-type: text/plain} $url",
-        server.url(),
-    )?;
+    let _: String =
+        test().run_with_data("http get -H {content-type: text/plain} $in", server.url())?;
 
     mock1.assert();
     mock2.assert();
@@ -132,7 +128,7 @@ fn http_get_full_response() -> Result {
     let _mock = server.mock("GET", "/").with_body("foo").create();
 
     let outcome: String = test().run_with_data(
-        "let url = $in; http get --full $url --headers [foo bar] | to json",
+        "http get --full $in --headers [foo bar] | to json",
         server.url(),
     )?;
     let output: serde_json::Value =

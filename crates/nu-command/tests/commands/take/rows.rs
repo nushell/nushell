@@ -1,3 +1,4 @@
+use nu_protocol::{IntoPipelineData, Span};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -59,10 +60,14 @@ fn works_with_binary_list() -> Result {
 
 #[test]
 fn takes_bytes_and_drops_content_type() -> Result {
-    test()
-        .run_with_data(
-            "open $in | take 3 | metadata | get content_type? | describe",
-            file!(),
-        )
-        .expect_value_eq("nothing")
+    let content_type = test()
+        .run_raw_with_data(
+            "open $in | take 3",
+            (file!()).into_value(Span::test_data()).into_pipeline_data(),
+        )?
+        .take_metadata()
+        .and_then(|md| md.content_type);
+
+    assert!(content_type.is_none());
+    Ok(())
 }
