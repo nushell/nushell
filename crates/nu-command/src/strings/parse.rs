@@ -259,20 +259,14 @@ fn operate(
             })
             .into()),
         PipelineData::ByteStream(stream, ..) => {
-            if let Some(lines) = stream.lines() {
-                let iter = ParseIter {
-                    captures: VecDeque::new(),
-                    regex,
-                    columns,
-                    iter: lines,
-                    span: head,
-                    signals: engine_state.signals().clone(),
-                };
+            let val = stream.into_string()?;
 
-                Ok(ListStream::new(iter, head, Signals::empty()).into())
-            } else {
-                Ok(PipelineData::empty())
-            }
+            let captures = regex
+                .captures_iter(&val)
+                .map(|captures| captures_to_value(captures, &columns, head))
+                .collect::<Result<_, _>>()?;
+
+            Ok(Value::list(captures, head).into_pipeline_data())
         }
     }
 }
