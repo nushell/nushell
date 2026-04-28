@@ -46,7 +46,7 @@ impl Command for Parse {
         vec![
             Example {
                 description: "Parse a string into two named columns.",
-                example: "\"hi there\" | parse \"{foo} {bar}\"",
+                example: r#""hi there" | parse "{foo} {bar}""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),
                     "bar" => Value::test_string("there"),
@@ -54,14 +54,14 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string, ignoring a column with _.",
-                example: "\"hello world\" | parse \"{foo} {_}\"",
+                example: r#""hello world" | parse "{foo} {_}""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hello"),
                 })])),
             },
             Example {
                 description: "This is how the first example is interpreted in the source code.",
-                example: "\"hi there\" | parse --regex '(?s)\\A(?P<foo>.*?) (?P<bar>.*?)\\z'",
+                example: r#""hi there" | parse --regex '(?s)\A(?P<foo>.*?) (?P<bar>.*?)\z'"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),
                     "bar" => Value::test_string("there"),
@@ -69,14 +69,14 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex named capture group pattern.",
-                example: "\"foo bar.\" | parse --regex '\\s*(?<name>\\w+)(?=\\.)'",
+                example: r#""foo bar." | parse --regex '\s*(?<name>\w+)(?=\.)'"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "name" => Value::test_string("bar"),
                 })])),
             },
             Example {
                 description: "Parse a string using fancy-regex capture group pattern.",
-                example: "\"foo! bar.\" | parse --regex '(\\w+)(?=\\.)|(\\w+)(?=!)'",
+                example: r#""foo! bar." | parse --regex '(\w+)(?=\.)|(\w+)(?=!)'"#,
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "capture0" => Value::test_nothing(),
@@ -90,7 +90,7 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look behind pattern.",
-                example: "\" @another(foo bar)   \" | parse --regex '\\s*(?<=[() ])(@\\w+)(\\([^)]*\\))?\\s*'",
+                example: r#"" @another(foo bar)   " | parse --regex '\s*(?<=[() ])(@\w+)(\([^)]*\))?\s*'"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "capture0" => Value::test_string("@another"),
                     "capture1" => Value::test_string("(foo bar)"),
@@ -98,14 +98,14 @@ impl Command for Parse {
             },
             Example {
                 description: "Parse a string using fancy-regex look ahead atomic group pattern.",
-                example: "\"abcd\" | parse --regex '^a(bc(?=d)|b)cd$'",
+                example: r#""abcd" | parse --regex '^a(bc(?=d)|b)cd$'"#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "capture0" => Value::test_string("b"),
                 })])),
             },
             Example {
                 description: "Parse a string with a manually set fancy-regex backtrack limit.",
-                example: "\"hi there\" | parse --backtrack 1500000 \"{foo} {bar}\"",
+                example: r#""hi there" | parse --backtrack 1500000 "{foo} {bar}""#,
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "foo" => Value::test_string("hi"),
                     "bar" => Value::test_string("there"),
@@ -278,7 +278,7 @@ fn operate(
 }
 
 fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
-    let mut output = "(?s)\\A".to_string();
+    let mut output = r#"(?s)\A"#.to_string();
 
     // Single-pass scanner keeps parsing state explicit and avoids byte-offset bookkeeping.
     let mut loop_input = input.char_indices().peekable();
@@ -352,7 +352,7 @@ fn build_regex(input: &str, span: Span) -> Result<String, ShellError> {
         output.push_str(&fancy_regex::escape(&before));
     }
 
-    output.push_str("\\z");
+    output.push_str(r#"\z"#);
     Ok(output)
 }
 
