@@ -150,6 +150,33 @@ pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteComma
     }
 }
 
+fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
+    let mut needle = Vec::with_capacity(rest_name.len() + 3);
+    needle.extend_from_slice(b"...");
+    needle.extend_from_slice(rest_name.as_bytes());
+
+    if signature_source.len() < needle.len() {
+        return false;
+    }
+
+    for start in 0..=(signature_source.len() - needle.len()) {
+        if signature_source[start..start + needle.len()] != needle {
+            continue;
+        }
+
+        let mut idx = start + needle.len();
+        while idx < signature_source.len() && signature_source[idx].is_ascii_whitespace() {
+            idx += 1;
+        }
+
+        if idx < signature_source.len() && signature_source[idx] == b':' {
+            return true;
+        }
+    }
+
+    false
+}
+
 pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut pos = 0;
 
@@ -250,6 +277,14 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     signature.name = name;
 
     if allow_unknown_args {
+        if let Some(rest) = &mut signature.rest_positional
+            && !rest_param_is_type_annotated(
+                working_set.get_span_contents(spans[signature_pos]),
+                &rest.name,
+            )
+        {
+            rest.shape = SyntaxShape::ExternalArgument;
+        }
         signature.allows_unknown_args = true;
     }
 
@@ -713,7 +748,14 @@ fn parse_def_inner(
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
         if has_wrapped {
-            if let Some(rest) = &signature.rest_positional {
+            if let Some(rest) = &mut signature.rest_positional {
+                if !rest_param_is_type_annotated(
+                    working_set.get_span_contents(sig.span),
+                    &rest.name,
+                ) {
+                    rest.shape = SyntaxShape::ExternalArgument;
+                }
+
                 if let Some(var_id) = rest.var_id {
                     let rest_var = &working_set.get_variable(var_id);
 

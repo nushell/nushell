@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path, expand_path_with};
+use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
@@ -23,6 +23,29 @@ use nu_utils::IgnoreCaseExt;
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
+
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
+/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
+/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
+/// paths instead of the raw `~` / `...` tokens.
+fn expand_external_glob_arg(val: Value) -> Value {
+    if let Value::Glob {
+        val: ref s,
+        no_expand,
+        internal_span,
+        ..
+    } = val
+        && !no_expand
+        && !nu_glob::is_glob(s)
+    {
+        let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
+        let expanded_str = expanded.to_string_lossy().into_owned();
+        if expanded_str != *s {
+            return Value::string(expanded_str, internal_span);
+        }
+    }
+    val
+}
 
 pub fn eval_ir_block<D: DebugContext>(
     engine_state: &EngineState,
@@ -1348,6 +1371,14 @@ fn gather_arguments(
     let mut rest = vec![];
     let mut rest_span: Option<Span> = None;
 
+    // If the rest param uses ExternalArgument shape (untyped `def --wrapped` or `known extern`),
+    // tilde and ndots in bare glob values should be expanded, matching `run-external` behavior so
+    // that `$args | to nuon` shows expanded paths (e.g. `/home/user`) rather than `~`.
+    // We detect this via `allows_unknown_args`, which is set for all `def --wrapped` and
+    // `known extern` commands, and only affects `Value::Glob` values (explicit `[...rest: string]`
+    // produces `Value::String`, not `Value::Glob`, so those are unaffected).
+    let expand_glob_args = block.signature.allows_unknown_args;
+
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;
 
@@ -1367,6 +1398,11 @@ fn gather_arguments(
                     callee_stack.add_var(var_id, val);
                 } else {
                     rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
+                    let val = if expand_glob_args {
+                        expand_external_glob_arg(val)
+                    } else {
+                        val
+                    };
                     rest.push(val);
                 }
             }
