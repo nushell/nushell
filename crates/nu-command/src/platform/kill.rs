@@ -51,23 +51,25 @@ impl Command for Kill {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let mut pids: Vec<Spanned<i64>> = call.rest(engine_state, stack, 0)?;
+        let pids: Vec<Spanned<i64>> = call.rest(engine_state, stack, 0)?;
         let force: bool = call.has_flag(engine_state, stack, "force")?;
-        let mut signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
+        let signal: Option<Spanned<i64>> = call.get_flag(engine_state, stack, "signal")?;
         let quiet: bool = call.has_flag(engine_state, stack, "quiet")?;
 
-        if signal.is_none() && !pids.is_empty() {
-            let first = &pids[0];
-
-            if first.item == 0
-                && is_negative_zero_signal(engine_state.get_span_contents(first.span))
-            {
-                signal = Some(Spanned {
-                    item: 0,
-                    span: first.span,
-                });
-                pids.remove(0);
-            }
+        if cfg!(unix)
+            && signal.is_none()
+            && let Some((span, signal_number)) = pids.iter().find_map(|pid| {
+                inferred_signal_number(engine_state.get_span_contents(pid.span), pid.item)
+                    .map(|signal_number| (pid.span, signal_number))
+            })
+        {
+            return Err(ShellError::IncorrectValue {
+                msg: format!(
+                    "negative pid shorthand is not supported; use `kill -s {signal_number} <pid>`"
+                ),
+                val_span: span,
+                call_span: call.head,
+            });
         }
 
         if pids.is_empty() {
@@ -168,11 +170,18 @@ impl Command for Kill {
     }
 }
 
-// The token `-0` should be treated as signal shorthand in `kill -0 pid`.
-// The parser converts `-0` into integer 0, so we need raw-source detection
-// to distinguish it from a literal PID value of 0.
-fn is_negative_zero_signal(raw: &[u8]) -> bool {
-    raw.starts_with(b"-") && !raw[1..].is_empty() && raw[1..].iter().all(|b| *b == b'0')
+fn inferred_signal_number(raw: &[u8], pid: i64) -> Option<u64> {
+    if pid < 0 {
+        return Some(pid.unsigned_abs());
+    }
+
+    let stripped = std::str::from_utf8(raw).ok()?.strip_prefix('-')?;
+
+    if stripped.is_empty() || !stripped.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+
+    stripped.parse().ok()
 }
 
 #[cfg(test)]
@@ -185,11 +194,11 @@ mod tests {
     }
 
     #[test]
-    fn negative_zero_is_signal_token() {
-        assert!(is_negative_zero_signal(b"-0"));
-        assert!(is_negative_zero_signal(b"-00"));
-        assert!(is_negative_zero_signal(b"-000"));
-        assert!(!is_negative_zero_signal(b"0"));
-        assert!(!is_negative_zero_signal(b"-1"));
+    fn inferred_signal_number_detects_negative_pid_shorthand() {
+        assert_eq!(inferred_signal_number(b"-0", 0), Some(0));
+        assert_eq!(inferred_signal_number(b"-00", 0), Some(0));
+        assert_eq!(inferred_signal_number(b"-9", -9), Some(9));
+        assert_eq!(inferred_signal_number(b"0", 0), None);
+        assert_eq!(inferred_signal_number(b"9", 9), None);
     }
 }
