@@ -1145,6 +1145,30 @@ fn command_wide_completion_custom(#[case] return_code: &str) {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn command_wide_completion_wrapped_untyped_equals_flag_value() {
+    let mut completer = custom_completer();
+
+    let sample = r#"
+        def "nu-complete wt" [spans: list<string>] {
+            let last = ($spans | last)
+            if ($last | str starts-with "--base=") {
+                [--base=releases/4.x.x --base=main]
+            } else {
+                [switch --base]
+            }
+        }
+
+        @complete "nu-complete wt"
+        def --wrapped "wt" [...args] {}
+
+        wt switch --base=rel"#;
+
+    let suggestions = completer.complete(sample, sample.len());
+    let expected = vec!["--base=releases/4.x.x", "--base=main"];
+    match_suggestions(&expected, &suggestions);
+}
+
 #[rstest]
 #[case::custom(
     r#"def "nu-complete foo" [spans: list] { null }
