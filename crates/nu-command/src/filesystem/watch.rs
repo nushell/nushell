@@ -133,17 +133,14 @@ impl Command for Watch {
             })
             .transpose()?;
 
-        let recursive_flag: Option<Spanned<bool>> =
-            call.get_flag(engine_state, stack, "recursive")?;
-        let recursive_mode = match recursive_flag {
-            Some(recursive) => {
-                if recursive.item {
-                    RecursiveMode::Recursive
-                } else {
-                    RecursiveMode::NonRecursive
-                }
+        let recursive_mode = {
+            let recursive_flag = call
+                .get_flag::<bool>(engine_state, stack, "recursive")?
+                .unwrap_or(true);
+            match recursive_flag {
+                true => RecursiveMode::Recursive,
+                false => RecursiveMode::NonRecursive,
             }
-            None => RecursiveMode::Recursive,
         };
 
         let (tx, rx) = channel();
