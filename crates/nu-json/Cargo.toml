@@ -34,7 +34,7 @@ nu-test-support = { path = "../nu-test-support" }
 nu-path = { path = "../nu-path" }
 
 serde_json = "1.0"
-fancy-regex = "0.17.0"
+fancy-regex = "0.18.0"
 pretty_assertions = { workspace = true }
 rstest = { workspace = true, default-features = false }
 
