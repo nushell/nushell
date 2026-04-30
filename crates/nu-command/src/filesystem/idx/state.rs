@@ -1225,10 +1225,27 @@ pub fn stream_grep(
                 .match_byte_offsets
                 .iter()
                 .map(|(start, end)| {
+                    let start = i64::try_from(*start).unwrap_or(i64::MAX);
+                    let end = i64::try_from(*end).unwrap_or(i64::MAX);
                     Value::record(
                         [
-                            ("start".to_string(), Value::int(i64::from(*start), span)),
-                            ("end".to_string(), Value::int(i64::from(*end), span)),
+                            // ("start".to_string(), Value::int(start, span)),
+                            // ("end".to_string(), Value::int(end, span)),
+
+                            // I'm guessing calculated offset to match start, end is more valuable
+                            // than just the offset to start and end of the match
+                            (
+                                "start".to_string(),
+                                // byte_offset is the offset to the beginning of the line,
+                                // so match start is offset + start
+                                Value::int(start + item.byte_offset as i64, span),
+                            ),
+                            (
+                                "end".to_string(),
+                                // byte_offset is the offset to the beginning of the line,
+                                // so match end is offset + start + length or offset + end
+                                Value::int(item.byte_offset as i64 + end, span),
+                            ),
                         ]
                         .into_iter()
                         .collect(),
