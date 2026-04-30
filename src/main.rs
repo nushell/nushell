@@ -102,7 +102,7 @@ fn main() -> Result<()> {
         .parse()
         .expect("cargo sets valid version");
     nu_cmd_lang::VERSION.set(version).expect("VERSION is unset");
-    
+
     let cargo_features = env!("NU_FEATURES").split(",").map(Cow::Borrowed).collect();
     nu_cmd_lang::VERSION_NU_FEATURES
         .set(cargo_features)
