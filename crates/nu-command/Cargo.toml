@@ -158,7 +158,7 @@ arboard = { version = "3.6.0", default-features = false, features = ["wayland-da
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
-fff-search = { workspace = true, optional = true }
+fff-search = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
