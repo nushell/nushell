@@ -66,6 +66,7 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
+fff-search = { workspace = true }
 fuzzy-matcher = { workspace = true }
 http = { workspace = true }
 human-date-parser = { workspace = true }
@@ -188,7 +189,7 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "network", "rustls-tls"]
+default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
 	# include other features
 	"js",

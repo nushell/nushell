@@ -254,6 +254,16 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             UTouch,
             Glob,
             Watch,
+            Idx,
+            IdxInit,
+            IdxStatus,
+            IdxFind,
+            IdxSearch,
+            IdxExport,
+            IdxImport,
+            IdxDrop,
+            IdxDirs,
+            IdxFiles,
         };
 
         // Platform
