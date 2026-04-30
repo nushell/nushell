@@ -1,6 +1,5 @@
-use nu_test_support::fs::Stub;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_protocol::{ByteStream, ByteStreamType, PipelineData, Signals, Span, test_table};
+use nu_test_support::{fs::Stub, prelude::*};
 
 mod simple {
     use super::*;
@@ -237,5 +236,43 @@ mod regex {
 
             assert_eq!(actual.out, "1000");
         })
+    }
+
+    #[test]
+    fn multiline_regex() -> Result {
+        let mut tester = test();
+
+        let pattern = r#"(?ms)^(?<n>\d+)\. (?<text>.*?)(?=$\s^\d|\Z)"#;
+        let () = tester.run_with_data("let pattern = $in", pattern)?;
+
+        let input = [
+            "1. one\n",
+            "2. two and\n",
+            "   a half\n",
+            "3. three\n",
+            "4. four and\n",
+            "   some more\n",
+        ];
+        let byte_stream = PipelineData::ByteStream(
+            ByteStream::from_iter(
+                input,
+                Span::test_data(),
+                Signals::empty(),
+                ByteStreamType::Unknown,
+            ),
+            None,
+        );
+
+        let code = "parse -r $pattern";
+        tester
+            .run_raw_with_data(code, byte_stream)
+            .and_then(|x| x.body.into_value(Span::test_data()).map_err(Error::from))
+            .expect_value_eq(test_table![
+              ["n", "text"];
+              ["1", "one"],
+              ["2", "two and\n   a half"],
+              ["3", "three"],
+              ["4", "four and\n   some more"]
+            ])
     }
 }
