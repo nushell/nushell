@@ -210,16 +210,16 @@ impl Command for Watch {
         vec![
             Example {
                 description: "Run `cargo test` whenever a Rust file changes.",
-                example: "watch . --glob=**/*.rs {|| cargo test }",
+                example: "for _ in (watch . --glob=**/*.rs) { cargo test }",
                 result: None,
             },
             Example {
                 description: "Watch all changes in the current directory.",
-                example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
+                example: "watch . | each { print }",
                 result: None,
             },
             Example {
-                description: "`watch` (when run without a closure) can also emit a stream of events it detects.",
+                description: "Filter, limit and modify `watch`'s output by using it as part of a pipeline.",
                 example: r#"watch /foo/bar
     | where operation == Create
     | first 5
@@ -230,12 +230,17 @@ impl Command for Watch {
             },
             Example {
                 description: "Print file changes with a debounce time of 5 minutes.",
-                example: r#"watch /foo/bar --debounce 5min { |op, path| $"Registered ($op) on ($path)" | print }"#,
+                example: r#"watch /foo/bar --debounce 5min | each {|e| $"Registered ($e.operation) on ($e.path)" | print }"#,
                 result: None,
             },
             Example {
                 description: "Note: if you are looking to run a command every N units of time, this can be accomplished with a loop and sleep.",
                 example: "loop { command; sleep duration }",
+                result: None,
+            },
+            Example {
+                description: "Run `cargo test` whenever a Rust file changes (with the deprecated closure argument).",
+                example: "watch . --glob=**/*.rs {|| cargo test }",
                 result: None,
             },
         ]
