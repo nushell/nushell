@@ -4251,6 +4251,7 @@ dependencies = [
  "nu-utils",
  "quickcheck",
  "quickcheck_macros",
+ "semver",
  "shadow-rs",
 ]
 
