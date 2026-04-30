@@ -25,7 +25,7 @@ pub struct IdxRuntime {
 
 /// A cloned snapshot of the current runtime state, obtained while holding the
 /// global mutex for the minimum amount of time. All fields are cheaply
-/// clonable (Arc / Copy), so callers can work with this after the lock is
+/// cloneable (Arc / Copy), so callers can work with this after the lock is
 /// released.
 pub type RuntimeSnapshot = IdxRuntime;
 
