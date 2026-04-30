@@ -7,6 +7,23 @@ use shadow_rs::shadow;
 
 shadow!(build);
 
+/// Static container for the version shown by the `version` command.
+///
+/// By default, this falls back to `nu_cmd_lang`'s own crate version
+/// (`env!("CARGO_PKG_VERSION")`).
+///
+/// If you're embedding Nushell (or wiring `nu_cmd_lang` into another binary),
+/// set this static before calling `version` so it reports your host binary's version.
+///
+/// ```no_run
+/// let version = env!("CARGO_PKG_VERSION")
+///     .parse()
+///     .expect("cargo sets valid version");
+///
+/// nu_cmd_lang::VERSION
+///     .set(version)
+///     .expect("VERSION is unset");
+/// ```
 pub static VERSION: OnceLock<semver::Version> = OnceLock::new();
 
 /// Static container for the cargo features used by the `version` command.
@@ -22,7 +39,7 @@ pub static VERSION: OnceLock<semver::Version> = OnceLock::new();
 /// # How to get cargo features in your build script
 ///
 /// In your binary's build script:
-/// ```rust,ignore
+/// ```no_run
 /// // Re-export CARGO_CFG_FEATURE to the main binary.
 /// // It holds all the features that cargo sets for your binary as a comma-separated list.
 /// println!(
@@ -32,7 +49,7 @@ pub static VERSION: OnceLock<semver::Version> = OnceLock::new();
 /// ```
 ///
 /// Then, before you call `version`:
-/// ```rust,ignore
+/// ```ignore
 /// // This uses static strings, but since we're using `Cow`, you can also pass owned strings.
 /// let features = env!("NU_FEATURES")
 ///     .split(',')
@@ -131,8 +148,9 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
         "build_rust_channel",
         "allocator",
         "features",
-        "installed_plugins"
-    ].len();
+        "installed_plugins",
+    ]
+    .len();
 
     let mut record = Record::with_capacity(VERSION_MAX_ROWS);
 
