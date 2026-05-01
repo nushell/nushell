@@ -14,11 +14,15 @@ pub enum NuGlob {
 }
 
 impl NuGlob {
-    pub fn strip_ansi_string_unlikely(self) -> Self {
+    pub fn map(self, f: impl FnOnce(String) -> String) -> Self {
         match self {
-            NuGlob::DoNotExpand(s) => NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s)),
-            NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
+            NuGlob::DoNotExpand(s) => NuGlob::DoNotExpand(f(s)),
+            NuGlob::Expand(s) => NuGlob::Expand(f(s)),
         }
+    }
+
+    pub fn strip_ansi_string_unlikely(self) -> Self {
+        self.map(nu_utils::strip_ansi_string_unlikely)
     }
 
     pub fn is_expand(&self) -> bool {
