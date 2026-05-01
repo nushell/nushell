@@ -10,7 +10,7 @@ mod signals;
 mod terminal;
 mod test_bins;
 
-#[cfg(feature = "nu-lsp")]
+#[cfg(feature = "lsp")]
 use crate::run::run_lsp;
 use crate::{
     command::parse_cli_args_from_env,
@@ -219,9 +219,9 @@ fn main() -> Result<()> {
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
 
-    #[cfg(feature = "nu-lsp")]
+    #[cfg(feature = "lsp")]
     let is_lsp = parsed_nu_cli_args.lsp;
-    #[cfg(not(feature = "nu-lsp"))]
+    #[cfg(not(feature = "lsp"))]
     let is_lsp = false;
     engine_state.is_lsp = is_lsp;
     // keep this condition in sync with the branches at the end
@@ -589,9 +589,9 @@ fn main() -> Result<()> {
     }
 
     if is_lsp {
-        #[cfg(feature = "nu-lsp")]
+        #[cfg(feature = "lsp")]
         run_lsp(engine_state, parsed_nu_cli_args, use_color)?;
-        #[cfg(not(feature = "nu-lsp"))]
+        #[cfg(not(feature = "lsp"))]
         unreachable!()
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(

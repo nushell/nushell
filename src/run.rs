@@ -221,7 +221,7 @@ pub(crate) fn run_repl(
     ret_val
 }
 
-#[cfg(feature = "nu-lsp")]
+#[cfg(feature = "lsp")]
 pub(crate) fn run_lsp(
     mut engine_state: EngineState,
     parsed_nu_cli_args: command::NushellCliArgs,

@@ -312,9 +312,9 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "lsp",
   "mcp",
   "network",
-  "nu-lsp",
   "plugin",
   "rustls-tls",
   "sqlite",
@@ -336,6 +336,8 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+lsp = ["dep:nu-lsp"]
+
 mcp = [
   "dep:nu-mcp",
   "nu-mcp/mcp",
@@ -346,9 +348,9 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
+  "lsp",
   "mcp",
   "network",
-  "nu-lsp",
   "plugin",
   "rustls-tls",
   "sqlite",
