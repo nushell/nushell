@@ -220,3 +220,28 @@ pub(crate) fn run_repl(
 
     ret_val
 }
+
+#[cfg(feature = "nu-lsp")]
+pub(crate) fn run_lsp(
+    mut engine_state: EngineState,
+    parsed_nu_cli_args: command::NushellCliArgs,
+    use_color: bool,
+) -> Result<(), miette::ErrReport> {
+    let start_time = nu_utils::time::Instant::now();
+
+    if parsed_nu_cli_args.no_config_file.is_none() {
+        let mut stack = nu_protocol::engine::Stack::new();
+        config_files::setup_config(
+            &mut engine_state,
+            &mut stack,
+            #[cfg(feature = "plugin")]
+            parsed_nu_cli_args.plugin_file,
+            parsed_nu_cli_args.config_file,
+            parsed_nu_cli_args.env_file,
+            false,
+        );
+    }
+
+    perf!("lsp starting", start_time, use_color);
+    nu_lsp::LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()
+}

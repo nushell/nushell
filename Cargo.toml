@@ -258,7 +258,7 @@ nu-command = { path = "./crates/nu-command", version = "0.112.3", default-featur
 nu-engine = { path = "./crates/nu-engine", version = "0.112.3" }
 nu-experimental = { path = "./crates/nu-experimental", version = "0.112.3" }
 nu-explore = { path = "./crates/nu-explore", version = "0.112.3" }
-nu-lsp = { path = "./crates/nu-lsp/", version = "0.112.3" }
+nu-lsp = { path = "./crates/nu-lsp/", version = "0.112.3", optional = true }
 nu-parser = { path = "./crates/nu-parser", version = "0.112.3" }
 nu-path = { path = "./crates/nu-path", version = "0.112.3" }
 nu-plugin-engine = { path = "./crates/nu-plugin-engine", optional = true, version = "0.112.3" }
@@ -312,13 +312,14 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "mcp",
   "network",
+  "nu-lsp",
   "plugin",
   "rustls-tls",
   "sqlite",
   "system-clipboard",
   "trash-support",
-  "mcp",
 ]
 
 plugin = [
@@ -345,12 +346,13 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
-  "plugin",
-  "trash-support",
-  "sqlite",
-  "network",
-  "rustls-tls",
   "mcp",
+  "network",
+  "nu-lsp",
+  "plugin",
+  "rustls-tls",
+  "sqlite",
+  "trash-support",
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command

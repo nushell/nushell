@@ -10,6 +10,8 @@ mod signals;
 mod terminal;
 mod test_bins;
 
+#[cfg(feature = "nu-lsp")]
+use crate::run::run_lsp;
 use crate::{
     command::parse_cli_args_from_env,
     config_files::set_config_path,
@@ -19,7 +21,6 @@ use log::{Level, trace};
 use miette::Result;
 use nu_cli::gather_parent_env_vars;
 use nu_engine::{convert_env_values, exit::cleanup_exit};
-use nu_lsp::LanguageServer;
 use nu_path::absolute_with;
 use nu_protocol::{
     ByteStream, Config, IntoValue, PipelineData, ShellError, Span, Spanned, Type, Value,
@@ -218,16 +219,20 @@ fn main() -> Result<()> {
     #[cfg(feature = "sqlite")]
     db.last_insert_rowid();
 
+    #[cfg(feature = "nu-lsp")]
+    let is_lsp = parsed_nu_cli_args.lsp;
+    #[cfg(not(feature = "nu-lsp"))]
+    let is_lsp = false;
+    engine_state.is_lsp = is_lsp;
     // keep this condition in sync with the branches at the end
     engine_state.is_interactive = parsed_nu_cli_args.interactive_shell.is_some()
         || (parsed_nu_cli_args.testbin.is_none()
             && parsed_nu_cli_args.commands.is_none()
             && script_name.is_empty()
-            && !parsed_nu_cli_args.lsp);
+            && !is_lsp);
 
     engine_state.is_login = parsed_nu_cli_args.login_shell.is_some();
     engine_state.history_enabled = parsed_nu_cli_args.no_history.is_none();
-    engine_state.is_lsp = parsed_nu_cli_args.lsp;
 
     let use_color = engine_state
         .get_config()
@@ -542,11 +547,9 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
-    start_time = nu_utils::time::Instant::now();
-
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {
-        perf!("mcp starting", start_time, use_color);
+        perf!("mcp starting", nu_utils::time::Instant::now(), use_color);
         // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
         engine_state.is_mcp = true;
         let mcp_transport_kind = parsed_nu_cli_args
@@ -585,23 +588,11 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
-    if parsed_nu_cli_args.lsp {
-        perf!("lsp starting", start_time, use_color);
-
-        if parsed_nu_cli_args.no_config_file.is_none() {
-            let mut stack = nu_protocol::engine::Stack::new();
-            config_files::setup_config(
-                &mut engine_state,
-                &mut stack,
-                #[cfg(feature = "plugin")]
-                parsed_nu_cli_args.plugin_file,
-                parsed_nu_cli_args.config_file,
-                parsed_nu_cli_args.env_file,
-                false,
-            );
-        }
-
-        LanguageServer::initialize_stdio_connection(engine_state)?.serve_requests()?
+    if is_lsp {
+        #[cfg(feature = "nu-lsp")]
+        run_lsp(engine_state, parsed_nu_cli_args, use_color)?;
+        #[cfg(not(feature = "nu-lsp"))]
+        unreachable!()
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
