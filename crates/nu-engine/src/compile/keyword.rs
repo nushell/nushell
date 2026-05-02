@@ -30,9 +30,9 @@ pub(crate) fn compile_if(
         span: call.head,
     };
 
-    let condition = call.positional_nth(0).ok_or_else(invalid)?;
-    let true_block_arg = call.positional_nth(1).ok_or_else(invalid)?;
-    let else_arg = call.positional_nth(2);
+    let (condition, true_block_arg, else_arg) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next())))
+        .ok_or_else(invalid)?;
 
     let true_block_id = true_block_arg.as_block().ok_or_else(invalid)?;
     let true_block = working_set.get_block(true_block_id);
@@ -171,9 +171,10 @@ pub(crate) fn compile_match(
         span: call.head,
     };
 
-    let match_expr = call.positional_nth(0).ok_or_else(invalid)?;
+    let (match_expr, match_block_arg) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next()?)))
+        .ok_or_else(invalid)?;
 
-    let match_block_arg = call.positional_nth(1).ok_or_else(invalid)?;
     let match_block = match_block_arg.as_match_block().ok_or_else(invalid)?;
 
     let match_reg = builder.next_register()?;
@@ -331,16 +332,19 @@ pub(crate) fn compile_let(
         span: call.head,
     };
 
-    let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let (var_decl_arg, block_arg) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next())))
+        .ok_or_else(invalid)?;
+
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
 
     // Handle the two syntax forms:
     // 1. `let var = expr`: compile expr and store result
     // 2. `let var` (no =): use input_reg as the value
-    let has_initial_value = call.positional_nth(1).is_some();
+    let has_initial_value = block_arg.is_some();
     if has_initial_value {
         // Safe to use expect here since we just checked is_some()
-        let block_arg = call.positional_nth(1).expect("checked above");
+        let block_arg = block_arg.expect("checked above");
         let block_id = block_arg.as_block().ok_or_else(invalid)?;
         let block = working_set.get_block(block_id);
 
@@ -456,32 +460,35 @@ pub(crate) fn compile_try(
         span: call.head,
     };
 
-    let block_arg = call.positional_nth(0).ok_or_else(invalid)?;
-    let block_id = block_arg.as_block().ok_or_else(invalid)?;
-    let block = working_set.get_block(block_id);
+    let (try_block, catch_or_finally, finally) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next(), iter.next())))
+        .ok_or_else(invalid)?;
 
-    // manually parsing for `catch` or `finally`.
-    let mut catch_expr = None;
-    let mut finally_expr = None;
-    if let Some(kw_expr) = call.positional_nth(1) {
-        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
-        if keyword == b"catch" {
-            catch_expr = Some(expr);
-        } else if keyword == b"finally" {
-            finally_expr = Some(expr);
-        }
+    let block = {
+        let block_id = try_block.as_block().ok_or_else(invalid)?;
+        working_set.get_block(block_id)
     };
-    if let Some(kw_expr) = call.positional_nth(2) {
-        let (keyword, expr) = kw_expr.as_keyword_with_name().ok_or_else(invalid)?;
-        if keyword == b"catch" {
-            // just deny it, because it should only be valid in 1st positional arguments.
-            return Err(invalid());
-        } else if keyword == b"finally" {
-            // deny duplicate finally.
-            if finally_expr.is_some() {
+
+    let (catch_expr, finally_expr) = {
+        let catch_or_finally = catch_or_finally
+            .map(|expr| expr.as_keyword_with_name().ok_or_else(invalid))
+            .transpose()?;
+
+        let finally = finally
+            .map(|expr| expr.as_keyword_with_name().ok_or_else(invalid))
+            .transpose()?;
+
+        match (catch_or_finally, finally) {
+            (None, None) => (None, None),
+            (Some((b"catch", catch_expr)), None) => (Some(catch_expr), None),
+            (Some((b"finally", finally_expr)), None) => (None, Some(finally_expr)),
+            (Some((b"catch", catch_expr)), Some((b"finally", finally_expr))) => {
+                (Some(catch_expr), Some(finally_expr))
+            }
+            _ => {
+                // Should be unreachable
                 return Err(invalid());
             }
-            finally_expr = Some(expr);
         }
     };
 
@@ -775,9 +782,14 @@ pub(crate) fn compile_loop(
         span: call.head,
     };
 
-    let block_arg = call.positional_nth(0).ok_or_else(invalid)?;
-    let block_id = block_arg.as_block().ok_or_else(invalid)?;
-    let block = working_set.get_block(block_id);
+    let block = {
+        let block_id = call
+            .positional_iter()
+            .next()
+            .and_then(Expression::as_block)
+            .ok_or_else(invalid)?;
+        working_set.get_block(block_id)
+    };
 
     let loop_ = builder.begin_loop();
     builder.load_empty(io_reg)?;
@@ -833,10 +845,14 @@ pub(crate) fn compile_while(
         span: call.head,
     };
 
-    let cond_arg = call.positional_nth(0).ok_or_else(invalid)?;
-    let block_arg = call.positional_nth(1).ok_or_else(invalid)?;
-    let block_id = block_arg.as_block().ok_or_else(invalid)?;
-    let block = working_set.get_block(block_id);
+    let (cond_arg, block_arg) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next()?)))
+        .ok_or_else(invalid)?;
+
+    let block = {
+        let block_id = block_arg.as_block().ok_or_else(invalid)?;
+        working_set.get_block(block_id)
+    };
 
     let loop_ = builder.begin_loop();
     builder.set_label(loop_.continue_label, builder.here())?;
@@ -915,13 +931,12 @@ pub(crate) fn compile_for(
         return Err(invalid());
     }
 
-    let var_decl_arg = call.positional_nth(0).ok_or_else(invalid)?;
+    let (var_decl_arg, in_arg, block_arg) = Some(call.positional_iter())
+        .and_then(|mut iter| Some((iter.next()?, iter.next()?, iter.next()?)))
+        .ok_or_else(invalid)?;
+
     let var_id = var_decl_arg.as_var().ok_or_else(invalid)?;
-
-    let in_arg = call.positional_nth(1).ok_or_else(invalid)?;
     let in_expr = in_arg.as_keyword().ok_or_else(invalid)?;
-
-    let block_arg = call.positional_nth(2).ok_or_else(invalid)?;
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
@@ -1058,7 +1073,7 @@ pub(crate) fn compile_return(
     //
     // %io_reg <- <arg_expr>
     // return-early %io_reg
-    if let Some(arg_expr) = call.positional_nth(0) {
+    if let Some(arg_expr) = call.positional_iter().next() {
         compile_expression(
             working_set,
             builder,
@@ -1107,7 +1122,7 @@ pub(crate) fn compile_collect(
 
     builder.push(Instruction::Collect { src_dst: io_reg }.into_spanned(call.head))?;
 
-    if let Some(arg_expr) = call.positional_nth(0) {
+    if let Some(arg_expr) = call.positional_iter().next() {
         // We have to compile the expression into a closure,
         // then compile a closure call
         let closure_reg = builder.next_register()?;
