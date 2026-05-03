@@ -902,11 +902,13 @@ fn parse_extern_inner(
             (call, call_span)
         }
     };
-    let name_expr = call.positional_nth(0);
-    let sig = call.positional_nth(1);
-    let body = call.positional_nth(2);
 
-    if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
+    let (name_and_sig_exprs, body_expr) = {
+        let mut positional_iter = call.positional_iter();
+        (positional_iter.next_array::<2>(), positional_iter.next())
+    };
+
+    if let Some([name_expr, sig]) = name_and_sig_exprs {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
             if let Some(mod_name) = module_name
                 && name.as_bytes() == mod_name
@@ -942,7 +944,7 @@ fn parse_extern_inner(
 
                 let declaration = working_set.get_decl_mut(decl_id);
 
-                if let Some(block_id) = body.and_then(|x| x.as_block()) {
+                if let Some(block_id) = body_expr.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
                         working_set.error(ParseError::InternalError(
                             "Extern block must have a rest positional argument".into(),
@@ -1213,7 +1215,7 @@ pub fn parse_alias(
             return alias_pipeline;
         }
 
-        let Some(alias_name_expr) = alias_call.positional_nth(0) else {
+        let Some(alias_name_expr) = alias_call.positional_iter().next() else {
             working_set.error(ParseError::UnknownState(
                 "Missing positional after call check".to_string(),
                 Span::concat(spans),
@@ -1814,7 +1816,7 @@ pub fn parse_export_env(
         }
     };
 
-    let block_id = if let Some(block) = call.positional_nth(0) {
+    let block_id = if let Some(block) = call.positional_iter().next() {
         if let Some(block_id) = block.as_block() {
             block_id
         } else {
@@ -2339,43 +2341,39 @@ pub fn parse_module(
         }
     };
 
-    let (module_name_or_path, module_name_or_path_span) = if let Some(name) = call.positional_nth(0)
-    {
-        if let Some(s) = name.as_string() {
-            if let Some(mod_name) = module_name
-                && s.as_bytes() == mod_name
-            {
-                working_set.error(ParseError::NamedAsModule(
-                    "module".to_string(),
-                    s,
-                    "mod".to_string(),
-                    name.span,
-                ));
-                return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        Type::Any,
-                    )]),
-                    None,
-                );
-            }
-            (s, name.span)
-        } else {
-            working_set.error(ParseError::UnknownState(
-                "internal error: name not a string".into(),
-                Span::concat(spans),
-            ));
-            return (garbage_pipeline(working_set, spans), None);
-        }
-    } else {
+    let Some(name_expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: missing positional".into(),
             Span::concat(spans),
         ));
         return (garbage_pipeline(working_set, spans), None);
     };
+    let Some(name) = name_expr.as_string() else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: name not a string".into(),
+            Span::concat(spans),
+        ));
+        return (garbage_pipeline(working_set, spans), None);
+    };
+
+    if module_name.is_some_and(|mod_name| mod_name == name.as_bytes()) {
+        working_set.error(ParseError::NamedAsModule(
+            "module".to_string(),
+            name,
+            "mod".to_string(),
+            name_expr.span,
+        ));
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            None,
+        );
+    }
+    let (module_name_or_path, module_name_or_path_span) = (name, name_expr.span);
 
     if spans.len() == split_id + 1 {
         let pipeline = Pipeline::from_vec(vec![Expression::new(
