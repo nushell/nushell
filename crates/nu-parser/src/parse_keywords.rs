@@ -694,9 +694,10 @@ fn parse_def_inner(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let name_expr = call.positional_nth(0).expect("def call already checked");
-    let sig = call.positional_nth(1).expect("def call already checked");
-    let block = call.positional_nth(2).expect("def call already checked");
+    let [name_expr, sig_expr, block_expr] = call
+        .positional_iter()
+        .next_array()
+        .expect("def call already checked");
 
     let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
@@ -725,10 +726,17 @@ fn parse_def_inner(
 
     let mut result = None;
 
-    if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
+    if let (Some(mut signature), Some(block_id)) = (sig_expr.as_signature(), block_expr.as_block())
+    {
         if has_wrapped {
-            let Some(rest) = &mut signature.rest_positional else {
-                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+            let Some(rest) = signature.rest_positional.as_mut() else {
+                working_set.error(ParseError::MissingPositional(
+                    "...rest-like positional argument".to_string(),
+                    name_expr.span,
+                    "def --wrapped must have a ...rest-like positional argument. \
+                            Add '...rest: string' to the command's signature."
+                        .to_string(),
+                ));
 
                 return (
                     Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
@@ -736,7 +744,10 @@ fn parse_def_inner(
                 );
             };
 
-            if !rest_param_is_type_annotated(working_set.get_span_contents(sig.span), &rest.name) {
+            if !rest_param_is_type_annotated(
+                working_set.get_span_contents(sig_expr.span),
+                &rest.name,
+            ) {
                 rest.shape = SyntaxShape::ExternalArgument;
             }
 
@@ -745,10 +756,15 @@ fn parse_def_inner(
 
                 if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String)) {
                     working_set.error(ParseError::TypeMismatchHelp(
-                            Type::List(Box::new(Type::String)),
-                            rest_var.ty.clone(),
-                            rest_var.declaration_span,
-                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+                        Type::List(Box::new(Type::String)),
+                        rest_var.ty.clone(),
+                        rest_var.declaration_span,
+                        format!(
+                            "...rest-like positional argument used in 'def --wrapped' supports only strings. \
+                                Change the type annotation of ...{} to 'string'.",
+                            &rest.name
+                        ),
+                    ));
 
                     return (
                         Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
