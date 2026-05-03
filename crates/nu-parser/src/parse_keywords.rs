@@ -657,26 +657,25 @@ fn parse_def_inner(
     let sig = decl.signature();
 
     // Let's get our block and make sure it has the right signature
-    if let Some(arg) = call.positional_nth(2) {
-        match arg {
-            Expression {
-                expr: Expr::Closure(block_id),
-                ..
-            } => {
-                // Custom command bodies' are compiled eagerly
-                // 1.  `module`s are not compiled, since they aren't ran/don't have any
-                //     executable code. So `def`s inside modules have to be compiled by
-                //     themselves.
-                // 2.  `def` calls in scripts/runnable code don't *run* any code either,
-                //     they are handled completely by the parser.
-                compile_block_with_id(working_set, *block_id);
-                *working_set.get_block_mut(*block_id).signature = sig.clone();
-            }
-            _ => working_set.error(ParseError::Expected(
-                "definition body closure { ... }",
-                arg.span,
-            )),
+    match call.positional_iter().nth(2) {
+        Some(Expression {
+            expr: Expr::Closure(block_id),
+            ..
+        }) => {
+            // Custom command bodies' are compiled eagerly
+            // 1.  `module`s are not compiled, since they aren't ran/don't have any
+            //     executable code. So `def`s inside modules have to be compiled by
+            //     themselves.
+            // 2.  `def` calls in scripts/runnable code don't *run* any code either,
+            //     they are handled completely by the parser.
+            compile_block_with_id(working_set, *block_id);
+            *working_set.get_block_mut(*block_id).signature = sig.clone();
         }
+        Some(arg) => working_set.error(ParseError::Expected(
+            "definition body closure { ... }",
+            arg.span,
+        )),
+        None => (),
     }
 
     if call_kind != CallKind::Valid {
