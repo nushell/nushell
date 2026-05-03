@@ -606,89 +606,85 @@ fn parse_def_inner(
         return garbage_result(working_set);
     };
 
-    let (call, call_span) = {
-        working_set.enter_scope();
-        let (command_spans, rest_spans) = spans.split_at(split_id);
+    working_set.enter_scope();
+    let (command_spans, rest_spans) = spans.split_at(split_id);
 
-        // Find the first span that is not a flag
-        let mut decl_name_span = None;
+    // Find the first span that is not a flag
+    let mut decl_name_span = None;
 
-        for span in rest_spans {
-            if !working_set.get_span_contents(*span).starts_with(b"-") {
-                decl_name_span = Some(*span);
-                break;
-            }
+    for span in rest_spans {
+        if !working_set.get_span_contents(*span).starts_with(b"-") {
+            decl_name_span = Some(*span);
+            break;
         }
+    }
 
-        if let Some(name_span) = decl_name_span {
-            // Check whether name contains [] or () -- possible missing space error
-            if let Some(err) = detect_params_in_name(working_set, name_span, decl_id) {
-                working_set.error(err);
-                return garbage_result(working_set);
-            }
+    if let Some(name_span) = decl_name_span {
+        // Check whether name contains [] or () -- possible missing space error
+        if let Some(err) = detect_params_in_name(working_set, name_span, decl_id) {
+            working_set.error(err);
+            return garbage_result(working_set);
         }
+    }
 
-        let starting_error_count = working_set.parse_errors.len();
-        let ParsedInternalCall {
-            call,
-            output,
-            call_kind,
-        } = parse_internal_call(
-            working_set,
-            Span::concat(command_spans),
-            rest_spans,
-            decl_id,
-            ArgumentParsingLevel::Full,
+    let starting_error_count = working_set.parse_errors.len();
+    let ParsedInternalCall {
+        call,
+        output,
+        call_kind,
+    } = parse_internal_call(
+        working_set,
+        Span::concat(command_spans),
+        rest_spans,
+        decl_id,
+        ArgumentParsingLevel::Full,
+    );
+
+    if working_set
+        .parse_errors
+        .get(starting_error_count..)
+        .is_none_or(|new_errors| {
+            new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+        })
+    {
+        working_set.exit_scope();
+    }
+
+    let call_span = Span::concat(spans);
+    let decl = working_set.get_decl(decl_id);
+    let sig = decl.signature();
+
+    // Let's get our block and make sure it has the right signature
+    if let Some(arg) = call.positional_nth(2) {
+        match arg {
+            Expression {
+                expr: Expr::Closure(block_id),
+                ..
+            } => {
+                // Custom command bodies' are compiled eagerly
+                // 1.  `module`s are not compiled, since they aren't ran/don't have any
+                //     executable code. So `def`s inside modules have to be compiled by
+                //     themselves.
+                // 2.  `def` calls in scripts/runnable code don't *run* any code either,
+                //     they are handled completely by the parser.
+                compile_block_with_id(working_set, *block_id);
+                *working_set.get_block_mut(*block_id).signature = sig.clone();
+            }
+            _ => working_set.error(ParseError::Expected(
+                "definition body closure { ... }",
+                arg.span,
+            )),
+        }
+    }
+
+    if call_kind != CallKind::Valid {
+        return (
+            Expression::new(working_set, Expr::Call(call), call_span, output),
+            None,
         );
-
-        if working_set
-            .parse_errors
-            .get(starting_error_count..)
-            .is_none_or(|new_errors| {
-                new_errors
-                    .iter()
-                    .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
-            })
-        {
-            working_set.exit_scope();
-        }
-
-        let call_span = Span::concat(spans);
-        let decl = working_set.get_decl(decl_id);
-        let sig = decl.signature();
-
-        // Let's get our block and make sure it has the right signature
-        if let Some(arg) = call.positional_nth(2) {
-            match arg {
-                Expression {
-                    expr: Expr::Closure(block_id),
-                    ..
-                } => {
-                    // Custom command bodies' are compiled eagerly
-                    // 1.  `module`s are not compiled, since they aren't ran/don't have any
-                    //     executable code. So `def`s inside modules have to be compiled by
-                    //     themselves.
-                    // 2.  `def` calls in scripts/runnable code don't *run* any code either,
-                    //     they are handled completely by the parser.
-                    compile_block_with_id(working_set, *block_id);
-                    *working_set.get_block_mut(*block_id).signature = sig.clone();
-                }
-                _ => working_set.error(ParseError::Expected(
-                    "definition body closure { ... }",
-                    arg.span,
-                )),
-            }
-        }
-
-        if call_kind != CallKind::Valid {
-            return (
-                Expression::new(working_set, Expr::Call(call), call_span, output),
-                None,
-            );
-        }
-
-        (call, call_span)
-    };
+    }
 
     let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
         return garbage_result(working_set);
