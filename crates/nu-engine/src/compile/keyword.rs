@@ -341,39 +341,39 @@ pub(crate) fn compile_let(
     // Handle the two syntax forms:
     // 1. `let var = expr`: compile expr and store result
     // 2. `let var` (no =): use input_reg as the value
-    let has_initial_value = block_arg.is_some();
-    if has_initial_value {
-        // Safe to use expect here since we just checked is_some()
-        let block_arg = block_arg.expect("checked above");
-        let block_id = block_arg.as_block().ok_or_else(invalid)?;
-        let block = working_set.get_block(block_id);
+    match (block_arg, input_reg) {
+        (Some(block_arg), _) => {
+            let block_id = block_arg.as_block().ok_or_else(invalid)?;
+            let block = working_set.get_block(block_id);
 
-        // Pass the input_reg to the block so expressions like `let x = (str length)`
-        // can access the pipeline input from the enclosing context
-        compile_block(
-            working_set,
-            builder,
-            block,
-            RedirectModes::value(call.head),
-            input_reg,
-            io_reg,
-        )?;
-    } else if let Some(input_reg) = input_reg {
-        // For `let var` without =, assign the input value
-        builder.push(Instruction::Collect { src_dst: input_reg }.into_spanned(call.head))?;
-        if input_reg != io_reg {
-            builder.push(
-                Instruction::Move {
-                    dst: io_reg,
-                    src: input_reg,
-                }
-                .into_spanned(call.head),
+            // Pass the input_reg to the block so expressions like `let x = (str length)`
+            // can access the pipeline input from the enclosing context
+            compile_block(
+                working_set,
+                builder,
+                block,
+                RedirectModes::value(call.head),
+                input_reg,
+                io_reg,
             )?;
         }
+        (None, Some(input_reg)) => {
+            // For `let var` without =, assign the input value
+            builder.push(Instruction::Collect { src_dst: input_reg }.into_spanned(call.head))?;
+            if input_reg != io_reg {
+                builder.push(
+                    Instruction::Move {
+                        dst: io_reg,
+                        src: input_reg,
+                    }
+                    .into_spanned(call.head),
+                )?;
+            }
+        }
+        (None, None) => {
+            // If no initial_value and no input_reg, io_reg should already be empty (this shouldn't normally occur)
+        }
     }
-    // If no initial_value and no input_reg, io_reg should already be empty (this shouldn't normally occur)
-
-    let variable = working_set.get_variable(var_id);
 
     // If the variable is annotated with type `glob`, convert the value to
     // a `Glob` (expandable) *before* storing.  We use `GlobFrom { no_expand: false }`
@@ -381,7 +381,7 @@ pub(crate) fn compile_let(
     // runtime (e.g. `let g: glob = "*.toml"; ls $g` should expand).  This
     // mirrors the `into glob` conversion and matches interpreter coercion in
     // `nu-cmd-lang::let` (see tests in `nu-command`).
-    if variable.ty == Type::Glob {
+    if working_set.get_variable(var_id).ty == Type::Glob {
         builder.push(
             Instruction::GlobFrom {
                 src_dst: io_reg,
@@ -400,7 +400,7 @@ pub(crate) fn compile_let(
     )?;
     builder.add_comment("let");
 
-    if has_initial_value {
+    if block_arg.is_some() {
         // `let var = expr`: suppress output (traditional assignment, no display)
         builder.load_empty(io_reg)?;
     } else {
