@@ -336,7 +336,7 @@ impl Call {
         working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.positional_nth(pos) {
+        if let Some(expr) = self.positional_iter().nth(pos) {
             let result = eval_constant(working_set, expr)?;
             FromValue::from_value(result)
         } else if self.positional_len() == 0 {
