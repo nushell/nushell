@@ -43,9 +43,9 @@ fn enable_vt_processing_input(console_in_mode: ConsoleMode, mode: u32) -> Result
 
     console_in_mode.set_mode(
         mode | ENABLE_VIRTUAL_TERMINAL_INPUT
-            & ENABLE_ECHO_INPUT
-            & ENABLE_LINE_INPUT
-            & ENABLE_PROCESSED_INPUT,
+            | ENABLE_ECHO_INPUT
+            | ENABLE_LINE_INPUT
+            | ENABLE_PROCESSED_INPUT,
     )
 }
 
