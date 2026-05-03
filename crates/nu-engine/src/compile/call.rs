@@ -430,21 +430,11 @@ pub(crate) fn compile_unlet(
     io_reg: RegId,
 ) -> Result<(), CompileError> {
     // unlet takes one or more positional arguments which should be variable references
-    if call.positional_len() == 0 {
-        return Err(CompileError::InvalidLiteral {
-            msg: "unlet takes at least one argument".into(),
-            span: call.head,
-        });
-    }
+    let mut iter_empty = true;
 
     // Process each positional argument
-    for i in 0..call.positional_len() {
-        let Some(arg) = call.positional_nth(i) else {
-            return Err(CompileError::InvalidLiteral {
-                msg: "Expected positional argument".into(),
-                span: call.head,
-            });
-        };
+    for arg in call.positional_iter() {
+        iter_empty = false;
 
         // Extract variable ID from the expression
         // Handle both direct variable references (Expr::Var) and full cell paths (Expr::FullCellPath)
@@ -498,6 +488,13 @@ pub(crate) fn compile_unlet(
                 });
             }
         }
+    }
+
+    if iter_empty {
+        return Err(CompileError::InvalidLiteral {
+            msg: "unlet takes at least one argument".into(),
+            span: call.head,
+        });
     }
 
     // Load empty value as the result
