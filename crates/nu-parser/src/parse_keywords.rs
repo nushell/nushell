@@ -8,6 +8,7 @@ use crate::{
     type_check::{check_block_input_output, type_compatible},
 };
 
+use itertools::Itertools;
 use log::trace;
 use nu_path::absolute_with;
 use nu_path::is_windows_device_path;
@@ -320,99 +321,84 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"for") {
-        None => {
-            working_set.error(ParseError::UnknownState(
-                "internal error: for declaration not found".into(),
-                Span::concat(spans),
-            ));
-            return garbage(working_set, spans[0]);
-        }
-        Some(decl_id) => {
-            let starting_error_count = working_set.parse_errors.len();
-            working_set.enter_scope();
-            let ParsedInternalCall {
-                call,
-                output,
-                call_kind,
-            } = parse_internal_call(
-                working_set,
-                spans[0],
-                &spans[1..],
-                decl_id,
-                ArgumentParsingLevel::Full,
-            );
-
-            if working_set
-                .parse_errors
-                .get(starting_error_count..)
-                .is_none_or(|new_errors| {
-                    new_errors
-                        .iter()
-                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
-                })
-            {
-                working_set.exit_scope();
-            }
-
-            let call_span = Span::concat(spans);
-            let decl = working_set.get_decl(decl_id);
-            let sig = decl.signature();
-
-            if call_kind != CallKind::Valid {
-                return Expression::new(working_set, Expr::Call(call), call_span, output);
-            }
-
-            // Let's get our block and make sure it has the right signature
-            if let Some(
-                Expression {
-                    expr: Expr::Block(block_id),
-                    ..
-                }
-                | Expression {
-                    expr: Expr::RowCondition(block_id),
-                    ..
-                },
-            ) = call.positional_nth(2)
-            {
-                {
-                    let block = working_set.get_block_mut(*block_id);
-
-                    *block.signature = sig;
-                }
-            }
-
-            (call, call_span)
-        }
+    let Some(decl_id) = working_set.find_decl(b"for") else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: for declaration not found".into(),
+            Span::concat(spans),
+        ));
+        return garbage(working_set, spans[0]);
     };
 
-    // All positional arguments must be in the call positional vector by this point
-    let var_decl = call.positional_nth(0).expect("for call already checked");
-    let iteration_expr = call.positional_nth(1).expect("for call already checked");
-    let block = call.positional_nth(2).expect("for call already checked");
+    let starting_error_count = working_set.parse_errors.len();
+    working_set.enter_scope();
+    let ParsedInternalCall {
+        call,
+        output,
+        call_kind,
+    } = parse_internal_call(
+        working_set,
+        spans[0],
+        &spans[1..],
+        decl_id,
+        ArgumentParsingLevel::Full,
+    );
 
-    let iteration_expr_ty = iteration_expr.ty.clone();
+    if working_set
+        .parse_errors
+        .get(starting_error_count..)
+        .is_none_or(|new_errors| {
+            new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+        })
+    {
+        working_set.exit_scope();
+    }
+
+    let call_span = Span::concat(spans);
+    let decl = working_set.get_decl(decl_id);
+    let sig = decl.signature();
+
+    if call_kind != CallKind::Valid {
+        return Expression::new(working_set, Expr::Call(call), call_span, output);
+    }
+
+    // All positional arguments must be in the call positional vector by this point
+    let [var_decl, iteration_expr, block_expr] = call
+        .positional_iter()
+        .next_array()
+        .expect("for call already checked");
+
+    // Let's get our block and make sure it has the right signature
+    if let Expression {
+        expr: Expr::Block(block_id) | Expr::RowCondition(block_id),
+        ..
+    } = block_expr
+    {
+        let block = working_set.get_block_mut(*block_id);
+
+        *block.signature = sig;
+    };
 
     // Figure out the type of the variable the `for` uses for iteration
-    let var_type = match iteration_expr_ty {
+    let var_type = match iteration_expr.ty.clone() {
         Type::List(x) => *x,
         Type::Table(x) => Type::Record(x),
         Type::Range => Type::Number, // Range elements can be int or float
         x => x,
     };
 
-    if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
-        working_set.set_variable_type(*var_id, var_type.clone());
+    if let (Some(var_id), Some(block_id)) = (var_decl.as_var(), block_expr.as_block()) {
+        working_set.set_variable_type(var_id, var_type.clone());
 
         let block = working_set.get_block_mut(block_id);
-
         block.signature.required_positional.insert(
             0,
             PositionalArg {
                 name: String::new(),
                 desc: String::new(),
                 shape: var_type.to_shape(),
-                var_id: Some(*var_id),
+                var_id: Some(var_id),
                 default_value: None,
                 completion: None,
             },
