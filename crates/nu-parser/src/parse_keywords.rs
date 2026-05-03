@@ -727,38 +727,34 @@ fn parse_def_inner(
 
     if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
         if has_wrapped {
-            if let Some(rest) = &mut signature.rest_positional {
-                if !rest_param_is_type_annotated(
-                    working_set.get_span_contents(sig.span),
-                    &rest.name,
-                ) {
-                    rest.shape = SyntaxShape::ExternalArgument;
-                }
-
-                if let Some(var_id) = rest.var_id {
-                    let rest_var = &working_set.get_variable(var_id);
-
-                    if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String))
-                    {
-                        working_set.error(ParseError::TypeMismatchHelp(
-                            Type::List(Box::new(Type::String)),
-                            rest_var.ty.clone(),
-                            rest_var.declaration_span,
-                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
-
-                        return (
-                            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
-                            result,
-                        );
-                    }
-                }
-            } else {
+            let Some(rest) = &mut signature.rest_positional else {
                 working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
 
                 return (
                     Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
                     result,
                 );
+            };
+
+            if !rest_param_is_type_annotated(working_set.get_span_contents(sig.span), &rest.name) {
+                rest.shape = SyntaxShape::ExternalArgument;
+            }
+
+            if let Some(var_id) = rest.var_id {
+                let rest_var = &working_set.get_variable(var_id);
+
+                if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String)) {
+                    working_set.error(ParseError::TypeMismatchHelp(
+                            Type::List(Box::new(Type::String)),
+                            rest_var.ty.clone(),
+                            rest_var.declaration_span,
+                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
+
+                    return (
+                        Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+                        result,
+                    );
+                }
             }
         }
 
