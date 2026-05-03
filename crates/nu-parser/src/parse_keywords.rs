@@ -698,32 +698,30 @@ fn parse_def_inner(
     let sig = call.positional_nth(1).expect("def call already checked");
     let block = call.positional_nth(2).expect("def call already checked");
 
-    let name = if let Some(name) = name_expr.as_string() {
-        if let Some(mod_name) = module_name
-            && name.as_bytes() == mod_name
-        {
-            let name_expr_span = name_expr.span;
-
-            working_set.error(ParseError::NamedAsModule(
-                "command".to_string(),
-                name,
-                "main".to_string(),
-                name_expr_span,
-            ));
-            return (
-                Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
-                None,
-            );
-        }
-
-        name
-    } else {
+    let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
             "Could not get string from string expression".into(),
             name_expr.span,
         ));
         return garbage_result(working_set);
     };
+
+    if let Some(mod_name) = module_name
+        && name.as_bytes() == mod_name
+    {
+        let name_expr_span = name_expr.span;
+
+        working_set.error(ParseError::NamedAsModule(
+            "command".to_string(),
+            name,
+            "main".to_string(),
+            name_expr_span,
+        ));
+        return (
+            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+            None,
+        );
+    }
 
     let mut result = None;
 
