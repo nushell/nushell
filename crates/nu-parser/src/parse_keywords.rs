@@ -2902,27 +2902,22 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match val.coerce_into_string() {
-                Ok(s) => (s, expr.span),
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
-            },
-            Err(err) => {
-                working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(working_set, &[call_span]);
-            }
-        }
-    } else {
+    let Some(expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: Missing required positional after call parsing".into(),
             call_span,
         ));
         return garbage_pipeline(working_set, &[call_span]);
     };
+
+    let (overlay_name, _) =
+        match eval_constant(working_set, expr).and_then(Value::coerce_into_string) {
+            Ok(s) => (s, expr.span),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
+            }
+        };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
         working_set,
@@ -2950,34 +2945,12 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(Value::Nothing { .. }) => {
-                let mut call = call;
-                call.set_parser_info(
-                    "noop".to_string(),
-                    Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
-                );
-                return Pipeline::from_vec(vec![Expression::new(
-                    working_set,
-                    Expr::Call(call),
-                    call_span,
-                    Type::Any,
-                )]);
-            }
-            Ok(val) => match val.coerce_into_string() {
-                Ok(s) => (s, expr.span),
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
-            },
-            Err(err) => {
-                working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(working_set, &[call_span]);
-            }
-        }
-    } else {
+    let (overlay_name_expr, as_name_expr) = {
+        let mut iter = call.positional_iter();
+        (iter.next(), iter.next())
+    };
+
+    let Some(overlay_name_expr) = overlay_name_expr else {
         working_set.error(ParseError::UnknownState(
             "internal error: Missing required positional after call parsing".into(),
             call_span,
@@ -2985,30 +2958,47 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         return garbage_pipeline(working_set, &[call_span]);
     };
 
-    let new_name = if let Some(kw_expression) = call.positional_nth(1) {
-        if let Some(new_name_expression) = kw_expression.as_keyword() {
-            match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match val.coerce_into_string() {
-                    Ok(s) => Some(Spanned {
-                        item: s,
-                        span: new_name_expression.span,
-                    }),
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, call_span));
-                        return garbage_pipeline(working_set, &[call_span]);
-                    }
-                },
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
+    let (overlay_name, overlay_name_span) = match eval_constant(working_set, overlay_name_expr) {
+        Ok(Value::Nothing { .. }) => {
+            let mut call = call;
+            call.set_parser_info(
+                "noop".to_string(),
+                Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
+            );
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]);
+        }
+        result => match result.and_then(Value::coerce_into_string) {
+            Ok(s) => (s, overlay_name_expr.span),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
             }
-        } else {
+        },
+    };
+
+    let new_name = if let Some(as_name_expr) = as_name_expr {
+        let Some((b"as", new_name_expression)) = as_name_expr.as_keyword_with_name() else {
             working_set.error(ParseError::ExpectedKeyword(
                 "as keyword".to_string(),
-                kw_expression.span,
+                as_name_expr.span,
             ));
             return garbage_pipeline(working_set, &[call_span]);
+        };
+
+        match eval_constant(working_set, new_name_expression).and_then(Value::coerce_into_string) {
+            Ok(s) => Some(Spanned {
+                item: s,
+                span: new_name_expression.span,
+            }),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
+            }
         }
     } else {
         None
@@ -3188,7 +3178,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_iter().next() {
         match eval_constant(working_set, expr) {
             Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
@@ -3683,7 +3673,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             }
 
             // Command and one file name
-            if let Some(expr) = call.positional_nth(0) {
+            let first_expr = call.positional_iter().next();
+            if let Some(expr) = first_expr {
                 let val = match eval_constant(working_set, expr) {
                     Ok(val) => val,
                     Err(err) => {
@@ -3886,7 +3877,8 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
     if let Err(err) = (|| {
         let name = call
-            .positional_nth(0)
+            .positional_iter()
+            .next()
             .map(|expr| {
                 eval_constant(working_set, expr)
                     .and_then(Spanned::<String>::from_value)
