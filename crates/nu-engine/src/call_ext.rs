@@ -171,18 +171,21 @@ impl CallExt for ast::Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.positional_iter().nth(pos) {
-            let stack = &mut stack.use_call_arg_out_dest();
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result)
-        } else if self.positional_len() == 0 {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len() - 1,
-                span: self.head,
-            })
-        }
+        let maybe_expr = self.positional_iter().nth(pos);
+        let expr = maybe_expr.ok_or_else(|| {
+            let max_idx = self.positional_iter().count().checked_sub(1);
+            match max_idx {
+                None => ShellError::AccessEmptyContent { span: self.head },
+                Some(max_idx) => ShellError::AccessBeyondEnd {
+                    max_idx,
+                    span: self.head,
+                },
+            }
+        })?;
+
+        let stack = &mut stack.use_call_arg_out_dest();
+        let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+        FromValue::from_value(result)
     }
 
     fn req_parser_info<T: FromValue>(
@@ -287,16 +290,19 @@ impl CallExt for ir::Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(val) = self.positional_iter(stack).nth(pos).cloned() {
-            T::from_value(val)
-        } else if self.positional_len(stack) == 0 {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len(stack) - 1,
-                span: self.head,
-            })
-        }
+        let maybe_val = self.positional_iter(stack).nth(pos).cloned();
+        let val = maybe_val.ok_or_else(|| {
+            let max_idx = self.positional_iter(stack).count().checked_sub(1);
+            match max_idx {
+                None => ShellError::AccessEmptyContent { span: self.head },
+                Some(max_idx) => ShellError::AccessBeyondEnd {
+                    max_idx,
+                    span: self.head,
+                },
+            }
+        })?;
+
+        T::from_value(val)
     }
 
     fn req_parser_info<T: FromValue>(

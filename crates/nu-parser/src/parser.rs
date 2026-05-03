@@ -198,7 +198,7 @@ pub(crate) fn check_call(
         return CallKind::Help;
     }
 
-    if call.positional_len() < sig.required_positional.len() {
+    if call.positional_iter().count() < sig.required_positional.len() {
         let end_offset = call
             .positional_iter()
             .last()
@@ -225,7 +225,7 @@ pub(crate) fn check_call(
             }
         }
 
-        let missing = &sig.required_positional[call.positional_len()];
+        let missing = &sig.required_positional[call.positional_iter().count()];
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
@@ -1078,7 +1078,7 @@ pub fn parse_internal_call(
             call = *wrapped_call.clone();
             call.head = command_span;
             // Skip positionals passed to aliased call
-            positional_idx = call.positional_len();
+            positional_idx = call.positional_iter().count();
         } else {
             working_set.error(ParseError::UnknownState(
                 "Alias does not point to internal call.".to_string(),
