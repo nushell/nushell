@@ -1,6 +1,6 @@
 use fff_search::{
     FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
-    MixedItemRef, PaginationArgs, QueryParser, SharedFrecency, SharedPicker,
+    MixedItemRef, PaginationArgs, QueryParser, SharedFrecency, SharedFilePicker,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
@@ -16,8 +16,7 @@ use std::time::Duration;
 pub struct IdxRuntime {
     pub base_path: PathBuf,
     pub watch: bool,
-    pub shared_picker: SharedPicker,
-    pub scan_signal: Arc<AtomicBool>,
+    pub shared_picker: SharedFilePicker,
     pub scan_start_time: Instant,
     pub scan_completed: Arc<AtomicBool>,
     pub scan_duration_ms: Arc<AtomicU64>,
@@ -127,7 +126,7 @@ fn fff_error<E: std::fmt::Display>(err: E, span: Span) -> ShellError {
     ))
 }
 
-fn shutdown_shared_picker(shared_picker: &SharedPicker, span: Span) -> Result<(), ShellError> {
+fn shutdown_shared_picker(shared_picker: &SharedFilePicker, span: Span) -> Result<(), ShellError> {
     // Important: never join the watcher thread while holding the shared
     // picker write lock, otherwise the owner thread can deadlock waiting for
     // the same lock while processing a final event batch.
@@ -203,7 +202,6 @@ fn runtime_snapshot() -> Option<RuntimeSnapshot> {
         base_path: runtime.base_path.clone(),
         watch: runtime.watch,
         shared_picker: runtime.shared_picker.clone(),
-        scan_signal: runtime.scan_signal.clone(),
         scan_start_time: runtime.scan_start_time,
         scan_completed: runtime.scan_completed.clone(),
         scan_duration_ms: runtime.scan_duration_ms.clone(),
@@ -226,25 +224,6 @@ pub fn current_status(scan_start_override: Option<Instant>) -> IdxStatus {
     };
 
     let scan_start = scan_start_override.unwrap_or(snapshot.scan_start_time);
-
-    // Keep status non-blocking while initial indexing is active so REPL
-    // status checks do not stall behind picker writes.
-    if snapshot.scan_signal.load(Ordering::Acquire) {
-        let duration = freeze_scan_duration_if_needed(
-            &snapshot.scan_completed,
-            &snapshot.scan_duration_ms,
-            scan_start,
-            true,
-        );
-        return IdxStatus {
-            initialized: true,
-            base_path: snapshot.base_path.display().to_string(),
-            watch: snapshot.watch,
-            scanning: true,
-            scan_duration_ms: duration,
-            ..Default::default()
-        };
-    }
 
     let Ok(guard) = snapshot.shared_picker.read() else {
         let duration = freeze_scan_duration_if_needed(
@@ -284,7 +263,7 @@ pub fn init_runtime(
     wait: bool,
     span: Span,
 ) -> Result<IdxStatus, ShellError> {
-    let shared_picker = SharedPicker::default();
+    let shared_picker = SharedFilePicker::default();
     let shared_frecency = SharedFrecency::noop();
 
     FilePicker::new_with_shared_state(
@@ -316,11 +295,6 @@ pub fn init_runtime(
         base_path: path.to_path_buf(),
         watch,
         shared_picker: shared_picker.clone(),
-        scan_signal: shared_picker
-            .read()
-            .ok()
-            .and_then(|pg| pg.as_ref().map(|picker| picker.scan_signal()))
-            .unwrap_or_else(|| Arc::new(AtomicBool::new(true))),
         scan_start_time: Instant::now(),
         scan_completed: Arc::new(AtomicBool::new(false)),
         scan_duration_ms: Arc::new(AtomicU64::new(0)),
@@ -1225,8 +1199,8 @@ pub fn stream_grep(
                 .match_byte_offsets
                 .iter()
                 .map(|(start, end)| {
-                    let start = i64::try_from(*start).unwrap_or(i64::MAX);
-                    let end = i64::try_from(*end).unwrap_or(i64::MAX);
+                    let start = i64::from(*start);
+                    let end = i64::from(*end);
                     Value::record(
                         [
                             // ("start".to_string(), Value::int(start, span)),
