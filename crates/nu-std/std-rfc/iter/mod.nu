@@ -10,10 +10,9 @@ def add-parent [parent: cell-path]: table<path: cell-path> -> table<path: cell-p
 }
 
 def get-children []: [any -> table<path: cell-path, item: any>] {
-    let val = $in
-    match ($val | describe --detailed).type {
-        "record" => { $val | transpose path item }
-        "list" => { $val | enumerate | rename path item }
+    match $in {
+        {} => { transpose path item }
+        [..] => { enumerate | rename path item }
         _ => { return [] }
     }
 }
@@ -21,13 +20,16 @@ def get-children []: [any -> table<path: cell-path, item: any>] {
 def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>] {
     let x = try { get $path } catch { return [] }
 
-    if ($x | describe --detailed).type == "list" {
-        $x | get-children | add-parent $path
-    } else {
-        [{
-            path: $path
-            item: $x
-        }]
+    match $x {
+        [..] => {
+            $x | get-children | add-parent $path
+        }
+        _ => {
+            [{
+                path: $path
+                item: $x
+            }]
+        }
     }
 }
 
