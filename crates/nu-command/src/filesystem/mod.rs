@@ -1,6 +1,7 @@
 mod cd;
 mod du;
 mod glob;
+mod idx;
 mod ls;
 mod mktemp;
 mod open;
@@ -18,6 +19,9 @@ pub use self::open::Open;
 pub use cd::Cd;
 pub use du::Du;
 pub use glob::Glob;
+pub use idx::{
+    Idx, IdxDirs, IdxDrop, IdxExport, IdxFiles, IdxFind, IdxImport, IdxInit, IdxSearch, IdxStatus,
+};
 pub use ls::Ls;
 pub use mktemp::Mktemp;
 pub use rm::Rm;

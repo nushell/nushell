@@ -25,10 +25,10 @@ nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
 
 itertools = { workspace = true }
 semver = { workspace = true }
-shadow-rs = { version = "1.7", default-features = false }
+shadow-rs = { version = "2.0", default-features = false }
 
 [build-dependencies]
-shadow-rs = { version = "1.7", default-features = false, features = ["build"] }
+shadow-rs = { version = "2.0", default-features = false, features = ["build"] }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support"}

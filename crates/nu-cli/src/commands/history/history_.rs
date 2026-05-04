@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 #[cfg(not(feature = "sqlite"))]
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
-    HistoryFileFormat,
+    HistoryFileFormat, PipelineMetadata,
     shell_error::{self, io::IoError},
 };
 #[cfg(feature = "sqlite")]
@@ -174,9 +174,10 @@ impl Command for History {
                     .with_order_by("rowid ASC".to_string())
                     .with_unix_millis_datetime_column(fields::START_TIMESTAMP.to_string())
                     .with_millis_duration_column(fields::DURATION.to_string());
+
                 Ok(PipelineData::Value(
                     Value::custom(Box::new(table), head),
-                    None,
+                    Some(PipelineMetadata::default().with_path_columns(vec!["cwd".into()])),
                 ))
             }
         }
