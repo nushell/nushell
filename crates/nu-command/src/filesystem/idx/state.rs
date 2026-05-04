@@ -1,6 +1,6 @@
 use fff_search::{
     FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
-    MixedItemRef, PaginationArgs, QueryParser, SharedFrecency, SharedFilePicker,
+    MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
