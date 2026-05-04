@@ -188,6 +188,16 @@ impl Call {
             })
     }
 
+    #[deprecated(since = "0.113.0", note = "use .positional_iter().nth(n) instead")]
+    pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
+        self.positional_iter().nth(i)
+    }
+
+    #[deprecated(since = "0.113.0", note = "use .positional_iter().count(n) instead")]
+    pub fn positional_len(&self) -> usize {
+        self.positional_iter().count()
+    }
+
     /// Returns every argument to the rest parameter, as well as whether each argument
     /// is spread or a normal positional argument (true for spread, false for normal)
     pub fn rest_iter(&self, start: usize) -> impl Iterator<Item = (&Expression, bool)> {
