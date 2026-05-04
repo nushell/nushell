@@ -72,6 +72,36 @@ def make-descend-fn [arg] {
     }
 }
 
+def make-depth-first-fn [descend: closure]: nothing -> closure {
+    {|stack| match $stack {
+        [] => { {} }
+        [$head, ..$tail] => {
+            let children = $head.item | do $descend $head.item | add-parent $head.path
+            {
+                out: $head,
+                next: ($tail | prepend $children),
+            }
+        }
+    }}
+}
+
+def make-breadth-first-fn [descend: closure]: nothing -> closure {
+    {|out|
+        let children = $out
+        | each --flatten {|e|
+            $e.item
+            | do $descend $e.item
+            | add-parent $e.path
+        }
+
+        if ($children | is-not-empty) {
+            {out: $out, next: $children}
+        } else {
+            {out: $out}
+        }
+    }
+}
+
 # Recursively descend a nested value, returning each value along with its path.
 #
 # Recursively descends its input, producing all values as a stream, along with
@@ -158,30 +188,9 @@ export def recurse [
     }
 
     let fn = if $depth_first {
-        {|stack|
-            match $stack {
-                [] => { {} }
-                [$head, ..$tail] => {
-                    let children = $head.item | do $descend $head.item | add-parent $head.path
-                    {
-                        out: $head,
-                        next: ($tail | prepend $children),
-                    }
-                }
-            }
-        }
+        make-depth-first-fn $descend
     } else {
-        {|out|
-            let children = $out
-            | each {|e| $e.item | do $descend $e.item | add-parent $e.path }
-            | flatten
-
-            if ($children | is-not-empty) {
-                {out: $out, next: $children}
-            } else {
-                {out: $out}
-            }
-        }
+        make-breadth-first-fn $descend
     }
 
     generate $fn [{path: ($.), item: $root }]
