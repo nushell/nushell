@@ -79,7 +79,7 @@ def make-depth-first-fn [descend: closure]: nothing -> closure {
             let children = $head.item | do $descend $head.item | add-parent $head.path
             {
                 out: $head,
-                next: ($tail | prepend $children),
+                next: ($children ++ $tail),
             }
         }
     }}
