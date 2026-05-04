@@ -36,15 +36,40 @@ def get-children-at [path: cell-path ...paths: cell-path]: [any -> table<path: c
     }
 }
 
-def make-descend-fn [arg] {
-    match ($arg.item | describe --detailed).type {
-        "nothing" => {
+def make-descend-fn [arg, rest] {
+    let arg_type = match ($arg.item | describe --detailed).type {
+        "string" | "int" => "cell-path",
+        $x => $x,
+    }
+    match [$arg_type, $rest.item] {
+        ["nothing", []] => {
             {|| get-children }
         }
-        "cell-path" | "string" | "int" => {
+        ["cell-path", []] => {
             {|| get-children-at $arg.item }
         }
-        "closure" => {
+        ["cell-path", _] => {
+            let labels = $rest.item | each {|e|
+                let md = metadata
+                match ($e | describe) {
+                    "cell-path" | "string" | "int" => { }
+                    $type => {
+                        {
+                            span: $md.span
+                            text: $'expected cell-path, got ($type)'
+                        }
+                    }
+                }
+            }
+            if $labels != [] {
+                error make {
+                    msg: "Type mismatch"
+                    labels: $labels
+                }
+            }
+            {|| get-children-at $arg.item ...$rest.item }
+        }
+        ["closure", []] => {
             {|parent|
                 let output = try {
                     $parent | do $arg.item $parent
@@ -60,7 +85,23 @@ def make-descend-fn [arg] {
                 | default "<closure>" path
             }
         }
-        $type => {
+        ["closure", _] => {
+            error make {
+                msg: "Closure accessor can't be combined with other accessors."
+                labels: [
+                    {
+                        text: "closure",
+                        span: $arg.span
+                    }
+                    {
+                        text: "additional accessors not allowed",
+                        span: $rest.span
+                    }
+                ]
+                help: "Remove the additional accessors, or modify the closure to access the same values."
+            }
+        }
+        [$type, _] => {
             error make {
                 msg: "Type mismatch."
                 labels: [
@@ -176,15 +217,21 @@ def make-breadth-first-fn [descend: closure]: nothing -> closure {
 ]
 @search-terms jq ".." nested
 export def recurse [
-    get_children?: oneof<cell-path, closure> # Specify how to get children from parent value.
+    accessor?: oneof<cell-path, closure> # Specify how to get children from parent value.
+    ...rest: cell-path # additional cell-paths (can't be combined with closure `accessor`)
     --depth-first # Descend depth-first rather than breadth first
 ]: [any -> list<any>] {
     let root = $in
 
-    let descend = make-descend-fn {
-        item: $get_children
-        span: (metadata $get_children).span
+    let spanned_accessor = {
+        item: $accessor
+        span: (metadata $accessor).span
     }
+    let spanned_rest = {
+        item: $rest
+        span: (metadata $rest).span
+    }
+    let descend = make-descend-fn $spanned_accessor $spanned_rest
 
     let fn = if $depth_first {
         make-depth-first-fn $descend
