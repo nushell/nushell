@@ -1,6 +1,7 @@
 def cell-path-join []: list<cell-path> -> cell-path {
-    each {|e| try { split cell-path } catch { $e } }
-    | flatten
+    each --flatten {|e|
+        try { split cell-path } catch { [$e] }
+    }
     | into cell-path
 }
 
