@@ -2183,9 +2183,9 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.6.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88283e24a45f87707db72788a5e41d662df75d445e81fb34d197e04f2b2d443f"
+checksum = "443fba608280becc4422d8066201bb34d6f9e378065270ec77673f146a9ec9f9"
 dependencies = [
  "bstr",
  "memchr",
@@ -2193,28 +2193,29 @@ dependencies = [
 
 [[package]]
 name = "fff-notify-debouncer-full"
-version = "0.9.1"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4594f0ef1ad0bfcd112bbe4b397ef881f50442bc710356b86858d555848e4d09"
+checksum = "5c6f0c16164d10c082af931377766f5495440bee66a9a841bbcea1af5de8878c"
 dependencies = [
  "file-id",
  "log",
  "notify 9.0.0-rc.3",
  "notify-types",
+ "rustc-hash",
  "walkdir",
 ]
 
 [[package]]
 name = "fff-query-parser"
-version = "0.6.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ab582f40d563f533ef3c7fe893fb936a42111ffb41517d3aa01a6e49dbdc1564"
+checksum = "8eb0d1657037857ffea06312ca951839930cc52bb132d9cd8b6fb66aabe37fa4"
 
 [[package]]
 name = "fff-search"
-version = "0.6.4"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "37c18af8dea8c5f50db9c4178caad1acfabdfa587487206b0dd8e319eef048c5"
+checksum = "54ad0883a0f9c7bda8d4ea67cc7f6d8493131aa52c585572ed77dc5abbe9562d"
 dependencies = [
  "ahash",
  "aho-corasick",
