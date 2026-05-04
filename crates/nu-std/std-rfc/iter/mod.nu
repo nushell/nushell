@@ -150,6 +150,8 @@ export def recurse [
     get_children?: oneof<cell-path, closure> # Specify how to get children from parent value.
     --depth-first # Descend depth-first rather than breadth first
 ]: [any -> list<any>] {
+    let root = $in
+
     let descend = make-descend-fn {
         item: $get_children
         span: (metadata $get_children).span
@@ -182,7 +184,7 @@ export def recurse [
         }
     }
 
-    generate $fn [{path: ($.), item: ($in) }]
+    generate $fn [{path: ($.), item: $root }]
     | if not $depth_first { flatten } else { }
 }
 
