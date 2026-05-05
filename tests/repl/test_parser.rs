@@ -573,6 +573,24 @@ fn percent_dynamic_dispatch_alias_to_custom_command_is_not_builtin() -> Result {
 }
 
 #[test]
+fn percent_dynamic_dispatch_with_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['hello' 'world']; %($cmd) ...$args | to nuon";
+    test().run(code).expect_value_eq("[hello, world]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['middle' 'end']; %($cmd) 'start' ...$args | to nuon";
+    test().run(code).expect_value_eq("[start, middle, end]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
+    let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
+    test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+}
+
+#[test]
 fn string_interpolation_paren_test() -> TestResult {
     run_test(r#"$"('(')(')')""#, "()")
 }

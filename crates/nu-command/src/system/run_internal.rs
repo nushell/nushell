@@ -59,17 +59,23 @@ impl Command for RunInternal {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let name: String = call.req(engine_state, stack, 0)?;
-        let rest_vals: Vec<Value> = call.rest(engine_state, stack, 1)?;
 
         let decl_id = find_builtin_decl(engine_state, name.as_bytes())
             .ok_or(ShellError::CommandNotFound { span: head })?;
 
         let decl = engine_state.get_decl(decl_id);
+        // Preserve spread markers here so `%($cmd) ...$args` forwards the same argument shape the
+        // target builtin would receive in a direct call.
+        let rest_args: Vec<(Value, bool)> = call.rest_preserving_spreads(engine_state, stack, 1)?;
 
-        // Build an IR call frame for the target builtin, forwarding the evaluated rest args.
+        // Build an IR call frame for the target builtin, preserving spread arguments.
         let mut builder = ir::Call::build(decl_id, head);
-        for val in rest_vals {
-            builder.add_positional(stack, head, val);
+        for (val, is_spread) in rest_args {
+            if is_spread {
+                builder.add_spread(stack, head, val);
+            } else {
+                builder.add_positional(stack, head, val);
+            }
         }
 
         // Ensure temporary IR arguments are always cleaned up after dispatch.

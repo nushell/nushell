@@ -33,6 +33,18 @@ pub trait CallExt {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
 
+    /// Returns the rest arguments starting at `starting_pos`, preserving whether each item was
+    /// passed as a spread argument.
+    ///
+    /// The tuple contains `(value, is_spread)`. This differs from [`CallExt::rest()`], which
+    /// flattens spread arguments into a single list of values.
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError>;
+
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -127,6 +139,21 @@ impl CallExt for ast::Call {
         .into_iter()
         .map(FromValue::from_value)
         .collect()
+    }
+
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        let stack = &mut stack.use_call_arg_out_dest();
+        self.rest_iter(starting_pos)
+            .map(|(expr, is_spread)| {
+                let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+                Ok((T::from_value(result)?, is_spread))
+            })
+            .collect()
     }
 
     fn opt<T: FromValue>(
@@ -256,6 +283,17 @@ impl CallExt for ir::Call {
             .collect()
     }
 
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        _engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        self.rest_iter(stack, starting_pos)
+            .map(|(val, is_spread)| Ok((T::from_value(val.clone())?, is_spread)))
+            .collect()
+    }
+
     fn opt<T: FromValue>(
         &self,
         _engine_state: &EngineState,
@@ -366,6 +404,15 @@ impl CallExt for engine::Call<'_> {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
         proxy!(self.rest(engine_state, stack, starting_pos))
+    }
+
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        proxy!(self.rest_preserving_spreads(engine_state, stack, starting_pos))
     }
 
     fn opt<T: FromValue>(

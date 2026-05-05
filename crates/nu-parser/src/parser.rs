@@ -1480,10 +1480,24 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             // Store the head expression for the IR compiler to pick up.
             call.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head_expr);
 
-            // Parse remaining spans as positional arguments.
+            // Mirror the dynamic external-call path by preserving `...expr` as an explicit spread
+            // argument so runtime dispatch can forward it without flattening first.
             for arg_span in resolution_spans.iter().skip(head_idx + 1) {
-                let arg_expr = parse_value(working_set, *arg_span, &SyntaxShape::Any);
-                call.arguments.push(Argument::Positional(arg_expr));
+                let contents = working_set.get_span_contents(*arg_span);
+                if contents.len() > 3
+                    && contents.starts_with(b"...")
+                    && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+                {
+                    let spread_expr = parse_value(
+                        working_set,
+                        Span::new(arg_span.start + 3, arg_span.end),
+                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    );
+                    call.arguments.push(Argument::Spread(spread_expr));
+                } else {
+                    let arg_expr = parse_value(working_set, *arg_span, &SyntaxShape::Any);
+                    call.arguments.push(Argument::Positional(arg_expr));
+                }
             }
 
             return Expression::new(

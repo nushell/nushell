@@ -994,6 +994,34 @@ fn parse_percent_prefixed_dynamic_dispatch_with_spaced_head() {
 }
 
 #[test]
+fn parse_percent_prefixed_dynamic_dispatch_with_spread_arg() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%('echo') ...$args", true);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::VariableNotFound(..)))
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+            assert!(matches!(call.arguments.first(), Some(Argument::Spread(_))));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
 fn parse_caret_prefixed_call_forces_external_parse() {
     let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
