@@ -17,19 +17,22 @@ def get-children []: [any -> table<path: cell-path, item: any>] {
     }
 }
 
-def get-children-at [path: cell-path]: [any -> table<path: cell-path, item: any>] {
-    let x = try { get $path } catch { return [] }
-
-    match $x {
-        [..] => {
-            $x | get-children | add-parent $path
+def get-children-at [path: cell-path ...paths: cell-path]: [any -> table<path: cell-path, item: any>] {
+    match $in {
+        {} => {
+            get -o $path ...$paths $.""
+            | zip [$path ...$paths]
+            | each --flatten {|e|
+                match $e.0 {
+                    null | [] => []
+                    [..] => {
+                        $e.0 | get-children | add-parent $e.1
+                    }
+                    $x => [{path: $e.1, item: $x}]
+                }
+            }
         }
-        _ => {
-            [{
-                path: $path
-                item: $x
-            }]
-        }
+        _ => { get-children }
     }
 }
 
