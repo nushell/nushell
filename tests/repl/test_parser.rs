@@ -1,6 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_protocol::ParseError;
-use nu_test_support::{nu_repl_code, prelude::*};
+use nu_test_support::{fs::Stub, nu_repl_code, prelude::*};
 use rstest::rstest;
 use std::collections::HashMap;
 
@@ -588,6 +588,21 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
     test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults() {
+    Playground::setup(
+        "percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults",
+        |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped] | to nuon"
+            );
+            assert_eq!(actual.out, "[1, 1]");
+        },
+    );
 }
 
 #[test]

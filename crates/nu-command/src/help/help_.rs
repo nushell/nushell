@@ -1,6 +1,6 @@
 use crate::help::{help_aliases, help_commands, help_modules};
-use nu_engine::{HELP_DECL_ID_PARSER_INFO, command_prelude::*, get_full_help};
-use nu_protocol::{DeclId, ast::Expr, engine::CommandType};
+use nu_engine::{HELP_DECL_ID_PARSER_INFO, command_prelude::*, find_builtin_decl, get_full_help};
+use nu_protocol::{DeclId, ast::Expr};
 
 #[derive(Clone)]
 pub struct Help;
@@ -61,7 +61,7 @@ There already is an alternative `help` command in the standard library you can t
         if find.is_none()
             && let Some(name) = builtin_help_lookup_name(&rest)
         {
-            if let Some(decl_id) = find_builtin_decl_id(engine_state, &name) {
+            if let Some(decl_id) = find_builtin_decl(engine_state, &name) {
                 return Ok(help_for_decl_id(engine_state, stack, head, decl_id));
             }
 
@@ -188,18 +188,4 @@ fn builtin_help_lookup_name(rest: &[Spanned<String>]) -> Option<String> {
     }
 
     Some(name)
-}
-
-// Mirror parser-side `%` behavior by selecting only declarations with command type `Builtin`.
-fn find_builtin_decl_id(engine_state: &EngineState, name: &str) -> Option<DeclId> {
-    for idx in (0..engine_state.num_decls()).rev() {
-        let decl_id = DeclId::new(idx);
-        let decl = engine_state.get_decl(decl_id);
-
-        if decl.command_type() == CommandType::Builtin && decl.name() == name {
-            return Some(decl_id);
-        }
-    }
-
-    None
 }

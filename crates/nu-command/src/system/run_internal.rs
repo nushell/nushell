@@ -1,21 +1,5 @@
-use nu_engine::{CallExt, command_prelude::*};
-use nu_protocol::{DeclId, engine::CommandType, ir};
-
-/// Find a built-in declaration by name, ignoring normal scope visibility.
-///
-/// This intentionally mirrors static `%name` behavior in the parser, where `%` means
-/// "resolve as built-in" even if a custom declaration shadows the same name.
-fn find_builtin_decl(engine_state: &EngineState, name: &[u8]) -> Option<DeclId> {
-    for idx in (0..engine_state.num_decls()).rev() {
-        let decl_id = DeclId::new(idx);
-        let decl = engine_state.get_decl(decl_id);
-        if decl.command_type() == CommandType::Builtin && decl.name().as_bytes() == name {
-            return Some(decl_id);
-        }
-    }
-
-    None
-}
+use nu_engine::{CallExt, command_prelude::*, find_builtin_decl};
+use nu_protocol::ir;
 
 /// Internal command used by the `%($cmd)`/`%$cmd` dynamic builtin dispatch syntax.
 ///
@@ -60,7 +44,7 @@ impl Command for RunInternal {
         let head = call.head;
         let name: String = call.req(engine_state, stack, 0)?;
 
-        let decl_id = find_builtin_decl(engine_state, name.as_bytes())
+        let decl_id = find_builtin_decl(engine_state, &name)
             .ok_or(ShellError::CommandNotFound { span: head })?;
 
         let decl = engine_state.get_decl(decl_id);
@@ -72,13 +56,23 @@ impl Command for RunInternal {
         let mut builder = ir::Call::build(decl_id, head);
         for (val, is_spread) in rest_args {
             if is_spread {
-                builder.add_spread(stack, head, val);
+                // Skip empty spreads so builtins with no-argument defaults (e.g. `ls`
+                // listing the cwd when called with no path) are not confused by an
+                // empty `...$args` forwarded as an empty list.
+                match val {
+                    Value::List { ref vals, .. } if vals.is_empty() => continue,
+                    Value::Nothing { .. } => continue,
+                    _ => {
+                        builder.add_spread(stack, head, val);
+                    }
+                }
             } else {
                 builder.add_positional(stack, head, val);
             }
         }
 
-        // Ensure temporary IR arguments are always cleaned up after dispatch.
+        // `builder.with` is a scoped guard: it registers temporary IR argument slots,
+        // calls the closure, then always deallocates those slots on exit.
         builder.with(stack, |stack, engine_call| {
             decl.run(engine_state, stack, engine_call, input)
         })
