@@ -86,20 +86,16 @@ def make-depth-first-fn [descend: closure]: nothing -> closure {
 }
 
 def make-breadth-first-fn [descend: closure]: nothing -> closure {
-    {|out|
-        let children = $out
-        | each --flatten {|e|
-            $e.item
-            | do $descend $e.item
-            | add-parent $e.path
+    {|queue| match $queue {
+        [] => { {} }
+        [$head, ..$tail] => {
+            let children = $head.item | do $descend $head.item | add-parent $head.path
+            {
+                out: $head,
+                next: ($tail ++ $children),
+            }
         }
-
-        if ($children | is-not-empty) {
-            {out: $out, next: $children}
-        } else {
-            {out: $out}
-        }
-    }
+    }}
 }
 
 # Recursively descend a nested value, returning each value along with its path.
@@ -194,7 +190,6 @@ export def recurse [
     }
 
     generate $fn [{path: ($.), item: $root }]
-    | if not $depth_first { flatten } else { }
 }
 
 # Helper for `only` errors
