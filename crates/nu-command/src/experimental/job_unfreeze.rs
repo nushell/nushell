@@ -1,10 +1,14 @@
+use std::sync::mpsc::RecvTimeoutError;
+use std::time::Duration;
+
 use nu_engine::command_prelude::*;
+use nu_engine::{FrozenPipelineState, PipelineProxy, WorkerOutput};
 use nu_protocol::{
-    JobId,
+    JobId, ListStream, Signals,
     engine::{FrozenJob, Job, ThreadJob},
     process::check_ok,
 };
-use nu_system::{ForegroundWaitStatus, kill_by_pid};
+use nu_system::{ForegroundWaitStatus, SIGTSTP_FLAG, UnfreezeHandle, kill_by_pid};
 
 #[derive(Clone)]
 pub struct JobUnfreeze;
@@ -22,7 +26,7 @@ impl Command for JobUnfreeze {
         Signature::build("job unfreeze")
             .category(Category::Experimental)
             .optional("id", SyntaxShape::Int, "The process id to unfreeze.")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
             .allow_variants_without_examples(true)
     }
 
@@ -59,9 +63,7 @@ impl Command for JobUnfreeze {
 
         drop(jobs);
 
-        unfreeze_job(engine_state, id, job, head)?;
-
-        Ok(Value::nothing(head).into_pipeline_data())
+        unfreeze_job(engine_state, id, job, head)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -90,16 +92,25 @@ fn unfreeze_job(
     old_id: JobId,
     job: Job,
     span: Span,
-) -> Result<(), ShellError> {
+) -> Result<PipelineData, ShellError> {
     match job {
         Job::Thread(ThreadJob { .. }) => Err(JobError::CannotUnfreeze { span, id: old_id }.into()),
         Job::Frozen(FrozenJob {
             unfreeze: handle,
             description,
+            pipeline_state,
         }) => {
+            // Thread-based pipeline jobs are handled directly — they don't go through the
+            // external-process wait loop.
+            if matches!(handle, UnfreezeHandle::Thread { .. }) {
+                return unfreeze_thread_job(state, handle, pipeline_state, span);
+            }
+
+            // External process job (pid > 0).
             let pid = handle.pid();
 
-            if let Some(thread_job) = &state.current_thread_job()
+            if pid > 0
+                && let Some(thread_job) = &state.current_thread_job()
                 && !thread_job.try_add_pid(pid)
             {
                 kill_by_pid(pid.into()).map_err(|err| {
@@ -116,7 +127,9 @@ fn unfreeze_job(
                     .then(|| state.pipeline_externals_state.clone()),
             );
 
-            if let Some(thread_job) = &state.current_thread_job() {
+            if pid > 0
+                && let Some(thread_job) = &state.current_thread_job()
+            {
                 thread_job.remove_pid(pid);
             }
 
@@ -129,6 +142,7 @@ fn unfreeze_job(
                         Job::Frozen(FrozenJob {
                             unfreeze: handle,
                             description,
+                            pipeline_state: None,
                         }),
                     )
                     .expect("job was supposed to be removed");
@@ -136,10 +150,13 @@ fn unfreeze_job(
                     if state.is_interactive {
                         println!("\nJob {} is re-frozen", old_id.get());
                     }
-                    Ok(())
+                    Ok(PipelineData::Empty)
                 }
 
-                Ok(ForegroundWaitStatus::Finished(status)) => check_ok(status, false, span),
+                Ok(ForegroundWaitStatus::Finished(status)) => {
+                    check_ok(status, false, span)?;
+                    Ok(PipelineData::Empty)
+                }
 
                 Err(err) => Err(ShellError::Io(IoError::new_internal(
                     err,
@@ -148,4 +165,95 @@ fn unfreeze_job(
             }
         }
     }
+}
+
+/// Resume a thread-based pipeline job, returning any remaining stream output.
+fn unfreeze_thread_job(
+    state: &EngineState,
+    handle: UnfreezeHandle,
+    pipeline_state: Option<Box<dyn std::any::Any + Send>>,
+    _span: Span,
+) -> Result<PipelineData, ShellError> {
+    // Resume the worker (if it is parked at a cooperative yield point).
+    if let UnfreezeHandle::Thread {
+        ref suspend_state, ..
+    } = handle
+    {
+        suspend_state.resume();
+    }
+
+    // If we have a frozen stream state, reconstruct the proxy and return the remaining output.
+    let frozen_state = pipeline_state
+        .and_then(|b| b.downcast::<FrozenPipelineState>().ok())
+        .map(|b| *b);
+
+    let Some(mut state_data) = frozen_state else {
+        return Ok(PipelineData::Empty);
+    };
+
+    // Phase 1 freeze: the worker hasn't sent its output message yet.
+    // Poll output_rx to learn whether the result is Immediate (return directly,
+    // preserving the exact PipelineData variant) or Streaming (build a proxy).
+    // Without this, the worker sends WorkerOutput::Immediate on a disconnected
+    // channel and the value is silently lost, causing "empty list".
+    if let Some(output_rx) = state_data.output_rx.take() {
+        loop {
+            match output_rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(WorkerOutput::Immediate(result)) => {
+                    return result;
+                }
+                Ok(WorkerOutput::Streaming { span, metadata }) => {
+                    state_data.span = span;
+                    state_data.metadata = metadata.clone();
+                    let proxy =
+                        PipelineProxy::new(state_data, state.jobs.clone(), state.is_interactive);
+                    let stream = ListStream::new(proxy, span, Signals::empty());
+                    return Ok(PipelineData::list_stream(stream, metadata));
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    // Worker exited unexpectedly.
+                    return Ok(PipelineData::Empty);
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    // Check for Ctrl+Z (re-freeze).
+                    if SIGTSTP_FLAG.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                        state_data.suspend_state.suspend();
+                        let _ = state_data
+                            .frozen_rx
+                            .recv_timeout(Duration::from_millis(500));
+                        state_data.output_rx = Some(output_rx);
+                        let handle = UnfreezeHandle::Thread {
+                            suspend_state: state_data.suspend_state.clone(),
+                            interrupt: state_data.interrupt.clone(),
+                        };
+                        let job = Job::Frozen(FrozenJob {
+                            unfreeze: handle,
+                            description: Some("pipeline".into()),
+                            pipeline_state: Some(Box::new(state_data)),
+                        });
+                        let job_id = state.jobs.lock().expect("jobs lock").add_job(job);
+                        if state.is_interactive {
+                            eprintln!("\nJob {} is re-frozen", job_id.get());
+                        }
+                        return Ok(PipelineData::Empty);
+                    }
+                    // Check for Ctrl+C.
+                    if state_data
+                        .interrupt
+                        .load(std::sync::atomic::Ordering::Relaxed)
+                    {
+                        state_data.suspend_state.resume();
+                        return Ok(PipelineData::Empty);
+                    }
+                }
+            }
+        }
+    }
+
+    // Mid-stream freeze: streaming was already underway, build a proxy for remaining values.
+    let span = state_data.span;
+    let metadata = state_data.metadata.clone();
+    let proxy = PipelineProxy::new(state_data, state.jobs.clone(), state.is_interactive);
+    let stream = ListStream::new(proxy, span, Signals::empty());
+    Ok(PipelineData::list_stream(stream, metadata))
 }

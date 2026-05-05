@@ -482,6 +482,9 @@ pub fn eval_block<D: DebugContext>(
     block: &Block,
     input: PipelineData,
 ) -> Result<PipelineExecutionData, ShellError> {
+    if should_use_threaded_pipeline(engine_state, block) {
+        return eval_block_threaded(engine_state, stack, block, input);
+    }
     let result = eval_ir_block::<D>(engine_state, stack, block, input);
     if let Err(ShellError::Exit { code }) = &result {
         std::process::exit(*code)
@@ -490,6 +493,118 @@ pub fn eval_block<D: DebugContext>(
         stack.set_last_error(err);
     }
     result
+}
+
+/// Returns `true` when this block should be dispatched to a pipeline worker thread.
+///
+/// Interactive foreground pipelines are threaded so the orchestrator can observe SIGTSTP
+/// (Ctrl+Z) and cooperatively suspend the pipeline.  Single-element pipelines (e.g. `yes`,
+/// `1..10000000`) are included because they can produce long-running streams.
+fn should_use_threaded_pipeline(engine_state: &EngineState, block: &Block) -> bool {
+    engine_state.is_interactive
+        && !engine_state.is_background_job()
+        && !crate::command_thread::is_on_command_thread()
+        && !block.pipelines.is_empty()
+}
+
+/// Evaluates `block` in a pipeline worker thread, with cooperative Ctrl+Z (SIGTSTP) support.
+///
+/// The orchestrator polls `nu_system::SIGTSTP_FLAG` every 100ms. On detection it suspends
+/// the pipeline thread cooperatively and registers a [`FrozenJob`] in the job table.
+///
+/// For `ListStream` results the orchestrator returns a [`PipelineProxy`] iterator that wraps
+/// the bounded value channel.  The proxy handles further SIGTSTP events during consumption.
+fn eval_block_threaded(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+) -> Result<PipelineExecutionData, ShellError> {
+    use crate::command_thread::{CommandThread, WorkerOutput};
+    use crate::pipeline_proxy::PipelineProxy;
+    use nu_protocol::{
+        ListStream, Signals,
+        engine::{FrozenJob, Job},
+    };
+    use nu_system::{SIGTSTP_FLAG, UnfreezeHandle};
+    use std::sync::atomic::Ordering;
+    use std::sync::mpsc::RecvTimeoutError;
+    use std::time::Duration;
+
+    // Clear any stale SIGTSTP from a previous pipeline.
+    SIGTSTP_FLAG.store(false, Ordering::SeqCst);
+
+    let block_arc = Arc::new(block.clone());
+    let stack_snapshot = stack.clone();
+
+    let ct = CommandThread::spawn(engine_state, stack_snapshot, block_arc, input);
+
+    // Orchestrator wait loop.
+    loop {
+        // 1. Check for completed pipeline or start of streaming.
+        match ct.output_rx.recv_timeout(Duration::from_millis(100)) {
+            Ok(WorkerOutput::Immediate(result)) => {
+                let data = result?;
+                return Ok(PipelineExecutionData::from(data));
+            }
+            Ok(WorkerOutput::Streaming { span, metadata }) => {
+                // The worker is now draining a ListStream into the value channel.
+                // Hand ownership of the channels to a PipelineProxy and return the stream.
+                let frozen_state = ct.into_frozen_state(span, metadata.clone());
+                let proxy = PipelineProxy::new(
+                    frozen_state,
+                    engine_state.jobs.clone(),
+                    engine_state.is_interactive,
+                );
+                let stream = ListStream::new(proxy, span, Signals::empty());
+                return Ok(PipelineExecutionData::from(PipelineData::list_stream(
+                    stream, metadata,
+                )));
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                return Err(ShellError::NushellFailed {
+                    msg: "pipeline worker thread panicked".into(),
+                });
+            }
+            Err(RecvTimeoutError::Timeout) => {}
+        }
+
+        // 2. Check for Ctrl+Z (SIGTSTP) before streaming starts (Phase 1 freeze).
+        if SIGTSTP_FLAG.swap(false, Ordering::SeqCst) {
+            ct.suspend();
+            // Give the pipeline thread up to 500ms to reach a yield point and park.
+            ct.wait_for_frozen(Duration::from_millis(500));
+
+            // Preserve the channels in FrozenPipelineState so that after unfreeze the
+            // worker's eventual stream output can still be consumed.
+            let frozen_state = ct.into_frozen_state(Span::unknown(), None);
+
+            let handle = UnfreezeHandle::Thread {
+                suspend_state: frozen_state.suspend_state.clone(),
+                interrupt: frozen_state.interrupt.clone(),
+            };
+
+            let job = Job::Frozen(FrozenJob {
+                unfreeze: handle,
+                description: Some("pipeline".into()),
+                pipeline_state: Some(Box::new(frozen_state)),
+            });
+            let job_id = engine_state.jobs.lock().expect("jobs lock").add_job(job);
+
+            if engine_state.is_interactive {
+                eprintln!("\nJob {} is frozen", job_id.get());
+            }
+
+            return Ok(PipelineExecutionData::empty());
+        }
+
+        // 3. Check for Ctrl+C (interrupt).
+        if engine_state.signals().interrupted() {
+            ct.interrupt.store(true, Ordering::SeqCst);
+            ct.suspend_state.resume(); // wake if parked so it can observe interrupt
+            return Ok(PipelineExecutionData::empty());
+        }
+    }
 }
 
 pub fn eval_block_with_early_return<D: DebugContext>(

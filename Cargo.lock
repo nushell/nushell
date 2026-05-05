@@ -4677,6 +4677,7 @@ dependencies = [
  "nu-glob",
  "nu-path",
  "nu-protocol",
+ "nu-system",
  "nu-utils",
 ]
 

@@ -1,4 +1,8 @@
-use std::sync::{Arc, atomic::AtomicU32};
+use std::sync::{
+    Arc, Condvar, Mutex,
+    atomic::{AtomicBool, AtomicU32, Ordering},
+    mpsc,
+};
 
 use std::io;
 
@@ -7,7 +11,7 @@ use std::process::{Child, Command};
 use crate::ExitStatus;
 
 #[cfg(unix)]
-use std::{io::IsTerminal, sync::atomic::Ordering};
+use std::io::IsTerminal;
 
 #[cfg(unix)]
 pub use child_pgroup::stdin_fd;
@@ -132,7 +136,7 @@ fn unix_wait(child_pid: Pid) -> std::io::Result<ForegroundWaitStatus> {
                 }));
             }
             Ok(wait::WaitStatus::Stopped(_, _)) => {
-                return Ok(Frozen(UnfreezeHandle { child_pid }));
+                return Ok(Frozen(UnfreezeHandle::Process { child_pid }));
             }
             Ok(_) => {
                 // keep waiting
@@ -152,10 +156,79 @@ impl From<std::process::ExitStatus> for ForegroundWaitStatus {
     }
 }
 
+/// Cooperative suspension state for internal (thread-based) pipelines.
+///
+/// When suspended, threads calling [`wait_if_suspended`](Self::wait_if_suspended) will block
+/// until [`resume`](Self::resume) is called. This mirrors the cooperative stepper pattern:
+/// iterators check this at each yield point instead of running to completion.
 #[derive(Debug)]
-pub struct UnfreezeHandle {
-    #[cfg(unix)]
-    child_pid: Pid,
+pub struct SuspendState {
+    suspended: AtomicBool,
+    condvar: Condvar,
+    mutex: Mutex<bool>,
+    frozen_tx: Mutex<Option<mpsc::SyncSender<()>>>,
+}
+
+impl SuspendState {
+    pub fn new() -> Self {
+        SuspendState {
+            suspended: AtomicBool::new(false),
+            condvar: Condvar::new(),
+            mutex: Mutex::new(false),
+            frozen_tx: Mutex::new(None),
+        }
+    }
+
+    pub fn suspend(&self) {
+        self.suspended.store(true, Ordering::SeqCst);
+    }
+
+    pub fn resume(&self) {
+        self.suspended.store(false, Ordering::SeqCst);
+        self.condvar.notify_all();
+    }
+
+    pub fn is_suspended(&self) -> bool {
+        self.suspended.load(Ordering::SeqCst)
+    }
+
+    pub fn set_frozen_notifier(&self, tx: mpsc::SyncSender<()>) {
+        *self.frozen_tx.lock().expect("frozen_tx lock") = Some(tx);
+    }
+
+    /// Cooperative yield point. Blocks if suspended; returns immediately otherwise.
+    ///
+    /// When the thread parks, it first notifies the orchestrator via the frozen channel,
+    /// then waits on the condvar until [`resume`](Self::resume) is called.
+    pub fn wait_if_suspended(&self) {
+        let mut guard = self.mutex.lock().expect("suspend mutex");
+        if self.suspended.load(Ordering::SeqCst) {
+            if let Some(tx) = self.frozen_tx.lock().expect("frozen_tx lock").as_ref() {
+                let _ = tx.try_send(());
+            }
+            while self.suspended.load(Ordering::SeqCst) {
+                guard = self.condvar.wait(guard).expect("condvar wait");
+            }
+        }
+    }
+}
+
+impl Default for SuspendState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug)]
+pub enum UnfreezeHandle {
+    Process {
+        #[cfg(unix)]
+        child_pid: Pid,
+    },
+    Thread {
+        suspend_state: Arc<SuspendState>,
+        interrupt: Arc<AtomicBool>,
+    },
 }
 
 impl UnfreezeHandle {
@@ -164,30 +237,57 @@ impl UnfreezeHandle {
         self,
         pipeline_state: Option<Arc<(AtomicU32, AtomicU32)>>,
     ) -> io::Result<ForegroundWaitStatus> {
-        // bring child's process group back into foreground and continue it
+        match self {
+            UnfreezeHandle::Process { child_pid } => {
+                // bring child's process group back into foreground and continue it
 
-        // we only keep the guard for its drop impl
-        let _guard = pipeline_state.map(|pipeline_state| {
-            ForegroundGuard::new(self.child_pid.as_raw() as u32, &pipeline_state)
-        });
+                // we only keep the guard for its drop impl
+                let _guard = pipeline_state.map(|pipeline_state| {
+                    ForegroundGuard::new(child_pid.as_raw() as u32, &pipeline_state)
+                });
 
-        if let Err(err) = signal::killpg(self.child_pid, signal::SIGCONT) {
-            return Err(err.into());
+                if let Err(err) = signal::killpg(child_pid, signal::SIGCONT) {
+                    return Err(err.into());
+                }
+
+                unix_wait(child_pid)
+            }
+            UnfreezeHandle::Thread { suspend_state, .. } => {
+                suspend_state.resume();
+                // The thread continues running; caller re-enters the wait loop.
+                // Return Finished(Exited(0)) as a placeholder — actual result
+                // comes from the CommandThread's result channel.
+                Ok(ForegroundWaitStatus::Finished(ExitStatus::Exited(0)))
+            }
         }
-
-        let child_pid = self.child_pid;
-
-        unix_wait(child_pid)
     }
 
     pub fn pid(&self) -> u32 {
-        #[cfg(unix)]
-        {
-            self.child_pid.as_raw() as u32
+        match self {
+            #[cfg(unix)]
+            UnfreezeHandle::Process { child_pid } => child_pid.as_raw() as u32,
+            #[cfg(not(unix))]
+            UnfreezeHandle::Process { .. } => 0,
+            UnfreezeHandle::Thread { .. } => 0,
         }
+    }
 
-        #[cfg(not(unix))]
-        0
+    pub fn kill(&self) {
+        match self {
+            #[cfg(unix)]
+            UnfreezeHandle::Process { child_pid } => {
+                let _ = signal::killpg(*child_pid, signal::SIGKILL);
+            }
+            #[cfg(not(unix))]
+            UnfreezeHandle::Process { .. } => {}
+            UnfreezeHandle::Thread {
+                interrupt,
+                suspend_state,
+            } => {
+                interrupt.store(true, Ordering::SeqCst);
+                suspend_state.resume(); // wake thread so it can observe interrupt
+            }
+        }
     }
 }
 

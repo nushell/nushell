@@ -3,6 +3,8 @@ use std::{
     sync::atomic::{AtomicI32, Ordering},
 };
 
+use nu_system::SIGTSTP_FLAG;
+
 use nix::{
     errno::Errno,
     libc,
@@ -29,7 +31,15 @@ pub(crate) fn acquire(interactive: bool) {
             // SIGINT has special handling
             let ignore = SigAction::new(SigHandler::SigIgn, SaFlags::empty(), SigSet::empty());
             sigaction(Signal::SIGQUIT, &ignore).expect("signal ignore");
-            sigaction(Signal::SIGTSTP, &ignore).expect("signal ignore");
+            sigaction(
+                Signal::SIGTSTP,
+                &SigAction::new(
+                    SigHandler::Handler(sigtstp_handler),
+                    SaFlags::empty(),
+                    SigSet::empty(),
+                ),
+            )
+            .expect("signal action");
             sigaction(Signal::SIGTTIN, &ignore).expect("signal ignore");
             sigaction(Signal::SIGTTOU, &ignore).expect("signal ignore");
             sigaction(
@@ -125,6 +135,11 @@ extern "C" fn restore_terminal() {
     if initial_pgid.as_raw() > 0 && initial_pgid != unistd::getpgrp() {
         let _ = unistd::tcsetpgrp(unsafe { nu_system::stdin_fd() }, initial_pgid);
     }
+}
+
+extern "C" fn sigtstp_handler(_signum: libc::c_int) {
+    // Safety: `AtomicBool::store` is async-signal-safe (lock-free).
+    SIGTSTP_FLAG.store(true, Ordering::SeqCst);
 }
 
 extern "C" fn sigterm_handler(_signum: libc::c_int) {

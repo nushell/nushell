@@ -3,6 +3,7 @@ mod call_ext;
 mod closure_eval;
 pub mod column;
 pub mod command_prelude;
+mod command_thread;
 mod compile;
 pub mod documentation;
 pub mod env;
@@ -11,11 +12,13 @@ mod eval_helpers;
 mod eval_ir;
 pub mod exit;
 mod glob_from;
+mod pipeline_proxy;
 pub mod scope;
 
 pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
+pub use command_thread::{CommandThread, WorkerOutput, is_on_command_thread};
 pub use compile::compile;
 pub use documentation::get_full_help;
 pub use env::*;
@@ -26,3 +29,4 @@ pub use eval::{
 pub use eval_helpers::*;
 pub use eval_ir::eval_ir_block;
 pub use glob_from::glob_from;
+pub use pipeline_proxy::{FrozenPipelineState, PipelineProxy};
