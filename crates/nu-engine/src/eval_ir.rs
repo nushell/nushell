@@ -297,7 +297,13 @@ fn eval_ir_block_impl<D: DebugContext>(
                 }
             }
             Err(err) => {
-                let is_interrupted = matches!(err, ShellError::Interrupted { .. });
+                #[cfg(unix)]
+                let is_terminated_by_signal = matches!(&err, ShellError::TerminatedBySignal { .. });
+                #[cfg(not(unix))]
+                let is_terminated_by_signal = false;
+
+                let is_interrupted =
+                    matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal;
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
                     if is_interrupted {
                         ctx.engine_state.signals().reset();
@@ -427,9 +433,9 @@ fn eval_instruction<D: DebugContext>(
         Instruction::TryCollect { src_dst } => {
             let data = ctx.take_reg(*src_dst);
             #[cfg(feature = "os")]
-            let value = collect_respecting_signals(data, *span, false, ctx.engine_state.signals())?;
+            let value = collect(data, *span, false)?;
             #[cfg(not(feature = "os"))]
-            let value = collect_respecting_signals(data, *span, ctx.engine_state.signals())?;
+            let value = collect(data, *span)?;
             ctx.put_reg(*src_dst, PipelineExecutionData::from(value));
             Ok(Continue)
         }
@@ -1688,97 +1694,6 @@ fn collect(
     }
     let value = data.into_value(span)?;
     Ok(PipelineData::value(value, metadata))
-}
-
-/// Like `collect`, but for ListStream collects items manually while checking `signals` on each
-/// iteration. When interrupted, returns `ShellError::Interrupted`.
-#[cfg(feature = "os")]
-fn collect_respecting_signals(
-    pipe: PipelineExecutionData,
-    fallback_span: Span,
-    ignore_error: bool,
-    signals: &Signals,
-) -> Result<PipelineData, ShellError> {
-    let mut data = pipe.body;
-    let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.take_metadata().and_then(|m| m.for_collect());
-
-    if nu_experimental::PIPE_FAIL.get() && !ignore_error {
-        check_exit_status_future(pipe.exit)?;
-    }
-
-    match data {
-        PipelineData::Empty => Ok(PipelineData::value(Value::nothing(span), metadata)),
-        PipelineData::Value(mut val, ..) => {
-            if val.span() == Span::unknown() {
-                val = val.with_span(span);
-            }
-            Ok(PipelineData::value(val, metadata))
-        }
-        PipelineData::ListStream(mut list_stream, ..) => {
-            let mut iter = list_stream.into_inner();
-            let mut vals = Vec::new();
-            loop {
-                if signals.interrupted() {
-                    return Err(ShellError::Interrupted { span });
-                }
-                match iter.next() {
-                    Some(v) => match v {
-                        Value::Error { error, .. } => return Err(*error),
-                        other => vals.push(other),
-                    },
-                    None => break,
-                }
-            }
-            Ok(PipelineData::value(Value::list(vals, span), metadata))
-        }
-        PipelineData::ByteStream(byte_stream, ..) => {
-            let value = byte_stream.into_value()?;
-            Ok(PipelineData::value(value, metadata))
-        }
-    }
-}
-
-#[cfg(not(feature = "os"))]
-fn collect_respecting_signals(
-    pipe: PipelineExecutionData,
-    fallback_span: Span,
-    signals: &Signals,
-) -> Result<PipelineData, ShellError> {
-    let mut data = pipe.body;
-    let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.take_metadata().and_then(|m| m.for_collect());
-
-    match data {
-        PipelineData::Empty => Ok(PipelineData::value(Value::nothing(span), metadata)),
-        PipelineData::Value(mut val, ..) => {
-            if val.span() == Span::unknown() {
-                val = val.with_span(span);
-            }
-            Ok(PipelineData::value(val, metadata))
-        }
-        PipelineData::ListStream(mut list_stream, ..) => {
-            let mut iter = list_stream.into_inner();
-            let mut vals = Vec::new();
-            loop {
-                if signals.interrupted() {
-                    return Err(ShellError::Interrupted { span });
-                }
-                match iter.next() {
-                    Some(v) => match v {
-                        Value::Error { error, .. } => return Err(*error),
-                        other => vals.push(other),
-                    },
-                    None => break,
-                }
-            }
-            Ok(PipelineData::value(Value::list(vals, span), metadata))
-        }
-        PipelineData::ByteStream(byte_stream, ..) => {
-            let value = byte_stream.into_value()?;
-            Ok(PipelineData::value(value, metadata))
-        }
-    }
 }
 
 /// Helper for drain behavior.
