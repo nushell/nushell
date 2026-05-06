@@ -1,3 +1,5 @@
+use nu_test_support::prelude::*;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
@@ -52,24 +54,19 @@ fn hides_env_then_redefines() -> TestResult {
     )
 }
 
-/// Regression: hiding after multiple stack-level assignments must remove all of them.
 #[test]
-fn hide_env_after_multiple_assignments() -> TestResult {
-    fail_test(
-        r#"$env.AAAA = "before"; $env.AAAA = "after"; $env.AAAA = null; hide-env AAAA; $env.AAAA"#,
-        "",
-    )
-}
-
-/// Regression: `hide-env` must also mark the engine-state baseline as hidden, so a variable
-/// that was set in a previous REPL merge (engine_state) cannot be seen after hiding even when
-/// a stack-level override — such as an empty-string assignment — was present at hide time.
-#[test]
-fn hide_env_after_empty_string_assignment() -> TestResult {
-    fail_test(
-        r#"$env.AAAA = "aaaa"; $env.AAAA = ""; hide-env AAAA; $env.AAAA"#,
-        "",
-    )
+fn hide_env_affects_stack_and_engine_state() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"$env.AAAA = "before""#)?;
+    let code = r#"
+        $env.AAAA = "after"
+        hide-env AAAA
+    "#;
+    let () = tester.run(code)?;
+    match tester.run("$env.AAAA").expect_shell_error()? {
+        ShellError::CantFindColumn { col_name, .. } if col_name == "AAAA" => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
