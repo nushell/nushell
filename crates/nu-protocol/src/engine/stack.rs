@@ -573,33 +573,96 @@ impl Stack {
         false
     }
 
+    /// Removes `name` from the stack. If it was not on the stack and lives in `engine_state`,
+    /// marks it hidden in `env_hidden`. Returns `true` if the variable was found and removed.
+    ///
+    /// Use this for temporary bookkeeping removals (e.g. `FILE_PWD`, canary variables) where
+    /// the goal is to clean up a stack-level value without necessarily hiding the engine-state
+    /// baseline. Use [`Self::hide_env_var`] when the intent is to make the variable invisible
+    /// to subsequent lookups (e.g. `hide-env`).
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        if self.remove_env_var_from_stack(&env_name) {
+            return true;
+        }
+
+        self.hide_engine_state_env_var(engine_state, &env_name)
+    }
+
+    /// Removes `env_name` from all stack scopes and returns `true` if it was found.
+    /// Does not affect `env_hidden`; use [`Self::hide_env_var`] for full hiding semantics.
+    fn remove_env_var_from_stack(&mut self, env_name: &EnvName) -> bool {
         for scope in self.env_vars.iter_mut().rev() {
             let scope = Arc::make_mut(scope);
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get_mut(active_overlay)
-                    && env_vars.remove(&EnvName::from(name)).is_some()
+                    && env_vars.remove(env_name).is_some()
                 {
                     return true;
                 }
             }
         }
+        false
+    }
 
+    /// Marks `env_name` as hidden in `env_hidden` for any overlay where it exists in
+    /// `engine_state`. Returns `true` if the variable was found and marked hidden.
+    fn hide_engine_state_env_var(
+        &mut self,
+        engine_state: &EngineState,
+        env_name: &EnvName,
+    ) -> bool {
         for active_overlay in self.active_overlays.iter().rev() {
             if let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.get(&EnvName::from(name)).is_some()
+                && env_vars.contains_key(env_name)
             {
                 let env_hidden = Arc::make_mut(&mut self.env_hidden);
                 if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
-                    env_hidden_in_overlay.insert(EnvName::from(name));
+                    env_hidden_in_overlay.insert(env_name.clone());
                 } else {
                     env_hidden.insert(
                         active_overlay.into(),
-                        [EnvName::from(name)].into_iter().collect(),
+                        [env_name.clone()].into_iter().collect(),
                     );
                 }
 
                 return true;
+            }
+        }
+
+        false
+    }
+
+    /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
+    /// and, if no stack shadowing remains, also marks the `engine_state` baseline as hidden in
+    /// `env_hidden`. Returns `true` if the variable was found.
+    ///
+    /// This is the correct method for `hide-env` and `redirect_env`; it ensures that a variable
+    /// set in engine_state (from a previous REPL merge) cannot be seen after hiding even when a
+    /// stack-level override (e.g. an empty-string assignment) was present at hide time.
+    pub fn hide_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        if self.remove_env_var_from_stack(&env_name) {
+            if !self.has_env_var_in_stack(&env_name) {
+                self.hide_engine_state_env_var(engine_state, &env_name);
+            }
+            return true;
+        }
+
+        self.hide_engine_state_env_var(engine_state, &env_name)
+    }
+
+    /// Returns `true` if `name` exists in any stack scope (without consulting `engine_state`).
+    fn has_env_var_in_stack(&self, name: &EnvName) -> bool {
+        for scope in self.env_vars.iter().rev() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = scope.get(active_overlay)
+                    && env_vars.contains_key(name)
+                {
+                    return true;
+                }
             }
         }
 

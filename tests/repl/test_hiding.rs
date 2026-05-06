@@ -52,6 +52,26 @@ fn hides_env_then_redefines() -> TestResult {
     )
 }
 
+/// Regression: hiding after multiple stack-level assignments must remove all of them.
+#[test]
+fn hide_env_after_multiple_assignments() -> TestResult {
+    fail_test(
+        r#"$env.AAAA = "before"; $env.AAAA = "after"; $env.AAAA = null; hide-env AAAA; $env.AAAA"#,
+        "",
+    )
+}
+
+/// Regression: `hide-env` must also mark the engine-state baseline as hidden, so a variable
+/// that was set in a previous REPL merge (engine_state) cannot be seen after hiding even when
+/// a stack-level override — such as an empty-string assignment — was present at hide time.
+#[test]
+fn hide_env_after_empty_string_assignment() -> TestResult {
+    fail_test(
+        r#"$env.AAAA = "aaaa"; $env.AAAA = ""; hide-env AAAA; $env.AAAA"#,
+        "",
+    )
+}
+
 #[test]
 fn hides_def_in_scope_1() -> TestResult {
     fail_test(

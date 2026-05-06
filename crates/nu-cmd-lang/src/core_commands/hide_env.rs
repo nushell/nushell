@@ -44,7 +44,7 @@ impl Command for HideEnv {
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         for name in env_var_names {
-            if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {
+            if !stack.hide_env_var(engine_state, &name.item) && !ignore_errors {
                 let all_names = stack.get_env_var_names(engine_state);
                 if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
                     return Err(ShellError::DidYouMeanCustom {
