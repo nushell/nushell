@@ -583,27 +583,24 @@ impl Stack {
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         let env_name = EnvName::from(name);
 
-        if self.remove_env_var_from_stack(&env_name) {
-            return true;
-        }
-
-        self.hide_engine_state_env_var(engine_state, &env_name)
+        self.remove_env_var_from_stack(&env_name)
+            || self.hide_engine_state_env_var(engine_state, &env_name)
     }
 
     /// Removes `env_name` from all stack scopes and returns `true` if it was found.
     /// Does not affect `env_hidden`; use [`Self::hide_env_var`] for full hiding semantics.
     fn remove_env_var_from_stack(&mut self, env_name: &EnvName) -> bool {
-        for scope in self.env_vars.iter_mut().rev() {
-            let scope = Arc::make_mut(scope);
-            for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get_mut(active_overlay)
-                    && env_vars.remove(env_name).is_some()
-                {
-                    return true;
-                }
-            }
-        }
-        false
+        self.env_vars
+            .iter_mut()
+            .rev()
+            .map(Arc::make_mut)
+            .find_map(|scope| {
+                self.active_overlays
+                    .iter()
+                    .rev()
+                    .find_map(|active_overlay| scope.get_mut(active_overlay)?.remove(env_name))
+            })
+            .is_some()
     }
 
     /// Marks `env_name` as hidden in `env_hidden` for any overlay where it exists in
@@ -613,25 +610,23 @@ impl Stack {
         engine_state: &EngineState,
         env_name: &EnvName,
     ) -> bool {
-        for active_overlay in self.active_overlays.iter().rev() {
-            if let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.contains_key(env_name)
-            {
-                let env_hidden = Arc::make_mut(&mut self.env_hidden);
-                if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
-                    env_hidden_in_overlay.insert(env_name.clone());
-                } else {
-                    env_hidden.insert(
-                        active_overlay.into(),
-                        [env_name.clone()].into_iter().collect(),
-                    );
-                }
+        let overlay_containing_env_var = self.active_overlays.iter().rev().find(|active_overlay| {
+            engine_state
+                .env_vars
+                .get(active_overlay.as_str())
+                .is_some_and(|env_vars| env_vars.contains_key(env_name))
+        });
+        let Some(overlay_containing_env_var) = overlay_containing_env_var else {
+            return false;
+        };
 
-                return true;
-            }
-        }
+        let env_hidden = Arc::make_mut(&mut self.env_hidden);
+        env_hidden
+            .entry(overlay_containing_env_var.clone())
+            .or_default()
+            .insert(env_name.clone());
 
-        false
+        true
     }
 
     /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
@@ -656,17 +651,13 @@ impl Stack {
 
     /// Returns `true` if `name` exists in any stack scope (without consulting `engine_state`).
     fn has_env_var_in_stack(&self, name: &EnvName) -> bool {
-        for scope in self.env_vars.iter().rev() {
-            for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get(active_overlay)
-                    && env_vars.contains_key(name)
-                {
-                    return true;
-                }
-            }
-        }
-
-        false
+        self.env_vars.iter().rev().any(|scope| {
+            self.active_overlays
+                .iter()
+                .rev()
+                .filter_map(|active_overlay| scope.get(active_overlay))
+                .any(|env_vars| env_vars.contains_key(name))
+        })
     }
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
