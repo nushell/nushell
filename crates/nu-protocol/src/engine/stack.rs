@@ -603,8 +603,27 @@ impl Stack {
             .is_some()
     }
 
-    /// Marks `env_name` as hidden in `env_hidden` for any overlay where it exists in
-    /// `engine_state`. Returns `true` if the variable was found and marked hidden.
+    /// Removes `env_name` from only the current (innermost) stack scope.
+    ///
+    /// This is used by `hide-env` semantics, where hiding in an inner block should not eagerly
+    /// remove same-named variables from parent scopes.
+    fn remove_env_var_from_current_scope(&mut self, env_name: &EnvName) -> bool {
+        if let Some(scope) = self.env_vars.last_mut() {
+            for active_overlay in self.active_overlays.iter().rev() {
+                if let Some(env_vars) = Arc::make_mut(scope).get_mut(active_overlay)
+                    && env_vars.remove(env_name).is_some()
+                {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Marks `env_name` as hidden in `env_hidden` for the active overlay where it exists in
+    /// `engine_state`.
+    ///
+    /// Returns `true` only when the baseline variable exists and was newly hidden.
     fn hide_engine_state_env_var(
         &mut self,
         engine_state: &EngineState,
@@ -616,16 +635,24 @@ impl Stack {
                 .get(active_overlay.as_str())
                 .is_some_and(|env_vars| env_vars.contains_key(env_name))
         });
+
         let Some(overlay_containing_env_var) = overlay_containing_env_var else {
             return false;
         };
 
         let env_hidden = Arc::make_mut(&mut self.env_hidden);
+
+        if env_hidden
+            .get(overlay_containing_env_var.as_str())
+            .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
+        {
+            return false;
+        }
+
         env_hidden
             .entry(overlay_containing_env_var.clone())
             .or_default()
             .insert(env_name.clone());
-
         true
     }
 
@@ -639,7 +666,7 @@ impl Stack {
     pub fn hide_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
         let env_name = EnvName::from(name);
 
-        if self.remove_env_var_from_stack(&env_name) {
+        if self.remove_env_var_from_current_scope(&env_name) {
             if !self.has_env_var_in_stack(&env_name) {
                 self.hide_engine_state_env_var(engine_state, &env_name);
             }
