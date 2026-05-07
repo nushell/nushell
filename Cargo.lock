@@ -4559,6 +4559,7 @@ dependencies = [
  "fff-search",
  "filesize",
  "filetime",
+ "fluent",
  "fuzzy-matcher",
  "getrandom 0.4.2",
  "http 1.4.0",

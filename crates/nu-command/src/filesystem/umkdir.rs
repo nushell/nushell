@@ -41,7 +41,23 @@ impl Command for UMkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (
+                    Type::Nothing,
+                    Type::Table(
+                        [
+                            ("path".to_string(), Type::String),
+                            ("created".to_string(), Type::Bool),
+                            (
+                                "error".to_string(),
+                                Type::OneOf([Type::Nothing, Type::Error].into()),
+                            ),
+                        ]
+                        .into(),
+                    ),
+                ),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Directory]),
@@ -84,36 +100,47 @@ impl Command for UMkdir {
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
             mode: get_mode(),
-            verbose: is_verbose,
+            verbose: false,
             set_security_context: false,
             context: None,
         };
 
-        let mut verbose_out = String::new();
+        let mut verbose_out = Vec::new();
         for dir in directories {
             if let Err(error) = mkdir(&dir, &config) {
-                return Err(ShellError::Generic(GenericError::new_internal(
-                    format!("{error}"),
-                    translate!(&error.to_string()),
-                )));
-            }
-            if is_verbose {
-                verbose_out.push_str(
-                    format!(
-                        "{} ",
-                        &dir.as_path()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
+                if is_verbose {
+                    verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(false, call.head),
+                            "error" => Value::error(ShellError::Generic(GenericError::new_internal(
+                                format!("{error}"),
+                                translate!(&error.to_string()),
+                            )), call.head),
+                        }
+                        .into_value(call.head),
                     )
-                    .as_str(),
+                } else {
+                    return Err(ShellError::Generic(GenericError::new_internal(
+                        format!("{error}"),
+                        translate!(&error.to_string()),
+                    )));
+                }
+            } else if is_verbose {
+                verbose_out.push(
+                    record! {
+                        "path" => Value::string(dir.display().to_string(), call.head),
+                        "created" => Value::bool(true, call.head),
+                        "error" => Value::nothing(call.head),
+                    }
+                    .into_value(call.head),
                 );
             }
         }
 
         if is_verbose {
             Ok(PipelineData::value(
-                Value::string(verbose_out.trim(), call.head),
+                Value::list(verbose_out, call.head),
                 None,
             ))
         } else {
@@ -131,7 +158,24 @@ impl Command for UMkdir {
             Example {
                 description: "Make multiple directories and show the paths created.",
                 example: "mkdir -v foo/bar foo2",
-                result: None,
+                result: Some(Value::test_list(vec![
+                    Value::record(
+                        record! {
+                            "path" => Value::string("foo/bar".to_string(), Span::test_data()),
+                            "created" => Value::bool(true, Span::test_data()),
+                            "error" => Value::nothing(Span::test_data()),
+                        },
+                        Span::test_data(),
+                    ),
+                    Value::record(
+                        record! {
+                            "path" => Value::string("foo2".to_string(), Span::test_data()),
+                            "created" => Value::bool(true, Span::test_data()),
+                            "error" => Value::nothing(Span::test_data()),
+                        },
+                        Span::test_data(),
+                    ),
+                ])),
             },
         ]
     }
