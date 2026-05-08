@@ -616,9 +616,7 @@ pub(crate) fn compile_try(
     } else {
         builder.push(Instruction::DrainIfEnd { src: io_reg }.into_spanned(call.head))?;
     }
-    if catch_expr.is_some() {
-        builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
-    }
+    builder.push(Instruction::PopErrorHandler.into_spanned(call.head))?;
 
     builder.end_try()?;
 
