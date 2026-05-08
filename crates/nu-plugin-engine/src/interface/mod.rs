@@ -782,14 +782,14 @@ impl PluginInterface {
                         span,
                     )
                     .with_help(help)
-                    .with_inner(existing_error.into_iter())
+                    .with_inner(existing_error)
                 } else {
                     GenericError::new_internal(
                         format!("Plugin `{}` closed unexpectedly", self.state.source.name()),
                         "can't complete this operation because the plugin is closed",
                     )
                     .with_help(help)
-                    .with_inner(existing_error.into_iter())
+                    .with_inner(existing_error)
                 };
                 ShellError::Generic(error)
             })?;

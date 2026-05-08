@@ -246,6 +246,10 @@ result_large_err = "allow"
 unchecked_time_subtraction = "warn"
 unwrap_used = "deny"
 used_underscore_binding = "warn"
+# need to allow this temporarily because it may change code logic.
+# let's keep it until we update rustc version to 1.96
+# which resolve the issue: https://github.com/rust-lang/rust-clippy/issues/16875
+collapsible_match = "allow"
 
 [lints]
 workspace = true
