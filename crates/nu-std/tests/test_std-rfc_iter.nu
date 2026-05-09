@@ -121,3 +121,66 @@ def only-none [] {
     (assert ($err.msg has "non-empty"))
   }
 }
+
+@test
+def "multiple list prod test" [] {
+    # test runner may provide context record as $in
+    # it is discarded to make `prod` work correctly
+    null
+    let got = prod {
+        color: [red, green]
+        size: [small, large]
+        letter: [A, B]
+    }
+
+    let expected = [
+        [color, size, letter];
+        [red, small, A]
+        [red, small, B]
+        [red, large, A]
+        [red, large, B]
+        [green, small, A]
+        [green, small, B]
+        [green, large, A]
+        [green, large, B]
+    ]
+
+    assert equal $got $expected
+}
+
+@test
+def "two list prod with input" [] {
+    let got = [1, 2, 3] | prod {right: [a, b, c]}
+    let expected = [
+        [in, right];
+        [1, a]
+        [1, b]
+        [1, c]
+        [2, a]
+        [2, b]
+        [2, c]
+        [3, a]
+        [3, b]
+        [3, c]
+    ]
+
+    assert equal $got $expected
+}
+
+@test
+def "multi list prod with input" [] {
+    let got = [1, 2] | prod {lower: [a, b], upper: [A, B]}
+    let expected = [
+        [in, lower, upper];
+        [1, a, A]
+        [1, a, B]
+        [1, b, A]
+        [1, b, B]
+        [2, a, A]
+        [2, a, B]
+        [2, b, A]
+        [2, b, B]
+    ]
+
+    assert equal $got $expected
+}

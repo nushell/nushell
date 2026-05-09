@@ -224,3 +224,88 @@ export def only [
     _ => (only-error "expected only one element in table/list" $pipe.meta "has more than one element")
   }
 }
+
+def prod-error-helper [] {
+    items {|k v|
+        match $v {
+            [..] => null
+            _ => {
+                let ty = $v | describe
+                {
+                    span: (metadata $v).span
+                    text: $'expected list, got ($ty)'
+                }
+            }
+        }
+    }
+    | compact -e
+    | let labels
+
+    if $labels != [] {
+        error make {
+            msg: "Type mismatch. All values must be lists."
+            code: "nu::shell::type_mismatch"
+            labels: $labels
+        }
+    }
+}
+
+def prod-mk-fn [src: record]: nothing -> closure {
+    $src | prod-error-helper
+    $src
+    | transpose name items
+    | reduce --fold ({|| }) {|source prev_fn|
+        {||
+            do $prev_fn
+            | each --flatten {|l|
+                $source.items | each {|r|
+                    $l | merge {($source.name): $r}
+                }
+            }
+        }
+    }
+}
+
+# Cartesian product of multiple lists as a table.
+@search-terms cartesian product combination
+@category generators
+@example "Product of two lists" {
+    [1, 2] | prod { rhs: [a, b] }
+} --result [
+    [in, rhs];
+    [1, a]
+    [1, b]
+    [2, a]
+    [2, b]
+]
+@example "All element combinations of multiple lists" {
+    prod {
+        size: [little, big]
+        color: [red, blue]
+        shape: [circle, box]
+    }
+} --result [
+    [size, color, shape];
+    [little, red, circle],
+    [little, red, box],
+    [little, blue, circle],
+    [little, blue, box],
+    [big, red, circle],
+    [big, red, box],
+    [big, blue, circle],
+    [big, blue, box]
+]
+export def prod [
+    src: record # Lists to combine. All values must be lists.
+]: [
+    nothing -> table
+    list -> table
+] {
+    peek | metadata access {|md|
+        match $md.peek {
+            {type: "list"} => { wrap in }
+            {type: "empty"} => { [{}] }
+        }
+    }
+    | do (prod-mk-fn $src)
+}
