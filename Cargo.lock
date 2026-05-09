@@ -4387,6 +4387,7 @@ dependencies = [
  "nu-protocol",
  "nu-std",
  "nu-system",
+ "nu-table",
  "nu-test-support",
  "nu-utils",
  "openssl",
