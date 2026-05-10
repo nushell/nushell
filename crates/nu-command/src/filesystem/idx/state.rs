@@ -6,7 +6,9 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ListStream, PipelineMetadata, Signals};
 use nu_utils::time::Instant;
+#[cfg(feature = "sqlite")]
 use rusqlite::{Connection, OptionalExtension, params};
+#[cfg(feature = "sqlite")]
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -697,6 +699,7 @@ pub fn stream_find(
     ))
 }
 
+#[cfg(feature = "sqlite")]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdxSnapshotFile {
     pub relative_path: String,
@@ -712,6 +715,7 @@ pub struct IdxSnapshotFile {
     pub is_overflow: bool,
 }
 
+#[cfg(feature = "sqlite")]
 #[derive(Debug)]
 pub struct IdxSnapshotDir {
     pub relative_path: String,
@@ -721,6 +725,7 @@ pub struct IdxSnapshotDir {
     pub is_overflow: bool,
 }
 
+#[cfg(feature = "sqlite")]
 pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     let snapshot = require_runtime(span)?;
     let guard = snapshot
@@ -947,6 +952,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     ))
 }
 
+#[cfg(feature = "sqlite")]
 pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
     let conn = Connection::open(path).map_err(|err| {

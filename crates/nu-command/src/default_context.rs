@@ -260,11 +260,15 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxStatus,
             IdxFind,
             IdxSearch,
-            IdxExport,
-            IdxImport,
             IdxDrop,
             IdxDirs,
             IdxFiles,
+        };
+
+        #[cfg(feature = "sqlite")]
+        bind_command! {
+            IdxExport,
+            IdxImport,
         };
 
         // Platform
