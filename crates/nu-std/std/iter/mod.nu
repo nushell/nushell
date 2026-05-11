@@ -127,9 +127,7 @@ export def  zip-with [ # -> list<any>
     fn: closure              # the closure to apply to the zips
 ] {
     zip $other 
-    | each {|e|
-        reduce {|e, acc| do $fn $acc $e }
-    }
+    | each {|e| null; do $fn $e.0 $e.1 }
 }
 
 # Zips two lists and returns a record with the first list as headers
