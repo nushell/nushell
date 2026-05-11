@@ -1,6 +1,6 @@
-use nu_protocol::{shell_error};
+use nu_protocol::shell_error;
 #[cfg(unix)]
-use nu_protocol::{test_record};
+use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
