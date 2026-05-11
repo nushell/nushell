@@ -62,7 +62,7 @@ impl Command for Watch {
             .optional(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order. (deprecated)",
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order (deprecated).",
             )
             .named(
                 "debounce",
@@ -180,6 +180,7 @@ impl Command for Watch {
                 },
             );
 
+            #[allow(deprecated)]
             run_closure(
                 engine_state,
                 stack,
