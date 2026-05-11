@@ -1,4 +1,4 @@
-use nu_protocol::shell_error;
+use nu_protocol::{shell_error, test_record};
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
