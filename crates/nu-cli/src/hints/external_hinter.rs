@@ -54,6 +54,7 @@ impl ExternalHinter {
         pos: usize,
         cwd: &str,
     ) -> Result<Option<HintResult>, String> {
+        // No call span available — this is a reedline hinter callback
         let span = Span::unknown();
         let context = Record::from_raw_cols_vals(
             vec!["line".to_string(), "pos".to_string(), "cwd".to_string()],
@@ -70,7 +71,7 @@ impl ExternalHinter {
         let stack = Stack::with_parent(self.stack.clone());
         let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, self.closure.clone())
             .add_arg(Value::record(context, span))
-            .run_with_input(PipelineData::empty())
+            .and_then(|closure| closure.run_with_input(PipelineData::empty()))
             .and_then(|data| data.into_value(span));
 
         match result {

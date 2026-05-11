@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::shell_error::io::IoError;
 use windows::{Win32::System::Environment::ExpandEnvironmentStringsW, core::PCWSTR};
 use winreg::{RegKey, enums::*, types::FromRegValue};
@@ -128,13 +129,11 @@ fn registry_query(
                         )
                         .into_pipeline_data())
                     }
-                    Err(_) => Err(ShellError::GenericError {
-                        error: "Unable to find registry key/value".into(),
-                        msg: format!("Registry value: {} was not found", value.item),
-                        span: Some(value.span),
-                        help: None,
-                        inner: vec![],
-                    }),
+                    Err(_) => Err(ShellError::Generic(GenericError::new(
+                        "Unable to find registry key/value",
+                        format!("Registry value: {} was not found", value.item),
+                        value.span,
+                    ))),
                 }
             }
             None => Ok(Value::nothing(call_span).into_pipeline_data()),
@@ -159,13 +158,11 @@ fn get_reg_hive(
     })
     .collect::<Result<Vec<_>, ShellError>>()?;
     if flags.len() > 1 {
-        return Err(ShellError::GenericError {
-            error: "Only one registry key can be specified".into(),
-            msg: "Only one registry key can be specified".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "Only one registry key can be specified",
+            "Only one registry key can be specified",
+            call.head,
+        )));
     }
     let hive = flags.first().copied().unwrap_or("hkcu");
     let hkey = match hive {
@@ -280,29 +277,6 @@ fn reg_value_to_nu_string(
     }
 }
 
-#[test]
-fn no_expand_does_not_expand() {
-    let unexpanded = "%AppData%";
-    let reg_val = || winreg::RegValue {
-        bytes: unexpanded
-            .encode_utf16()
-            .chain([0])
-            .flat_map(u16::to_ne_bytes)
-            .collect(),
-        vtype: REG_EXPAND_SZ,
-    };
-
-    // normally we do expand
-    let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
-    assert!(nu_val_expanded.coerce_string().is_ok());
-    assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
-
-    // unless we skip expansion
-    let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
-    assert!(nu_val_skip_expand.coerce_string().is_ok());
-    assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
-}
-
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
     let values = <Vec<String>>::from_reg_value(&reg_value)
         .expect("registry value type should be REG_MULTI_SZ")
@@ -331,4 +305,32 @@ fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: Span) -> nu_proto
             ),
         };
     Value::int(value, call_span)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_expand_does_not_expand() {
+        let unexpanded = "%AppData%";
+        let reg_val = || winreg::RegValue {
+            bytes: unexpanded
+                .encode_utf16()
+                .chain([0])
+                .flat_map(u16::to_ne_bytes)
+                .collect(),
+            vtype: REG_EXPAND_SZ,
+        };
+
+        // normally we do expand
+        let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
+        assert!(nu_val_expanded.coerce_string().is_ok());
+        assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
+
+        // unless we skip expansion
+        let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
+        assert!(nu_val_skip_expand.coerce_string().is_ok());
+        assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
+    }
 }

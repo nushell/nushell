@@ -3,7 +3,6 @@
 //!
 //! For more general infos regarding our pipelining model refer to [`PipelineData`]
 use crate::{Config, PipelineData, ShellError, Signals, Span, Value};
-use std::fmt::Debug;
 
 pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
 
@@ -12,6 +11,8 @@ pub type ValueIterator = Box<dyn Iterator<Item = Value> + Send + 'static>;
 /// In practice, a "stream" here means anything which can be iterated and produces Values.
 /// Like other iterators in Rust, observing values from this stream will drain the items
 /// as you view them and the stream cannot be replayed.
+#[derive(derive_more::Debug)]
+#[debug("ListStream")]
 pub struct ListStream {
     stream: ValueIterator,
     span: Span,
@@ -129,12 +130,6 @@ impl ListStream {
     /// to each of the values in the original [`ListStream`].
     pub fn map(self, mapping: impl FnMut(Value) -> Value + Send + 'static) -> Self {
         self.modify(|iter| iter.map(mapping))
-    }
-}
-
-impl Debug for ListStream {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ListStream").finish()
     }
 }
 

@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::PipelineMetadata;
+use nu_protocol::{PipelineMetadata, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct ViewSpan;
@@ -38,24 +38,22 @@ impl Command for ViewSpan {
         let span = if start_span.item <= end_span.item {
             Ok(Span::new(start_span.item, end_span.item))
         } else {
-            Err(ShellError::GenericError {
-                error: "Invalid span".to_string(),
-                msg: "the start position of this span is later than the end position".to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })
+            Err(ShellError::Generic(GenericError::new(
+                "Invalid span",
+                "the start position of this span is later than the end position",
+                call.head,
+            )))
         }?;
 
         let bin_contents = engine_state
             .try_get_file_contents(span)
             .map(String::from_utf8_lossy)
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Cannot view span".to_string(),
-                msg: "this start and end does not correspond to a viewable value".to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .ok_or_else(|| {
+                ShellError::Generic(GenericError::new(
+                    "Cannot view span",
+                    "this start and end does not correspond to a viewable value",
+                    call.head,
+                ))
             })?;
 
         let metadata = PipelineMetadata {

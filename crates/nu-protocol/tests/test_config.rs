@@ -1,47 +1,32 @@
-use nu_test_support::{nu, nu_repl_code};
+use nu_protocol::test_record;
+use nu_test_support::{nu, nu_repl_code, prelude::*};
+use rstest::rstest;
 
-#[test]
-fn filesize_mb() {
-    let code = &[
-        "$env.config = { filesize: { unit: MB } }",
-        "20MB | into string",
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20.0 MB");
+#[rstest]
+#[case::mb("MB")]
+#[case::mib("MiB")]
+fn filesize(#[case] unit: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_data("$env.config.filesize.unit = $in", unit)?;
+    tester
+        .run(format!("20{unit} | into string"))
+        .expect_value_eq(format!("20.0 {unit}"))
+}
+
+#[rstest]
+#[case::metric("metric", "[2MB, 2GB, 2TB]", &["2.0 MB", "2.0 GB", "2.0 TB"])]
+#[case::binary("binary", "[2MiB, 2GiB, 2TiB]", &["2.0 MiB", "2.0 GiB", "2.0 TiB"])]
+fn filesize_format(#[case] unit: &str, #[case] input: &str, #[case] expected: &[&str]) -> Result {
+    let mut tester = test();
+    let () = tester.run_with_data("$env.config.filesize.unit = $in", unit)?;
+    let val: Value = tester.run(input)?;
+    tester
+        .run_with_data("into string", val)
+        .expect_value_eq(expected.to_vec())
 }
 
 #[test]
-fn filesize_mib() {
-    let code = &[
-        "$env.config = { filesize: { unit: MiB } }",
-        "20MiB | into string",
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "20.0 MiB");
-}
-
-#[test]
-fn filesize_format_decimal() {
-    let code = &[
-        "$env.config = { filesize: { unit: metric } }",
-        "[2MB 2GB 2TB] | into string | to nuon",
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["2.0 MB", "2.0 GB", "2.0 TB"]"#);
-}
-
-#[test]
-fn filesize_format_binary() {
-    let code = &[
-        "$env.config = { filesize: { unit: binary } }",
-        "[2MiB 2GiB 2TiB] | into string | to nuon",
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, r#"["2.0 MiB", "2.0 GiB", "2.0 TiB"]"#);
-}
-
-#[test]
-fn fancy_default_errors() {
+fn fancy_default_errors() -> Result {
     let code = nu_repl_code(&[
         "$env.config.use_ansi_coloring = true",
         r#"def force_error [x] {
@@ -62,10 +47,12 @@ fn fancy_default_errors() {
         actual.err,
         "Error: \u{1b}[31mnu::shell::error\u{1b}[0m\n\n  \u{1b}[31m×\u{1b}[0m oh no!\n   ╭─[\u{1b}[36;1;4mline2:1:13\u{1b}[0m]\n \u{1b}[2m1\u{1b}[0m │ force_error \"My error\"\n   · \u{1b}[35;1m            ─────┬────\u{1b}[0m\n   ·                  \u{1b}[35;1m╰── \u{1b}[35;1mhere's the error\u{1b}[0m\u{1b}[0m\n   ╰────\n\n"
     );
+
+    Ok(())
 }
 
 #[test]
-fn narratable_errors() {
+fn narratable_errors() -> Result {
     let code = nu_repl_code(&[
         r#"$env.config = { error_style: "plain" }"#,
         r#"def force_error [x] {
@@ -95,14 +82,19 @@ diagnostic code: nu::shell::error
 
 "#,
     );
+
+    Ok(())
 }
 
 #[test]
-fn plugins() {
-    let code = &[
-        "$env.config = { plugins: { nu_plugin_config: { key: value } } }",
-        "$env.config.plugins",
-    ];
-    let actual = nu!(nu_repl_code(code));
-    assert_eq!(actual.out, "{nu_plugin_config: {key: value}}");
+fn plugins() -> Result {
+    let mut tester = test();
+    let () = tester.run("$env.config = { plugins: { nu_plugin_config: { key: value } } }")?;
+    tester
+        .run("$env.config.plugins")
+        .expect_value_eq(test_record! {
+            "nu_plugin_config" => test_record! {
+                "key" => "value"
+            }
+        })
 }

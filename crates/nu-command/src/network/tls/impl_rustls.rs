@@ -1,6 +1,7 @@
 use std::sync::{Arc, OnceLock};
 
 use nu_protocol::ShellError;
+use nu_protocol::shell_error::generic::GenericError;
 use rustls::crypto::CryptoProvider;
 use ureq::tls::{RootCerts, TlsConfig};
 
@@ -64,13 +65,13 @@ impl NuCryptoProvider {
         // ShellError, so we might as well clone here already
         match self.0.get() {
             Some(val) => val.clone(),
-            None => Err(ShellError::GenericError {
-                error: "tls crypto provider not found".to_string(),
-                msg: "no crypto provider for rustls was defined".to_string(),
-                span: None,
-                help: Some("ensure that nu_command::tls::CRYPTO_PROVIDER is set".to_string()),
-                inner: vec![],
-            }),
+            None => Err(ShellError::Generic(
+                GenericError::new_internal(
+                    "tls crypto provider not found",
+                    "no crypto provider for rustls was defined",
+                )
+                .with_help("ensure that nu_command::tls::CRYPTO_PROVIDER is set"),
+            )),
         }
     }
 

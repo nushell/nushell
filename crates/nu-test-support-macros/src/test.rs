@@ -59,23 +59,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                 TestResult,
             };
 
-            const CRATE_NAME: &str = ::std::env!("CARGO_CRATE_NAME");
-            const CRATE_NAME_BYTES: &[u8] = CRATE_NAME.as_bytes();
-            const CRATE_NAME_BYTES_LEN: usize = CRATE_NAME_BYTES.len();
-            const MODULE_PATH_SEP: &str = "::";
-            const MODULE_PATH_SEP_BYTES: &[u8] = MODULE_PATH_SEP.as_bytes();
-            const MODULE_PATH_SEP_BYTES_LEN: usize = MODULE_PATH_SEP_BYTES.len();
-            const MODULE_PATH_BYTES_OFFSET: usize = CRATE_NAME_BYTES_LEN + MODULE_PATH_SEP_BYTES_LEN;
-            const MODULE_PATH: &str = ::std::module_path!();
-            const MODULE_PATH_BYTES: &[u8] = MODULE_PATH.as_bytes();
-            const MODULE_PATH_BYTES_NO_CRATE: &[u8] = MODULE_PATH_BYTES
-                .split_first_chunk::<MODULE_PATH_BYTES_OFFSET>()
-                .expect("module path is longer than crate name")
-                .1;
-            const MODULE_PATH_NO_CRATE: &str = match str::from_utf8(MODULE_PATH_BYTES_NO_CRATE) {
-                Ok(s) => s,
-                Err(_) => panic!("module path without crate bytes are not valid utf8"),
-            };
+            const MODULE_PATH_WITHOUT_CRATE: &str = ::nu_test_support::module_path_without_crate!();
 
             fn wrapper() -> TestResult {
                 ::nu_test_support::harness::IntoTestResult::into_test_result(#fn_ident())
@@ -87,7 +71,7 @@ pub fn test(mut item_fn: ItemFn) -> proc_macro2::TokenStream {
                 Test::new(
                     TestFnHandle::from_const_fn(wrapper),
                     TestMeta {
-                        name: Cow::Borrowed(MODULE_PATH_NO_CRATE),
+                        name: Cow::Borrowed(MODULE_PATH_WITHOUT_CRATE),
                         ignore: #ignore_status,
                         should_panic: #panic_expectation,
                         origin: ::nu_test_support::harness::origin!(),

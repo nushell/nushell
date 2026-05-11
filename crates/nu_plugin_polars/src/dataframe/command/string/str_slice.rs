@@ -8,6 +8,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -67,6 +68,7 @@ impl PluginCommand for StrSlice {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -86,6 +88,7 @@ impl PluginCommand for StrSlice {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -105,6 +108,7 @@ impl PluginCommand for StrSlice {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -118,9 +122,9 @@ impl PluginCommand for StrSlice {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_df(plugin, engine, call, df),
@@ -176,22 +180,21 @@ fn command_df(
 
     let series = df.as_series(call.head)?;
 
-    let chunked = series.str().map_err(|e| ShellError::GenericError {
-        error: "Error casting to string".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: Some("The str-slice command can only be used with string columns".into()),
-        inner: vec![],
+    let chunked = series.str().map_err(|e| {
+        ShellError::Generic(
+            GenericError::new("Error casting to string", e.to_string(), call.head)
+                .with_help("The str-slice command can only be used with string columns"),
+        )
     })?;
 
     let res = chunked
         .str_slice(&start, &length)
-        .map_err(|e| ShellError::GenericError {
-            error: "Dataframe Error".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Dataframe Error",
+                e.to_string(),
+                call.head,
+            ))
         })?
         .with_name(series.name().to_owned());
 

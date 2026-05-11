@@ -1,4 +1,6 @@
-use nu_protocol::shell_error;
+use std::os::unix::ffi::OsStrExt;
+
+use nu_protocol::{shell_error, test_record};
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
@@ -42,10 +44,9 @@ fn filesystem_change_from_current_directory_using_relative_path_with_trailing_sl
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
-        let code = format!("cd '{}'; $env.PWD", dirs.formats().display());
         test()
             .cwd(dirs.test())
-            .run(code)
+            .run_with_data("cd $in; $env.PWD", dirs.formats())
             .expect_value_eq(dirs.formats())
     })
 }
@@ -53,15 +54,18 @@ fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
-        let code = format!(
-            "cd '{}{}'; $env.PWD",
-            dirs.formats().display(),
-            std::path::MAIN_SEPARATOR_STR,
-        );
+        let dir = {
+            let mut dir = dirs.formats();
+            // It works and is unlikely to break, but is not explicitly documented behavior
+            // Also Path::with_trailing_sep is unstable
+            dir.push("");
+            assert!(dir.as_os_str().as_bytes().ends_with(b"/"));
+            dir
+        };
 
         test()
             .cwd(dirs.test())
-            .run(code)
+            .run_with_data("cd $in; $env.PWD", dir)
             .expect_value_eq(dirs.formats())
     })
 }
@@ -72,9 +76,10 @@ fn filesystem_switch_back_to_previous_working_directory() -> Result {
         sandbox.mkdir("odin");
         let odin_path = dirs.test().join("odin");
 
-        let code = format!("cd {}; cd -; $env.PWD", dirs.test().display());
-
-        test().cwd(&odin_path).run(code).expect_value_eq(odin_path)
+        test()
+            .cwd(&odin_path)
+            .run_with_data("cd $in; cd -; $env.PWD", dirs.test())
+            .expect_value_eq(odin_path)
     })
 }
 
@@ -279,9 +284,21 @@ fn pwd_recovery() -> Result {
         .display()
         .to_string();
 
+    let ctx = test_record! {
+        "tmpdir" => tmpdir,
+        "nu" => nu,
+    };
     // We `cd` into a temporary directory, then spawn another `nu` process to
     // delete that directory. Then we attempt to recover by running `cd /`.
-    let cmd =
-        format!("mkdir '{tmpdir}'; cd '{tmpdir}'; {nu} -c \"cd /; rm -r '{tmpdir}'\"; cd /; pwd");
-    test().run(cmd).expect_value_eq("/")
+    let code = r#"
+        let ctx = $in
+
+        mkdir $ctx.tmpdir
+        cd $ctx.tmpdir
+        ^$ctx.nu -c $"cd /; rm -r '($ctx.tmpdir)'"
+        cd /
+        pwd
+    "#;
+
+    test().run_with_data(code, ctx).expect_value_eq("/")
 }

@@ -4,7 +4,7 @@ use super::{
 };
 
 use nu_protocol::{
-    ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Span, Value,
+    ENV_VARIABLE_ID, IN_VARIABLE_ID, IntoSpanned, RegId, Value,
     ast::{CellPath, Expr, Expression, ListItem, RecordItem, ValueWithUnit},
     engine::StateWorkingSet,
     ir::{DataSlice, Instruction, Literal},
@@ -222,7 +222,7 @@ pub(crate) fn compile_expression(
                 builder.clone_reg(in_reg, expr.span)?
             } else {
                 // Just store nothing in the variable
-                builder.literal(Literal::Nothing.into_spanned(Span::unknown()))?
+                builder.literal(Literal::Nothing.into_spanned(expr.span))?
             };
             builder.push(
                 Instruction::StoreVariable {
@@ -593,7 +593,7 @@ fn literal_from_value_with_unit(value_with_unit: &ValueWithUnit) -> Result<Liter
     match value_with_unit
         .unit
         .item
-        .build_value(int_value, Span::unknown())
+        .build_value(int_value, value_with_unit.expr.span)
         .map_err(|err| CompileError::InvalidLiteral {
             msg: err.to_string(),
             span: value_with_unit.expr.span,

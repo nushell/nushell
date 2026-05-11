@@ -4,35 +4,36 @@ use lsp_types::{
 };
 use nu_protocol::{
     Flag, PositionalArg, Signature, SyntaxShape, Value,
-    ast::{Argument, Call, Expr, Expression, FindMapResult, Traverse},
+    ast::{Argument, Call, Expr, Expression, Traverse},
     engine::StateWorkingSet,
 };
 
 use crate::{LanguageServer, uri_to_path};
-use std::fmt::Write;
+use std::{fmt::Write, ops::ControlFlow};
 
 fn find_active_internal_call<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
-) -> FindMapResult<&'a Call> {
+) -> ControlFlow<Option<&'a Call>> {
     if !expr.span.contains(pos) {
-        return FindMapResult::Stop;
+        return ControlFlow::Break(None);
     }
     let closure = |e| find_active_internal_call(e, working_set, pos);
     match &expr.expr {
         Expr::Call(call) => {
             if call.head.contains(pos) {
-                return FindMapResult::Stop;
+                return ControlFlow::Break(None);
             }
             call.arguments
                 .iter()
                 .find_map(|arg| arg.expr().and_then(|e| e.find_map(working_set, &closure)))
                 .or(Some(call.as_ref()))
-                .map(FindMapResult::Found)
-                .unwrap_or_default()
+                .map(Some)
+                .map(ControlFlow::Break)
+                .unwrap_or(ControlFlow::Continue(()))
         }
-        _ => FindMapResult::Continue,
+        _ => ControlFlow::Continue(()),
     }
 }
 

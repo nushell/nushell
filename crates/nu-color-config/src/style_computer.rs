@@ -6,10 +6,7 @@ use nu_protocol::{
     engine::{Closure, EngineState, Stack},
     report_shell_error,
 };
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Formatter, Result},
-};
+use std::{collections::HashMap, fmt::Debug};
 
 // ComputableStyle represents the valid user style types: a single color value, or a closure which
 // takes an input value and produces a color value. The latter represents a value which
@@ -22,12 +19,13 @@ pub enum ComputableStyle {
 
 // An alias for the mapping used internally by StyleComputer.
 pub type StyleMapping = HashMap<String, ComputableStyle>;
-//
+
 // A StyleComputer is an all-in-one way to compute styles. A nu command can
 // simply create it with from_config(), and then use it with compute().
 // It stores the engine state and stack needed to run closures that
 // may be defined as a user style.
-//
+
+#[derive(Debug)]
 pub struct StyleComputer<'a> {
     engine_state: &'a EngineState,
     stack: &'a Stack,
@@ -127,6 +125,11 @@ impl<'a> StyleComputer<'a> {
             ("string".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("nothing".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("binary".to_string(), ComputableStyle::Static(Color::Default.normal())),
+            ("binary_null_char".to_string(), ComputableStyle::Static(Color::Fixed(242).normal())),
+            ("binary_printable".to_string(), ComputableStyle::Static(Color::Cyan.bold())),
+            ("binary_whitespace".to_string(), ComputableStyle::Static(Color::Green.bold())),
+            ("binary_ascii_other".to_string(), ComputableStyle::Static(Color::Purple.bold())),
+            ("binary_non_ascii".to_string(), ComputableStyle::Static(Color::Yellow.bold())),
             ("cell-path".to_string(), ComputableStyle::Static(Color::Default.normal())),
             ("row_index".to_string(), ComputableStyle::Static(Color::Green.bold())),
             ("record".to_string(), ComputableStyle::Static(Color::Default.normal())),
@@ -165,16 +168,6 @@ impl<'a> StyleComputer<'a> {
             }
         }
         StyleComputer::new(engine_state, stack, map)
-    }
-}
-
-// Because EngineState doesn't have Debug (Dec 2022),
-// this incomplete representation must be used.
-impl Debug for StyleComputer<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
-        f.debug_struct("StyleComputer")
-            .field("map", &self.map)
-            .finish()
     }
 }
 

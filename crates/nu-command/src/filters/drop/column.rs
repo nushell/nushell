@@ -107,9 +107,8 @@ fn drop_cols(
     // `[{a: 1}, {b: 2}] | drop column`
     // This will drop the column "a" instead of "b" even though column "b"
     // is displayed farther to the right.
-    let metadata = input.metadata();
     match input {
-        PipelineData::ListStream(stream, ..) => {
+        PipelineData::ListStream(stream, metadata) => {
             let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {
                 let drop_cols = drop_cols_set(&mut first, head, columns, from_left)?;
@@ -130,7 +129,7 @@ fn drop_cols(
                 Ok(PipelineData::empty())
             }
         }
-        PipelineData::Value(mut v, ..) => {
+        PipelineData::Value(mut v, metadata) => {
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {

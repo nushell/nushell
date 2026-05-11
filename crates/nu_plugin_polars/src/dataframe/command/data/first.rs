@@ -63,6 +63,7 @@ impl PluginCommand for FirstDF {
                             Column::new("b".to_string(), vec![Value::test_int(2)]),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -84,6 +85,7 @@ impl PluginCommand for FirstDF {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("should not fail")
                     .into_value(Span::test_data()),
@@ -120,9 +122,9 @@ impl PluginCommand for FirstDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => {

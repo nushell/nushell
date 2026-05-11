@@ -744,7 +744,7 @@ def scope-commands [
 def external-commands [
     ...command: string@"nu-complete list-commands",
 ] {
-    let target_command = $command | str join " " | str replace "^" ""
+    let target_command = $command | str join " " | str replace "^" "" | str replace "%" ""
     print $"(ansi default_italic)Help pages from external command ($target_command | pretty-cmd):(ansi reset)"
     if $env.NU_HELPER? == "--help" {
         run-external ($target_command | split row " ") "--help" | if $nu.os-info.name == "windows" { collect } else {}

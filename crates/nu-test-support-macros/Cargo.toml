@@ -2,16 +2,17 @@
 authors = ["The Nushell Project Developers"]
 description = "Macros for nu-test-support"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-test-support-macros"
-edition = "2024"
+edition.workspace = true
+rust-version.workspace = true
 license = "MIT"
 name = "nu-test-support-macros"
-version = "0.111.1"
+version = "0.112.3"
 
 [lib]
 proc-macro = true
 
 [dependencies]
-nu-experimental = { path = "../nu-experimental", version = "0.111.1" }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
 
 heck = { workspace = true }
 proc-macro-error2 = { workspace = true }

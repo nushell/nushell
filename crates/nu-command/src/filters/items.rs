@@ -35,12 +35,12 @@ impl Command for Items {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         match input {
             PipelineData::Empty => Ok(PipelineData::empty()),
             PipelineData::Value(value, ..) => {
@@ -54,8 +54,10 @@ impl Command for Items {
                             .map_while(move |(col, val)| {
                                 let result = closure
                                     .add_arg(Value::string(col, span))
-                                    .add_arg(val)
-                                    .run_with_input(PipelineData::empty())
+                                    .and_then(|closure| closure.add_arg(val))
+                                    .and_then(|closure| {
+                                        closure.run_with_input(PipelineData::empty())
+                                    })
                                     .and_then(|data| data.into_value(head));
 
                                 match result {

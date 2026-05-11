@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -53,13 +54,10 @@ impl Command for CommandlineSetCursor {
             repl.cursor_pos = repl.buffer.len();
             Ok(Value::nothing(call.head).into_pipeline_data())
         } else {
-            Err(ShellError::GenericError {
-                error: "Required a positional argument or a flag".to_string(),
-                msg: "".to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+            Err(ShellError::Generic(GenericError::new_internal(
+                "Required a positional argument or a flag",
+                "",
+            )))
         }
     }
 }

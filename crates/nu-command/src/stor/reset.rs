@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct StorReset;
@@ -50,28 +51,24 @@ impl Command for StorReset {
 
         if let Ok(conn) = db.open_connection() {
             conn.execute("PRAGMA foreign_keys = OFF", [])
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to turn off foreign_key protections for reset".into(),
-                    msg: err.to_string(),
-                    span: Some(Span::test_data()),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to turn off foreign_key protections for reset",
+                        err.to_string(),
+                    ))
                 })?;
-            db.drop_all_tables(&conn)
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to drop all tables in memory from reset".into(),
-                    msg: err.to_string(),
-                    span: Some(Span::test_data()),
-                    help: None,
-                    inner: vec![],
-                })?;
+            db.drop_all_tables(&conn).map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to drop all tables in memory from reset",
+                    err.to_string(),
+                ))
+            })?;
             conn.execute("PRAGMA foreign_keys = ON", [])
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to turn on foreign_key protections for reset".into(),
-                    msg: err.to_string(),
-                    span: Some(Span::test_data()),
-                    help: None,
-                    inner: vec![],
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to turn on foreign_key protections for reset",
+                        err.to_string(),
+                    ))
                 })?;
         }
         // dbg!(db.clone());

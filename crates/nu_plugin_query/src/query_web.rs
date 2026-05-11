@@ -476,7 +476,7 @@ mod tests {
     fn null_spanned<T: ToOwned + ?Sized>(input: &T) -> Spanned<T::Owned> {
         Spanned {
             item: input.to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
@@ -585,10 +585,10 @@ mod tests {
             null_spanned("a"),
             &Value::list(
                 vec![
-                    Value::string("href".to_string(), Span::unknown()),
-                    Value::string("target".to_string(), Span::unknown()),
+                    Value::string("href".to_string(), Span::test_data()),
+                    Value::string("target".to_string(), Span::test_data()),
                 ],
-                Span::unknown(),
+                Span::test_data(),
             ),
             null_spanned(&false),
             /* document = */ false,

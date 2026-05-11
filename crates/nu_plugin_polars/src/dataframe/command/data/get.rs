@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -50,6 +51,7 @@ impl PluginCommand for GetDF {
                         vec![Value::test_int(1), Value::test_int(3)],
                     )],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -62,9 +64,9 @@ impl PluginCommand for GetDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -82,16 +84,13 @@ fn command(
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
 
-    let df = df
-        .as_ref()
-        .select(col_string)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error selecting columns".into(),
-            msg: e.to_string(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
-        })?;
+    let df = df.as_ref().select(col_string).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error selecting columns",
+            e.to_string(),
+            col_span,
+        ))
+    })?;
     let df = NuDataFrame::new(false, df);
     df.to_pipeline_data(plugin, engine, call.head)
 }

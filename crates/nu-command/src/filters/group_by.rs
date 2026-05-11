@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use nu_engine::{ClosureEval, command_prelude::*};
-use nu_protocol::{FromValue, IntoValue, engine::Closure};
+use nu_protocol::{FromValue, IntoValue, engine::Closure, shell_error::generic::GenericError};
 
 #[derive(Clone)]
 pub struct GroupBy;
@@ -318,32 +318,33 @@ fn groupers_to_column_names(groupers: &[Spanned<Grouper>]) -> Result<Vec<String>
 
     for name in grouper_names {
         if name.item == "items" {
-            return Err(ShellError::GenericError {
-                error: "grouper arguments can't be named `items`".into(),
-                msg: "here".into(),
-                span: Some(name.span),
-                help: Some("instead of a cell-path, try using a closure: { get items }".into()),
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "grouper arguments can't be named `items`",
+                    "here",
+                    name.span,
+                )
+                .with_help("instead of a cell-path, try using a closure: { get items }"),
+            ));
         }
 
         if let Some(conflicting_name) = name_set
             .iter()
             .find(|elem| elem.as_ref().item == name.item.as_str())
         {
-            return Err(ShellError::GenericError {
-                error: "grouper arguments result in colliding column names".into(),
-                msg: "duplicate column names".into(),
-                span: Some(conflicting_name.span.append(name.span)),
-                help: Some(
-                    "instead of a cell-path, try using a closure or renaming columns".into(),
-                ),
-                inner: vec![ShellError::ColumnDefinedTwice {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "grouper arguments result in colliding column names",
+                    "duplicate column names",
+                    conflicting_name.span.append(name.span),
+                )
+                .with_help("instead of a cell-path, try using a closure or renaming columns")
+                .with_inner([ShellError::ColumnDefinedTwice {
                     col_name: conflicting_name.item.clone(),
                     first_use: conflicting_name.span,
                     second_use: name.span,
-                }],
-            });
+                }]),
+            ));
         }
 
         name_set.push(name);

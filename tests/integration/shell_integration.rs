@@ -23,23 +23,23 @@ fn create_test_engine() -> (EngineState, Stack, Arc<Config>) {
     // Set up simple prompt environment variables with literal strings
     stack.add_env_var(
         "PROMPT_COMMAND".to_string(),
-        Value::string("❯ ".to_string(), Span::unknown()),
+        Value::string("❯ ".to_string(), Span::test_data()),
     );
     stack.add_env_var(
         "PROMPT_INDICATOR".to_string(),
-        Value::string("> ".to_string(), Span::unknown()),
+        Value::string("> ".to_string(), Span::test_data()),
     );
     stack.add_env_var(
         "PROMPT_COMMAND_RIGHT".to_string(),
-        Value::string("~/code".to_string(), Span::unknown()),
+        Value::string("~/code".to_string(), Span::test_data()),
     );
     stack.add_env_var(
         "PROMPT_MULTILINE_INDICATOR".to_string(),
-        Value::string("... ".to_string(), Span::unknown()),
+        Value::string("... ".to_string(), Span::test_data()),
     );
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string("/test".to_string(), Span::unknown()),
+        Value::string("/test".to_string(), Span::test_data()),
     );
 
     let config = engine_state.get_config().clone();
@@ -127,7 +127,7 @@ fn test_update_prompt_with_missing_vars() {
     let mut stack = Stack::new();
     stack.add_env_var(
         "PWD".to_string(),
-        Value::string("/test".to_string(), Span::unknown()),
+        Value::string("/test".to_string(), Span::test_data()),
     );
 
     let config = (*engine_state.get_config()).clone();

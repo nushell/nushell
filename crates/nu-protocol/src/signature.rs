@@ -2,6 +2,7 @@ use crate::{
     BlockId, DeclId, DeprecationEntry, Example, FromValue, IntoValue, PipelineData, ShellError,
     Span, SyntaxShape, Type, Value, VarId,
     engine::{Call, Command, CommandType, EngineState, Stack},
+    shell_error::generic::GenericError,
 };
 use nu_derive_value::FromValue as DeriveFromValue;
 use nu_utils::NuCow;
@@ -771,7 +772,9 @@ impl Signature {
     /// Returns an argument with the index `position`
     ///
     /// It will index, in order, required arguments, then optional, then the
-    /// trailing `...rest` argument.
+    /// trailing `...rest` argument. Note that the `...rest` argument must be
+    /// a [`Value::List`], therefore this method may not work as intended when
+    /// the closure uses a rest argument.
     pub fn get_positional(&self, position: usize) -> Option<&PositionalArg> {
         if position < self.required_positional.len() {
             self.required_positional.get(position)
@@ -839,7 +842,16 @@ impl Signature {
     /// signature so other definitions can see it. This placeholder is later replaced with the
     /// full definition in a second pass of the parser.
     pub fn predeclare(self) -> Box<dyn Command> {
-        Box::new(Predeclaration { signature: self })
+        self.predeclare_with_command_type(CommandType::Builtin)
+    }
+
+    /// Create a placeholder implementation of Command as a way to predeclare a definition's
+    /// signature with an explicit command type.
+    pub fn predeclare_with_command_type(self, command_type: CommandType) -> Box<dyn Command> {
+        Box::new(Predeclaration {
+            signature: self,
+            command_type,
+        })
     }
 
     /// Combines a signature and a block into a runnable block
@@ -861,6 +873,7 @@ impl Signature {
 #[derive(Clone)]
 struct Predeclaration {
     signature: Signature,
+    command_type: CommandType,
 }
 
 impl Command for Predeclaration {
@@ -888,6 +901,10 @@ impl Command for Predeclaration {
         _input: PipelineData,
     ) -> Result<PipelineData, crate::ShellError> {
         panic!("Internal error: can't run a predeclaration without a body")
+    }
+
+    fn command_type(&self) -> CommandType {
+        self.command_type
     }
 }
 
@@ -959,13 +976,10 @@ impl Command for BlockCommand {
         _call: &Call,
         _input: PipelineData,
     ) -> Result<crate::PipelineData, crate::ShellError> {
-        Err(ShellError::GenericError {
-            error: "Internal error: can't run custom command with 'run', use block_id".into(),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
-        })
+        Err(ShellError::Generic(GenericError::new_internal(
+            "Internal error: can't run custom command with 'run', use block_id",
+            "",
+        )))
     }
 
     fn command_type(&self) -> CommandType {

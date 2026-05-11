@@ -1,13 +1,15 @@
-use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{
+    fs::Stub::{FileWithContent, FileWithContentToBeTrimmed},
+    prelude::*,
+};
+use rstest::rstest;
 
 #[test]
-fn use_module_file_within_block() {
-    Playground::setup("use_test_1", |dirs, nu| {
+fn use_module_file_within_block() -> Result {
+    Playground::setup("use_test_1", |dirs, playground| {
         let file = dirs.test().join("spam.nu");
 
-        nu.with_files(&[FileWithContent(
+        playground.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             r#"
                 export def foo [] {
@@ -16,24 +18,27 @@ fn use_module_file_within_block() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), "
+        let code = "
             def bar [] {
                 use spam.nu foo;
                 foo
             };
             bar
-        ");
+        ";
 
-        assert_eq!(actual.out, "hello world");
+        test()
+            .cwd(dirs.test())
+            .run(code)
+            .expect_value_eq("hello world")
     })
 }
 
 #[test]
-fn use_keeps_doc_comments() {
-    Playground::setup("use_doc_comments", |dirs, nu| {
+fn use_keeps_doc_comments() -> Result {
+    Playground::setup("use_doc_comments", |dirs, playground| {
         let file = dirs.test().join("spam.nu");
 
-        nu.with_files(&[FileWithContent(
+        playground.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             r#"
                 # this is my foo command
@@ -45,56 +50,63 @@ fn use_keeps_doc_comments() {
             "#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), "
+        let code = "
             use spam.nu foo;
             help foo
-        ");
+        ";
 
-        assert!(actual.out.contains("this is my foo command"));
-        assert!(actual.out.contains("this is an x parameter"));
+        let output: String = test().cwd(dirs.test()).run(code)?;
+        assert_contains("this is my foo command", &output);
+        assert_contains("this is an x parameter", &output);
+        Ok(())
     })
 }
 
 #[test]
-fn use_eval_export_env() {
-    Playground::setup("use_eval_export_env", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
+fn use_eval_export_env() -> Result {
+    Playground::setup("use_eval_export_env", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             "
                 export-env { $env.FOO = 'foo' }
             ",
         )]);
 
-        let inp = &["use spam.nu", "$env.FOO"];
-
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-
-        assert_eq!(actual.out, "foo");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-fn use_eval_export_env_hide() {
-    Playground::setup("use_eval_export_env", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
+fn use_eval_export_env_hide() -> Result {
+    Playground::setup("use_eval_export_env", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             "
                 export-env { hide-env FOO }
             ",
         )]);
 
-        let inp = &["$env.FOO = 'foo'", "use spam.nu", "$env.FOO"];
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("$env.FOO = 'foo'")?;
+        let () = tester.run("use spam.nu")?;
 
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-
-        assert!(actual.err.contains("not_found"));
+        let err = tester.run("$env.FOO").expect_shell_error()?;
+        match err {
+            ShellError::CantFindColumn { col_name, .. } => {
+                assert_eq!(col_name, "FOO");
+                Ok(())
+            }
+            err => Err(err.into()),
+        }
     })
 }
 
 #[test]
-fn use_do_cd() {
-    Playground::setup("use_do_cd", |dirs, sandbox| {
-        sandbox
+fn use_do_cd() -> Result {
+    Playground::setup("use_do_cd", |dirs, playground| {
+        playground
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
@@ -103,18 +115,18 @@ fn use_do_cd() {
                 ",
             )]);
 
-        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
-
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-
-        assert_eq!(actual.out, "test2");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use test1/test2/spam.nu")?;
+        tester
+            .run("$env.PWD | path basename")
+            .expect_value_eq("test2")
     })
 }
 
 #[test]
-fn use_do_cd_file_relative() {
-    Playground::setup("use_do_cd_file_relative", |dirs, sandbox| {
-        sandbox
+fn use_do_cd_file_relative() -> Result {
+    Playground::setup("use_do_cd_file_relative", |dirs, playground| {
+        playground
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
@@ -123,18 +135,18 @@ fn use_do_cd_file_relative() {
                 ",
             )]);
 
-        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
-
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-
-        assert_eq!(actual.out, "test1");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use test1/test2/spam.nu")?;
+        tester
+            .run("$env.PWD | path basename")
+            .expect_value_eq("test1")
     })
 }
 
 #[test]
-fn use_dont_cd_overlay() {
-    Playground::setup("use_dont_cd_overlay", |dirs, sandbox| {
-        sandbox
+fn use_dont_cd_overlay() -> Result {
+    Playground::setup("use_dont_cd_overlay", |dirs, playground| {
+        playground
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
@@ -147,18 +159,18 @@ fn use_dont_cd_overlay() {
                 ",
             )]);
 
-        let inp = &["use test1/test2/spam.nu", "$env.PWD | path basename"];
-
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-
-        assert_eq!(actual.out, "use_dont_cd_overlay");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use test1/test2/spam.nu")?;
+        tester
+            .run("$env.PWD | path basename")
+            .expect_value_eq("use_dont_cd_overlay")
     })
 }
 
 #[test]
-fn use_export_env_combined() {
-    Playground::setup("use_is_scoped", |dirs, sandbox| {
-        sandbox.with_files(&[FileWithContentToBeTrimmed(
+fn use_export_env_combined() -> Result {
+    Playground::setup("use_is_scoped", |dirs, playground| {
+        playground.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
             "
                 def foo [] { 'foo' }
@@ -167,193 +179,188 @@ fn use_export_env_combined() {
             ",
         )]);
 
-        let inp = &["use spam.nu", "$env.FOO"];
-
-        let actual = nu!(cwd: dirs.test(), inp.join("; "));
-        assert_eq!(actual.out, "foo");
+        let mut tester = test().cwd(dirs.test());
+        let () = tester.run("use spam.nu")?;
+        tester.run("$env.FOO").expect_value_eq("foo")
     })
 }
 
 #[test]
-fn use_module_creates_accurate_did_you_mean_1() {
-    let actual = nu!(r#"
-            module spam { export def foo [] { "foo" } }; use spam; foo
-        "#);
-    assert!(actual.err.contains("Did you mean `spam foo`"));
+fn use_module_creates_accurate_did_you_mean_1() -> Result {
+    let code = r#"
+        module spam {
+            export def foo [] {
+                "foo"
+            }
+        }
+        
+        use spam
+        foo
+    "#;
+
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_eq!(help, "Did you mean `spam foo`?");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn use_module_creates_accurate_did_you_mean_2() {
-    let actual = nu!(r#"
-            module spam { export def foo [] { "foo" } }; foo
-        "#);
-    assert!(
-        actual
-            .err
-            .contains("A command with that name exists in module `spam`")
-    );
+fn use_module_creates_accurate_did_you_mean_2() -> Result {
+    let code = r#"
+        module spam {
+            export def foo [] {
+                "foo"
+            }
+        }
+        
+        foo
+    "#;
+
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::ExternalCommand { help, .. } => {
+            assert_contains("A command with that name exists in module `spam`.", help);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case("use spam")]
+#[case("use spam main")]
+#[case("use spam [ main ]")]
+#[case("use spam *")]
+fn use_main(#[case] use_module: &str) -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"module spam { export def main [] { "spam" } }"#)?;
+    let () = tester.run(use_module)?;
+    tester.run("spam").expect_value_eq("spam")
 }
 
 #[test]
-fn use_main_1() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "use spam",
-        "spam",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+fn use_main_def_env() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#)?;
+    let () = tester.run("use spam")?;
+    let () = tester.run("spam")?;
+    tester.run("$env.SPAM").expect_value_eq("spam")
 }
 
 #[test]
-fn use_main_2() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "use spam main",
-        "spam",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+fn use_main_def_known_external() -> Result {
+    let mut tester = test().inherit_rust_toolchain_env();
+    let () = tester.run("module cargo { export extern main [] }")?;
+    let () = tester.run("use cargo")?;
+    let outcome: String = tester.run("cargo --version")?;
+    assert_contains("cargo", outcome);
+    Ok(())
 }
 
 #[test]
-fn use_main_3() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "use spam [ main ]",
-        "spam",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-
-    assert_eq!(actual.out, "spam");
+fn use_main_not_exported() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"module unique-module-name { def main [] { "hi" } }"#)?;
+    let () = tester.run("use unique-module-name")?;
+    let err = tester.run("unique-module-name").expect_shell_error()?;
+    assert!(matches!(err, ShellError::ExternalCommand { .. }));
+    Ok(())
 }
 
 #[test]
-fn use_main_4() {
-    let inp = &[
-        r#"module spam { export def main [] { "spam" } }"#,
-        "use spam *",
-        "spam",
-    ];
+fn use_sub_subname_error_if_not_from_submodule() -> Result {
+    let code = "
+        module spam {
+            export def foo [] {}
+            export def bar [] {}
+        }
 
-    let actual = nu!(&inp.join("; "));
+        use spam foo bar
+    ";
 
-    assert_eq!(actual.out, "spam");
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::WrongImportPattern(msg, ..) => {
+            assert_contains("try `use <module> [<name1>, <name2>]`", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn use_main_def_env() {
-    let inp = &[
-        r#"module spam { export def --env main [] { $env.SPAM = "spam" } }"#,
-        "use spam",
-        "spam",
-        "$env.SPAM",
-    ];
+fn can_use_sub_subname_from_submodule() -> Result {
+    let code = r#"
+        module spam {
+            export module foo {
+                export def bar [] {
+                    "bar"
+                }
+            }
+        }
 
-    let actual = nu!(&inp.join("; "));
+        use spam foo bar
+        bar
+    "#;
 
-    assert_eq!(actual.out, "spam");
+    test().run(code).expect_value_eq("bar")
 }
 
 #[test]
-fn use_main_def_known_external() {
-    // note: requires installed cargo
-    let inp = &[
-        "module cargo { export extern main [] }",
-        "use cargo",
-        "cargo --version",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-
-    assert!(actual.out.contains("cargo"));
-}
-
-#[test]
-fn use_main_not_exported() {
-    let inp = &[
-        r#"module my-super-cool-and-unique-module-name { def main [] { "hi" } }"#,
-        "use my-super-cool-and-unique-module-name",
-        "my-super-cool-and-unique-module-name",
-    ];
-
-    let actual = nu!(&inp.join("; "));
-
-    assert!(actual.err.contains("external_command"));
-}
-
-#[test]
-fn use_sub_subname_error_if_not_from_submodule() {
-    let inp = "module spam { export def foo [] {}; export def bar [] {} }; use spam foo bar";
-    let actual = nu!(inp);
-    assert!(actual.err.contains("try `use <module> [<name1>, <name2>]`"))
-}
-
-#[test]
-fn can_use_sub_subname_from_submodule() {
-    let inp =
-        r#"module spam { export module foo { export def bar [] {"bar"} } }; use spam foo bar; bar"#;
-    let actual = nu!(inp);
-    assert_eq!(actual.out, "bar")
-}
-
-#[test]
-fn test_use_with_printing_file_pwd() {
-    Playground::setup("use_with_printing_file_pwd", |dirs, nu| {
+fn test_use_with_printing_file_pwd() -> Result {
+    Playground::setup("use_with_printing_file_pwd", |dirs, playground| {
         let file = dirs.test().join("mod.nu");
-        nu.with_files(&[FileWithContent(
+        playground.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             "
                 export-env {
-                    print $env.FILE_PWD
+                    $env.CAPTURED_FILE_PWD = $env.FILE_PWD
                 }
             ",
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "use ."
-        );
-
-        assert_eq!(actual.out, dirs.test().to_string_lossy());
-    });
+        test()
+            .cwd(dirs.test())
+            .run("use .; $env.CAPTURED_FILE_PWD")
+            .expect_value_eq(dirs.test().to_string_lossy())
+    })
 }
 
 #[test]
-fn test_use_with_printing_current_file() {
-    Playground::setup("use_with_printing_current_file", |dirs, nu| {
+fn test_use_with_printing_current_file() -> Result {
+    Playground::setup("use_with_printing_current_file", |dirs, playground| {
         let file = dirs.test().join("mod.nu");
-        nu.with_files(&[FileWithContent(
+        playground.with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
             "
                 export-env {
-                    print $env.CURRENT_FILE
+                    $env.CAPTURED_CURRENT_FILE = $env.CURRENT_FILE
                 }
             ",
         )]);
 
-        let actual = nu!(
-            cwd: dirs.test(),
-            "use ."
-        );
-
-        assert_eq!(actual.out, dirs.test().join("mod.nu").to_string_lossy());
-    });
+        test()
+            .cwd(dirs.test())
+            .run("use .; $env.CAPTURED_CURRENT_FILE")
+            .expect_value_eq(dirs.test().join("mod.nu").to_string_lossy())
+    })
 }
 
 #[test]
-fn report_errors_in_export_env() {
-    let actual = nu!(r#"
+fn report_errors_in_export_env() -> Result {
+    let code = r#"
         module spam {
             export-env { error make -u {msg: "reported"} }
         }
+        
         use spam
-    "#);
+    "#;
 
-    assert!(actual.err.contains("reported"));
+    let err = test().run(code).expect_shell_error()?;
+    assert_contains("reported", err.to_string());
+    Ok(())
 }

@@ -9,7 +9,7 @@ use crate::explore_config::tree::print_json_tree;
 use crate::explore_config::tui::run_config_tui;
 use crate::explore_config::types::NuValueType;
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineData, report_shell_warning};
+use nu_protocol::{PipelineData, report_shell_warning, shell_error::generic::GenericError};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -105,14 +105,16 @@ TUI Keybindings:
                 (get_example_json(), false, None, None, None)
             } else if !string_input.trim().is_empty() {
                 // Use piped input data
-                let data =
-                    serde_json::from_str(&string_input).map_err(|e| ShellError::GenericError {
-                        error: "Could not parse JSON from input".into(),
-                        msg: format!("JSON parse error: {e}"),
-                        span: Some(call.head),
-                        help: Some("Make sure the input is valid JSON".into()),
-                        inner: vec![],
-                    })?;
+                let data = serde_json::from_str(&string_input).map_err(|e| {
+                    ShellError::Generic(
+                        GenericError::new(
+                            "Could not parse JSON from input",
+                            format!("JSON parse error: {e}"),
+                            call.head,
+                        )
+                        .with_help("Make sure the input is valid JSON"),
+                    )
+                })?;
                 (data, false, None, None, None)
             } else {
                 // Default: use nushell configuration
@@ -176,12 +178,12 @@ TUI Keybindings:
                     &original_values_for_conversion,
                     Vec::new(),
                 )
-                .map_err(|e| ShellError::GenericError {
-                    error: "Could not convert JSON to nu Value".into(),
-                    msg: format!("conversion error: {e}"),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Could not convert JSON to nu Value",
+                        format!("conversion error: {e}"),
+                        call.head,
+                    ))
                 })?;
 
                 // Update $env.config with the new value

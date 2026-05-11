@@ -8,6 +8,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -74,6 +75,7 @@ impl PluginCommand for StrReplaceAll {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -93,6 +95,7 @@ impl PluginCommand for StrReplaceAll {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -166,24 +169,21 @@ fn command_df(
         .ok_or_else(|| missing_flag_error("replace", call.head))?;
 
     let series = df.as_series(call.head)?;
-    let chunked = series.str().map_err(|e| ShellError::GenericError {
-        error: "Error conversion to string".into(),
-        msg: e.to_string(),
-        span: Some(call.head),
-        help: None,
-        inner: vec![],
+    let chunked = series.str().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error conversion to string",
+            e.to_string(),
+            call.head,
+        ))
     })?;
 
-    let mut res =
-        chunked
-            .replace_all(&pattern, &replace)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error finding pattern other".into(),
-                msg: e.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+    let mut res = chunked.replace_all(&pattern, &replace).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error finding pattern other",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
 
     res.rename(series.name().to_owned());
 

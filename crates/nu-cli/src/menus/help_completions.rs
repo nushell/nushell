@@ -1,5 +1,5 @@
 use nu_engine::documentation::{FormatterValue, HelpStyle, get_flags_section};
-use nu_protocol::{Config, engine::EngineState, levenshtein_distance};
+use nu_protocol::{Config, Span, engine::EngineState, levenshtein_distance};
 use nu_utils::IgnoreCaseExt;
 use reedline::{Completer, Suggestion};
 use std::{fmt::Write, sync::Arc};
@@ -21,7 +21,7 @@ impl NuHelpCompleter {
         let folded_line = line.to_folded_case();
 
         let mut help_style = HelpStyle::default();
-        help_style.update_from_config(&self.engine_state, &self.config);
+        help_style.update_from_config(&self.engine_state, &self.config, Span::unknown());
 
         let mut commands = self
             .engine_state

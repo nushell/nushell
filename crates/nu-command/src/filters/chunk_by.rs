@@ -193,12 +193,12 @@ pub fn chunk_by(
     call: &Call,
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let input = input.into_stream_or_original(engine_state);
+    let mut input = input.into_stream_or_original(engine_state);
 
     let head = call.head;
     let closure: Closure = call.req(engine_state, stack, 0)?;
 
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
 
     match input {
         PipelineData::Empty => Ok(PipelineData::empty()),

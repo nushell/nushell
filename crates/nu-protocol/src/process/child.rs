@@ -2,7 +2,7 @@ use crate::{
     ShellError, Span,
     byte_stream::convert_file,
     engine::{EngineState, FrozenJob, Job},
-    shell_error::io::IoError,
+    shell_error::{generic::GenericError, io::IoError},
 };
 use nu_system::{ExitStatus, ForegroundChild, ForegroundWaitStatus};
 
@@ -150,13 +150,11 @@ impl ExitStatusFuture {
                         None,
                         "failed to get exit code",
                     ))),
-                    Err(err @ RecvError) => Err(ShellError::GenericError {
-                        error: err.to_string(),
-                        msg: "failed to get exit code".into(),
-                        span: span.into(),
-                        help: None,
-                        inner: vec![],
-                    }),
+                    Err(err @ RecvError) => Err(ShellError::Generic(GenericError::new(
+                        err.to_string(),
+                        "failed to get exit code",
+                        span,
+                    ))),
                 };
 
                 *self = ExitStatusFuture::Finished(code.clone().map_err(Box::new));
@@ -173,20 +171,16 @@ impl ExitStatusFuture {
             ExitStatusFuture::Running(receiver) => {
                 let code = match receiver.try_recv() {
                     Ok(Ok(status)) => Ok(Some(status)),
-                    Ok(Err(err)) => Err(ShellError::GenericError {
-                        error: err.to_string(),
-                        msg: "failed to get exit code".to_string(),
-                        span: span.into(),
-                        help: None,
-                        inner: vec![],
-                    }),
-                    Err(TryRecvError::Disconnected) => Err(ShellError::GenericError {
-                        error: "receiver disconnected".to_string(),
-                        msg: "failed to get exit code".into(),
-                        span: span.into(),
-                        help: None,
-                        inner: vec![],
-                    }),
+                    Ok(Err(err)) => Err(ShellError::Generic(GenericError::new(
+                        err.to_string(),
+                        "failed to get exit code",
+                        span,
+                    ))),
+                    Err(TryRecvError::Disconnected) => Err(ShellError::Generic(GenericError::new(
+                        "receiver disconnected",
+                        "failed to get exit code",
+                        span,
+                    ))),
                     Err(TryRecvError::Empty) => Ok(None),
                 };
 
@@ -200,15 +194,13 @@ impl ExitStatusFuture {
     }
 }
 
+#[derive(derive_more::Debug)]
 pub enum ChildPipe {
+    #[debug("ChildPipe::Pipe")]
     Pipe(PipeReader),
-    Tee(Box<dyn Read + Send + 'static>),
-}
 
-impl Debug for ChildPipe {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ChildPipe").finish()
-    }
+    #[debug("ChildPipe::Tee")]
+    Tee(Box<dyn Read + Send + 'static>),
 }
 
 impl From<PipeReader> for ChildPipe {
@@ -236,6 +228,8 @@ pub struct ChildProcess {
 }
 
 /// A wrapper for a closure that runs once the shell finishes waiting on the process.
+#[derive(derive_more::Debug)]
+#[debug("<wait_callback>")]
 pub struct PostWaitCallback(pub Box<dyn FnOnce(ForegroundWaitStatus) + Send>);
 
 impl PostWaitCallback {
@@ -280,12 +274,6 @@ impl PostWaitCallback {
                 }
             }
         })
-    }
-}
-
-impl Debug for PostWaitCallback {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "<wait_callback>")
     }
 }
 
@@ -387,13 +375,11 @@ impl ChildProcess {
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
         if self.stderr.is_some() {
             debug_assert!(false, "stderr should not exist");
-            return Err(ShellError::GenericError {
-                error: "internal error".into(),
-                msg: "stderr should not exist".into(),
-                span: self.span.into(),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "internal error",
+                "stderr should not exist",
+                self.span,
+            )));
         }
 
         let bytes = if let Some(stdout) = self.stdout {
@@ -439,13 +425,11 @@ impl ChildProcess {
                     .join()
                     .map_err(|e| match e.downcast::<io::Error>() {
                         Ok(io) => from_io_error(*io).into(),
-                        Err(err) => ShellError::GenericError {
-                            error: "Unknown error".into(),
-                            msg: format!("{err:?}"),
-                            span: Some(self.span),
-                            help: None,
-                            inner: Vec::new(),
-                        },
+                        Err(err) => ShellError::Generic(GenericError::new(
+                            "Unknown error",
+                            format!("{err:?}"),
+                            self.span,
+                        )),
                     })?
                     .map_err(&from_io_error)?;
             }
@@ -491,13 +475,11 @@ impl ChildProcess {
                 .map(|handle| {
                     handle.join().map_err(|e| match e.downcast::<io::Error>() {
                         Ok(io) => from_io_error(*io).into(),
-                        Err(err) => ShellError::GenericError {
-                            error: "Unknown error".into(),
-                            msg: format!("{err:?}"),
-                            span: Some(self.span),
-                            help: None,
-                            inner: Vec::new(),
-                        },
+                        Err(err) => ShellError::Generic(GenericError::new(
+                            "Unknown error",
+                            format!("{err:?}"),
+                            self.span,
+                        )),
                     })
                 })
                 .transpose()?

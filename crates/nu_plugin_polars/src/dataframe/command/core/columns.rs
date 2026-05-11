@@ -51,9 +51,9 @@ impl PluginCommand for ColumnsDF {
         plugin: &Self::Plugin,
         _engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, call, input)
             .map_err(|e| e.into())
             .map(|pd| pd.set_metadata(metadata))

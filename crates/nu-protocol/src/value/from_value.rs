@@ -3,6 +3,7 @@ use crate::{
     ast::{CellPath, PathMember},
     casing::Casing,
     engine::Closure,
+    shell_error::generic::GenericError,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -379,13 +380,11 @@ macro_rules! impl_from_value_for_uint {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
                             #[allow(unreachable_patterns)] // u64 will max out the i64 number range
-                            n => Err(ShellError::GenericError {
-                                error: "Integer too large".to_string(),
-                                msg: format!("{n} is larger than {MAX}"),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            }),
+                            n => Err(ShellError::Generic(GenericError::new(
+                                "Integer too large",
+                                format!("{n} is larger than {MAX}"),
+                                span,
+                            ))),
                         }
                     }
                     v => Err(ShellError::CantConvert {
@@ -889,23 +888,19 @@ impl FromValue for bytes::Bytes {
 
 // Use generics with `fmt::Display` to allow passing different kinds of integer
 fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too small".to_string(),
-        msg: format!("{int} is smaller than {min}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too small",
+        format!("{int} is smaller than {min}"),
+        span,
+    ))
 }
 
 fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too large".to_string(),
-        msg: format!("{int} is larger than {max}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too large",
+        format!("{int} is larger than {max}"),
+        span,
+    ))
 }
 
 #[cfg(test)]

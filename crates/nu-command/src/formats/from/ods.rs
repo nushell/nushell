@@ -34,7 +34,7 @@ impl Command for FromOds {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
 
@@ -46,7 +46,7 @@ impl Command for FromOds {
             vec![]
         };
 
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
         from_ods(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
     }
 

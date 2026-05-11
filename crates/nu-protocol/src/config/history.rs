@@ -65,6 +65,7 @@ pub struct HistoryConfig {
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
     pub path: HistoryPath,
+    pub ignore_space_prefixed: bool,
 }
 
 impl IntoValue for HistoryPath {
@@ -86,6 +87,7 @@ impl IntoValue for HistoryConfig {
                 "file_format" => self.file_format.into_value(span),
                 "isolation" => self.isolation.into_value(span),
                 "path" => self.path.into_value(span),
+                "ignore_space_prefixed" => self.ignore_space_prefixed.into_value(span),
             },
             span,
         )
@@ -119,6 +121,7 @@ impl Default for HistoryConfig {
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
             path: HistoryPath::Default,
+            ignore_space_prefixed: true,
         }
     }
 }
@@ -165,6 +168,7 @@ impl UpdateFromValue for HistoryConfig {
                         errors.type_mismatch(path, Type::custom("string or nothing"), val);
                     }
                 },
+                "ignore_space_prefixed" => self.ignore_space_prefixed.update(val, path, errors),
                 _ => errors.unknown_option(path, val),
             }
         }

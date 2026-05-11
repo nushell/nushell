@@ -17,8 +17,9 @@ fn encode() -> Result {
     let text = "Ș̗͙̂̏o̲̲̗͗̌͊m̝̊̓́͂ë̡̦̞̤́̌̈́̀ ̥̝̪̎̿ͅf̧̪̻͉͗̈́̍̆u̮̝͌̈́ͅn̹̞̈́̊k̮͇̟͎̂͘y̧̲̠̾̆̕ͅ ̙͖̭͔̂̐t̞́́͘e̢̨͕̽x̥͋t͍̑̔͝";
     let encoded = "53CC82CC8FCCA6CC97CD996FCD97CC8CCD8ACCB2CCB2CC976DCC8ACC93CC81CD82CC9D65CD84CC8CCD84CC80CCA6CCA1CC9ECCA420CC8ECCBFCD85CCA5CC9DCCAA66CD97CD84CC8DCC86CCAACCBBCCA7CD8975CD8CCD84CCAECC9DCD856ECD84CC8ACCB9CC9E6BCD98CC82CCAECD87CC9FCD8E79CCBECC95CC86CD85CCB2CCA7CCA020CC82CC90CC99CD96CCADCD9474CC81CD98CC81CC9E65CCBDCCA2CD95CCA878CD8BCCA574CC91CC94CD9DCD8D";
 
-    let code = format!("'{text}' | encode hex");
-    test().run(code).expect_value_eq(encoded)
+    test()
+        .run_with_data("encode hex", text)
+        .expect_value_eq(encoded)
 }
 
 #[test]

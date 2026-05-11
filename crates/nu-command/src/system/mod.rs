@@ -16,6 +16,7 @@ mod registry;
 #[cfg(windows)]
 mod registry_query;
 mod run_external;
+mod run_internal;
 mod sys;
 mod uname;
 mod which_;
@@ -38,6 +39,7 @@ pub use registry::Registry;
 #[cfg(windows)]
 pub use registry_query::RegistryQuery;
 pub use run_external::{External, command_not_found, eval_external_arguments, which};
+pub use run_internal::RunInternal;
 pub use sys::*;
 pub use uname::UName;
 pub use which_::Which;

@@ -195,7 +195,7 @@ mod tests {
         let mut stack = Stack::new();
         stack.add_env_var(
             PROMPT_COMMAND.into(),
-            Value::string("test", Span::unknown()),
+            Value::string("test", Span::test_data()),
         );
 
         let mut nu_prompt = NushellPrompt::new();

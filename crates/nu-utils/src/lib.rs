@@ -9,6 +9,9 @@ pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
 pub mod locale;
+pub mod location;
+#[doc(hidden)]
+pub mod module_path;
 mod multilife;
 pub mod net;
 mod nu_cow;
@@ -17,6 +20,7 @@ mod shared_cow;
 mod split_read;
 pub mod strings;
 pub mod sync;
+pub mod time;
 pub mod utils;
 
 pub use locale::get_system_locale;

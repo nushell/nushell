@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+
+id: "empty_else_if_branch"
+message: "An empty block if(-else) expression is confusing or a potential bug."
+severity: error # error, warning, info, hint
+language: Rust
+rule:
+  kind: if_expression
+  has:
+    pattern: "{}"
+    kind: block
+# utils: Extract repeated rule as local utility here.
+# note: Add detailed explanation for the rule.

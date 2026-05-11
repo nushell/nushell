@@ -7,6 +7,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    shell_error::generic::GenericError,
 };
 use polars::{datatypes::DataType, prelude::Expr};
 
@@ -79,6 +80,7 @@ impl PluginCommand for LazyAggregate {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -117,6 +119,7 @@ impl PluginCommand for LazyAggregate {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -130,9 +133,9 @@ impl PluginCommand for LazyAggregate {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, value)?;
@@ -144,13 +147,17 @@ impl PluginCommand for LazyAggregate {
                 let dtype = group_by.schema.schema.get(name.as_str());
 
                 if let Some(DataType::Object(..)) = dtype {
-                    return Err(ShellError::GenericError {
-                            error: "Object type column not supported for aggregation".into(),
-                            msg: format!("Column '{name}' is type Object"),
-                            span: Some(call.head),
-                            help: Some("Aggregations cannot be performed on Object type columns. Use dtype command to check column types".into()),
-                            inner: vec![],
-                        }).map_err(|e| e.into());
+                    return Err(ShellError::Generic(
+                        GenericError::new(
+                            "Object type column not supported for aggregation",
+                            format!("Column '{name}' is type Object"),
+                            call.head,
+                        )
+                        .with_help(
+                            "Aggregations cannot be performed on Object type columns. Use dtype command to check column types",
+                        ),
+                    ))
+                    .map_err(|e| e.into());
                 }
             }
         }

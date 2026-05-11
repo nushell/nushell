@@ -86,13 +86,12 @@ impl Command for AttrExample {
         let result: Option<Value> = call.get_flag_const(working_set, "result")?;
 
         let example_string: Result<String, _> = call.req_const(working_set, 1);
-        let example_expr =
-            call.assert_ast_call()?
-                .positional_nth(1)
-                .ok_or(ShellError::MissingParameter {
-                    param_name: "example".into(),
-                    span: call.head,
-                })?;
+        let example_expr = call.assert_ast_call()?.positional_iter().nth(1).ok_or(
+            ShellError::MissingParameter {
+                param_name: "example".into(),
+                span: call.head,
+            },
+        )?;
 
         attr_example_impl(
             example_expr,

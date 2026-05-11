@@ -250,7 +250,8 @@ use it in your pipeline."
                 return stderr_misuse(input.span().unwrap_or(head), head);
             }
 
-            let metadata = input.metadata();
+            let mut input = input;
+            let metadata = input.take_metadata();
             let metadata_clone = metadata.clone();
 
             if let PipelineData::ListStream(..) = input {
@@ -464,12 +465,7 @@ fn spawn_tee(
         .name("tee".into())
         .spawn(move || {
             // We use Signals::empty() here because we assume there already is a Signals on the other side
-            let stream = ByteStream::from_iter(
-                receiver.into_iter(),
-                info.span,
-                Signals::empty(),
-                info.type_,
-            );
+            let stream = ByteStream::from_iter(receiver, info.span, Signals::empty(), info.type_);
             eval_block(PipelineData::byte_stream(stream, info.metadata))
         })
         .map_err(|err| {

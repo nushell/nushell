@@ -1,3 +1,4 @@
+use nu_protocol::{IntoPipelineData, Span};
 use nu_test_support::prelude::*;
 
 #[test]
@@ -73,9 +74,14 @@ pub fn test_string_returns_correct_slice_for_max_end() -> Result {
 
 #[test]
 pub fn test_drops_content_type() -> Result {
-    let code = format!(
-        "open {} | bytes at 3..5 | metadata | get content_type? | describe",
-        file!(),
-    );
-    test().run(code).expect_value_eq("nothing")
+    let content_type = test()
+        .run_raw_with_data(
+            "open $in | bytes at 3..5",
+            (file!()).into_value(Span::test_data()).into_pipeline_data(),
+        )?
+        .take_metadata()
+        .and_then(|md| md.content_type);
+
+    assert!(content_type.is_none());
+    Ok(())
 }

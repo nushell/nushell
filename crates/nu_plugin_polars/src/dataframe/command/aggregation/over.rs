@@ -6,6 +6,7 @@ use crate::{
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    shell_error::generic::GenericError,
 };
 use polars::df;
 
@@ -81,13 +82,13 @@ impl PluginCommand for Over {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let vals: Vec<Value> = call.rest(0)?;
         let expr_value = Value::list(vals, call.head);
         let expressions = NuExpression::extract_exprs(plugin, expr_value)?;
 
+        let metadata = input.take_metadata();
         let input_value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &input_value)? {
@@ -95,12 +96,12 @@ impl PluginCommand for Over {
                 let expr: NuExpression = expr
                     .into_polars()
                     .over_with_options(Some(expressions), None, Default::default())
-                    .map_err(|e| ShellError::GenericError {
-                        error: format!("Error applying over expression: {e}"),
-                        msg: "".into(),
-                        span: Some(call.head),
-                        help: None,
-                        inner: vec![],
+                    .map_err(|e| {
+                        ShellError::Generic(GenericError::new(
+                            format!("Error applying over expression: {e}"),
+                            "",
+                            call.head,
+                        ))
                     })?
                     .into();
                 expr.to_pipeline_data(plugin, engine, call.head)

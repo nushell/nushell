@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{BlockId, DeclId};
 
 #[derive(Clone)]
@@ -65,21 +66,22 @@ the declaration may not be in scope.
             Value::String { ref val, .. } => {
                 if let Some(decl_id) = engine_state.find_decl(val.as_bytes(), &[]) {
                     let decl = engine_state.get_decl(decl_id);
-                    decl.block_id().ok_or_else(|| ShellError::GenericError {
-                        error: format!("Can't view IR for `{val}`"),
-                        msg: "not a custom command".into(),
-                        span: Some(target.span()),
-                        help: Some("internal commands don't have Nushell source code".into()),
-                        inner: vec![],
+                    decl.block_id().ok_or_else(|| {
+                        ShellError::Generic(
+                            GenericError::new(
+                                format!("Can't view IR for `{val}`"),
+                                "not a custom command",
+                                target.span(),
+                            )
+                            .with_help("internal commands don't have Nushell source code"),
+                        )
                     })?
                 } else {
-                    return Err(ShellError::GenericError {
-                        error: format!("Can't view IR for `{val}`"),
-                        msg: "can't find a command with this name".into(),
-                        span: Some(target.span()),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        format!("Can't view IR for `{val}`"),
+                        "can't find a command with this name",
+                        target.span(),
+                    )));
                 }
             }
             // Decl by ID - IR dump always shows name of decl, but sometimes it isn't in scope
@@ -95,12 +97,15 @@ the declaration may not be in scope.
                         call_span: call.head,
                     })?;
                 let decl = engine_state.get_decl(decl_id);
-                decl.block_id().ok_or_else(|| ShellError::GenericError {
-                    error: format!("Can't view IR for `{}`", decl.name()),
-                    msg: "not a custom command".into(),
-                    span: Some(target.span()),
-                    help: Some("internal commands don't have Nushell source code".into()),
-                    inner: vec![],
+                decl.block_id().ok_or_else(|| {
+                    ShellError::Generic(
+                        GenericError::new(
+                            format!("Can't view IR for `{}`", decl.name()),
+                            "not a custom command",
+                            target.span(),
+                        )
+                        .with_help("internal commands don't have Nushell source code"),
+                    )
                 })?
             }
             // Block by ID - often shows up in IR
@@ -124,25 +129,23 @@ the declaration may not be in scope.
         };
 
         let Some(block) = engine_state.try_get_block(block_id) else {
-            return Err(ShellError::GenericError {
-                error: format!("Unknown block ID: {}", block_id.get()),
-                msg: "ensure the block ID is correct and try again".into(),
-                span: Some(target.span()),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                format!("Unknown block ID: {}", block_id.get()),
+                "ensure the block ID is correct and try again",
+                target.span(),
+            )));
         };
 
-        let ir_block = block
-            .ir_block
-            .as_ref()
-            .ok_or_else(|| ShellError::GenericError {
-                error: "Can't view IR for this block".into(),
-                msg: "block is missing compiled representation".into(),
-                span: block.span,
-                help: Some("the IrBlock is probably missing due to a compilation error".into()),
-                inner: vec![],
-            })?;
+        let ir_block = block.ir_block.as_ref().ok_or_else(|| {
+            ShellError::Generic(
+                GenericError::new(
+                    "Can't view IR for this block",
+                    "block is missing compiled representation",
+                    block.span.unwrap_or(call.head),
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        })?;
 
         let formatted = if json {
             let formatted_instructions = ir_block
@@ -161,12 +164,12 @@ the declaration may not be in scope.
                 "ir_block": ir_block,
                 "formatted_instructions": formatted_instructions,
             }))
-            .map_err(|err| ShellError::GenericError {
-                error: "JSON serialization failed".into(),
-                msg: err.to_string(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new(
+                    "JSON serialization failed",
+                    err.to_string(),
+                    call.head,
+                ))
             })?
         } else {
             format!("{}", ir_block.display(engine_state))

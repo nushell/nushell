@@ -8,73 +8,164 @@ on:
 name: continuous-integration
 
 env:
-  NUSHELL_CARGO_PROFILE: ci
   NU_LOG_LEVEL: DEBUG
-  # If changing these settings also change toolkit.nu
-  CLIPPY_OPTIONS: "-D warnings -D clippy::unwrap_used -D clippy::unchecked_time_subtraction"
+  CLIPPY_OPTIONS: "-D warnings"
+  NUSHELL_CARGO_PROFILE: ci
+  MAIN_OPTIONS: --workspace --exclude nu_plugin_* --all-targets
+  PLUGIN_OPTIONS: --package nu_plugin_* --all-targets
+  WASM_OPTIONS: >
+    --no-default-features
+    --target wasm32-unknown-unknown
+    -p nu-cmd-base
+    -p nu-cmd-extra
+    -p nu-cmd-lang
+    -p nu-color-config
+    -p nu-command
+    -p nu-derive-value
+    -p nu-engine
+    -p nu-glob
+    -p nu-json
+    -p nu-parser
+    -p nu-path
+    -p nu-pretty-hex
+    -p nu-protocol
+    -p nu-std
+    -p nu-system
+    -p nu-table
+    -p nu-term-grid
+    -p nu-utils
+    -p nuon
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  fmt-clippy:
+  cargo:
+    name: "`cargo` in ${{ matrix.workspace.name }} (${{ matrix.target.name }})"
     strategy:
       fail-fast: true
       matrix:
-        # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
-        # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
-        # revisiting this when 22.04 is closer to EOL (June 2027)
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
+        target:
+          # Pinning to Ubuntu 22.04 because building on newer Ubuntu versions causes linux-gnu
+          # builds to link against a too-new-for-many-Linux-installs glibc version. Consider
+          # revisiting this when 22.04 is closer to EOL (June 2027)
+          - name: Ubuntu
+            host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            options: $MAIN_OPTIONS
+            steps: [fmt, clippy, build, test]
+          - name: Windows
+            host: windows-latest
+            target: x86_64-pc-windows-msvc
+            options: $MAIN_OPTIONS
+            steps: [fmt, clippy, build, test]
+          - name: MacOS
+            host: macos-latest
+            target: x86_64-apple-darwin
+            options: $MAIN_OPTIONS
+            steps: [fmt, clippy, build, test]
+          - name: Ubuntu Plugins
+            host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            options: $PLUGIN_OPTIONS
+            steps: [clippy, build, test]
+          - name: Windows Plugins
+            host: windows-latest
+            target: x86_64-pc-windows-msvc
+            options: $PLUGIN_OPTIONS
+            steps: [clippy, build, test]
+          - name: MacOS Plugins
+            host: macos-latest
+            target: x86_64-apple-darwin
+            options: $PLUGIN_OPTIONS
+            steps: [clippy, build, test]
+          - name: WASM
+            host: ubuntu-22.04
+            target: wasm32-unknown-unknown
+            options: $WASM_OPTIONS
+            steps: [build, check]
 
-    runs-on: ${{ matrix.platform }}
+        workspace:
+          - name: root
+            path: ./
+            profile: ci
+            skip: []
+          - name: nu-parser/fuzz
+            path: ./crates/nu-parser/fuzz
+            profile: dev
+            skip: [build, test]
+          - name: nu-path/fuzz
+            path: ./crates/nu-path/fuzz
+            profile: dev
+            skip: [build, test]
+
+        exclude:
+          - target: { name: WASM }
+            workspace: { name: nu-parser/fuzz }
+          - target: { name: WASM }
+            workspace: { name: nu-path/fuzz }
+          - target: { name: Ubuntu Plugins }
+            workspace: { name: nu-parser/fuzz }
+          - target: { name: Ubuntu Plugins }
+            workspace: { name: nu-path/fuzz }
+          - target: { name: Windows Plugins }
+            workspace: { name: nu-parser/fuzz }
+          - target: { name: Windows Plugins }
+            workspace: { name: nu-path/fuzz }
+          - target: { name: MacOS Plugins }
+            workspace: { name: nu-parser/fuzz }
+          - target: { name: MacOS Plugins }
+            workspace: { name: nu-path/fuzz }
+    
+    runs-on: ${{ matrix.target.host }}
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout Repo
+        uses: actions/checkout@v6
 
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
+      - name: Setup Rust Toolchain
+        run: rustup target add ${{ matrix.target.target }}
+        working-directory: ${{ matrix.workspace.path }}
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.workspace.path }} -> target
+          cache-all-crates: true
+          cache-workspace-crates: true
 
       - name: cargo fmt
-        run: cargo fmt --all -- --check
-
-        # If changing these settings also change toolkit.nu
-      - name: Clippy
-        run: cargo clippy --workspace --exclude nu_plugin_* -- $CLIPPY_OPTIONS
-
-        # In tests we don't have to deny unwrap
-      - name: Clippy of tests
-        run: cargo clippy --tests --workspace --exclude nu_plugin_* -- -D warnings
-
-      - name: Clippy of benchmarks
-        run: cargo clippy --benches --workspace --exclude nu_plugin_* -- -D warnings
-
-  tests:
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
-
-      - name: Tests
-        run: cargo test --workspace --profile ci --exclude nu_plugin_*
-      - name: Check for clean repo
-        shell: bash
+        if: contains(matrix.target.steps, 'fmt') && !contains(matrix.workspace.skip, 'fmt')
+        working-directory: ${{ matrix.workspace.path }}
         run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "there are changes";
-            git status --porcelain
-            exit 1
-          else
-            echo "no changes in working directory";
-          fi
+          rustup component add rustfmt
+          cargo fmt --all --check
+
+      - name: cargo check
+        if: contains(matrix.target.steps, 'check') && !contains(matrix.workspace.skip, 'check')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo check ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+        
+      - name: cargo clippy
+        if: contains(matrix.target.steps, 'clippy') && !contains(matrix.workspace.skip, 'clippy')
+        working-directory: ${{ matrix.workspace.path }}
+        run: |
+          rustup component add clippy
+          cargo clippy ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }} -- $CLIPPY_OPTIONS
+
+      - name: cargo build
+        if: contains(matrix.target.steps, 'build') && !contains(matrix.workspace.skip, 'build')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo build ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+
+      - name: cargo test
+        if: contains(matrix.target.steps, 'test') && !contains(matrix.workspace.skip, 'test')
+        working-directory: ${{ matrix.workspace.path }}
+        run: cargo test ${{ matrix.target.options }} --profile ${{ matrix.workspace.profile }}
+
+      - name: Assert Clean Repo
+        run: git diff --quiet && git diff --cached --quiet
 
   std-lib-and-python-virtualenv:
     strategy:
@@ -140,81 +231,3 @@ jobs:
           else
             echo "no changes in working directory";
           fi
-
-  plugins:
-    strategy:
-      fail-fast: true
-      matrix:
-        platform: [windows-latest, macos-latest, ubuntu-22.04]
-
-    runs-on: ${{ matrix.platform }}
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
-
-      - name: Clippy
-        run: cargo clippy --package nu_plugin_* -- $CLIPPY_OPTIONS
-
-      - name: Tests
-        run: cargo test --profile ci --package nu_plugin_*
-
-      - name: Check for clean repo
-        shell: bash
-        run: |
-          if [ -n "$(git status --porcelain)" ]; then
-            echo "there are changes";
-            git status --porcelain
-            exit 1
-          else
-            echo "no changes in working directory";
-          fi
-
-  wasm:
-    env:
-      WASM_OPTIONS: --no-default-features --target wasm32-unknown-unknown
-      CLIPPY_CONF_DIR: ${{ github.workspace }}/clippy/wasm/
-
-    strategy:
-      matrix:
-        job:
-          - name: Build WASM
-            command: cargo build
-            args:
-          - name: Clippy WASM
-            command: cargo clippy
-            args: -- $CLIPPY_OPTIONS
-
-    name: ${{ matrix.job.name }}
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Setup Rust toolchain and cache
-        uses: actions-rust-lang/setup-rust-toolchain@v1.12.0
-
-      - name: Add wasm32-unknown-unknown target
-        run: rustup target add wasm32-unknown-unknown
-
-      - run: ${{ matrix.job.command }} -p nu-cmd-base $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-cmd-extra $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-cmd-lang $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-color-config $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-command $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-derive-value $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-engine $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-glob $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-json $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-parser $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-path $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-pretty-hex $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-protocol $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-std $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-system $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-table $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-term-grid $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nu-utils $WASM_OPTIONS ${{ matrix.job.args }}
-      - run: ${{ matrix.job.command }} -p nuon $WASM_OPTIONS ${{ matrix.job.args }}

@@ -34,7 +34,7 @@ impl Command for FromMsgpackz {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = input.span().unwrap_or(call.head);
         let objects = call.has_flag(engine_state, stack, "objects")?;
@@ -43,7 +43,7 @@ impl Command for FromMsgpackz {
             objects,
             signals: engine_state.signals().clone(),
         };
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
         let out = match input {
             // Deserialize from a byte buffer
             PipelineData::Value(Value::Binary { val: bytes, .. }, _) => {

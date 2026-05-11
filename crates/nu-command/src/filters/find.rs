@@ -649,18 +649,14 @@ fn value_should_be_printed(
 fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
     match input {
-        PipelineData::Value(Value::String { ref val, .. }, _) => {
-            if val.contains('\n') {
-                Value::list(
-                    val.lines()
-                        .map(|s| Value::string(s.to_string(), span))
-                        .collect(),
-                    span,
-                )
-                .into_pipeline_data_with_metadata(input.metadata())
-            } else {
-                input
-            }
+        PipelineData::Value(Value::String { ref val, .. }, metadata) if val.contains('\n') => {
+            Value::list(
+                val.lines()
+                    .map(|s| Value::string(s.to_string(), span))
+                    .collect(),
+                span,
+            )
+            .into_pipeline_data_with_metadata(metadata)
         }
         _ => input,
     }
@@ -674,8 +670,9 @@ pub fn find_internal(
     search_term: &str,
     columns_to_search: &[&str],
     highlight: bool,
+    head: Span,
 ) -> Result<PipelineData, ShellError> {
-    let span = input.span().unwrap_or(Span::unknown());
+    let span = input.span().unwrap_or(head);
 
     let style_computer = StyleComputer::from_config(engine_state, stack);
     let string_style = style_computer.compute("string", &Value::string("search result", span));
@@ -686,7 +683,7 @@ pub fn find_internal(
 
     let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
         err_message: format!("invalid regex: {e}"),
-        span: Span::unknown(),
+        span: head,
     })?;
 
     let pattern = MatchPattern {

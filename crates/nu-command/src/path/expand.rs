@@ -2,6 +2,7 @@ use super::PathSubcommandArguments;
 use nu_engine::command_prelude::*;
 use nu_path::{canonicalize_with, expand_path_with};
 use nu_protocol::engine::StateWorkingSet;
+use nu_protocol::shell_error::generic::GenericError;
 use std::path::Path;
 
 struct Arguments {
@@ -155,15 +156,12 @@ fn expand(path: &Path, span: Span, args: &Arguments) -> Value {
                 }
             }
             Err(_) => Value::error(
-                ShellError::GenericError {
-                    error: "Could not expand path".into(),
-                    msg: "could not be expanded (path might not exist, non-final \
-                            component is not a directory, or other cause)"
-                        .into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "Could not expand path",
+                    "could not be expanded (path might not exist, non-final \
+                            component is not a directory, or other cause)",
+                    span,
+                )),
                 span,
             ),
         }

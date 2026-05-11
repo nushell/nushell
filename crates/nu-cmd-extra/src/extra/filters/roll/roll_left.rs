@@ -90,16 +90,16 @@ impl Command for RollLeft {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let by: Option<usize> = call.get_flag(engine_state, stack, "by")?;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         let cells_only = call.has_flag(engine_state, stack, "cells-only")?;
         let value = input.into_value(call.head)?;
         let rotated_value =
             horizontal_rotate_value(value, by, cells_only, &HorizontalDirection::Left)?;
 
-        Ok(rotated_value.into_pipeline_data().set_metadata(metadata))
+        Ok(rotated_value.into_pipeline_data_with_metadata(metadata))
     }
 }
 

@@ -1,5 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::engine::{ENV_VARIABLE_ID, IN_VARIABLE_ID, NU_VARIABLE_ID};
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone)]
 pub struct DeleteVar;
@@ -36,13 +37,11 @@ impl Command for DeleteVar {
 
         // Ensure at least one argument is provided
         if expressions.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "Wrong number of arguments".into(),
-                msg: "unlet takes at least one argument".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Wrong number of arguments",
+                "unlet takes at least one argument",
+                call.head,
+            )));
         }
 
         // Validate each argument and collect valid variable IDs
@@ -63,28 +62,27 @@ impl Command for DeleteVar {
                             _ => "unknown", // This should never happen due to the check above
                         };
 
-                        return Err(ShellError::GenericError {
-                            error: "Cannot delete built-in variable".into(),
-                            msg: format!(
+                        return Err(ShellError::Generic(GenericError::new(
+                            "Cannot delete built-in variable",
+                            format!(
                                 "'${}' is a built-in variable and cannot be deleted",
                                 var_name
                             ),
-                            span: Some(expr.span),
-                            help: None,
-                            inner: vec![],
-                        });
+                            expr.span,
+                        )));
                     }
                     var_ids.push(*var_id);
                 }
                 _ => {
                     // Argument is not a variable reference
-                    return Err(ShellError::GenericError {
-                        error: "Not a variable".into(),
-                        msg: "Argument must be a variable reference like $x".into(),
-                        span: Some(expr.span),
-                        help: Some("Use $variable_name to refer to the variable".into()),
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(
+                        GenericError::new(
+                            "Not a variable",
+                            "Argument must be a variable reference like $x",
+                            expr.span,
+                        )
+                        .with_help("Use $variable_name to refer to the variable"),
+                    ));
                 }
             }
         }

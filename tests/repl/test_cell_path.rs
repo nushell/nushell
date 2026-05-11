@@ -23,6 +23,11 @@ fn record_single_field_optional_success() -> TestResult {
 }
 
 #[test]
+fn empty_record_optional_field_is_null() -> TestResult {
+    run_test("{}.foo? | to nuon", "null")
+}
+
+#[test]
 fn get_works_with_cell_path_success() -> TestResult {
     run_test("{foo: 'bar'} | get foo?", "bar")
 }
@@ -105,8 +110,8 @@ fn list_single_field_failure() -> TestResult {
 // Test the scenario where the requested column is not present in all rows
 #[test]
 fn jagged_list_access_fails() -> TestResult {
-    fail_test("[{foo: 'bar'}, {}].foo", "cannot find column")?;
-    fail_test("[{}, {foo: 'bar'}].foo", "cannot find column")
+    fail_test("[{foo: 'bar'}, {}].foo", "column 'foo' is missing")?;
+    fail_test("[{}, {foo: 'bar'}].foo", "column 'foo' is missing")
 }
 
 #[test]
@@ -133,7 +138,7 @@ fn list_row_optional_access_succeeds() -> TestResult {
 // regression test for an old bug
 #[test]
 fn do_not_delve_too_deep_in_nested_lists() -> TestResult {
-    fail_test("[[{foo: bar}]].foo", "cannot find column")
+    fail_test("[[{foo: bar}]].foo", "column 'foo' is missing")
 }
 
 #[test]

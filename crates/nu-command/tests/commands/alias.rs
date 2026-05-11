@@ -1,6 +1,5 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use rstest::rstest;
 
 #[ignore = "TODO?: Aliasing parser keywords does not work anymore"]
 #[test]
@@ -37,21 +36,16 @@ fn alias_hiding_2() {
     assert_eq!(actual.out, "0");
 }
 
-#[test]
-fn alias_fails_with_invalid_name() {
-    let err_msg = "name can't be a number, a filesize, or contain a hash # or caret ^";
-    let actual = nu!(r#" alias 1234 = echo "test" "#);
-
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!(r#" alias 5gib = echo "test" "#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!(r#" alias "te#t" = echo "test" "#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!(r#" alias ^foo = echo "bar" "#);
-    assert!(actual.err.contains(err_msg));
+#[rstest]
+#[case::numeric("1234")]
+#[case::filesize_like("5gib")]
+#[case::hash(r#""te#t""#)]
+#[case::caret("^foo")]
+fn alias_fails_with_invalid_name(#[case] alias: &str) -> Result {
+    let code = format!("alias {alias} = echo 'test'");
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::AliasNotValid(_)));
+    Ok(())
 }
 
 #[test]

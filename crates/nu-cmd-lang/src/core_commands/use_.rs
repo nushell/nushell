@@ -4,6 +4,7 @@ use nu_engine::{
 use nu_protocol::{
     ast::{Expr, Expression},
     engine::CommandType,
+    shell_error::generic::GenericError,
 };
 
 #[derive(Clone)]
@@ -66,13 +67,11 @@ This command is a parser keyword. For details, check:
             ..
         }) = call.get_parser_info(caller_stack, "import_pattern")
         else {
-            return Err(ShellError::GenericError {
-                error: "Unexpected import".into(),
-                msg: "import pattern not supported".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Unexpected import",
+                "import pattern not supported",
+                call.head,
+            )));
         };
 
         // Necessary so that we can modify the stack.
@@ -151,16 +150,14 @@ This command is a parser keyword. For details, check:
                 redirect_env(engine_state, caller_stack, &callee_stack);
             }
         } else {
-            return Err(ShellError::GenericError {
-                error: format!(
+            return Err(ShellError::Generic(GenericError::new(
+                format!(
                     "Could not import from '{}'",
                     String::from_utf8_lossy(&import_pattern.head.name)
                 ),
-                msg: "module does not exist".to_string(),
-                span: Some(import_pattern.head.span),
-                help: None,
-                inner: vec![],
-            });
+                "module does not exist",
+                import_pattern.head.span,
+            )));
         }
 
         Ok(PipelineData::empty())

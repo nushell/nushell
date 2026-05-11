@@ -48,10 +48,10 @@ impl Command for Enumerate {
         engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         Ok(input
             .into_iter()

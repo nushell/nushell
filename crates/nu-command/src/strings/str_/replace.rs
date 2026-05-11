@@ -355,7 +355,10 @@ fn action(
                                     Some(m) => Value::string(m.as_str().to_string(), head),
                                     None => Value::nothing(head),
                                 };
-                                closure_eval.add_arg(arg);
+                                if let Err(error) = closure_eval.add_arg(arg) {
+                                    first_error = Some(error);
+                                    return "".to_string();
+                                }
                             }
                             let value = match caps.get(0) {
                                 Some(m) => Value::string(m.as_str().to_string(), head),

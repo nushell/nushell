@@ -13,6 +13,7 @@ use nu_protocol::{
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     report_shell_error,
+    shell_error::generic::GenericError,
 };
 
 use crate::{diff::diff_by_line, fake_register::fake_register};
@@ -198,7 +199,7 @@ impl PluginTest {
 
     /// Test a list of plugin examples. Prints an error for each failing example.
     ///
-    /// See [`.test_command_examples()`] for easier usage of this method on a command's examples.
+    /// See [`.test_command_examples()`](Self::test_command_examples) for easier usage of this method on a command's examples.
     ///
     /// # Example
     ///
@@ -299,13 +300,10 @@ impl PluginTest {
         if !failed {
             Ok(())
         } else {
-            Err(ShellError::GenericError {
-                error: "Some examples failed. See the error output for details".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+            Err(ShellError::Generic(GenericError::new_internal(
+                "Some examples failed. See the error output for details",
+                "",
+            )))
         }
     }
 
@@ -346,7 +344,8 @@ impl PluginTest {
                 PluginCustomValueWithSource::add_source_in(&mut b_serialized, &self.source)?;
                 // Now get the plugin reference and execute the comparison
                 let persistent = self.source.persistent(None)?.get_plugin(None)?;
-                let ordering = persistent.custom_value_partial_cmp(serialized, b_serialized)?;
+                let ordering =
+                    persistent.custom_value_partial_cmp(serialized, b_serialized, a.span())?;
                 Ok(matches!(
                     ordering.map(Ordering::from),
                     Some(Ordering::Equal)

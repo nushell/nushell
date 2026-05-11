@@ -1,52 +1,21 @@
-use nu_test_support::fs::Stub::FileWithContentToBeTrimmed;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 
 #[test]
-fn to_row() {
-    Playground::setup("split_row_test_1", |dirs, sandbox| {
-        sandbox.with_files(&[
-            FileWithContentToBeTrimmed(
-                "sample.txt",
-                "
-                importer,shipper,tariff_item,name,origin
-            ",
-            ),
-            FileWithContentToBeTrimmed(
-                "sample2.txt",
-                "
-                importer      ,   shipper      ,  tariff_item,name      ,    origin
-            ",
-            ),
-        ]);
+fn to_row() -> Result {
+    let sample = "importer,shipper,tariff_item,name,origin";
+    let code = r#"$in | split row "," | length"#;
+    test().run_with_data(code, sample).expect_value_eq(5)?;
 
-        let actual = nu!(cwd: dirs.test(), r#"
-            open sample.txt
-            | lines
-            | str trim
-            | split row ","
-            | length
-        "#);
+    let sample = "importer      ,   shipper      ,  tariff_item,name      ,    origin";
+    let code = r#"$in | split row -r '\s*,\s*' | length"#;
+    test().run_with_data(code, sample).expect_value_eq(5)?;
 
-        assert!(actual.out.contains('5'));
+    let code = r#"
+        def foo [a: list<string>] {
+            $a | describe
+        }
 
-        let actual = nu!(cwd: dirs.test(), r"
-            open sample2.txt
-            | lines
-            | str trim
-            | split row -r '\s*,\s*'
-            | length
-        ");
-
-        assert!(actual.out.contains('5'));
-
-        let actual = nu!(r#"
-                def foo [a: list<string>] {
-                    $a | describe
-                }
-                foo (["a b", "c d"] | split row " ")
-            "#);
-
-        assert!(actual.out.contains("list<string>"));
-    })
+        foo (["a b", "c d"] | split row " ")
+    "#;
+    test().run(code).expect_value_eq("list<string>")
 }

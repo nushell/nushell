@@ -1,6 +1,7 @@
 use nu_protocol::{
     Range, ShellError, Span, Value,
     engine::{EngineState, Stack},
+    shell_error::generic::GenericError,
 };
 use std::ops::Bound;
 
@@ -41,22 +42,24 @@ fn get_editor_commandline(
                     let params = editor_cmd.collect::<Result<_, ShellError>>()?;
                     Ok((editor, params))
                 }
-                _ => Err(ShellError::GenericError {
-                    error: "Editor executable is missing".into(),
-                    msg: "Set the first element to an executable".into(),
-                    span: Some(value.span()),
-                    help: Some(HELP_MSG.into()),
-                    inner: vec![],
-                }),
+                _ => Err(ShellError::Generic(
+                    GenericError::new(
+                        "Editor executable is missing",
+                        "Set the first element to an executable",
+                        value.span(),
+                    )
+                    .with_help(HELP_MSG),
+                )),
             }
         }
-        Value::String { .. } | Value::List { .. } => Err(ShellError::GenericError {
-            error: format!("{var_name} should be a non-empty string or list<String>"),
-            msg: "Specify an executable here".into(),
-            span: Some(value.span()),
-            help: Some(HELP_MSG.into()),
-            inner: vec![],
-        }),
+        Value::String { .. } | Value::List { .. } => Err(ShellError::Generic(
+            GenericError::new(
+                format!("{var_name} should be a non-empty string or list<String>"),
+                "Specify an executable here",
+                value.span(),
+            )
+            .with_help(HELP_MSG),
+        )),
         x => Err(ShellError::CantConvert {
             to_type: "string or list<string>".into(),
             from_type: x.get_type().to_string(),
@@ -82,14 +85,13 @@ pub fn get_editor(
     } else if let Some(value) = stack.get_env_var(engine_state, "EDITOR") {
         get_editor_commandline(value, "$env.EDITOR")
     } else {
-        Err(ShellError::GenericError {
-            error: "No editor configured".into(),
-            msg:
-                "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`"
-                    .into(),
-            span: Some(span),
-            help: Some(HELP_MSG.into()),
-            inner: vec![],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "No editor configured",
+                "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`",
+                span,
+            )
+            .with_help(HELP_MSG),
+        ))
     }
 }

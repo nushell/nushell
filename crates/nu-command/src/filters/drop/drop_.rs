@@ -74,10 +74,10 @@ impl Command for Drop {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
         let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
 

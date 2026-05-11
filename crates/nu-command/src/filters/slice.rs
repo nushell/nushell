@@ -62,10 +62,10 @@ impl Command for Slice {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let range: IntRange = call.req(engine_state, stack, 0)?;
 
         // only collect the input if we have any negative indices

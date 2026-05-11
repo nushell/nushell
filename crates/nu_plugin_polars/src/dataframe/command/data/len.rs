@@ -35,6 +35,7 @@ impl PluginCommand for ExprLen {
                     NuDataFrame::try_from_columns(
                         vec![Column::new("len".to_string(), vec![Value::test_int(2)])],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -53,9 +54,9 @@ impl PluginCommand for ExprLen {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let res: NuExpression = polars::prelude::len().into();
         res.to_pipeline_data(plugin, engine, call.head)
             .map_err(LabeledError::from)

@@ -5,7 +5,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
-use crate::{PluginIdentity, PluginMetadata, PluginSignature, ShellError, Span};
+use crate::{
+    PluginIdentity, PluginMetadata, PluginSignature, ShellError, Span,
+    shell_error::generic::GenericError,
+};
 
 // This has a big impact on performance
 const BUFFER_SIZE: usize = 65536;
@@ -46,14 +49,16 @@ impl PluginRegistryFile {
         // Format is brotli compressed messagepack
         let brotli_reader = brotli::Decompressor::new(reader, BUFFER_SIZE);
 
-        rmp_serde::from_read(brotli_reader).map_err(|err| ShellError::GenericError {
-            error: format!("Failed to load plugin file: {err}"),
-            msg: "plugin file load attempted here".into(),
-            span: error_span,
-            help: Some(
-                "it may be corrupt. Try deleting it and registering your plugins again".into(),
-            ),
-            inner: vec![],
+        rmp_serde::from_read(brotli_reader).map_err(|err| {
+            let error = format!("Failed to load plugin file: {err}");
+            let msg = "plugin file load attempted here";
+            let help = "it may be corrupt. Try deleting it and registering your plugins again";
+            match error_span {
+                Some(span) => {
+                    ShellError::Generic(GenericError::new(error, msg, span).with_help(help))
+                }
+                None => ShellError::Generic(GenericError::new_internal(error, msg).with_help(help)),
+            }
         })
     }
 
@@ -75,12 +80,17 @@ impl PluginRegistryFile {
         rmp_serde::encode::write_named(&mut brotli_writer, self)
             .map_err(|err| err.to_string())
             .and_then(|_| brotli_writer.flush().map_err(|err| err.to_string()))
-            .map_err(|err| ShellError::GenericError {
-                error: "Failed to save plugin file".into(),
-                msg: "plugin file save attempted here".into(),
-                span: error_span,
-                help: Some(err.to_string()),
-                inner: vec![],
+            .map_err(|err| {
+                let error = "Failed to save plugin file";
+                let msg = "plugin file save attempted here";
+                match error_span {
+                    Some(span) => {
+                        ShellError::Generic(GenericError::new(error, msg, span).with_help(err))
+                    }
+                    None => {
+                        ShellError::Generic(GenericError::new_internal(error, msg).with_help(err))
+                    }
+                }
             })
     }
 

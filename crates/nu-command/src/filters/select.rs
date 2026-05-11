@@ -3,7 +3,7 @@ use crate::database::SQLiteQueryBuilder;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     DeprecationEntry, DeprecationType, PipelineIterator, ReportMode, ast::PathMember,
-    casing::Casing,
+    casing::Casing, shell_error::generic::GenericError,
 };
 use std::collections::BTreeSet;
 
@@ -227,7 +227,7 @@ fn select(
     engine_state: &EngineState,
     call_span: Span,
     columns: Vec<CellPath>,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let mut unique_rows: BTreeSet<usize> = BTreeSet::new();
 
@@ -238,13 +238,11 @@ fn select(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Select only allows row numbers for rows".into(),
-                        msg: "extra after row number".into(),
-                        span: Some(*span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Select only allows row numbers for rows",
+                        "extra after row number",
+                        *span,
+                    )));
                 }
                 unique_rows.insert(*val);
             }
@@ -258,7 +256,7 @@ fn select(
     let columns = new_columns;
 
     let input = if !unique_rows.is_empty() {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let pipeline_iter: PipelineIterator = input.into_iter();
 
         NthIterator {
