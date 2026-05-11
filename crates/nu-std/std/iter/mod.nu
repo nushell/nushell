@@ -46,14 +46,11 @@ export def find-index [
 } --result [1 0 2 0 3 0 4]
 export def intersperse [
     separator: any # the separator to be used
+]: [
+    list -> list
+    range -> list
 ] {
-    reduce --fold [] {|e, acc|
-         $acc ++ [$e, $separator]
-    } 
-    | match $in {
-         [] => [],
-         $xs => ($xs | take (($xs | length) - 1 ))
-    }
+    each --flatten { [$separator $in] } | skip 1
 }
 
 # Returns a list of intermediate steps performed by `reduce` (`fold`).
