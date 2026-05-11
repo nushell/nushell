@@ -24,11 +24,7 @@ export def find [
     where {|e| try {do $fn $e} } | first
 }
 
-# Returns the index of the first element that matches the predicate or -1 if none
-#
-# # Invariant
-#
-# The closure must return a bool
+# Returns the index of the first element that matches the predicate, or `null` if none
 @example "Find the index of an element starting with 's'" {
     ["iter", "abc", "shell", "around", "nushell", "std"] | iter find-index {|x| $x starts-with 's'}
 } --result 2
@@ -37,10 +33,13 @@ export def find [
 } --result -1
 export def find-index [
     fn: closure # the closure used to perform the search
+]: [
+    list -> oneof<int, nothing>
+    range -> oneof<int, nothing>
 ] {
     enumerate
     | find {|e| $e.item | do $fn $e.item }
-    | try { get index } catch { -1 }
+    | try { get index }
 }
 
 # Returns a new list with the separator between adjacent items of the original list

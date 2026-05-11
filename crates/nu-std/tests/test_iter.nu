@@ -79,10 +79,7 @@ def iter_find_index [] {
 
     let is_even = {|x| $x mod 2 == 0}
     let res = ([3 5 13 91] | iter find-index $is_even)
-    assert equal $res (-1)
-
-    let res = (42 | iter find-index {|x| $x == 42})
-    assert equal $res 0
+    assert equal $res null
 }
 
 @test
