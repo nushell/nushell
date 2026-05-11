@@ -62,7 +62,7 @@ impl Command for Watch {
             .optional(
                 "closure",
                 SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order (deprecated).",
+                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order. (deprecated)",
             )
             .named(
                 "debounce",
@@ -172,7 +172,8 @@ impl Command for Watch {
                     label: "remove this".into(),
                     span: closure.span,
                     help: "Since 0.113.0, running a closure with `watch` is deprecated. \
-                            Instead, use `watch` as the source of a `for` loop."
+                            Instead, use `watch` by piping its output to `each` \
+                            or as the source of a `for` loop."
                         .to_string()
                         .into(),
                     report_mode: nu_protocol::ReportMode::FirstUse,
@@ -259,6 +260,7 @@ fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
 
 #[allow(clippy::too_many_arguments)]
 #[inline]
+#[deprecated(since = "0.113.0")]
 fn run_closure(
     engine_state: &EngineState,
     stack: &mut Stack,
