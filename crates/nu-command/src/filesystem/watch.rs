@@ -51,39 +51,69 @@ impl Command for Watch {
                 (Type::Nothing, Type::Nothing),
                 (
                     Type::Nothing,
-                    Type::Table(vec![
-                        ("operation".into(), Type::String),
-                        ("path".into(), Type::OneOf([Type::String, Type::Nothing].into())),
-                        ("new_path".into(), Type::OneOf([Type::String, Type::Nothing].into())),
-                    ].into_boxed_slice())
+                    Type::Table(
+                        vec![
+                            ("operation".into(), Type::String),
+                            (
+                                "path".into(),
+                                Type::OneOf([Type::String, Type::Nothing].into()),
+                            ),
+                            (
+                                "new_path".into(),
+                                Type::OneOf([Type::String, Type::Nothing].into()),
+                            ),
+                        ]
+                        .into_boxed_slice(),
+                    ),
                 ),
             ])
-            .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
+            .required(
+                "path",
+                SyntaxShape::Filepath,
+                "The path to watch. Can be a file or directory.",
+            )
             .optional(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order (deprecated).",
+                SyntaxShape::Closure(Some(vec![
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                ])),
+                "Some Nu code to run whenever a file changes. \
+                    The closure will be passed `operation`, `path`, \
+                    and `new_path` (for renames only) arguments in that order (deprecated).",
             )
             .named(
                 "debounce",
                 SyntaxShape::Duration,
-                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events.",
+                "Debounce changes for this duration (default: 100ms). \
+                    Adjust if you find that single writes are reported as multiple events.",
                 Some('d'),
             )
             .named(
                 "glob",
-                SyntaxShape::String, // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
+                // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
+                SyntaxShape::String,
                 "Only report changes for files that match this glob pattern (default: all files)",
                 Some('g'),
             )
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true).",
+                "Watch all directories under `<path>` recursively. \
+                    Will be ignored if `<path>` is a file (default: true).",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false).", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false).", Some('v'))
+            .switch(
+                "quiet",
+                "Hide the initial status message (default: false).",
+                Some('q'),
+            )
+            .switch(
+                "verbose",
+                "Operate in verbose mode (default: false).",
+                Some('v'),
+            )
             .category(Category::FileSystem)
     }
 
