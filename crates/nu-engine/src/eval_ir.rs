@@ -297,13 +297,26 @@ fn eval_ir_block_impl<D: DebugContext>(
                 }
             }
             Err(err) => {
+                #[cfg(unix)]
+                let is_terminated_by_signal = matches!(&err, ShellError::TerminatedBySignal { .. });
+                #[cfg(not(unix))]
+                let is_terminated_by_signal = false;
+
+                let is_interrupted =
+                    matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal;
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    if is_interrupted {
+                        ctx.engine_state.signals().reset();
+                    }
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
+                    if is_interrupted {
+                        ctx.engine_state.signals().reset();
+                    }
                     prepare_error_handler(
                         ctx,
                         always_run_handler,

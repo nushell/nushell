@@ -33,6 +33,18 @@ pub trait CallExt {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError>;
 
+    /// Returns the rest arguments starting at `starting_pos`, preserving whether each item was
+    /// passed as a spread argument.
+    ///
+    /// The tuple contains `(value, is_spread)`. This differs from [`CallExt::rest()`], which
+    /// flattens spread arguments into a single list of values.
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError>;
+
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
@@ -129,13 +141,28 @@ impl CallExt for ast::Call {
         .collect()
     }
 
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        let stack = &mut stack.use_call_arg_out_dest();
+        self.rest_iter(starting_pos)
+            .map(|(expr, is_spread)| {
+                let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+                Ok((T::from_value(result)?, is_spread))
+            })
+            .collect()
+    }
+
     fn opt<T: FromValue>(
         &self,
         engine_state: &EngineState,
         stack: &mut Stack,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.positional_nth(pos) {
+        if let Some(expr) = self.positional_iter().nth(pos) {
             let stack = &mut stack.use_call_arg_out_dest();
             let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
             if result.is_nothing() {
@@ -153,7 +180,7 @@ impl CallExt for ast::Call {
         working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<Option<T>, ShellError> {
-        if let Some(expr) = self.positional_nth(pos) {
+        if let Some(expr) = self.positional_iter().nth(pos) {
             let result = eval_constant(working_set, expr)?;
             if result.is_nothing() {
                 Ok(None)
@@ -171,18 +198,21 @@ impl CallExt for ast::Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.positional_nth(pos) {
-            let stack = &mut stack.use_call_arg_out_dest();
-            let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
-            FromValue::from_value(result)
-        } else if self.positional_len() == 0 {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len() - 1,
-                span: self.head,
-            })
-        }
+        let maybe_expr = self.positional_iter().nth(pos);
+        let expr = maybe_expr.ok_or_else(|| {
+            let max_idx = self.positional_iter().count().checked_sub(1);
+            match max_idx {
+                None => ShellError::AccessEmptyContent { span: self.head },
+                Some(max_idx) => ShellError::AccessBeyondEnd {
+                    max_idx,
+                    span: self.head,
+                },
+            }
+        })?;
+
+        let stack = &mut stack.use_call_arg_out_dest();
+        let result = eval_expression::<WithoutDebug>(engine_state, stack, expr)?;
+        FromValue::from_value(result)
     }
 
     fn req_parser_info<T: FromValue>(
@@ -256,6 +286,17 @@ impl CallExt for ir::Call {
             .collect()
     }
 
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        _engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        self.rest_iter(stack, starting_pos)
+            .map(|(val, is_spread)| Ok((T::from_value(val.clone())?, is_spread)))
+            .collect()
+    }
+
     fn opt<T: FromValue>(
         &self,
         _engine_state: &EngineState,
@@ -287,16 +328,19 @@ impl CallExt for ir::Call {
         stack: &mut Stack,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(val) = self.positional_iter(stack).nth(pos).cloned() {
-            T::from_value(val)
-        } else if self.positional_len(stack) == 0 {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len(stack) - 1,
-                span: self.head,
-            })
-        }
+        let maybe_val = self.positional_iter(stack).nth(pos).cloned();
+        let val = maybe_val.ok_or_else(|| {
+            let max_idx = self.positional_iter(stack).count().checked_sub(1);
+            match max_idx {
+                None => ShellError::AccessEmptyContent { span: self.head },
+                Some(max_idx) => ShellError::AccessBeyondEnd {
+                    max_idx,
+                    span: self.head,
+                },
+            }
+        })?;
+
+        T::from_value(val)
     }
 
     fn req_parser_info<T: FromValue>(
@@ -366,6 +410,15 @@ impl CallExt for engine::Call<'_> {
         starting_pos: usize,
     ) -> Result<Vec<T>, ShellError> {
         proxy!(self.rest(engine_state, stack, starting_pos))
+    }
+
+    fn rest_preserving_spreads<T: FromValue>(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        starting_pos: usize,
+    ) -> Result<Vec<(T, bool)>, ShellError> {
+        proxy!(self.rest_preserving_spreads(engine_state, stack, starting_pos))
     }
 
     fn opt<T: FromValue>(

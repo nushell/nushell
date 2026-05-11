@@ -158,6 +158,7 @@ arboard = { version = "3.6.0", default-features = false, features = ["wayland-da
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
+fff-search = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
@@ -188,13 +189,14 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "network", "rustls-tls"]
+default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
 	# include other features
 	"js",
 	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",
+	"dep:fff-search",
 
 	# os-dependant dependencies
 	"crossterm",

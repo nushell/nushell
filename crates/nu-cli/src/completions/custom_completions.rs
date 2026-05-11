@@ -230,6 +230,13 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             completion_options.case_sensitive = case_sensitive;
                         }
 
+                        if let Some(md) = options
+                            .get("match_description")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.match_description = md;
+                        }
+
                         let positional =
                             options.get("positional").and_then(|val| val.as_bool().ok());
                         if positional.is_some() {
@@ -290,10 +297,16 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
 
         for sugg in suggestions {
-            matcher.add(
-                strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string()),
-                sugg,
-            );
+            let value = strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string());
+            if matcher.check_match(&value).is_some() {
+                matcher.add(value, sugg);
+            } else if completion_options.match_description
+                && let Some(description) = sugg.suggestion.description.as_deref()
+                && matcher.check_match(description).is_some()
+            {
+                let description = description.to_string();
+                matcher.add(description, sugg);
+            }
         }
         matcher.suggestion_results()
     }

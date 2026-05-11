@@ -24,6 +24,7 @@ nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
 
 itertools = { workspace = true }
+semver = { workspace = true }
 shadow-rs = { version = "2.0", default-features = false }
 
 [build-dependencies]

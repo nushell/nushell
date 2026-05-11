@@ -150,15 +150,7 @@ fn rm(
         {
             unique_argument_check = Some(path.span);
         }
-        let corrected_path = Spanned {
-            item: match path.item {
-                NuGlob::DoNotExpand(s) => {
-                    NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(s))
-                }
-                NuGlob::Expand(s) => NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(s)),
-            },
-            span: path.span,
-        };
+        let corrected_path = path.map(NuGlob::strip_ansi_string_unlikely);
         let _ = std::mem::replace(&mut paths[idx], corrected_path);
     }
 

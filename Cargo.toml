@@ -112,6 +112,7 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
+fff-search = { version = "0.7.0", default-features = false }
 fuzzy-matcher = { version = "^0.3.7" }
 gatekeeper = "3.0.0"
 heck = "0.5.0"
@@ -191,6 +192,7 @@ rusqlite = "0.37"
 rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
 scopeguard = { version = "1.2.0" }
+semver = "1.0"
 serde = { version = "1.0" }
 serde_json = "1.0.149"
 serde_urlencoded = "0.7.1"
@@ -244,6 +246,10 @@ result_large_err = "allow"
 unchecked_time_subtraction = "warn"
 unwrap_used = "deny"
 used_underscore_binding = "warn"
+# need to allow this temporarily because it may change code logic.
+# let's keep it until we update rustc version to 1.96
+# which resolve the issue: https://github.com/rust-lang/rust-clippy/issues/16875
+collapsible_match = "allow"
 
 [lints]
 workspace = true

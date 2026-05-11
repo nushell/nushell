@@ -352,6 +352,51 @@ fn custom_completions_override_display_value() {
 }
 
 #[test]
+fn custom_completions_filter_by_description() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            {
+                completions: [
+                    { value: red,   description: "warm color" },
+                    { value: blue,  description: "cool color" },
+                    { value: green, description: "warm-ish color" },
+                    { value: cyan,  description: "another cool one" },
+                ],
+                options: { match_description: true }
+            }
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["red", "green"], &suggestions);
+}
+
+#[test]
+fn custom_completions_match_description_disabled_by_default() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            [
+                { value: red,   description: "warm color" },
+                { value: blue,  description: "cool color" },
+                { value: green, description: "warm-ish color" },
+                { value: cyan,  description: "another cool one" },
+            ]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&Vec::<&str>::new(), &suggestions);
+}
+
+#[test]
 fn custom_completions_strip_ansi_from_values() {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = r#"

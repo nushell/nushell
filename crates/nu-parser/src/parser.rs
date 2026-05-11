@@ -27,6 +27,8 @@ use std::{
     sync::Arc,
 };
 
+pub(crate) const PERCENT_FORCED_BUILTIN_PARSER_INFO: &str = "percent_forced_builtin";
+
 pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     Expression::garbage(working_set, span)
 }
@@ -198,7 +200,7 @@ pub(crate) fn check_call(
         return CallKind::Help;
     }
 
-    if call.positional_len() < sig.required_positional.len() {
+    if call.positional_iter().count() < sig.required_positional.len() {
         let end_offset = call
             .positional_iter()
             .last()
@@ -225,7 +227,7 @@ pub(crate) fn check_call(
             }
         }
 
-        let missing = &sig.required_positional[call.positional_len()];
+        let missing = &sig.required_positional[call.positional_iter().count()];
         working_set.error(ParseError::MissingPositional(
             missing.name.clone(),
             Span::new(end_offset, end_offset),
@@ -1078,7 +1080,7 @@ pub fn parse_internal_call(
             call = *wrapped_call.clone();
             call.head = command_span;
             // Skip positionals passed to aliased call
-            positional_idx = call.positional_len();
+            positional_idx = call.positional_iter().count();
         } else {
             working_set.error(ParseError::UnknownState(
                 "Alias does not point to internal call.".to_string(),
@@ -1444,6 +1446,67 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
     if call_sigil == Some(b'^') {
         trace!("parsing: forced external call");
         return parse_external_call(working_set, resolution_spans, call_span);
+    }
+
+    // Check if we have a percent sigil with a dynamic head (variable or expression).
+    // Supports two token layouts:
+    //   - single token: `%$cmd` or `%($cmd)` — stripping `%` leaves `$cmd` / `($cmd)` in [0]
+    //   - two tokens:   `%` and `($cmd)`    — stripping `%` leaves an empty span in [0]; head is [1]
+    // If so, defer builtin validation to runtime (the IR compiler will rewrite to `run-internal`).
+    if call_sigil == Some(b'%') && !resolution_spans.is_empty() {
+        // Locate the actual head span, skipping an empty leading span.
+        let (head_idx, head_span) = {
+            let first = working_set.get_span_contents(resolution_spans[0]);
+            if first.is_empty() && resolution_spans.len() > 1 {
+                (1, resolution_spans[1])
+            } else {
+                (0, resolution_spans[0])
+            }
+        };
+
+        let dynamic_head_contents = working_set.get_span_contents(head_span);
+        let is_dynamic_head = !dynamic_head_contents.is_empty()
+            && (dynamic_head_contents[0] == b'$' || dynamic_head_contents[0] == b'(');
+
+        if is_dynamic_head {
+            trace!("parsing: dynamic percent builtin dispatch");
+
+            let head_expr = parse_expression(working_set, &[head_span]);
+
+            // Create a placeholder call; the IR compiler will rewrite this to `run-internal`.
+            let mut call = Call::new(call_span);
+            call.decl_id = DeclId::new(0);
+
+            // Store the head expression for the IR compiler to pick up.
+            call.set_parser_info(PERCENT_FORCED_BUILTIN_PARSER_INFO.to_string(), head_expr);
+
+            // Mirror the dynamic external-call path by preserving `...expr` as an explicit spread
+            // argument so runtime dispatch can forward it without flattening first.
+            for arg_span in resolution_spans.iter().skip(head_idx + 1) {
+                let contents = working_set.get_span_contents(*arg_span);
+                if contents.len() > 3
+                    && contents.starts_with(b"...")
+                    && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+                {
+                    let spread_expr = parse_value(
+                        working_set,
+                        Span::new(arg_span.start + 3, arg_span.end),
+                        &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                    );
+                    call.arguments.push(Argument::Spread(spread_expr));
+                } else {
+                    let arg_expr = parse_value(working_set, *arg_span, &SyntaxShape::Any);
+                    call.arguments.push(Argument::Positional(arg_expr));
+                }
+            }
+
+            return Expression::new(
+                working_set,
+                Expr::Call(Box::new(call)),
+                call_span,
+                Type::Any,
+            );
+        }
     }
 
     let (cmd_start, pos, _name, maybe_decl_id) = if call_sigil == Some(b'%') {
@@ -6467,6 +6530,9 @@ pub fn parse_builtin_commands(
                     expr: Expr::Call(call),
                     ..
                 } = call_expr
+                    && !call
+                        .parser_info
+                        .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
                 {
                     // Apply parse keyword side effects
                     let cmd = working_set.get_decl(call.decl_id);
@@ -6560,6 +6626,18 @@ pub fn parse_builtin_commands(
                 ..
             } = &element.expr
             {
+                // Dynamic percent dispatch stores a placeholder call plus parser
+                // metadata for later IR rewrite. Skip parser-keyword side-effects lookup here,
+                // because there is no declaration to resolve yet.
+                if call
+                    .parser_info
+                    .contains_key(PERCENT_FORCED_BUILTIN_PARSER_INFO)
+                {
+                    return Pipeline {
+                        elements: vec![element],
+                    };
+                }
+
                 // Apply parse keyword side effects
                 let cmd = working_set.get_decl(call.decl_id);
                 match cmd.name() {
@@ -7240,49 +7318,53 @@ pub fn discover_captures_in_expr(
         Expr::Binary(_) => {}
         Expr::Bool(_) => {}
         Expr::Call(call) => {
-            let decl = working_set.get_decl(call.decl_id);
-            if let Some(block_id) = decl.block_id() {
-                match seen_blocks.get(&block_id) {
-                    Some(capture_list) => {
-                        // Push captures onto the outer closure that aren't created by that outer closure
-                        for capture in capture_list {
-                            if !seen.contains(&capture.0) {
-                                output.push(*capture);
-                            }
-                        }
-                    }
-                    None => {
-                        let block = working_set.get_block(block_id);
-                        if !block.captures.is_empty() {
-                            for (capture, span) in &block.captures {
-                                if !seen.contains(capture) {
-                                    output.push((*capture, *span));
-                                }
-                            }
-                        } else {
-                            let result = {
-                                let mut seen = vec![];
-                                seen_blocks.insert(block_id, vec![]);
-
-                                let mut result = vec![];
-                                discover_captures_in_closure(
-                                    working_set,
-                                    block,
-                                    &mut seen,
-                                    seen_blocks,
-                                    &mut result,
-                                )?;
-
-                                result
-                            };
+            if let Some(head_expr) = call.parser_info.get(PERCENT_FORCED_BUILTIN_PARSER_INFO) {
+                discover_captures_in_expr(working_set, head_expr, seen, seen_blocks, output)?;
+            } else {
+                let decl = working_set.get_decl(call.decl_id);
+                if let Some(block_id) = decl.block_id() {
+                    match seen_blocks.get(&block_id) {
+                        Some(capture_list) => {
                             // Push captures onto the outer closure that aren't created by that outer closure
-                            for capture in &result {
+                            for capture in capture_list {
                                 if !seen.contains(&capture.0) {
                                     output.push(*capture);
                                 }
                             }
+                        }
+                        None => {
+                            let block = working_set.get_block(block_id);
+                            if !block.captures.is_empty() {
+                                for (capture, span) in &block.captures {
+                                    if !seen.contains(capture) {
+                                        output.push((*capture, *span));
+                                    }
+                                }
+                            } else {
+                                let result = {
+                                    let mut seen = vec![];
+                                    seen_blocks.insert(block_id, vec![]);
 
-                            seen_blocks.insert(block_id, result);
+                                    let mut result = vec![];
+                                    discover_captures_in_closure(
+                                        working_set,
+                                        block,
+                                        &mut seen,
+                                        seen_blocks,
+                                        &mut result,
+                                    )?;
+
+                                    result
+                                };
+                                // Push captures onto the outer closure that aren't created by that outer closure
+                                for capture in &result {
+                                    if !seen.contains(&capture.0) {
+                                        output.push(*capture);
+                                    }
+                                }
+
+                                seen_blocks.insert(block_id, result);
+                            }
                         }
                     }
                 }

@@ -33,3 +33,4 @@ extern crate nu_test_support;
 
 #[cfg(test)]
 use nu_test_support::harness::main;
+pub use scope::find_builtin_decl;

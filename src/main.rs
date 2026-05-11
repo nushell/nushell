@@ -97,11 +97,16 @@ fn main() -> Result<()> {
 
     let mut engine_state = command_context::add_command_context(engine_state);
 
-    // Provide `version` the features of this nu binary
+    // Provide `version` with data of this nu binary
+    let version = env!("CARGO_PKG_VERSION")
+        .parse()
+        .expect("cargo sets valid version");
+    nu_cmd_lang::VERSION.set(version).expect("VERSION is unset");
+
     let cargo_features = env!("NU_FEATURES").split(",").map(Cow::Borrowed).collect();
     nu_cmd_lang::VERSION_NU_FEATURES
         .set(cargo_features)
-        .expect("unable to set VERSION_NU_FEATURES");
+        .expect("VERSION_NU_FEATURES is unset");
 
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
