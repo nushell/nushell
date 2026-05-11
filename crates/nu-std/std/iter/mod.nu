@@ -105,12 +105,15 @@ export def filter-map [
 
 # Maps a closure to each nested structure and flattens the result
 @example "Get the sums of list elements" {
-    [[1 2 3] [2 3 4] [5 6 7]] | iter flat-map {|e| $e | math sum}
-} --result [6, 9, 18]
-export def flat-map [ # -> list<any>
+    1..3 | iter flat-map {|e| 0..<$e | each { $e } }
+} --result [1, 2, 2, 3, 3, 3]
+export def flat-map [
     fn: closure              # the closure to map to the nested structures
+]: [
+    list -> list
+    range -> list
 ] {
-    each {|e| do $fn $e } | flatten
+    each --flatten $fn
 }
 
 # Zips two structures and applies a closure to each of the zips
