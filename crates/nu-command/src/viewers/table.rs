@@ -248,32 +248,6 @@ struct TableConfig {
     width_priority_columns: Vec<String>,
 }
 
-impl TableConfig {
-    fn new(
-        view: TableView,
-        width: usize,
-        theme: TableMode,
-        abbreviation: Option<usize>,
-        index: Option<usize>,
-        use_ansi_coloring: bool,
-        icons: bool,
-        hex_styles: HexStyles,
-        width_priority_columns: Vec<String>,
-    ) -> Self {
-        Self {
-            view,
-            width,
-            theme,
-            abbreviation,
-            index,
-            use_ansi_coloring,
-            icons,
-            hex_styles,
-            width_priority_columns,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum TableView {
     General,
@@ -317,17 +291,17 @@ fn parse_table_config(
     let term_width = get_table_width(args.width);
     let hex_styles = get_hex_styles(state, stack);
 
-    let cfg = TableConfig::new(
-        table_view,
-        term_width,
+    let cfg = TableConfig {
+        view: table_view,
+        width: term_width,
         theme,
         abbreviation,
         index,
         use_ansi_coloring,
         icons,
         hex_styles,
-        vec![],
-    );
+        width_priority_columns: vec![],
+    };
 
     Ok(cfg)
 }
