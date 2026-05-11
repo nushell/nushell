@@ -113,15 +113,31 @@ pub fn glob_from(
         ))
     })?;
 
+    let prefix_for_filter = prefix.clone();
     Ok((
         prefix,
-        Box::new(glob.map(move |x| match x {
-            Ok(v) => Ok(v),
-            Err(e) => Err(ShellError::Generic(GenericError::new(
+        Box::new(glob.filter_map(move |x| match x {
+            Ok(v) => {
+                // Filter out . and .. special directory entries.
+                if v.components()
+                    .next_back()
+                    .is_some_and(|c| matches!(c, Component::ParentDir))
+                {
+                    return None;
+                }
+                if let Some(ref pfx) = prefix_for_filter
+                    && v.strip_prefix(pfx)
+                        .is_ok_and(|rest| rest.as_os_str().is_empty() || rest.as_os_str() == ".")
+                {
+                    return None;
+                }
+                Some(Ok(v))
+            }
+            Err(e) => Some(Err(ShellError::Generic(GenericError::new(
                 "Error extracting glob pattern",
                 e.to_string(),
                 span,
-            ))),
+            )))),
         })),
     ))
 }
