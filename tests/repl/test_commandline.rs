@@ -1,3 +1,5 @@
+use rstest::rstest;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 
 #[test]
@@ -175,7 +177,7 @@ fn commandline_test_complete_detailed() -> TestResult {
     run_test(
         "def bar [] {}\n\
         'ba' | commandline complete --detailed | to nuon",
-        "[[value, span, kind]; [bar, {start: 0, end: 2}, {Command: [Custom, 463]}]]",
+        r#"[[value, span, description, kind]; [bar, {start: 0, end: 2}, "", {Command: [Custom, 464]}]]"#,
     )
 }
 
@@ -188,10 +190,15 @@ fn commandline_test_complete_flags() -> TestResult {
     )
 }
 
-#[test]
-fn commandline_test_complete_invalid_input() -> TestResult {
-    fail_test(
-        "123 | commandline complete",
-        "command doesn't support int input",
-    )
+#[rstest]
+#[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
+#[case::invalid_type(
+    "commandline complete --type foo",
+    r#"expected type "directory", "path", or "glob", but got "foo""#
+)]
+fn commandline_test_complete_invalid_input(
+    #[case] cmd: &str,
+    #[case] expected_err: &str,
+) -> TestResult {
+    fail_test(cmd, expected_err)
 }
