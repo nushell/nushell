@@ -67,6 +67,9 @@ $env.config.history.isolation = false
 # history.path (string): Path to the history file.
 # If not set, Nushell will use the default location.
 # You can also provide a custom path for your history file.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.path = "..."`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Examples:
 # Use a custom location (e.g., in your home directory):
 $env.config.history.path = "~/custom/my-history.txt"
