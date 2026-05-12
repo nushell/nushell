@@ -9,13 +9,14 @@ use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
 
 // TODO: there are some deprecated stuff that should be removed after version
-// 0.113.0 is released. Things to remove:
-// - `PipelineData::Value(Value::Record { .. }, ..)` arm
-// - the example which showcases record as input
-// - the `DeprecationInfo` struct and other associated code
-// - the `NAME_COLUMN` const
-// and finally, `convert_to_list` and `convert_to_list_legacy` should be merged
-// and cleaned up removing the deprecated code
+// 0.113.0 is released. Things to do:
+// - remove the `PipelineData::Value(Value::Record { .. }, ..)` arm
+// - remove the `Type::record()` from the command signature
+// - remove the example which showcases record as input
+// - remove the `DeprecationInfo` struct and other associated code
+// - remove the `NAME_COLUMN` const
+// - merge and clean up`convert_to_list` and `convert_to_list_legacy`
+// - and finally update the tests
 
 const NAME_COLUMN: &str = "name";
 
@@ -64,10 +65,9 @@ impl Command for Griddle {
     }
 
     fn extra_description(&self) -> &str {
-        "The `grid` command was built to give a concise gridded layout for ls. It
-prints every item of the list in a grid layout. However, for table
-or record, it determines what to put in the grid by looking for a
-column named 'name'. This is subject to change in the future."
+        "The `grid` command creates a concise gridded layout for the input. It
+prints every item of the list in a grid layout. However, for table,
+you need to provide the name of the column you want to put in the grid."
     }
 
     fn run(
@@ -200,7 +200,7 @@ column named 'name'. This is subject to change in the future."
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid with icons and colors",
-                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color name",
+                example: "ls | grid --icons --color name",
                 result: None,
             },
         ]
