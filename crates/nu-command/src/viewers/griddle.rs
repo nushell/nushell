@@ -28,6 +28,11 @@ impl Command for Griddle {
                 (Type::List(Box::new(Type::Any)), Type::String),
                 (Type::record(), Type::String),
             ])
+            .optional(
+                "column",
+                SyntaxShape::CellPath,
+                "Format this column in a grid",
+            )
             .named(
                 "width",
                 SyntaxShape::Int,
@@ -63,6 +68,7 @@ column named 'name'. This is subject to change in the future."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
+        let cell_path: Option<CellPath> = call.opt(engine_state, stack, 0)?;
         let width_param: Option<i64> = call.get_flag(engine_state, stack, "width")?;
         let color_param: bool = call.has_flag(engine_state, stack, "color")?;
         let separator_param: Option<String> = call.get_flag(engine_state, stack, "separator")?;
@@ -79,7 +85,7 @@ column named 'name'. This is subject to change in the future."
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, config)?;
+                let data = convert_to_list(vals, cell_path, config)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -97,7 +103,7 @@ column named 'name'. This is subject to change in the future."
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, config)?;
+                let data = convert_to_list(stream, cell_path, config)?;
                 if let Some(items) = data {
                     Ok(create_grid_output(
                         items,
@@ -110,7 +116,6 @@ column named 'name'. This is subject to change in the future."
                         cwd.as_ref(),
                     )?)
                 } else {
-                    // dbg!(data);
                     Ok(PipelineData::empty())
                 }
             }
@@ -268,8 +273,37 @@ fn create_grid_output(
     }
 }
 
-#[allow(clippy::type_complexity)]
 fn convert_to_list(
+    iter: impl IntoIterator<Item = Value>,
+    cell_path: Option<CellPath>,
+    config: &Config,
+) -> Result<Option<Vec<String>>, ShellError> {
+    let Some(cell_path) = cell_path else {
+        return convert_to_list_legacy(iter, config);
+    };
+
+    iter.into_iter()
+        .map(|item| {
+            if let Value::Error { error, .. } = item {
+                return Err(*error);
+            }
+
+            let val = match item.follow_cell_path(&cell_path.members) {
+                Ok(val) => val.into_owned(),
+                Err(err) => return Err(err),
+            };
+
+            if let Value::Error { error, .. } = val {
+                return Err(*error);
+            }
+            let string = val.to_expanded_string(", ", config);
+
+            Ok(Some(string))
+        })
+        .collect()
+}
+
+fn convert_to_list_legacy(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
 ) -> Result<Option<Vec<String>>, ShellError> {
