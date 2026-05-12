@@ -735,7 +735,7 @@ impl Stack {
     ///
     /// For use in third-party applications pipes might be very useful as they allow using the
     /// stdout of external commands for different uses.
-    /// For example the [`os_pipe`](https://docs.rs/os_pipe) crate provides a elegant way to to
+    /// For example the [`os_pipe`](https://docs.rs/os_pipe) crate provides an elegant way to
     /// access the stdout.
     ///
     /// ```

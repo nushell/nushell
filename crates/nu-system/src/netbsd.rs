@@ -288,7 +288,7 @@ unsafe fn get_ctl<T>(ctl_name: &[i32]) -> io::Result<T> {
     assert_eq!(
         value_len,
         mem::size_of_val(&value),
-        "Data requested from from `sysctl` diverged in size from the expected return type. For variable length data you need to manually truncate the data to the valid returned size!"
+        "Data requested from `sysctl` diverged in size from the expected return type. For variable length data you need to manually truncate the data to the valid returned size!"
     );
     Ok(unsafe { value.assume_init() })
 }
