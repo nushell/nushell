@@ -154,14 +154,28 @@ impl UpdateFromValue for HistoryConfig {
                 "file_format" => self.file_format.update(val, path, errors),
                 "path" => match val {
                     Value::String { val: s, .. } => {
-                        if s.is_empty() {
-                            self.path = HistoryPath::Default;
+                        let new_path = if s.is_empty() {
+                            HistoryPath::Default
+                        } else {
+                            HistoryPath::Custom(PathBuf::from(s))
+                        };
+
+                        if errors.history_path_locked() && new_path != errors.config().history.path
+                        {
+                            errors.locked_after_startup(path, val.span());
                             continue;
                         }
 
-                        self.path = HistoryPath::Custom(PathBuf::from(s));
+                        self.path = new_path;
                     }
                     Value::Nothing { .. } => {
+                        if errors.history_path_locked()
+                            && errors.config().history.path != HistoryPath::Disabled
+                        {
+                            errors.locked_after_startup(path, val.span());
+                            continue;
+                        }
+
                         self.path = HistoryPath::Disabled;
                     }
                     _ => {
@@ -185,5 +199,116 @@ impl UpdateFromValue for HistoryConfig {
             (true, HistoryFileFormat::Sqlite) => (),
             (false, _) => (),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Config;
+
+    fn config_with_history_path(path: HistoryPath) -> Config {
+        let mut config = Config::default();
+        config.history.path = path;
+        config
+    }
+
+    #[test]
+    fn lock_blocks_changing_to_custom_path() {
+        let old = config_with_history_path(HistoryPath::Default);
+        let mut new = old.clone();
+        let value = Value::test_record(record! {
+            "history" => Value::test_record(record! {
+                "path" => Value::test_string("/tmp/locked.txt"),
+            }),
+        });
+
+        let result = new.update_from_value_with_options(&old, &value, true);
+
+        let err = result.expect_err("should fail when locked");
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("LockedAfterStartup"),
+            "expected LockedAfterStartup error, got: {msg}",
+        );
+        assert_eq!(new.history.path, HistoryPath::Default);
+    }
+
+    #[test]
+    fn lock_blocks_disabling_history_at_runtime() {
+        let old = config_with_history_path(HistoryPath::Custom("/tmp/h.txt".into()));
+        let mut new = old.clone();
+        let value = Value::test_record(record! {
+            "history" => Value::test_record(record! {
+                "path" => Value::nothing(Span::test_data()),
+            }),
+        });
+
+        let result = new.update_from_value_with_options(&old, &value, true);
+
+        let err = result.expect_err("should fail when locked");
+        let msg = format!("{err:?}");
+        assert!(
+            msg.contains("LockedAfterStartup"),
+            "expected LockedAfterStartup error, got: {msg}",
+        );
+        assert_eq!(new.history.path, HistoryPath::Custom("/tmp/h.txt".into()));
+    }
+
+    #[test]
+    fn lock_allows_setting_same_value() {
+        let old = config_with_history_path(HistoryPath::Custom("/tmp/h.txt".into()));
+        let mut new = old.clone();
+        let value = Value::test_record(record! {
+            "history" => Value::test_record(record! {
+                "path" => Value::test_string("/tmp/h.txt"),
+            }),
+        });
+
+        let result = new.update_from_value_with_options(&old, &value, true);
+
+        assert!(
+            result.is_ok(),
+            "no-op assignment should succeed: {result:?}"
+        );
+        assert_eq!(new.history.path, HistoryPath::Custom("/tmp/h.txt".into()));
+    }
+
+    #[test]
+    fn lock_allows_setting_default_when_already_default() {
+        let old = config_with_history_path(HistoryPath::Default);
+        let mut new = old.clone();
+        let value = Value::test_record(record! {
+            "history" => Value::test_record(record! {
+                "path" => Value::test_string(""),
+            }),
+        });
+
+        let result = new.update_from_value_with_options(&old, &value, true);
+
+        assert!(
+            result.is_ok(),
+            "no-op assignment should succeed: {result:?}"
+        );
+        assert_eq!(new.history.path, HistoryPath::Default);
+    }
+
+    #[test]
+    fn unlocked_update_changes_path() {
+        let old = config_with_history_path(HistoryPath::Default);
+        let mut new = old.clone();
+        let value = Value::test_record(record! {
+            "history" => Value::test_record(record! {
+                "path" => Value::test_string("/tmp/unlocked.txt"),
+            }),
+        });
+
+        let result = new.update_from_value_with_options(&old, &value, false);
+
+        assert!(result.is_ok(), "unlocked update should succeed: {result:?}");
+        assert_eq!(
+            new.history.path,
+            HistoryPath::Custom("/tmp/unlocked.txt".into())
+        );
     }
 }

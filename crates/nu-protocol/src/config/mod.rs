@@ -255,10 +255,25 @@ impl Config {
         old: &Config,
         value: &Value,
     ) -> Result<Option<ShellWarning>, ShellError> {
+        self.update_from_value_with_options(old, value, false)
+    }
+
+    /// Like [`Config::update_from_value`], but allows callers to indicate that runtime-locked
+    /// options (currently only `history.path`) should refuse to change.
+    ///
+    /// `history_path_locked` should be set to `true` once the REPL has finished initializing
+    /// reedline's history backend, at that point changing `history.path` has no effect, so we
+    /// reject the assignment with a clear error instead of silently ignoring it.
+    pub fn update_from_value_with_options(
+        &mut self,
+        old: &Config,
+        value: &Value,
+        history_path_locked: bool,
+    ) -> Result<Option<ShellWarning>, ShellError> {
         // Current behaviour is that config errors are displayed, but do not prevent the rest
         // of the config from being updated (fields with errors are skipped/not updated).
         // Errors are simply collected one-by-one and wrapped into a ShellError variant at the end.
-        let mut errors = ConfigErrors::new(old);
+        let mut errors = ConfigErrors::new(old).with_history_path_locked(history_path_locked);
         let mut path = ConfigPath::new();
 
         self.update(value, &mut path, &mut errors);
