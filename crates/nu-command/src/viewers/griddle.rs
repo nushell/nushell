@@ -86,7 +86,7 @@ column named 'name'. This is subject to change in the future."
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
                 let items = convert_to_list(vals, cell_path, config)?;
-                Ok(create_grid_output(
+                create_grid_output(
                     items,
                     call,
                     width_param,
@@ -95,12 +95,12 @@ column named 'name'. This is subject to change in the future."
                     env_str,
                     icons_param,
                     cwd.as_ref(),
-                )?)
+                )
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
                 let items = convert_to_list(stream, cell_path, config)?;
-                Ok(create_grid_output(
+                create_grid_output(
                     items,
                     call,
                     width_param,
@@ -109,7 +109,7 @@ column named 'name'. This is subject to change in the future."
                     env_str,
                     icons_param,
                     cwd.as_ref(),
-                )?)
+                )
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
@@ -147,27 +147,27 @@ column named 'name'. This is subject to change in the future."
             },
             Example {
                 description: "The above example is the same as:",
-                example: "[1 2 3 a b c] | wrap name | grid",
+                example: "[1 2 3 a b c] | wrap name | grid name",
                 result: Some(Value::test_string("1 │ 2 │ 3 │ a │ b │ c\n")),
             },
             Example {
-                description: "Render a record to a grid",
+                description: "Render a record to a grid (deprecated)",
                 example: "{name: 'foo', b: 1, c: 2} | grid",
                 result: Some(Value::test_string("foo\n")),
             },
             Example {
                 description: "Render a list of records to a grid",
-                example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid",
+                example: "[{name: 'A', v: 1} {name: 'B', v: 2} {name: 'C', v: 3}] | grid name",
                 result: Some(Value::test_string("A │ B │ C\n")),
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid",
-                example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid",
+                example: "[[name patch]; [0.1.0 false] [0.1.1 true] [0.2.0 false]] | grid name",
                 result: Some(Value::test_string("0.1.0 │ 0.1.1 │ 0.2.0\n")),
             },
             Example {
                 description: "Render a table with 'name' column in it to a grid with icons and colors",
-                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color",
+                example: "[[name patch]; [Cargo.toml false] [README.md true] [SECURITY.md false]] | grid --icons --color name",
                 result: None,
             },
         ]
