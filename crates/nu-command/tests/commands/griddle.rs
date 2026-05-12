@@ -17,6 +17,7 @@ fn grid_errors_with_few_columns() -> Result {
 // and there are some other inconsistencies.
 
 #[rstest]
+#[case::empty_list("[]", "")]
 #[case::empty_record("{}", "")]
 #[case::list_of_string("[a b c]", "a │ b │ c\n")]
 #[case::list_of_various_data_types(
@@ -41,9 +42,4 @@ fn test_output(#[case] code: &str, #[case] expected: &str) -> Result {
     test()
         .run(format!("{code} | grid --width 100"))
         .expect_value_eq(expected)
-}
-
-#[test]
-fn empty_list_returns_nothing() -> Result {
-    test().run("[] | grid").expect_value_eq(())
 }

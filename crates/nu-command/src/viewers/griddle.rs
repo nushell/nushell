@@ -31,7 +31,7 @@ impl Command for Griddle {
             .optional(
                 "column",
                 SyntaxShape::CellPath,
-                "Format this column in a grid",
+                "Format this column in a grid.",
             )
             .named(
                 "width",
@@ -85,39 +85,31 @@ column named 'name'. This is subject to change in the future."
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let data = convert_to_list(vals, cell_path, config)?;
-                if let Some(items) = data {
-                    Ok(create_grid_output(
-                        items,
-                        call,
-                        width_param,
-                        use_color,
-                        separator_param,
-                        env_str,
-                        icons_param,
-                        cwd.as_ref(),
-                    )?)
-                } else {
-                    Ok(PipelineData::empty())
-                }
+                let items = convert_to_list(vals, cell_path, config)?;
+                Ok(create_grid_output(
+                    items,
+                    call,
+                    width_param,
+                    use_color,
+                    separator_param,
+                    env_str,
+                    icons_param,
+                    cwd.as_ref(),
+                )?)
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let data = convert_to_list(stream, cell_path, config)?;
-                if let Some(items) = data {
-                    Ok(create_grid_output(
-                        items,
-                        call,
-                        width_param,
-                        use_color,
-                        separator_param,
-                        env_str,
-                        icons_param,
-                        cwd.as_ref(),
-                    )?)
-                } else {
-                    Ok(PipelineData::empty())
-                }
+                let items = convert_to_list(stream, cell_path, config)?;
+                Ok(create_grid_output(
+                    items,
+                    call,
+                    width_param,
+                    use_color,
+                    separator_param,
+                    env_str,
+                    icons_param,
+                    cwd.as_ref(),
+                )?)
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
                 // dbg!("value::record");
@@ -277,7 +269,7 @@ fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     cell_path: Option<CellPath>,
     config: &Config,
-) -> Result<Option<Vec<String>>, ShellError> {
+) -> Result<Vec<String>, ShellError> {
     let Some(cell_path) = cell_path else {
         return convert_to_list_legacy(iter, config);
     };
@@ -288,17 +280,11 @@ fn convert_to_list(
                 return Err(*error);
             }
 
-            let val = match item.follow_cell_path(&cell_path.members) {
-                Ok(val) => val.into_owned(),
-                Err(err) => return Err(err),
-            };
+            let string = item
+                .follow_cell_path(&cell_path.members)?
+                .to_expanded_string(", ", config);
 
-            if let Value::Error { error, .. } = val {
-                return Err(*error);
-            }
-            let string = val.to_expanded_string(", ", config);
-
-            Ok(Some(string))
+            Ok(string)
         })
         .collect()
 }
@@ -306,18 +292,18 @@ fn convert_to_list(
 fn convert_to_list_legacy(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
-) -> Result<Option<Vec<String>>, ShellError> {
+) -> Result<Vec<String>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
     let Some(first) = iter.peek() else {
-        return Ok(None);
+        return Ok(vec![]);
     };
 
     let headers = first.columns().collect::<Vec<_>>();
     let has_name_header = headers.iter().any(|&str| str == NAME_COLUMN);
 
     if !headers.is_empty() && !has_name_header {
-        return Ok(Some(vec![]));
+        return Ok(vec![]);
     }
 
     iter.map(|item| {
@@ -344,7 +330,7 @@ fn convert_to_list_legacy(
             }
         };
 
-        Ok(Some(string))
+        Ok(string)
     })
     .collect()
 }
