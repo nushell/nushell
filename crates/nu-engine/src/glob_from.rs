@@ -118,10 +118,16 @@ pub fn glob_from(
         prefix,
         Box::new(glob.filter_map(move |x| match x {
             Ok(v) => {
-                // Filter out . and .. special directory entries.
-                if v.components()
-                    .next_back()
-                    .is_some_and(|c| matches!(c, Component::ParentDir))
+                // Filter out paths containing . or .. components.
+                if v.components().any(|c| matches!(c, Component::ParentDir)) {
+                    return None;
+                }
+                let path_str = v.to_string_lossy();
+                if path_str.contains("/./") || path_str.ends_with("/.") {
+                    return None;
+                }
+                if let Some(ref pfx) = prefix_for_filter
+                    && path_str == pfx.to_string_lossy().as_ref()
                 {
                     return None;
                 }
