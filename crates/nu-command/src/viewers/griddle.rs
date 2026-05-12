@@ -2,11 +2,20 @@ use devicons::icon_for_file;
 use lscolors::Style;
 use nu_color_config::lookup_ansi_color_style;
 use nu_engine::{command_prelude::*, env_to_string};
-use nu_protocol::Config;
 use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::{Config, ReportMode, report_shell_warning};
 use nu_term_grid::grid::{Alignment, Cell, Direction, Filling, Grid, GridOptions};
 use nu_utils::{get_ls_colors, terminal_size};
 use std::path::Path;
+
+// TODO: there are some deprecated stuff that should be removed after version
+// 0.113.0 is released. Things to remove:
+// - `PipelineData::Value(Value::Record { .. }, ..)` arm
+// - the example which showcases record as input
+// - the `DeprecationInfo` struct and other associated code
+// - the `NAME_COLUMN` const
+// and finally, `convert_to_list` and `convert_to_list_legacy` should be merged
+// and cleaned up removing the deprecated code
 
 const NAME_COLUMN: &str = "name";
 
@@ -82,10 +91,15 @@ column named 'name'. This is subject to change in the future."
         let use_color: bool = color_param && config.use_ansi_coloring.get(engine_state);
         let cwd = engine_state.cwd(Some(stack))?;
 
+        let deprecation_info = DeprecationInfo {
+            engine_state,
+            span: call.head,
+        };
+
         match input {
             PipelineData::Value(Value::List { vals, .. }, ..) => {
                 // dbg!("value::list");
-                let items = convert_to_list(vals, cell_path, config)?;
+                let items = convert_to_list(vals, cell_path, config, deprecation_info)?;
                 create_grid_output(
                     items,
                     call,
@@ -99,7 +113,7 @@ column named 'name'. This is subject to change in the future."
             }
             PipelineData::ListStream(stream, ..) => {
                 // dbg!("value::stream");
-                let items = convert_to_list(stream, cell_path, config)?;
+                let items = convert_to_list(stream, cell_path, config, deprecation_info)?;
                 create_grid_output(
                     items,
                     call,
@@ -111,9 +125,28 @@ column named 'name'. This is subject to change in the future."
                     cwd.as_ref(),
                 )
             }
-            PipelineData::Value(Value::Record { val, .. }, ..) => {
+            PipelineData::Value(record @ Value::Record { .. }, ..) => {
                 // dbg!("value::record");
-                let items = val
+
+                report_shell_warning(
+                    Some(stack),
+                    engine_state,
+                    &ShellWarning::Deprecated {
+                        dep_type: "Behavior".into(),
+                        label: "wrap the record inside a list.".into(),
+                        span: record.span(),
+                        help: Some(
+                            "Since 0.112.2, passing a record to `grid` command is deprecated. \
+                        It is expected to be removed in version 0.114.0"
+                                .into(),
+                        ),
+                        report_mode: ReportMode::FirstUse,
+                    },
+                );
+
+                let items = record
+                    .into_record()
+                    .expect("this is a record")
                     .get(NAME_COLUMN)
                     .map(|v| v.to_expanded_string(", ", config))
                     .into_iter()
@@ -265,13 +298,19 @@ fn create_grid_output(
     }
 }
 
+struct DeprecationInfo<'a> {
+    engine_state: &'a EngineState,
+    span: Span,
+}
+
 fn convert_to_list(
     iter: impl IntoIterator<Item = Value>,
     cell_path: Option<CellPath>,
     config: &Config,
+    deprecation_info: DeprecationInfo,
 ) -> Result<Vec<String>, ShellError> {
     let Some(cell_path) = cell_path else {
-        return convert_to_list_legacy(iter, config);
+        return convert_to_list_legacy(iter, config, deprecation_info);
     };
 
     iter.into_iter()
@@ -292,6 +331,7 @@ fn convert_to_list(
 fn convert_to_list_legacy(
     iter: impl IntoIterator<Item = Value>,
     config: &Config,
+    deprecation_info: DeprecationInfo,
 ) -> Result<Vec<String>, ShellError> {
     let mut iter = iter.into_iter().peekable();
 
@@ -301,6 +341,20 @@ fn convert_to_list_legacy(
 
     let headers = first.columns().collect::<Vec<_>>();
     let has_name_header = headers.iter().any(|&str| str == NAME_COLUMN);
+
+    if has_name_header {
+        report_shell_warning(
+            None,
+            deprecation_info.engine_state,
+            &ShellWarning::Deprecated {
+                dep_type: "Behavior".into(),
+                label: "add the name of the column you want to display (e.g. name)".into(),
+                span: deprecation_info.span,
+                help: Some("It is expected to be removed in version 0.114.0".into()),
+                report_mode: ReportMode::FirstUse,
+            },
+        );
+    }
 
     if !headers.is_empty() && !has_name_header {
         return Ok(vec![]);
