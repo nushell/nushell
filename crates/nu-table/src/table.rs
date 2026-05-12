@@ -1238,10 +1238,8 @@ fn compact_partial_visibility_for_priority(
     data: &PriorityCompactionData,
     limits: &PriorityCompactionLimits,
 ) {
-    let Some(priority_column) = first_visible_priority_column(
-        data.width_priority_columns,
-        *state.truncate_pos,
-    )
+    let Some(priority_column) =
+        first_visible_priority_column(data.width_priority_columns, *state.truncate_pos)
     else {
         return;
     };
@@ -1352,8 +1350,8 @@ fn compact_full_visibility_for_priority(
         if !force_priority_to_right_edge {
             let reserve_for_trailing = limits.trailing_column_width + limits.vertical;
             let has_budget_for_priority_and_trailing = if data.width_priority_columns.len() == 1 {
-                let need_for_priority =
-                    data.widths_original[priority_column].saturating_sub(state.widths[priority_column]);
+                let need_for_priority = data.widths_original[priority_column]
+                    .saturating_sub(state.widths[priority_column]);
                 available >= reserve_for_trailing + need_for_priority
             } else {
                 let max_other_width = state

@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::prelude::*;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use nu_test_support::{nu, nu_repl_code};
 use rstest::rstest;
 
@@ -29,19 +29,11 @@ fn table_0() {
 
 #[test]
 fn table_uses_metadata_width_priority_columns() -> Result {
-    let without_priority = run_table_with_priority(
-        WIDTH_PRIORITY_EIGHT_COL_INPUT,
-        121,
-        None,
-        None,
-    )?;
+    let without_priority =
+        run_table_with_priority(WIDTH_PRIORITY_EIGHT_COL_INPUT, 121, None, None)?;
 
-    let with_priority = run_table_with_priority(
-        WIDTH_PRIORITY_EIGHT_COL_INPUT,
-        121,
-        None,
-        Some("g"),
-    )?;
+    let with_priority =
+        run_table_with_priority(WIDTH_PRIORITY_EIGHT_COL_INPUT, 121, None, Some("g"))?;
 
     assert!(!without_priority.contains("priority_value_12345"));
     assert!(
