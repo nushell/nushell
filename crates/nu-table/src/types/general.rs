@@ -265,6 +265,9 @@ fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     v
 }
 
+/// Resolves configured priority column names into concrete table column indexes.
+///
+/// The returned indexes preserve caller order and contain no duplicates.
 fn resolve_priority_columns(
     headers: &[String],
     width_priority_columns: &[String],

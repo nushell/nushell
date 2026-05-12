@@ -1340,6 +1340,9 @@ fn create_table_opts<'a>(
     )
 }
 
+/// Extracts table width-priority column names from pipeline metadata.
+///
+/// Invalid, empty, or duplicated entries are ignored.
 fn get_width_priority_columns(metadata: Option<&PipelineMetadata>) -> Vec<String> {
     let mut width_priority_columns = Vec::new();
 

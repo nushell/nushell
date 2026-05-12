@@ -314,6 +314,7 @@ impl Command for Ls {
     }
 }
 
+/// Builds `ls` output metadata, including width-priority hints for compact views.
 fn ls_pipeline_metadata(span: Span, long: bool) -> PipelineMetadata {
     let mut metadata = PipelineMetadata {
         path_columns: vec!["name".to_string()],

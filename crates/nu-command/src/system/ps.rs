@@ -201,6 +201,7 @@ fn run_ps(
     ))
 }
 
+/// Builds `ps` output metadata with table width-priority hints.
 fn ps_pipeline_metadata(long: bool, span: Span) -> PipelineMetadata {
     let width_priority_columns: &[&str] = if long {
         &["command", "name"]
