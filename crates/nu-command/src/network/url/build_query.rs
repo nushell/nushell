@@ -15,7 +15,9 @@ impl Command for UrlBuildQuery {
             .input_output_types(vec![
                 (Type::record(), Type::String),
                 (
-                    Type::Table([("key".into(), Type::Any), ("value".into(), Type::Any)].into()),
+                    Type::Table(
+                        vec![("key".into(), Type::Any), ("value".into(), Type::Any)].into(),
+                    ),
                     Type::String,
                 ),
             ])

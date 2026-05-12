@@ -30,7 +30,7 @@ impl Command for StorUpdate {
             )
             .named(
                 "update-record",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "A record of column names and column values to update in the specified table.",
                 Some('u'),
             )

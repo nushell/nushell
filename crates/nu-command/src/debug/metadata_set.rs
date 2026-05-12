@@ -19,7 +19,7 @@ impl Command for MetadataSet {
             .input_output_types(vec![(Type::Any, Type::Any)])
             .optional(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Record(vec![])])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::record()])),
                 "A closure that receives the current metadata and returns a new metadata record. Cannot be used with other flags.",
             )
             .named(

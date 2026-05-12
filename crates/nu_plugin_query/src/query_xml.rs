@@ -35,7 +35,7 @@ Output of the nodeset results depends on the flags used:
             .required("query", SyntaxShape::String, "Xpath query.")
             .named(
                 "namespaces",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "Map of prefixes to namespace URIs.",
                 Some('n'),
             )
