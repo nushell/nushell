@@ -124,11 +124,11 @@ If no input is provided, the current commandline contents will be used instead."
         vec![
             Example {
                 description: "List completions for command names.",
-                example: "def bar [] {}; def baz [] {}; 'ba' | commandline complete",
+                example: "def my-bar [] {}; def my-baz [] {}; 'my-' | commandline complete",
                 result: Some(Value::list(
                     vec![
-                        Value::string("bar", Span::test_data()),
-                        Value::string("baz", Span::test_data()),
+                        Value::string("my-bar", Span::test_data()),
+                        Value::string("my-baz", Span::test_data()),
                     ],
                     Span::test_data(),
                 )),

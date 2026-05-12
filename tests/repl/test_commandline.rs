@@ -154,30 +154,21 @@ fn commandline_test_accepted_command() -> TestResult {
 #[test]
 fn commandline_test_complete_input() -> TestResult {
     run_test(
-        "def bar [] {}\n\
-        def baz [] {}\n\
-        'ba' | commandline complete | to nuon",
-        "[bar, baz]",
+        "def test-bar [] {}\n\
+        def test-baz [] {}\n\
+        'test-' | commandline complete | to nuon",
+        "[test-bar, test-baz]",
     )
 }
 
 #[test]
 fn commandline_test_complete_no_input() -> TestResult {
     run_test(
-        "def bar [] {}\n\
-        def baz [] {}\n\
-        commandline edit --replace 'ba'\n\
+        "def test-bar [] {}\n\
+        def test-baz [] {}\n\
+        commandline edit --replace 'test-'\n\
         commandline complete | to nuon",
-        "[bar, baz]",
-    )
-}
-
-#[test]
-fn commandline_test_complete_detailed() -> TestResult {
-    run_test(
-        "def bar [] {}\n\
-        'ba' | commandline complete --detailed | to nuon",
-        r#"[[value, span, description, kind]; [bar, {start: 0, end: 2}, "", {Command: [Custom, 464]}]]"#,
+        "[test-bar, test-baz]",
     )
 }
 
@@ -190,6 +181,34 @@ fn commandline_test_complete_flags() -> TestResult {
     )
 }
 
+#[rstest]
+#[case::cmd(
+    "test-",
+    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", kind: custom}"#
+)]
+#[case::int(
+    "test-cmd --int ",
+    r#"{value: "1", span: {start: 15, end: 15}, type: int, kind: value}"#
+)]
+#[case::string(
+    "test-cmd --string ",
+    "{value: a, span: {start: 18, end: 18}, type: string, kind: value}"
+)]
+fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str) -> TestResult {
+    run_test(
+        &format!(
+            "
+            def complete-int [] {{ [ 1 ] }}
+            def test-cmd [
+                --int: int@complete-int,
+                --string: string@[a],
+            ] {{}}\n\
+            \n\
+            '{cmd}' | commandline complete --detailed | first | to nuon"
+        ),
+        expected,
+    )
+}
 #[rstest]
 #[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
 #[case::invalid_type(

@@ -434,10 +434,10 @@ fn custom_completions_wraps_builtin_commandline_complete() {
     let command = "
         def comp [] {
             '%ls ' | commandline complete --detailed | prepend {
-              value: 'foo ',
-              display: 'foo',
+              value: 'test ',
+              display: 'test',
               description: 'dummy',
-              style: { attr: u },
+              style: { attr: b },
             }
         }
         def my-ls [arg: string@comp] {}
@@ -445,9 +445,17 @@ fn custom_completions_wraps_builtin_commandline_complete() {
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
-    let completion_str = "my-ls ";
+    let completion_str = "my-ls test";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["foo", "magenta_dir", "plain_dir"], &suggestions);
+    match_suggestions(
+        &vec![
+            "test",
+            &folder("test_a"),
+            &folder("test_a_symlink"),
+            &folder("test_b"),
+        ],
+        &suggestions,
+    );
 }
 
 #[rstest]
