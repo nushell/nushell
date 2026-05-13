@@ -4741,28 +4741,9 @@ pub fn parse_signature_helper(
                                     } => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
-                                        match var_type {
-                                            Type::Any => {
-                                                if !*type_annotated {
-                                                    working_set.set_variable_type(
-                                                        var_id,
-                                                        expression.ty.clone(),
-                                                    );
-                                                }
-                                            }
-                                            _ => {
-                                                if !type_compatible(var_type, &expression.ty) {
-                                                    working_set.error(
-                                                        ParseError::AssignmentMismatch(
-                                                            "Default value wrong type".into(),
-                                                            format!(
-                                                            "expected default value to be `{var_type}`"
-                                                        ),
-                                                            expression.span,
-                                                        ),
-                                                    )
-                                                }
-                                            }
+                                        if matches!(var_type, Type::Any) && !*type_annotated {
+                                            working_set
+                                                .set_variable_type(var_id, expression.ty.clone());
                                         }
 
                                         *default_value = if let Ok(constant) =
@@ -4812,7 +4793,6 @@ pub fn parse_signature_helper(
                                         };
 
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
-                                        let var_type = &working_set.get_variable(var_id).ty;
                                         let expression_ty = expression.ty.clone();
 
                                         // Flags without type annotations are present/not-present
@@ -4822,14 +4802,6 @@ pub fn parse_signature_helper(
                                         if !*type_annotated {
                                             *arg = Some(expression_ty.to_shape());
                                             working_set.set_variable_type(var_id, expression_ty);
-                                        } else if !type_compatible(var_type, &expression_ty) {
-                                            working_set.error(ParseError::AssignmentMismatch(
-                                                "Default value is the wrong type".into(),
-                                                format!(
-                                                    "expected default value to be `{var_type}`"
-                                                ),
-                                                expression_span,
-                                            ))
                                         }
                                     }
                                 }
