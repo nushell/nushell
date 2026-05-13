@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use num_format::Locale;
 
 pub const LOCALE_OVERRIDE_ENV_VAR: &str = "NU_TEST_LOCALE_OVERRIDE";
@@ -39,4 +41,35 @@ pub fn get_system_locale_string() -> Option<String> {
 #[cfg(not(debug_assertions))]
 pub fn get_system_locale_string() -> Option<String> {
     sys_locale::get_locale()
+}
+
+/// env var preference is documented in [gettext manual][1]
+///
+/// in priority order:
+/// - NU_TEST_LOCALE_OVERRIDE
+/// - LC_ALL
+/// - (`locale_for`) LC_xxx, according to selected locale category: LC_CTYPE, LC_NUMERIC, LC_TIME
+/// - LANG
+///
+/// [1]: https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
+pub fn get_env_locale<'a, F>(locale_for: Option<&str>, env_getter: F) -> Option<Cow<'a, str>>
+where
+    F: 'a,
+    F: Fn(&str) -> Option<&'a str>,
+{
+    let mut env_var_names = [LOCALE_OVERRIDE_ENV_VAR, "LC_ALL"]
+        .iter()
+        .copied()
+        .chain(locale_for)
+        .chain(["LANG"]);
+
+    env_var_names
+        .find_map(env_getter)
+        .map(|s| s.split('.').next().unwrap_or(s))
+        .map(Cow::Borrowed)
+        .or_else(|| {
+            get_system_locale_string()
+                .map(|l| l.replace('-', "_"))
+                .map(Cow::Owned)
+        })
 }
