@@ -424,6 +424,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string(),
         ))
         .with_cursor_config(cursor_config)
+        .with_abbreviations(config.abbreviations.clone())
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()
