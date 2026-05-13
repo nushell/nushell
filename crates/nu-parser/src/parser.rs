@@ -4723,11 +4723,8 @@ pub fn parse_signature_helper(
                                         flag.arg.clone().unwrap_or(SyntaxShape::Any)
                                     }
                                 };
-                                let expression = if shape == SyntaxShape::GlobPattern {
-                                    parse_value(working_set, span, &SyntaxShape::GlobPattern)
-                                } else {
-                                    parse_value(working_set, span, &SyntaxShape::Any)
-                                };
+
+                                let expression = parse_value(working_set, span, &shape);
 
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
