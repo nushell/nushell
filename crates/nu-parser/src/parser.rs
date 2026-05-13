@@ -4741,7 +4741,7 @@ pub fn parse_signature_helper(
                                     } => {
                                         let var_id = var_id.expect("internal error: all custom parameters must have var_ids");
                                         let var_type = &working_set.get_variable(var_id).ty;
-                                        if matches!(var_type, Type::Any) && !*type_annotated {
+                                        if var_type == &Type::Any && !*type_annotated {
                                             working_set
                                                 .set_variable_type(var_id, expression.ty.clone());
                                         }
