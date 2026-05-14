@@ -713,6 +713,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("update_prompt", start_time, use_color);
 
+    // If we don't flush the engine state, then the pre_prompt and env_change hooks cannot modify
+    // the commandline. But if we always flush the engine state, then the modification to the commandline done in
+    // ExecuteHostCommand will be overridden.
+    // So, we flush the engine state only if last signal wasn't a HostCommand
     if !*is_hostcommand {
         line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
     }
