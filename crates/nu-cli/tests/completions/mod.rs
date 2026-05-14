@@ -434,7 +434,7 @@ fn custom_completions_wraps_builtin_commandline_complete() {
     let command = "
         def comp [] {
             '%ls ' | commandline complete --detailed | prepend {
-              value: 'test ',
+              value: 'test',
               display: 'test',
               description: 'dummy',
               style: { attr: b },
@@ -1175,7 +1175,9 @@ fn external_completer_sudo() {
 
 #[test]
 fn external_completer_wraps_builtin_commandline_complete() {
-    let block = "{|spans| commandline complete | prepend 'bar' }";
+    let block = "{|spans|
+        $spans | last | commandline complete | prepend 'bar'
+    }";
     let input = "foo test";
 
     let expected = vec![
@@ -2978,6 +2980,13 @@ fn run_external_completion_within_pwd(
 
     // Merge environment into the permanent state
     assert!(engine_state.merge_env(&mut stack).is_ok());
+
+    // Set the repl state as if the user typed the given input
+    {
+        let mut repl = engine_state.repl_state.lock().expect("repl state");
+        repl.buffer = input.to_string();
+        repl.cursor_pos = input.len();
+    }
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));

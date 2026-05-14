@@ -209,6 +209,7 @@ fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str)
         expected,
     )
 }
+
 #[rstest]
 #[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
 #[case::invalid_type(

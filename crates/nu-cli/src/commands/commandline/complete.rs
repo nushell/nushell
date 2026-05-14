@@ -19,10 +19,14 @@ impl Command for CommandlineComplete {
 
     fn signature(&self) -> Signature {
         Signature::build("commandline complete")
-            .input_output_types(vec![
-                (Type::Nothing, Type::List(Box::new(Type::String))),
-                (Type::String, Type::List(Box::new(Type::String))),
-            ])
+            .input_output_type(
+                Type::Nothing,
+                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+            )
+            .input_output_type(
+                Type::String,
+                Type::one_of([Type::list(Type::String), Type::list(Type::record())]),
+            )
             .switch(
                 "detailed",
                 "Output completions as records, in the format expected from custom completers.",
@@ -67,9 +71,11 @@ If no input is provided, the current commandline contents will be used instead."
         let completer = NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
 
         let repl = engine_state.repl_state.lock().expect("repl state mutex");
-        let (buf, pos) = match &input {
-            PipelineData::Empty => (repl.buffer.as_str(), repl.cursor_pos),
-            PipelineData::Value(Value::String { val, .. }, _) => (val.as_str(), val.len()),
+        let (buf, pos, input_span) = match &input {
+            PipelineData::Empty => (repl.buffer.as_str(), repl.cursor_pos, Span::unknown()),
+            PipelineData::Value(v @ Value::String { val, .. }, _) => {
+                (val.as_str(), val.len(), v.span())
+            }
             input => {
                 return Err(ShellError::PipelineMismatch {
                     exp_input_type: "string or nothing".into(),
@@ -81,12 +87,14 @@ If no input is provided, the current commandline contents will be used instead."
 
         let completions =
             if let Some(shape) = call.get_flag::<Value>(engine_state, stack, "type")? {
-                let offset = input.span().map(|span| span.start).unwrap_or(0);
-
-                // Completion internals use this to determine if a completion is "intermediate"
+                // Completion internals use the span/offset to determine if a completion is "intermediate"
                 // to limit to directories, but for our purposes we always want all completions,
-                // so we make a new span to avoid that logic.
-                let span = Span::new(offset, offset + buf.chars().count());
+                // so we make a new span to sidestep that logic.
+                //
+                // We still retain the original span's start, so that the resulting
+                // completions have the same offset as if we had used the input span.
+                let offset = input_span.start;
+                let span = Span::new(offset, offset + buf.len());
                 let ctx = Context::new(&working_set, span, buf.as_bytes(), offset);
 
                 match shape.as_str()? {
