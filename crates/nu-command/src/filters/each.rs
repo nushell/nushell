@@ -224,8 +224,10 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(..) => {
-                ClosureEvalOnce::new(engine_state, stack, closure).run_with_input(input)
+            PipelineData::Value(value, metadata) => {
+                ClosureEvalOnce::new(engine_state, stack, closure)
+                    .add_arg(value.clone())? // How can we avoid `.clone()` here?
+                    .run_with_input(value.into_pipeline_data_with_metadata(metadata))
             }
         };
 
