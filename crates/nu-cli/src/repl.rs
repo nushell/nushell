@@ -746,7 +746,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         }
         Ok(Signal::HostCommand(index)) => {
             if let Ok(index) = index.parse::<usize>()
-                && let Some(&val) = host_commands.get(index)
+                && let Some(val) = host_commands.get(index)
             {
                 match val {
                     Value::Closure { val: closure, .. } => {
@@ -1311,10 +1311,10 @@ fn setup_history(
 ///
 /// Setup Reedline keybindingds based on the provided config
 ///
-fn setup_keybindings<'a>(
-    engine_state: &'a EngineState,
+fn setup_keybindings(
+    engine_state: &EngineState,
     line_editor: Reedline,
-    host_commands: &mut Vec<&'a Value>,
+    host_commands: &mut Vec<Value>,
 ) -> Reedline {
     match create_keybindings(engine_state.get_config(), host_commands) {
         Ok(keybindings) => match keybindings {

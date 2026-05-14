@@ -714,9 +714,9 @@ pub enum KeybindingsMode {
     },
 }
 
-pub(crate) fn create_keybindings<'a>(
-    config: &'a Config,
-    host_commands: &mut Vec<&'a Value>,
+pub(crate) fn create_keybindings(
+    config: &Config,
+    host_commands: &mut Vec<Value>,
 ) -> Result<KeybindingsMode, ShellError> {
     let parsed_keybindings = &config.keybindings;
 
@@ -754,14 +754,14 @@ pub(crate) fn create_keybindings<'a>(
     }
 }
 
-fn add_keybinding<'a>(
+fn add_keybinding(
     mode: &Value,
-    keybinding: &'a ParsedKeybinding,
+    keybinding: &ParsedKeybinding,
     config: &Config,
     emacs_keybindings: &mut Keybindings,
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
-    host_commands: &mut Vec<&'a Value>,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
@@ -816,11 +816,11 @@ pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<Str
     }
 }
 
-fn add_parsed_keybinding<'a>(
+fn add_parsed_keybinding(
     keybindings: &mut Keybindings,
-    keybinding: &'a ParsedKeybinding,
+    keybinding: &ParsedKeybinding,
     config: &Config,
-    host_commands: &mut Vec<&'a Value>,
+    host_commands: &mut Vec<Value>,
 ) -> Result<(), ShellError> {
     let Ok(modifier_str) = keybinding.modifier.as_str() else {
         return Err(ShellError::RuntimeTypeMismatch {
@@ -951,10 +951,10 @@ impl<'config> EventType<'config> {
     }
 }
 
-fn parse_event<'a>(
-    value: &'a Value,
+fn parse_event(
+    value: &Value,
     config: &Config,
-    host_commands: &mut Vec<&'a Value>,
+    host_commands: &mut Vec<Value>,
 ) -> Result<Option<ReedlineEvent>, ShellError> {
     let span = value.span();
     match value {
@@ -1029,12 +1029,12 @@ fn parse_event<'a>(
     }
 }
 
-fn event_from_record<'record>(
+fn event_from_record(
     name: &str,
-    record: &'record Record,
+    record: &Record,
     config: &Config,
     span: Span,
-    host_commands: &mut Vec<&'record Value>,
+    host_commands: &mut Vec<Value>,
 ) -> Result<ReedlineEvent, ShellError> {
     use ReedlineEventDiscriminants as RED;
     // When updating this implementation, also update `display_reedline_event` function
@@ -1074,7 +1074,7 @@ fn event_from_record<'record>(
         Ok(RED::MenuPagePrevious) => ReedlineEvent::MenuPagePrevious,
         Ok(RED::ExecuteHostCommand) => {
             let cmd = extract_value("cmd", record, span)?;
-            host_commands.push(cmd);
+            host_commands.push(cmd.clone());
             let index = host_commands.len() - 1;
             ReedlineEvent::ExecuteHostCommand(index.to_string())
         }
