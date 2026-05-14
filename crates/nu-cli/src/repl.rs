@@ -321,19 +321,30 @@ struct LoopContext<'a> {
     is_hostcommand: &'a mut bool,
 }
 
-// Is there anything else I can do to avoid this clippy lint?
-#[allow(clippy::too_many_arguments)]
-fn run_command(
-    engine_state: &mut EngineState,
-    stack: &mut Stack,
-    mut line_editor: Reedline,
+struct RunContext<'a> {
+    engine_state: &'a mut EngineState,
+    stack: &'a mut Stack,
+    line_editor: Reedline,
     repl_cmd_line_text: String,
-    hostname: Option<&str>,
+    hostname: Option<&'a str>,
     use_color: bool,
-    shell_integration: &ShellIntegrationConfig,
-    entry_num: &mut usize,
-) -> Reedline {
+    shell_integration: &'a ShellIntegrationConfig,
+    entry_num: &'a mut usize,
+}
+
+fn run_command(ctx: RunContext) -> Reedline {
     use nu_cmd_base::hook;
+
+    let RunContext {
+        engine_state,
+        stack,
+        mut line_editor,
+        repl_cmd_line_text,
+        hostname,
+        use_color,
+        shell_integration,
+        entry_num,
+    } = ctx;
 
     let history_supports_meta = match engine_state.history_config().map(|h| h.file_format) {
         #[cfg(feature = "sqlite")]
@@ -741,16 +752,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     let line_editor_input_time = Instant::now();
     match input {
         Ok(Signal::Success(repl_cmd_line_text)) => {
-            line_editor = run_command(
+            line_editor = run_command(RunContext {
                 engine_state,
-                &mut stack,
+                stack: &mut stack,
                 line_editor,
                 repl_cmd_line_text,
                 hostname,
                 use_color,
                 shell_integration,
                 entry_num,
-            );
+            });
         }
         Ok(Signal::HostCommand(key)) => {
             if let Ok(key) = key.parse::<u64>()
@@ -789,16 +800,16 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                         line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
                     }
                     _ => {
-                        line_editor = run_command(
+                        line_editor = run_command(RunContext {
                             engine_state,
-                            &mut stack,
+                            stack: &mut stack,
                             line_editor,
-                            val.to_expanded_string("", config),
+                            repl_cmd_line_text: val.to_expanded_string("", config),
                             hostname,
                             use_color,
                             shell_integration,
                             entry_num,
-                        );
+                        });
                     }
                 }
             } else {
