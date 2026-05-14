@@ -138,7 +138,6 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
-        // let metadata = input.take_metadata();
         let result = match input {
             PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
                 return Ok(input);
@@ -226,7 +225,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, metadata) => {
                 ClosureEvalOnce::new(engine_state, stack, closure)
-                    .run_with_value_and_metadata(value, metadata)
+                    .run_with_value_with_metadata(value, metadata)
             }
         };
 

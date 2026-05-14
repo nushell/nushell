@@ -151,7 +151,7 @@ impl ClosureEval {
     ///
     /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
     /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data_with_metadata(metadata))`.
-    pub fn run_with_value_and_metadata(
+    pub fn run_with_value_with_metadata(
         &mut self,
         value: Value,
         metadata: Option<PipelineMetadata>,
@@ -317,7 +317,7 @@ impl<'a> ClosureEvalOnce<'a> {
     ///
     /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
     /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data_with_metadata(metadata))`.
-    pub fn run_with_value_and_metadata(
+    pub fn run_with_value_with_metadata(
         mut self,
         value: Value,
         metadata: Option<PipelineMetadata>,
