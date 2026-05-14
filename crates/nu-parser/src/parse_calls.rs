@@ -8,7 +8,7 @@ use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
     DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
-    SyntaxShape, Type,
+    SyntaxShape, Type, TypeSet,
     ast::*,
     did_you_mean,
     engine::{CommandType, StateWorkingSet},
@@ -882,6 +882,7 @@ pub fn parse_internal_call(
     spans: &[Span],
     decl_id: DeclId,
     arg_parsing_level: ArgumentParsingLevel,
+    input: Option<Type>,
 ) -> ParsedInternalCall {
     trace!("parsing: internal call (decl id: {})", decl_id.get());
 
@@ -892,7 +893,16 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
-    let output = signature.get_output_type();
+    // TODO: Throw an actual error here, instead of leaning on later type checking code
+    //
+    // `Type::Nothing` is added to inputs to allow uses like:
+    // `ls | sort-by { open -r $in.name | lines | length }`
+    // see https://github.com/nushell/nushell/pull/14922
+    // Incorrect behavior this may cause will be handled by
+    // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
+    let output = signature
+        .get_output_type(input.map(|ty| ty.union(Type::Nothing)))
+        .unwrap_or(Type::Error);
 
     let deprecation = decl.deprecation_info();
 
