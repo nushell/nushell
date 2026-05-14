@@ -75,18 +75,13 @@ impl Command for Save {
         let span = call.head;
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
 
-        let path_arg = call.req::<Spanned<PathBuf>>(engine_state, stack, 0)?;
-        let path = Spanned {
-            item: expand_path_with(path_arg.item, &cwd, true),
-            span: path_arg.span,
-        };
+        let path = call
+            .req::<Spanned<PathBuf>>(engine_state, stack, 0)?
+            .map(|p| expand_path_with(p, &cwd, true));
 
         let stderr_path = call
             .get_flag::<Spanned<PathBuf>>(engine_state, stack, "stderr")?
-            .map(|arg| Spanned {
-                item: expand_path_with(arg.item, cwd, true),
-                span: arg.span,
-            });
+            .map(|arg| arg.map(|p| expand_path_with(p, cwd, true)));
 
         let from_io_error = IoError::factory(span, path.item.as_path());
         let save_byte_stream = |stream, metadata| {
@@ -160,14 +155,7 @@ impl Command for Save {
                     let val_span = v.span();
                     let val = v.into_custom_value()?;
                     return val
-                        .save(
-                            Spanned {
-                                item: &path.item,
-                                span: path.span,
-                            },
-                            val_span,
-                            span,
-                        )
+                        .save(path.as_deref(), val_span, span)
                         .map(|()| PipelineData::empty());
                 }
 
@@ -623,7 +611,7 @@ fn stream_to_file(
 
         let res = loop {
             if let Err(err) = signals.check(&span) {
-                bar.abandoned_msg("# Cancelled #".to_owned());
+                bar.abandoned_msg("# Cancelled #");
                 return Err(err);
             }
 
@@ -647,7 +635,7 @@ fn stream_to_file(
         // If the process failed, stop the progress bar with an error message.
         if let Err(err) = res {
             let _ = file.flush();
-            bar.abandoned_msg("# Error while saving #".to_owned());
+            bar.abandoned_msg("# Error while saving #");
             Err(from_io_error(err).into())
         } else {
             file.flush().map_err(&from_io_error)?;

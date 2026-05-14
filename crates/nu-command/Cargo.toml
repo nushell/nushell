@@ -39,6 +39,7 @@ nu-system = { path = "../nu-system", version = "0.112.3" }
 nu-table = { path = "../nu-table", version = "0.112.3" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.112.3" }
 nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-heavy-utils = { path = "../nu-heavy-utils", version = "0.112.3" }
 nuon = { path = "../nuon", version = "0.112.3" }
 
 alphanumeric-sort = { workspace = true }
@@ -66,6 +67,7 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
+fluent = { workspace = true }
 fuzzy-matcher = { workspace = true }
 http = { workspace = true }
 human-date-parser = { workspace = true }
@@ -145,7 +147,7 @@ v_htmlescape = { workspace = true }
 wax = { workspace = true }
 which = { workspace = true, optional = true }
 unicode-width = { workspace = true }
-data-encoding = { version = "2.10.0", features = ["alloc"] }
+data-encoding = { version = "2.11.0", features = ["alloc"] }
 web-time = { workspace = true }
 webpki-roots = { workspace = true, optional = true }
 
@@ -158,6 +160,7 @@ arboard = { version = "3.6.0", default-features = false, features = ["wayland-da
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 uucore = { workspace = true, features = ["mode"] }
+fff-search = { workspace = true, optional = true, default-features = false }
 
 [target.'cfg(unix)'.dependencies]
 umask = { workspace = true }
@@ -188,13 +191,14 @@ features = [
 workspace = true
 
 [features]
-default = ["os", "network", "rustls-tls"]
+default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
 	# include other features
 	"js",
 	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",
+	"dep:fff-search",
 
 	# os-dependant dependencies
 	"crossterm",

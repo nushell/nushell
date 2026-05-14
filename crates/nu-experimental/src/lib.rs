@@ -203,7 +203,7 @@ impl Debug for ExperimentalOption {
         let mut debug_struct = f.debug_struct("ExperimentalOption");
         debug_struct.field("identifier", &self.identifier());
         debug_struct.field("value", &self.get());
-        debug_struct.field("stability", &self.status());
+        debug_struct.field("status", &self.status());
         if add_description {
             debug_struct.field("description", &self.description());
         }

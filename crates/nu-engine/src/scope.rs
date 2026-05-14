@@ -1,7 +1,7 @@
 use nu_protocol::{
     CommandWideCompleter, DeclId, ModuleId, Signature, Span, Type, Value, VarId,
     ast::Expr,
-    engine::{Command, EngineState, Stack, Visibility},
+    engine::{Command, CommandType, EngineState, Stack, Visibility},
     record,
 };
 use std::{cmp::Ordering, collections::HashMap};
@@ -590,4 +590,20 @@ fn sort_rows(decls: &mut [Value]) {
         }
         _ => Ordering::Equal,
     });
+}
+
+/// Find the first declaration with `CommandType::Builtin` whose name matches `name`,
+/// scanning from the most-recently registered declaration backwards.
+///
+/// This mirrors the static `%name` parser behavior: `%` always resolves to a built-in,
+/// even when a custom declaration shadows the same name in the current scope.
+pub fn find_builtin_decl(engine_state: &EngineState, name: &str) -> Option<DeclId> {
+    for idx in (0..engine_state.num_decls()).rev() {
+        let decl_id = DeclId::new(idx);
+        let decl = engine_state.get_decl(decl_id);
+        if decl.command_type() == CommandType::Builtin && decl.name() == name {
+            return Some(decl_id);
+        }
+    }
+    None
 }

@@ -24,11 +24,19 @@ curl https://api.example.com/huge.json | head -c 500
 rg foo crates/ | lines | where $it =~ "err" | first 30   # where is fine, first 30 is not
 
 # GOOD — run once, slice afterwards
-cargo build o+e>| complete
+cargo build | complete
 # response: { history_index: 7, ... }
-$history.7 | lines | where $it =~ '^error'
-$history.7 | lines | where $it =~ '^error' | skip 30 | first 30   # paging a saved result is fine
+# `complete` captures { stdout, stderr, exit_code } as separate columns —
+# don't merge streams unless you have a reason to.
+$history.7.stderr | lines | where $it =~ '^error'
+$history.7.stderr | lines | where $it =~ '^error' | skip 30 | first 30   # paging a saved result is fine
 ```
+
+`complete` already gives you `stdout` and `stderr` as distinct columns. Reach
+for `o+e>| complete` only when you specifically want the interleaved ordering
+(e.g. a build log where the stderr warnings need to stay adjacent to the
+stdout lines they precede). Default to plain `| complete` and keep the streams
+separate — it's almost always what you want.
 
 The only time you should cap inside the command is when **generation itself**
 costs something real — a remote API that bills per byte, a paid model call,
@@ -70,11 +78,15 @@ Limits (configurable via env):
 - `NU_MCP_OUTPUT_LIMIT` — response truncation threshold, default `10kb`. Set to
   `0b` to disable truncation entirely. The full value is always in `$history`
   regardless of this setting.
+- `NU_MCP_PROMOTE_AFTER` — how long a call may run before being auto-promoted to
+  a background job, default `120sec`. Bump it before a known long-running
+  command to keep it synchronous.
 
 ```nu
 $env.NU_MCP_OUTPUT_LIMIT = 50kb     # bigger inline responses
 $env.NU_MCP_OUTPUT_LIMIT = 0b       # never truncate
 $env.NU_MCP_HISTORY_LIMIT = 200     # remember more entries
+$env.NU_MCP_PROMOTE_AFTER = 10min   # don't promote this session's long builds
 ```
 
 ## Structured Output — prefer native commands

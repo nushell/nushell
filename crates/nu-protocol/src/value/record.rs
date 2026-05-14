@@ -955,3 +955,52 @@ macro_rules! test_record {
         record! {}
     };
 }
+
+#[doc(hidden)]
+pub const fn count_helper<const N: usize>(_: [(); N]) -> usize {
+    N
+}
+
+/// Helper for constructing table (list of records) values for use in tests and
+/// [Example](crate::Example)s
+/// ```
+/// # use nu_protocol::{Value, test_table, test_record, record};
+/// let test = test_table![
+///     ["a", "b", "c"];
+///     [1, 2, 3],
+///     [4, 5, 6],
+/// ];
+///
+/// let expected = Value::test_list(vec![
+///     test_record! {"a" => 1, "b" => 2, "c" => 3},
+///     test_record! {"a" => 4, "b" => 5, "c" => 6},
+/// ]);
+///
+/// assert_eq!(test, expected);
+/// ```
+#[macro_export]
+macro_rules! test_table {
+    (@replace_expr $_t:tt $sub:expr) => { $sub };
+    (@count_tts $($smth:tt)*) => {
+        $crate::record::count_helper([$($crate::test_table!(@replace_expr $smth ())),*])
+    };
+    [[$($col:expr),+ $(,)?]; $([$($val:expr),+ $(,)?]),+ $(,)?] => {{
+        const COLUMNS: usize = $crate::test_table!(@count_tts $($col)+);
+        let columns: ::std::vec::Vec<::std::string::String> = ::std::vec![$($col.into()),+];
+        let rows = vec![ $(
+            {
+                const ROW_ITEMS: usize = $crate::test_table!(@count_tts $($val)+);
+                const _: () = assert!(ROW_ITEMS == COLUMNS) ;
+                $crate::Value::test_record($crate::Record::from_raw_cols_vals(
+                    columns.clone(),
+                    ::std::vec![ $(
+                        $crate::IntoValue::into_value($val, $crate::Span::test_data())
+                    ),+ ],
+                    $crate::Span::test_data(),
+                    $crate::Span::test_data(),
+                ).expect("Number of columns and rows should be equal"))
+            }
+        ),+ ];
+        $crate::Value::test_list(rows)
+    }};
+}

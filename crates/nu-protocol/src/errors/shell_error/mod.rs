@@ -606,10 +606,13 @@ pub enum ShellError {
     ///
     /// Check the spelling of your column name. Did you forget to rename a column somewhere?
     #[error("Cannot find column '{col_name}'")]
-    #[diagnostic(code(nu::shell::column_not_found))]
+    #[diagnostic(
+        code(nu::shell::column_not_found),
+        help = "If some rows have this column, try using '{col_name}?' for optional access, or pre-fill using the `default` command"
+    )]
     CantFindColumn {
         col_name: String,
-        #[label = "cannot find column '{col_name}'"]
+        #[label = "column '{col_name}' is missing in one or more values"]
         span: Option<Span>,
         #[label = "value originates here"]
         src_span: Span,

@@ -86,15 +86,10 @@ impl PipelineMetadata {
 
 /// Describes where the particular [`PipelineMetadata`] originates.
 ///
-/// This can either be a particular family of commands (useful so downstream commands can adjust
-/// the presentation e.g. `Ls`) or the opened file to protect against overwrite-attempts properly.
+/// This can either be a particular family of commands or the opened file to protect against
+/// overwrite-attempts properly.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum DataSource {
-    #[deprecated(
-        since = "0.111.0",
-        note = "Use `PipelineMetadata { path_columns: vec![\"name\".to_string()], .. }` instead."
-    )]
-    Ls,
     HtmlThemes,
     FilePath(PathBuf),
     #[default]

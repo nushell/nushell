@@ -1,4 +1,5 @@
-use nu_test_support::prelude::*;
+use nu_protocol::test_record;
+use nu_test_support::{fs::fixtures, prelude::*};
 
 #[test]
 fn all() -> Result {
@@ -10,16 +11,14 @@ fn all() -> Result {
         ]
     }"#;
 
-    let code = format!(
-        "
-            {sample}
-            | get meals
-            | get calories
-            | math sum
-        "
-    );
+    let code = "
+        from nuon
+        | get meals
+        | get calories
+        | math sum
+    ";
 
-    test().run(&code).expect_value_eq(448)
+    test().run_with_data(code, sample).expect_value_eq(448)
 }
 
 #[test]
@@ -31,12 +30,16 @@ fn compute_sum_of_individual_row() -> Result {
         ("mem", 3032375296.),
         ("virtual", 102579965952.),
     ];
-    let mut tester = test().cwd("tests/fixtures/formats");
+    let mut tester = test().cwd(fixtures().join("formats"));
     for (column_name, expected_value) in answers_for_columns {
-        let code = format!(
-            "open sample-ps-output.json | select {column_name} | math sum | get {column_name}"
-        );
-        tester.run(&code).expect_value_eq(expected_value)?;
+        let () = tester.run_with_data("let column = into cell-path", [column_name])?;
+        let code = "
+            open sample-ps-output.json
+            | select $column
+            | math sum
+            | get $column
+        ";
+        tester.run(code).expect_value_eq(expected_value)?;
     }
     Ok(())
 }
@@ -45,25 +48,28 @@ fn compute_sum_of_individual_row() -> Result {
 #[allow(clippy::unreadable_literal)]
 #[allow(clippy::float_cmp)]
 fn compute_sum_of_table() -> Result {
-    let answers_for_columns = [
-        ("cpu", 88.257434),
-        ("mem", 3032375296.),
-        ("virtual", 102579965952.),
-    ];
-    let mut tester = test().cwd("tests/fixtures/formats");
-    for (column_name, expected_value) in answers_for_columns {
-        let code = format!(
-            "open sample-ps-output.json | select cpu mem virtual | math sum | get {column_name}"
-        );
-        tester.run(&code).expect_value_eq(expected_value)?;
-    }
-    Ok(())
+    let code = "
+        open sample-ps-output.json
+        | select cpu mem virtual
+        | math sum
+    ";
+
+    let expected = test_record! {
+        "cpu" => 88.257434,
+        "mem" => 3032375296.,
+        "virtual" => 102579965952.,
+    };
+
+    test()
+        .cwd(fixtures().join("formats"))
+        .run(code)
+        .expect_value_eq(expected)
 }
 
 #[test]
 fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
     let outcome = test()
-        .cwd("tests/fixtures/formats")
+        .cwd(fixtures().join("formats"))
         .run("open sample-sys-output.json | math sum")
         .expect_shell_error()?;
     match outcome {

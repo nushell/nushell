@@ -10,69 +10,61 @@ impl Command for FromMd {
     }
 
     fn description(&self) -> &str {
-        "Convert markdown text into structured data."
+        "Convert markdown text into human-friendly structured rows. Use --verbose for the full AST."
     }
 
     fn signature(&self) -> Signature {
         Signature::build("from md")
             .input_output_types(vec![(Type::String, Type::table())])
+            .switch(
+                "verbose",
+                "Return the full AST with type, position, attrs, and children fields.",
+                Some('v'),
+            )
             .category(Category::Formats)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                example: "'# Title' | from md | select type position attrs",
-                description: "Parse markdown and return key node fields.",
-                result: Some(Value::test_list(vec![heading_title_overview_node()])),
+                example: "'# Title' | from md | get 0.element",
+                description: "Reduced mode promotes child rows; heading text is represented as a text element.",
+                result: Some(Value::test_string("text")),
+            },
+            Example {
+                example: "'# Title' | from md | get 0.content",
+                description: "Get the text content of the first element.",
+                result: Some(Value::test_string("Title")),
             },
             Example {
                 example: "'---
 title: Demo
 ---
-# A' | from md | get 0.type",
-                description: "Parse markdown frontmatter as a dedicated node.",
+# A' | from md | get 0.element",
+                description: "Parse markdown frontmatter as a dedicated yaml element.",
                 result: Some(Value::test_string("yaml")),
+            },
+            Example {
+                example: "'# Title' | from md --verbose | get 0.type",
+                description: "Use --verbose to get the full AST; the first node type is h1.",
+                result: Some(Value::test_string("h1")),
             },
         ]
     }
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        from_md(input, call.head)
+        let verbose = call.has_flag(engine_state, stack, "verbose")?;
+        from_md(input, call.head, verbose)
     }
 }
 
-fn title_position(line_start: i64, column_start: i64, line_end: i64, column_end: i64) -> Value {
-    Value::test_record(record! {
-        "start" => Value::test_record(record! {
-            "line" => Value::test_int(line_start),
-            "column" => Value::test_int(column_start),
-        }),
-        "end" => Value::test_record(record! {
-            "line" => Value::test_int(line_end),
-            "column" => Value::test_int(column_end),
-        }),
-    })
-}
-
-fn heading_title_overview_node() -> Value {
-    Value::test_record(record! {
-        "type" => Value::test_string("h1"),
-        "position" => title_position(1, 1, 1, 8),
-        "attrs" => Value::test_record(record! {
-            "depth" => Value::test_int(1),
-            "level" => Value::test_int(1),
-        }),
-    })
-}
-
-fn from_md(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+fn from_md(input: PipelineData, head: Span, verbose: bool) -> Result<PipelineData, ShellError> {
     let (string_input, span, metadata) = input.collect_string_strict(head)?;
 
     let markdown =
@@ -83,7 +75,11 @@ fn from_md(input: PipelineData, head: Span) -> Result<PipelineData, ShellError> 
             help: Some(err.to_string()),
         })?;
 
-    let value = markdown_to_ast_value(&markdown, span);
+    let value = if verbose {
+        markdown_to_ast_value(&markdown, span)
+    } else {
+        markdown_to_reduced_value(&markdown, span)
+    };
 
     Ok(value.into_pipeline_data_with_metadata(metadata.map(|md| md.with_content_type(None))))
 }
@@ -197,6 +193,135 @@ fn attr_value_to_nu_value(value: AttrValue, span: Span) -> Value {
                 .collect(),
             span,
         ),
+    }
+}
+
+/// Builds reduced rows by promoting each top-level node's immediate children to row level.
+///
+/// If a top-level node has no children, the node itself is emitted as a row.
+/// Parent attributes are inherited by promoted child rows when child attributes are absent.
+fn markdown_to_reduced_value(markdown: &Markdown, span: Span) -> Value {
+    let mut nodes = Vec::new();
+    for node in &markdown.nodes {
+        let parent_attrs = node_reduced_attrs(node, span);
+        let children = node.children();
+
+        if children.is_empty() {
+            nodes.push(node_to_reduced_value(
+                node,
+                span,
+                parent_attrs.clone(),
+                None,
+            ));
+        } else {
+            for child in children {
+                let child_attrs = node_reduced_attrs(&child, span);
+                nodes.push(node_to_reduced_value(
+                    &child,
+                    span,
+                    child_attrs,
+                    parent_attrs.clone(),
+                ));
+            }
+        }
+    }
+
+    Value::list(nodes, span)
+}
+
+fn node_to_reduced_value(
+    node: &Node,
+    span: Span,
+    own_attrs: Option<Value>,
+    inherited_attrs: Option<Value>,
+) -> Value {
+    let mut record = Record::new();
+    record.push("element", Value::string(node_type_name(node), span));
+    record.push("content", Value::string(extract_text(node), span));
+
+    if let Some(position) = node.position() {
+        record.push("content_span", position_to_value(position, span));
+    }
+
+    // Merge parent and child attributes: parent forms the base, child keys take precedence
+    // on collision so the most specific information wins.
+    if let Some(attrs) = merge_attrs(inherited_attrs, own_attrs, span) {
+        record.push("attributes", attrs);
+    }
+
+    Value::record(record, span)
+}
+
+/// Merges two optional attribute records into one, with `child` keys overriding `parent` keys.
+/// Returns `None` when both inputs are absent or produce an empty result.
+fn merge_attrs(parent: Option<Value>, child: Option<Value>, span: Span) -> Option<Value> {
+    match (parent, child) {
+        (None, child) => child,
+        (parent, None) => parent,
+        (
+            Some(Value::Record {
+                val: parent_rec, ..
+            }),
+            Some(Value::Record { val: child_rec, .. }),
+        ) => {
+            let mut merged = (*parent_rec).clone();
+            for (key, val) in child_rec.iter() {
+                if let Some(existing) = merged.get_mut(key) {
+                    *existing = val.clone();
+                } else {
+                    merged.push(key.clone(), val.clone());
+                }
+            }
+            if merged.is_empty() {
+                None
+            } else {
+                Some(Value::record(merged, span))
+            }
+        }
+        // Fallback: child wins if types are unexpected
+        (_, child) => child,
+    }
+}
+
+/// Recursively extracts the plain-text content of a node by joining all leaf values.
+fn extract_text(node: &Node) -> String {
+    let children = node.children();
+    if children.is_empty() {
+        if let Some(AttrValue::String(s)) = node.attr("value") {
+            s
+        } else if node.is_text() {
+            node.value().to_string()
+        } else {
+            String::new()
+        }
+    } else {
+        children
+            .iter()
+            .map(extract_text)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+}
+
+/// Returns a reduced attributes record containing only meaningful metadata fields,
+/// or `None` when no such fields are present on the node.
+fn node_reduced_attrs(node: &Node, span: Span) -> Option<Value> {
+    const REDUCED_ATTRIBUTE_KEYS: &[&str] = &[
+        "depth", "level", "ordered", "checked", "lang", "url", "title", "alt", "align",
+    ];
+
+    let mut attrs = Record::new();
+    for key in REDUCED_ATTRIBUTE_KEYS {
+        if let Some(value) = node.attr(key) {
+            attrs.push(*key, attr_value_to_nu_value(value, span));
+        }
+    }
+
+    if attrs.is_empty() {
+        None
+    } else {
+        Some(Value::record(attrs, span))
     }
 }
 

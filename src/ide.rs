@@ -24,7 +24,7 @@ fn find_id(
     file: &[u8],
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
-    let file_id = working_set.add_file(file_path.to_string(), file);
+    let file_id = working_set.add_file(file_path, file);
     let file_span = working_set.get_span_for_file(file_id);
     let offset = file_span.start;
     let _ = working_set.files.push(file_path.into(), file_span);

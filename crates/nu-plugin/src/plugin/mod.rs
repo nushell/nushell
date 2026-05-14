@@ -713,10 +713,7 @@ fn custom_value_op(
             path,
             save_call_span,
         } => {
-            let path = Spanned {
-                item: path.item.as_path(),
-                span: path.span,
-            };
+            let path = path.as_deref();
             let result = plugin.custom_value_save(engine, local_value, path, save_call_span);
             engine.write_ok(result)
         }

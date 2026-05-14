@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 fn create_virt_file(working_set: &mut StateWorkingSet, name: &str, content: &str) -> VirtualPathId {
     let sanitized_name = PathBuf::from(name).to_string_lossy().to_string();
-    let file_id = working_set.add_file(sanitized_name.clone(), content.as_bytes());
+    let file_id = working_set.add_file(&sanitized_name, content.as_bytes());
 
     working_set.add_virtual_path(sanitized_name, VirtualPath::File(file_id))
 }
@@ -138,6 +138,7 @@ pub fn load_standard_library(
             "std-rfc/xml",
             include_str!("../std-rfc/xml/mod.nu"),
         ),
+        ("mod.nu", "std-rfc/pb", include_str!("../std-rfc/pb/mod.nu")),
     ];
 
     for (filename, std_rfc_subdir_name, content) in std_rfc_submodules.drain(..) {

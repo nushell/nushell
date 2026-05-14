@@ -81,8 +81,8 @@ impl Command for StrReplace {
     fn extra_description(&self) -> &str {
         "The pattern to find can be a substring (default) or a regular expression (with `--regex`).
 
-The replacement can be a a string, possibly containing references to numbered (`$1` etc) or
-named capture groups (`$name`), or it can be closure that is invoked for each match.
+The replacement can be a string, possibly containing references to numbered (`$1` etc) or
+named capture groups (`$name`), or it can be a closure that is invoked for each match.
 In the latter case, the closure is invoked with the entire match as its input and any capture
 groups as its argument. It must return a string that will be used as a replacement for the match.
 "
@@ -355,7 +355,10 @@ fn action(
                                     Some(m) => Value::string(m.as_str().to_string(), head),
                                     None => Value::nothing(head),
                                 };
-                                closure_eval.add_arg(arg);
+                                if let Err(error) = closure_eval.add_arg(arg) {
+                                    first_error = Some(error);
+                                    return "".to_string();
+                                }
                             }
                             let value = match caps.get(0) {
                                 Some(m) => Value::string(m.as_str().to_string(), head),

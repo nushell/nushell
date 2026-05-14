@@ -8,6 +8,7 @@ use nu_protocol::{
     engine::{EngineState, Stack},
 };
 use nu_std::load_standard_library;
+use nu_table::{NuTable, TableTheme};
 use nu_utils::ConfigFileKind;
 use std::{
     fmt::Write,
@@ -528,6 +529,59 @@ fn bench_type_widen_chain() -> impl IntoBenchmarks {
     })]
 }
 
+// Table rendering benchmarks (nu-table)
+// Benchmark the NuTable::draw path for varying table sizes and themes.
+
+fn create_nu_table(rows: usize, cols: usize) -> NuTable {
+    let mut table = NuTable::new(rows + 1, cols);
+
+    // Header row
+    for col in 0..cols {
+        table.insert((0, col), format!("column_{col}"));
+    }
+
+    // Data rows
+    for row in 0..rows {
+        for col in 0..cols {
+            table.insert((row + 1, col), format!("value_{row}_{col}"));
+        }
+    }
+
+    table.set_structure(false, true, false);
+    table
+}
+
+fn bench_table_render(rows: usize, cols: usize) -> impl IntoBenchmarks {
+    let name = format!("table_render_{rows}x{cols}");
+    [benchmark_fn(name, move |b| {
+        let table = create_nu_table(rows, cols);
+        b.iter(move || {
+            black_box(table.clone().draw(200));
+        })
+    })]
+}
+
+fn bench_table_render_themed(rows: usize, cols: usize) -> impl IntoBenchmarks {
+    let name = format!("table_render_{rows}x{cols}_rounded");
+    [benchmark_fn(name, move |b| {
+        let mut table = create_nu_table(rows, cols);
+        table.set_theme(TableTheme::rounded());
+        b.iter(move || {
+            black_box(table.clone().draw(200));
+        })
+    })]
+}
+
+fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
+    let name = format!("table_render_10x{cols}_wide");
+    [benchmark_fn(name, move |b| {
+        let table = create_nu_table(10, cols);
+        b.iter(move || {
+            black_box(table.clone().draw(1000));
+        })
+    })]
+}
+
 tango_benchmarks!(
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
@@ -634,7 +688,17 @@ tango_benchmarks!(
     decode_json(10000, 15),
     // MsgPack
     decode_msgpack(100, 5),
-    decode_msgpack(10000, 15)
+    decode_msgpack(10000, 15),
+    // Table rendering (nu-table)
+    bench_table_render(10, 5),
+    bench_table_render(100, 5),
+    bench_table_render(1_000, 5),
+    bench_table_render(100, 10),
+    bench_table_render_themed(10, 5),
+    bench_table_render_themed(100, 5),
+    bench_table_render_themed(1_000, 5),
+    bench_table_render_wide(20),
+    bench_table_render_wide(50)
 );
 
 tango_main!();

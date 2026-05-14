@@ -44,20 +44,30 @@ impl Command for HideEnv {
         let ignore_errors = call.has_flag(engine_state, stack, "ignore-errors")?;
 
         for name in env_var_names {
-            if !stack.remove_env_var(engine_state, &name.item) && !ignore_errors {
+            if !stack.hide_env_var(engine_state, &name.item) && !ignore_errors {
                 let all_names = stack.get_env_var_names(engine_state);
-                if let Some(closest_match) = did_you_mean(&all_names, &name.item) {
+
+                // Do not produce a suggestion for exact-name misses (for example when an outer
+                // scope still has the same variable name). Those cases should remain a plain
+                // not-found error for this scope.
+                let closest_match = if all_names.contains(&name.item) {
+                    None
+                } else {
+                    did_you_mean(&all_names, &name.item)
+                };
+
+                if let Some(closest_match) = closest_match {
                     return Err(ShellError::DidYouMeanCustom {
                         msg: format!("Environment variable '{}' not found", name.item),
                         suggestion: closest_match,
                         span: name.span,
                     });
-                } else {
-                    return Err(ShellError::EnvVarNotFoundAtRuntime {
-                        envvar_name: name.item,
-                        span: name.span,
-                    });
                 }
+
+                return Err(ShellError::EnvVarNotFoundAtRuntime {
+                    envvar_name: name.item,
+                    span: name.span,
+                });
             }
         }
 

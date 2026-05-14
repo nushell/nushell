@@ -705,6 +705,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("update_prompt", start_time, use_color);
 
+    line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+
     *entry_num += 1;
 
     start_time = Instant::now();
@@ -944,7 +946,7 @@ fn parse_operation(
         .cwd(Some(stack))
         .map(|p| p.to_string_lossy().to_string())
         .unwrap_or_default();
-    let mut orig = s.clone();
+    let mut orig = s.trim().to_string();
     if orig.starts_with('`') {
         orig = trim_quotes_str(&orig).to_string()
     }

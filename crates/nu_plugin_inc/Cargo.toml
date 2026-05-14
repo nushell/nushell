@@ -20,4 +20,4 @@ bench = false
 nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
 nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["plugin"] }
 
-semver = "1.0"
+semver = { workspace = true }

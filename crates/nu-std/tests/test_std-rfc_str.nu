@@ -427,3 +427,118 @@ def str-align_empty_input_noop [] {
 
     assert equal $actual $expected
 }
+
+@test
+def str-lcp_simple [] {
+    let expected = {prefix: "let ", rest: ["a = 1", "max = 2", "very_long_variable_name = 3"], success: true}
+
+    let actual = [
+        "let a = 1"
+        "let max = 2"
+        "let very_long_variable_name = 3"
+    ] | str lcp
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_empty_list [] {
+    let actual = [] | str lcp
+    let expected = {prefix: "", rest: [], success: false}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_single_item [] {
+    let actual = ["abc"] | str lcp
+    let expected = {prefix: "abc", rest: [""], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_no_common_prefix [] {
+    let actual = ["qwe", "asd", "zxc"] | str lcp
+    let expected = {prefix: "", rest: ["qwe", "asd", "zxc"], success: false}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_all_identical [] {
+    let actual = ["abc", "abc", "abc"] | str lcp
+    let expected = {prefix: "abc", rest: ["", "", ""], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_one_string_is_full_prefix [] {
+    # One string is a prefix of another — the shorter string sets the boundary
+    let actual = ["abc", "abcdef"] | str lcp
+    let expected = {prefix: "abc", rest: ["", "def"], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_shortest_not_first [] {
+    # The shortest input does not have to be first; output order must be preserved
+    let actual = ["abcdef", "abcghi", "abc"] | str lcp
+    let expected = {prefix: "abc", rest: ["def", "ghi", ""], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_empty_string_in_list [] {
+    # An empty string means there can be no common prefix
+    let actual = ["", "abc"] | str lcp
+    let expected = {prefix: "", rest: ["", "abc"], success: false}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_case_sensitive [] {
+    # Matching is case-sensitive: "Abc" vs "abc" share no common prefix
+    let actual = ["Abc", "abc"] | str lcp
+    let expected = {prefix: "", rest: ["Abc", "abc"], success: false}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_unicode [] {
+    # Unicode strings with a common prefix
+    let actual = ["héllo", "héros"] | str lcp
+    let expected = {prefix: "hé", rest: ["llo", "ros"], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_grapheme_clusters [] {
+    # Emoji are multi-byte grapheme clusters; ensure they are treated as single units
+    let actual = ["😀 hello", "😀 world"] | str lcp
+    let expected = {prefix: "😀 ", rest: ["hello", "world"], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_two_items_same_prefix [] {
+    let actual = ["abc", "abd"] | str lcp
+    let expected = {prefix: "ab", rest: ["c", "d"], success: true}
+
+    assert equal $actual $expected
+}
+
+@test
+def str-lcp_single_char_prefix [] {
+    let actual = ["apple", "avocado", "apricot"] | str lcp
+    let expected = {prefix: "a", rest: ["pple", "vocado", "pricot"], success: true}
+
+    assert equal $actual $expected
+}

@@ -400,10 +400,12 @@ fn default_value11() -> TestResult {
 
 #[test]
 fn default_value12() -> TestResult {
-    fail_test(
-        r#"def foo [--x:int = "a"] { $x }"#,
-        "expected default value to be `int`",
-    )
+    fail_test(r#"def foo [--x:int = "a"] { $x }"#, "expected int")
+}
+
+#[test]
+fn default_value_glob() -> TestResult {
+    run_test("def foo [--x:glob = *.nu] { $x | describe }; foo", "glob")
 }
 
 #[test]

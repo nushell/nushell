@@ -336,10 +336,10 @@ impl<'a> StateWorkingSet<'a> {
     }
 
     #[must_use]
-    pub fn add_file(&mut self, filename: String, contents: &[u8]) -> FileId {
+    pub fn add_file(&mut self, filename: &str, contents: &[u8]) -> FileId {
         // First, look for the file to see if we already have it
         for (idx, cached_file) in self.files().enumerate() {
-            if *cached_file.name == filename && &*cached_file.content == contents {
+            if &*cached_file.name == filename && &*cached_file.content == contents {
                 return FileId::new(idx);
             }
         }

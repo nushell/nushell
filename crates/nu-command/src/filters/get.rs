@@ -1,9 +1,7 @@
 use std::borrow::Cow;
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{
-    DataSource, DeprecationEntry, DeprecationType, ReportMode, Signals, ast::PathMember,
-};
+use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, Signals, ast::PathMember};
 
 #[derive(Clone)]
 pub struct Get;
@@ -241,10 +239,6 @@ fn action(
         follow_cell_path_into_stream(input, signals, cell_path.members, span).map(|data| {
             if !cell_path_is_index && let Some(metadata) = &mut metadata {
                 metadata.path_columns.clear();
-                #[allow(deprecated)]
-                if metadata.data_source == DataSource::Ls {
-                    metadata.data_source = DataSource::None
-                }
             }
             data.set_metadata(metadata)
         })
@@ -264,10 +258,6 @@ fn action(
 
         if !any_cell_path_is_index && let Some(metadata) = &mut metadata {
             metadata.path_columns.clear();
-            #[allow(deprecated)]
-            if metadata.data_source == DataSource::Ls {
-                metadata.data_source = DataSource::None
-            }
         }
 
         Ok(output

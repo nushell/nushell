@@ -71,7 +71,7 @@ impl ExternalHinter {
         let stack = Stack::with_parent(self.stack.clone());
         let result = ClosureEvalOnce::new(self.engine_state.as_ref(), &stack, self.closure.clone())
             .add_arg(Value::record(context, span))
-            .run_with_input(PipelineData::empty())
+            .and_then(|closure| closure.run_with_input(PipelineData::empty()))
             .and_then(|data| data.into_value(span));
 
         match result {

@@ -40,7 +40,7 @@ impl PluginCommand for PivotDF {
                 "Column names for pivoting.",
                 Some('o'),
             )
-            .required_named(
+            .named(
                 "on-cols",
                 SyntaxShape::Any,
                 "column names used as value columns",
@@ -112,6 +112,30 @@ impl PluginCommand for PivotDF {
     polars sort-by name maths physics |
     polars collect"#,
                 description: "Given a set of test scores, reshape so we have one row per student, with different subjects as columns, and their `test_1` scores as values",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "name" => ["Cady", "Karen"],
+                            "maths" => [98, 61],
+                            "physics" => [99, 58],
+                        )
+                        .expect("Could not create test datafarme"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                example: r#"{
+        "name": ["Cady", "Cady", "Karen", "Karen"],
+        "subject": ["maths", "physics", "maths", "physics"],
+        "test_1": [98, 99, 61, 58],
+        "test_2": [100, 100, 60, 60],
+    } | 
+    polars into-df --as-columns | 
+    polars pivot --on subject --index name --values test_1 |
+    polars sort-by name maths physics |
+    polars collect"#,
+                description: "Given a set of test scores, reshape so we have one row per student, with different subjects as columns, and their `test_1` scores as values, without specifying --on-cols",
                 result: Some(
                     NuDataFrame::from(
                         df!(
@@ -211,8 +235,19 @@ fn command_lazy(
         .get_flag::<Value>("on-cols")?
         .map(|ref v| NuDataFrame::try_from_value(plugin, v))
         .transpose()?
-        .ok_or(required_flag("on-cols", call.head))?
-        .to_polars();
+        .map(|df| df.to_polars())
+        .or_else(|| {
+            lazy.to_polars()
+                .select([on.clone().as_expr()])
+                .unique_stable(None, polars::frame::UniqueKeepStrategy::Any)
+                .collect()
+                .ok()
+        })
+        .ok_or(ShellError::Generic(GenericError::new(
+            "Pivot columns cannot be deduced, `--on-cols` must be specified",
+            "",
+            call.head,
+        )))?;
 
     let index: Option<Selector> = call
         .get_flag::<Value>("index")?

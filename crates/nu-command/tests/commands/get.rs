@@ -191,7 +191,7 @@ fn quoted_column_access() {
 fn get_does_not_delve_too_deep_in_nested_lists() {
     let actual = nu!("[[{foo: bar}]] | get foo");
 
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("column 'foo' is missing"));
 }
 
 #[test]

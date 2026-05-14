@@ -173,7 +173,7 @@ fn use_module_with_invalid_var_name(#[case] name: &str) -> TestResult {
 fn cannot_export_private_const() -> TestResult {
     fail_test(
         "module spam { const b = 3; export const c = 4 }; use spam; $spam.b + $spam.c",
-        "cannot find column 'b'",
+        "column 'b' is missing in one or more values",
     )
 }
 

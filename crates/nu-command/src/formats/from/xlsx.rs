@@ -23,6 +23,12 @@ impl Command for FromXlsx {
                 "Only convert specified sheets.",
                 Some('s'),
             )
+            .named(
+                "header-row",
+                SyntaxShape::OneOf(vec![SyntaxShape::Int, SyntaxShape::Nothing]),
+                "Specify row (0-indexed) to designate the header (default first non-empty row) or null for no header",
+                Some('r'),
+            )
             .category(Category::Formats)
     }
 
@@ -47,8 +53,17 @@ impl Command for FromXlsx {
             vec![]
         };
 
+        let header_row = match call.get_flag(engine_state, stack, "header-row")? {
+            Some(Value::Int { val, .. }) => Some(HeaderRow::Row(
+                val.try_into()
+                    .expect("Header row index should not exceed u32"),
+            )),
+            Some(Value::Nothing { .. }) => None,
+            _ => Some(HeaderRow::FirstNonEmptyRow),
+        };
+
         let metadata = input.take_metadata().map(|md| md.with_content_type(None));
-        from_xlsx(input, head, sel_sheets).map(|pd| pd.set_metadata(metadata))
+        from_xlsx(input, head, sel_sheets, header_row).map(|pd| pd.set_metadata(metadata))
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -61,6 +76,11 @@ impl Command for FromXlsx {
             Example {
                 description: "Convert binary .xlsx data to a table, specifying the tables.",
                 example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1]",
+                result: None,
+            },
+            Example {
+                description: "Convert binary .xlsx data to a table, specifying the tables and specifying no header row.",
+                example: "open --raw test.xlsx | from xlsx --sheets [Spreadsheet1] --header-row null",
                 result: None,
             },
         ]
@@ -114,6 +134,7 @@ fn from_xlsx(
     input: PipelineData,
     head: Span,
     sel_sheets: Vec<String>,
+    header_row: Option<HeaderRow>,
 ) -> Result<PipelineData, ShellError> {
     let span = input.span();
     let bytes = collect_binary(input, head)?;
@@ -140,12 +161,38 @@ fn from_xlsx(
     for sheet_name in sheet_names {
         let mut sheet_output = vec![];
 
+        if let Some(hr) = header_row {
+            xlsx.with_header_row(hr);
+        }
+
         if let Ok(current_sheet) = xlsx.worksheet_range(&sheet_name) {
-            for row in current_sheet.rows() {
-                let record = row
-                    .iter()
-                    .enumerate()
-                    .map(|(i, cell)| {
+            let sheet_width = current_sheet.width();
+            let default_headers = (0..sheet_width)
+                .map(|i| {
+                    format!(
+                        "column{:0width$}",
+                        i,
+                        width = (sheet_width.ilog10() + 1) as usize
+                    )
+                })
+                .collect::<Vec<String>>();
+
+            let headers = current_sheet
+                .headers()
+                .unwrap_or_else(|| vec!["".to_string(); sheet_width])
+                .into_iter()
+                .zip(default_headers.into_iter())
+                .map(
+                    |(name, default)| {
+                        if name.is_empty() { default } else { name }
+                    },
+                );
+
+            for row in current_sheet.rows().skip(header_row.is_some() as usize) {
+                let record = headers
+                    .clone()
+                    .zip(row.iter())
+                    .map(|(header_name, cell)| {
                         let value = match cell {
                             Data::Empty => Value::nothing(head),
                             Data::String(s) => Value::string(s, head),
@@ -163,7 +210,7 @@ fn from_xlsx(
                             _ => Value::nothing(head),
                         };
 
-                        (format!("column{i}"), value)
+                        (header_name, value)
                     })
                     .collect();
 

@@ -870,11 +870,9 @@ impl<'a> SelectWidget<'a> {
     /// Generate the separator line based on current terminal width
     fn generate_separator_line(&mut self) {
         let sep_width = self.config.separator_char.width();
-        let repeat_count = if sep_width > 0 {
-            self.term_width as usize / sep_width
-        } else {
-            self.term_width as usize
-        };
+        let repeat_count = (self.term_width as usize)
+            .checked_div(sep_width)
+            .unwrap_or(self.term_width as usize);
         self.separator_line = self.config.separator_char.repeat(repeat_count);
     }
 
@@ -1538,8 +1536,8 @@ impl<'a> SelectWidget<'a> {
                 KeyAction::Continue
             }
             KeyCode::BackTab => {
-                self.toggle_current();
                 self.navigate_up();
+                self.toggle_current();
                 KeyAction::Continue
             }
             _ => KeyAction::Continue,
@@ -1790,8 +1788,8 @@ impl<'a> SelectWidget<'a> {
 
             // Shift-Tab: Toggle selection and move up
             KeyCode::BackTab => {
-                self.toggle_current_fuzzy();
                 self.navigate_up();
+                self.toggle_current_fuzzy();
                 KeyAction::Continue
             }
 
@@ -2459,7 +2457,7 @@ impl<'a> SelectWidget<'a> {
                     .collect()
             };
             // Sort by score descending
-            scored.sort_by(|a, b| b.1.cmp(&a.1));
+            scored.sort_by_key(|entry| std::cmp::Reverse(entry.1));
             self.filtered_indices = scored.into_iter().map(|(i, _)| i).collect();
         }
 

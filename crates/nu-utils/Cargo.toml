@@ -20,6 +20,7 @@ bench = false
 [dependencies]
 byteyarn.workspace = true
 crossterm = { workspace = true, optional = true }
+derive_more = { workspace = true }
 fancy-regex = { workspace = true }
 lean_string.workspace = true
 log = { workspace = true }

@@ -41,6 +41,7 @@ pub enum VirtualPath {
     Dir(Vec<VirtualPathId>),
 }
 
+#[derive(Debug)]
 pub struct ReplState {
     pub buffer: String,
     // A byte position, as `EditCommand::MoveToPosition` is also a byte position
@@ -49,6 +50,7 @@ pub struct ReplState {
     pub accept: bool,
 }
 
+#[derive(Debug)]
 pub struct IsDebugging(AtomicBool);
 
 impl IsDebugging {
@@ -80,16 +82,19 @@ impl Clone for IsDebugging {
 ///
 /// Note that the runtime stack is not part of this global state. Runtime stacks are handled differently,
 /// but they also rely on using IDs rather than full definitions.
-#[derive(Clone)]
+#[derive(Clone, derive_more::Debug)]
 pub struct EngineState {
     files: Vec<CachedFile>,
     pub(super) virtual_paths: Vec<(String, VirtualPath)>,
     vars: Vec<Variable>,
+    #[debug("{:?}", decls.iter().map(|c| c.name()).collect::<Vec<_>>())]
     decls: Arc<Vec<Box<dyn Command + 'static>>>,
     // The Vec is wrapped in Arc so that if we don't need to modify the list, we can just clone
     // the reference and not have to clone each individual Arc inside. These lists can be
     // especially long, so it helps
+    #[debug("{:?}", blocks.iter().map(|b| &b.signature.name))]
     pub(super) blocks: Arc<Vec<Arc<Block>>>,
+    #[debug("{:?}", modules.iter().map(|m| String::from_utf8_lossy(&m.name)))]
     pub(super) modules: Arc<Vec<Arc<Module>>>,
     pub spans: Vec<Span>,
     doccomments: Doccomments,
@@ -105,6 +110,7 @@ pub struct EngineState {
     #[cfg(feature = "plugin")]
     pub plugin_path: Option<PathBuf>,
     #[cfg(feature = "plugin")]
+    #[debug("{:?}", plugins.iter().map(|rp| rp.identity().name()).collect::<Vec<_>>())]
     plugins: Vec<Arc<dyn RegisteredPlugin>>,
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
@@ -1134,7 +1140,7 @@ mod engine_state_tests {
     fn add_file_gives_id() {
         let engine_state = EngineState::new();
         let mut engine_state = StateWorkingSet::new(&engine_state);
-        let id = engine_state.add_file("test.nu".into(), &[]);
+        let id = engine_state.add_file("test.nu", &[]);
 
         assert_eq!(id, FileId::new(0));
     }
@@ -1145,7 +1151,7 @@ mod engine_state_tests {
         let parent_id = engine_state.add_file("test.nu".into(), Arc::new([]));
 
         let mut working_set = StateWorkingSet::new(&engine_state);
-        let working_set_id = working_set.add_file("child.nu".into(), &[]);
+        let working_set_id = working_set.add_file("child.nu", &[]);
 
         assert_eq!(parent_id, FileId::new(0));
         assert_eq!(working_set_id, FileId::new(1));
@@ -1158,7 +1164,7 @@ mod engine_state_tests {
 
         let delta = {
             let mut working_set = StateWorkingSet::new(&engine_state);
-            let _ = working_set.add_file("child.nu".into(), &[]);
+            let _ = working_set.add_file("child.nu", &[]);
             working_set.render()
         };
 

@@ -4,7 +4,7 @@ use nu_protocol::{
     NuGlob,
     shell_error::{self, generic::GenericError, io::IoError},
 };
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use uu_cp::{BackupMode, CopyMode, CpError, UpdateMode};
 use uucore::{localized_help_template, translate};
 
@@ -36,6 +36,11 @@ impl Command for UCp {
         Signature::build("cp")
             .input_output_types(vec![(Type::Nothing, Type::Nothing)])
             .switch("recursive", "Copy directories recursively.", Some('r'))
+            .switch(
+                "no-dereference",
+                "Copy symbolic links as symbolic links instead of their targets.",
+                Some('P'),
+            )
             .switch("verbose", "Explicitly state what is being done.", Some('v'))
             .switch(
                 "force",
@@ -105,6 +110,11 @@ impl Command for UCp {
                 result: None,
             },
             Example {
+                description: "Copy a symbolic link without copying the target.",
+                example: "cp --no-dereference link-to-file newlink",
+                result: None,
+            },
+            Example {
                 description: "Copy file to a directory three levels above its current location.",
                 example: "cp myfile ....",
                 result: None,
@@ -133,6 +143,7 @@ impl Command for UCp {
         let no_clobber = call.has_flag(engine_state, stack, "no-clobber")?;
         let progress = call.has_flag(engine_state, stack, "progress")?;
         let recursive = call.has_flag(engine_state, stack, "recursive")?;
+        let no_dereference = call.has_flag(engine_state, stack, "no-dereference")?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let preserve: Option<Value> = call.get_flag(engine_state, stack, "preserve")?;
         let all = call.has_flag(engine_state, stack, "all")?;
@@ -221,7 +232,7 @@ impl Command for UCp {
             for v in exp_files {
                 match v {
                     Ok(path) => {
-                        if !recursive && path.is_dir() {
+                        if !recursive && source_path_is_dir(&path, !no_dereference) {
                             return Err(ShellError::Generic(
                                 GenericError::new(
                                     "could_not_copy_directory",
@@ -259,7 +270,7 @@ impl Command for UCp {
             debug,
             attributes,
             verbose: verbose || debug,
-            dereference: !recursive,
+            dereference: !recursive && !no_dereference,
             progress_bar: progress,
             attributes_only: false,
             backup: BackupMode::None,
@@ -325,6 +336,16 @@ fn make_attributes(preserve: Option<Value>) -> Result<uu_cp::Attributes, ShellEr
         // https://docs.rs/uu_cp/latest/uu_cp/struct.Attributes.html
         Ok(uu_cp::Attributes::NONE)
     }
+}
+
+fn source_path_is_dir(path: &Path, follow_symlink: bool) -> bool {
+    if follow_symlink {
+        return path.is_dir();
+    }
+
+    matches!(path.symlink_metadata(),
+        Ok(metadata) if metadata.file_type().is_dir()
+    )
 }
 
 fn parse_and_set_attributes_list(

@@ -54,8 +54,10 @@ impl Command for Items {
                             .map_while(move |(col, val)| {
                                 let result = closure
                                     .add_arg(Value::string(col, span))
-                                    .add_arg(val)
-                                    .run_with_input(PipelineData::empty())
+                                    .and_then(|closure| closure.add_arg(val))
+                                    .and_then(|closure| {
+                                        closure.run_with_input(PipelineData::empty())
+                                    })
                                     .and_then(|data| data.into_value(head));
 
                                 match result {

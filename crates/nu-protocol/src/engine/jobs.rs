@@ -17,6 +17,7 @@ use crate::{PipelineData, Signals, shell_error};
 
 use crate::JobId;
 
+#[derive(Debug)]
 pub struct Jobs {
     next_job_id: usize,
 
@@ -129,6 +130,7 @@ impl Jobs {
     }
 }
 
+#[derive(Debug)]
 pub enum Job {
     Thread(ThreadJob),
     Frozen(FrozenJob),
@@ -142,7 +144,7 @@ pub enum Job {
 // is a direct undocumentented requirement of its soundness, and is thus assumed by this
 // implementaation.
 // see issue https://github.com/rust-lang/rust/issues/126239.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
@@ -229,6 +231,7 @@ impl Job {
     }
 }
 
+#[derive(Debug)]
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
     pub description: Option<String>,
@@ -250,7 +253,7 @@ impl FrozenJob {
 }
 
 /// Stores the information about the background job currently being executed by this thread, if any
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CurrentJob {
     pub id: JobId,
 
@@ -268,6 +271,7 @@ pub struct CurrentJob {
 // Messages are initially sent over a mpsc channel,
 // and may then be stored in a IgnoredMail struct when
 // filtered out by a message tag.
+#[derive(Debug)]
 pub struct Mailbox {
     receiver: Receiver<Mail>,
     ignored_mail: IgnoredMail,
@@ -341,7 +345,7 @@ impl Mailbox {
 
 // A data structure used to store messages which were received, but currently ignored by a tag filter
 // messages are added and popped in a first-in-first-out matter.
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct IgnoredMail {
     next_id: usize,
     messages: BTreeMap<usize, Mail>,
