@@ -12,7 +12,7 @@ use crate::{
     hints::ExternalHinter,
     nu_highlight::NoOpHighlighter,
     prompt_update,
-    reedline_config::{KeybindingsMode, add_menus, create_keybindings},
+    reedline_config::{CommandMap, KeybindingsMode, add_menus, create_keybindings},
     util::eval_source,
 };
 use crossterm::cursor::SetCursorStyle;
@@ -43,6 +43,7 @@ use reedline::{
     HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
     SemanticPromptMarkers, Vi,
 };
+use slotmap::KeyData;
 use std::sync::atomic::Ordering;
 use std::{
     collections::HashMap,
@@ -686,7 +687,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     }
 
     start_time = Instant::now();
-    let mut host_commands = vec![];
+    let mut host_commands = CommandMap::with_key();
     // Changing the line editor based on the found keybindings
     line_editor = setup_keybindings(engine_state, line_editor, &mut host_commands);
 
@@ -751,15 +752,15 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 entry_num,
             );
         }
-        Ok(Signal::HostCommand(index)) => {
-            if let Ok(index) = index.parse::<usize>()
-                && let Some(val) = host_commands.get(index)
+        Ok(Signal::HostCommand(key)) => {
+            if let Ok(key) = key.parse::<u64>()
+                && let Some(val) = host_commands.remove(KeyData::from_ffi(key).into())
             {
                 *is_hostcommand = true;
                 match val {
                     Value::Closure { val: closure, .. } => {
                         let mut callee_stack =
-                            stack.captures_to_stack_preserve_out_dest(closure.captures.clone());
+                            stack.captures_to_stack_preserve_out_dest(closure.captures);
                         let block = engine_state.get_block(closure.block_id).clone();
 
                         // set buffer and cursor position for `commandline` command
@@ -801,7 +802,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                     }
                 }
             } else {
-                warn!("Signal::HostCommand received invalid index: {index:?}");
+                warn!("Signal::HostCommand received invalid key: {key:?}");
             };
         }
         Ok(Signal::CtrlC) => {
@@ -1322,7 +1323,7 @@ fn setup_history(
 fn setup_keybindings(
     engine_state: &EngineState,
     line_editor: Reedline,
-    host_commands: &mut Vec<Value>,
+    host_commands: &mut CommandMap,
 ) -> Reedline {
     match create_keybindings(engine_state.get_config(), host_commands) {
         Ok(keybindings) => match keybindings {
