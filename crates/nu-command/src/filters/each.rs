@@ -226,8 +226,7 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
             // which is currently considered undesirable (Nov 2022).
             PipelineData::Value(value, metadata) => {
                 ClosureEvalOnce::new(engine_state, stack, closure)
-                    .add_arg(value.clone())?
-                    .run_with_input(value.into_pipeline_data_with_metadata(metadata))
+                    .run_with_value_and_metadata(value, metadata)
             }
         };
 
