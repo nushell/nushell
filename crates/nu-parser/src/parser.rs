@@ -208,7 +208,7 @@ pub(crate) fn check_call(
             .unwrap_or(command.end);
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
-        // that that positional argument is missing from the parsed call
+        // that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
             let found = call.positional_iter().fold(false, |ac, expr| {
                 if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
