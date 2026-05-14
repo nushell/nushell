@@ -86,6 +86,7 @@ pub fn evaluate_repl(
     let use_color = config.use_ansi_coloring.get(engine_state);
 
     let mut entry_num = 0;
+    let mut is_hostcommand = false;
 
     // Let's grab the shell_integration configs
     let shell_integration_osc2 = config.shell_integration.osc2;
@@ -207,6 +208,7 @@ pub fn evaluate_repl(
                 use_color,
                 entry_num: &mut entry_num,
                 hostname: hostname.as_deref(),
+                is_hostcommand: &mut is_hostcommand,
             });
 
             // pass the most recent version of the line_editor back
@@ -315,6 +317,7 @@ struct LoopContext<'a> {
     use_color: bool,
     entry_num: &'a mut usize,
     hostname: Option<&'a str>,
+    is_hostcommand: &'a mut bool,
 }
 
 // Is there anything else I can do to avoid this clippy lint?
@@ -509,6 +512,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         use_color,
         entry_num,
         hostname,
+        is_hostcommand,
     } = ctx;
 
     let mut start_time = Instant::now();
@@ -705,7 +709,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("update_prompt", start_time, use_color);
 
-    line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+    if !*is_hostcommand {
+        line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
+    }
+    *is_hostcommand = false;
 
     *entry_num += 1;
 
@@ -748,6 +755,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
             if let Ok(index) = index.parse::<usize>()
                 && let Some(val) = host_commands.get(index)
             {
+                *is_hostcommand = true;
                 match val {
                     Value::Closure { val: closure, .. } => {
                         let mut callee_stack =
