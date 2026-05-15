@@ -114,10 +114,18 @@ fn watch_stream_outside() -> Result {
             | each { into record }
         ";
 
+        #[cfg(not(windows))]
         let expected = test_table![
             ["operation",  "path", "new_path"];
             [   "Rename",      (),    foo_txt],
             [   "Rename", foo_txt,         ()],
+        ];
+
+        #[cfg(windows)]
+        let expected = test_table![
+            ["operation",  "path", "new_path"];
+            [   "Create", foo_txt,         ()],
+            [   "Remove", foo_txt,         ()],
         ];
 
         let mut tester = test().cwd(dirs.test().join("watched_dir"));
