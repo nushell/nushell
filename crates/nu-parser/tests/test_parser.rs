@@ -3339,6 +3339,16 @@ mod input_types {
     #[case::vardecl(b"let a: table<a: int b: int> = [[a b]; [1 1]]", false)]
     #[case::vardecl(b"let a: list<string asd> = []", true)]
     #[case::vardecl(b"let a: record<a: int b: record<a: int> = {a: 1 b: {a: 1}}", true)]
+    #[case::opt_param_is_nullable(b"def f [p?: int] { mut x = $p; $x = null }", false)]
+    #[case::flag_with_type_is_nullable(b"def f [--flag: int] { mut x = $flag; $x = null }", false)]
+    #[case::opt_param_with_default_is_not_nullable(
+        b"def f [p?: int = 42] { mut x = $p; $x = null }",
+        true
+    )]
+    #[case::flag_with_type_and_default_is_not_nullable(
+        b"def f [--flag: int = 42] { mut x = $flag; $x = null }",
+        true
+    )]
     #[case::multiple_output_command_to_variable_oneof(
         br#"
             def str-or-int []: [nothing -> int, nothing -> string] { if (random bool) { 42 } else { "hello" } }

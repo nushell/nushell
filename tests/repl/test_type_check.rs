@@ -1,4 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains};
+use nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS;
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 #[test]
@@ -310,4 +312,28 @@ fn array_of_wrong_types() -> TestResult {
         "0..128 | each {} | into string | bytes collect",
         "nu::shell::only_supports_this_input_type",
     )
+}
+
+#[test]
+#[exp(ENFORCE_RUNTIME_ANNOTATIONS)]
+fn optional_parameters_and_flags_are_nullable() -> Result {
+    let mut tester = test();
+
+    let code = "
+        def foo [opt_param?: int] {
+            let var = $opt_param
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    let code = "
+        def foo [--flag: int] {
+            let var = $flag
+        }
+        foo
+    ";
+    let () = tester.run(code)?;
+
+    Ok(())
 }
