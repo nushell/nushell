@@ -45,18 +45,24 @@ impl Highlighter for NuHighlighter {
     }
 
     fn is_inside_string_literal(&self, line: &str, cursor: usize) -> bool {
-        let (global_span_offset, shapes) =
-            match self.cache.lock().ok().as_deref().and_then(|c| c.as_ref()).filter(|c| c.line == line) {
-                Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
-                None => {
-                    let mut working_set = StateWorkingSet::new(&self.engine_state);
-                    let block = parse(&mut working_set, None, line.as_bytes(), false);
-                    (
-                        self.engine_state.next_span_start(),
-                        Arc::new(flatten_block(&working_set, &block)),
-                    )
-                }
-            };
+        let (global_span_offset, shapes) = match self
+            .cache
+            .lock()
+            .ok()
+            .as_deref()
+            .and_then(|c| c.as_ref())
+            .filter(|c| c.line == line)
+        {
+            Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
+            None => {
+                let mut working_set = StateWorkingSet::new(&self.engine_state);
+                let block = parse(&mut working_set, None, line.as_bytes(), false);
+                (
+                    self.engine_state.next_span_start(),
+                    Arc::new(flatten_block(&working_set, &block)),
+                )
+            }
+        };
 
         let global_cursor = cursor + global_span_offset;
         shapes.iter().any(|(span, shape)| {

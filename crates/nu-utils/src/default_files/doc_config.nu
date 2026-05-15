@@ -70,6 +70,7 @@ $env.config.history.isolation = false
 # Examples:
 # Use a custom location (e.g., in your home directory):
 $env.config.history.path = "~/custom/my-history.txt"
+
 # Default behavior:
 # If not set (null), Nushell stores history in the default config directory.
 # If set to a directory, the appropriate file name (e.g., history.txt) is used.
@@ -211,7 +212,7 @@ $env.config.completions.algorithm = "prefix"
 # completions.sort (string): How completion results are sorted.
 # "smart": Sort order depends on the algorithm setting.
 # "alphabetical": Always sort alphabetically.
-# In "smart" mode: prefix/substring use alphabetical; fuzzy uses match score.
+# In "smart",  mode: prefix/substring use alphabetical; fuzzy uses match score.
 # Default: "smart"
 $env.config.completions.sort = "smart"
 
@@ -410,7 +411,7 @@ $env.config.table.padding.right = 1
 # truncating_suffix (string): Suffix for truncated text (only for truncating).
 # wrapping_try_keep_words (bool): Avoid breaking words when wrapping.
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
-$env.config.table.trim = { methodology: "wrapping", wrapping_try_keep_words: true }
+$env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true}
 
 # Example: Using truncating mode instead:
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
@@ -810,7 +811,7 @@ $env.config.color_config.shape_glob_interpolation = "cyan_bold"
 # color_config.shape_garbage: Style for invalid or unparsable arguments.
 # Also shown for unclosed expressions while typing.
 # Default: { fg: default, bg: red, attr: b }
-$env.config.color_config.shape_garbage = { fg: "default", bg: "red", attr: "b" }
+$env.config.color_config.shape_garbage = {fg: "default", bg: "red", attr: "b"}
 
 # color_config.shape_variable: Style for variable references ($env, $a).
 # Default: purple
@@ -822,7 +823,7 @@ $env.config.color_config.shape_vardecl = "purple"
 
 # color_config.shape_matching_brackets: Style for matching bracket pairs when cursor is on one.
 # Default: { attr: u }
-$env.config.color_config.shape_matching_brackets = { attr: "u" }
+$env.config.color_config.shape_matching_brackets = {attr: "u"}
 
 # color_config.shape_pipe: Style for the pipe symbol (|) in pipelines.
 # Default: purple_bold
@@ -987,7 +988,7 @@ $env.config.color_config.hints = "dark_gray"
 
 # color_config.search_result: Style for `find` command search result highlights.
 # Default: { bg: red, fg: default }
-$env.config.color_config.search_result = { bg: "red", fg: "default" }
+$env.config.color_config.search_result = {bg: "red", fg: "default"}
 
 # color_config.header: Style for table column headers.
 # Default: green_bold
@@ -1009,7 +1010,7 @@ $env.config.color_config.empty = "blue"
 # color_config.leading_trailing_space_bg: Style for leading/trailing whitespace in strings.
 # Use { attr: n } to disable highlighting.
 # Default: { attr: n }
-$env.config.color_config.leading_trailing_space_bg = { attr: "n" }
+$env.config.color_config.leading_trailing_space_bg = {attr: "n"}
 
 # -------------
 # Banner Colors
@@ -1069,7 +1070,11 @@ $env.config.explore = {}
 # Note: PROMPT_INDICATOR is appended to this value.
 # Default: A closure that displays the current directory with colors.
 $env.PROMPT_COMMAND = {||
-    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
+    let dir = match (
+        do -i {
+            $env.PWD | path relative-to $nu.home-dir
+        }
+    ) {
         null => $env.PWD
         '' => '~'
         $relative_pwd => ([~ $relative_pwd] | path join)
@@ -1099,13 +1104,18 @@ $env.PROMPT_COMMAND_RIGHT = {||
     ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
         str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
-    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+    let last_exit_code = if $env.LAST_EXIT_CODE != 0 {
+        ([
         (ansi rb)
         ($env.LAST_EXIT_CODE)
     ] | str join)
     } else { "" }
 
-    ([$last_exit_code, (char space), $time_segment] | str join)
+    ([
+        $last_exit_code
+        (char space)
+        $time_segment
+    ] | str join)
 }
 
 # Example: Simple right prompt with just date/time:
@@ -1162,8 +1172,8 @@ $env.ENV_CONVERSIONS = {}
 # Example: Convert XDG_DATA_DIRS to/from a list:
 # $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS | merge {
 #     "XDG_DATA_DIRS": {
-#         from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-#         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+#         from_string: {|s| $s | split row (char esep) | path expand --no-symlink }
+#         to_string: {|v| $v | path expand --no-symlink | str join (char esep) }
 #     }
 # }
 
