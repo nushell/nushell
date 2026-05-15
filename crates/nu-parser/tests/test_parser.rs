@@ -3339,6 +3339,23 @@ mod input_types {
     #[case::vardecl(b"let a: table<a: int b: int> = [[a b]; [1 1]]", false)]
     #[case::vardecl(b"let a: list<string asd> = []", true)]
     #[case::vardecl(b"let a: record<a: int b: record<a: int> = {a: 1 b: {a: 1}}", true)]
+    #[case::multiple_output_command_to_variable_oneof(
+        br#"
+            def str-or-int []: [nothing -> int, nothing -> string] { if (random bool) { 42 } else { "hello" } }
+            mut x = str-or-int
+            $x = "string"
+            $x = 42
+        "#,
+        false
+    )]
+    #[case::multiple_output_command_to_variable_not_any(
+        br#"
+            def str-or-int []: [nothing -> int, nothing -> string] { if (random bool) { 42 } else { "hello" } }
+            mut x = str-or-int
+            $x = [1 2 3]
+        "#,
+        true
+    )]
     fn test_type_annotations(#[case] phrase: &[u8], #[case] expect_errors: bool) {
         let mut engine_state = EngineState::new();
         add_declarations(&mut engine_state);
