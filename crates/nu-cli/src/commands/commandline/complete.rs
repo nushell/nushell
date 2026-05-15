@@ -64,55 +64,54 @@ If no input is provided, the current commandline contents will be used instead."
     ) -> Result<PipelineData, ShellError> {
         let detailed_completions = call.has_flag(engine_state, stack, "detailed")?;
 
-        let working_set = StateWorkingSet::new(engine_state);
-
         // TODO: it should be possible to add something like a `NuCompleter::borrowed()`
         // to avoid cloning the entire stack + engine state here, as a future optimization.
         let completer = NuCompleter::new(Arc::new(engine_state.clone()), Arc::new(stack.clone()));
 
+        let src_span = input.span().unwrap_or(call.head);
+
         let repl = engine_state.repl_state.lock().expect("repl state mutex");
-        let (buf, pos, input_span) = match &input {
-            PipelineData::Empty => (repl.buffer.as_str(), repl.cursor_pos, Span::unknown()),
-            PipelineData::Value(v @ Value::String { val, .. }, _) => {
-                (val.as_str(), val.len(), v.span())
-            }
-            input => {
+        let (buffer, cursor_pos) = match &input {
+            PipelineData::Empty => (repl.buffer.as_str(), repl.cursor_pos),
+            PipelineData::Value(Value::String { val, .. }, _) => (val.as_str(), val.len()),
+            _ => {
                 return Err(ShellError::PipelineMismatch {
                     exp_input_type: "string or nothing".into(),
                     dst_span: call.head,
-                    src_span: input.span().unwrap_or(call.head),
+                    src_span,
                 });
             }
         };
 
         let completions =
             if let Some(shape) = call.get_flag::<Value>(engine_state, stack, "type")? {
-                // Completion internals use the span/offset to determine if a completion is "intermediate"
-                // to limit to directories, but for our purposes we always want all completions,
-                // so we make a new span to sidestep that logic.
-                //
-                // We still retain the original span's start, so that the resulting
-                // completions have the same offset as if we had used the input span.
-                let offset = input_span.start;
-                let span = Span::new(offset, offset + buf.len());
-                let ctx = Context::new(&working_set, span, buf.as_bytes(), offset);
+                let completer: &NuCompleter = &completer;
+                let mut working_set = StateWorkingSet::new(engine_state);
+                let span = {
+                    let file = working_set.add_file("completer", buffer.as_bytes());
+                    working_set.get_span_for_file(file)
+                };
+                let ctx = Context::new(
+                    &working_set,
+                    span,
+                    &buffer.as_bytes()[..cursor_pos],
+                    span.start,
+                );
 
                 match shape.as_str()? {
                     "directory" => completer.process_completion(&mut DirectoryCompletion, &ctx),
                     "path" | "glob" => completer.process_completion(&mut FileCompletion, &ctx),
-                    actual => {
+                    other => {
                         return Err(ShellError::InvalidValue {
                             valid: r#"type "directory", "path", or "glob""#.into(),
-                            actual: escape_quote_string(actual),
+                            actual: escape_quote_string(other),
                             span: shape.span(),
                         });
                     }
                 }
             } else {
-                completer.fetch_completions_at(buf, pos)
+                completer.fetch_completions_at(buffer, cursor_pos)
             };
-
-        drop(repl);
 
         let result = completions
             .into_iter()

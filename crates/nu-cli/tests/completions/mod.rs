@@ -434,10 +434,10 @@ fn custom_completions_wraps_builtin_commandline_complete() {
     let command = "
         def comp [] {
             '%ls ' | commandline complete --detailed | prepend {
-              value: 'test',
-              display: 'test',
-              description: 'dummy',
-              style: { attr: b },
+                value: 'test',
+                display: 'test',
+                description: 'dummy',
+                style: { attr: b },
             }
         }
         def my-ls [arg: string@comp] {}
@@ -456,6 +456,41 @@ fn custom_completions_wraps_builtin_commandline_complete() {
         ],
         &suggestions,
     );
+}
+
+#[test]
+fn custom_completions_wraps_builtin_commandline_complete_path() {
+    let (_, _, mut engine, mut stack) = new_quote_engine();
+    let command = "
+        def completer [context: string] {
+            $context
+              | split row ' '
+              | last
+              | commandline complete --type path --detailed
+              | reject span # original spans are less useful with --path
+              | prepend { value: `'ten more'`, display_override: 'ten more' }
+        }
+        def my-ls [arg: path@completer] {}
+    ";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-ls te";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(
+        &vec![
+            "`te st.txt`",
+            "`te#st.txt`",
+            "`te'st.txt`",
+            "`te(st).txt`",
+            "'ten more'",
+            &format!("`{}`", folder("test dir")),
+        ],
+        &suggestions,
+    );
+
+    let spans: Vec<_> = suggestions.into_iter().map(|sugg| sugg.span).collect();
+    assert_eq!(vec![Span::new(6, 8); 6], spans);
 }
 
 #[rstest]

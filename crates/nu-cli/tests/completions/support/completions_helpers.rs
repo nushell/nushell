@@ -14,8 +14,7 @@ use std::path::MAIN_SEPARATOR;
 fn create_default_context() -> EngineState {
     let state = nu_cmd_lang::create_default_context();
     let state = nu_command::add_shell_command_context(state);
-    let state = nu_cli::add_cli_context(state);
-    state
+    nu_cli::add_cli_context(state)
 }
 
 // A fake cmd for testing.
