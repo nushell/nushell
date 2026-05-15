@@ -9,27 +9,73 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Highlighter, StyledText};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+struct HighlightCache {
+    line: String,
+    global_span_offset: usize,
+    shapes: Arc<Vec<(Span, FlatShape)>>,
+}
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
+    cache: Mutex<Option<HighlightCache>>,
+}
+
+impl NuHighlighter {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self {
+            engine_state,
+            stack,
+            cache: Mutex::new(None),
+        }
+    }
 }
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, cursor: usize) -> StyledText {
         let result = highlight_syntax(&self.engine_state, &self.stack, line, cursor);
+        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
+            line: line.to_string(),
+            global_span_offset: result.global_span_offset,
+            shapes: Arc::new(result.shapes),
+        });
         result.text
+    }
+
+    fn is_inside_string_literal(&self, line: &str, cursor: usize) -> bool {
+        let (global_span_offset, shapes) =
+            match self.cache.lock().ok().as_deref().and_then(|c| c.as_ref()).filter(|c| c.line == line) {
+                Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
+                None => {
+                    let mut working_set = StateWorkingSet::new(&self.engine_state);
+                    let block = parse(&mut working_set, None, line.as_bytes(), false);
+                    (
+                        self.engine_state.next_span_start(),
+                        Arc::new(flatten_block(&working_set, &block)),
+                    )
+                }
+            };
+
+        let global_cursor = cursor + global_span_offset;
+        shapes.iter().any(|(span, shape)| {
+            span.contains(global_cursor)
+                && matches!(
+                    shape,
+                    FlatShape::String | FlatShape::RawString | FlatShape::StringInterpolation
+                )
+        })
     }
 }
 
 /// Result of a syntax highlight operation
 #[derive(Default)]
 pub(crate) struct HighlightResult {
-    /// The highlighted text
     pub(crate) text: StyledText,
-    /// The span of any garbage that was highlighted
     pub(crate) found_garbage: Option<Span>,
+    pub(crate) global_span_offset: usize,
+    pub(crate) shapes: Vec<(Span, FlatShape)>,
 }
 
 pub(crate) fn highlight_syntax(
@@ -47,7 +93,10 @@ pub(crate) fn highlight_syntax(
     // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);
     let global_span_offset = engine_state.next_span_start();
-    let mut result = HighlightResult::default();
+    let mut result = HighlightResult {
+        global_span_offset,
+        ..Default::default()
+    };
     let mut last_seen_span_end = global_span_offset;
 
     let global_cursor_offset = cursor + global_span_offset;
@@ -155,6 +204,7 @@ pub(crate) fn highlight_syntax(
         result.text.push((Style::new(), remainder));
     }
 
+    result.shapes = shapes;
     result
 }
 

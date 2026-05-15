@@ -23,7 +23,7 @@ impl Command for Abbreviations {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["abbrev", "alias", "shorthand"]
+        vec!["alias", "shorthand"]
     }
 
     fn run(
