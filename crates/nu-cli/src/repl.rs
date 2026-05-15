@@ -34,8 +34,7 @@ use nu_protocol::{
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf,
-    stderr_write_all_and_flush,
+    perf, stderr_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
