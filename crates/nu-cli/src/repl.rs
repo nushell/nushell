@@ -35,6 +35,7 @@ use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
     perf,
+    stderr_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -759,13 +760,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // TODO: handle other signals like Signal::ExternalBreak
         Ok(_) => {}
         Err(err) => {
-            let message = err.to_string();
-            if !message.contains("duration") {
-                eprintln!("Error: {err:?}");
-                // TODO: Identify possible error cases where a hard failure is preferable
-                // Ignoring and reporting could hide bigger problems
-                // e.g. https://github.com/nushell/nushell/issues/6452
-                // Alternatively only allow that expected failures let the REPL loop
+            if !err.to_string().contains("duration") {
+                write_repl_error_details(&err);
+                cleanup_exit((), engine_state, 1);
+                return (true, stack, line_editor);
             }
 
             run_finaliziation_ansi_sequence(
@@ -1401,6 +1399,10 @@ fn run_ansi_sequence(seq: &str) {
     } else if let Err(e) = io::stdout().flush() {
         warn!("Error flushing stdio {e}");
     }
+}
+
+fn write_repl_error_details(error: &impl std::fmt::Debug) {
+    let _ = stderr_write_all_and_flush(format!("Error: {error:?}\n"));
 }
 
 fn run_finaliziation_ansi_sequence(

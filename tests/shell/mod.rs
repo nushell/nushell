@@ -3,6 +3,7 @@ use nu_test_support::{
     nu_repl_code,
     prelude::*,
 };
+use nu_utils::time::Instant;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
 
@@ -57,6 +58,72 @@ fn do_not_panic_if_broken_pipe() {
         .expect("failed to execute process");
 
     assert!(child_output.stderr.is_empty());
+}
+
+#[test]
+#[cfg(unix)]
+fn exit_failure_if_stdout_full() {
+    let mut child = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "{:?} > /dev/full",
+            nu_test_support::fs::executable_path()
+        ))
+        .spawn()
+        .expect("failed to spawn process");
+
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("failed to query child status") {
+            break status;
+        }
+
+        if start.elapsed() > std::time::Duration::from_secs(5) {
+            let _ = child.kill();
+            panic!("child did not exit within 5 seconds");
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+
+    assert!(!status.success(), "expected failure status");
+    assert!(
+        status.code().is_some(),
+        "expected process to exit normally rather than by signal"
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn exit_failure_if_stderr_full() {
+    let mut child = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(format!(
+            "{:?} 2>/dev/full",
+            nu_test_support::fs::executable_path()
+        ))
+        .spawn()
+        .expect("failed to spawn process");
+
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().expect("failed to query child status") {
+            break status;
+        }
+
+        if start.elapsed() > std::time::Duration::from_secs(5) {
+            let _ = child.kill();
+            panic!("child did not exit within 5 seconds");
+        }
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    };
+
+    assert!(!status.success(), "expected failure status");
+    assert!(
+        status.code().is_some(),
+        "expected process to exit normally rather than by signal"
+    );
 }
 
 #[test]
