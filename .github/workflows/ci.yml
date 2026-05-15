@@ -13,7 +13,7 @@ env:
   NUSHELL_CARGO_PROFILE: ci
   MAIN_OPTIONS: --workspace --exclude nu_plugin_* --all-targets
   PLUGIN_OPTIONS: --package nu_plugin_* --all-targets
-  WASM_OPTIONS: >
+  WASM_OPTIONS: >-
     --no-default-features
     --target wasm32-unknown-unknown
     -p nu-cmd-base
