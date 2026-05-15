@@ -38,7 +38,7 @@ env:
 
 defaults:
   run:
-    shell: bash
+    shell: ${{ runner.os == 'Windows' && 'bash' || '' }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
