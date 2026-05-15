@@ -36,10 +36,6 @@ env:
     -p nu-utils
     -p nuon
 
-defaults:
-  run:
-    shell: ${{ runner.os == 'Windows' && 'bash' || '' }}
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
   cancel-in-progress: true
@@ -123,6 +119,11 @@ jobs:
             workspace: { name: nu-path/fuzz }
     
     runs-on: ${{ matrix.target.host }}
+
+    defaults:
+      run:
+        # force to use bash for windows to properly resolve env variable for flags
+        shell: ${{ matrix.target.host == 'windows-latest' && 'bash' || '' }}
 
     steps:
       - name: Checkout Repo
