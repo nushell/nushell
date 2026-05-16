@@ -3809,8 +3809,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
 /// Returns `true` if the bytes start and end with matching quotes (either `"` or `'`)
 /// and have at least one character between them.
 fn is_quoted(bytes: &[u8]) -> bool {
-    (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    matches!(bytes, [b'\'', .., b'\''] | [b'"', .., b'"'])
 }
 
 pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Expression {
