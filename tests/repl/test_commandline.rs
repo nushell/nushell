@@ -181,18 +181,31 @@ fn commandline_test_complete_flags() -> TestResult {
     )
 }
 
+#[test]
+fn commandline_test_complete_reentrant() -> TestResult {
+    run_test(
+        "def recurse [a: string@[a, b, c]] {\n\
+            'recurse ' | commandline complete\n\
+        }\n\
+        def wrapped [arg:string@recurse] {}\n\
+        \n\
+        'wrapped ' | commandline complete | to nuon",
+        "[a, b, c]",
+    )
+}
+
 #[rstest]
 #[case::cmd(
     "test-",
-    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", kind: custom}"#
+    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", kind: command, type: custom}"#
 )]
 #[case::int(
     "test-cmd --int ",
-    r#"{value: "1", span: {start: 15, end: 15}, type: int, kind: value}"#
+    r#"{value: "1", span: {start: 15, end: 15}, kind: value, type: int}"#
 )]
 #[case::string(
     "test-cmd --string ",
-    "{value: a, span: {start: 18, end: 18}, type: string, kind: value}"
+    "{value: a, span: {start: 18, end: 18}, kind: value, type: string}"
 )]
 fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str) -> TestResult {
     run_test(

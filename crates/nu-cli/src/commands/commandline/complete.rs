@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use nu_engine::command_prelude::*;
 use nu_utils::escape_quote_string;
@@ -47,6 +47,7 @@ impl Command for CommandlineComplete {
 
     fn extra_description(&self) -> &str {
         "This command can be used to obtain the completions that Nushell would normally provide for the given commandline contents.
+Completions will be provided as if the cursor is placed at the end of the given string.
 
 If no input is provided, the current commandline contents will be used instead."
     }
@@ -70,10 +71,14 @@ If no input is provided, the current commandline contents will be used instead."
 
         let src_span = input.span().unwrap_or(call.head);
 
-        let repl = engine_state.repl_state.lock().expect("repl state mutex");
-        let (buffer, cursor_pos) = match &input {
-            PipelineData::Empty => (repl.buffer.as_str(), repl.cursor_pos),
-            PipelineData::Value(Value::String { val, .. }, _) => (val.as_str(), val.len()),
+        let (buffer, cursor_pos): (Cow<_>, _) = match &input {
+            PipelineData::Empty => {
+                // Clone the repl buffer to avoid holding the lock while fetching completions, which
+                // may execute arbitrary code (including other `commandline` calls that access the repl state).
+                let repl = engine_state.repl_state.lock().expect("repl state mutex");
+                (Cow::from(repl.buffer.clone()), repl.cursor_pos)
+            }
+            PipelineData::Value(Value::String { val, .. }, _) => (val.as_str().into(), val.len()),
             _ => {
                 return Err(ShellError::PipelineMismatch {
                     exp_input_type: "string or nothing".into(),
@@ -85,7 +90,6 @@ If no input is provided, the current commandline contents will be used instead."
 
         let completions =
             if let Some(shape) = call.get_flag::<Value>(engine_state, stack, "type")? {
-                let completer: &NuCompleter = &completer;
                 let mut working_set = StateWorkingSet::new(engine_state);
                 let span = {
                     let file = working_set.add_file("completer", buffer.as_bytes());
@@ -110,7 +114,7 @@ If no input is provided, the current commandline contents will be used instead."
                     }
                 }
             } else {
-                completer.fetch_completions_at(buffer, cursor_pos)
+                completer.fetch_completions_at(&buffer, cursor_pos)
             };
 
         let result = completions
