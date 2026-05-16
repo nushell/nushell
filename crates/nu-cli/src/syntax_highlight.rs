@@ -69,7 +69,10 @@ impl Highlighter for NuHighlighter {
             span.contains(global_cursor)
                 && matches!(
                     shape,
-                    FlatShape::String | FlatShape::RawString | FlatShape::StringInterpolation
+                    FlatShape::String
+                        | FlatShape::RawString
+                        | FlatShape::StringInterpolation
+                        | FlatShape::ExternalArg
                 )
         })
     }
@@ -613,16 +616,15 @@ mod tests {
     #[case("$\"hello\" hi", 0, true)] // $ — opening StringInterpolation span (0..2)
     #[case("$\"hello\" hi", 4, true)] // inside literal 'hello'
     #[case("$\"hello\" hi", 9, false)] // after closing quote
-    // no string
+    // no string 
     #[case("1 + 2", 0, false)]
     #[case("1 + 2", 2, false)]
-    #[case("ls -la", 0, false)]
-    #[case("ls -la", 3, false)]
-    // external args use FlatShape::ExternalArg not FlatShape::String
-    // therefore will always return false (ie !is_inside_string_literal)
-    #[case("bash -c \"echo hello\"", 0, false)] // on 'bash' — FlatShape::External
-    #[case("bash -c \"echo hello\"", 5, false)] // on '-c'   — FlatShape::ExternalArg
-    #[case("bash -c \"echo hello\"", 10, false)] // inside "echo hello" — FlatShape::ExternalArg
+    // ExternalArg is treated as a string literal to suppress abbreviation expansion in external commands
+    #[case("ls -la", 0, false)] // on 'ls'  — FlatShape::External
+    #[case("ls -la", 3, true)] // on '-la' — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 0, false)] // on 'bash'            — FlatShape::External
+    #[case("bash -c \"echo hello\"", 5, true)] // on '-c'              — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 10, true)] // inside "echo hello"  — FlatShape::ExternalArg
     fn test_is_inside_string_literal(
         #[case] line: &str,
         #[case] cursor: usize,
