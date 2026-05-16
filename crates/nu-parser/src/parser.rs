@@ -159,25 +159,23 @@ pub fn is_variable(bytes: &[u8]) -> bool {
     }
 }
 
+#[rustfmt::skip]
 pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
-    if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-        || (bytes.starts_with(b"`") && bytes.ends_with(b"`") && bytes.len() > 1)
-    {
-        &bytes[1..(bytes.len() - 1)]
-    } else {
-        bytes
+    match bytes {
+          [b'\'', trimmed @ .., b'\'']
+        | [ b'"', trimmed @ ..,  b'"']
+        | [ b'`', trimmed @ ..,  b'`'] => trimmed,
+        not_trimmed => not_trimmed,
     }
 }
 
+#[rustfmt::skip]
 pub fn trim_quotes_str(s: &str) -> &str {
-    if (s.starts_with('"') && s.ends_with('"') && s.len() > 1)
-        || (s.starts_with('\'') && s.ends_with('\'') && s.len() > 1)
-        || (s.starts_with('`') && s.ends_with('`') && s.len() > 1)
-    {
-        &s[1..(s.len() - 1)]
-    } else {
-        s
+    match s.as_bytes() {
+          [b'\'', .., b'\'']
+        | [ b'"', ..,  b'"']
+        | [ b'`', ..,  b'`'] => &s[1..(s.len() - 1)],
+        _ => s,
     }
 }
 
