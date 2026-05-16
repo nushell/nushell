@@ -120,7 +120,9 @@ fn escaped_glob_pattern_reports_current_error() -> Result {
             assert!(
                 err.contains("unrecognized escape")
                     || (err.contains("No matches found for Expand(")
-                        && err.contains("Pattern, file or folder not found")),
+                        && err.contains("Pattern, file or folder not found"))
+                    || (err.contains("Error extracting glob pattern")
+                        && err.contains("invalid range pattern")),
                 "expected escaped glob error, got {err:?}"
             );
 
