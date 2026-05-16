@@ -616,7 +616,7 @@ mod tests {
     #[case("$\"hello\" hi", 0, true)] // $ — opening StringInterpolation span (0..2)
     #[case("$\"hello\" hi", 4, true)] // inside literal 'hello'
     #[case("$\"hello\" hi", 9, false)] // after closing quote
-    // no string 
+    // no string
     #[case("1 + 2", 0, false)]
     #[case("1 + 2", 2, false)]
     // ExternalArg is treated as a string literal to suppress abbreviation expansion in external commands
