@@ -3,9 +3,11 @@ use nu_test_support::{
     nu_repl_code,
     prelude::*,
 };
-use nu_utils::time::Instant;
 use pretty_assertions::assert_eq;
 use rstest::rstest;
+
+#[cfg(unix)]
+use nu_utils::time::Instant;
 
 mod environment;
 mod pipeline;
