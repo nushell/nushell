@@ -58,29 +58,12 @@ fn is_identifier_byte(b: u8) -> bool {
 
 pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) -> bool {
     let bytes = working_set.get_span_contents(span);
-    if bytes.is_empty() {
-        return false;
-    }
-
-    if bytes == b"true"
-        || bytes == b"false"
-        || bytes == b"null"
-        || bytes == b"not"
-        || bytes == b"if"
-        || bytes == b"match"
-    {
-        return true;
-    }
-
-    let b = bytes[0];
-
-    // check for raw string
-    if bytes.starts_with(b"r#") {
-        return true;
-    }
-
-    if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
-        return true;
+    match bytes {
+        [] => return false,
+        b"true" | b"false" | b"null" | b"not" | b"if" | b"match" => return true,
+        [b'r', b'#', ..] => return true,
+        [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] => return true,
+        _ => {}
     }
 
     let starting_error_count = working_set.parse_errors.len();
