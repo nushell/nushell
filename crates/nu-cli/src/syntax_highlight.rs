@@ -578,3 +578,57 @@ fn get_char_at_index(s: &str, index: usize) -> Option<char> {
 fn get_char_length(c: char) -> usize {
     c.to_string().len()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::NuHighlighter;
+    use nu_protocol::engine::{EngineState, Stack};
+    use reedline::Highlighter;
+    use rstest::rstest;
+    use std::sync::Arc;
+
+    fn make_highlighter() -> NuHighlighter {
+        NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()))
+    }
+
+    #[rstest]
+    // 4-byte emoji
+    #[case("\"hello 🎉\" hi", 7, true)] // first byte of 🎉
+    #[case("\"hello 🎉\" hi", 9, true)] // third byte of 🎉
+    #[case("\"hello 🎉\" hi", 13, false)] // after closing quote
+    // 8-byte zwj emoji
+    #[case("\"hello 🤝🏿\" hi", 9, true)] // inside 🤝
+    #[case("\"hello 🤝🏿\" hi", 11, true)] // first byte of 🏿
+    #[case("\"hello 🤝🏿\" hi", 13, true)] // inside 🏿
+    #[case("\"hello 🤝🏿\" hi", 17, false)] // after closing quote
+    // 3-byte unicode
+    #[case("\"こんにちは\" hi", 2, true)] // inside こ
+    #[case("\"こんにちは\" hi", 5, true)] // inside ん
+    #[case("\"こんにちは\" hi", 13, true)] // start of は
+    #[case("\"こんにちは\" hi", 18, false)] // after closing quote
+    // raw string
+    #[case("r#'hello'# hi", 4, true)] // inside 'e'
+    #[case("r#'hello'# hi", 11, false)] // after closing #
+    // string interpolation
+    #[case("$\"hello\" hi", 0, true)] // $ — opening StringInterpolation span (0..2)
+    #[case("$\"hello\" hi", 4, true)] // inside literal 'hello'
+    #[case("$\"hello\" hi", 9, false)] // after closing quote
+    // no string
+    #[case("1 + 2", 0, false)]
+    #[case("1 + 2", 2, false)]
+    #[case("ls -la", 0, false)]
+    #[case("ls -la", 3, false)]
+    // external args use FlatShape::ExternalArg not FlatShape::String
+    // therefore will always return false (ie !is_inside_string_literal)
+    #[case("bash -c \"echo hello\"", 0, false)] // on 'bash' — FlatShape::External
+    #[case("bash -c \"echo hello\"", 5, false)] // on '-c'   — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 10, false)] // inside "echo hello" — FlatShape::ExternalArg
+    fn test_is_inside_string_literal(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] expected: bool,
+    ) {
+        let h = make_highlighter();
+        assert_eq!(h.is_inside_string_literal(line, cursor), expected);
+    }
+}
