@@ -3011,12 +3011,7 @@ fn parse_path_like(
     trace!("parsing: {}", kind.trace_name());
 
     // Check for bare word interpolation
-    if !bytes.is_empty()
-        && bytes[0] != b'\''
-        && bytes[0] != b'"'
-        && bytes[0] != b'`'
-        && bytes.contains(&b'(')
-    {
+    if is_bare_string_interpolation(bytes) {
         let interpolation_expr = parse_string_interpolation(working_set, span);
 
         // Convert StringInterpolation to the appropriate interpolation type
@@ -3045,6 +3040,14 @@ fn parse_path_like(
         working_set.error(ParseError::Expected(kind.error_msg(), span));
 
         garbage(working_set, span)
+    }
+}
+
+fn is_bare_string_interpolation(bytes: &[u8]) -> bool {
+    match bytes {
+        [] => false,
+        [b'\'' | b'"' | b'`', ..] => false,
+        _ => bytes.contains(&b'('),
     }
 }
 
@@ -3735,7 +3738,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     // Check for bare word interpolation
-    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
+    if is_bare_string_interpolation(bytes) {
         return parse_string_interpolation(working_set, span);
     }
 
