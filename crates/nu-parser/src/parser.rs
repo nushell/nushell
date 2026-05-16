@@ -115,19 +115,12 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 }
 
 fn is_env_variable_name(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
+    match bytes {
+        [first, rest @ ..] if first == &b'_' || first.is_ascii_alphabetic() => {
+            rest.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'_')
+        }
+        _ => false,
     }
-
-    let first = bytes[0];
-    if !first.is_ascii_alphabetic() && first != b'_' {
-        return false;
-    }
-
-    bytes
-        .iter()
-        .skip(1)
-        .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
