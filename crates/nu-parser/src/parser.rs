@@ -37,23 +37,8 @@ pub fn garbage_pipeline(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pi
     Pipeline::from_vec(vec![garbage(working_set, Span::concat(spans))])
 }
 
-fn is_identifier_byte(b: u8) -> bool {
-    b != b'.'
-        && b != b'['
-        && b != b'('
-        && b != b'{'
-        && b != b'+'
-        && b != b'-'
-        && b != b'*'
-        && b != b'^'
-        && b != b'%'
-        && b != b'/'
-        && b != b'='
-        && b != b'!'
-        && b != b'<'
-        && b != b'>'
-        && b != b'&'
-        && b != b'|'
+fn is_identifier_byte(b: &u8) -> bool {
+    !b".[({+-*^%/=!<>&|".contains(b)
 }
 
 pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) -> bool {
@@ -124,7 +109,7 @@ fn is_env_variable_name(bytes: &[u8]) -> bool {
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
-    bytes.iter().all(|x| is_identifier_byte(*x))
+    bytes.iter().all(is_identifier_byte)
 }
 
 pub fn is_variable(bytes: &[u8]) -> bool {
