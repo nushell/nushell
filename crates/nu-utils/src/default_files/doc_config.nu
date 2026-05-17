@@ -41,11 +41,17 @@
 # history.file_format (string): The format used for the command history file.
 # "sqlite": Store history in an SQLite database with additional context (timestamps, etc.).
 # "plaintext": Store one command per line without additional context.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.file_format = "..."`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: "plaintext"
 $env.config.history.file_format = "plaintext"
 
 # history.max_size (int): Maximum number of entries allowed in the history.
 # After exceeding this value, the oldest history items will be removed.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.max_size = ...`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: 100_000
 $env.config.history.max_size = 100_000
 
@@ -61,6 +67,9 @@ $env.config.history.sync_on_enter = true
 # when scrolling through history (Up/Down keys).
 # false: All commands from other sessions are mixed with the current shell's history.
 # Note: Only applies to SQLite-backed history. Older history items are always shown.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.isolation = ...`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: false
 $env.config.history.isolation = false
 

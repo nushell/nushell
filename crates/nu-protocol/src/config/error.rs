@@ -5,7 +5,7 @@ use crate::{Config, ConfigError, ConfigWarning, ShellError, ShellWarning, Span, 
 #[must_use]
 pub(super) struct ConfigErrors<'a> {
     config: &'a Config,
-    history_path_locked: bool,
+    history_locked_after_startup: bool,
     errors: Vec<ConfigError>,
     warnings: Vec<ConfigWarning>,
 }
@@ -14,14 +14,14 @@ impl<'a> ConfigErrors<'a> {
     pub fn new(config: &'a Config) -> Self {
         Self {
             config,
-            history_path_locked: false,
+            history_locked_after_startup: false,
             errors: Vec::new(),
             warnings: Vec::new(),
         }
     }
 
-    pub fn with_history_path_locked(mut self, locked: bool) -> Self {
-        self.history_path_locked = locked;
+    pub fn with_history_locked_after_startup(mut self, locked: bool) -> Self {
+        self.history_locked_after_startup = locked;
         self
     }
 
@@ -29,8 +29,8 @@ impl<'a> ConfigErrors<'a> {
         self.config
     }
 
-    pub fn history_path_locked(&self) -> bool {
-        self.history_path_locked
+    pub fn history_locked_after_startup(&self) -> bool {
+        self.history_locked_after_startup
     }
 
     pub fn has_errors(&self) -> bool {

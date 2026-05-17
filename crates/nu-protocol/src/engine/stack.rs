@@ -222,7 +222,7 @@ impl Stack {
             let result = config.update_from_value_with_options(
                 &old,
                 value,
-                engine_state.history_path_locked,
+                engine_state.history_locked_after_startup,
             );
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));

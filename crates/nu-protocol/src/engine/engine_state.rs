@@ -115,13 +115,14 @@ pub struct EngineState {
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
-    /// Whether `$env.config.history.path` is locked from further changes.
+    /// Whether the startup-only `$env.config.history.*` options are locked from further
+    /// changes (currently `path`, `max_size`, `file_format`, `isolation`).
     ///
     /// Set to `true` once the REPL has finished initializing reedline's history backend.
-    /// After that point, changing `history.path` would have no effect on where history is
-    /// actually written, so attempts to mutate it are rejected with an error instead of
-    /// being silently ignored.
-    pub history_path_locked: bool,
+    /// After that point, changing any of these options would have no effect on the live
+    /// history, so attempts to mutate them are rejected with an error instead of being
+    /// silently ignored.
+    pub history_locked_after_startup: bool,
     // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
@@ -211,7 +212,7 @@ impl EngineState {
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
-            history_path_locked: false,
+            history_locked_after_startup: false,
             file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
