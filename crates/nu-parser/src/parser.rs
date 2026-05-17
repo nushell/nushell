@@ -484,9 +484,9 @@ pub fn parse_external_call(
 
     let head_span = spans[0];
 
-    let head_contents = working_set.get_span_contents(head_span).to_vec();
+    let head_contents = working_set.get_span_contents(head_span);
 
-    let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
+    let head = if let [b'$' | b'(', ..] = head_contents {
         // the expression is inside external_call, so it's a subexpression
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
