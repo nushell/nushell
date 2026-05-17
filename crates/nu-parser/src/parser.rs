@@ -113,10 +113,9 @@ fn is_identifier(bytes: &[u8]) -> bool {
 }
 
 pub fn is_variable(bytes: &[u8]) -> bool {
-    if bytes.len() > 1 && bytes[0] == b'$' {
-        is_identifier(&bytes[1..])
-    } else {
-        is_identifier(bytes)
+    match bytes {
+        [b'$', var @ ..] | var if !var.is_empty() => is_identifier(var),
+        _ => false,
     }
 }
 
