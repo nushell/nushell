@@ -211,3 +211,262 @@ fn is_list_of_records(val: &Value) -> bool {
         _ => false,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ListMerge, Merge, MergeStrategy, typecheck};
+    use nu_protocol::{ShellError, Span, Value, test_record, test_table};
+
+    #[test]
+    fn shallow_record_merge_overwrites_and_preserves() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "a" => 1,
+            "b" => 2,
+        };
+        let rhs = test_record! {
+            "a" => 42,
+            "c" => 9,
+        };
+
+        let merged = lhs.merge(rhs, MergeStrategy::Shallow, Span::test_data())?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "a" => 42,
+                "b" => 2,
+                "c" => 9,
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deep_record_merge_recurses_nested_records() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "a" => test_record! {
+                "b" => test_record! {
+                    "c" => 1,
+                    "d" => 2,
+                },
+            },
+        };
+        let rhs = test_record! {
+            "a" => test_record! {
+                "b" => test_record! {
+                    "d" => 20,
+                    "e" => 30,
+                },
+            },
+        };
+
+        let merged = lhs.merge(
+            rhs,
+            MergeStrategy::Deep(ListMerge::Overwrite),
+            Span::test_data(),
+        )?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "a" => test_record! {
+                    "b" => test_record! {
+                        "c" => 1,
+                        "d" => 20,
+                        "e" => 30,
+                    },
+                },
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deep_list_merge_append() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "a" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+        };
+        let rhs = test_record! {
+            "a" => Value::test_list(vec![Value::test_int(3), Value::test_int(4)]),
+        };
+
+        let merged = lhs.merge(
+            rhs,
+            MergeStrategy::Deep(ListMerge::Append),
+            Span::test_data(),
+        )?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "a" => Value::test_list(vec![
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ]),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deep_list_merge_prepend() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "a" => Value::test_list(vec![Value::test_int(1), Value::test_int(2)]),
+        };
+        let rhs = test_record! {
+            "a" => Value::test_list(vec![Value::test_int(3), Value::test_int(4)]),
+        };
+
+        let merged = lhs.merge(
+            rhs,
+            MergeStrategy::Deep(ListMerge::Prepend),
+            Span::test_data(),
+        )?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "a" => Value::test_list(vec![
+                    Value::test_int(3),
+                    Value::test_int(4),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                ]),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deep_list_merge_overwrite_for_scalar_lists() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "a" => Value::test_list(vec![
+                Value::test_int(1),
+                Value::test_int(2),
+                Value::test_int(3),
+            ]),
+        };
+        let rhs = test_record! {
+            "a" => Value::test_list(vec![
+                Value::test_int(4),
+                Value::test_int(5),
+                Value::test_int(6),
+            ]),
+        };
+
+        let merged = lhs.merge(
+            rhs,
+            MergeStrategy::Deep(ListMerge::Overwrite),
+            Span::test_data(),
+        )?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "a" => Value::test_list(vec![
+                    Value::test_int(4),
+                    Value::test_int(5),
+                    Value::test_int(6),
+                ]),
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn table_merge_is_elementwise_and_preserves_unmatched_rows() -> Result<(), ShellError> {
+        let lhs = test_table![
+            ["a", "b"];
+            [1, 2],
+            [3, 4],
+        ]
+        .into_list()?;
+        let rhs = test_table![
+            ["a", "c"];
+            [10, 20],
+        ]
+        .into_list()?;
+
+        let merged = lhs.merge(rhs, MergeStrategy::Shallow, Span::test_data())?;
+
+        assert_eq!(
+            merged,
+            vec![
+                test_record! {
+                    "a" => 10,
+                    "b" => 2,
+                    "c" => 20,
+                },
+                test_record! {
+                    "a" => 3,
+                    "b" => 4,
+                },
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn deep_elementwise_merges_nested_tables() -> Result<(), ShellError> {
+        let lhs = test_record! {
+            "inner" => test_table![
+                ["a"];
+                [test_record! {
+                    "x" => 1,
+                }],
+                [test_record! {
+                    "y" => 2,
+                }],
+            ],
+        };
+        let rhs = test_record! {
+            "inner" => test_table![
+                ["a"];
+                [test_record! {
+                    "z" => 3,
+                }],
+            ],
+        };
+
+        let merged = lhs.merge(
+            rhs,
+            MergeStrategy::Deep(ListMerge::Elementwise),
+            Span::test_data(),
+        )?;
+
+        assert_eq!(
+            merged,
+            test_record! {
+                "inner" => test_table![
+                    ["a"];
+                    [test_record! {
+                        "x" => 1,
+                        "z" => 3,
+                    }],
+                    [test_record! {
+                        "y" => 2,
+                    }],
+                ],
+            }
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn typecheck_rejects_record_and_scalar() {
+        let result = typecheck(
+            &test_record! {
+                "a" => 1,
+            },
+            &Value::test_int(1),
+            Span::test_data(),
+        );
+
+        assert!(matches!(
+            result,
+            Err(ShellError::OnlySupportsThisInputType { .. })
+        ));
+    }
+}
