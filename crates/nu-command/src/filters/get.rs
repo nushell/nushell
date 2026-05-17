@@ -231,7 +231,7 @@ fn split_cell_paths(
 ) -> Result<(CellPath, Vec<CellPath>), ShellError> {
     let mut cell_paths = cell_paths.into_iter();
     let Some(cell_path) = cell_paths.next() else {
-        return Err(ShellError::AccessEmptyContent { span });
+        return Err(ShellError::MissingParameter { param_name: "cell_path".into(), span });
     };
 
     Ok((cell_path, cell_paths.collect()))
