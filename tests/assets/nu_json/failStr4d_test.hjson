@@ -1,0 +1,5 @@
+[
+  foo
+  # invalid quoteless string
+  [x
+]

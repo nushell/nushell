@@ -1,0 +1,68 @@
+/target
+/scratch
+**/*.rs.bk
+history.txt
+tests/fixtures/nuplayground
+crates/*/target
+.mailmap
+
+# Debian/Ubuntu
+debian/.debhelper/
+debian/debhelper-build-stamp
+debian/files
+debian/nu.substvars
+debian/nu/
+
+# macOS junk
+.DS_Store
+
+# JetBrains' IDE items
+.idea/*
+
+# VSCode's IDE items
+.vscode/*
+
+# JetBrains' Fleet IDE
+.fleet/*
+
+# Visual Studio Extension SourceGear Rust items
+VSWorkspaceSettings.json
+unstable_cargo_features.txt
+
+# Helix configuration folder
+.helix/*
+.helix
+wix/bin/
+wix/obj/
+wix/nu/
+
+# Coverage tools
+lcov.info
+tarpaulin-report.html
+
+# benchmarking
+/tango
+
+# Visual Studio
+.vs/*
+*.rsproj
+*.rsproj.user
+*.sln
+*.code-workspace
+
+# direnv
+.direnv/
+.envrc
+
+# nix
+/result
+/scripts/nix/result
+
+# pre-commit-hooks
+.pre-commit-config.yaml
+
+# skills
+.github/skills/*
+
+# Claude settings
+.claude

@@ -1,0 +1,33 @@
+[target.x86_64-pc-windows-msvc]
+# increase the default windows stack size
+# statically link the CRT so users don't have to install it
+rustflags = ["-C", "link-args=-stack:10000000", "-C", "target-feature=+crt-static"]
+
+# keeping this but commentting out in case we need them in the future
+
+# set a 2 gb stack size (0x80000000 = 2147483648 bytes = 2 GB)
+# [target.x86_64-unknown-linux-gnu]
+# rustflags = ["-C", "link-args=-Wl,-z stack-size=0x80000000"]
+
+# set a 2 gb stack size (0x80000000 = 2147483648 bytes = 2 GB)
+# [target.x86_64-apple-darwin]
+# rustflags = ["-C", "link-args=-Wl,-stack_size,0x80000000"]
+
+# How to use mold in linux and mac
+
+# [target.x86_64-unknown-linux-gnu]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/mold"]
+
+# [target.x86_64-apple-darwin]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+# [target.aarch64-apple-darwin]
+# linker = "clang"
+# rustflags = ["-C", "link-arg=-fuse-ld=mold"]
+
+[target.aarch64-apple-darwin]
+# We can guarantee that this target will always run on a CPU with _at least_
+# these capabilities, so let's optimize for them
+rustflags = ["-Ctarget-cpu=apple-m1"]

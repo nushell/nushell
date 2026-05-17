@@ -1,0 +1,36 @@
+<Project Sdk="WixToolset.Sdk/6.0.0">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <OutputName>nu-$(Platform)</OutputName>
+    <UpgradeCode>82D756D2-19FA-4F09-B10F-64942E89F364</UpgradeCode>
+    <DefineConstants>
+      SourceDir=$(MSBuildProjectDirectory)\nu;
+    </DefineConstants>
+    <SuppressValidation>true</SuppressValidation>
+    <SuppressIces>ICE80</SuppressIces>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Platform)' == 'x64' ">
+    <InstallerPlatform>x64</InstallerPlatform>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Platform)' == 'arm64' ">
+    <InstallerPlatform>arm64</InstallerPlatform>
+    <DefineConstants>$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.0" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <BindPath Include="." />
+    <Content Include="nu.ico" />
+    <Content Include="README.txt" />
+    <Content Include="License.rtf" />
+    <Content Include="windows-terminal-profile.json" />
+  </ItemGroup>
+
+</Project>

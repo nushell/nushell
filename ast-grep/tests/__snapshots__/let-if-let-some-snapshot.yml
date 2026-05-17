@@ -1,0 +1,32 @@
+id: let-if-let-some
+snapshots:
+  ? |
+    let completions_path = if let Some(mut path) = nu_path::data_dir() {
+      path.push("nushell");
+      path.push("completions");
+      path.into()
+    } else {
+      nu::path::PathBuf::new()
+    }
+  : fixed: |+
+      let completions_path = nu_path::data_dir().map(|mut path| {
+          path.push("nushell");
+          path.push("completions");
+          path.into()
+      })
+      .unwrap_or_else(|| {
+          nu::path::PathBuf::new()
+      });
+
+    labels:
+    - source: |-
+        let completions_path = if let Some(mut path) = nu_path::data_dir() {
+          path.push("nushell");
+          path.push("completions");
+          path.into()
+        } else {
+          nu::path::PathBuf::new()
+        }
+      style: primary
+      start: 0
+      end: 172

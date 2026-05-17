@@ -1,0 +1,235 @@
+use crate::{
+    PolarsPlugin,
+    dataframe::values::{Column, NuDataFrame, NuExpression},
+    values::{CustomValueSupport, PolarsPluginObject, PolarsPluginType, cant_convert_err},
+};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
+use polars::prelude::{DataType, Expr, lit};
+
+#[derive(Clone)]
+pub struct ExprIsIn;
+
+impl PluginCommand for ExprIsIn {
+    type Plugin = PolarsPlugin;
+
+    fn name(&self) -> &str {
+        "polars is-in"
+    }
+
+    fn description(&self) -> &str {
+        "Creates an is-in expression or checks to see if the elements are contained in the right series"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .required("list", SyntaxShape::Any, "List to check if values are in.")
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+            ])
+            .category(Category::Custom("expression".into()))
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Creates a is-in expression using a list",
+                example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | polars into-df);
+            $df | polars with-column (polars col a | polars is-in [one two] | polars as a_in)"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_string("one"),
+                                    Value::test_string("two"),
+                                    Value::test_string("three"),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "a_in".to_string(),
+                                vec![
+                                    Value::test_bool(true),
+                                    Value::test_bool(true),
+                                    Value::test_bool(false),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Creates a is-in expression using a polars series",
+                example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | polars into-df);
+            $df | polars with-column (polars col a | polars is-in ([one two] | polars into-df) | polars as a_in)"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_string("one"),
+                                    Value::test_string("two"),
+                                    Value::test_string("three"),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "a_in".to_string(),
+                                vec![
+                                    Value::test_bool(true),
+                                    Value::test_bool(true),
+                                    Value::test_bool(false),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Creates a is-in expression using a polars expr",
+                example: r#"let df = ([[a b]; [one 1] [two 2] [three 3]] | polars into-df);
+            $df | polars with-column (polars col a | polars is-in (polars lit [one two] | polars implode) | polars as a_in)"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_string("one"),
+                                    Value::test_string("two"),
+                                    Value::test_string("three"),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2), Value::test_int(3)],
+                            ),
+                            Column::new(
+                                "a_in".to_string(),
+                                vec![
+                                    Value::test_bool(true),
+                                    Value::test_bool(true),
+                                    Value::test_bool(false),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["check", "contained", "is-contain", "match"]
+    }
+
+    fn run(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        mut input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.take_metadata();
+        let value = input.into_value(call.head)?;
+        match PolarsPluginObject::try_from_value(plugin, &value)? {
+            PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),
+            PolarsPluginObject::NuSelector(selector) => {
+                let expr = selector.into_expr();
+                command_expr(plugin, engine, call, expr)
+            }
+            _ => Err(cant_convert_err(
+                &value,
+                &[
+                    PolarsPluginType::NuDataFrame,
+                    PolarsPluginType::NuLazyFrame,
+                    PolarsPluginType::NuExpression,
+                    PolarsPluginType::NuSelector,
+                ],
+            )),
+        }
+        .map_err(LabeledError::from)
+        .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+fn command_expr(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    expr: NuExpression,
+) -> Result<PipelineData, ShellError> {
+    let is_in_expr: Expr = call
+        .req::<Value>(0)
+        .and_then(|ref value| NuExpression::try_from_value(plugin, value))
+        .map(|expr| expr.into_polars())
+        .or_else(|_| {
+            let values: NuDataFrame = call
+                .req::<Value>(0)
+                .and_then(|ref value| NuDataFrame::try_from_value(plugin, value))
+                .or_else(|_| {
+                    call.req::<Vec<Value>>(0).and_then(|list| {
+                        NuDataFrame::try_from_columns(
+                            vec![Column::new("list".to_string(), list)],
+                            None,
+                            call.head,
+                        )
+                    })
+                })?;
+
+            let list = values.as_series(call.head)?;
+
+            if matches!(list.dtype(), DataType::Object(..)) {
+                Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Cannot use a mixed list as argument".into(),
+                    span: call.head,
+                })
+            } else {
+                Ok(lit(list).implode())
+            }
+        })?;
+
+    let expr: NuExpression = expr.into_polars().is_in(is_in_expr, true).into();
+    expr.to_pipeline_data(plugin, engine, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&ExprIsIn)
+    }
+}

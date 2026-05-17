@@ -1,0 +1,97 @@
+use nu_protocol::test_record;
+use nu_test_support::{fs::fixtures, prelude::*};
+
+#[test]
+fn all() -> Result {
+    let sample = r#"{
+        meals: [
+            {description: "1 large egg", calories: 90},
+            {description: "1 cup white rice", calories: 250},
+            {description: "1 tablespoon fish oil", calories: 108}
+        ]
+    }"#;
+
+    let code = "
+        from nuon
+        | get meals
+        | get calories
+        | math sum
+    ";
+
+    test().run_with_data(code, sample).expect_value_eq(448)
+}
+
+#[test]
+#[allow(clippy::unreadable_literal)]
+#[allow(clippy::float_cmp)]
+fn compute_sum_of_individual_row() -> Result {
+    let answers_for_columns = [
+        ("cpu", 88.257434),
+        ("mem", 3032375296.),
+        ("virtual", 102579965952.),
+    ];
+    let mut tester = test().cwd(fixtures().join("formats"));
+    for (column_name, expected_value) in answers_for_columns {
+        let () = tester.run_with_data("let column = into cell-path", [column_name])?;
+        let code = "
+            open sample-ps-output.json
+            | select $column
+            | math sum
+            | get $column
+        ";
+        tester.run(code).expect_value_eq(expected_value)?;
+    }
+    Ok(())
+}
+
+#[test]
+#[allow(clippy::unreadable_literal)]
+#[allow(clippy::float_cmp)]
+fn compute_sum_of_table() -> Result {
+    let code = "
+        open sample-ps-output.json
+        | select cpu mem virtual
+        | math sum
+    ";
+
+    let expected = test_record! {
+        "cpu" => 88.257434,
+        "mem" => 3032375296.,
+        "virtual" => 102579965952.,
+    };
+
+    test()
+        .cwd(fixtures().join("formats"))
+        .run(code)
+        .expect_value_eq(expected)
+}
+
+#[test]
+fn sum_of_a_row_containing_a_table_is_an_error() -> Result {
+    let outcome = test()
+        .cwd(fixtures().join("formats"))
+        .run("open sample-sys-output.json | math sum")
+        .expect_shell_error()?;
+    match outcome {
+        ShellError::CantConvert { from_type, .. } => {
+            assert_contains("record", from_type);
+        }
+        err => return Err(err.into()),
+    }
+    Ok(())
+}
+
+#[test]
+fn const_sum() -> Result {
+    test()
+        .run("const SUM = [1 3] | math sum; $SUM")
+        .expect_value_eq(4)
+}
+
+#[test]
+fn cannot_sum_infinite_range() -> Result {
+    let outcome = test().run("0.. | math sum").expect_shell_error()?;
+
+    assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
+    Ok(())
+}

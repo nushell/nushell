@@ -1,0 +1,5 @@
+id: span-unknown
+invalid:
+  - |
+    thing.into_value(Span::unknown())
+valid: []

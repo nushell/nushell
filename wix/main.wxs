@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+  - https://learn.microsoft.com/en-us/windows/win32/msi/single-package-authoring
+  - https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/msiexec
+-->
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+
+  <?define ProductName = "Nushell" ?>
+  <?define ApplicationFolderName = "nu" ?>
+  <?define ProductVersion = "$(env.NU_RELEASE_VERSION)" ?>
+  <?define Manufacturer = "The Nushell Project Developers" ?>
+  <?define UpgradeCode = "82D756D2-19FA-4F09-B10F-64942E89F364" ?>
+
+  <!-- https://docs.firegiant.com/wix/schema/wxs/package/ -->
+  <Package
+    Compressed="yes"
+    Id="Nushell.Nushell"
+    InstallerVersion="500"
+    Scope="perUserOrMachine"
+    Name="$(var.ProductName)"
+    Version="$(var.ProductVersion)"
+    UpgradeCode="$(var.UpgradeCode)"
+    Manufacturer="$(var.Manufacturer)" >
+
+    <MajorUpgrade
+      MigrateFeatures="yes"
+      Schedule="afterInstallInitialize"
+      DowngradeErrorMessage="A newer version of [ProductName] is already installed. Setup will now exit." />
+
+    <!-- Embed cab media to MSI file -->
+    <Media Id="1" Cabinet="cab1.cab" EmbedCab="yes" />
+
+    <!-- Allow install for Current User Or Machine -->
+    <Property Id="WixUISupportPerUser" Value="1" />
+    <Property Id="WixUISupportPerMachine" Value="1" />
+    <!-- Install for PerUser by default -->
+    <!-- If set to WixPerMachineFolder will install for PerMachine by default -->
+    <Property Id="WixAppFolder" Value="WixLocalAppDataFolder" />
+
+    <!-- Workaround Wix Bug: https://github.com/wixtoolset/issues/issues/2165 -->
+    <!-- The suggested folder in the dest folder dialog should be C:\Program Files\nu -->
+    <CustomAction Id="Overwrite_WixSetDefaultPerMachineFolder" Property="WixPerMachineFolder"
+      Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
+    <CustomAction Id="Overwrite_ARPINSTALLLOCATION" Property="ARPINSTALLLOCATION"
+      Value="[ProgramFiles64Folder][ApplicationFolderName]" Execute="immediate" />
+    <InstallUISequence>
+      <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
+    </InstallUISequence>
+    <InstallExecuteSequence>
+      <Custom Action="Overwrite_WixSetDefaultPerMachineFolder" After="WixSetDefaultPerMachineFolder" />
+      <Custom Action="Overwrite_ARPINSTALLLOCATION" After="InstallValidate"/>
+    </InstallExecuteSequence>
+
+    <!-- Enable UAC prompt when installing for all users -->
+    <!-- <Property Id="MSIUSEREALADMINDETECTION" Value="1" /> -->
+
+    <Icon Id="ProductIconId" SourceFile="$(var.ProjectDir)/nu.ico"/>
+    <Property Id="ARPPRODUCTICON" Value="ProductIconId" />
+    <Property Id='ARPHELPLINK' Value='https://www.nushell.sh/book/' />
+    <Property Id="ApplicationFolderName" Value="$(var.ApplicationFolderName)" />
+
+    <!-- INSTALLDIR is the logical target directory whose path will be set by the INSTALLDIR property. -->
+    <Directory Id="INSTALLDIR" Name="$(var.ApplicationFolderName)">
+      <!-- LOGICAL_BINDIR's path will be set by the LOGICAL_BINDIR property -->
+      <Directory Id="LOGICAL_BINDIR" Name="bin" />
+    </Directory>
+
+    <!-- Per Machine Install - these are the definitions of the physical locations -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="APPLICATIONFOLDER" Name="$(var.ApplicationFolderName)">
+        <Directory Id="BINDIR" Name="bin">
+          <!-- Per-machine PATH component -->
+          <Component Id="EnvironmentPathMachine" Guid="*" Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1">
+            <!-- The value MUST BE [LOGICAL_BINDIR] to make sure the env been removed for a custom dir installation -->
+            <Environment Id="PATHMachine"
+                         Name="PATH"
+                         Value="[LOGICAL_BINDIR]"
+                         Permanent="no"
+                         Part="last"
+                         Action="set"
+                         System="yes" />
+            <RegistryValue Root="HKLM"
+                           Key="Software\nu"
+                           Name="installed"
+                           Type="integer"
+                           Value="1"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <!-- Install for Current User - these are the definitions of the physical locations -->
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="LocalAppProgramsFolder" Name="Programs">
+        <Directory Id="INSTALLDIR_USER" Name="$(var.ApplicationFolderName)">
+          <Directory Id="BINDIR_USER" Name="bin">
+            <!-- Per-user PATH component -->
+            <Component Id="EnvironmentPathUser" Guid="*" Condition="MSIINSTALLPERUSER=1">
+              <Environment Id="PATHUser"
+                           Name="PATH"
+                           Value="[BINDIR_USER]"
+                           Permanent="no"
+                           Part="last"
+                           Action="set"
+                           System="no" />
+              <RegistryValue Root="HKCU"
+                             Key="Software\nu"
+                             Name="installed"
+                             Type="integer"
+                             Value="1"
+                             KeyPath="yes" />
+            </Component>
+          </Directory>
+        </Directory>
+      </Directory>
+
+      <!-- Windows Terminal Profile Directories -->
+      <Directory Id="AppDataMicrosoftFolder" Name="Microsoft">
+        <Directory Id="AppDataWindowsTerminalFolder" Name="Windows Terminal">
+          <Directory Id="WindowsTerminalProfileFolder" Name="Fragments">
+            <Directory Id="WindowsTerminalProfileAppFolder" Name="$(var.ApplicationFolderName)">
+              <Component Id="WindowsTerminalProfile" Guid="*">
+                <File Id="WindowsTerminalProfileFile"
+                      Name="nu.json"
+                      KeyPath="yes"
+                      Source="$(var.ProjectDir)\windows-terminal-profile.json" />
+                <RegistryValue Root="HKCU"
+                               Key="Software\nu"
+                               Name="WindowsTerminalProfile"
+                               Value="1"
+                               Type="integer" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderA" Directory="WindowsTerminalProfileAppFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderB" Directory="WindowsTerminalProfileFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderC" Directory="AppDataWindowsTerminalFolder" On="uninstall" />
+                <RemoveFolder Id="RemoveWindowsTerminalProfileFolderD" Directory="AppDataMicrosoftFolder" On="uninstall" />
+              </Component>
+            </Directory>
+          </Directory>
+        </Directory>
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="NushellBinaries" Directory="LOGICAL_BINDIR">
+      <Component Id="Nu_Main" Guid="*">
+        <File Id="nu.exe" Source="$(var.SourceDir)\nu.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Less" Guid="*">
+        <File Id="less.exe" Source="$(var.SourceDir)\less.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Inc" Guid="*">
+        <File Id="nu_plugin_inc.exe" Source="$(var.SourceDir)\nu_plugin_inc.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Gstat" Guid="*">
+        <File Id="nu_plugin_gstat.exe" Source="$(var.SourceDir)\nu_plugin_gstat.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Query" Guid="*">
+        <File Id="nu_plugin_query.exe" Source="$(var.SourceDir)\nu_plugin_query.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Polars" Guid="*">
+        <File Id="nu_plugin_polars.exe" Source="$(var.SourceDir)\nu_plugin_polars.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Plugin_Formats" Guid="*">
+        <File Id="nu_plugin_formats.exe" Source="$(var.SourceDir)\nu_plugin_formats.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Less_License" Guid="*">
+        <File Id="LICENSE_for_less.txt" Source="$(var.SourceDir)\LICENSE-for-less.txt" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- License and Icon in main installation directory -->
+    <ComponentGroup Id="NushellResources" Directory="INSTALLDIR">
+      <Component Id="Nu_Icon" Guid="*">
+        <File Id="nu.ico" Source="$(var.ProjectDir)\nu.ico" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_Readme" Guid="*">
+        <File Id="README.txt" Source="$(var.ProjectDir)\README.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="Nu_License" Guid="*">
+        <File Id="License.rtf" Source="$(var.ProjectDir)\License.rtf" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Main feature set -->
+    <Feature Id="ProductFeature"
+             Level="1"
+             Title="Nushell"
+             Description="Install $(var.ProductName) and plugins.">
+      <ComponentGroupRef Id="NushellBinaries" />
+      <ComponentGroupRef Id="NushellResources" />
+      <ComponentRef Id="EnvironmentPathUser" />
+      <ComponentRef Id="EnvironmentPathMachine" />
+    </Feature>
+
+    <!-- Windows Terminal Profile Feature -->
+    <Feature Id="WindowsTerminalProfileFeature"
+             Level="1"
+             Title="Windows Terminal Profile"
+             Description="Add $(var.ProductName) profile to Windows Terminal.">
+      <ComponentRef Id="WindowsTerminalProfile" />
+    </Feature>
+
+    <!-- Load Advanced UI -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)\License.rtf" />
+    <ui:WixUI Id="WixUI_Advanced" />
+
+    <!-- Windows Version Check -->
+    <Launch Condition="VersionNT >= 601" Message="This application requires Windows 7 or later." />
+
+    <!-- Arch checking -->
+    <?if $(sys.BUILDARCH) = x64 ?>
+      <Launch Condition="VersionNT64" Message="This installation package is only supported on 64-bit Windows." />
+    <?endif?>
+
+    <?if $(sys.BUILDARCH) = arm64 ?>
+      <Launch Condition="ProcessorArchitecture = 'ARM64'" Message="This installation package is only supported on ARM64 Windows." />
+    <?endif?>
+
+    <!-- If installing per-user (MSIINSTALLPERUSER=1), this sets INSTALLDIR and BINDIR to point to user-specific paths -->
+    <SetProperty Id="INSTALLDIR"
+                 Action="SetINSTALLDIR_User"
+                 Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)"
+                 After="LaunchConditions"
+                 Condition="MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+    <SetProperty Id="BINDIR"
+                 Action="SetBINDIR_User"
+                 Value="[LocalAppDataFolder]Programs\$(var.ApplicationFolderName)\bin"
+                 After="LaunchConditions"
+                 Condition="MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+
+    <!-- If installing per-machine (ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1), this sets INSTALLDIR and BINDIR to point to machine-wide (Program Files) paths -->
+    <SetProperty Id="INSTALLDIR"
+                 Action="SetINSTALLDIR_Machine"
+                 Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
+                 After="LaunchConditions"
+                 Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+
+    <!-- Override APPLICATIONFOLDER for 64-bit installations -->
+    <?if $(sys.BUILDARCH) = x64 OR $(sys.BUILDARCH) = arm64 ?>
+    <SetProperty Id="APPLICATIONFOLDER"
+                 Value="[ProgramFiles64Folder]$(var.ApplicationFolderName)"
+                 After="LaunchConditions"
+                 Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+    <?endif?>
+
+    <SetProperty Id="BINDIR"
+                 Action="SetBINDIR_Machine"
+                 Value="[BINDIR]"
+                 After="LaunchConditions"
+                 Condition="ALLUSERS=1 AND NOT MSIINSTALLPERUSER=1"
+                 Sequence="both" />
+
+    <!-- Set the LOGICAL_BINDIR property to the resolved BINDIR path -->
+    <!-- This line MUST NOT be removed in order to set a custom folder for PerMachine installation -->
+    <SetProperty Id="LOGICAL_BINDIR" Value="[BINDIR]" After="LaunchConditions" Sequence="both" />
+
+    <!-- Property that defines the command executed by the Windows Terminal Profile custom action -->
+    <!-- for Value, see https://learn.microsoft.com/en-ca/windows/win32/msi/formatted -->
+    <SetProperty Id="ReplacePathsInWindowsTerminalProfile"
+                 Sequence="execute"
+                 After="CostFinalize"
+                 Value="&quot;[#nu.exe]&quot; -c &quot;let doc = (open `[#WindowsTerminalProfileFile]` | update profiles.commandline `\&quot;[#nu.exe]\&quot;` | update profiles.icon `[#nu.ico]`); $doc | save -f `[#WindowsTerminalProfileFile]`&quot;"
+                 Condition="&amp;WindowsTerminalProfileFeature=3" />
+
+    <!-- Defines the custom action that updates paths in the Windows Terminal profile JSON file -->
+    <CustomAction Id="ReplacePathsInWindowsTerminalProfile"
+                  Return="ignore"
+                  Impersonate="yes"
+                  Execute="deferred"
+                  DllEntry="WixQuietExec"
+                  BinaryRef="Wix4UtilCA_$(sys.BUILDARCHSHORT)" />
+
+    <InstallExecuteSequence>
+      <Custom Action="ReplacePathsInWindowsTerminalProfile" Before="InstallFinalize"
+              Condition="&amp;WindowsTerminalProfileFeature=3" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

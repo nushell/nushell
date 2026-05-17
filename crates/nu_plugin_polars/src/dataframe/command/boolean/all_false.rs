@@ -1,0 +1,128 @@
+use crate::PolarsPlugin;
+use crate::values::{Column, CustomValueSupport, NuDataFrame, PolarsPluginType};
+
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
+    shell_error::generic::GenericError,
+};
+
+#[derive(Clone)]
+pub struct AllFalse;
+
+impl PluginCommand for AllFalse {
+    type Plugin = PolarsPlugin;
+
+    fn name(&self) -> &str {
+        "polars all-false"
+    }
+
+    fn description(&self) -> &str {
+        "Returns true if all values are false."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .category(Category::Custom("dataframe".into()))
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Returns true if all values are false",
+                example: "[false false false] | polars into-df | polars all-false",
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_false".to_string(),
+                            vec![Value::test_bool(true)],
+                        )],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Checks the result from a comparison",
+                example: r#"let s = ([5 6 2 10] | polars into-df);
+    let res = ($s > 9);
+    $res | polars all-false"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![Column::new(
+                            "all_false".to_string(),
+                            vec![Value::test_bool(false)],
+                        )],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        mut input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        let metadata = input.take_metadata();
+        command(plugin, engine, call, input)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+fn command(
+    plugin: &PolarsPlugin,
+    engine: &EngineInterface,
+    call: &EvaluatedCall,
+    input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
+
+    let series = df.as_series(call.head)?;
+    let bool = series.bool().map_err(|_| {
+        ShellError::Generic(GenericError::new(
+            "Error converting to bool",
+            "all-false only works with series of type bool",
+            call.head,
+        ))
+    })?;
+
+    let value = Value::bool(!bool.any(), call.head);
+
+    let df = NuDataFrame::try_from_columns(
+        vec![Column::new("all_false".to_string(), vec![value])],
+        None,
+        call.head,
+    )?;
+    df.to_pipeline_data(plugin, engine, call.head)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&AllFalse)
+    }
+}

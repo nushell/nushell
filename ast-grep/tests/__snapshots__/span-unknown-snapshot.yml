@@ -1,0 +1,9 @@
+id: span-unknown
+snapshots:
+  ? |
+    thing.into_value(Span::unknown())
+  : labels:
+    - source: Span::unknown()
+      style: primary
+      start: 17
+      end: 32

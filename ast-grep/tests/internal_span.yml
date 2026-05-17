@@ -1,0 +1,14 @@
+id: internal_span
+invalid:
+  - |
+    match value {
+      Value::List { vals, internal_span } => "",
+      _ => ""
+    }
+valid:
+  - |
+    let span = value.span();
+    match value {
+      Value::List { vals, .. } => "",
+      _ => ""
+    }

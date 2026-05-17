@@ -1,0 +1,3 @@
+{
+  "foo": "0   -- this string starts at 0 and ends at 1, preceding and trailing whitespace is ignored --   1"
+}

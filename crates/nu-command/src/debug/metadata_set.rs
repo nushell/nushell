@@ -1,0 +1,160 @@
+use super::util::{extend_record_with_metadata, parse_metadata_from_record};
+use nu_engine::{ClosureEvalOnce, command_prelude::*};
+use nu_protocol::{DataSource, engine::Closure, shell_error::generic::GenericError};
+
+#[derive(Clone)]
+pub struct MetadataSet;
+
+impl Command for MetadataSet {
+    fn name(&self) -> &str {
+        "metadata set"
+    }
+
+    fn description(&self) -> &str {
+        "Set the metadata for items in the stream."
+    }
+
+    fn signature(&self) -> nu_protocol::Signature {
+        Signature::build("metadata set")
+            .input_output_types(vec![(Type::Any, Type::Any)])
+            .optional(
+                "closure",
+                SyntaxShape::Closure(Some(vec![SyntaxShape::Record(vec![])])),
+                "A closure that receives the current metadata and returns a new metadata record. Cannot be used with other flags.",
+            )
+            .named(
+                "datasource-filepath",
+                SyntaxShape::Filepath,
+                "Assign the DataSource::FilePath metadata to the input.",
+                Some('f'),
+            )
+            .named(
+                "path-columns",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "A list of columns in the input for which path metadata will be assigned.",
+                Some('p'),
+            )
+            .named(
+                "content-type",
+                SyntaxShape::OneOf(vec![SyntaxShape::String, SyntaxShape::Nothing]),
+                "Assign content type metadata to the input.",
+                Some('c'),
+            )
+            .allow_variants_without_examples(true)
+            .category(Category::Debug)
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        mut input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let head = call.head;
+        let closure: Option<Closure> = call.opt(engine_state, stack, 0)?;
+        let ds_fp: Option<String> = call.get_flag(engine_state, stack, "datasource-filepath")?;
+        let path_columns: Option<Vec<String>> =
+            call.get_flag(engine_state, stack, "path-columns")?;
+        let content_type: Option<Option<String>> =
+            call.get_flag(engine_state, stack, "content-type")?;
+
+        let mut metadata = match &mut input {
+            PipelineData::Value(_, metadata)
+            | PipelineData::ListStream(_, metadata)
+            | PipelineData::ByteStream(_, metadata) => metadata.take().unwrap_or_default(),
+            PipelineData::Empty => return Err(ShellError::PipelineEmpty { dst_span: head }),
+        };
+
+        // Handle closure parameter - mutually exclusive with flags
+        if let Some(closure) = closure {
+            if ds_fp.is_some() || path_columns.is_some() || content_type.is_some() {
+                return Err(ShellError::Generic(
+                    GenericError::new(
+                        "Incompatible parameters",
+                        "cannot use closure with other flags",
+                        head,
+                    )
+                    .with_help("Use either the closure parameter or flags, not both"),
+                ));
+            }
+
+            let record = extend_record_with_metadata(Record::new(), Some(&metadata), head);
+            let metadata_value = record.into_value(head);
+
+            let result = ClosureEvalOnce::new(engine_state, stack, closure)
+                .run_with_value(metadata_value)?
+                .into_value(head)?;
+
+            let result_record = result.as_record().map_err(|err| {
+                ShellError::Generic(
+                    GenericError::new(
+                        "Closure must return a record",
+                        format!("got {}", result.get_type()),
+                        head,
+                    )
+                    .with_help("The closure should return a record with metadata fields")
+                    .with_inner([err]),
+                )
+            })?;
+
+            metadata = parse_metadata_from_record(result_record);
+            return Ok(input.set_metadata(Some(metadata)));
+        }
+
+        if let Some(path_columns) = path_columns {
+            metadata.path_columns = path_columns;
+        }
+
+        // Flag-based metadata modification
+        if let Some(content_type) = content_type {
+            metadata.content_type = content_type;
+        }
+
+        if let Some(path) = ds_fp {
+            metadata.data_source = DataSource::FilePath(path.into());
+        }
+
+        Ok(input.set_metadata(Some(metadata)))
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Set the metadata of a table literal so the `name` column is treated as a path.",
+                example: "[[name color]; [Cargo.lock '#ff0000'] [Cargo.toml '#00ff00'] [README.md '#0000ff']] | metadata set --path-columns [name]",
+                result: None,
+            },
+            Example {
+                description: "Set the metadata of a file path.",
+                example: "'crates' | metadata set --datasource-filepath $'(pwd)/crates'",
+                result: None,
+            },
+            Example {
+                description: "Set the content type metadata.",
+                example: "'crates' | metadata set --content-type text/plain | metadata | get content_type",
+                result: Some(Value::test_string("text/plain")),
+            },
+            Example {
+                description: "Merge custom metadata.",
+                example: r#""data" | metadata set {|| merge {custom_key: "value"}} | metadata | get custom_key"#,
+                result: None,
+            },
+            Example {
+                description: "Set metadata using a closure.",
+                example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
+                result: Some(Value::test_string("text/csv-processed")),
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MetadataSet)
+    }
+}

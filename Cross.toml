@@ -1,0 +1,18 @@
+# Configuration for cross-rs: https://github.com/cross-rs/cross
+# Run cross-rs like this:
+# cross build --target aarch64-unknown-linux-gnu --release
+# or
+# cross build --target aarch64-unknown-linux-musl --release --features=static-link-openssl
+
+[target.aarch64-unknown-linux-gnu]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get install --assume-yes libssl-dev:$CROSS_DEB_ARCH clang"
+]
+
+#  NOTE: for musl you will need to build with --features=static-link-openssl
+[target.aarch64-unknown-linux-musl]
+pre-build = [
+    "dpkg --add-architecture $CROSS_DEB_ARCH",
+    "apt-get update && apt-get install --assume-yes clang"
+]

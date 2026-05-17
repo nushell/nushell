@@ -1,0 +1,55 @@
+[package]
+name = "nu"
+version = "0.1.1"
+authors = ["The Nushell Project Developers"]
+description = "a new type of shell"
+license = "ISC"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rustyline = "4.1.0"
+sysinfo = "0.8.4"
+chrono = { version = "0.4.23", features = ["serde"] }
+chrono-tz = "0.6.3"
+derive-new = "0.5.6"
+prettytable-rs = "0.8.0"
+itertools = "0.8.0"
+ansi_term = "0.11.0"
+conch-parser = "0.1.1"
+nom = "5.0.0-beta1"
+dunce = "1.0.0"
+indexmap = { version = "1.0.2", features = ["serde-1"] }
+chrono-humanize = "0.2.1"
+byte-unit = "2.1.0"
+ordered-float = "1.0.2"
+prettyprint = "0.6.0"
+cursive = { version = "0.12.0", features = ["pancurses-backend"], default-features = false }
+futures-preview = { version = "0.3.0-alpha.16", features = ["compat", "io-compat"] }
+futures-sink-preview = "0.3.0-alpha.16"
+tokio-fs = "0.1.6"
+futures_codec = "0.2.2"
+term = "0.5.2"
+bytes = "0.4.12"
+log = "0.4.6"
+pretty_env_logger = "0.3.0"
+lalrpop-util = "0.17.0"
+regex = "1.1.6"
+serde = "1.0.91"
+serde_json = "1.0"
+serde_derive = "1.0.91"
+getset = "0.0.7"
+logos = "0.10.0-rc2"
+logos-derive = "0.10.0-rc2"
+language-reporting = "0.3.0"
+directories = "2.0.2"
+toml = "0.5.1"
+toml-query = "0.9.0"
+
+[dependencies.pancurses]
+version = "0.16"
+features = ["win32a"]
+
+[dev-dependencies]
+pretty_assertions = "0.6.1"

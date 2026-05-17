@@ -1,0 +1,241 @@
+use std/assert
+use std/testing *
+use std-rfc/iter *
+
+@test
+def recurse-example-basic [] {
+    let out = {
+        "foo": {
+            "egg": "X"
+            "spam": "Y"
+        }
+        "bar": {
+            "quox": ["A" "B"]
+        }
+    }
+    | recurse
+
+    let expected = [
+        [path, item];
+        [ ($.),           {foo: {egg: X, spam: Y}, bar: {quox: [A, B]}} ],
+        [ ($.foo),        {egg: X, spam: Y} ],
+        [ ($.bar),        {quox: [A, B]} ],
+        [ ($.foo.egg),    X ],
+        [ ($.foo.spam),   Y ],
+        [ ($.bar.quox),   [A, B] ],
+        [ ($.bar.quox.0), A ],
+        [ ($.bar.quox.1), B ]
+    ]
+
+    assert equal $out $expected
+}
+
+@test
+def recurse-example-jq [] {
+    let out = {"name": "/", "children": [
+        {"name": "/bin", "children": [
+            {"name": "/bin/ls", "children": []},
+            {"name": "/bin/sh", "children": []}]},
+        {"name": "/home", "children": [
+            {"name": "/home/stephen", "children": [
+                {"name": "/home/stephen/jq", "children": []}]}]}]}
+    | recurse children
+    | get item.name
+
+    let expected = [/, /bin, /home, /bin/ls, /bin/sh, /home/stephen, /home/stephen/jq]
+
+    assert equal $out $expected
+}
+
+@test
+def recurse-example-jq-depth-first [] {
+    let out = {"name": "/", "children": [
+        {"name": "/bin", "children": [
+            {"name": "/bin/ls", "children": []},
+            {"name": "/bin/sh", "children": []}]},
+        {"name": "/home", "children": [
+            {"name": "/home/stephen", "children": [
+                {"name": "/home/stephen/jq", "children": []}]}]}]}
+    | recurse children --depth-first
+    | get item.name
+
+    let expected = [/, /bin, /bin/ls, /bin/sh, /home, /home/stephen, /home/stephen/jq]
+
+    assert equal $out $expected
+}
+
+@test
+def recurse-example-closure [] {
+    let out = 2
+    | recurse { ({path: square item: ($in * $in)}) }
+    | take while { $in.item < 100 }
+
+    let expected = [
+        [path, item];
+        [$., 2],
+        [$.square, 4],
+        [$.square.square, 16]
+    ]
+
+    assert equal $out $expected
+}
+
+const complex_tree = {
+    id: 0
+    A: [
+        {id: 1,
+            A: [
+                {id: 11, B: [
+                    {id: 111}]}]
+            B: [
+                {id: 12}]}
+        {id: 2, B: [
+            {id: 21}]}]
+    B: [
+        {id: 3}
+        {id: 4, C: [
+            {id: 41}]}]
+    C: [
+        {id: 5, A: [
+            {id: 51}]}]
+}
+
+@test
+def "recurse complex tree with a single cell-path" [] {
+    let out = $complex_tree
+    | recurse A
+    | update item { reject -o A B C }
+
+    let expected = [[path, item];
+        [$., {id: 0}]
+        [$.A.0, {id: 1}]
+        [$.A.1, {id: 2}]
+        [$.A.0.A.0, {id: 11}]
+    ]
+
+    assert equal $out $expected
+}
+
+@test
+def "recurse complex tree with multiple cell-paths" [] {
+    let out = $complex_tree
+    | recurse A C
+    | update item { reject -o A B C }
+
+    let expected = [
+        [path, item];
+        [$., {id: 0}]
+        [$.A.0, {id: 1}]
+        [$.A.1, {id: 2}]
+        [$.C.0, {id: 5}]
+        [$.A.0.A.0, {id: 11}]
+        [$.C.0.A.0, {id: 51}]
+    ]
+
+    assert equal $out $expected
+}
+
+@test
+def only-example-list [] {
+  let out = [5] | only
+  assert equal $out 5
+}
+
+@test
+def only-example-table [] {
+  let out = [{name: foo, id: 5}] | only name
+  assert equal $out foo
+}
+
+@test
+def only-more-than-one-list [] {
+  try {
+    [1 2 3] | only
+    assert false
+  } catch {|err|
+    assert ($err.msg has "expected only one")
+  }
+}
+
+@test
+def only-more-than-one-table [] {
+  try {
+    [[name, id]; [foo bar] [5 6]] | only foo
+    assert false
+  } catch {|err|
+    assert ($err.msg has "expected only one")
+  }
+}
+
+@test
+def only-none [] {
+  try {
+    [] | only
+    assert false
+  } catch {|err|
+    (assert ($err.msg has "non-empty"))
+  }
+}
+
+@test
+def "multiple list prod test" [] {
+    # test runner may provide context record as $in
+    # it is discarded to make `prod` work correctly
+    null
+    let got = prod {
+        color: [red, green]
+        size: [small, large]
+        letter: [A, B]
+    }
+
+    let expected = [
+        [color, size, letter];
+        [red, small, A]
+        [red, small, B]
+        [red, large, A]
+        [red, large, B]
+        [green, small, A]
+        [green, small, B]
+        [green, large, A]
+        [green, large, B]
+    ]
+
+    assert equal $got $expected
+}
+
+@test
+def "two list prod with input" [] {
+    let got = [1, 2, 3] | prod {right: [a, b, c]}
+    let expected = [
+        [in, right];
+        [1, a]
+        [1, b]
+        [1, c]
+        [2, a]
+        [2, b]
+        [2, c]
+        [3, a]
+        [3, b]
+        [3, c]
+    ]
+
+    assert equal $got $expected
+}
+
+@test
+def "multi list prod with input" [] {
+    let got = [1, 2] | prod {lower: [a, b], upper: [A, B]}
+    let expected = [
+        [in, lower, upper];
+        [1, a, A]
+        [1, a, B]
+        [1, b, A]
+        [1, b, B]
+        [2, a, A]
+        [2, a, B]
+        [2, b, A]
+        [2, b, B]
+    ]
+
+    assert equal $got $expected
+}

@@ -1,0 +1,2 @@
+echo "hi" |
+str length

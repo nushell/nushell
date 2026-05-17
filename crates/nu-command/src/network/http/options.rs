@@ -1,0 +1,250 @@
+use crate::network::http::client::{
+    RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
+    discard_response_body, expand_unix_socket_path, extract_response_headers,
+    handle_response_status, headers_to_nu, http_client, http_client_pool, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request_no_body,
+};
+use nu_engine::command_prelude::*;
+
+#[derive(Clone)]
+pub struct HttpOptions;
+
+impl Command for HttpOptions {
+    fn name(&self) -> &str {
+        "http options"
+    }
+
+    fn signature(&self) -> Signature {
+        let sig = Signature::build("http options")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            .allow_variants_without_examples(true)
+            .required(
+                "URL",
+                SyntaxShape::String,
+                "The URL to fetch the options from.",
+            )
+            .named(
+                "user",
+                SyntaxShape::Any,
+                "The username when authenticating.",
+                Some('u'),
+            )
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "The password when authenticating.",
+                Some('p'),
+            )
+            .named(
+                "max-time",
+                SyntaxShape::Duration,
+                "Max duration before timeout occurs.",
+                Some('m'),
+            )
+            .named(
+                "headers",
+                SyntaxShape::Any,
+                "Custom headers you want to add.",
+                Some('H'),
+            )
+            .switch(
+                "full",
+                "Returns the full response instead of only the headers.",
+                Some('f'),
+            )
+            .switch(
+                "insecure",
+                "Allow insecure server connections when using SSL.",
+                Some('k'),
+            )
+            .switch(
+                "allow-errors",
+                "Do not fail if the server returns an error code.",
+                Some('e'),
+            )
+            .switch("pool", "Using a global pool as a client.", None)
+            .filter()
+            .category(Category::Network);
+
+        add_unix_socket_flag(sig)
+    }
+
+    fn description(&self) -> &str {
+        "Requests permitted communication options for a given URL."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Performs an HTTP OPTIONS request. Most commonly used for making CORS preflight requests."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["network", "fetch", "pull", "request", "curl", "wget"]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        run_get(engine_state, stack, call, input)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Get options from example.com.",
+                example: "http options https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get the full OPTIONS response record (status, headers, etc.).",
+                example: "http options --full https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get options from example.com, with username and password.",
+                example: "http options --user myuser --password mypass https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get options from example.com, with custom header using a record.",
+                example: "http options --headers {my-header-key: my-header-value} https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Get options from example.com, with custom headers using a list.",
+                example: "http options --headers [my-header-key-A my-header-value-A my-header-key-B my-header-value-B] https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Simulate a browser cross-origin preflight request from www.example.com to media.example.com.",
+                example: "http options https://media.example.com/api/ --headers [Origin https://www.example.com Access-Control-Request-Headers \"Content-Type, X-Custom-Header\" Access-Control-Request-Method GET]",
+                result: None,
+            },
+        ]
+    }
+}
+
+struct Arguments {
+    url: Value,
+    headers: Option<Value>,
+    full: bool,
+    insecure: bool,
+    user: Option<String>,
+    password: Option<String>,
+    timeout: Option<Value>,
+    allow_errors: bool,
+    unix_socket: Option<Spanned<String>>,
+    pool: bool,
+}
+
+fn run_get(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    _input: PipelineData,
+) -> Result<PipelineData, ShellError> {
+    let args = Arguments {
+        url: call.req(engine_state, stack, 0)?,
+        headers: call.get_flag(engine_state, stack, "headers")?,
+        full: call.has_flag(engine_state, stack, "full")?,
+        insecure: call.has_flag(engine_state, stack, "insecure")?,
+        user: call.get_flag(engine_state, stack, "user")?,
+        password: call.get_flag(engine_state, stack, "password")?,
+        timeout: call.get_flag(engine_state, stack, "max-time")?,
+        allow_errors: call.has_flag(engine_state, stack, "allow-errors")?,
+        unix_socket: call.get_flag(engine_state, stack, "unix-socket")?,
+        pool: call.has_flag(engine_state, stack, "pool")?,
+    };
+    helper(engine_state, stack, call, args)
+}
+
+// Helper function that actually goes to retrieve the resource from the url given
+// The Option<String> return a possible file extension which can be used in AutoConvert commands
+fn helper(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+    args: Arguments,
+) -> Result<PipelineData, ShellError> {
+    let span = args.url.span();
+    let Spanned {
+        item: (requested_url, _),
+        span: request_span,
+    } = http_parse_url(call, span, args.url)?;
+    let redirect_mode = RedirectMode::Follow;
+
+    let cwd = engine_state.cwd(None)?;
+    let unix_socket_path = expand_unix_socket_path(args.unix_socket, &cwd);
+
+    let mut request = if args.pool {
+        http_client_pool(engine_state, stack)?.options(&requested_url)
+    } else {
+        let client = http_client(
+            args.insecure,
+            redirect_mode,
+            unix_socket_path,
+            engine_state,
+            stack,
+        )?;
+        client.options(&requested_url)
+    };
+    request = request_set_timeout(args.timeout, request)?;
+    request = request_add_authorization_header(args.user, args.password, request);
+    request = request_add_custom_headers(args.headers, request)?;
+
+    let (response, request_headers) =
+        send_request_no_body(request, request_span, call.head, engine_state.signals());
+
+    let response = response?;
+    check_response_redirection(redirect_mode, span, &response)?;
+
+    if args.full {
+        // OPTIONS responses are header-only; `raw` matches other verbs' full output.
+        let request_flags = RequestFlags {
+            raw: true,
+            full: true,
+            allow_errors: args.allow_errors,
+        };
+
+        return request_handle_response(
+            engine_state,
+            stack,
+            RequestMetadata {
+                requested_url: &requested_url,
+                span,
+                headers: request_headers,
+                redirect_mode,
+                flags: request_flags,
+            },
+            response,
+        );
+    }
+
+    let response_headers = extract_response_headers(&response);
+    handle_response_status(
+        &response,
+        redirect_mode,
+        &requested_url,
+        span,
+        args.allow_errors,
+    )?;
+    // In the default (non-`--full`) mode we return only headers, but the HTTP client must still
+    // fully read the response body to complete the request (timeouts, chunked bodies, etc.).
+    // The `--full` path uses `request_handle_response`, which already consumes the body.
+    discard_response_body(response, span)?;
+    headers_to_nu(&response_headers, span)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(HttpOptions)
+    }
+}

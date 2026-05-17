@@ -1,0 +1,237 @@
+use nu_protocol::{IntoPipelineData, PipelineMetadata, test_record};
+use nu_test_support::nu;
+use nu_test_support::prelude::*;
+use rstest::rstest;
+
+#[test]
+fn regular_columns() {
+    let actual = nu!(r#"
+        echo [
+            [first_name, last_name, rusty_at, type];
+    
+            [Andrés Robalino '10/11/2013' A]
+            [JT Turner '10/12/2013' B]
+            [Yehuda Katz '10/11/2013' A]
+        ]
+        | reject type first_name
+        | columns
+        | str join ", "
+    "#);
+
+    assert_eq!(actual.out, "last_name, rusty_at");
+}
+
+#[test]
+fn skip_cell_rejection() {
+    let actual = nu!("[ {a: 1, b: 2,c:txt}, { a:val } ] | reject a | get c?.0");
+
+    assert_eq!(actual.out, "txt");
+}
+
+#[test]
+fn complex_nested_columns() {
+    let actual = nu!(r#"
+        {
+            "nu": {
+                "committers": [
+                    {"name": "Andrés N. Robalino"},
+                    {"name": "JT Turner"},
+                    {"name": "Yehuda Katz"}
+                ],
+                "releases": [
+                    {"version": "0.2"}
+                    {"version": "0.8"},
+                    {"version": "0.9999999"}
+                ],
+                "0xATYKARNU": [
+                    ["Th", "e", " "],
+                    ["BIG", " ", "UnO"],
+                    ["punto", "cero"]
+                ]
+            }
+        }
+        | reject nu."0xATYKARNU" nu.committers
+        | get nu
+        | columns
+        | str join ", "
+    "#);
+
+    assert_eq!(actual.out, "releases");
+}
+
+#[test]
+fn ignores_duplicate_columns_rejected() {
+    let actual = nu!(r#"
+        echo [
+            ["first name", "last name"];
+    
+            [Andrés Robalino]
+            [Andrés Jnth]
+        ]
+        | reject "first name" "first name"
+        | columns
+        | str join ", "
+    "#);
+
+    assert_eq!(actual.out, "last name");
+}
+
+#[test]
+fn ignores_duplicate_rows_rejected() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4]]");
+}
+
+#[test]
+fn reject_record_from_raw_eval() {
+    let actual = nu!(r#"{"a": 3} | reject a | describe"#);
+
+    assert!(actual.out.contains("record"));
+}
+
+#[test]
+fn reject_table_from_raw_eval() {
+    let actual = nu!(r#"[{"a": 3}] | reject a"#);
+
+    assert!(actual.out.contains("record 0 fields"));
+}
+
+#[test]
+fn reject_nested_field() {
+    let actual = nu!("{a:{b:3,c:5}} | reject a.b | debug");
+
+    assert_eq!(actual.out, "{a: {c: 5}}");
+}
+
+#[test]
+fn reject_optional_column() {
+    let actual = nu!("{} | reject foo? | to nuon");
+    assert_eq!(actual.out, "{}");
+
+    let actual = nu!("[{}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}]");
+
+    let actual = nu!("[{} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+
+    let actual = nu!("[{foo: 1} {foo: 2}] | reject foo? | to nuon");
+    assert_eq!(actual.out, "[{}, {}]");
+}
+
+#[test]
+fn reject_optional_row() {
+    let actual = nu!("[{foo: 'bar'}] | reject 3? | to nuon");
+    assert_eq!(actual.out, "[[foo]; [bar]]");
+}
+
+#[test]
+fn reject_columns_with_list_spread() {
+    let actual = nu!(
+        "let arg = [type size]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
+    assert_eq!(
+        actual.out,
+        r#"[[name]; ["Cargo.toml"], ["Cargo.lock"], [src]]"#
+    );
+}
+
+#[test]
+fn reject_rows_with_list_spread() {
+    let actual = nu!(
+        "let arg = [2 0]; [[name type size];[Cargo.toml file 10mb] [Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
+    assert_eq!(
+        actual.out,
+        r#"[[name, type, size]; ["Cargo.lock", file, 10000000b]]"#
+    );
+}
+
+#[test]
+fn reject_mixed_with_list_spread() {
+    let actual = nu!(
+        "let arg = [type 2]; [[name type size];[Cargp.toml file 10mb] [ Cargo.lock file 10mb] [src dir 100mb]] | reject ...$arg | to nuon"
+    );
+    assert_eq!(
+        actual.out,
+        r#"[[name, size]; ["Cargp.toml", 10000000b], ["Cargo.lock", 10000000b]]"#
+    );
+}
+
+#[test]
+fn reject_multiple_rows_ascending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 1 2 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn reject_multiple_rows_descending() {
+    let actual = nu!("[[a,b];[1 2] [3 4] [5 6]] | reject 2 1 | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2]]");
+}
+
+#[test]
+fn test_ignore_errors_flag() {
+    let actual = nu!("[[a, b]; [1, 2], [3, 4], [5, 6]] | reject 5 -o | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
+}
+
+#[test]
+fn test_ignore_errors_flag_var() {
+    let actual =
+        nu!("let arg = [5 c]; [[a, b]; [1, 2], [3, 4], [5, 6]] | reject ...$arg -o | to nuon");
+    assert_eq!(actual.out, "[[a, b]; [1, 2], [3, 4], [5, 6]]");
+}
+
+#[test]
+fn test_works_with_integer_path_and_stream() {
+    let actual = nu!("[[N u s h e l l]] | flatten | reject 1 | to nuon");
+
+    assert_eq!(actual.out, "[N, s, h, e, l, l]");
+}
+
+enum ExpectTo {
+    Keep,
+    Drop,
+}
+
+#[rstest]
+#[case::index_only("reject 1", ExpectTo::Keep)]
+#[case::two_indices("reject 1 0", ExpectTo::Keep)]
+#[case::index_and_column("reject type 1", ExpectTo::Keep)]
+#[case::single_column("reject name", ExpectTo::Drop)]
+#[case::case_insensitive("reject NaMe!", ExpectTo::Drop)]
+#[case::multiple_columns("reject name type", ExpectTo::Drop)]
+fn test_path_columns_metadata(#[case] code: &str, #[case] expect_to: ExpectTo) -> Result {
+    let in_metadata = Some(
+        PipelineMetadata::default()
+            .with_path_columns(vec!["name".into()])
+            .with_content_type(Some("text/palin".into())),
+    );
+
+    let data = Value::test_list(vec![
+        test_record! { "name" => "Cargo.toml", "type" => "file" },
+        test_record! { "name" => "src",        "type" => "dir" },
+    ])
+    .into_pipeline_data_with_metadata(in_metadata.clone());
+
+    let out_metadata = test().run_raw_with_data(code, data)?.body.take_metadata();
+
+    let target_metadata = match expect_to {
+        ExpectTo::Keep => in_metadata,
+        ExpectTo::Drop => in_metadata.map(|m| m.with_path_columns(vec![])),
+    };
+
+    assert_eq!(target_metadata, out_metadata);
+    Ok(())
+}
+
+#[test]
+fn forwards_error_properly() -> Result {
+    let err = test()
+        .run("ls | insert foo { error make { msg: 'boo' } } | reject name")
+        .expect_error()?;
+
+    assert_eq!(&err.into_labeled()?.msg, "boo");
+
+    Ok(())
+}

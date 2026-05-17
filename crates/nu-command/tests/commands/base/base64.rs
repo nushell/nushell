@@ -1,0 +1,86 @@
+use nu_test_support::prelude::*;
+
+#[test]
+fn canonical() -> Result {
+    super::test_canonical("base64")?;
+    super::test_canonical("base64 --url")?;
+    super::test_canonical("base64 --nopad")?;
+    super::test_canonical("base64 --url --nopad")?;
+    Ok(())
+}
+
+#[test]
+fn const_() -> Result {
+    super::test_const("base64")?;
+    super::test_const("base64 --url")?;
+    super::test_const("base64 --nopad")?;
+    super::test_const("base64 --url --nopad")?;
+    Ok(())
+}
+
+#[test]
+fn encode() -> Result {
+    let text = "Ș̗͙̂̏o̲̲̗͗̌͊m̝̊̓́͂ë̡̦̞̤́̌̈́̀ ̥̝̪̎̿ͅf̧̪̻͉͗̈́̍̆u̮̝͌̈́ͅn̹̞̈́̊k̮͇̟͎̂͘y̧̲̠̾̆̕ͅ ̙͖̭͔̂̐t̞́́͘e̢̨͕̽x̥͋t͍̑̔͝";
+    let encoded = "U8yCzI/MpsyXzZlvzZfMjM2KzLLMssyXbcyKzJPMgc2CzJ1lzYTMjM2EzIDMpsyhzJ7MpCDMjsy/zYXMpcydzKpmzZfNhMyNzIbMqsy7zKfNiXXNjM2EzK7Mnc2Fbs2EzIrMucyea82YzILMrs2HzJ/NjnnMvsyVzIbNhcyyzKfMoCDMgsyQzJnNlsytzZR0zIHNmMyBzJ5lzL3Mos2VzKh4zYvMpXTMkcyUzZ3NjQ==";
+
+    test()
+        .run_with_data("encode base64", text)
+        .expect_value_eq(encoded)
+}
+
+#[test]
+fn decode_string() -> Result {
+    let text = "Very important data";
+    let encoded = "VmVyeSBpbXBvcnRhbnQgZGF0YQ==";
+
+    test()
+        .run_with_data("decode base64 | decode", encoded)
+        .expect_value_eq(text)
+}
+
+#[test]
+fn decode_pad_nopad() -> Result {
+    let text = "”¥.ä@°bZö¢";
+    let encoded_pad = "4oCdwqUuw6RAwrBiWsO2wqI=";
+    let encoded_nopad = "4oCdwqUuw6RAwrBiWsO2wqI";
+
+    test()
+        .run_with_data("decode base64 | decode", encoded_pad)
+        .expect_value_eq(text)?;
+
+    test()
+        .run_with_data("decode base64 --nopad | decode", encoded_nopad)
+        .expect_value_eq(text)
+}
+
+#[test]
+fn decode_url() -> Result {
+    let text = "p:gטݾ߫t+?";
+    let encoded = "cDpn15jdvt+rdCs/";
+    let encoded_url = "cDpn15jdvt-rdCs_";
+
+    test()
+        .run_with_data("decode base64 | decode", encoded)
+        .expect_value_eq(text)?;
+
+    test()
+        .run_with_data("decode base64 --url | decode", encoded_url)
+        .expect_value_eq(text)
+}
+
+#[test]
+fn reject_pad_nopad() -> Result {
+    let encoded_nopad = "YQ";
+    let encoded_pad = "YQ==";
+
+    let err = test()
+        .run_with_data("decode base64", encoded_nopad)
+        .expect_error()?;
+    assert!(!err.to_string().is_empty());
+
+    let err = test()
+        .run_with_data("decode base64 --nopad", encoded_pad)
+        .expect_error()?;
+    assert!(!err.to_string().is_empty());
+    Ok(())
+}

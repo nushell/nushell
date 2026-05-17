@@ -1,0 +1,13 @@
+id: format-in-nu-macro
+snapshots:
+  ? |
+    let actual = nu!(format!(
+        r#"{sample}
+        | chunk-by {{|it| $it.cool}}
+        | length"#,
+    ));
+  : labels:
+    - source: format
+      style: primary
+      start: 17
+      end: 23

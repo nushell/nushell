@@ -1,0 +1,481 @@
+use crate::{
+    PolarsPlugin,
+    dataframe::values::{Column, NuDataFrame, NuExpression, NuLazyFrame},
+    values::{CustomValueSupport, PolarsPluginType},
+};
+use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
+use polars::{
+    df,
+    prelude::{Expr, JoinCoalesce, JoinType},
+};
+
+use chrono::DateTime;
+
+#[derive(Clone)]
+pub struct LazyJoin;
+
+impl PluginCommand for LazyJoin {
+    type Plugin = PolarsPlugin;
+
+    fn name(&self) -> &str {
+        "polars join"
+    }
+
+    fn description(&self) -> &str {
+        "Joins a lazy frame with other lazy frame."
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .required("other", SyntaxShape::Any, "LazyFrame to join with.")
+            .optional("left_on", SyntaxShape::Any, "Left column(s) to join on.")
+            .optional("right_on", SyntaxShape::Any, "Right column(s) to join on.")
+            .switch(
+                "inner",
+                "Inner joining between lazyframes (default).",
+                Some('i'),
+            )
+            .switch("left", "Left join between lazyframes.", Some('l'))
+            .switch("full", "Full join between lazyframes.", Some('f'))
+            .switch("cross", "Cross join between lazyframes.", Some('c'))
+            .switch("coalesce-columns", "Sets the join coalesce strategy to colesce columns. Most useful when used with --full, which will not otherwise coalesce.", None)
+            .switch("nulls-equal", "Join on null values. By default null values will never produce matches.", None)
+            .named(
+                "suffix",
+                SyntaxShape::String,
+                "Suffix to use on columns with same name.",
+                Some('s'),
+            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuDataFrame.into(),
+                    PolarsPluginType::NuDataFrame.into(),
+                ),
+                (
+                    PolarsPluginType::NuLazyFrame.into(),
+                    PolarsPluginType::NuLazyFrame.into(),
+                ),
+            ])
+            .category(Category::Custom("lazyframe".into()))
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Join two lazy dataframes",
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-lazy)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
+    $df_a | polars join $df_b a foo | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(0),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "bar".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("c"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                ],
+                            ),
+                            Column::new(
+                                "ham".to_string(),
+                                vec![
+                                    Value::test_string("let"),
+                                    Value::test_string("var"),
+                                    Value::test_string("let"),
+                                    Value::test_string("let"),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Join one eager dataframe with a lazy dataframe",
+                example: r#"let df_a = ([[a b c];[1 "a" 0] [2 "b" 1] [1 "c" 2] [1 "c" 3]] | polars into-df)
+    let df_b = ([["foo" "bar" "ham"];[1 "a" "let"] [2 "c" "var"] [3 "c" "const"]] | polars into-lazy)
+    $df_a | polars join $df_b a foo"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(1),
+                                    Value::test_int(1),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![
+                                    Value::test_int(0),
+                                    Value::test_int(1),
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                ],
+                            ),
+                            Column::new(
+                                "bar".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("c"),
+                                    Value::test_string("a"),
+                                    Value::test_string("a"),
+                                ],
+                            ),
+                            Column::new(
+                                "ham".to_string(),
+                                vec![
+                                    Value::test_string("let"),
+                                    Value::test_string("var"),
+                                    Value::test_string("let"),
+                                    Value::test_string("let"),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Perform a full join of two dataframes and coalesce columns",
+                example: r#"let table1 = [[A B]; ["common" "common"] ["table1" "only"]] | polars into-df
+                let table2 = [[A C]; ["common" "common"] ["table2" "only"]] | polars into-df
+                $table1 | polars join -f $table2 --coalesce-columns A A"#,
+                result: Some(
+                    NuDataFrame::new(
+                        false,
+                        df!(
+                            "A" => [Some("common"), Some("table2"), Some("table1")],
+                            "B" => [Some("common"), None, Some("only")],
+                            "C" => [Some("common"), Some("only"), None]
+                        )
+                        .expect("Should have created a DataFrame"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Join one eager dataframe with another using a cross join",
+                example: r#"let tokens = [[monopoly_token]; [hat] [shoe] [boat]] | polars into-df
+    let players = [[name, cash]; [Alice, 78] [Bob, 135]] | polars into-df
+    $players | polars select (polars col name) | polars join --cross $tokens | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "name".to_string(),
+                                vec![
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Alice"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                    Value::test_string("Bob"),
+                                ],
+                            ),
+                            Column::new(
+                                "monopoly_token".to_string(),
+                                vec![
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                    Value::test_string("hat"),
+                                    Value::test_string("shoe"),
+                                    Value::test_string("boat"),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Join on column expressions",
+                example: r#"
+                let df1 = [[a b]; ["2025-01-01 01:00:00+0000" 1] ["2025-01-02 05:36:42+0000" 2]] | polars into-df --schema {a: "datetime<ms,UTC>", b: i8}
+
+                let df2 = [[a c]; ["2025-01-01 00:00:00+0000" a] ["2025-01-02 00:00:00+0000" b]] | polars into-df --schema {a: "datetime<ms,UTC>", c: str}
+
+                $df1 | polars join $df2 [(polars col a | polars truncate 1d)] [a]"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "a".to_string(),
+                                vec![
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-01-01 01:00:00+0000",
+                                            "%Y-%m-%d %H:%M:%S%z",
+                                        )
+                                        .expect("DateTime parsing should not fail in test."),
+                                        Span::test_data(),
+                                    ),
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-01-02 05:36:42+0000",
+                                            "%Y-%m-%d %H:%M:%S%z",
+                                        )
+                                        .expect("DateTime parsing should not fail in test."),
+                                        Span::test_data(),
+                                    ),
+                                ],
+                            ),
+                            Column::new(
+                                "b".to_string(),
+                                vec![Value::test_int(1), Value::test_int(2)],
+                            ),
+                            Column::new(
+                                "a_x".to_string(),
+                                vec![
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-01-01 00:00:00+0000",
+                                            "%Y-%m-%d %H:%M:%S%z",
+                                        )
+                                        .expect("DateTime parsing should not fail in test."),
+                                        Span::test_data(),
+                                    ),
+                                    Value::date(
+                                        DateTime::parse_from_str(
+                                            "2025-01-02 00:00:00+0000",
+                                            "%Y-%m-%d %H:%M:%S%z",
+                                        )
+                                        .expect("DateTime parsing should not fail in test."),
+                                        Span::test_data(),
+                                    ),
+                                ],
+                            ),
+                            Column::new(
+                                "c".to_string(),
+                                vec![Value::test_string("a"), Value::test_string("b")],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                description: "Join on nulls",
+                example: r#"[[col1 col2]; [2 a] [3 b] [null c]] | polars into-df
+                | polars join (
+                    [[col1 col3]; [2 x] [3 y] [null z]] | polars into-df
+                ) [col1] [col1] --nulls-equal
+                | polars collect"#,
+                result: Some(
+                    NuDataFrame::try_from_columns(
+                        vec![
+                            Column::new(
+                                "col1".to_string(),
+                                vec![
+                                    Value::test_int(2),
+                                    Value::test_int(3),
+                                    Value::test_nothing(),
+                                ],
+                            ),
+                            Column::new(
+                                "col2".to_string(),
+                                vec![
+                                    Value::test_string("a"),
+                                    Value::test_string("b"),
+                                    Value::test_string("c"),
+                                ],
+                            ),
+                            Column::new(
+                                "col3".to_string(),
+                                vec![
+                                    Value::test_string("x"),
+                                    Value::test_string("y"),
+                                    Value::test_string("z"),
+                                ],
+                            ),
+                        ],
+                        None,
+                        Span::test_data(),
+                    )
+                    .expect("simple df for test should not fail")
+                    .into_value(Span::test_data()),
+                ),
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        plugin: &Self::Plugin,
+        engine: &EngineInterface,
+        call: &EvaluatedCall,
+        mut input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        let left = call.has_flag("left")?;
+        let full = call.has_flag("full")?;
+        let cross = call.has_flag("cross")?;
+
+        let how = if left {
+            JoinType::Left
+        } else if full {
+            JoinType::Full
+        } else if cross {
+            JoinType::Cross
+        } else {
+            JoinType::Inner
+        };
+
+        let other: Value = call.req(0)?;
+        let other = NuLazyFrame::try_from_value_coerce(plugin, &other)?;
+        let other = other.to_polars();
+
+        let left_on_opt: Option<Value> = call.opt(1)?;
+        let left_on = match left_on_opt {
+            Some(left_on_value) if left || left_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, left_on_value)?
+            }
+            _ => vec![],
+        };
+
+        let right_on_opt: Option<Value> = call.opt(2)?;
+        let right_on = match right_on_opt {
+            Some(right_on_value) if full || right_on_opt.is_some() => {
+                NuExpression::extract_exprs(plugin, right_on_value)?
+            }
+            _ => vec![],
+        };
+
+        if left_on.len() != right_on.len() {
+            let right_on: Value = call.req(2)?;
+            Err(ShellError::IncompatibleParametersSingle {
+                msg: "The right column list has a different size to the left column list".into(),
+                span: right_on.span(),
+            })?;
+        }
+
+        // Checking that both list of expressions are made out of col expressions or strings
+        for (index, list) in &[(1usize, &left_on), (2, &left_on)] {
+            if list.iter().any(|expr| {
+                !matches!(
+                    expr,
+                    Expr::Column(..) | Expr::Selector(..) | Expr::Function { .. }
+                )
+            }) {
+                let value: Value = call.req(*index)?;
+                Err(ShellError::IncompatibleParametersSingle {
+                    msg: "Expected only a string, col expressions or list of strings".into(),
+                    span: value.span(),
+                })?;
+            }
+        }
+
+        let suffix: Option<String> = call.get_flag("suffix")?;
+        let suffix = suffix.unwrap_or_else(|| "_x".into());
+
+        let metadata = input.take_metadata();
+        let value = input.into_value(call.head)?;
+        let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
+        let from_eager = lazy.from_eager;
+        let lazy = lazy.to_polars();
+
+        let coalesce = if call.has_flag("coalesce-columns")? {
+            JoinCoalesce::CoalesceColumns
+        } else {
+            JoinCoalesce::default()
+        };
+
+        let nulls_equal = call.has_flag("nulls-equal")?;
+
+        let lazy = if cross {
+            lazy.join_builder()
+                .with(other)
+                .coalesce(coalesce)
+                .left_on(vec![])
+                .right_on(vec![])
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .join_nulls(nulls_equal)
+                .finish()
+        } else {
+            lazy.join_builder()
+                .with(other)
+                .coalesce(coalesce)
+                .left_on(left_on)
+                .right_on(right_on)
+                .how(how)
+                .force_parallel(true)
+                .suffix(suffix)
+                .join_nulls(nulls_equal)
+                .finish()
+        };
+
+        let lazy = NuLazyFrame::new(from_eager, lazy);
+        lazy.to_pipeline_data(plugin, engine, call.head)
+            .map_err(LabeledError::from)
+            .map(|pd| pd.set_metadata(metadata))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::test::test_polars_plugin_command;
+
+    #[test]
+    fn test_examples() -> Result<(), ShellError> {
+        test_polars_plugin_command(&LazyJoin)
+    }
+}

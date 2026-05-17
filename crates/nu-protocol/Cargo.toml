@@ -1,0 +1,92 @@
+[package]
+authors = ["The Nushell Project Developers"]
+description = "Nushell's internal protocols, including its abstract syntax tree"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-protocol"
+edition.workspace = true
+rust-version.workspace = true
+license = "MIT"
+name = "nu-protocol"
+version = "0.112.3"
+autotests = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+bench = false
+harness = false
+
+[[test]]
+name = "tests"
+path = "tests/main.rs"
+harness = false
+
+[lints]
+workspace = true
+
+[dependencies]
+nu-derive-value = { path = "../nu-derive-value", version = "0.112.3" }
+nu-glob = { path = "../nu-glob", version = "0.112.3" }
+nu-path = { path = "../nu-path", version = "0.112.3" }
+nu-system = { path = "../nu-system", version = "0.112.3" }
+nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+
+brotli = { workspace = true, optional = true }
+bytes = { workspace = true }
+chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
+chrono-humanize = { workspace = true }
+dirs = { workspace = true }
+derive_more = { workspace = true, features = ["debug"] }
+fancy-regex = { workspace = true }
+heck = { workspace = true }
+indexmap = { workspace = true }
+lru = { workspace = true }
+miette = { workspace = true, features = ["fancy-no-backtrace"] }
+num-format = { workspace = true }
+rmp-serde = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+strum = { workspace = true }
+strum_macros = { workspace = true }
+thiserror = { workspace = true }
+typetag = "0.2"
+os_pipe = { workspace = true, optional = true, features = ["io_safety"] }
+log = { workspace = true }
+web-time = { workspace = true }
+memchr = { workspace = true }
+
+[target.'cfg(unix)'.dependencies]
+nix = { workspace = true, default-features = false, features = ["signal"] }
+
+[target.'cfg(windows)'.dependencies]
+dirs-sys = { workspace = true }
+windows-sys = { workspace = true, features = ["Win32_UI_Shell"] }
+windows = { workspace = true }
+
+[features]
+default = ["os"]
+os = [
+  "nu-utils/os",
+  "os_pipe",
+]
+
+plugin = [
+  "brotli",
+  "os",
+  "rmp-serde",
+]
+# enables SQLite history
+sqlite = []
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support", features = ["os"] }
+nu-utils = { path = "../nu-utils" }
+
+serde_json = { workspace = true }
+pretty_assertions = { workspace = true }
+rstest = { workspace = true }
+tempfile = { workspace = true }
+os_pipe = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

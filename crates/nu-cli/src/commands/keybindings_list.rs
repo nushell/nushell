@@ -1,0 +1,136 @@
+use crate::reedline_config::{display_edit_command, display_edit_mode, display_reedline_event};
+use nu_engine::command_prelude::*;
+use reedline::{
+    EditCommandDiscriminants, PromptEditModeDiscriminants, ReedlineEventDiscriminants,
+    get_reedline_keybinding_modifiers, get_reedline_keycodes,
+};
+use strum::IntoEnumIterator;
+
+#[derive(Clone)]
+pub struct KeybindingsList;
+
+impl Command for KeybindingsList {
+    fn name(&self) -> &str {
+        "keybindings list"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build(self.name())
+            .input_output_types(vec![(Type::Nothing, Type::table())])
+            .switch("modifiers", "List of modifiers.", Some('m'))
+            .switch("keycodes", "List of keycodes.", Some('k'))
+            .switch("modes", "List of edit modes.", Some('o'))
+            .switch("events", "List of reedline event.", Some('e'))
+            .switch("edits", "List of edit commands.", Some('d'))
+            .category(Category::Platform)
+    }
+
+    fn description(&self) -> &str {
+        "List available options that can be used to create keybindings."
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Get list of key modifiers",
+                example: "keybindings list --modifiers",
+                result: None,
+            },
+            Example {
+                description: "Get list of reedline events and edit commands",
+                example: "keybindings list -e -d",
+                result: None,
+            },
+            Example {
+                description: "Get list with all the available options",
+                example: "keybindings list",
+                result: None,
+            },
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        _input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let all_options = ["modifiers", "keycodes", "edits", "modes", "events"];
+
+        let presence = all_options
+            .iter()
+            .map(|option| call.has_flag(engine_state, stack, option))
+            .collect::<Result<Vec<_>, ShellError>>()?;
+
+        let no_option_specified = presence.iter().all(|present| !*present);
+
+        let records = all_options
+            .iter()
+            .zip(presence)
+            .filter(|(_, present)| no_option_specified || *present)
+            .flat_map(|(option, _)| get_records(option, call.head))
+            .collect();
+
+        Ok(Value::list(records, call.head).into_pipeline_data())
+    }
+}
+
+fn get_records(entry_type: &str, span: Span) -> Vec<Value> {
+    let values = match entry_type {
+        "modifiers" => get_reedline_keybinding_modifiers().sorted(),
+        "keycodes" => get_reedline_keycodes().sorted(),
+        "edits" => get_reedline_edit_commands().sorted(),
+        "modes" => get_reedline_prompt_edit_modes().sorted(),
+        "events" => get_reedline_reedline_events().sorted(),
+        _ => Vec::new(),
+    };
+
+    values
+        .into_iter()
+        .map(|edit| convert_to_record(edit, entry_type, span))
+        .collect()
+}
+
+fn get_reedline_edit_commands() -> Vec<String> {
+    EditCommandDiscriminants::iter()
+        .filter_map(|edit| display_edit_command(edit).map(|s| s.to_string()))
+        .collect()
+}
+
+fn get_reedline_prompt_edit_modes() -> Vec<String> {
+    PromptEditModeDiscriminants::iter()
+        .filter_map(display_edit_mode)
+        .collect()
+}
+
+fn get_reedline_reedline_events() -> Vec<String> {
+    ReedlineEventDiscriminants::iter()
+        .filter_map(|event| display_reedline_event(event).map(|s| s.to_string()))
+        .collect()
+}
+
+fn convert_to_record(edit: String, entry_type: &str, span: Span) -> Value {
+    Value::record(
+        record! {
+            "type" => Value::string(entry_type, span),
+            "name" => Value::string(edit, span),
+        },
+        span,
+    )
+}
+
+// Helper to sort a vec and return a vec
+trait SortedImpl {
+    fn sorted(self) -> Self;
+}
+
+impl<E> SortedImpl for Vec<E>
+where
+    E: std::cmp::Ord,
+{
+    fn sorted(mut self) -> Self {
+        self.sort();
+        self
+    }
+}

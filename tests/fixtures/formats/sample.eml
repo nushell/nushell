@@ -1,0 +1,20 @@
+MIME-Version: 1.0
+Date: Fri, 28 Aug 2020 13:59:02 -0700
+Message-ID: <CAOSGo93NuHieXLAKy6iC-0fqO_CxFtUO9asdzyAzdG6wLjGeouw@example.com>
+Subject: Test Message
+From: "from@example.com" <from@example.com>
+Reply-To: "replyto@example.com" <replyto@example.com>
+To: to@example.com
+Content-Type: multipart/alternative; boundary="0000000000009d71fb05adf6528a"
+
+--0000000000009d71fb05adf6528a
+Content-Type: text/plain; charset="UTF-8"
+
+Test Message
+
+--0000000000009d71fb05adf6528a
+Content-Type: text/html; charset="UTF-8"
+
+<div dir="ltr">Test Message</div>
+
+--0000000000009d71fb05adf6528a--

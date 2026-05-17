@@ -1,0 +1,17 @@
+id: if-matches
+invalid:
+  - |
+    if matches!(shape, SyntaxShape::Closure(_)) {
+      parse_closure();
+    } else {
+      dont();
+    }
+valid:
+  - |
+    shapes.iter().filter(|shape| matches!(shape, SyntaxShape::Closure(_)))
+  - |
+    if let SyntaxShape::Closure(_) = shape) {
+      parse_closure();
+    } else {
+      dont();
+    }

@@ -1,0 +1,207 @@
+use nu_engine::command_prelude::*;
+
+#[derive(Clone)]
+pub struct ToNuon;
+
+impl Command for ToNuon {
+    fn name(&self) -> &str {
+        "to nuon"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("to nuon")
+            .input_output_types(vec![(Type::Any, Type::String)])
+            .switch(
+                "raw",
+                "Remove all of the whitespace (overwrites -i and -t).",
+                Some('r'),
+            )
+            .named(
+                "indent",
+                SyntaxShape::Number,
+                "Specify indentation width.",
+                Some('i'),
+            )
+            .named(
+                "tabs",
+                SyntaxShape::Number,
+                "Specify indentation tab quantity.",
+                Some('t'),
+            )
+            .switch(
+                "serialize",
+                "Serialize nushell types that cannot be deserialized.",
+                Some('s'),
+            )
+            .switch(
+                "raw-strings",
+                "Use raw string syntax (r#'...'#) for strings with quotes or backslashes.",
+                Some('R'),
+            )
+            .switch(
+                "list-of-records",
+                "Serialize table values as list-of-records instead of table syntax.",
+                Some('l'),
+            )
+            .switch(
+                "no-commas",
+                "Do not use commas between items in tables and lists.",
+                Some('c'),
+            )
+            .category(Category::Formats)
+    }
+
+    fn description(&self) -> &str {
+        "Converts table data into Nuon (Nushell Object Notation) text."
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        mut input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
+        let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
+        let no_commas = call.has_flag(engine_state, stack, "no-commas")?;
+        let style = if call.has_flag(engine_state, stack, "raw")? {
+            nuon::ToStyle::Raw
+        } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
+            nuon::ToStyle::Tabs(t)
+        } else if let Some(i) = call.get_flag(engine_state, stack, "indent")? {
+            nuon::ToStyle::Spaces(i)
+        } else {
+            nuon::ToStyle::Default
+        };
+
+        let span = call.head;
+        let metadata = input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-nuon".into()));
+
+        let value = input.into_value(span)?;
+
+        let config = nuon::ToNuonConfig::default()
+            .style(style)
+            .span(Some(span))
+            .serialize_types(serialize_types)
+            .raw_strings(raw_strings)
+            .list_of_records(list_of_records)
+            .use_commas(!no_commas);
+
+        match nuon::to_nuon(engine_state, &value, config) {
+            Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
+                .into_pipeline_data_with_metadata(Some(metadata))),
+            Err(error) => {
+                Ok(Value::error(error, span).into_pipeline_data_with_metadata(Some(metadata)))
+            }
+        }
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Outputs a NUON string representing the contents of this list, compact by default.",
+                example: "[1 2 3] | to nuon",
+                result: Some(Value::test_string("[1, 2, 3]")),
+            },
+            Example {
+                description: "Outputs a NUON array of ints, with pretty indentation.",
+                example: "[1 2 3] | to nuon --indent 2",
+                result: Some(Value::test_string("[\n  1,\n  2,\n  3\n]")),
+            },
+            Example {
+                description: "Overwrite any set option with --raw.",
+                example: "[1 2 3] | to nuon --indent 2 --raw",
+                result: Some(Value::test_string("[1,2,3]")),
+            },
+            Example {
+                description: "A more complex record with multiple data types.",
+                example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --indent 2",
+                result: Some(Value::test_string(
+                    "{\n  date: 2000-01-01T00:00:00+00:00,\n  data: [\n    1,\n    [\n      2,\n      3\n    ],\n    4.56\n  ]\n}",
+                )),
+            },
+            Example {
+                description: "A more complex record with --raw.",
+                example: "{date: 2000-01-01, data: [1 [2 3] 4.56]} | to nuon --raw",
+                result: Some(Value::test_string(
+                    "{date:2000-01-01T00:00:00+00:00,data:[1,[2,3],4.56]}",
+                )),
+            },
+            Example {
+                description: "Use raw string syntax for strings with quotes or backslashes.",
+                example: r#"'hello "world"' | to nuon --raw-strings"#,
+                result: Some(Value::test_string(r#"r#'hello "world"'#"#)),
+            },
+            Example {
+                description: "Serialize table values as a list of records instead of table syntax.",
+                example: "[[a, b]; [1, 2], [3, 4]] | to nuon --list-of-records",
+                result: Some(Value::test_string("[{a: 1, b: 2}, {a: 3, b: 4}]")),
+            },
+            Example {
+                description: "Serialize table values as list of records with pretty indentation.",
+                example: "[[a, b]; [1, 2], [3, 4]] | to nuon --list-of-records --indent 2",
+                result: Some(Value::test_string("[\n  {a: 1, b: 2},\n  {a: 3, b: 4}\n]")),
+            },
+            Example {
+                description: "Output a list without commas between items.",
+                example: "[1 2 3] | to nuon --no-commas",
+                result: Some(Value::test_string("[1 2 3]")),
+            },
+            Example {
+                description: "Output a record without commas between fields.",
+                example: "{a: 1, b: 2} | to nuon --no-commas",
+                result: Some(Value::test_string("{a: 1 b: 2}")),
+            },
+        ]
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
+
+    use crate::{Get, Metadata};
+
+    #[test]
+    fn test_examples() -> nu_test_support::Result {
+        use super::ToNuon;
+        nu_test_support::test().examples(ToNuon)
+    }
+
+    #[test]
+    fn test_content_type_metadata() {
+        let mut engine_state = Box::new(EngineState::new());
+        let delta = {
+            // Base functions that are needed for testing
+            // Try to keep this working set small to keep tests running as fast as possible
+            let mut working_set = StateWorkingSet::new(&engine_state);
+
+            working_set.add_decl(Box::new(ToNuon {}));
+            working_set.add_decl(Box::new(Metadata {}));
+            working_set.add_decl(Box::new(Get {}));
+
+            working_set.render()
+        };
+
+        engine_state
+            .merge_delta(delta)
+            .expect("Error merging delta");
+
+        let cmd = "{a: 1 b: 2} | to nuon | metadata | get content_type | $in";
+        let result = eval_pipeline_without_terminal_expression(
+            cmd,
+            std::env::temp_dir().as_ref(),
+            &mut engine_state,
+        );
+        assert_eq!(
+            Value::test_string("application/x-nuon"),
+            result.expect("There should be a result")
+        );
+    }
+}

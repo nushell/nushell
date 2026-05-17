@@ -1,0 +1,226 @@
+use nu_test_support::prelude::*;
+
+#[test]
+fn url_parse_simple() -> Result {
+    let code = r#"
+        (
+            "https://www.abc.com" | url parse
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '',
+            path: '/',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_port() -> Result {
+    let code = r#"
+        (
+            "https://www.abc.com:8011" | url parse
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '8011',
+            path: '/',
+            query: '',
+            fragment: '',
+            params: []
+        }
+        "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_path() -> Result {
+    let code = r#"
+        (
+            "http://www.abc.com:8811/def/ghj" | url parse
+        ) == {
+            scheme: 'http',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '8811',
+            path: '/def/ghj',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_params() -> Result {
+    let code = r#"
+        (
+            "http://www.abc.com:8811/def/ghj?param1=11&param2=" | url parse
+        ) == {
+            scheme: 'http',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '8811',
+            path: '/def/ghj',
+            query: 'param1=11&param2=',
+            fragment: '',
+            params: [[key, value]; ["param1", "11"], ["param2", ""]]
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_duplicate_params() -> Result {
+    let code = r#"
+        (
+            "http://www.abc.com:8811/def/ghj?param1=11&param2=&param1=22" | url parse
+        ) == {
+            scheme: 'http',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '8811',
+            path: '/def/ghj',
+            query: 'param1=11&param2=&param1=22',
+            fragment: '',
+            params: [[key, value]; ["param1", "11"], ["param2", ""], ["param1", "22"]]
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_fragment() -> Result {
+    let code = r#"
+        (
+            "http://www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment" | url parse
+        ) == {
+            scheme: 'http',
+            username: '',
+            password: '',
+            host: 'www.abc.com',
+            port: '8811',
+            path: '/def/ghj',
+            query: 'param1=11&param2=',
+            fragment: 'hello-fragment',
+            params: [[key, value]; ["param1", "11"], ["param2", ""]]
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_username_and_password() -> Result {
+    let code = r#"
+        (
+            "http://user123:password567@www.abc.com:8811/def/ghj?param1=11&param2=#hello-fragment" | url parse
+        ) == {
+            scheme: 'http',
+            username: 'user123',
+            password: 'password567',
+            host: 'www.abc.com',
+            port: '8811',
+            path: '/def/ghj',
+            query: 'param1=11&param2=',
+            fragment: 'hello-fragment',
+            params: [[key, value]; ["param1", "11"], ["param2", ""]]
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_error_empty_url() -> Result {
+    let err = test().run(r#""" | url parse"#).expect_shell_error()?;
+
+    match err {
+        ShellError::UnsupportedInput { msg, .. } => {
+            assert_eq!(
+                msg,
+                "Incomplete or incorrect URL. Expected a full URL, e.g., https://www.example.com"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn url_parse_with_base_resolves_relative_path() -> Result {
+    let code = r#"
+        (
+            "../images/logo.png" | url parse --base "https://example.com/products/item1"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'example.com',
+            port: '',
+            path: '/images/logo.png',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_base_resolves_sibling_path_trailing_slash() -> Result {
+    let code = r#"
+        (
+            "contact" | url parse --base "https://example.com/about/"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'example.com',
+            port: '',
+            path: '/about/contact',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_base_absolute_input_overrides_base() -> Result {
+    let code = r#"
+        (
+            "https://other.com/a" | url parse --base "https://example.com/about/"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'other.com',
+            port: '',
+            path: '/a',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}

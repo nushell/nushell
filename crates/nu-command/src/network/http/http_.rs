@@ -1,0 +1,176 @@
+use nu_engine::{command_prelude::*, get_full_help};
+use nu_protocol::shell_error::generic::GenericError;
+
+use super::client::RedirectMode;
+use super::get::run_get;
+use super::post::run_post;
+
+#[derive(Clone)]
+pub struct Http;
+
+impl Command for Http {
+    fn name(&self) -> &str {
+        "http"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("http")
+            .input_output_types(vec![(Type::Nothing, Type::Any)])
+            // common to get more than help. Get by default
+            .optional(
+                "URL",
+                SyntaxShape::String,
+                "The URL to fetch the contents from.",
+            )
+            // post
+            .optional(
+                "data",
+                SyntaxShape::Any,
+                "The contents of the post body. Required unless part of a pipeline.",
+            )
+            .named(
+                "content-type",
+                SyntaxShape::Any,
+                "The MIME type of content to post.",
+                Some('t'),
+            )
+            // common
+            .named(
+                "user",
+                SyntaxShape::Any,
+                "The username when authenticating.",
+                Some('u'),
+            )
+            .named(
+                "password",
+                SyntaxShape::Any,
+                "The password when authenticating.",
+                Some('p'),
+            )
+            .named(
+                "max-time",
+                SyntaxShape::Duration,
+                "Max duration before timeout occurs.",
+                Some('m'),
+            )
+            .named(
+                "headers",
+                SyntaxShape::Any,
+                "Custom headers you want to add.",
+                Some('H'),
+            )
+            .switch(
+                "raw",
+                "Fetch contents as text rather than a table.",
+                Some('r'),
+            )
+            .switch(
+                "insecure",
+                "Allow insecure server connections when using SSL.",
+                Some('k'),
+            )
+            .switch(
+                "full",
+                "Returns the record, containing metainformation about the exchange in addition to \
+                 the response.
+                Returning record fields:
+                - urls: list of url redirects this command had to make to get to the destination
+                - headers.request: list of headers passed when doing the request
+                - headers.response: list of received headers
+                - body: the http body of the response
+                - status: the http status of the response.",
+                Some('f'),
+            )
+            .switch(
+                "allow-errors",
+                "Do not fail if the server returns an error code.",
+                Some('e'),
+            )
+            .param(
+                Flag::new("redirect-mode")
+                    .short('R')
+                    .arg(SyntaxShape::String)
+                    .desc(
+                        "What to do when encountering redirects. Default: 'follow'. Valid \
+                         options: 'follow' ('f'), 'manual' ('m'), 'error' ('e').",
+                    )
+                    .completion(Completion::new_list(RedirectMode::MODES)),
+            )
+            .category(Category::Network)
+    }
+
+    fn description(&self) -> &str {
+        "Various commands for working with http methods."
+    }
+
+    fn extra_description(&self) -> &str {
+        "Without a subcommand but with a URL provided, it performs a GET request by default or a POST request if data is provided. You can use one of the following subcommands. Using this command as-is will only display this help message."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec![
+            "network", "fetch", "pull", "request", "download", "curl", "wget",
+        ]
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let url = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
+        let data: Option<Value> = call.opt::<Value>(engine_state, stack, 1)?;
+
+        // prefer stricter calls over aliasing with variables
+        if let Some(Spanned { item: method, span }) = &url
+            && let method @ ("delete" | "get" | "head" | "options" | "patch" | "post" | "put") =
+                method.to_lowercase().as_str()
+        {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Invalid command construction",
+                    format!(
+                        "Using {method:?} dynamically is bad command construction. You are providing it to the `url` positional argument of `http`"
+                    ),
+                    *span,
+                )
+                .with_help(format!("Prefer to use `http {method}` directly")),
+            ));
+        }
+
+        match (url, data) {
+            (Some(_), Some(_)) => run_post(engine_state, stack, call, input),
+            (Some(_), None) => run_get(engine_state, stack, call, input),
+            (None, Some(_)) => Err(ShellError::NushellFailed {
+                msg: (String::from("Default verb is get with a payload. Impossible state")),
+            }),
+            (None, None) => Ok(Value::string(
+                get_full_help(self, engine_state, stack, call.head),
+                call.head,
+            )
+            .into_pipeline_data()),
+        }
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![
+            Example {
+                description: "Get content from example.com with default verb.",
+                example: "http https://www.example.com",
+                result: None,
+            },
+            Example {
+                description: "Post content to example.com with default verb.",
+                example: "http https://www.example.com 'body'",
+                result: None,
+            },
+            Example {
+                description: "Get content from example.com with explicit verb.",
+                example: "http get https://www.example.com",
+                result: None,
+            },
+        ]
+    }
+}

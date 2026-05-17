@@ -1,0 +1,5 @@
+#!/usr/bin/env nu
+
+use ../toolkit.nu fmt
+
+fmt --check --verbose
