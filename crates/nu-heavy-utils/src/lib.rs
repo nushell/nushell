@@ -1,4 +1,5 @@
 pub mod endian;
+pub mod merge;
 
 pub use endian::Endian;
 
