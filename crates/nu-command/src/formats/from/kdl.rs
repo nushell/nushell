@@ -36,14 +36,35 @@ impl Command for FromKdl {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
+        let span = Span::unknown();
+
         vec![
             // TODO: add examples
             Example {
-                example: r#"'{ "a": 1 }' | from json"#,
-                description: "Converts json formatted string to table.",
-                result: Some(Value::test_record(record! {
-                    "a" => Value::test_int(1),
-                })),
+                example: r#""node attr=1 attr2=#true {bloc}" | from kdl"#,
+                description: "Converts kdl formatted string to table.",
+                result: Some(Value::test_list(vec![
+                    record! {
+                        "name" => "node".into_value(span),
+                        "entries" => vec![
+                            record! {
+                                "name" => "attr".into_value(span),
+                                "value" => Value::int(1, span),
+                            },
+                            record! {
+                                "name" => "attr2".into_value(span),
+                                "value" => Value::bool(true, span),
+                            },
+                        ].into_value(span),
+                        "children" => vec![
+                            record! {
+                                "name" => "bloc".into_value(span),
+                                "entries" => Vec::<Value>::new().into_value(span),
+                            }
+                        ].into_value(span),
+                    }
+                    .into_value(span),
+                ])),
             },
         ]
     }
@@ -64,7 +85,7 @@ impl Command for FromKdl {
             KdlDocument::parse(&kdl_string_object.0).map_err(FromKdlError::cant_convert)?;
 
         // make the output table to iject the data in
-        // the table format is [name, attr, children]
+        // the table format is [name, entries, children]
         let mut output_table: Vec<Value> = Vec::new();
 
         inject_kdl_document_into_table_recursively(&mut output_table, &kdl_data, span)?;
@@ -132,11 +153,104 @@ fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Value {
 
 #[cfg(test)]
 mod test {
-    // use super::*;
+    use super::*;
 
     #[test]
     fn test_examples() -> nu_test_support::Result {
-        // TODO: add tests
-        todo!("add tests")
+        nu_test_support::test().examples(FromKdl)
+    }
+
+    #[test]
+    fn test_official_kdl_website_example() {
+        let kdl_website_example = r#"
+            package {
+                name my-pkg
+                    version "1.2.3"
+
+                    dependencies {
+                        // Nodes can have standalone values as well as
+                        // key/value pairs.
+                        lodash "^3.2.1" optional=#true alias=underscore
+                    }
+
+                scripts {
+                    // "Raw" and dedented multi-line strings are supported.
+                    message """
+                        hello
+                        world
+                        """
+                }
+
+                // `\` breaks up a single node across multiple lines.
+                the-matrix 1 2 3 \
+                    4 5 6 \
+                    7 8 9
+
+                    // "Slashdash" comments operate at the node level,
+                    // with just `/-`.
+                    /-this-is-commented {
+                        this entire node {
+                            is gone
+                        }
+                    }
+            }
+            "#;
+
+        let kdl_document =
+            KdlDocument::parse(kdl_website_example).expect("fiald to parse kdl string");
+
+        let span = Span::test_data();
+
+        let mut output_table: Vec<Value> = Vec::new();
+        inject_kdl_document_into_table_recursively(&mut output_table, &kdl_document, span)
+            .expect("injecing kdl document data into table recursively fiald");
+
+        assert_eq!(
+            output_table[0]
+                .clone()
+                .into_value(span)
+                .get_data_by_key("name")
+                .unwrap(),
+            Value::string("package", span)
+        );
+
+        assert_eq!(
+            output_table[0]
+                .clone()
+                .into_value(span)
+                .get_data_by_key("children")
+                .unwrap()
+                .as_list()
+                .unwrap()[2]
+                .clone()
+                .into_value(span),
+            Value::record(
+                record! {
+                    "name" => "dependencies".into_value(span),
+                    "entries" => Vec::<Value>::new().into_value(span),
+                    "children" => vec![
+                        record! {
+                            "name" => "lodash".into_value(span),
+                            "entries" => vec![
+                                record! {
+                                    "name" => Value::nothing(span),
+                                    "value" => Value::string("^3.2.1", span),
+                                },
+                                record! {
+                                    "name" => "optional".into_value(span),
+                                    "value" => Value::bool(true, span),
+                                },
+                                record! {
+                                    "name" => "alias".into_value(span),
+                                    "value" => Value::string("underscore", span),
+                                },
+                            ].into_value(span),
+                        }
+                    ].into_value(span),
+                },
+                span
+            )
+        );
+        // TODO: add even more tests
     }
 }
