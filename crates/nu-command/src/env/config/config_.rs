@@ -1,4 +1,4 @@
-use nu_cmd_base::util::get_editor;
+use nu_cmd_base::util::{get_editor_with_help, CONFIG_PATH_HELP, ENV_CONFIG_HELP};
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
 use nu_protocol::{PipelineMetadata, shell_error::generic::GenericError, shell_error::io::IoError};
 use nu_system::ForegroundChild;
@@ -70,7 +70,11 @@ pub(super) fn start_editor(
 ) -> Result<PipelineData, ShellError> {
     // Find the editor executable.
 
-    let (editor_name, editor_args) = get_editor(engine_state, stack, call.head)?;
+    let help = match kind {
+        ConfigFileKind::Config => CONFIG_PATH_HELP,
+        ConfigFileKind::Env => ENV_CONFIG_HELP,
+    };
+    let (editor_name, editor_args) = get_editor_with_help(engine_state, stack, call.head, help)?;
     let paths = nu_engine::env::path_str(engine_state, stack, call.head)?;
     let cwd = engine_state.cwd(Some(stack))?;
     let editor_executable =

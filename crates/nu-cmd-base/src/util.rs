@@ -26,12 +26,16 @@ pub fn process_range(range: &Range) -> Result<(isize, isize), MakeRangeError> {
     }
 }
 
-const HELP_MSG: &str = "Nushell's config file can be found with the command: $nu.config-path. \
+pub const CONFIG_PATH_HELP: &str = "Nushell's config file can be found with the command: $nu.config-path. \
+For more help: (https://nushell.sh/book/configuration.html#configurations-with-built-in-commands)";
+
+pub const ENV_CONFIG_HELP: &str = "Nushell's environment config file can be found with the command: $nu.env-path. \
 For more help: (https://nushell.sh/book/configuration.html#configurations-with-built-in-commands)";
 
 fn get_editor_commandline(
     value: &Value,
     var_name: &str,
+    help: &str,
 ) -> Result<(String, Vec<String>), ShellError> {
     match value {
         Value::String { val, .. } if !val.is_empty() => Ok((val.to_string(), Vec::new())),
@@ -48,7 +52,7 @@ fn get_editor_commandline(
                         "Set the first element to an executable",
                         value.span(),
                     )
-                    .with_help(HELP_MSG),
+                    .with_help(help),
                 )),
             }
         }
@@ -58,7 +62,7 @@ fn get_editor_commandline(
                 "Specify an executable here",
                 value.span(),
             )
-            .with_help(HELP_MSG),
+            .with_help(help),
         )),
         x => Err(ShellError::CantConvert {
             to_type: "string or list<string>".into(),
@@ -74,16 +78,25 @@ pub fn get_editor(
     stack: &Stack,
     span: Span,
 ) -> Result<(String, Vec<String>), ShellError> {
+    get_editor_with_help(engine_state, stack, span, CONFIG_PATH_HELP)
+}
+
+pub fn get_editor_with_help(
+    engine_state: &EngineState,
+    stack: &Stack,
+    span: Span,
+    help: &str,
+) -> Result<(String, Vec<String>), ShellError> {
     let config = stack.get_config(engine_state);
 
     if let Ok(buff_editor) =
-        get_editor_commandline(&config.buffer_editor, "$env.config.buffer_editor")
+        get_editor_commandline(&config.buffer_editor, "$env.config.buffer_editor", help)
     {
         Ok(buff_editor)
     } else if let Some(value) = stack.get_env_var(engine_state, "VISUAL") {
-        get_editor_commandline(value, "$env.VISUAL")
+        get_editor_commandline(value, "$env.VISUAL", help)
     } else if let Some(value) = stack.get_env_var(engine_state, "EDITOR") {
-        get_editor_commandline(value, "$env.EDITOR")
+        get_editor_commandline(value, "$env.EDITOR", help)
     } else {
         Err(ShellError::Generic(
             GenericError::new(
@@ -91,7 +104,8 @@ pub fn get_editor(
                 "Please specify one via `$env.config.buffer_editor` or `$env.EDITOR`/`$env.VISUAL`",
                 span,
             )
-            .with_help(HELP_MSG),
+            .with_help(help),
         ))
     }
 }
+
