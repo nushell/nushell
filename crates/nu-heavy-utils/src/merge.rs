@@ -68,11 +68,15 @@ pub enum ListMerge {
     Prepend,
 }
 
+mod sealed {
+    pub trait Seal {}
+}
+
 /// Merge two values of related types into a single output.
 ///
 /// Implementations treat `self` as the left-hand side (`lhs`) and `rhs` as the
 /// right-hand side, with conflict resolution controlled by [`MergeStrategy`].
-pub trait Merge: Sized {
+pub trait Merge: Sized + sealed::Seal {
     /// Merge `rhs` into `self` using the selected strategy.
     ///
     /// The provided `span` is used when constructing merged [`Value`] output or
@@ -80,6 +84,7 @@ pub trait Merge: Sized {
     fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span) -> Result<Self, ShellError>;
 }
 
+impl sealed::Seal for Table {}
 impl Merge for Table {
     /// Merge `rhs`-table into `self`-table, element-wise.
     ///
@@ -126,6 +131,7 @@ impl Merge for Table {
     }
 }
 
+impl sealed::Seal for Record {}
 impl Merge for Record {
     /// Merge two records by key according to `strategy`.
     ///
@@ -163,6 +169,7 @@ impl Merge for Record {
     }
 }
 
+impl sealed::Seal for Value {}
 impl Merge for Value {
     /// Merge two [`Value`]s with record-aware and list-aware semantics.
     ///
