@@ -3457,35 +3457,25 @@ pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expr
 ///
 /// Returns the parsed byte value and the new index position.
 fn parse_hex_escape(bytes: &[u8], start_idx: usize, span: Span) -> Result<(u8, usize), ParseError> {
-    let mut hex_digits = String::with_capacity(2);
-    let mut cur_idx = start_idx + 1;
-
-    for _ in 0..2 {
-        match bytes.get(cur_idx) {
-            Some(&b) if b.is_ascii_hexdigit() => {
-                hex_digits.push(b as char);
-                cur_idx += 1;
-            }
-            Some(_) => {
-                return Err(ParseError::InvalidLiteral(
-                    "invalid hex escape '\\xHH', expected exactly 2 hex digits".into(),
-                    "string".into(),
-                    Span::new(span.start + start_idx, span.end),
-                ));
-            }
-            None => {
-                return Err(ParseError::InvalidLiteral(
-                    "incomplete hex escape '\\xHH', expected 2 hex digits".into(),
-                    "string".into(),
-                    Span::new(span.start + start_idx, span.end),
-                ));
-            }
-        }
+    let hex_digits = bytes.get(start_idx + 1..start_idx + 3).ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "incomplete hex escape '\\xHH', expected 2 hex digits".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    if !hex_digits.iter().all(u8::is_ascii_hexdigit) {
+        return Err(ParseError::InvalidLiteral(
+            "invalid hex escape '\\xHH', expected exactly 2 hex digits".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        ));
     }
-
-    u8::from_str_radix(&hex_digits, 16)
-        .map(|byte_val| (byte_val, cur_idx))
-        .map_err(|_| {
+    str::from_utf8(hex_digits)
+        .ok()
+        .and_then(|s| u8::from_str_radix(s, 0x10).ok())
+        .map(|byte_val| (byte_val, start_idx + 3))
+        .ok_or_else(|| {
             ParseError::InvalidLiteral(
                 "invalid hex escape '\\xHH'".into(),
                 "string".into(),
