@@ -76,10 +76,7 @@ impl Merge for Table {
         lhs.into_iter()
             .map(move |inp| match (inp.into_record(), table_iter.next()) {
                 (Ok(rec), Some(to_merge)) => match to_merge.into_record() {
-                    Ok(to_merge) => Ok(Value::record(
-                        rec.merge(to_merge, strategy, span)?,
-                        span,
-                    )),
+                    Ok(to_merge) => Ok(Value::record(rec.merge(to_merge, strategy, span)?, span)),
                     Err(error) => Ok(Value::error(error, span)),
                 },
                 (Ok(rec), None) => Ok(Value::record(rec, span)),
@@ -142,36 +139,15 @@ impl Merge for Value {
         match (strategy, lhs, rhs) {
             // Propagate errors
             (_, Value::Error { error, .. }, _) | (_, _, Value::Error { error, .. }) => Err(*error),
-            // Shallow merge records
+            // Merge records (shallow and deep)
             (
-                MergeStrategy::Shallow,
+                MergeStrategy::Shallow | MergeStrategy::Deep(_),
                 Value::Record { val: lhs, .. },
                 Value::Record { val: rhs, .. },
             ) => Ok(Value::record(
                 lhs.into_owned().merge(rhs.into_owned(), strategy, span)?,
                 span,
             )),
-            // Deep merge records
-            (
-                MergeStrategy::Deep(_),
-                Value::Record { val: lhs, .. },
-                Value::Record { val: rhs, .. },
-            ) => Ok(Value::record(
-                lhs.into_owned().merge(rhs.into_owned(), strategy, span)?,
-                span,
-            )),
-            // Merge lists by appending
-            (
-                MergeStrategy::Deep(ListMerge::Append),
-                Value::List { vals: lhs, .. },
-                Value::List { vals: rhs, .. },
-            ) => Ok(Value::list(lhs.into_iter().chain(rhs).collect(), span)),
-            // Merge lists by prepending
-            (
-                MergeStrategy::Deep(ListMerge::Prepend),
-                Value::List { vals: lhs, .. },
-                Value::List { vals: rhs, .. },
-            ) => Ok(Value::list(rhs.into_iter().chain(lhs).collect(), span)),
             // Merge lists of records elementwise (tables and non-tables)
             // Match on shallow since this might be a top-level table
             (
@@ -187,24 +163,21 @@ impl Merge for Value {
                     .expect("Value matched as list above, but is not a list");
                 Ok(Value::list(lhs.merge(rhs, strategy, span)?, span))
             }
+            // Merge lists by appending
+            (
+                MergeStrategy::Deep(ListMerge::Append),
+                Value::List { vals: lhs, .. },
+                Value::List { vals: rhs, .. },
+            ) => Ok(Value::list(lhs.into_iter().chain(rhs).collect(), span)),
+            // Merge lists by prepending
+            (
+                MergeStrategy::Deep(ListMerge::Prepend),
+                Value::List { vals: lhs, .. },
+                Value::List { vals: rhs, .. },
+            ) => Ok(Value::list(rhs.into_iter().chain(lhs).collect(), span)),
             // Use rhs value (shallow record merge, overwrite list merge, and general scalar merge)
             (_, _, val) => Ok(val),
         }
-    }
-}
-
-/// Test whether a value is a list of records.
-///
-/// This includes tables and non-tables.
-fn is_list_of_records(val: &Value) -> bool {
-    match val {
-        list @ Value::List { .. } if matches!(list.get_type(), Type::Table { .. }) => true,
-        // we want to include lists of records, but not lists of mixed types
-        Value::List { vals, .. } => vals
-            .iter()
-            .map(Value::get_type)
-            .all(|val| matches!(val, Type::Record { .. })),
-        _ => false,
     }
 }
 
@@ -221,5 +194,20 @@ pub fn typecheck(lhs: &Value, rhs: &Value, head: Span) -> Result<(), ShellError>
             dst_span: head,
             src_span: lhs.span(),
         }),
+    }
+}
+
+/// Test whether a value is a list of records.
+///
+/// This includes tables and non-tables.
+fn is_list_of_records(val: &Value) -> bool {
+    match val {
+        list @ Value::List { .. } if matches!(list.get_type(), Type::Table { .. }) => true,
+        // we want to include lists of records, but not lists of mixed types
+        Value::List { vals, .. } => vals
+            .iter()
+            .map(Value::get_type)
+            .all(|val| matches!(val, Type::Record { .. })),
+        _ => false,
     }
 }
