@@ -2,6 +2,7 @@ use nu_protocol::{Record, ShellError, Span, Type, Value};
 
 type Table = Vec<Value>;
 
+/// Controls how values are combined during a merge operation.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum MergeStrategy {
     /// Key-value pairs present in `lhs` and `rhs` are overwritten by values in `rhs`.
@@ -11,6 +12,7 @@ pub enum MergeStrategy {
     Deep(ListMerge),
 }
 
+/// Defines how list values are handled when using [`MergeStrategy::Deep`].
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum ListMerge {
     /// Lists in `lhs` are overwritten by lists in `rhs`.
@@ -26,9 +28,17 @@ pub enum ListMerge {
     Prepend,
 }
 
+/// Merge two values of related types into a single output.
+///
+/// Implementations treat `self` as the left-hand side (`lhs`) and `rhs` as the
+/// right-hand side, with conflict resolution controlled by [`MergeStrategy`].
 pub trait Merge: Sized {
     type Rhs;
 
+    /// Merge `rhs` into `self` using the selected strategy.
+    ///
+    /// The provided `span` is used when constructing merged [`Value`] output or
+    /// surfaced errors.
     fn merge(self, rhs: Self::Rhs, strategy: MergeStrategy, span: Span)
     -> Result<Self, ShellError>;
 }
@@ -89,6 +99,10 @@ impl Merge for Table {
 impl Merge for Record {
     type Rhs = Record;
 
+    /// Merge two records by key according to `strategy`.
+    ///
+    /// For shallow merges, colliding keys are replaced by values from `rhs`.
+    /// For deep merges, nested values are recursively merged.
     fn merge(
         self,
         rhs: Self::Rhs,
@@ -129,6 +143,10 @@ impl Merge for Record {
 impl Merge for Value {
     type Rhs = Value;
 
+    /// Merge two [`Value`]s with record-aware and list-aware semantics.
+    ///
+    /// Errors are propagated, records are merged recursively when requested, and
+    /// list behavior depends on the selected [`ListMerge`] strategy.
     fn merge(
         self,
         rhs: Self::Rhs,
