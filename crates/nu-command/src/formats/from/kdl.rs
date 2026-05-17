@@ -38,45 +38,34 @@ impl Command for FromKdl {
     fn examples(&self) -> Vec<Example<'_>> {
         let span = Span::unknown();
 
-        vec![
-            // TODO: add examples
-            Example {
-                example: r#""node attr=1 attr2=#true {bloc}" | from kdl"#,
-                description: "Converts kdl formatted string to table.",
-                result: Some(Value::test_list(vec![
+        vec![Example {
+            example: r#""node attr=1 attr2=#true {bloc}" | from kdl"#,
+            description: "Converts kdl formatted string to record.",
+            result: Some(Value::test_record(record! {
+                "node" => vec![
                     record! {
-                        "name" => "node".into_value(span),
-                        "entries" => vec![
-                            record! {
-                                "name" => "attr".into_value(span),
-                                "value" => Value::int(1, span),
-                            },
-                            record! {
-                                "name" => "attr2".into_value(span),
-                                "value" => Value::bool(true, span),
-                            },
-                        ].into_value(span),
-                        "children" => vec![
-                            record! {
-                                "name" => "bloc".into_value(span),
-                                "entries" => Vec::<Value>::new().into_value(span),
-                            }
-                        ].into_value(span),
+                        "attr" => 1.into_value(span),
+                    },
+                    record! {
+                        "attr2" => true.into_value(span),
+                    },
+                    record! {
+                        "bloc" => Value::nothing(span),
                     }
-                    .into_value(span),
-                ])),
-            },
-        ]
+                ].into_value(span),
+            })),
+        }]
     }
 
     fn run(
         &self,
-        engine_state: &EngineState,
+        _: &EngineState,
         _: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
 
         let kdl_string_object = input.collect_string_strict(span)?;
 
@@ -84,61 +73,77 @@ impl Command for FromKdl {
         let kdl_data =
             KdlDocument::parse(&kdl_string_object.0).map_err(FromKdlError::cant_convert)?;
 
-        // make the output table to iject the data in
-        // the table format is [name, entries, children]
-        let mut output_table: Vec<Value> = Vec::new();
+        // make the output record to inject the data in
+        let mut output_record = Record::new();
 
-        inject_kdl_document_into_table_recursively(&mut output_table, &kdl_data, span)?;
+        inject_kdl_document_into_record_recursively(&mut output_record, &kdl_data, span)?;
 
-        Ok(output_table.into_pipeline_data(span, engine_state.signals().clone()))
+        Ok(output_record
+            .into_value(span)
+            .into_pipeline_data_with_metadata(metadata))
     }
 }
 
-// helpers
-fn inject_kdl_document_into_table_recursively(
-    output_table: &mut Vec<Value>,
+fn inject_kdl_document_into_record_recursively(
+    output_record: &mut Record,
     kdl_document: &KdlDocument,
     span: Span,
 ) -> Result<(), ShellError> {
     let nodes = kdl_document.nodes();
 
     for node in nodes {
-        let mut row = Record::new();
+        let entries = get_kdl_node_entries(node, span)?;
 
-        row.push("name", Value::string(node.name().value(), span));
-        row.push(
-            "entries",
-            get_kdl_node_entries(node, span)?.into_value(span),
-        );
-        if let Some(children) = node.children() {
-            let mut children_list: Vec<Value> = Vec::new();
-            inject_kdl_document_into_table_recursively(&mut children_list, children, span)?;
-            row.push("children", children_list.into_value(span));
+        let mut value: Value;
+
+        if !entries.is_empty() {
+            if let Some(children) = node.children() {
+                let mut children_record = Record::new();
+                inject_kdl_document_into_record_recursively(&mut children_record, children, span)?;
+
+                value = entries.into_value(span);
+                let mut list = value.as_list()?.to_vec();
+                list.push(children_record.into_value(span));
+                value = Value::list(list, span);
+            } else if entries.len() == 1 {
+                value = entries.first().expect("entries is not empty").clone();
+            } else {
+                value = entries.into_value(span);
+            }
+        } else if let Some(children) = node.children() {
+            let mut children_record = Record::new();
+            inject_kdl_document_into_record_recursively(&mut children_record, children, span)?;
+            value = children_record.into_value(span);
+        } else {
+            value = Value::nothing(span);
         }
 
-        output_table.push(row.into_value(span));
+        output_record.insert(node.name().value().to_string(), value);
     }
 
     Ok(())
 }
 
 fn get_kdl_node_entries(kdl_node: &KdlNode, span: Span) -> Result<Vec<Value>, ShellError> {
-    let mut output_table: Vec<Value> = Vec::new();
+    let mut output_list: Vec<Value> = Vec::new();
 
     for entry in kdl_node.entries() {
-        let mut row = Record::new();
         if let Some(name) = entry.name() {
-            row.push("name", Value::string(name.value(), span));
-        } else {
-            row.push("name", Value::nothing(span));
+            let mut row = Record::new();
+
+            row.insert(
+                name.value().to_string(),
+                convert_kdl_value_to_nu_value(entry.value(), span),
+            );
+
+            output_list.push(row.into_value(span));
+            continue;
         }
 
-        row.push("value", convert_kdl_value_to_nu_value(entry.value(), span));
-
-        output_table.push(row.into_value(span));
+        output_list.push(convert_kdl_value_to_nu_value(entry.value(), span).into_value(span));
     }
 
-    Ok(output_table)
+    Ok(output_list)
 }
 
 fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Value {
@@ -162,95 +167,80 @@ mod test {
 
     #[test]
     fn test_official_kdl_website_example() {
-        let kdl_website_example = r#"
-            package {
-                name my-pkg
-                    version "1.2.3"
+        const KDL_WEBSITE_EXAMPLE: &str = r#"
+        package {
+          name my-pkg
+          version "1.2.3"
 
-                    dependencies {
-                        // Nodes can have standalone values as well as
-                        // key/value pairs.
-                        lodash "^3.2.1" optional=#true alias=underscore
-                    }
+          dependencies {
+            // Nodes can have standalone values as well as
+            // key/value pairs.
+            lodash "^3.2.1" optional=#true alias=underscore
+          }
 
-                scripts {
-                    // "Raw" and dedented multi-line strings are supported.
-                    message """
-                        hello
-                        world
-                        """
-                }
+          scripts {
+            // "Raw" and dedented multi-line strings are supported.
+            message """
+            hello
+            world
+            """
+          }
 
-                // `\` breaks up a single node across multiple lines.
-                the-matrix 1 2 3 \
-                    4 5 6 \
-                    7 8 9
+          // `\` breaks up a single node across multiple lines.
+          the-matrix 1 2 3 \
+          4 5 6 \
+          7 8 9
 
-                    // "Slashdash" comments operate at the node level,
-                    // with just `/-`.
-                    /-this-is-commented {
-                        this entire node {
-                            is gone
-                        }
-                    }
+          // "Slashdash" comments operate at the node level,
+          // with just `/-`.
+          /-this-is-commented {
+            this entire node {
+              is gone
             }
-            "#;
+          }
+        }"#;
 
         let kdl_document =
-            KdlDocument::parse(kdl_website_example).expect("fiald to parse kdl string");
+            KdlDocument::parse(KDL_WEBSITE_EXAMPLE).expect("fiald to parse kdl string");
 
         let span = Span::test_data();
 
-        let mut output_table: Vec<Value> = Vec::new();
-        inject_kdl_document_into_table_recursively(&mut output_table, &kdl_document, span)
-            .expect("injecing kdl document data into table recursively fiald");
+        let mut output_record = Record::new();
+        inject_kdl_document_into_record_recursively(&mut output_record, &kdl_document, span)
+            .expect("injecing kdl document data into record recursively fiald");
 
         assert_eq!(
-            output_table[0]
-                .clone()
-                .into_value(span)
-                .get_data_by_key("name")
-                .unwrap(),
-            Value::string("package", span)
-        );
-
-        assert_eq!(
-            output_table[0]
-                .clone()
-                .into_value(span)
-                .get_data_by_key("children")
+            output_record
+                .get("package")
+                .unwrap()
+                .as_record()
+                .unwrap()
+                .get("the-matrix")
                 .unwrap()
                 .as_list()
-                .unwrap()[2]
+                .unwrap()
+                .first()
+                .unwrap()
                 .clone()
                 .into_value(span),
-            Value::record(
-                record! {
-                    "name" => "dependencies".into_value(span),
-                    "entries" => Vec::<Value>::new().into_value(span),
-                    "children" => vec![
-                        record! {
-                            "name" => "lodash".into_value(span),
-                            "entries" => vec![
-                                record! {
-                                    "name" => Value::nothing(span),
-                                    "value" => Value::string("^3.2.1", span),
-                                },
-                                record! {
-                                    "name" => "optional".into_value(span),
-                                    "value" => Value::bool(true, span),
-                                },
-                                record! {
-                                    "name" => "alias".into_value(span),
-                                    "value" => Value::string("underscore", span),
-                                },
-                            ].into_value(span),
-                        }
-                    ].into_value(span),
-                },
-                span
-            )
+            Value::int(1, span)
         );
-        // TODO: add even more tests
+
+        assert_eq!(
+            output_record
+                .get("package")
+                .unwrap()
+                .as_record()
+                .unwrap()
+                .get("scripts")
+                .unwrap()
+                .as_record()
+                .unwrap()
+                .get("message")
+                .unwrap()
+                .clone()
+                .into_value(span),
+            Value::string("hello\nworld", span)
+        );
     }
 }
