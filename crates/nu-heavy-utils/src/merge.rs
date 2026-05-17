@@ -73,19 +73,15 @@ pub enum ListMerge {
 /// Implementations treat `self` as the left-hand side (`lhs`) and `rhs` as the
 /// right-hand side, with conflict resolution controlled by [`MergeStrategy`].
 pub trait Merge: Sized {
-    type Rhs;
-
     /// Merge `rhs` into `self` using the selected strategy.
     ///
     /// The provided `span` is used when constructing merged [`Value`] output or
     /// surfaced errors.
-    fn merge(self, rhs: Self::Rhs, strategy: MergeStrategy, span: Span)
+    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span)
     -> Result<Self, ShellError>;
 }
 
 impl Merge for Table {
-    type Rhs = Table;
-
     /// Merge `rhs`-table into `self`-table, element-wise.
     ///
     /// ```
@@ -116,7 +112,7 @@ impl Merge for Table {
     /// ```
     fn merge(
         self,
-        rhs: Self::Rhs,
+        rhs: Self,
         strategy: MergeStrategy,
         span: Span,
     ) -> Result<Self, ShellError> {
@@ -137,15 +133,13 @@ impl Merge for Table {
 }
 
 impl Merge for Record {
-    type Rhs = Record;
-
     /// Merge two records by key according to `strategy`.
     ///
     /// For shallow merges, colliding keys are replaced by values from `rhs`.
     /// For deep merges, nested values are recursively merged.
     fn merge(
         self,
-        rhs: Self::Rhs,
+        rhs: Self,
         strategy: MergeStrategy,
         span: Span,
     ) -> Result<Self, ShellError> {
@@ -181,15 +175,13 @@ impl Merge for Record {
 }
 
 impl Merge for Value {
-    type Rhs = Value;
-
     /// Merge two [`Value`]s with record-aware and list-aware semantics.
     ///
     /// Errors are propagated, records are merged recursively when requested, and
     /// list behavior depends on the selected [`ListMerge`] strategy.
     fn merge(
         self,
-        rhs: Self::Rhs,
+        rhs: Self,
         strategy: MergeStrategy,
         span: Span,
     ) -> Result<Self, ShellError> {
