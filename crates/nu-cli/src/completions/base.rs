@@ -69,26 +69,23 @@ impl IntoValue for SemanticSuggestion {
             record.insert("description", description.into_value(span));
         }
 
-        if let Some(kind) = self.kind.as_ref().map(|kind| match kind {
-            SuggestionKind::Command(..) => "command",
-            SuggestionKind::Value(_) => "value",
-            SuggestionKind::CellPath => "cell-path",
-            SuggestionKind::Directory => "directory",
-            SuggestionKind::File => "file",
-            SuggestionKind::Flag => "flag",
-            SuggestionKind::Module => "module",
-            SuggestionKind::Operator => "operator",
-            SuggestionKind::Variable => "variable",
-        }) {
-            record.insert("kind", kind.into_value(span));
-        }
+        if let Some(kind) = self.kind {
+            let (kind_str, ty) = match kind {
+                SuggestionKind::Command(ty, _) => ("command", Some(ty.to_string())),
+                SuggestionKind::Value(ty) => ("value", Some(ty.to_string())),
+                SuggestionKind::CellPath => ("cell-path", None),
+                SuggestionKind::Directory => ("directory", None),
+                SuggestionKind::File => ("file", None),
+                SuggestionKind::Flag => ("flag", None),
+                SuggestionKind::Module => ("module", None),
+                SuggestionKind::Operator => ("operator", None),
+                SuggestionKind::Variable => ("variable", None),
+            };
+            record.insert("kind", kind_str.into_value(span));
 
-        if let Some(ty) = self.kind.as_ref().and_then(|kind| match kind {
-            SuggestionKind::Command(ty, _) => Some(ty.to_string()),
-            SuggestionKind::Value(ty) => Some(ty.to_string()),
-            _ => None,
-        }) {
-            record.insert("type", ty.into_value(span));
+            if let Some(ty) = ty {
+                record.insert("type", ty.into_value(span));
+            }
         }
 
         Value::record(record, span)
