@@ -3491,51 +3491,52 @@ fn parse_unicode_escape(
     bytes: &[u8],
     start_idx: usize,
     span: Span,
-) -> Result<(Vec<u8>, usize), ParseError> {
-    let mut digits = String::with_capacity(10);
-    let mut cur_idx = start_idx + 1;
+) -> Result<(char, usize), ParseError> {
+    let mut slice = &bytes[(start_idx + 1)..];
+    let mut current_idx = start_idx + 1;
 
-    if let Some(b'{') = bytes.get(start_idx + 1) {
-        cur_idx = start_idx + 2;
-        loop {
-            match bytes.get(cur_idx) {
-                Some(b'}') => {
-                    cur_idx += 1;
-                    break;
-                }
-                Some(c) => {
-                    digits.push(*c as char);
-                    cur_idx += 1;
-                }
-                _ => {
-                    return Err(ParseError::InvalidLiteral(
-                        "incomplete unicode escape '\\u{...}', missing closing '}'".into(),
-                        "string".into(),
-                        Span::new(span.start + start_idx, span.end),
-                    ));
-                }
-            }
-        }
-    }
+    // NOTE: this is a more defensive approach meant to avoid reading too much, but requires
+    //       changing error messages
+    // read no more than 8 bytes "{xxxxxx}"
+    // slice = &slice[..(8.min(slice.len()))];
 
-    if (1..=6).contains(&digits.len()) {
-        let int = u32::from_str_radix(&digits, 16);
+    slice = slice.strip_prefix(b"{").ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "invalid unicode escape '\\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF"
+                .into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    current_idx += 1;
 
-        if let Ok(int) = int
-            && int <= 0x10ffff
-            && let Some(result) = char::from_u32(int)
-        {
-            let mut buffer = [0; 4];
-            let encoded = result.encode_utf8(&mut buffer);
-            return Ok((encoded.bytes().collect(), cur_idx));
-        }
-    }
+    let end = slice.iter().position(|b| *b == b'}').ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "incomplete unicode escape '\\u{...}', missing closing '}'".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    let digits = &slice[..end];
+    current_idx += end; // the digits
+    current_idx += 1; // closing brace
+    let current_idx = current_idx;
 
-    Err(ParseError::InvalidLiteral(
-        "invalid unicode escape '\\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF".into(),
-        "string".into(),
-        Span::new(span.start + start_idx, span.end),
-    ))
+    let ch = Some(digits)
+        .filter(|b| (1..=6).contains(&b.len()))
+        .and_then(|b| str::from_utf8(b).ok())
+        .and_then(|s| u32::from_str_radix(s, 0x10).ok())
+        .and_then(char::from_u32)
+        .ok_or_else(|| {
+            ParseError::InvalidLiteral(
+                "invalid unicode escape '\\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF"
+                    .into(),
+                "string".into(),
+                Span::new(span.start + start_idx, span.end),
+            )
+        })?;
+
+    Ok((ch, current_idx))
 }
 
 /// Parse and process POSIX escape sequences in a byte string.
@@ -3671,8 +3672,9 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                 Some(b'u') => {
                     // Unicode escape: \u{XXXXXX} (1-6 hex digits, max 0x10FFFF)
                     match parse_unicode_escape(bytes, idx, span) {
-                        Ok((utf8_bytes, new_idx)) => {
-                            output.extend(utf8_bytes);
+                        Ok((ch, new_idx)) => {
+                            let mut ch_buf = [0u8; 4];
+                            output.extend(ch.encode_utf8(&mut ch_buf).as_bytes());
                             idx = new_idx;
                         }
                         Err(err) => {
