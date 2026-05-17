@@ -1,3 +1,43 @@
+//! Merging behavior for [`Value`]s.
+//! 
+//! This module contains the [`Merge`] trait which allows merging values into a single one using 
+//! different [merge strategies](MergeStrategy).
+//! To ensure that the initial [`Value`]s are either both records or both tables, the [`typecheck`] 
+//! function may be used.
+//! 
+//! This behavior is exposed via the nushell commands `merge` and `merge deep`.
+//! 
+//! Execute a merge of two values and ensure both are records:
+//! ```
+//! use nu_heavy_utils::merge::{self, MergeStrategy, Merge};
+//! # use nu_protocol::{test_record, Span, ShellError};
+//! #
+//! # fn main() -> Result<(), ShellError> {
+//! let lhs = test_record! {
+//!     "a" => 1,
+//!     "b" => 2,
+//! };
+//! let rhs = test_record! {
+//!     "a" => 42,
+//!     "c" => 9,
+//! };
+//! 
+//! # let span = Span::test_data();
+//! let strategy = MergeStrategy::Shallow;
+//! 
+//! merge::typecheck(&lhs, &rhs, span)?;
+//! let merged = lhs.merge(rhs, strategy, span)?;
+//! 
+//! let expected = test_record! {
+//!     "a" => 42,
+//!     "b" => 2,
+//!     "c" => 9,
+//! };
+//! assert_eq!(expected, merged);
+//! # Ok(())
+//! # }
+//! ```
+
 use nu_protocol::{Record, ShellError, Span, Type, Value};
 
 type Table = Vec<Value>;
