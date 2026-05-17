@@ -77,8 +77,7 @@ pub trait Merge: Sized {
     ///
     /// The provided `span` is used when constructing merged [`Value`] output or
     /// surfaced errors.
-    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span)
-    -> Result<Self, ShellError>;
+    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span) -> Result<Self, ShellError>;
 }
 
 impl Merge for Table {
@@ -110,12 +109,7 @@ impl Merge for Table {
     /// # let expected = expected.into_list().unwrap();
     /// assert_eq!(merged, expected);
     /// ```
-    fn merge(
-        self,
-        rhs: Self,
-        strategy: MergeStrategy,
-        span: Span,
-    ) -> Result<Self, ShellError> {
+    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span) -> Result<Self, ShellError> {
         let lhs = self;
         let mut table_iter = rhs.into_iter();
 
@@ -137,12 +131,7 @@ impl Merge for Record {
     ///
     /// For shallow merges, colliding keys are replaced by values from `rhs`.
     /// For deep merges, nested values are recursively merged.
-    fn merge(
-        self,
-        rhs: Self,
-        strategy: MergeStrategy,
-        span: Span,
-    ) -> Result<Self, ShellError> {
+    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span) -> Result<Self, ShellError> {
         let mut lhs = self;
         match strategy {
             MergeStrategy::Shallow => {
@@ -179,12 +168,7 @@ impl Merge for Value {
     ///
     /// Errors are propagated, records are merged recursively when requested, and
     /// list behavior depends on the selected [`ListMerge`] strategy.
-    fn merge(
-        self,
-        rhs: Self,
-        strategy: MergeStrategy,
-        span: Span,
-    ) -> Result<Self, ShellError> {
+    fn merge(self, rhs: Self, strategy: MergeStrategy, span: Span) -> Result<Self, ShellError> {
         let lhs = self;
         match (strategy, lhs, rhs) {
             // Propagate errors
