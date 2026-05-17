@@ -67,7 +67,7 @@ fn get_number_bytes(
     head: Span,
 ) -> Result<NumberBytes, ShellError> {
     match number_bytes {
-        None => Ok(NumberBytes::Auto),
+        None => Ok(NumberBytes::Eight),
         Some(Spanned { item: 1, .. }) => Ok(NumberBytes::One),
         Some(Spanned { item: 2, .. }) => Ok(NumberBytes::Two),
         Some(Spanned { item: 4, .. }) => Ok(NumberBytes::Four),
