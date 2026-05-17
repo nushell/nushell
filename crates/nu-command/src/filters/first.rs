@@ -22,6 +22,7 @@ impl Command for First {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
+                (Type::table(), Type::Any),
                 (Type::Binary, Type::Binary),
                 (Type::Range, Type::Any),
             ])
@@ -40,7 +41,7 @@ impl Command for First {
     }
 
     fn description(&self) -> &str {
-        "Return only the first several rows of the input. Counterpart of `last`. Opposite of `skip`."
+        "Return only the first several rows of the input. Works on lists, tables, ranges, and binary values. Counterpart of `last`. Opposite of `skip`."
     }
 
     fn run(

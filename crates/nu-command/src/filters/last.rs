@@ -22,6 +22,7 @@ impl Command for Last {
                     Type::List(Box::new(Type::Any)),
                     Type::Any,
                 ),
+                (Type::table(), Type::Any),
                 (Type::Binary, Type::Binary),
                 (Type::Range, Type::Any),
             ])
@@ -40,7 +41,7 @@ impl Command for Last {
     }
 
     fn description(&self) -> &str {
-        "Return only the last several rows of the input. Counterpart of `first`. Opposite of `drop`."
+        "Return only the last several rows of the input. Works on lists, tables, ranges, binaries, and streams. Counterpart of `first`. Opposite of `drop`."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

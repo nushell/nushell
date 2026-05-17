@@ -56,6 +56,14 @@ where
                     Type::Binary,
                     Type::OneOf(Box::new([Type::String, Type::Binary])),
                 ),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (
+                    Type::List(Box::new(Type::Binary)),
+                    Type::List(Box::new(Type::Binary)),
+                ),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
