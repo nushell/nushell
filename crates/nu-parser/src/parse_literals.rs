@@ -3,15 +3,17 @@
 use crate::{
     Token, TokenContents,
     lex::lex,
-    parse_helpers::{garbage, is_variable, trim_quotes},
+    parse_helpers::{
+        SPREAD_OPERATOR_STR, extract_spread_record, garbage, is_variable, trim_quotes,
+    },
     parse_pipelines::parse_block,
     type_check::check_range_types,
 };
 use itertools::Itertools;
 use log::trace;
 use nu_protocol::{
-    DidYouMean, FilesizeUnit, ParseError, Span, Spanned, SyntaxShape, Type, Unit, VarId, ast::*,
-    casing::Casing, engine::StateWorkingSet,
+    DidYouMean, FilesizeUnit, IntoSpanned, ParseError, Span, Spanned, SyntaxShape, Type, Unit,
+    VarId, ast::*, casing::Casing, engine::StateWorkingSet,
 };
 use std::sync::Arc;
 
@@ -233,7 +235,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         return None;
     };
 
-    if token.starts_with("...") {
+    if token.starts_with(SPREAD_OPERATOR_STR) {
         working_set.error(ParseError::Expected(
             "range operator ('..'), got spread ('...')",
             span,
@@ -570,9 +572,7 @@ pub fn parse_brace_expr(
                 SyntaxShape::MatchBlock => parse_match_block_expression(working_set, span),
                 // For edge case of `{}.foo?`, #17896
                 _ if second_bytes == b"}" => parse_full_cell_path(working_set, None, span),
-                _ if second_bytes.starts_with(b"...")
-                    && second_bytes.get(3).is_some_and(|c| b"${(".contains(c)) =>
-                {
+                _ if extract_spread_record(second_bytes.into_spanned(second.span)).is_some() => {
                     parse_record(working_set, span)
                 }
                 SyntaxShape::Any => parse_closure_expression(working_set, shape, span),

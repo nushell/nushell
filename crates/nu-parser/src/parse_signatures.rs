@@ -6,7 +6,7 @@ use crate::parse_literals::parse_full_cell_path;
 use crate::{
     Token, TokenContents,
     lex::lex_signature,
-    parse_helpers::{garbage, is_variable},
+    parse_helpers::{SPREAD_OPERATOR, garbage, is_variable},
     parse_shape_specs::{parse_completer, parse_shape_name, parse_type},
     type_check::type_compatible,
 };
@@ -888,7 +888,7 @@ pub fn parse_signature_helper(
                                 parse_mode = ParseMode::Arg;
                             }
                             // Rest param
-                            else if let Some(contents) = contents.strip_prefix(b"...") {
+                            else if let Some(contents) = contents.strip_prefix(SPREAD_OPERATOR) {
                                 let name = String::from_utf8_lossy(contents).to_string();
                                 let contents_vec: Vec<u8> = contents.to_vec();
 

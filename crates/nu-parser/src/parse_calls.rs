@@ -1,14 +1,14 @@
 use crate::{
     lite_parser::LiteCommand,
-    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, garbage},
+    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, garbage},
     parse_source::find_dirs_var,
     type_check::type_compatible,
 };
 use log::trace;
 use nu_engine::DIR_VAR_PARSER_INFO;
 use nu_protocol::{
-    DeclId, Flag, ParseError, PositionalArg, ShellError, Signature, Span, Spanned, SyntaxShape,
-    Type,
+    DeclId, Flag, IntoSpanned, ParseError, PositionalArg, ShellError, Signature, Span, Spanned,
+    SyntaxShape, Type,
     ast::*,
     did_you_mean,
     engine::{CommandType, StateWorkingSet},
@@ -321,13 +321,10 @@ fn is_quoted(bytes: &[u8]) -> bool {
 fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> ExternalArgument {
     let contents = working_set.get_span_contents(span);
 
-    if contents.len() > 3
-        && contents.starts_with(b"...")
-        && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
-    {
+    if let Some(Spanned { item: _, span }) = extract_spread_list(contents.into_spanned(span)) {
         ExternalArgument::Spread(crate::parser::parse_value(
             working_set,
-            Span::new(span.start + 3, span.end),
+            span,
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
         ))
     } else {
@@ -1121,9 +1118,10 @@ pub fn parse_internal_call(
         {
             let contents = working_set.get_span_contents(spans[spans_idx]);
 
-            if contents.len() > 3
-                && contents.starts_with(b"...")
-                && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+            if let Some(Spanned {
+                span: spread_arg_span,
+                ..
+            }) = extract_spread_list(contents.into_spanned(spans[spans_idx]))
             {
                 if signature.rest_positional.is_none() && !signature.allows_unknown_args {
                     working_set.error(ParseError::UnexpectedSpreadArg(
@@ -1150,7 +1148,7 @@ pub fn parse_internal_call(
                     // Parse list of arguments to be spread
                     let args = crate::parser::parse_value(
                         working_set,
-                        Span::new(arg_span.start + 3, arg_span.end),
+                        spread_arg_span,
                         &SyntaxShape::List(Box::new(rest_shape)),
                     );
 
@@ -1359,13 +1357,12 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
             // argument so runtime dispatch can forward it without flattening first.
             for arg_span in resolution_spans.iter().skip(head_idx + 1) {
                 let contents = working_set.get_span_contents(*arg_span);
-                if contents.len() > 3
-                    && contents.starts_with(b"...")
-                    && (contents[3] == b'$' || contents[3] == b'[' || contents[3] == b'(')
+                if let Some(Spanned { span: arg_span, .. }) =
+                    extract_spread_list(contents.into_spanned(*arg_span))
                 {
                     let spread_expr = crate::parser::parse_value(
                         working_set,
-                        Span::new(arg_span.start + 3, arg_span.end),
+                        arg_span,
                         &SyntaxShape::List(Box::new(SyntaxShape::Any)),
                     );
                     call.arguments.push(Argument::Spread(spread_expr));

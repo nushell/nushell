@@ -4,7 +4,10 @@ use crate::{
     Token, TokenContents,
     lex::{LexState, is_assignment_operator, lex, lex_n_tokens},
     lite_parser::{LiteCommand, lite_parse},
-    parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, garbage, garbage_pipeline},
+    parse_helpers::{
+        PERCENT_FORCED_BUILTIN_PARSER_INFO, extract_spread_list, extract_spread_record, garbage,
+        garbage_pipeline,
+    },
     parse_keywords::{
         is_unaliasable_parser_keyword, parse_alias, parse_attribute_block, parse_const, parse_def,
         parse_export_env, parse_export_in_block, parse_extern, parse_for, parse_hide,
@@ -27,8 +30,8 @@ use crate::{
 use itertools::Itertools;
 use log::trace;
 use nu_protocol::{
-    CompareTypes, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, VarId,
-    ast::*, engine::StateWorkingSet,
+    CompareTypes, IntoSpanned, ParseError, PositionalArg, Signature, Span, Spanned, SyntaxShape,
+    Type, TypeSet, VarId, ast::*, engine::StateWorkingSet,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -142,13 +145,13 @@ pub fn parse_list_expression(
             while spans_idx < command.parts.len() {
                 let curr_span = command.parts[spans_idx];
                 let curr_tok = working_set.get_span_contents(curr_span);
-                let (arg, ty) = if curr_tok.starts_with(b"...")
-                    && curr_tok.len() > 3
-                    && (curr_tok[3] == b'$' || curr_tok[3] == b'[' || curr_tok[3] == b'(')
+                let (arg, ty) = if let Some(Spanned {
+                    span: trimmed_span, ..
+                }) = extract_spread_list(curr_tok.into_spanned(curr_span))
                 {
                     // Parse the spread operator
                     // Remove "..." before parsing argument to spread operator
-                    command.parts[spans_idx] = Span::new(curr_span.start + 3, curr_span.end);
+                    command.parts[spans_idx] = trimmed_span;
                     let spread_arg = parse_multispan_value(
                         working_set,
                         &command.parts,
@@ -1840,10 +1843,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             .expect("should have gotten 1 token")
             .span;
         let contents = working_set.get_span_contents(span);
-        if contents.len() > 3
-            && contents.starts_with(b"...")
-            && (contents[3] == b'$' || contents[3] == b'{' || contents[3] == b'(')
-        {
+        if extract_spread_record(contents.into_spanned(span)).is_some() {
             // This was a spread operator, so there's no value
             continue;
         }
@@ -1878,16 +1878,10 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     while idx < tokens.len() {
         let curr_span = tokens[idx].span;
         let curr_tok = working_set.get_span_contents(curr_span);
-        if curr_tok.starts_with(b"...")
-            && curr_tok.len() > 3
-            && (curr_tok[3] == b'$' || curr_tok[3] == b'{' || curr_tok[3] == b'(')
+        if let Some(Spanned { span, .. }) = extract_spread_record(curr_tok.into_spanned(curr_span))
         {
             // Parse spread operator
-            let inner = parse_value(
-                working_set,
-                Span::new(curr_span.start + 3, curr_span.end),
-                &SyntaxShape::record(),
-            );
+            let inner = parse_value(working_set, span, &SyntaxShape::record());
             idx += 1;
 
             match &inner.ty {
