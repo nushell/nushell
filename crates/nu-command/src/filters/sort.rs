@@ -20,9 +20,10 @@ impl Command for Sort {
             .input_output_types(vec![
                 (
                     Type::List(Box::new(Type::Any)),
-                    Type::List(Box::new(Type::Any))
+                    Type::List(Box::new(Type::Any)),
                 ),
-                (Type::record(), Type::record())
+                (Type::record(), Type::record()),
+                (Type::table(), Type::table()),
             ])
     .switch("reverse", "Sort in reverse order.", Some('r'))
             .switch(
@@ -44,7 +45,7 @@ impl Command for Sort {
     }
 
     fn description(&self) -> &str {
-        "Sort the input in increasing order."
+        "Sort a record, list, or table in increasing order."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {

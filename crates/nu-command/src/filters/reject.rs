@@ -45,7 +45,7 @@ impl Command for Reject {
     }
 
     fn description(&self) -> &str {
-        "Remove the given columns or rows from the table. Opposite of `select`."
+        "Remove columns from a table or record, or pass through a list when no columns are given. Opposite of `select`."
     }
 
     fn extra_description(&self) -> &str {

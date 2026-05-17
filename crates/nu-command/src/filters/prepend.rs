@@ -10,7 +10,10 @@ impl Command for Prepend {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("prepend")
-            .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::Any)))])
+            .input_output_types(vec![
+                (Type::Any, Type::List(Box::new(Type::Any))),
+                (Type::table(), Type::table()),
+            ])
             .required(
                 "row",
                 SyntaxShape::Any,
@@ -20,7 +23,7 @@ impl Command for Prepend {
     }
 
     fn description(&self) -> &str {
-        "Prepend any number of rows to a table."
+        "Prepend a value to a list, or rows to a table."
     }
 
     fn extra_description(&self) -> &str {
