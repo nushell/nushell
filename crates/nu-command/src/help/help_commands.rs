@@ -153,6 +153,9 @@ fn build_help_commands(engine_state: &EngineState, span: Span) -> PipelineData {
 
     for (decl_name_bytes, decl_id) in commands {
         let decl = engine_state.get_decl(decl_id);
+        if decl.is_alias() {
+            continue;
+        }
         let sig = decl.signature().update_from_command(decl);
 
         // Use the overlay-visible name (decl_name_bytes) as the help `name` so module-qualified
