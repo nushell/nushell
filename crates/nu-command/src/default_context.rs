@@ -346,6 +346,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToText,
             ToToml,
             ToTsv,
+            ToKdl,
             Upsert,
             Where,
             ToXml,
