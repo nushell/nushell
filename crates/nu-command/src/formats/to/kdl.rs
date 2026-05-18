@@ -31,7 +31,7 @@ impl Command for ToKdl {
         call: &Call,
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        let span = input.span().unwrap_or(call.head);
         let metadata = input.take_metadata().map(|md| md.with_content_type(None));
 
         let output_string = match &input.into_value(span)? {
@@ -97,7 +97,10 @@ fn convert_record_into_formatted_kdl_document_recursively(
                     && val_vec[0].1.as_list().is_err()
                 {
                     let (k, v) = val_vec[0];
-                    let identifier = KdlIdentifier::parse(k).map_err(|_| todo!() as ShellError)?;
+                    let identifier =
+                        KdlIdentifier::parse(k).map_err(|_| ShellError::NushellFailed {
+                            msg: "failed to make an identifier for a kdl node".to_owned(),
+                        })?;
                     let value = convert_nu_value_to_kdl_value(v);
 
                     let entry = KdlEntry::new_prop(identifier, value);
@@ -129,13 +132,12 @@ fn convert_list_into_entries_of_kdl_node_recursively(
     list: &[Value],
     span: Span,
 ) -> Result<(), ShellError> {
-    let children_count = list
+    let children = list
         .iter()
-        .filter(|val| val.as_record().is_ok_and(|it| it.len() > 1))
-        .count();
+        .filter(|val| val.as_record().is_ok_and(|it| it.len() > 1));
 
-    if children_count > 1 {
-        todo!("Err: can't have more than one child in kdl")
+    if children.clone().count() > 1 {
+        return Err(ShellError::UnsupportedInput { msg: "can't have more than one child for each node in kdl, make sure input don't contain a node has a value of multiple records and more then one of these records has more then one item".to_owned(), input: format!("issue in node: '{}'", node.name().value()), msg_span: span, input_span: node.into_spanned(span).span });
     };
 
     for value in list {
@@ -147,7 +149,10 @@ fn convert_list_into_entries_of_kdl_node_recursively(
                     && val_vec[0].1.as_list().is_err()
                 {
                     let (k, v) = val_vec[0];
-                    let identifier = KdlIdentifier::parse(k).map_err(|_| todo!() as ShellError)?;
+                    let identifier =
+                        KdlIdentifier::parse(k).map_err(|_| ShellError::NushellFailed {
+                            msg: "failed to make an identifier for a kdl node".to_owned(),
+                        })?;
                     let value = convert_nu_value_to_kdl_value(v);
                     let entry = KdlEntry::new_prop(identifier, value);
                     node.push(entry);

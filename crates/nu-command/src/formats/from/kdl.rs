@@ -1,18 +1,17 @@
 use nu_engine::command_prelude::*;
 
-use kdl::{KdlDocument, KdlError, KdlNode, KdlValue};
+use kdl::{KdlDocument, KdlNode, KdlValue};
 
 #[derive(Debug)]
 pub struct FromKdlError;
 
-// TODO: make better error handling
 impl FromKdlError {
-    fn cant_convert(err: KdlError) -> ShellError {
+    fn cant_convert(span: Span, help: Option<String>) -> ShellError {
         ShellError::CantConvert {
             to_type: "structured kdl data".into(),
             from_type: "string".into(),
-            span: Span::unknown(),
-            help: Some(err.to_string()),
+            span,
+            help,
         }
     }
 }
@@ -64,14 +63,18 @@ impl Command for FromKdl {
         call: &Call,
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let span = call.head;
+        let span = input.span().unwrap_or(call.head);
         let metadata = input.take_metadata().map(|md| md.with_content_type(None));
 
         let kdl_string_object = input.collect_string_strict(span)?;
 
         // parse the string into a KDL document
-        let kdl_data =
-            KdlDocument::parse(&kdl_string_object.0).map_err(FromKdlError::cant_convert)?;
+        let kdl_data = KdlDocument::parse(&kdl_string_object.0).map_err(|_| {
+            FromKdlError::cant_convert(
+                span,
+                Some("fialed to parse kdl string - check the input string syntax".to_owned()),
+            )
+        })?;
 
         // make the output record to inject the data in
         let mut output_record = Record::new();
