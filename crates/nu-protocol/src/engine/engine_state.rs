@@ -102,7 +102,7 @@ pub struct EngineState {
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
-    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
