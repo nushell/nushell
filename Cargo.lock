@@ -4442,6 +4442,7 @@ dependencies = [
  "percent-encoding",
  "reedline",
  "rstest",
+ "serde_json",
  "strum",
  "sysinfo",
  "tempfile",

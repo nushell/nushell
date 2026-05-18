@@ -184,3 +184,15 @@ fn mutate_nu_config_history_ignore_space() -> TestResult {
         "false",
     )
 }
+
+#[test]
+fn mutate_nu_config_history_archival_bigger_then_max_size() -> TestResult {
+    fail_test(
+        "
+            $env.config.history.max_size = 100
+            $env.config.history.archival_keep = 100
+            $env.config.history.archival_hook = \"dummy\"
+        ",
+        "archival keep need to be smaller then max_size",
+    )
+}

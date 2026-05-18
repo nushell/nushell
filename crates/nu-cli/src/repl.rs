@@ -15,7 +15,7 @@ use crate::{
     util::eval_source,
 };
 use crossterm::cursor::SetCursorStyle;
-use log::{error, trace, warn};
+use log::{error, info, trace, warn};
 use miette::{ErrReport, IntoDiagnostic, Result};
 use nu_cmd_base::util::get_editor;
 use nu_color_config::StyleComputer;
@@ -24,7 +24,7 @@ use nu_engine::env_to_strings;
 use nu_engine::exit::cleanup_exit;
 use nu_parser::{lex, parse, trim_quotes_str};
 use nu_protocol::shell_error::io::IoError;
-use nu_protocol::{BannerKind, shell_error};
+use nu_protocol::{BannerKind, IntoInterruptiblePipelineData, shell_error};
 use nu_protocol::{
     Config, HistoryConfig, HistoryFileFormat, PipelineData, ShellError, Span, Spanned, Value,
     config::NuCursorShape,
@@ -40,8 +40,8 @@ use nu_utils::{
 use reedline::SqliteBackedHistory;
 use reedline::{
     CursorConfig, CwdAwareHinter, DefaultCompleter, EditCommand, Emacs, FileBackedHistory,
-    HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers, Reedline,
-    SemanticPromptMarkers, Vi,
+    HistoryItem, HistorySessionId, MouseClickMode, Osc133ClickEventsMarkers, Osc633Markers,
+    Reedline, SemanticPromptMarkers, Vi,
 };
 use std::sync::atomic::Ordering;
 use std::{
@@ -705,6 +705,21 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 warn!("Could not fill in result related history metadata: {e}");
             }
 
+            if let Some(history_cfg) = engine_state.history_config() {
+                // archive old history entries if hit the max_size history entries
+                // and the archival_hook is set.
+                match maybe_archive_history(
+                    engine_state,
+                    &mut stack,
+                    &mut line_editor,
+                    &history_cfg,
+                ) {
+                    Ok(0) => {}
+                    Ok(x) => info!("Archived {x} entries"),
+                    Err(e) => warn!("Could not archive history: {e}"),
+                }
+            }
+
             if shell_integration_osc2 {
                 run_shell_integration_osc2(None, engine_state, &mut stack, use_color);
             }
@@ -840,6 +855,112 @@ fn fill_in_result_related_history_metadata(
             })
             .into_diagnostic()?; // todo: don't stop repl if error here?
     }
+    Ok(())
+}
+
+/// Archive the history and delete old entries if the archived correctly.
+fn maybe_archive_history(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    line_editor: &mut Reedline,
+    history_cfg: &HistoryConfig,
+) -> Result<usize> {
+    let Some(hook) = &history_cfg.archival_hook else {
+        // there is no hook that can be used to archive the history
+        return Ok(0);
+    };
+    let count = line_editor.history().count_all().into_diagnostic()?;
+    if count < history_cfg.max_size {
+        // there are no enough history entries to archive
+        return Ok(0);
+    }
+
+    // archive history if it surpasses the max size
+    let archive_num = count.saturating_sub(history_cfg.archival_keep);
+    archive_history(engine_state, stack, line_editor, hook, archive_num)?;
+    // delete the entries that were archived
+    let keep = engine_state
+        .config
+        .history
+        .archival_keep
+        .try_into()
+        .unwrap_or(usize::MAX);
+    line_editor.history_mut().delete_old(keep).into_diagnostic()
+}
+
+/// Archive the history
+fn archive_history(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    line_editor: &mut Reedline,
+    hook: &Value,
+    number: i64,
+) -> Result<()> {
+    let signals = engine_state.signals().clone();
+
+    let items_archive = line_editor
+        .history()
+        .search(reedline::SearchQuery {
+            limit: Some(number),
+            ..reedline::SearchQuery::everything(reedline::SearchDirection::Forward, None)
+        })
+        .into_diagnostic()?
+        .into_iter()
+        .map(|item| {
+            // At the time of writing there is no directly HistoryItem -> Record
+            // conversion method.
+            // NOTE this deconstruction is to require the developer attention
+            // in case the HistoryItem struct change in the future
+            let HistoryItem {
+                id,
+                start_timestamp,
+                command_line,
+                session_id,
+                hostname,
+                cwd,
+                duration,
+                exit_status,
+                more_info,
+            } = item;
+            let span = Span::unknown();
+            let record = [("command_line".into(), Value::string(command_line, span))]
+                .into_iter()
+                .chain(id.map(|x| ("id".into(), Value::int(x.0, span))))
+                .chain(
+                    start_timestamp
+                        .map(|x| ("start_timestamp".into(), Value::date(x.into(), span))),
+                )
+                .chain(session_id.map(|x| ("session_id".into(), Value::int(x.as_raw(), span))))
+                .chain(hostname.map(|x| ("hostname".into(), Value::string(x, span))))
+                .chain(cwd.map(|x| ("cwd".into(), Value::string(x, span))))
+                .chain(duration.map(|x| {
+                    (
+                        "duration_ms".into(),
+                        Value::duration(x.as_millis().min(i64::MAX as u128) as i64, span),
+                    )
+                }))
+                .chain(exit_status.map(|x| ("exit_status".into(), Value::int(x, span))))
+                .chain(more_info.map(|x| {
+                    (
+                        "more_info".into(),
+                        Value::string(serde_json::to_string(&x).unwrap_or("".into()), span),
+                    )
+                }))
+                .collect();
+            Value::record(record, span)
+        })
+        .into_pipeline_data(Span::unknown(), signals);
+
+    let _data = nu_cmd_base::hook::eval_hook(
+        engine_state,
+        stack,
+        Some(items_archive),
+        vec![],
+        hook,
+        "archival_hook",
+    )
+    .into_diagnostic()?;
+
     Ok(())
 }
 

@@ -49,6 +49,21 @@ $env.config.history.file_format = "plaintext"
 # Default: 100_000
 $env.config.history.max_size = 100_000
 
+# history.archival_hook (string|closure|null): Hook invoked when the active history
+# exceeds max_size. The hook receives in the input the
+# oldest history entries, excluding `archival_keep` number of the newest entries.
+# After the hook runs, those items are deleted from the active history.
+# Example: Save surplus items to a backup file before they are removed.
+# $env.config.history.archival_hook = {
+#     to csv | save --append ~/.config/nushell/history_archive.csv
+# }
+$env.config.history.archival_hook = null
+
+# history.archival_keep (int): Number of newest entries that will not be deleted
+# during the archival process of old entries.
+# Default: 0 (archive immediately when count exceeds max_size)
+$env.config.history.archival_keep = 0
+
 # history.sync_on_enter (bool): Whether the history file is updated after each command.
 # true: Write to history file after each command is entered.
 # false: Only write history when the shell exits.

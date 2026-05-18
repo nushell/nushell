@@ -43,7 +43,7 @@ impl UpdateFromValue for HistoryFileFormat {
         if *self == HistoryFileFormat::Sqlite {
             *self = HistoryFileFormat::Plaintext;
             errors.warn(ConfigWarning::IncompatibleOptions {
-                label: "SQLite-based history file only supported with the `sqlite` feature, falling back to plain text history", 
+                label: "SQLite-based history file only supported with the `sqlite` feature, falling back to plain text history",
                 span: value.span(),
                 help: "Compile Nushell with `sqlite` feature enabled",
             });
@@ -58,9 +58,11 @@ pub enum HistoryPath {
     Disabled,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct HistoryConfig {
     pub max_size: i64,
+    pub archival_keep: i64,
+    pub archival_hook: Option<Value>,
     pub sync_on_enter: bool,
     pub file_format: HistoryFileFormat,
     pub isolation: bool,
@@ -83,6 +85,8 @@ impl IntoValue for HistoryConfig {
         Value::record(
             record! {
                 "max_size" => self.max_size.into_value(span),
+                "archival_keep" => self.archival_keep.into_value(span),
+                "archival_hook" => self.archival_hook.into_value(span),
                 "sync_on_enter" => self.sync_on_enter.into_value(span),
                 "file_format" => self.file_format.into_value(span),
                 "isolation" => self.isolation.into_value(span),
@@ -117,6 +121,8 @@ impl Default for HistoryConfig {
     fn default() -> Self {
         Self {
             max_size: 100_000,
+            archival_keep: 0,
+            archival_hook: None,
             sync_on_enter: true,
             file_format: HistoryFileFormat::Plaintext,
             isolation: false,
@@ -141,6 +147,7 @@ impl UpdateFromValue for HistoryConfig {
         // might not be correct if file format was changed away from sqlite rather than isolation,
         // but this is an edge case and the span of the relevant value here should be close enough
         let mut isolation_span = value.span();
+        let mut archival_keep = value.span();
 
         for (col, val) in record.iter() {
             let path = &mut path.push(col);
@@ -151,6 +158,17 @@ impl UpdateFromValue for HistoryConfig {
                 }
                 "sync_on_enter" => self.sync_on_enter.update(val, path, errors),
                 "max_size" => self.max_size.update(val, path, errors),
+                "archival_keep" => {
+                    archival_keep = val.span();
+                    self.archival_keep.update(val, path, errors)
+                }
+                "archival_hook" => {
+                    self.archival_hook = (!val.is_nothing()).then(|| {
+                        let mut value = Value::default();
+                        value.update(val, path, errors);
+                        value
+                    })
+                }
                 "file_format" => self.file_format.update(val, path, errors),
                 "path" => match val {
                     Value::String { val: s, .. } => {
@@ -184,6 +202,14 @@ impl UpdateFromValue for HistoryConfig {
             }
             (true, HistoryFileFormat::Sqlite) => (),
             (false, _) => (),
+        }
+
+        if self.archival_keep != 0 && self.archival_keep >= self.max_size {
+            errors.warn(ConfigWarning::IncompatibleOptions {
+                label: "history archival keep needs to be smaller than max_size",
+                span: archival_keep,
+                help: "reduce its size to be smaller than max_size",
+            })
         }
     }
 }
