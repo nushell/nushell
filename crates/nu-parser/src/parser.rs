@@ -2992,6 +2992,49 @@ pub fn parse_full_cell_path(
     }
 }
 
+enum PathLikeKind {
+    Directory,
+    Filepath,
+    Glob,
+}
+
+impl PathLikeKind {
+    /// Returns the name used for trace logging during parsing.
+    fn trace_name(&self) -> &'static str {
+        match self {
+            PathLikeKind::Directory => "directory",
+            PathLikeKind::Filepath => "filepath",
+            PathLikeKind::Glob => "glob pattern",
+        }
+    }
+
+    /// Returns the error message displayed when parsing fails.
+    fn error_msg(&self) -> &'static str {
+        match self {
+            PathLikeKind::Directory => "directory",
+            PathLikeKind::Filepath => "filepath",
+            PathLikeKind::Glob => "glob pattern string",
+        }
+    }
+
+    /// Constructs the appropriate `Expr` and its corresponding `Type` for a simple (non-interpolated) path.
+    fn to_expr(&self, token: String, quoted: bool) -> (Expr, Type) {
+        match self {
+            PathLikeKind::Directory => (Expr::Directory(token, quoted), Type::String),
+            PathLikeKind::Filepath => (Expr::Filepath(token, quoted), Type::String),
+            PathLikeKind::Glob => (Expr::GlobPattern(token, quoted), Type::Glob),
+        }
+    }
+
+    /// Constructs the appropriate interpolation `Expr` for a path containing subexpressions.
+    fn to_interpolation_expr(&self, exprs: Vec<Expression>, quoted: bool) -> Expr {
+        match self {
+            PathLikeKind::Directory | PathLikeKind::Filepath => Expr::StringInterpolation(exprs),
+            PathLikeKind::Glob => Expr::GlobInterpolation(exprs, quoted),
+        }
+    }
+}
+
 /// Common helper for parsing path-like expressions (filepath, directory, glob pattern).
 ///
 /// This function consolidates the repetitive logic for parsing path types, including:
@@ -3004,26 +3047,15 @@ pub fn parse_full_cell_path(
 ///
 /// * `working_set` - The current parser state
 /// * `span` - The source span of the expression
-/// * `trace_name` - Name for trace logging (e.g., "directory", "filepath")
-/// * `error_msg` - Error message if parsing fails
-/// * `make_expr` - Closure to construct the appropriate Expr variant
-/// * `make_interp_expr` - Closure to construct the interpolation Expr variant
-///   (used if bare word interpolation is detected and converted)
-fn parse_path_like<F, I>(
+/// * `kind` - The kind of path-like expression to parse
+fn parse_path_like(
     working_set: &mut StateWorkingSet,
     span: Span,
-    trace_name: &'static str,
-    error_msg: &'static str,
-    make_expr: F,
-    make_interp_expr: I,
-) -> Expression
-where
-    F: Fn(String, bool) -> Expr,
-    I: Fn(Vec<Expression>, bool) -> Expr,
-{
+    kind: PathLikeKind,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
     let quoted = is_quoted(bytes);
-    trace!("parsing: {trace_name}");
+    trace!("parsing: {}", kind.trace_name());
 
     // Check for bare word interpolation
     if !bytes.is_empty()
@@ -3038,7 +3070,7 @@ where
         if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
             return Expression::new(
                 working_set,
-                make_interp_expr(exprs, quoted),
+                kind.to_interpolation_expr(exprs, quoted),
                 span,
                 interpolation_expr.ty.clone(),
             );
@@ -3053,43 +3085,22 @@ where
     if err.is_none() {
         trace!("-- found {token}");
 
-        Expression::new(
-            working_set,
-            make_expr(token, is_quoted_internal),
-            span,
-            if matches!(make_expr("".into(), false), Expr::GlobPattern(_, _)) {
-                Type::Glob
-            } else {
-                Type::String
-            },
-        )
+        let (expr, ty) = kind.to_expr(token, is_quoted_internal);
+
+        Expression::new(working_set, expr, span, ty)
     } else {
-        working_set.error(ParseError::Expected(error_msg, span));
+        working_set.error(ParseError::Expected(kind.error_msg(), span));
 
         garbage(working_set, span)
     }
 }
 
 pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    parse_path_like(
-        working_set,
-        span,
-        "directory",
-        "directory",
-        Expr::Directory,
-        |exprs, _quoted| Expr::StringInterpolation(exprs),
-    )
+    parse_path_like(working_set, span, PathLikeKind::Directory)
 }
 
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    parse_path_like(
-        working_set,
-        span,
-        "filepath",
-        "filepath",
-        Expr::Filepath,
-        |exprs, _quoted| Expr::StringInterpolation(exprs),
-    )
+    parse_path_like(working_set, span, PathLikeKind::Filepath)
 }
 
 /// Parse a datetime type, eg '2022-02-02'
@@ -3443,14 +3454,7 @@ fn modf(x: f64) -> (f64, f64) {
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    parse_path_like(
-        working_set,
-        span,
-        "glob pattern",
-        "glob pattern string",
-        Expr::GlobPattern,
-        Expr::GlobInterpolation,
-    )
+    parse_path_like(working_set, span, PathLikeKind::Glob)
 }
 
 /// Parse a hex escape sequence in the form `\xHH` (exactly 2 hex digits).
