@@ -1,3 +1,6 @@
+use nu_protocol::{test_record, test_table};
+use nu_test_support::prelude::*;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
@@ -353,6 +356,35 @@ fn oneof_annotations(
 
     let input = format!("def run [t: oneof<{types}>] {{ $t }}; run {argument} | describe");
     run_test(&input, expected)
+}
+
+#[rstest]
+#[case::positional_parameter("", "")]
+#[case::flag("--", "--param ")]
+fn one_of_flag_and_positional_consistent(
+    #[case] param_prefix: &str,
+    #[case] call_prefix: &str,
+    #[values(
+        ("{value: 1}", test_record! {"value" => 1}),
+        (
+            "[{value: 1}, {value: 2}]",
+            vec![
+                test_record! {"value" => 1},
+                test_record! {"value" => 2}
+            ]
+        ),
+        ("[[value]; [1], [2]]", test_table! [["value"]; [1], [2]])
+    )]
+    (argument_src, expected): (&str, impl IntoValue),
+) -> Result {
+    let mut tester = test();
+    let definition_src = format!(
+        "def cmd [{param_prefix}param: oneof<record<value: int>, table<value: int>>] {{ $param }}"
+    );
+    let () = tester.run(definition_src)?;
+
+    let call_src = format!("cmd {call_prefix}{argument_src}");
+    tester.run(call_src).expect_value_eq(expected)
 }
 
 #[rstest]
