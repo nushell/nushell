@@ -39,3 +39,21 @@ def url_with_params_table [] {
 
     assert equal $new_url 'https://github.com/nushell/nushell/pulls?q=is%3Aclosed'
 }
+
+@test
+def url_replace_passthru [] {
+    let new_url = 'https://www.nushell.sh/book' | url replace
+    assert equal $new_url 'https://www.nushell.sh/book'
+}
+
+@test
+def url_replace_single_field [] {
+    let new_url = 'https://www.nushell.sh/book' | url replace --path 'book/nu_fundamentals.html'
+    assert equal $new_url 'https://www.nushell.sh/book/nu_fundamentals.html'
+}
+
+@test
+def url_replace_multiple_fields [] {
+    let new_url = 'https://github.com/nushell/nushell' | url replace --path 'nushell/reedline/issues' --params {q: 'is:issue'}
+    assert equal $new_url 'https://github.com/nushell/reedline/issues?q=is%3Aissue'
+}

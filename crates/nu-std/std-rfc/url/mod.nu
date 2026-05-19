@@ -73,3 +73,33 @@ export def with-params [query: oneof<record, table<key: string, value: any>>]: s
     | update query { $query | url build-query }
     | url join
 }
+
+alias 'url replace' = replace
+
+# Replace multiple fields of an input url at once using flags
+#
+# See individual `url with-*` commands' help for more information about valid values.
+@example 'Replace a combination of fields of an input url' {
+    'https://github.com/nushell/nushell'
+    | url replace --host 'www.nushell.sh' --path 'book/types_of_data.html' --fragment '#integers'
+} --result 'https://www.nushell.sh/book/types_of_data.html#integers'
+export def replace [
+	--host: string
+	--port: oneof<int, string>
+	--path: string
+	--fragment: string
+	--params: oneof<record, table<key: string, value: any>>
+]: string -> string {
+    url parse
+    | merge (
+		{
+			host: $host
+			port: $port
+			path: $path
+			fragment: $fragment
+			params: $params
+			query: (if $params != null { $params | url build-query })
+		} | compact
+	)
+	| url join
+}
