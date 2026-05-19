@@ -1,7 +1,7 @@
 export use conversions *
 export use tables *
 export use path *
-export use url *
+export module url
 export module str
 export module iter
 export module random
