@@ -5764,6 +5764,22 @@ pub fn parse_closure_expression(
     Expression::new(working_set, Expr::Closure(block_id), span, Type::Closure)
 }
 
+fn could_start_with_bracket(shape: &SyntaxShape) -> bool {
+    match shape {
+        SyntaxShape::Any
+        | SyntaxShape::List(_)
+        | SyntaxShape::Table(_)
+        | SyntaxShape::Signature
+        | SyntaxShape::ExternalSignature
+        | SyntaxShape::Filepath
+        | SyntaxShape::String
+        | SyntaxShape::GlobPattern
+        | SyntaxShape::ExternalArgument => true,
+        SyntaxShape::OneOf(shapes) => shapes.iter().any(could_start_with_bracket),
+        _ => false,
+    }
+}
+
 pub fn parse_value(
     working_set: &mut StateWorkingSet,
     span: Span,
@@ -5782,30 +5798,10 @@ pub fn parse_value(
         b'$' => return parse_dollar_expr(working_set, span),
         b'(' => return parse_paren_expr(working_set, span, shape),
         b'{' => return parse_brace_expr(working_set, span, shape),
-        b'[' => match shape {
-            SyntaxShape::Any
-            | SyntaxShape::List(_)
-            | SyntaxShape::Table(_)
-            | SyntaxShape::Signature
-            | SyntaxShape::ExternalSignature
-            | SyntaxShape::Filepath
-            | SyntaxShape::String
-            | SyntaxShape::GlobPattern
-            | SyntaxShape::ExternalArgument => {}
-            SyntaxShape::OneOf(possible_shapes) => {
-                if !possible_shapes
-                    .iter()
-                    .any(|s| matches!(s, SyntaxShape::List(_)))
-                {
-                    working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                    return Expression::garbage(working_set, span);
-                }
-            }
-            _ => {
-                working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
-                return Expression::garbage(working_set, span);
-            }
-        },
+        b'[' if !could_start_with_bracket(shape) => {
+            working_set.error(ParseError::ExpectedWithStringMsg(shape.to_string(), span));
+            return Expression::garbage(working_set, span);
+        }
         b'r' if bytes.len() > 1 && bytes[1] == b'#' => {
             return parse_raw_string(working_set, span);
         }
