@@ -135,6 +135,8 @@ fn run_ps(
                 // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
                 record.push("priority", Value::int(proc_stat.priority, span));
                 record.push("process_threads", Value::int(proc_stat.num_threads, span));
+                record.push("working", Value::filesize(proc.working_size() as i64, span));
+                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
                 record.push("cwd", Value::string(proc.cwd(), span));
             }
             #[cfg(windows)]
@@ -165,6 +167,8 @@ fn run_ps(
                     ),
                 );
                 record.push("priority", Value::int(proc.priority as i64, span));
+                record.push("working", Value::filesize(proc.working_size() as i64, span));
+                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
                 record.push("cwd", Value::string(proc.cwd(), span));
                 record.push(
                     "environment",
