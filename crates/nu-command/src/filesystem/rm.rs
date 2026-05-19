@@ -3,7 +3,7 @@ use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
-    NuGlob, report_shell_error,
+    NuGlob,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 #[cfg(unix)]
@@ -33,7 +33,23 @@ impl Command for Rm {
 
     fn signature(&self) -> Signature {
         Signature::build("rm")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (
+                    Type::Nothing,
+                    Type::Table(
+                        [
+                            ("path".to_string(), Type::String),
+                            ("deleted".to_string(), Type::Bool),
+                            (
+                                "error".to_string(),
+                                Type::OneOf([Type::Nothing, Type::String].into()),
+                            ),
+                        ]
+                        .into(),
+                    ),
+                ),
+            ])
             .rest("paths", SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::String]), "The file paths(s) to remove.")
             .switch(
                 "trash",
@@ -47,7 +63,7 @@ impl Command for Rm {
             )
             .switch("recursive", "Delete subdirectories recursively.", Some('r'))
             .switch("force", "Suppress error when no file.", Some('f'))
-            .switch("verbose", "Print names of deleted files.", Some('v'))
+            .switch("verbose", "Return a table for each processed path.", Some('v'))
             .switch("interactive", "Ask user to confirm action.", Some('i'))
             .switch(
                 "interactive-once",
@@ -191,21 +207,32 @@ fn rm(
         )));
     }
 
-    let targets_span = Span::new(
-        paths
-            .iter()
-            .map(|x| x.span.start)
-            .min()
-            .expect("targets were empty"),
-        paths
-            .iter()
-            .map(|x| x.span.end)
-            .max()
-            .expect("targets were empty"),
-    );
-
-    let (mut target_exists, mut empty_span) = (false, call.head);
     let mut all_targets: HashMap<PathBuf, Span> = HashMap::new();
+    let mut verbose_out = Vec::new();
+    let mut first_error = None;
+    let mut collect_rm_result =
+        |path: String, deleted: bool, err: Option<ShellError>, span: Span| {
+            if verbose {
+                let error = err.map_or_else(
+                    || Value::nothing(span),
+                    |err| Value::string(err.to_string(), span),
+                );
+                verbose_out.push(
+                    record! {
+                        "path" => Value::string(path, span),
+                        "deleted" => Value::bool(deleted, span),
+                        "error" => error,
+                    }
+                    .into_value(span),
+                );
+            } else if let Some(err) = err {
+                if first_error.is_none() {
+                    first_error = Some(err);
+                } else {
+                    nu_protocol::report_shell_error(Some(&*stack), engine_state, &err);
+                }
+            }
+        };
 
     let glob_options = if all {
         None
@@ -224,6 +251,7 @@ fn rm(
             &currentdir_path,
             target.item.is_expand(),
         );
+        let path_string = path.to_string_lossy().into_owned();
 
         // `rm link/` where `link` is a symlink to a directory
         // should error with "is a directory" rather than removing the underlying directory.
@@ -240,28 +268,40 @@ fn rm(
                 .map(|m| m.file_type().is_symlink())
                 .unwrap_or(false)
             {
-                return Err(ShellError::Generic(
-                    GenericError::new(
-                        format!("Cannot remove `{}`: is a directory", raw),
-                        "is a directory",
-                        target.span,
-                    )
-                    .with_help(format!(
-                        "use `rm {}` without the trailing slash to remove the symlink itself",
-                        without_sep
+                collect_rm_result(
+                    raw.to_string(),
+                    false,
+                    Some(ShellError::Generic(
+                        GenericError::new(
+                            format!("Cannot remove `{}`: is a directory", raw),
+                            "is a directory",
+                            target.span,
+                        )
+                        .with_help(format!(
+                            "use `rm {}` without the trailing slash to remove the symlink itself",
+                            without_sep
+                        )),
                     )),
-                ));
+                    call.head,
+                );
+                continue;
             }
         }
 
         if currentdir_path.to_string_lossy() == path.to_string_lossy()
             || currentdir_path.starts_with(format!("{}{}", target.item, std::path::MAIN_SEPARATOR))
         {
-            return Err(ShellError::Generic(GenericError::new(
-                "Cannot remove any parent directory",
-                "cannot remove any parent directory",
-                target.span,
-            )));
+            collect_rm_result(
+                path_string,
+                false,
+                Some(ShellError::Generic(GenericError::new(
+                    "Cannot remove any parent directory",
+                    "cannot remove any parent directory",
+                    target.span,
+                ))),
+                call.head,
+            );
+            continue;
         }
 
         match nu_engine::glob_from(
@@ -272,13 +312,12 @@ fn rm(
             engine_state.signals().clone(),
         ) {
             Ok(files) => {
+                let mut target_exists = false;
+                let mut saw_glob_error = false;
+
                 for file in files.1 {
                     match file {
                         Ok(f) => {
-                            if !target_exists {
-                                target_exists = true;
-                            }
-
                             // It is not appropriate to try and remove the
                             // current directory or its parent when using
                             // glob patterns.
@@ -287,6 +326,7 @@ fn rm(
                                 continue;
                             }
 
+                            target_exists = true;
                             all_targets
                                 .entry(nu_path::expand_path_with(
                                     f,
@@ -296,18 +336,32 @@ fn rm(
                                 .or_insert_with(|| target.span);
                         }
                         Err(e) => {
-                            return Err(ShellError::Generic(GenericError::new(
-                                format!("Could not remove {:}", path.to_string_lossy()),
-                                e.to_string(),
-                                target.span,
-                            )));
+                            saw_glob_error = true;
+                            collect_rm_result(
+                                path_string.clone(),
+                                false,
+                                Some(ShellError::Generic(GenericError::new(
+                                    format!("Could not remove {:}", path.to_string_lossy()),
+                                    e.to_string(),
+                                    target.span,
+                                ))),
+                                call.head,
+                            );
                         }
                     }
                 }
 
-                // Target doesn't exists
-                if !target_exists && empty_span.eq(&call.head) {
-                    empty_span = target.span;
+                if !target_exists && !saw_glob_error && !force {
+                    collect_rm_result(
+                        path_string,
+                        false,
+                        Some(ShellError::Generic(GenericError::new(
+                            "File(s) not found",
+                            "File(s) not found",
+                            target.span,
+                        ))),
+                        call.head,
+                    );
                 }
             }
             Err(e) => {
@@ -322,21 +376,13 @@ fn rm(
                         })
                     ))
                 {
-                    return Err(e);
+                    collect_rm_result(path_string, false, Some(e), call.head);
                 }
             }
         };
     }
 
-    if all_targets.is_empty() && !force {
-        return Err(ShellError::Generic(GenericError::new(
-            "File(s) not found",
-            "File(s) not found",
-            targets_span,
-        )));
-    }
-
-    if interactive_once {
+    if interactive_once && !all_targets.is_empty() {
         let (interaction, confirmed) = try_interaction(
             interactive_once,
             format!("rm: remove {} files? ", all_targets.len()),
@@ -347,11 +393,19 @@ fn rm(
                 "could not move",
             )));
         } else if !confirmed {
-            return Ok(PipelineData::empty());
+            if verbose {
+                return Ok(PipelineData::value(
+                    Value::list(verbose_out, call.head),
+                    None,
+                ));
+            }
+            return first_error.map_or_else(|| Ok(PipelineData::empty()), Err);
         }
     }
 
-    let iter = all_targets.into_iter().map(move |(f, span)| {
+    for (f, span) in all_targets {
+        engine_state.signals().check(&call.head)?;
+
         let is_empty = || match f.read_dir() {
             Ok(mut p) => p.next().is_none(),
             Err(_) => false,
@@ -428,65 +482,62 @@ fn rm(
 
                 if let Err(e) = result {
                     let original_error = e.to_string();
-                    Err(ShellError::Io(IoError::new_with_additional_context(
+                    let error = ShellError::Io(IoError::new_with_additional_context(
                         e,
                         span,
-                        f,
+                        f.clone(),
                         original_error,
-                    )))
-                } else if verbose {
-                    let msg = if interactive && !confirmed {
-                        "not deleted"
-                    } else {
-                        "deleted"
-                    };
-                    Ok(Some(format!("{} {:}", msg, f.to_string_lossy())))
+                    ));
+                    collect_rm_result(
+                        f.to_string_lossy().into_owned(),
+                        false,
+                        Some(error),
+                        call.head,
+                    );
                 } else {
-                    Ok(None)
+                    collect_rm_result(
+                        f.to_string_lossy().into_owned(),
+                        !interactive || confirmed,
+                        None,
+                        call.head,
+                    );
                 }
             } else {
                 let error = format!("Cannot remove {:}. try --recursive", f.to_string_lossy());
-                Err(ShellError::Generic(GenericError::new(
-                    error,
-                    "cannot remove non-empty directory",
-                    span,
-                )))
+                collect_rm_result(
+                    f.to_string_lossy().into_owned(),
+                    false,
+                    Some(ShellError::Generic(GenericError::new(
+                        error,
+                        "cannot remove non-empty directory",
+                        span,
+                    ))),
+                    call.head,
+                );
             }
         } else {
             let error = format!("no such file or directory: {:}", f.to_string_lossy());
-            Err(ShellError::Generic(GenericError::new(
-                error,
-                "no such file or directory",
-                span,
-            )))
-        }
-    });
-
-    let mut cmd_result = Ok(PipelineData::empty());
-    for result in iter {
-        engine_state.signals().check(&call.head)?;
-        match result {
-            Ok(None) => {}
-            Ok(Some(msg)) => eprintln!("{msg}"),
-            Err(err) => {
-                if !(force
-                    && matches!(
-                        err,
-                        ShellError::Io(IoError {
-                            kind: shell_error::io::ErrorKind::Std(std::io::ErrorKind::NotFound, ..),
-                            ..
-                        })
-                    ))
-                {
-                    if cmd_result.is_ok() {
-                        cmd_result = Err(err);
-                    } else {
-                        report_shell_error(Some(stack), engine_state, &err)
-                    }
-                }
-            }
+            collect_rm_result(
+                f.to_string_lossy().into_owned(),
+                false,
+                Some(ShellError::Generic(GenericError::new(
+                    error,
+                    "no such file or directory",
+                    span,
+                ))),
+                call.head,
+            );
         }
     }
 
-    cmd_result
+    if verbose {
+        Ok(PipelineData::value(
+            Value::list(verbose_out, call.head),
+            None,
+        ))
+    } else if let Some(err) = first_error {
+        Err(err)
+    } else {
+        Ok(PipelineData::empty())
+    }
 }

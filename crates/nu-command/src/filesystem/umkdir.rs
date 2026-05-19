@@ -51,7 +51,7 @@ impl Command for UMkdir {
                             ("created".to_string(), Type::Bool),
                             (
                                 "error".to_string(),
-                                Type::OneOf([Type::Nothing, Type::Error].into()),
+                                Type::OneOf([Type::Nothing, Type::String].into()),
                             ),
                         ]
                         .into(),
@@ -85,7 +85,12 @@ impl Command for UMkdir {
         let mut directories = call
             .rest::<Spanned<NuGlob>>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()))
+            .map(|dir| {
+                (
+                    nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()),
+                    dir.span,
+                )
+            })
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
@@ -106,25 +111,26 @@ impl Command for UMkdir {
         };
 
         let mut verbose_out = Vec::new();
-        for dir in directories {
+        let mut err = None;
+        for (dir, dir_span) in directories {
             if let Err(error) = mkdir(&dir, &config) {
+                let shell_error = ShellError::Generic(GenericError::new(
+                    format!("{error}"),
+                    translate!(&error.to_string()),
+                    dir_span,
+                ));
+
                 if is_verbose {
                     verbose_out.push(
                         record! {
                             "path" => Value::string(dir.display().to_string(), call.head),
                             "created" => Value::bool(false, call.head),
-                            "error" => Value::error(ShellError::Generic(GenericError::new_internal(
-                                format!("{error}"),
-                                translate!(&error.to_string()),
-                            )), call.head),
+                            "error" => Value::string(format!("{error}"), call.head),
                         }
                         .into_value(call.head),
                     )
                 } else {
-                    return Err(ShellError::Generic(GenericError::new_internal(
-                        format!("{error}"),
-                        translate!(&error.to_string()),
-                    )));
+                    err = Some(shell_error);
                 }
             } else if is_verbose {
                 verbose_out.push(
@@ -143,6 +149,8 @@ impl Command for UMkdir {
                 Value::list(verbose_out, call.head),
                 None,
             ))
+        } else if let Some(err) = err {
+            Err(err)
         } else {
             Ok(PipelineData::empty())
         }

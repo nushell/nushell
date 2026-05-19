@@ -1258,14 +1258,18 @@ pub(crate) fn request_error_to_shell_error(span: Span, e: ShellErrorOrRequestErr
 }
 
 fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
-    stack
-        .get_env_var(engine_state, "http_proxy")
-        .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
-        .or(stack.get_env_var(engine_state, "https_proxy"))
-        .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
-        .or(stack.get_env_var(engine_state, "ALL_PROXY"))
-        .cloned()
-        .and_then(|proxy| proxy.coerce_into_string().ok())
+    [
+        "http_proxy",
+        "HTTP_PROXY",
+        "https_proxy",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+    ]
+    .iter()
+    .find_map(|name| stack.get_env_var(engine_state, name))?
+    .coerce_str()
+    .map(|s| s.into_owned())
+    .ok()
 }
 
 fn proxy_builder_from_env(

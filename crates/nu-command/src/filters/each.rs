@@ -138,14 +138,14 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
-        let metadata = input.take_metadata();
         let result = match input {
             PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
-                return Ok(input.set_metadata(metadata));
+                return Ok(input);
             }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
+                let metadata = input.take_metadata();
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
                 let out = if flatten {
@@ -166,11 +166,12 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
             #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
+                let metadata = input.take_metadata();
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
                 let out = if flatten {
@@ -191,9 +192,9 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, metadata) => {
                 let Some(chunks) = stream.chunks() else {
                     return Ok(PipelineData::empty());
                 };
@@ -218,12 +219,13 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
-                ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
+            PipelineData::Value(value, metadata) => {
+                ClosureEvalOnce::new(engine_state, stack, closure)
+                    .run_with_value_with_metadata(value, metadata)
             }
         };
 
@@ -232,7 +234,6 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         } else {
             result.and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         }
-        .map(|data| data.set_metadata(metadata))
     }
 }
 

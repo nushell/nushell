@@ -1,6 +1,6 @@
 use crate::{eval::CallEval, get_eval_block_with_early_return};
 use nu_protocol::{
-    IntoPipelineData, PipelineData, ShellError, Span, Value,
+    IntoPipelineData, PipelineData, PipelineMetadata, ShellError, Span, Value,
     ast::Block,
     engine::{Closure, EngineState, EnvName, EnvVars, Stack},
 };
@@ -145,6 +145,20 @@ impl ClosureEval {
         self.call_eval
             .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
         self.run_with_input(value.into_pipeline_data())
+    }
+
+    /// Run the closure using the given [`Value`] as both the pipeline input with metadata and the first argument.
+    ///
+    /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
+    /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data_with_metadata(metadata))`.
+    pub fn run_with_value_with_metadata(
+        &mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+    ) -> Result<PipelineData, ShellError> {
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
+        self.run_with_input(value.into_pipeline_data_with_metadata(metadata))
     }
 }
 
@@ -297,5 +311,19 @@ impl<'a> ClosureEvalOnce<'a> {
         self.call_eval
             .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
         self.run_with_input(value.into_pipeline_data())
+    }
+
+    /// Run the closure using the given [`Value`] as both the pipeline input with metadata and the first argument.
+    ///
+    /// Using this function after or in combination with [`add_arg`](Self::add_arg) is most likely an error.
+    /// This function is equivalent to `self.add_arg(value)` followed by `self.run_with_input(value.into_pipeline_data_with_metadata(metadata))`.
+    pub fn run_with_value_with_metadata(
+        mut self,
+        value: Value,
+        metadata: Option<PipelineMetadata>,
+    ) -> Result<PipelineData, ShellError> {
+        self.call_eval
+            .add_positional(&self.block.signature, Cow::Borrowed(&value))?;
+        self.run_with_input(value.into_pipeline_data_with_metadata(metadata))
     }
 }

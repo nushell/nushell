@@ -34,7 +34,7 @@ use nu_protocol::{
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf,
+    perf, stderr_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -325,7 +325,7 @@ struct RunContext<'a> {
     engine_state: &'a mut EngineState,
     stack: &'a mut Stack,
     line_editor: Reedline,
-    repl_cmd_line_text: String,
+    command: String,
     hostname: Option<&'a str>,
     use_color: bool,
     shell_integration: &'a ShellIntegrationConfig,
@@ -339,7 +339,7 @@ fn run_command(ctx: RunContext) -> Reedline {
         engine_state,
         stack,
         mut line_editor,
-        repl_cmd_line_text,
+        command,
         hostname,
         use_color,
         shell_integration,
@@ -353,12 +353,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     };
 
     if history_supports_meta {
-        prepare_history_metadata(
-            &repl_cmd_line_text,
-            hostname,
-            engine_state,
-            &mut line_editor,
-        );
+        prepare_history_metadata(&command, hostname, engine_state, &mut line_editor);
     }
 
     // For pre_exec_hook
@@ -369,7 +364,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     {
         // Set the REPL buffer to the current command for the "pre_execution" hook
         let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
-        repl.buffer = repl_cmd_line_text.clone();
+        repl.buffer = command.clone();
         drop(repl);
 
         if let Err(err) = hook::eval_hooks(
@@ -432,7 +427,7 @@ fn run_command(ctx: RunContext) -> Reedline {
     // Actual command execution logic starts from here
     let cmd_execution_start_time = Instant::now();
 
-    match parse_operation(repl_cmd_line_text.clone(), engine_state, stack) {
+    match parse_operation(command.clone(), engine_state, stack) {
         Ok(ReplOperation::AutoCd { cwd, target, span }) => {
             do_auto_cd(target, cwd, stack, engine_state, span);
 
@@ -477,7 +472,7 @@ fn run_command(ctx: RunContext) -> Reedline {
 
     if history_supports_meta
         && let Err(e) = fill_in_result_related_history_metadata(
-            &repl_cmd_line_text,
+            &command,
             engine_state,
             cmd_duration,
             stack,
@@ -497,7 +492,7 @@ fn run_command(ctx: RunContext) -> Reedline {
         run_shell_integration_osc9_9(engine_state, stack, use_color);
     }
     if shell_integration.osc633 {
-        run_shell_integration_osc633(engine_state, stack, use_color, repl_cmd_line_text);
+        run_shell_integration_osc633(engine_state, stack, use_color, command);
     }
     if shell_integration.reset_application_mode {
         run_shell_integration_reset_application_mode();
@@ -721,6 +716,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     perf!("update_prompt", start_time, use_color);
 
+    // If we don't flush the engine state, then the pre_prompt and env_change hooks cannot modify
+    // the commandline. But if we always flush the engine state, then the modification to the commandline done in
+    // ExecuteHostCommand will be overridden.
+    // So, we flush the engine state only if last signal wasn't a HostCommand
     if !*is_hostcommand {
         line_editor = flush_engine_state_repl_buffer(engine_state, line_editor);
     }
@@ -751,12 +750,12 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
 
     let line_editor_input_time = Instant::now();
     match input {
-        Ok(Signal::Success(repl_cmd_line_text)) => {
+        Ok(Signal::Success(command)) => {
             line_editor = run_command(RunContext {
                 engine_state,
                 stack: &mut stack,
                 line_editor,
-                repl_cmd_line_text,
+                command,
                 hostname,
                 use_color,
                 shell_integration,
@@ -804,7 +803,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                             engine_state,
                             stack: &mut stack,
                             line_editor,
-                            repl_cmd_line_text: val.to_expanded_string("", config),
+                            command: val.to_expanded_string("", config),
                             hostname,
                             use_color,
                             shell_integration,
@@ -847,13 +846,10 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // TODO: handle other signals like Signal::ExternalBreak
         Ok(_) => {}
         Err(err) => {
-            let message = err.to_string();
-            if !message.contains("duration") {
-                eprintln!("Error: {err:?}");
-                // TODO: Identify possible error cases where a hard failure is preferable
-                // Ignoring and reporting could hide bigger problems
-                // e.g. https://github.com/nushell/nushell/issues/6452
-                // Alternatively only allow that expected failures let the REPL loop
+            if !err.to_string().contains("duration") {
+                write_repl_error_details(&err);
+                cleanup_exit((), engine_state, 1);
+                return (true, stack, line_editor);
             }
 
             run_finaliziation_ansi_sequence(
@@ -1493,6 +1489,10 @@ fn run_ansi_sequence(seq: &str) {
     } else if let Err(e) = io::stdout().flush() {
         warn!("Error flushing stdio {e}");
     }
+}
+
+fn write_repl_error_details(error: &impl std::fmt::Debug) {
+    let _ = stderr_write_all_and_flush(format!("Error: {error:?}\n"));
 }
 
 fn run_finaliziation_ansi_sequence(

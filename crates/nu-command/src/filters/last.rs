@@ -79,21 +79,13 @@ impl Command for Last {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let rows = call.opt::<usize>(engine_state, stack, 0)?;
         let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
         // FIXME: Please read the FIXME message in `first.rs`'s `first_helper` implementation.
         // It has the same issue.
         let return_single_element = rows.is_none();
-        let rows = if let Some(rows) = rows {
-            if rows.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: rows.span });
-            } else {
-                rows.item as usize
-            }
-        } else {
-            1
-        };
+        let rows = rows.unwrap_or(1);
 
         let mut input = input;
         let metadata = input.take_metadata();

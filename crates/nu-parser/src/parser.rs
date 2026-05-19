@@ -208,7 +208,7 @@ pub(crate) fn check_call(
             .unwrap_or(command.end);
         // Comparing the types of all signature positional arguments against the parsed
         // expressions found in the call. If one type is not found then it could be assumed
-        // that that positional argument is missing from the parsed call
+        // that positional argument is missing from the parsed call
         for argument in &sig.required_positional {
             let found = call.positional_iter().fold(false, |ac, expr| {
                 if argument.shape.to_type() == expr.ty || argument.shape == SyntaxShape::Any {
@@ -2097,9 +2097,7 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
 
     let contents = working_set.get_span_contents(span);
 
-    let token = if let Ok(s) = String::from_utf8(contents.into()) {
-        s
-    } else {
+    let Ok(token) = String::from_utf8(contents.into()) else {
         working_set.error(ParseError::NonUtf8(span));
         return None;
     };
@@ -2122,12 +2120,10 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
         .filter_map(|(pos, _)| {
             // paren_depth = count of unclosed parens prior to pos
             let before = &token[..pos];
-            let paren_depth = before
-                .chars()
-                .filter(|&c| c == '(')
-                .count()
-                .checked_sub(before.chars().filter(|&c| c == ')').count());
-            paren_depth.and_then(|d| (d == 0).then_some(pos))
+            let paren_opened = before.chars().filter(|&c| c == '(').count();
+            let paren_closed = before.chars().filter(|&c| c == ')').count();
+            let paren_depth = paren_opened.checked_sub(paren_closed)?;
+            (paren_depth == 0).then_some(pos)
         })
         .collect();
 
@@ -2996,9 +2992,70 @@ pub fn parse_full_cell_path(
     }
 }
 
-pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+enum PathLikeKind {
+    Directory,
+    Filepath,
+    Glob,
+}
+
+impl PathLikeKind {
+    /// Returns the name used for trace logging during parsing.
+    fn trace_name(&self) -> &'static str {
+        match self {
+            PathLikeKind::Directory => "directory",
+            PathLikeKind::Filepath => "filepath",
+            PathLikeKind::Glob => "glob pattern",
+        }
+    }
+
+    /// Returns the error message displayed when parsing fails.
+    fn error_msg(&self) -> &'static str {
+        match self {
+            PathLikeKind::Directory => "directory",
+            PathLikeKind::Filepath => "filepath",
+            PathLikeKind::Glob => "glob pattern string",
+        }
+    }
+
+    /// Constructs the appropriate `Expr` and its corresponding `Type` for a simple (non-interpolated) path.
+    fn to_expr(&self, token: String, quoted: bool) -> (Expr, Type) {
+        match self {
+            PathLikeKind::Directory => (Expr::Directory(token, quoted), Type::String),
+            PathLikeKind::Filepath => (Expr::Filepath(token, quoted), Type::String),
+            PathLikeKind::Glob => (Expr::GlobPattern(token, quoted), Type::Glob),
+        }
+    }
+
+    /// Constructs the appropriate interpolation `Expr` for a path containing subexpressions.
+    fn to_interpolation_expr(&self, exprs: Vec<Expression>, quoted: bool) -> Expr {
+        match self {
+            PathLikeKind::Directory | PathLikeKind::Filepath => Expr::StringInterpolation(exprs),
+            PathLikeKind::Glob => Expr::GlobInterpolation(exprs, quoted),
+        }
+    }
+}
+
+/// Common helper for parsing path-like expressions (filepath, directory, glob pattern).
+///
+/// This function consolidates the repetitive logic for parsing path types, including:
+/// - Bare word interpolation detection
+/// - Escape sequence processing
+/// - Quote state tracking
+/// - Error handling
+///
+/// # Arguments
+///
+/// * `working_set` - The current parser state
+/// * `span` - The source span of the expression
+/// * `kind` - The kind of path-like expression to parse
+fn parse_path_like(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    kind: PathLikeKind,
+) -> Expression {
     let bytes = working_set.get_span_contents(span);
-    trace!("parsing: directory");
+    let quoted = is_quoted(bytes);
+    trace!("parsing: {}", kind.trace_name());
 
     // Check for bare word interpolation
     if !bytes.is_empty()
@@ -3007,59 +3064,43 @@ pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Express
         && bytes[0] != b'`'
         && bytes.contains(&b'(')
     {
-        return parse_string_interpolation(working_set, span);
+        let interpolation_expr = parse_string_interpolation(working_set, span);
+
+        // Convert StringInterpolation to the appropriate interpolation type
+        if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
+            return Expression::new(
+                working_set,
+                kind.to_interpolation_expr(exprs, quoted),
+                span,
+                interpolation_expr.ty.clone(),
+            );
+        }
+
+        return interpolation_expr;
     }
 
-    let quoted = is_quoted(bytes);
     let (token, err) = unescape_unquote_string(bytes, span);
+    let is_quoted_internal = is_quoted(bytes);
 
     if err.is_none() {
         trace!("-- found {token}");
 
-        Expression::new(
-            working_set,
-            Expr::Directory(token, quoted),
-            span,
-            Type::String,
-        )
+        let (expr, ty) = kind.to_expr(token, is_quoted_internal);
+
+        Expression::new(working_set, expr, span, ty)
     } else {
-        working_set.error(ParseError::Expected("directory", span));
+        working_set.error(ParseError::Expected(kind.error_msg(), span));
 
         garbage(working_set, span)
     }
 }
 
+pub fn parse_directory(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+    parse_path_like(working_set, span, PathLikeKind::Directory)
+}
+
 pub fn parse_filepath(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    trace!("parsing: filepath");
-
-    // Check for bare word interpolation
-    if !bytes.is_empty()
-        && bytes[0] != b'\''
-        && bytes[0] != b'"'
-        && bytes[0] != b'`'
-        && bytes.contains(&b'(')
-    {
-        return parse_string_interpolation(working_set, span);
-    }
-
-    let quoted = is_quoted(bytes);
-    let (token, err) = unescape_unquote_string(bytes, span);
-
-    if err.is_none() {
-        trace!("-- found {token}");
-
-        Expression::new(
-            working_set,
-            Expr::Filepath(token, quoted),
-            span,
-            Type::String,
-        )
-    } else {
-        working_set.error(ParseError::Expected("filepath", span));
-
-        garbage(working_set, span)
-    }
+    parse_path_like(working_set, span, PathLikeKind::Filepath)
 }
 
 /// Parse a datetime type, eg '2022-02-02'
@@ -3413,50 +3454,112 @@ fn modf(x: f64) -> (f64, f64) {
 }
 
 pub fn parse_glob_pattern(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let bytes = working_set.get_span_contents(span);
-    let quoted = is_quoted(bytes);
-    trace!("parsing: glob pattern");
-
-    // Check for bare word interpolation
-    if !bytes.is_empty()
-        && bytes[0] != b'\''
-        && bytes[0] != b'"'
-        && bytes[0] != b'`'
-        && bytes.contains(&b'(')
-    {
-        let interpolation_expr = parse_string_interpolation(working_set, span);
-
-        // Convert StringInterpolation to GlobInterpolation
-        if let Expr::StringInterpolation(exprs) = interpolation_expr.expr {
-            return Expression::new(
-                working_set,
-                Expr::GlobInterpolation(exprs, quoted),
-                span,
-                Type::Glob,
-            );
-        }
-
-        return interpolation_expr;
-    }
-
-    let (token, err) = unescape_unquote_string(bytes, span);
-
-    if err.is_none() {
-        trace!("-- found {token}");
-
-        Expression::new(
-            working_set,
-            Expr::GlobPattern(token, quoted),
-            span,
-            Type::Glob,
-        )
-    } else {
-        working_set.error(ParseError::Expected("glob pattern string", span));
-
-        garbage(working_set, span)
-    }
+    parse_path_like(working_set, span, PathLikeKind::Glob)
 }
 
+/// Parse a hex escape sequence in the form `\xHH` (exactly 2 hex digits).
+///
+/// Returns the parsed byte value and the new index position.
+fn parse_hex_escape(bytes: &[u8], start_idx: usize, span: Span) -> Result<(u8, usize), ParseError> {
+    let hex_digits = bytes.get(start_idx + 1..start_idx + 3).ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "incomplete hex escape '\\xHH', expected 2 hex digits".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    if !hex_digits.iter().all(u8::is_ascii_hexdigit) {
+        return Err(ParseError::InvalidLiteral(
+            "invalid hex escape '\\xHH', expected exactly 2 hex digits".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        ));
+    }
+    str::from_utf8(hex_digits)
+        .ok()
+        .and_then(|s| u8::from_str_radix(s, 0x10).ok())
+        .map(|byte_val| (byte_val, start_idx + 3))
+        .ok_or_else(|| {
+            ParseError::InvalidLiteral(
+                "invalid hex escape '\\xHH'".into(),
+                "string".into(),
+                Span::new(span.start + start_idx, span.end),
+            )
+        })
+}
+
+/// Parse a Unicode escape sequence in the form `\u{XXXXXX}` (1-6 hex digits, max 0x10FFFF).
+///
+/// Returns the UTF-8 encoded bytes of the Unicode character and the new index position.
+fn parse_unicode_escape(
+    bytes: &[u8],
+    start_idx: usize,
+    span: Span,
+) -> Result<(char, usize), ParseError> {
+    let mut slice = &bytes[(start_idx + 1)..];
+    let mut current_idx = start_idx + 1;
+
+    // NOTE: this is a more defensive approach meant to avoid reading too much, but requires
+    //       changing error messages
+    // read no more than 8 bytes "{xxxxxx}"
+    // slice = &slice[..(8.min(slice.len()))];
+
+    slice = slice.strip_prefix(b"{").ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "invalid unicode escape '\\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF"
+                .into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    current_idx += 1;
+
+    let end = slice.iter().position(|b| *b == b'}').ok_or_else(|| {
+        ParseError::InvalidLiteral(
+            "incomplete unicode escape '\\u{...}', missing closing '}'".into(),
+            "string".into(),
+            Span::new(span.start + start_idx, span.end),
+        )
+    })?;
+    let digits = &slice[..end];
+    current_idx += end; // the digits
+    current_idx += 1; // closing brace
+    let current_idx = current_idx;
+
+    let ch = Some(digits)
+        .filter(|b| (1..=6).contains(&b.len()))
+        .and_then(|b| str::from_utf8(b).ok())
+        .and_then(|s| u32::from_str_radix(s, 0x10).ok())
+        .and_then(char::from_u32)
+        .ok_or_else(|| {
+            ParseError::InvalidLiteral(
+                "invalid unicode escape '\\u{...}', must be 1-6 hex digits, max codepoint 0x10FFFF"
+                    .into(),
+                "string".into(),
+                Span::new(span.start + start_idx, span.end),
+            )
+        })?;
+
+    Ok((ch, current_idx))
+}
+
+/// Parse and process POSIX escape sequences in a byte string.
+///
+/// This function handles the following escape sequences:
+/// - Simple: `\n`, `\r`, `\t`, `\\`, `\"`, `\'`
+/// - Control: `\0`, `\a`, `\b`, `\e`, `\f`
+/// - Hex: `\xHH` (exactly 2 hex digits)
+/// - Unicode: `\u{XXXXXX}` (1-6 hex digits, max 0x10FFFF)
+/// - Special: `\/`, `\(`, `\)`, `\{`, `\}`, `\$`, `\^`, `\#`, `\|`, `\~`
+///
+/// The function processes escapes in a single pass. If no backslashes are present,
+/// the input is returned as-is for efficiency.
+///
+/// # Returns
+///
+/// A tuple of `(processed_bytes, parse_error)` where:
+/// - `processed_bytes` contains the unescaped content
+/// - `parse_error` is `Some` if an invalid escape sequence was encountered, `None` otherwise
 pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>) {
     let mut output = Vec::new();
     let mut error = None;
@@ -3553,69 +3656,51 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
                     output.push(b'\t');
                     idx += 1;
                 }
+                Some(b'0') => {
+                    output.push(b'\0');
+                    idx += 1;
+                }
+                Some(b'x') => {
+                    // Hex escape: \xHH (exactly 2 hex digits)
+                    match parse_hex_escape(bytes, idx, span) {
+                        Ok((byte_val, new_idx)) => {
+                            output.push(byte_val);
+                            idx = new_idx;
+                        }
+                        Err(err) => {
+                            error = error.or(Some(err));
+                            break 'us_loop;
+                        }
+                    }
+                }
                 Some(b'u') => {
-                    let mut digits = String::with_capacity(10);
-                    let mut cur_idx = idx + 1; // index of first beyond current end of token
-
-                    if let Some(b'{') = bytes.get(idx + 1) {
-                        cur_idx = idx + 2;
-                        loop {
-                            match bytes.get(cur_idx) {
-                                Some(b'}') => {
-                                    cur_idx += 1;
-                                    break;
-                                }
-                                Some(c) => {
-                                    digits.push(*c as char);
-                                    cur_idx += 1;
-                                }
-                                _ => {
-                                    error = error.or(Some(ParseError::InvalidLiteral(
-                                        "missing '}' for unicode escape '\\u{X...}'".into(),
-                                        "string".into(),
-                                        Span::new(span.start + idx, span.end),
-                                    )));
-                                    break 'us_loop;
-                                }
-                            }
+                    // Unicode escape: \u{XXXXXX} (1-6 hex digits, max 0x10FFFF)
+                    match parse_unicode_escape(bytes, idx, span) {
+                        Ok((ch, new_idx)) => {
+                            let mut ch_buf = [0u8; 4];
+                            output.extend(ch.encode_utf8(&mut ch_buf).as_bytes());
+                            idx = new_idx;
+                        }
+                        Err(err) => {
+                            error = error.or(Some(err));
+                            break 'us_loop;
                         }
                     }
+                }
 
-                    if (1..=6).contains(&digits.len()) {
-                        let int = u32::from_str_radix(&digits, 16);
-
-                        if let Ok(int) = int
-                            && int <= 0x10ffff
-                        {
-                            let result = char::from_u32(int);
-
-                            if let Some(result) = result {
-                                let mut buffer = [0; 4];
-                                let result = result.encode_utf8(&mut buffer);
-
-                                for elem in result.bytes() {
-                                    output.push(elem);
-                                }
-
-                                idx = cur_idx;
-                                continue 'us_loop;
-                            }
-                        }
-                    }
-                    // fall through -- escape not accepted above, must be error.
+                Some(other) => {
                     error = error.or(Some(ParseError::InvalidLiteral(
-                            "invalid unicode escape '\\u{X...}', must be 1-6 hex digits, max value 10FFFF".into(),
-                            "string".into(),
-                            Span::new(span.start + idx, span.end),
+                        format!("unrecognized escape sequence '\\{}'", *other as char),
+                        "string".into(),
+                        Span::new(span.start + idx, span.end),
                     )));
                     break 'us_loop;
                 }
-
-                _ => {
+                None => {
                     error = error.or(Some(ParseError::InvalidLiteral(
-                        "unrecognized escape after '\\'".into(),
+                        "incomplete escape sequence after '\\'".into(),
                         "string".into(),
-                        Span::new(span.start + idx, span.end),
+                        Span::new(span.end.saturating_sub(1), span.end),
                     )));
                     break 'us_loop;
                 }
@@ -3629,6 +3714,17 @@ pub fn unescape_string(bytes: &[u8], span: Span) -> (Vec<u8>, Option<ParseError>
     (output, error)
 }
 
+/// Unescapes and unquotes a string, returning the content and any parse errors.
+///
+/// This function handles both quoted and unquoted strings, processing POSIX escape
+/// sequences only within double-quoted strings. Single-quoted and unquoted strings
+/// are returned as-is after removing their delimiters.
+///
+/// # Returns
+///
+/// A tuple of `(unescaped_string, parse_error)` where:
+/// - `unescaped_string` contains the processed content
+/// - `parse_error` is `Some` if an invalid escape sequence was encountered, `None` otherwise
 pub fn unescape_unquote_string(bytes: &[u8], span: Span) -> (String, Option<ParseError>) {
     if bytes.starts_with(b"\"") {
         // Needs unescaping
@@ -3708,6 +3804,10 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     Expression::new(working_set, Expr::String(s), span, Type::String)
 }
 
+/// Check if a byte sequence is quoted with either single or double quotes.
+///
+/// Returns `true` if the bytes start and end with matching quotes (either `"` or `'`)
+/// and have at least one character between them.
 fn is_quoted(bytes: &[u8]) -> bool {
     (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
         || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)

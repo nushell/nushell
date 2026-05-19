@@ -83,19 +83,19 @@ impl NuHelpCompleter {
                         let _ = write!(long_desc, "  {}: {}\r\n", positional.name, positional.desc);
                     }
                     for positional in &sig.optional_positional {
-                        let opt_suffix = if let Some(value) = &positional.default_value {
-                            format!(
-                                " (optional, default: {})",
-                                &value.to_parsable_string(", ", &self.config),
-                            )
-                        } else {
-                            (" (optional)").to_string()
-                        };
                         let _ = write!(
                             long_desc,
-                            "  (optional) {}: {}{}\r\n",
-                            positional.name, positional.desc, opt_suffix
+                            "  {}: {} (optional",
+                            positional.name, positional.desc
                         );
+                        if let Some(value) = &positional.default_value {
+                            let _ = write!(
+                                long_desc,
+                                ", default: {}",
+                                &value.to_parsable_string(", ", &self.config),
+                            );
+                        }
+                        let _ = write!(long_desc, ")\r\n");
                     }
 
                     if let Some(rest_positional) = &sig.rest_positional {
