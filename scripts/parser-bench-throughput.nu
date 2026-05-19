@@ -122,8 +122,8 @@ def main [
     | select benchmark chars_per_unit
     | table)
 
-    print "\nFull table of all parsed benchmarks with throughput metrics:"
-    print $rows
+    # print "\nFull table of all parsed benchmarks with throughput metrics:"
+    # print $rows
     
     print $"\nBenchmark logfile: ($log_file)"
     open $log_file
