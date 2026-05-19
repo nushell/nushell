@@ -39,7 +39,11 @@ fn non_xdg_config_dir() -> AbsolutePathBuf {
     let mut config_dir_nushell =
         AbsolutePathBuf::try_from(config_dir).expect("Invalid config directory");
     config_dir_nushell.push("nushell");
-    config_dir_nushell
+    if let Ok(canon) = config_dir_nushell.canonicalize() {
+        canon.into_absolute()
+    } else {
+        config_dir_nushell
+    }
 }
 
 fn run(playground: &mut Playground, command: &str) -> String {
