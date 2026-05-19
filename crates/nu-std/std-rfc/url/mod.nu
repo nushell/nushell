@@ -13,7 +13,7 @@ export def with-host [host: string]: string -> string {
 }
 
 # Set or replace the port of input url
-export def with-port [port: oneof<int, nothing>]: string -> string {
+export def with-port [port: oneof<int, string>]: string -> string {
     with-field port $port
 }
 
