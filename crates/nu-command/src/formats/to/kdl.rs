@@ -193,7 +193,7 @@ fn convert_nu_value_to_kdl_value(value: &Value) -> KdlValue {
         // If we fail to collapse the custom value, just print <{type_name}> - failure is not
         // that critical here
         Value::Custom { val, .. } => KdlValue::String(format!("<{}>", val.type_name())),
-        // UNSAFE: i struct the code above to ensure insha'Allah that this is never reached but it's still danger becuse this project has many people work on it so this can be change.
+        // UNSAFE: i struct the code above to ensure insha'Allah that this is never reached but it's still danger because this project has many people work on it so this can be change.
         _ => unreachable!("can't convert record and list values to kdl"),
     }
 }

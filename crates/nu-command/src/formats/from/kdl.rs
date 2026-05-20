@@ -72,7 +72,7 @@ impl Command for FromKdl {
         let kdl_data = KdlDocument::parse(&kdl_string_object.0).map_err(|_| {
             FromKdlError::cant_convert(
                 span,
-                Some("fialed to parse kdl string - check the input string syntax".to_owned()),
+                Some("failed to parse kdl string - check the input string syntax".to_owned()),
             )
         })?;
 
