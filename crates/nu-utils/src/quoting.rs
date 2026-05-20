@@ -89,7 +89,7 @@ mod tests {
     #[test]
     fn raw_string_uses_more_hashes_for_quote_hash_sequence() {
         assert_eq!(
-            as_raw_string(r#"contains '# and \"quote\""#),
+            as_raw_string(r#"contains '# and "quote""#),
             Some(r##"r##'contains '# and "quote"'##"##.to_string())
         );
     }
@@ -113,7 +113,7 @@ version = "1.0.0"
     #[test]
     fn raw_string_scales_hash_count_for_longer_sequences() {
         assert_eq!(
-            as_raw_string(r#"contains '## and \"quote\""#),
+            as_raw_string(r#"contains '## and "quote""#),
             Some(r###"r###'contains '## and "quote"'###"###.to_string())
         );
     }
