@@ -1,8 +1,3 @@
-use std::{
-    path::{Path, PathBuf},
-    sync::mpsc::{Receiver, RecvTimeoutError, channel},
-    time::Duration,
-};
 use itertools::Either;
 use notify_debouncer_full::{
     DebouncedEvent, Debouncer, FileIdMap, new_debouncer,
@@ -17,6 +12,11 @@ use nu_protocol::{
     engine::Closure,
     report_shell_error, report_shell_warning,
     shell_error::{generic::GenericError, io::IoError},
+};
+use std::{
+    path::{Path, PathBuf},
+    sync::mpsc::{Receiver, RecvTimeoutError, channel},
+    time::Duration,
 };
 
 // durations chosen mostly arbitrarily

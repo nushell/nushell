@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used)]
 
 use nu_cli::{eval_source, evaluate_commands};
-use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_experimental::DC_GLOB;
+use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
