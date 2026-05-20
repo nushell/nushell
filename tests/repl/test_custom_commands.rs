@@ -309,7 +309,7 @@ fn allow_pass_negative_float() -> TestResult {
 #[test]
 fn test_runtime_check_for_flag() -> TestResult {
     fail_test(
-        r#"
+        "
 def foo [
   --target: record<url: string> 
 ] {
@@ -320,7 +320,7 @@ def barboozle [] {
   {a: 1}
 }
 
-foo --target (barboozle)"#,
+foo --target (barboozle)",
         "can't convert record<a: int> to record<url: string>",
     )
 }
