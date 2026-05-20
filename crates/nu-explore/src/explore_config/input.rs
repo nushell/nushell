@@ -25,8 +25,10 @@ pub fn handle_search_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers)
             app.apply_search_filter();
         }
         KeyCode::Char(c) if !modifiers.contains(KeyModifiers::CONTROL) => {
-            app.search_query.push(c);
-            app.apply_search_filter();
+            if app.search_query.len() < 256 {
+                app.search_query.push(c);
+                app.apply_search_filter();
+            }
         }
         _ => {}
     }
