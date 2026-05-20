@@ -231,17 +231,11 @@ impl ProcessInfo {
 
     /// Working set size in bytes
     pub fn working_size(&self) -> u64 {
-        // PowerShell aliases WS to WorkingSet64, and .NET maps that to VmRSS on Linux:
-        // https://github.com/PowerShell/PowerShell/blob/master/src/System.Management.Automation/engine/TypeTable_Types_Ps1Xml.cs#L1112-L1116
-        // https://github.com/dotnet/runtime/blob/main/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/ProcessManager.Linux.cs#L103-L114
         self.mem_size()
     }
 
     /// Paged memory size in bytes
     pub fn paged_size(&self) -> u64 {
-        // PowerShell aliases PM to PagedMemorySize64, and .NET maps that to VmSwap on Linux:
-        // https://github.com/PowerShell/PowerShell/blob/master/src/System.Management.Automation/engine/TypeTable_Types_Ps1Xml.cs#L1120-L1124
-        // https://github.com/dotnet/runtime/blob/main/src/libraries/System.Diagnostics.Process/src/System/Diagnostics/ProcessManager.Linux.cs#L103-L114
         self.curr_status
             .as_ref()
             .and_then(|status| status.vmswap)

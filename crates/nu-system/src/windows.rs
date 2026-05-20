@@ -1062,15 +1062,11 @@ impl ProcessInfo {
 
     /// Working set size in bytes
     pub fn working_size(&self) -> u64 {
-        // PowerShell aliases WS to WorkingSet64 on System.Diagnostics.Process:
-        // https://github.com/PowerShell/PowerShell/blob/master/src/System.Management.Automation/engine/TypeTable_Types_Ps1Xml.cs#L1112-L1116
         self.memory_info.working_set_size
     }
 
     /// Paged memory size in bytes
     pub fn paged_size(&self) -> u64 {
-        // PowerShell aliases PM to PagedMemorySize64 on System.Diagnostics.Process:
-        // https://github.com/PowerShell/PowerShell/blob/master/src/System.Management.Automation/engine/TypeTable_Types_Ps1Xml.cs#L1120-L1124
         self.memory_info.page_file_usage
     }
 
