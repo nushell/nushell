@@ -1,26 +1,30 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn break_for_loop() {
-    let actual = nu!("
-        for i in 1..10 { if $i == 2 { break }; print $i }
-        ");
+fn break_for_loop() -> Result {
+    let code = "
+        mut vals = []
+        for i in 1..10 { if $i == 3 { break }; $vals ++= [$i] }
+        $vals
+    ";
 
-    assert_eq!(actual.out, "1");
+    test().run(code).expect_value_eq([1, 2])
 }
 
 #[test]
-fn break_while_loop() {
-    let actual = nu!(r#" while true { break }; print "hello" "#);
-
-    assert_eq!(actual.out, "hello");
+fn break_while_loop() -> Result {
+    test()
+        .run(r#"while true { break }; "hello""#)
+        .expect_value_eq("hello")
 }
 
 #[test]
-fn break_outside_loop() {
-    let actual = nu!(r#"break"#);
-    assert!(actual.err.contains("not_in_a_loop"));
+fn break_outside_loop() -> Result {
+    let err = test().run("break").expect_compile_error()?;
+    assert!(matches!(err, CompileError::NotInALoop { .. }));
 
-    let actual = nu!(r#"do { break }"#);
-    assert!(actual.err.contains("not_in_a_loop"));
+    let err = test().run("do { break }").expect_compile_error()?;
+    assert!(matches!(err, CompileError::NotInALoop { .. }));
+
+    Ok(())
 }

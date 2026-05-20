@@ -4,7 +4,7 @@ use std::{
 };
 
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 
 const CTRL_C: u8 = 3;
 
@@ -65,22 +65,22 @@ The `prefix` is not included in the output."
         vec![
             Example {
                 description: "Get cursor position.",
-                example: r#"term query (ansi cursor_position) --prefix (ansi csi) --terminator 'R'"#,
+                example: "term query (ansi cursor_position) --prefix (ansi csi) --terminator 'R'",
                 result: None,
             },
             Example {
                 description: "Get terminal background color.",
-                example: r#"term query $'(ansi osc)10;?(ansi st)' --prefix $'(ansi osc)10;' --terminator (ansi st)"#,
+                example: "term query $'(ansi osc)10;?(ansi st)' --prefix $'(ansi osc)10;' --terminator (ansi st)",
                 result: None,
             },
             Example {
                 description: "Get terminal background color. (some terminals prefer `char bel` rather than `ansi st` as string terminator).",
-                example: r#"term query $'(ansi osc)10;?(char bel)' --prefix $'(ansi osc)10;' --terminator (char bel)"#,
+                example: "term query $'(ansi osc)10;?(char bel)' --prefix $'(ansi osc)10;' --terminator (char bel)",
                 result: None,
             },
             Example {
                 description: "Read clipboard content on terminals supporting OSC-52.",
-                example: r#"term query $'(ansi osc)52;c;?(ansi st)' --prefix $'(ansi osc)52;c;' --terminator (ansi st)"#,
+                example: "term query $'(ansi osc)52;c;?(ansi st)' --prefix $'(ansi osc)52;c;' --terminator (ansi st)",
                 result: None,
             },
         ]
@@ -132,13 +132,10 @@ The `prefix` is not included in the output."
                 .read_exact(&mut b)
                 .map_err(|err| IoError::new(err, call.head, None))?;
             if b[0] != bc {
-                return Err(ShellError::GenericError {
-                    error: "Input did not begin with expected sequence".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("Try running without `--prefix` and inspecting the output.".into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal("Input did not begin with expected sequence", "")
+                        .with_help("Try running without `--prefix` and inspecting the output."),
+                ));
             }
             if keep {
                 buf.push(b[0]);

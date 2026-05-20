@@ -4,34 +4,36 @@ use lsp_types::{
 };
 use nu_protocol::{
     Flag, PositionalArg, Signature, SyntaxShape, Value,
-    ast::{Argument, Call, Expr, Expression, FindMapResult, Traverse},
+    ast::{Argument, Call, Expr, Expression, Traverse},
     engine::StateWorkingSet,
 };
 
 use crate::{LanguageServer, uri_to_path};
+use std::{fmt::Write, ops::ControlFlow};
 
 fn find_active_internal_call<'a>(
     expr: &'a Expression,
     working_set: &'a StateWorkingSet,
     pos: usize,
-) -> FindMapResult<&'a Call> {
+) -> ControlFlow<Option<&'a Call>> {
     if !expr.span.contains(pos) {
-        return FindMapResult::Stop;
+        return ControlFlow::Break(None);
     }
     let closure = |e| find_active_internal_call(e, working_set, pos);
     match &expr.expr {
         Expr::Call(call) => {
             if call.head.contains(pos) {
-                return FindMapResult::Stop;
+                return ControlFlow::Break(None);
             }
             call.arguments
                 .iter()
                 .find_map(|arg| arg.expr().and_then(|e| e.find_map(working_set, &closure)))
                 .or(Some(call.as_ref()))
-                .map(FindMapResult::Found)
-                .unwrap_or_default()
+                .map(Some)
+                .map(ControlFlow::Break)
+                .unwrap_or(ControlFlow::Continue(()))
         }
-        _ => FindMapResult::Continue,
+        _ => ControlFlow::Continue(()),
     }
 }
 
@@ -39,13 +41,15 @@ pub(crate) fn display_flag(flag: &Flag, verbitam: bool) -> String {
     let md_backtick = if verbitam { "`" } else { "" };
     let mut text = String::new();
     if let Some(short_flag) = flag.short {
-        text.push_str(&format!("{md_backtick}-{short_flag}{md_backtick}"));
+        write!(text, "{md_backtick}-{short_flag}{md_backtick}")
+            .expect("writing to a String is infallible");
     }
     if !flag.long.is_empty() {
         if flag.short.is_some() {
             text.push_str(", ");
         }
-        text.push_str(&format!("{md_backtick}--{}{md_backtick}", flag.long));
+        write!(text, "{md_backtick}--{}{md_backtick}", flag.long)
+            .expect("writing to a String is infallible");
     }
     text
 }
@@ -61,19 +65,21 @@ pub(crate) fn doc_for_arg(
         if let SyntaxShape::Keyword(_, inner_shape) = shape {
             shape = *inner_shape;
         }
-        text.push_str(&format!(": `<{shape}>`"));
+        write!(text, ": `<{shape}>`").expect("writing to a String is infallible");
     }
     if !(desc.is_empty() && default_value.is_none()) || optional {
         text.push_str(" -")
     };
     if !desc.is_empty() {
-        text.push_str(&format!(" {desc}"));
+        write!(text, " {desc}").expect("writing to a String is infallible");
     };
     if let Some(value) = default_value.as_ref().and_then(|v| v.coerce_str().ok()) {
-        text.push_str(&format!(
+        write!(
+            text,
             " ({}default: `{value}`)",
             if optional { "optional, " } else { "" }
-        ));
+        )
+        .expect("writing to a String is infallible");
     } else if optional {
         text.push_str(" (optional)");
     }
@@ -102,13 +108,15 @@ pub(crate) fn get_signature_label(signature: &Signature, indent: bool) -> String
         label.push_str(" {flags}");
     }
     for required_arg in &signature.required_positional {
-        label.push_str(&format!(" {}", expand_keyword(required_arg, false)));
+        write!(label, " {}", expand_keyword(required_arg, false))
+            .expect("writing to a String is infallible");
     }
     for optional_arg in &signature.optional_positional {
-        label.push_str(&format!(" ({})", expand_keyword(optional_arg, true)));
+        write!(label, " ({})", expand_keyword(optional_arg, true))
+            .expect("writing to a String is infallible");
     }
     if let Some(arg) = &signature.rest_positional {
-        label.push_str(&format!(" ...({})", arg.name));
+        write!(label, " ...({})", arg.name).expect("writing to a String is infallible");
     }
     label
 }

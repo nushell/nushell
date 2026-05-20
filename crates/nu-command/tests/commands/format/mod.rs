@@ -84,12 +84,12 @@ fn format_filesize_works() -> Result {
             EmptyFile("andres.txt"),
         ]);
 
-        let code = r#"
+        let code = "
             ls
             | format filesize kB size
             | get size
             | first
-        "#;
+        ";
 
         test().cwd(dirs.test()).run(code).expect_value_eq("0 kB")
     })

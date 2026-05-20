@@ -4,7 +4,10 @@ use nu_plugin::Plugin;
 use nu_plugin_core::{InterfaceManager, PluginRead, PluginWrite};
 use nu_plugin_engine::{PluginInterfaceManager, PluginSource};
 use nu_plugin_protocol::{PluginInput, PluginOutput};
-use nu_protocol::{PluginIdentity, ShellError, shell_error::io::IoError};
+use nu_protocol::{
+    PluginIdentity, ShellError,
+    shell_error::{generic::GenericError, io::IoError},
+};
 
 use crate::fake_persistent_plugin::FakePersistentPlugin;
 
@@ -19,15 +22,12 @@ impl<T> PluginRead<T> for FakePluginRead<T> {
 
 impl<T: Clone + Send> PluginWrite<T> for FakePluginWrite<T> {
     fn write(&self, data: &T) -> Result<(), ShellError> {
-        self.0
-            .send(data.clone())
-            .map_err(|e| ShellError::GenericError {
-                error: "Error sending data".to_string(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
-            })
+        self.0.send(data.clone()).map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                "Error sending data",
+                e.to_string(),
+            ))
+        })
     }
 
     fn flush(&self) -> Result<(), ShellError> {

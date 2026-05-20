@@ -11,6 +11,10 @@ impl Command for Sort {
         "sort"
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["order"]
+    }
+
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("sort")
             .input_output_types(vec![
@@ -135,14 +139,14 @@ impl Command for Sort {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let reverse = call.has_flag(engine_state, stack, "reverse")?;
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let sort_by_value = call.has_flag(engine_state, stack, "values")?;
-        let metadata = input.metadata();
 
         let span = input.span().unwrap_or(call.head);
+        let metadata = input.take_metadata();
         let value = input.into_value(span)?;
         let sorted: Value = match value {
             Value::Record { val, .. } => {
@@ -170,7 +174,7 @@ impl Command for Sort {
                                 col.0.clone(),
                                 false,
                                 Casing::Sensitive,
-                                Span::unknown(),
+                                call.head,
                             )]
                         })
                         .map(|members| CellPath { members })
@@ -213,10 +217,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Sort {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Sort)
     }
 
     #[test]

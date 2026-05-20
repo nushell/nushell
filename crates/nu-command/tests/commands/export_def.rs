@@ -1,23 +1,23 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn export_subcommands_help() {
-    let actual = nu!("export def -h");
-
-    assert!(
-        actual
-            .out
-            .contains("Define a custom command and export it from a module")
+fn export_subcommands_help() -> Result {
+    let actual: String = test().run("export def -h")?;
+    assert_contains(
+        "Define a custom command and export it from a module",
+        actual,
     );
+
+    Ok(())
 }
 
 #[test]
-fn export_should_not_expose_arguments() {
+fn export_should_not_expose_arguments() -> Result {
     // issue #16211
-    let actual = nu!(r#"
-            export def foo [bar: int] {}
-            scope variables
-        "#);
+    let code = r#"
+        export def foo [bar: int] {}
+        scope variables | get name | "bar" in $in or "$bar" in $in
+    "#;
 
-    assert!(!actual.out.contains("bar"));
+    test().run(code).expect_value_eq(false)
 }

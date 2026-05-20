@@ -3,24 +3,24 @@ use nu_test_support::nu;
 mod rows {
     use super::*;
 
-    const TABLE: &str = r#"[
+    const TABLE: &str = "[
         [service, status];
 
         [ruby,      DOWN]
         [db,        DOWN]
         [nud,       DOWN]
         [expected,  HERE]
-    ]"#;
+    ]";
 
     #[test]
     fn can_roll_down() {
         let actual = nu!(format!(
-            r#"
+            "
                 {TABLE}
                 | roll down
                 | first
                 | get status
-            "#,
+            ",
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -29,12 +29,12 @@ mod rows {
     #[test]
     fn can_roll_up() {
         let actual = nu!(format!(
-            r#"
+            "
                 {TABLE}
                 | roll up --by 3
                 | first
                 | get status
-            "#
+            "
         ));
 
         assert_eq!(actual.out, "HERE");
@@ -123,7 +123,7 @@ mod columns {
 
         // this pipeline takes the nu bitstring row literal, computes it's
         // decimal value.
-        let nu_row_literal_bitstring_to_decimal_value_pipeline = r#"transpose bit --ignore-titles
+        let nu_row_literal_bitstring_to_decimal_value_pipeline = "transpose bit --ignore-titles
             | get bit
             | reverse
             | enumerate
@@ -131,7 +131,7 @@ mod columns {
                 $it.item * (2 ** $it.index)
             }
             | math sum
-        "#;
+        ";
         println!(
             "{bitstring_as_nu_row_pipeline} | roll left --by 3 | {nu_row_literal_bitstring_to_decimal_value_pipeline}"
         );
@@ -144,12 +144,12 @@ mod columns {
         format!(
             "echo '{}' | {}",
             bits,
-            r#"
+            "
                     split chars
                     | each { |it| $it | into int }
                     | rotate --ccw
                     | rename bit1 bit2 bit3 bit4 bit5 bit6 bit7 bit8
-                "#
+                "
         )
     }
 }

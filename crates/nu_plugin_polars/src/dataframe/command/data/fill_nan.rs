@@ -60,6 +60,7 @@ impl PluginCommand for LazyFillNA {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("Df for test should not fail")
                     .into_value(Span::test_data()),
@@ -81,6 +82,7 @@ impl PluginCommand for LazyFillNA {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("Df for test should not fail")
                     .into_value(Span::test_data()),
@@ -94,10 +96,10 @@ impl PluginCommand for LazyFillNA {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let fill: Value = call.req(0)?;
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
 
         match PolarsPluginObject::try_from_value(plugin, &value)? {
@@ -164,7 +166,7 @@ fn cmd_df(
             Column::new(column_name, values)
         })
         .collect::<Vec<Column>>();
-    let df = NuDataFrame::try_from_columns(dataframe, None)?;
+    let df = NuDataFrame::try_from_columns(dataframe, None, call.head)?;
     df.to_pipeline_data(plugin, engine, call.head)
 }
 

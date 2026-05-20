@@ -1498,6 +1498,7 @@ fn table_mode_accepts_all_valid_modes() -> TestResult {
         "thin",
         "light",
         "compact",
+        "frameless",
         "with_love",
         "compact_double",
         "default",
@@ -1724,7 +1725,7 @@ fn include_path_sets_env_nu_lib_dirs() -> TestResult {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    assert!(stdout.contains(r#"/tmp/test"#));
+    assert!(stdout.contains("/tmp/test"));
     Ok(())
 }
 
@@ -1748,7 +1749,7 @@ fn include_path_appends_to_env_nu_lib_dirs() -> TestResult {
 
     assert!(output.status.success());
     // Should at least contain the -I path
-    assert!(stdout.contains(r#"/tmp/append"#));
+    assert!(stdout.contains("/tmp/append"));
     #[cfg(windows)]
     {
         assert!(stdout.contains(r#"\scripts"#));
@@ -1756,8 +1757,8 @@ fn include_path_appends_to_env_nu_lib_dirs() -> TestResult {
     }
     #[cfg(not(windows))]
     {
-        assert!(stdout.contains(r#"/scripts"#));
-        assert!(stdout.contains(r#"/completions"#));
+        assert!(stdout.contains("/scripts"));
+        assert!(stdout.contains("/completions"));
     }
     Ok(())
 }
@@ -1778,7 +1779,7 @@ fn nu_lib_dirs_env_var_sets_env() -> TestResult {
     let stdout = String::from_utf8_lossy(&output.stdout);
 
     assert!(output.status.success());
-    assert!(stdout.contains(r#"/tmp/envpath"#));
+    assert!(stdout.contains("/tmp/envpath"));
     Ok(())
 }
 

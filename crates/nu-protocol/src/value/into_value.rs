@@ -1,5 +1,6 @@
 use crate::{Range, Record, ShellError, Span, Value, ast::CellPath, engine::Closure};
 use chrono::{DateTime, FixedOffset};
+use nu_path::form::PathForm;
 use std::{
     borrow::{Borrow, Cow},
     collections::HashMap,
@@ -261,6 +262,18 @@ impl IntoValue for std::time::Duration {
     }
 }
 
+impl IntoValue for &std::path::Path {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
+impl IntoValue for std::path::PathBuf {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
 // Nu Types
 
 impl IntoValue for Range {
@@ -299,6 +312,18 @@ impl IntoValue for Value {
     }
 }
 
+impl<Form: PathForm> IntoValue for &nu_path::Path<Form> {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
+impl<Form: PathForm> IntoValue for nu_path::PathBuf<Form> {
+    fn into_value(self, span: Span) -> Value {
+        Value::string(self.to_string_lossy(), span)
+    }
+}
+
 // Foreign Types
 
 impl IntoValue for DateTime<FixedOffset> {
@@ -310,6 +335,34 @@ impl IntoValue for DateTime<FixedOffset> {
 impl IntoValue for bytes::Bytes {
     fn into_value(self, span: Span) -> Value {
         Value::binary(self.to_vec(), span)
+    }
+}
+
+impl IntoValue for serde_json::Value {
+    fn into_value(self, span: Span) -> Value {
+        match self {
+            serde_json::Value::Null => Value::nothing(span),
+            serde_json::Value::Bool(b) => Value::bool(b, span),
+            serde_json::Value::Number(num) => {
+                if let Some(n) = num.as_i64() {
+                    return Value::int(n, span);
+                }
+                Value::float(
+                    num.as_f64()
+                        .expect("should always return some floating point number"),
+                    span,
+                )
+            }
+            serde_json::Value::String(s) => Value::string(s, span),
+            serde_json::Value::Array(values) => Value::list(
+                values.into_iter().map(|v| v.into_value(span)).collect(),
+                span,
+            ),
+            serde_json::Value::Object(map) => Value::record(
+                Record::from_iter(map.into_iter().map(|(k, v)| (k, v.into_value(span)))),
+                span,
+            ),
+        }
     }
 }
 

@@ -1,11 +1,12 @@
 [package]
 authors = ["The Nushell Project Developers"]
 description = "Nushell utility functions"
-edition = "2024"
+edition.workspace = true
 license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
-version = "0.111.1"
+rust-version.workspace = true
+version = "0.112.3"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -19,6 +20,7 @@ bench = false
 [dependencies]
 byteyarn.workspace = true
 crossterm = { workspace = true, optional = true }
+derive_more = { workspace = true }
 fancy-regex = { workspace = true }
 lean_string.workspace = true
 log = { workspace = true }
@@ -41,6 +43,9 @@ crossterm_winapi = "0.9"
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true, default-features = false, features = ["user", "fs"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = { workspace = true }
 
 [lints]
 workspace = true

@@ -66,7 +66,7 @@ fn match_list_rest() {
 
 #[test]
 fn match_list_rest_empty() {
-    let actual = nu!(r#"match [1] { [1 ..$rest] => { $rest == [] } }"#);
+    let actual = nu!("match [1] { [1 ..$rest] => { $rest == [] } }");
     assert_eq!(actual.out, "true");
 }
 
@@ -247,12 +247,12 @@ fn match_with_or_missing_expr() {
 #[test]
 fn match_with_comment_1() {
     Playground::setup("match_with_comment", |dirs, _| {
-        let data = r#"
+        let data = "
 match 1 {
     # comment
     _ => { print 'success' }
 }
-            "#;
+            ";
         fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),
@@ -266,11 +266,11 @@ match 1 {
 #[test]
 fn match_with_comment_2() {
     Playground::setup("match_with_comment", |dirs, _| {
-        let data = r#"
+        let data = "
 match 1 {
     _ => { print 'success' } # comment
 }
-            "#;
+            ";
         fs::write(dirs.root().join("match_test"), data).expect("Unable to write file");
         let actual = nu!(
             cwd: dirs.root(),

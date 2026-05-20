@@ -53,7 +53,7 @@ impl Command for PluginList {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 The `status` column will contain one of the following values:
 
 - `added`:    The plugin is present in the plugin registry file, but not in
@@ -75,7 +75,7 @@ or the plugin has not been loaded yet, the values of `version`, `filename`,
 the plugin registry file.
 
 See also: `plugin use`
-"#
+"
         .trim()
     }
 

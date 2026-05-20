@@ -20,10 +20,10 @@ impl Command for Break {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
+        "This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
-  break can only be used in while, loop, and for loops. It can not be used with each or other filter commands"#
+  break can only be used in while, loop, and for loops. It can not be used with each or other filter commands"
     }
 
     fn command_type(&self) -> CommandType {
@@ -48,7 +48,7 @@ impl Command for Break {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Break out of a loop.",
-            example: r#"loop { break }"#,
+            example: "loop { break }",
             result: None,
         }]
     }

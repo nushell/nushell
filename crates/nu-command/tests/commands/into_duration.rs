@@ -4,15 +4,15 @@ use nu_test_support::nu;
 
 #[test]
 fn into_duration_float() {
-    let actual = nu!(r#"1.07min | into duration"#);
+    let actual = nu!("1.07min | into duration");
 
     assert_eq!("1min 4sec 200ms", actual.out);
 }
 
 #[test]
 fn into_duration_from_record_cell_path() {
-    let actual = nu!(r#"{d: '1hr'} | into duration d"#);
-    let expected = nu!(r#"{d: 1hr}"#);
+    let actual = nu!("{d: '1hr'} | into duration d");
+    let expected = nu!("{d: 1hr}");
 
     assert_eq!(expected.out, actual.out);
 }
@@ -20,10 +20,10 @@ fn into_duration_from_record_cell_path() {
 #[test]
 fn into_duration_from_record() {
     let actual = nu!(
-        r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '+'} | into duration | into record"#
+        "{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '+'} | into duration | into record"
     );
     let expected = nu!(
-        r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '+'}"#
+        "{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '+'}"
     );
 
     assert_eq!(expected.out, actual.out);
@@ -32,10 +32,10 @@ fn into_duration_from_record() {
 #[test]
 fn into_duration_from_record_negative() {
     let actual = nu!(
-        r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '-'} | into duration | into record"#
+        "{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '-'} | into duration | into record"
     );
     let expected = nu!(
-        r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '-'}"#
+        "{week: 10, day: 1, hour: 2, minute: 3, second: 4, millisecond: 5, microsecond: 6, nanosecond: 7, sign: '-'}"
     );
 
     assert_eq!(expected.out, actual.out);
@@ -43,7 +43,7 @@ fn into_duration_from_record_negative() {
 
 #[test]
 fn into_duration_from_record_defaults() {
-    let actual = nu!(r#"{} | into duration | into int"#);
+    let actual = nu!("{} | into duration | into int");
 
     assert_eq!("0".to_string(), actual.out);
 }
@@ -51,7 +51,7 @@ fn into_duration_from_record_defaults() {
 #[test]
 fn into_duration_from_record_round_trip() {
     let actual = nu!(
-        r#"('10wk 1day 2hr 3min 4sec 5ms 6µs 7ns' | into duration | into record | into duration | into string) == '10wk 1day 2hr 3min 4sec 5ms 6µs 7ns'"#
+        "('10wk 1day 2hr 3min 4sec 5ms 6µs 7ns' | into duration | into record | into duration | into string) == '10wk 1day 2hr 3min 4sec 5ms 6µs 7ns'"
     );
 
     assert!(actual.out.contains("true"));
@@ -59,58 +59,57 @@ fn into_duration_from_record_round_trip() {
 
 #[test]
 fn into_duration_table_column() {
-    let actual =
-        nu!(r#"[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value"#);
-    let expected = nu!(r#"[[value]; [1sec] [2min] [3hr] [4day] [5wk]]"#);
+    let actual = nu!("[[value]; ['1sec'] ['2min'] ['3hr'] ['4day'] ['5wk']] | into duration value");
+    let expected = nu!("[[value]; [1sec] [2min] [3hr] [4day] [5wk]]");
 
     assert_eq!(actual.out, expected.out);
 }
 
 #[test]
 fn into_duration_colon_string() {
-    let actual = nu!(r#"'3:34:00' | into duration"#);
+    let actual = nu!("'3:34:00' | into duration");
     assert_eq!("3hr 34min", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_millis() {
-    let actual = nu!(r#"'16:59:58.235' | into duration"#);
+    let actual = nu!("'16:59:58.235' | into duration");
     assert_eq!("16hr 59min 58sec 235ms", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_tenths() {
-    let actual = nu!(r#"'2:45:31.2' | into duration"#);
+    let actual = nu!("'2:45:31.2' | into duration");
     assert_eq!("2hr 45min 31sec 200ms", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_hundredths() {
-    let actual = nu!(r#"'2:45:31.23' | into duration"#);
+    let actual = nu!("'2:45:31.23' | into duration");
     assert_eq!("2hr 45min 31sec 230ms", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_four_fraction_digits() {
-    let actual = nu!(r#"'2:45:31.2345' | into duration"#);
+    let actual = nu!("'2:45:31.2345' | into duration");
     assert_eq!("2hr 45min 31sec 234ms 500µs", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_micros() {
-    let actual = nu!(r#"'16:59:58.235123' | into duration"#);
+    let actual = nu!("'16:59:58.235123' | into duration");
     assert_eq!("16hr 59min 58sec 235ms 123µs", actual.out);
 }
 
 #[test]
 fn into_duration_colon_string_with_nanos() {
-    let actual = nu!(r#"'16:59:58.235123456' | into duration"#);
+    let actual = nu!("'16:59:58.235123456' | into duration");
     assert_eq!("16hr 59min 58sec 235ms 123µs 456ns", actual.out);
 }
 
 #[test]
 fn into_duration_clock_error_two() {
-    let actual = nu!(r#"'3:34' | into duration"#);
+    let actual = nu!("'3:34' | into duration");
     assert!(actual.err.contains("hh:mm:ss"), "error was: {}", actual.err);
 }
 
@@ -118,7 +117,7 @@ fn into_duration_clock_error_two() {
 
 #[test]
 fn into_duration_from_record_fails_with_wrong_type() {
-    let actual = nu!(r#"{week: '10'} | into duration"#);
+    let actual = nu!("{week: '10'} | into duration");
 
     assert!(
         actual
@@ -129,14 +128,14 @@ fn into_duration_from_record_fails_with_wrong_type() {
 
 #[test]
 fn into_duration_from_record_fails_with_invalid_date_time_values() {
-    let actual = nu!(r#"{week: -10} | into duration"#);
+    let actual = nu!("{week: -10} | into duration");
 
     assert!(actual.err.contains("nu::shell::incorrect_value"));
 }
 
 #[test]
 fn into_duration_from_record_fails_with_invalid_sign() {
-    let actual = nu!(r#"{week: 10, sign: 'x'} | into duration"#);
+    let actual = nu!("{week: 10, sign: 'x'} | into duration");
 
     assert!(actual.err.contains("nu::shell::incorrect_value"));
 }
@@ -145,21 +144,21 @@ fn into_duration_from_record_fails_with_invalid_sign() {
 
 #[test]
 fn into_duration_invalid_unit() {
-    let actual = nu!(r#"1 | into duration --unit xx"#);
+    let actual = nu!("1 | into duration --unit xx");
 
     assert!(actual.err.contains("nu::shell::invalid_unit"));
 }
 
 #[test]
 fn into_duration_filesize_unit() {
-    let actual = nu!(r#"1 | into duration --unit MB"#);
+    let actual = nu!("1 | into duration --unit MB");
 
     assert!(actual.err.contains("nu::shell::invalid_unit"));
 }
 
 #[test]
 fn into_duration_from_record_fails_with_unknown_key() {
-    let actual = nu!(r#"{week: 10, unknown: 1} | into duration"#);
+    let actual = nu!("{week: 10, unknown: 1} | into duration");
 
     assert!(actual.err.contains("nu::shell::unsupported_input"));
 }
@@ -167,7 +166,7 @@ fn into_duration_from_record_fails_with_unknown_key() {
 #[test]
 fn into_duration_from_record_incompatible_with_unit_flag() {
     let actual = nu!(
-        r#"{week: 10, day: 1, hour: 2, minute: 3, second: 4, sign: '-'} | into duration --unit sec"#
+        "{week: 10, day: 1, hour: 2, minute: 3, second: 4, sign: '-'} | into duration --unit sec"
     );
 
     assert!(actual.err.contains("nu::shell::incompatible_parameters"));

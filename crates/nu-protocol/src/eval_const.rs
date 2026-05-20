@@ -10,6 +10,7 @@ use crate::{
     engine::{EngineState, StateWorkingSet},
     eval_base::Eval,
     record,
+    shell_error::generic::GenericError,
 };
 use nu_system::os_info::{get_kernel_version, get_os_arch, get_os_family, get_os_name};
 use std::{
@@ -155,13 +156,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_home_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.home-dir failed".into(),
-                    msg: "Could not get home directory".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.home-dir failed",
+                    "Could not get home directory",
+                    span,
+                )),
                 span,
             )
         },
@@ -175,13 +174,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_data_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.data-dir failed".into(),
-                    msg: "Could not get data path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.data-dir failed",
+                    "Could not get data path",
+                    span,
+                )),
                 span,
             )
         },
@@ -195,13 +192,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(canon_cache_path.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.cache-dir failed".into(),
-                    msg: "Could not get cache path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.cache-dir failed",
+                    "Could not get cache path",
+                    span,
+                )),
                 span,
             )
         },
@@ -272,13 +267,11 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
             Value::string(current_exe.to_string_lossy(), span)
         } else {
             Value::error(
-                ShellError::GenericError {
-                    error: "setting $nu.current-exe failed".into(),
-                    msg: "Could not get current executable path".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new(
+                    "setting $nu.current-exe failed",
+                    "Could not get current executable path",
+                    span,
+                )),
                 span,
             )
         },
@@ -290,15 +283,32 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     Value::record(record, span)
 }
 
+/// Generates the list of vendor autoload dirs
+///
+/// - *macOS only*: `/Library/Application Support/nushell/vendor/autoload`
+/// - *non-Windows*:
+///   ```nu
+///   if $env.XDG_DATA_DIRS? != null {
+///       $env.XDG_DATA_DIRS
+///       | split row ":"
+///       | reverse
+///   } else if $PREFIX ends-with "local" {
+///       [
+///           $'($PREFIX)/share'
+///       ]
+///   } else {
+///       [
+///           $'($PREFIX)/local/share'
+///           $'($PREFIX)/share'
+///       ]
+///   }
+///   | each {|dir| $'($dir)/nushell/vendor' }
+///   ```
+/// - *Windows only*: `%ProgramData%\nushell\vendor\autoload`
+/// - *compile time*: `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set
+/// - `($nu.data_dir)/vendor/autoload`
+/// - `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set _before_ `nu` is run
 pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
-    // load order for autoload dirs
-    // /Library/Application Support/nushell/vendor/autoload on macOS
-    // <dir>/nushell/vendor/autoload for every dir in XDG_DATA_DIRS in reverse order on platforms other than windows. If XDG_DATA_DIRS is not set, it falls back to <PREFIX>/share if PREFIX ends in local, or <PREFIX>/local/share:<PREFIX>/share otherwise. If PREFIX is not set, fall back to /usr/local/share:/usr/share.
-    // %ProgramData%\nushell\vendor\autoload on windows
-    // NU_VENDOR_AUTOLOAD_DIR from compile time, if env var is set at compile time
-    // <$nu.data_dir>/vendor/autoload
-    // NU_VENDOR_AUTOLOAD_DIR at runtime, if env var is set
-
     let into_autoload_path_fn = |mut path: PathBuf| {
         path.push("nushell");
         path.push("vendor");

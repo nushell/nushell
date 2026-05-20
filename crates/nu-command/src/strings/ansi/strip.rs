@@ -62,12 +62,12 @@ impl Command for AnsiStrip {
         vec![
             Example {
                 description: "Strip ANSI escape sequences from a string",
-                example: r#"$'(ansi green)(ansi cursor_on)hello' | ansi strip"#,
+                example: "$'(ansi green)(ansi cursor_on)hello' | ansi strip",
                 result: Some(Value::test_string("hello")),
             },
             Example {
                 description: "Strip ANSI escape sequences from a record field",
-                example: r#"{ greeting: $'hello (ansi red)world' exclamation: false } | ansi strip greeting"#,
+                example: "{ greeting: $'hello (ansi red)world' exclamation: false } | ansi strip greeting",
                 result: Some(Value::test_record(record! {
                     "greeting" => Value::test_string("hello world"),
                     "exclamation" => Value::test_bool(false)
@@ -75,7 +75,7 @@ impl Command for AnsiStrip {
             },
             Example {
                 description: "Strip ANSI escape sequences from multiple table columns",
-                example: r#"[[language feature]; [$'(ansi red)rust' $'(ansi i)safety']] | ansi strip language feature"#,
+                example: "[[language feature]; [$'(ansi red)rust' $'(ansi i)safety']] | ansi strip language feature",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "language" => Value::test_string("rust"),
                     "feature" => Value::test_string("safety")
@@ -105,10 +105,8 @@ mod tests {
     use nu_protocol::{Span, Value, engine::EngineState};
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-
-        test_examples(AnsiStrip {})
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        nu_test_support::test().examples(AnsiStrip)
     }
 
     #[test]

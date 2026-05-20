@@ -235,9 +235,10 @@ def fetch-less [
 
 def 'cargo-build-nu' [] {
     if $os =~ 'windows' {
-        cargo build --release --all --target $target
+        cargo build --release --workspace --exclude nu-test-support --target $target
     } else {
-        cargo build --release --all --target $target --features=static-link-openssl
+        # Exclude nu-test-support for loongarch64 to avoid build error
+        cargo build --release --workspace --exclude nu-test-support --target $target --features=static-link-openssl
     }
 }
 

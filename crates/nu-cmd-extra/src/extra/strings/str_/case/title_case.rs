@@ -68,7 +68,7 @@ impl Command for StrTitleCase {
             },
             Example {
                 description: "convert a column from a table to Title Case",
-                example: r#"[[title, count]; ['nu test', 100]] | str title-case title"#,
+                example: "[[title, count]; ['nu test', 100]] | str title-case title",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "title" =>  Value::test_string("Nu Test"),
                     "count" =>  Value::test_int(100),
@@ -83,9 +83,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(StrTitleCase {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(StrTitleCase)
     }
 }

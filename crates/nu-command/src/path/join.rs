@@ -38,8 +38,8 @@ impl Command for PathJoin {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Optionally, append an additional path to the result. It is designed to accept
-the output of 'path parse' and 'path split' subcommands."#
+        "Optionally, append an additional path to the result. It is designed to accept
+the output of 'path parse' and 'path split' subcommands."
     }
 
     fn is_const(&self) -> bool {
@@ -94,7 +94,7 @@ the output of 'path parse' and 'path split' subcommands."#
             Example {
                 description: "Use absolute paths, e.g. '/' will bring you to the top level directory.",
                 example: r"'C:\Users\viking' | path join / folder",
-                result: Some(Value::test_string(r"C:/folder")),
+                result: Some(Value::test_string("C:/folder")),
             },
             Example {
                 description: "Join a list of parts into a path.",
@@ -122,39 +122,39 @@ the output of 'path parse' and 'path split' subcommands."#
         vec![
             Example {
                 description: "Append a filename to a path.",
-                example: r"'/home/viking' | path join spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "'/home/viking' | path join spam.txt",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Append a filename to a path.",
-                example: r"'/home/viking' | path join spams this_spam.txt",
-                result: Some(Value::test_string(r"/home/viking/spams/this_spam.txt")),
+                example: "'/home/viking' | path join spams this_spam.txt",
+                result: Some(Value::test_string("/home/viking/spams/this_spam.txt")),
             },
             Example {
                 description: "Use relative paths, e.g. '..' will go up one directory.",
-                example: r"'/home/viking' | path join .. folder",
-                result: Some(Value::test_string(r"/home/viking/../folder")),
+                example: "'/home/viking' | path join .. folder",
+                result: Some(Value::test_string("/home/viking/../folder")),
             },
             Example {
                 description: "Use absolute paths, e.g. '/' will bring you to the top level directory.",
-                example: r"'/home/viking' | path join / folder",
-                result: Some(Value::test_string(r"/folder")),
+                example: "'/home/viking' | path join / folder",
+                result: Some(Value::test_string("/folder")),
             },
             Example {
                 description: "Join a list of parts into a path.",
-                example: r"[ '/' 'home' 'viking' 'spam.txt' ] | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "[ '/' 'home' 'viking' 'spam.txt' ] | path join",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a structured path into a path.",
-                example: r"{ parent: '/home/viking', stem: 'spam', extension: 'txt' } | path join",
-                result: Some(Value::test_string(r"/home/viking/spam.txt")),
+                example: "{ parent: '/home/viking', stem: 'spam', extension: 'txt' } | path join",
+                result: Some(Value::test_string("/home/viking/spam.txt")),
             },
             Example {
                 description: "Join a table of structured paths into a list of paths.",
-                example: r"[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
+                example: "[[ parent stem extension ]; [ '/home/viking' 'spam' 'txt' ]] | path join",
                 result: Some(Value::list(
-                    vec![Value::test_string(r"/home/viking/spam.txt")],
+                    vec![Value::test_string("/home/viking/spam.txt")],
                     Span::test_data(),
                 )),
             },
@@ -165,15 +165,13 @@ the output of 'path parse' and 'path split' subcommands."#
 fn run(call: &Call, args: &Arguments, input: PipelineData) -> Result<PipelineData, ShellError> {
     let head = call.head;
 
-    let metadata = input.metadata();
-
     match input {
         PipelineData::Value(val, md) => Ok(PipelineData::value(handle_value(val, args, head), md)),
-        PipelineData::ListStream(stream, ..) => Ok(PipelineData::value(
+        PipelineData::ListStream(stream, metadata) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),
-        PipelineData::ByteStream(stream, ..) => Ok(PipelineData::value(
+        PipelineData::ByteStream(stream, metadata) => Ok(PipelineData::value(
             handle_value(stream.into_value()?, args, head),
             metadata,
         )),
@@ -304,9 +302,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(PathJoin {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(PathJoin)
     }
 }

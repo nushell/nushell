@@ -53,21 +53,21 @@ Additionally any field which is: empty record, empty list or null, can be omitte
         vec![
             Example {
                 description: "Outputs an XML string representing the contents of this table.",
-                example: r#"{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml"#,
+                example: "{tag: note attributes: {} content : [{tag: remember attributes: {} content : [{tag: null attributes: null content : Event}]}]} | to xml",
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "When formatting xml null and empty record fields can be omitted and strings can be written without a wrapping record.",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml"#,
+                example: "{tag: note content : [{tag: remember content : [Event]}]} | to xml",
                 result: Some(Value::test_string(
                     "<note><remember>Event</remember></note>",
                 )),
             },
             Example {
                 description: "Optionally, formats the text with a custom indentation setting.",
-                example: r#"{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3"#,
+                example: "{tag: note content : [{tag: remember content : [Event]}]} | to xml --indent 3",
                 result: Some(Value::test_string(
                     "<note>\n   <remember>Event</remember>\n</note>",
                 )),
@@ -79,8 +79,8 @@ Additionally any field which is: empty record, empty list or null, can be omitte
             },
             Example {
                 description: "Save space using self-closed tags.",
-                example: r#"{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed"#,
-                result: Some(Value::test_string(r#"<root><a/><b/><c/></root>"#)),
+                example: "{tag: root content: [[tag]; [a] [b] [c]]} | to xml --self-closed",
+                result: Some(Value::test_string("<root><a/><b/><c/></root>")),
             },
         ]
     }
@@ -127,9 +127,9 @@ impl Job {
         }
     }
 
-    fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    fn run(mut self, mut input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         let metadata = input
-            .metadata()
+            .take_metadata()
             .unwrap_or_default()
             .with_content_type(Some("application/xml".into()));
         let value = input.into_value(head)?;
@@ -220,15 +220,15 @@ impl Job {
             let tag = record
                 .get(COLUMN_TAG_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
             let attrs = record
                 .get(COLUMN_ATTRS_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
             let content = record
                 .get(COLUMN_CONTENT_NAME)
                 .cloned()
-                .unwrap_or_else(|| Value::nothing(Span::unknown()));
+                .unwrap_or_else(|| Value::nothing(entry_span));
 
             let content_span = content.span();
             let tag_span = tag.span();
@@ -513,10 +513,8 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ToXml {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ToXml)
     }
 
     #[test]

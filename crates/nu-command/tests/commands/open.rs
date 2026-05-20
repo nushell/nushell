@@ -25,10 +25,10 @@ fn parses_file_with_uppercase_extension() {
             }"#,
         )]);
 
-        let actual = nu!(cwd: dirs.test(), r#"
+        let actual = nu!(cwd: dirs.test(), "
             open nu.zion.JSON
             | get glossary.GlossDiv.GlossList.GlossEntry.ID
-        "#);
+        ");
 
         assert_eq!(actual.out, "SGML");
     })
@@ -72,9 +72,9 @@ fn parses_dotfile() {
     Playground::setup("open_test_dotfile", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             ".gitignore",
-            r#"
+            "
               /target/
-            "#,
+            ",
         )]);
 
         let actual = nu!(cwd: dirs.test(), r#"
@@ -93,12 +93,12 @@ fn parses_csv() {
     Playground::setup("open_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "nu.zion.csv",
-            r#"
+            "
                     author,lang,source
                     JT Turner,Rust,New Zealand
                     Andres N. Robalino,Rust,Ecuador
                     Yehuda Katz,Rust,Estados Unidos
-                "#,
+                ",
         )]);
 
         let actual = nu!(cwd: dirs.test(), r#"

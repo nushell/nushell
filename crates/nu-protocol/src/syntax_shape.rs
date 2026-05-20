@@ -110,6 +110,9 @@ pub enum SyntaxShape {
     /// A signature for a definition, `[x:int, --foo]`
     Signature,
 
+    /// A signature for command `extern`, which allows some reserved variable names, such as `[--env(-e), --in]`
+    ExternalSignature,
+
     /// Strings and string-like bare words are allowed
     String,
 
@@ -172,7 +175,7 @@ impl SyntaxShape {
             SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
-            SyntaxShape::Signature => Type::Any,
+            SyntaxShape::Signature | SyntaxShape::ExternalSignature => Type::Any,
             SyntaxShape::String => Type::String,
             SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
             SyntaxShape::VarWithOptType => Type::Any,
@@ -243,6 +246,7 @@ impl Display for SyntaxShape {
             SyntaxShape::MathExpression => write!(f, "variable"),
             SyntaxShape::VarWithOptType => write!(f, "vardecl"),
             SyntaxShape::Signature => write!(f, "signature"),
+            SyntaxShape::ExternalSignature => write!(f, "external-signature"),
             SyntaxShape::MatchBlock => write!(f, "match-block"),
             SyntaxShape::Expression => write!(f, "expression"),
             SyntaxShape::ExternalArgument => write!(f, "external-argument"),

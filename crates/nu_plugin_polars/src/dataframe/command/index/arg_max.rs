@@ -49,6 +49,7 @@ impl PluginCommand for ArgMax {
                 NuDataFrame::try_from_columns(
                     vec![Column::new("arg_max".to_string(), vec![Value::test_int(1)])],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),

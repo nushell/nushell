@@ -15,6 +15,7 @@ pub use datetime_format::DatetimeFormatConfig;
 pub use display_errors::DisplayErrors;
 pub use filesize::FilesizeConfig;
 pub use helper::extract_value;
+pub use hinter::HinterConfig;
 pub use history::{HistoryConfig, HistoryFileFormat, HistoryPath};
 pub use hooks::Hooks;
 pub use ls::LsConfig;
@@ -33,6 +34,7 @@ mod display_errors;
 mod error;
 mod filesize;
 mod helper;
+mod hinter;
 mod history;
 mod hooks;
 mod ls;
@@ -58,6 +60,7 @@ pub struct Config {
     pub completions: CompletionConfig,
     pub edit_mode: EditBindings,
     pub show_hints: bool,
+    pub hinter: HinterConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
     pub menus: Vec<ParsedMenu>,
@@ -76,6 +79,7 @@ pub struct Config {
     pub display_errors: DisplayErrors,
     pub use_kitty_protocol: bool,
     pub highlight_resolved_externals: bool,
+    pub auto_cd_implicit: bool,
     /// Configuration for plugins.
     ///
     /// Users can provide configuration for a plugin through this entry.  The entry name must
@@ -119,6 +123,7 @@ impl Default for Config {
             bracketed_paste: true,
             edit_mode: EditBindings::default(),
             show_hints: true,
+            hinter: HinterConfig::default(),
 
             shell_integration: ShellIntegrationConfig::default(),
 
@@ -136,6 +141,8 @@ impl Default for Config {
 
             use_kitty_protocol: false,
             highlight_resolved_externals: false,
+
+            auto_cd_implicit: false,
 
             plugins: HashMap::new(),
             plugin_gc: PluginGcConfigs::default(),
@@ -173,6 +180,7 @@ impl UpdateFromValue for Config {
                 "use_ansi_coloring" => self.use_ansi_coloring.update(val, path, errors),
                 "edit_mode" => self.edit_mode.update(val, path, errors),
                 "show_hints" => self.show_hints.update(val, path, errors),
+                "hinter" => self.hinter.update(val, path, errors),
                 "shell_integration" => self.shell_integration.update(val, path, errors),
                 "buffer_editor" => match val {
                     Value::Nothing { .. } | Value::String { .. } => {
@@ -199,6 +207,7 @@ impl UpdateFromValue for Config {
                 "highlight_resolved_externals" => {
                     self.highlight_resolved_externals.update(val, path, errors)
                 }
+                "auto_cd_implicit" => self.auto_cd_implicit.update(val, path, errors),
                 "plugins" => self.plugins.update(val, path, errors),
                 "plugin_gc" => self.plugin_gc.update(val, path, errors),
                 "menus" => match Vec::from_value(val.clone()) {

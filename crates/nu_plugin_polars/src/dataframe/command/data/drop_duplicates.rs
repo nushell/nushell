@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -76,9 +77,9 @@ impl PluginCommand for DropDuplicates {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -113,12 +114,12 @@ fn command(
     let polars_df = df
         .as_ref()
         .unique_stable(subset_slice, keep_strategy, None)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error dropping duplicates".into(),
-            msg: e.to_string(),
-            span: Some(col_span),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error dropping duplicates",
+                e.to_string(),
+                col_span,
+            ))
         })?;
 
     let df = NuDataFrame::new(df.from_lazy, polars_df);

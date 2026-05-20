@@ -161,3 +161,66 @@ fn url_parse_error_empty_url() -> Result {
         err => Err(err.into()),
     }
 }
+
+#[test]
+fn url_parse_with_base_resolves_relative_path() -> Result {
+    let code = r#"
+        (
+            "../images/logo.png" | url parse --base "https://example.com/products/item1"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'example.com',
+            port: '',
+            path: '/images/logo.png',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_base_resolves_sibling_path_trailing_slash() -> Result {
+    let code = r#"
+        (
+            "contact" | url parse --base "https://example.com/about/"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'example.com',
+            port: '',
+            path: '/about/contact',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}
+
+#[test]
+fn url_parse_with_base_absolute_input_overrides_base() -> Result {
+    let code = r#"
+        (
+            "https://other.com/a" | url parse --base "https://example.com/about/"
+        ) == {
+            scheme: 'https',
+            username: '',
+            password: '',
+            host: 'other.com',
+            port: '',
+            path: '/a',
+            query: '',
+            fragment: '',
+            params: []
+        }
+    "#;
+
+    test().run(code).expect_value_eq(true)
+}

@@ -1,6 +1,6 @@
 use lsp_types::{Hover, HoverContents, HoverParams, MarkupContent, MarkupKind};
 use nu_protocol::{PositionalArg, engine::Command};
-use std::borrow::Cow;
+use std::{borrow::Cow, fmt::Write};
 
 use crate::{
     Id, LanguageServer,
@@ -13,11 +13,13 @@ impl LanguageServer {
 
         if !skip_description {
             // First description
-            description.push_str(&format!("{}\n", decl.description().replace('\r', "")));
+            writeln!(description, "{}", decl.description().replace('\r', ""))
+                .expect("writing to a String is infallible");
 
             // Additional description
             if !decl.extra_description().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_description()));
+                write!(description, "\n{}\n", decl.extra_description())
+                    .expect("writing to a String is infallible");
             }
         }
         // Usage
@@ -62,7 +64,7 @@ impl LanguageServer {
                 } else {
                     description.push('\n');
                 }
-                description.push_str(&format!("  `{}`", arg.name));
+                write!(description, "  `{}`", arg.name).expect("writing to a String is infallible");
                 description.push_str(&doc_for_arg(
                     Some(arg.shape),
                     arg.desc,
@@ -81,7 +83,8 @@ impl LanguageServer {
                 if !first {
                     description.push('\n');
                 }
-                description.push_str(&format!(" `...{}`", arg.name));
+                write!(description, " `...{}`", arg.name)
+                    .expect("writing to a String is infallible");
                 description.push_str(&doc_for_arg(
                     Some(arg.shape),
                     arg.desc,
@@ -98,7 +101,8 @@ impl LanguageServer {
             description.push_str("\n### Input/output types\n");
             description.push_str("\n```nu\n");
             for input_output in &signature.input_output_types {
-                description.push_str(&format!(" {} | {}\n", input_output.0, input_output.1));
+                writeln!(description, " {} | {}", input_output.0, input_output.1)
+                    .expect("writing to a String is infallible");
             }
             description.push_str("\n```\n");
         }
@@ -107,10 +111,12 @@ impl LanguageServer {
         if !decl.examples().is_empty() {
             description.push_str("### Example(s)\n");
             for example in decl.examples() {
-                description.push_str(&format!(
+                write!(
+                    description,
                     "  {}\n```nu\n  {}\n```\n",
                     example.description, example.example
-                ));
+                )
+                .expect("writing to a String is infallible");
             }
         }
         description

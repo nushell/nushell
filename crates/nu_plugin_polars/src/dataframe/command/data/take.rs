@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -62,6 +63,7 @@ impl PluginCommand for TakeDF {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -79,6 +81,7 @@ impl PluginCommand for TakeDF {
                             vec![Value::test_int(4), Value::test_int(5)],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -92,9 +95,9 @@ impl PluginCommand for TakeDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -113,43 +116,37 @@ fn command(
         .as_series(index_span)?;
 
     let casted = match index.dtype() {
-        DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => index
-            .cast(&DataType::UInt64)
-            .map_err(|e| ShellError::GenericError {
-                error: "Error casting index list".into(),
-                msg: e.to_string(),
-                span: Some(index_span),
-                help: None,
-                inner: vec![],
-            }),
-        _ => Err(ShellError::GenericError {
-            error: "Incorrect type".into(),
-            msg: "Series with incorrect type".into(),
-            span: Some(call.head),
-            help: Some("Consider using a Series with type int type".into()),
-            inner: vec![],
-        }),
+        DataType::UInt32 | DataType::UInt64 | DataType::Int32 | DataType::Int64 => {
+            index.cast(&DataType::UInt64).map_err(|e| {
+                ShellError::Generic(GenericError::new(
+                    "Error casting index list",
+                    e.to_string(),
+                    index_span,
+                ))
+            })
+        }
+        _ => Err(ShellError::Generic(
+            GenericError::new("Incorrect type", "Series with incorrect type", call.head)
+                .with_help("Consider using a Series with type int type"),
+        )),
     }?;
 
-    let indices = casted.u64().map_err(|e| ShellError::GenericError {
-        error: "Error casting index list".into(),
-        msg: e.to_string(),
-        span: Some(index_span),
-        help: None,
-        inner: vec![],
+    let indices = casted.u64().map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error casting index list",
+            e.to_string(),
+            index_span,
+        ))
     })?;
 
     let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
-    let polars_df = df
-        .to_polars()
-        .take(indices)
-        .map_err(|e| ShellError::GenericError {
-            error: "Error taking values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        })?;
+    let polars_df = df.to_polars().take(indices).map_err(|e| {
+        ShellError::Generic(GenericError::new(
+            "Error taking values",
+            e.to_string(),
+            call.head,
+        ))
+    })?;
 
     let df = NuDataFrame::new(df.from_lazy, polars_df);
     df.to_pipeline_data(plugin, engine, call.head)

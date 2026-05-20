@@ -38,9 +38,8 @@ pub fn test_canonical(cmd: &str) -> Result {
 pub fn test_const(cmd: &str) -> Result {
     let mut tester = test();
     for value in random_bytes() {
-        let code = format!(
-            r#"const out = (0x[{value}] | encode {cmd} | decode {cmd} | encode hex); $out"#
-        );
+        let code =
+            format!("const out = (0x[{value}] | encode {cmd} | decode {cmd} | encode hex); $out");
         tester.run(code).expect_value_eq(value)?;
     }
     Ok(())

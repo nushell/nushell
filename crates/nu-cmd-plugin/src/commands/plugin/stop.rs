@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use crate::util::canonicalize_possible_filename_arg;
 
@@ -68,13 +69,14 @@ impl Command for PluginStop {
         if found {
             Ok(PipelineData::empty())
         } else {
-            Err(ShellError::GenericError {
-                error: format!("Failed to stop the `{}` plugin", name.item),
-                msg: "couldn't find a plugin with this name".into(),
-                span: Some(name.span),
-                help: Some("you may need to `plugin add` the plugin first".into()),
-                inner: vec![],
-            })
+            Err(ShellError::Generic(
+                GenericError::new(
+                    format!("Failed to stop the `{}` plugin", name.item),
+                    "couldn't find a plugin with this name",
+                    name.span,
+                )
+                .with_help("you may need to `plugin add` the plugin first"),
+            ))
         }
     }
 }

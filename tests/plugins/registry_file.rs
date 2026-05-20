@@ -60,7 +60,7 @@ fn plugin_add_in_nu_plugin_dirs_const() {
         cwd: ".",
         plugins: [],
         &format!(
-            r#"
+            "
                 $env.NU_PLUGIN_DIRS = null
                 const NU_PLUGIN_DIRS = ['{0}']
                 plugin add '{1}'
@@ -71,7 +71,7 @@ fn plugin_add_in_nu_plugin_dirs_const() {
                         --plugin-config $nu.plugin-path
                         --commands 'plugin list --engine | get name | to json --raw'
                 )
-            "#,
+            ",
             dirname.display(),
             filename
         )
@@ -95,7 +95,7 @@ fn plugin_add_in_nu_plugin_dirs_env() {
         cwd: ".",
         plugins: [],
         &format!(
-            r#"
+            "
                 $env.NU_PLUGIN_DIRS = ['{0}']
                 plugin add '{1}'
                 (
@@ -105,7 +105,7 @@ fn plugin_add_in_nu_plugin_dirs_env() {
                         --plugin-config $nu.plugin-path
                         --commands 'plugin list --engine | get name | to json --raw'
                 )
-            "#,
+            ",
             dirname.display(),
             filename
         )
@@ -244,9 +244,9 @@ fn plugin_rm_not_found() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugins: [],
-        r#"
+        "
             plugin rm example
-        "#
+        "
     );
     assert!(!result.status.success());
     assert!(result.err.contains("example"));
@@ -453,10 +453,10 @@ fn plugin_shows_up_in_default_plugin_list_after_add() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugins: [],
-        &format!(r#"
+        &format!("
             plugin add '{}'
             plugin list | get status | to json --raw
-        "#, example_plugin_path.display())
+        ", example_plugin_path.display())
     );
     assert!(result.status.success());
     assert_eq!(r#"["added"]"#, result.out);
@@ -468,7 +468,7 @@ fn plugin_shows_removed_after_removing() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugins: [],
-        &format!(r#"
+        &format!("
             plugin add '{}'
             plugin list | get status | to json --raw
             (
@@ -478,7 +478,7 @@ fn plugin_shows_removed_after_removing() {
                     --plugin-config $nu.plugin-path
                     --commands 'plugin rm example; plugin list | get status | to json --raw'
             )
-        "#, example_plugin_path.display())
+        ", example_plugin_path.display())
     );
     assert!(result.status.success());
     assert_eq!(r#"["removed"]"#, result.out);
@@ -490,7 +490,7 @@ fn plugin_add_and_then_use() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugins: [],
-        &format!(r#"
+        &format!("
             plugin add '{}'
             (
                 ^$nu.current-exe
@@ -499,7 +499,7 @@ fn plugin_add_and_then_use() {
                     --plugin-config $nu.plugin-path
                     --commands 'plugin use example; plugin list --engine | get name | to json --raw'
             )
-        "#, example_plugin_path.display())
+        ", example_plugin_path.display())
     );
     assert!(result.status.success());
     assert_eq!(r#"["example"]"#, result.out);
@@ -511,7 +511,7 @@ fn plugin_add_and_then_use_by_filename() {
     let result = nu_with_plugins!(
         cwd: ".",
         plugins: [],
-        &format!(r#"
+        &format!("
             plugin add '{0}'
             (
                 ^$nu.current-exe
@@ -520,7 +520,7 @@ fn plugin_add_and_then_use_by_filename() {
                     --plugin-config $nu.plugin-path
                     --commands 'plugin use '{0}'; plugin list --engine | get name | to json --raw'
             )
-        "#, example_plugin_path.display())
+        ", example_plugin_path.display())
     );
     assert!(result.status.success());
     assert_eq!(r#"["example"]"#, result.out);
@@ -541,10 +541,10 @@ fn plugin_add_then_use_with_custom_path() {
 
         let result_use = nu!(
             cwd: dirs.test(),
-            r#"
+            "
                 plugin use --plugin-config test-plugin-file.msgpackz example
                 plugin list --engine | get name | to json --raw
-            "#
+            "
         );
 
         assert!(result_use.status.success());

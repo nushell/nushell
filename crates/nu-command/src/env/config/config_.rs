@@ -1,6 +1,6 @@
 use nu_cmd_base::util::get_editor;
 use nu_engine::{command_prelude::*, env_to_strings, get_full_help};
-use nu_protocol::{PipelineMetadata, shell_error::io::IoError};
+use nu_protocol::{PipelineMetadata, shell_error::generic::GenericError, shell_error::io::IoError};
 use nu_system::ForegroundChild;
 use nu_utils::ConfigFileKind;
 
@@ -36,7 +36,11 @@ impl Command for ConfigMeta {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        Ok(Value::string(get_full_help(self, engine_state, stack), call.head).into_pipeline_data())
+        Ok(Value::string(
+            get_full_help(self, engine_state, stack, call.head),
+            call.head,
+        )
+        .into_pipeline_data())
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -78,13 +82,10 @@ pub(super) fn start_editor(
 
     let nu_const_path = kind.nu_const_path();
     let Some(config_path) = engine_state.get_config_path(nu_const_path) else {
-        return Err(ShellError::GenericError {
-            error: format!("Could not find $nu.{nu_const_path}"),
-            msg: format!("Could not find $nu.{nu_const_path}"),
-            span: None,
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new_internal(
+            format!("Could not find $nu.{nu_const_path}"),
+            format!("Could not find $nu.{nu_const_path}"),
+        )));
     };
     let config_path = config_path.to_string_lossy().to_string();
 

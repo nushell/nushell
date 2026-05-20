@@ -226,8 +226,9 @@ macro_rules! nu_with_plugins {
 
 }
 
-use crate::{NATIVE_PATH_ENV_VAR, Outcome};
+use crate::Outcome;
 use nu_path::{AbsolutePath, AbsolutePathBuf, Path, PathBuf};
+use nu_utils::consts::NATIVE_PATH_ENV_VAR;
 use std::{
     ffi::OsStr,
     process::{Command, Stdio},

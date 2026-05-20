@@ -188,10 +188,12 @@ impl Call {
             })
     }
 
+    #[deprecated(since = "0.113.0", note = "use .positional_iter().nth(n) instead")]
     pub fn positional_nth(&self, i: usize) -> Option<&Expression> {
         self.positional_iter().nth(i)
     }
 
+    #[deprecated(since = "0.113.0", note = "use .positional_iter().count(n) instead")]
     pub fn positional_len(&self) -> usize {
         self.positional_iter().count()
     }
@@ -336,17 +338,18 @@ impl Call {
         working_set: &StateWorkingSet,
         pos: usize,
     ) -> Result<T, ShellError> {
-        if let Some(expr) = self.positional_nth(pos) {
-            let result = eval_constant(working_set, expr)?;
-            FromValue::from_value(result)
-        } else if self.positional_len() == 0 {
-            Err(ShellError::AccessEmptyContent { span: self.head })
-        } else {
-            Err(ShellError::AccessBeyondEnd {
-                max_idx: self.positional_len() - 1,
-                span: self.head,
-            })
-        }
+        let expr = self.positional_iter().nth(pos).ok_or_else(|| {
+            match self.positional_iter().count().checked_sub(1) {
+                None => ShellError::AccessEmptyContent { span: self.head },
+                Some(n) => ShellError::AccessBeyondEnd {
+                    max_idx: n,
+                    span: self.head,
+                },
+            }
+        })?;
+
+        let result = eval_constant(working_set, expr)?;
+        FromValue::from_value(result)
     }
 
     pub fn span(&self) -> Span {

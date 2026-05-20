@@ -1,9 +1,8 @@
 use nu_engine::command_prelude::*;
 
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
+use std::{thread, time::Duration};
+
+use nu_utils::time::Instant;
 
 const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
@@ -92,17 +91,17 @@ mod tests {
     use super::Sleep;
 
     #[test]
-    fn examples_work_as_expected() {
-        use crate::test_examples;
-        use std::time::Instant;
+    fn examples_work_as_expected() -> nu_test_support::Result {
+        use nu_utils::time::Instant;
 
         let start = Instant::now();
-        test_examples(Sleep {});
+        nu_test_support::test().examples(Sleep)?;
 
         let elapsed = start.elapsed();
 
         // only examples with actual output are run
         assert!(elapsed >= std::time::Duration::from_secs(1));
         assert!(elapsed < std::time::Duration::from_secs(2));
+        Ok(())
     }
 }

@@ -40,9 +40,9 @@ impl Command for PathRelativeTo {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Can be used only when the input and the argument paths are either both
+        "Can be used only when the input and the argument paths are either both
 absolute or both relative. The argument path needs to be a parent of the input
-path."#
+path."
     }
 
     fn is_const(&self) -> bool {
@@ -98,7 +98,7 @@ path."#
             Example {
                 description: "Find a relative path from two absolute paths.",
                 example: r"'C:\Users\viking' | path relative-to 'C:\Users'",
-                result: Some(Value::test_string(r"viking")),
+                result: Some(Value::test_string("viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list.",
@@ -111,7 +111,7 @@ path."#
             Example {
                 description: "Find a relative path from two relative paths.",
                 example: r"'eggs\bacon\sausage\spam' | path relative-to 'eggs\bacon\sausage'",
-                result: Some(Value::test_string(r"spam")),
+                result: Some(Value::test_string("spam")),
             },
         ]
     }
@@ -121,12 +121,12 @@ path."#
         vec![
             Example {
                 description: "Find a relative path from two absolute paths.",
-                example: r"'/home/viking' | path relative-to '/home'",
-                result: Some(Value::test_string(r"viking")),
+                example: "'/home/viking' | path relative-to '/home'",
+                result: Some(Value::test_string("viking")),
             },
             Example {
                 description: "Find a relative path from absolute paths in list.",
-                example: r"[ /home/viking, /home/spam ] | path relative-to '/home'",
+                example: "[ /home/viking, /home/spam ] | path relative-to '/home'",
                 result: Some(Value::test_list(vec![
                     Value::test_string("viking"),
                     Value::test_string("spam"),
@@ -134,8 +134,8 @@ path."#
             },
             Example {
                 description: "Find a relative path from two relative paths.",
-                example: r"'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
-                result: Some(Value::test_string(r"spam")),
+                example: "'eggs/bacon/sausage/spam' | path relative-to 'eggs/bacon/sausage'",
+                result: Some(Value::test_string("spam")),
             },
         ]
     }
@@ -230,10 +230,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(PathRelativeTo {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(PathRelativeTo)
     }
 
     #[test]

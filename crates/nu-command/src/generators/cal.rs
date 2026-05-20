@@ -147,18 +147,14 @@ pub fn cal(
         style_computer,
     )?;
 
-    let mut table_no_index = ast::Call::new(Span::unknown());
+    let mut table_no_index = ast::Call::new(tag);
     table_no_index.add_named((
         Spanned {
             item: "index".to_string(),
-            span: Span::unknown(),
+            span: tag,
         },
         None,
-        Some(Expression::new_unknown(
-            Expr::Bool(false),
-            Span::unknown(),
-            Type::Bool,
-        )),
+        Some(Expression::new_unknown(Expr::Bool(false), tag, Type::Bool)),
     ));
 
     let cal_table_output =
@@ -375,8 +371,7 @@ fn add_month_to_table(
                     && current_day == adjusted_day_number
                 {
                     // This colors the current day
-                    let header_style =
-                        style_computer.compute("header", &Value::nothing(Span::unknown()));
+                    let header_style = style_computer.compute("header", &Value::nothing(tag));
 
                     value = Value::string(
                         header_style
@@ -403,9 +398,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Cal {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Cal)
     }
 }

@@ -80,6 +80,7 @@ pub fn help_externs(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 
@@ -97,7 +98,7 @@ pub fn help_externs(
 
         if let Some(decl) = engine_state.find_decl(name.as_bytes(), &[]) {
             let cmd = engine_state.get_decl(decl);
-            let help_text = get_full_help(cmd, engine_state, stack);
+            let help_text = get_full_help(cmd, engine_state, stack, call.head);
             Ok(Value::string(help_text, call.head).into_pipeline_data())
         } else {
             Err(ShellError::CommandNotFound {
@@ -116,9 +117,8 @@ fn build_help_externs(engine_state: &EngineState, stack: &Stack, span: Span) -> 
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpExterns;
-        use crate::test_examples;
-        test_examples(HelpExterns {})
+        nu_test_support::test().examples(HelpExterns)
     }
 }

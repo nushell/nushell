@@ -7,6 +7,7 @@ use crate::explore::run_pager;
 use nu_ansi_term::Style;
 use nu_color_config::StyleComputer;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 /// A `less` like program to render a [`Value`] as a table.
 #[derive(Clone)]
@@ -48,7 +49,7 @@ impl Command for Explore {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Press `:` then `h` to get a help menu."#
+        "Press `:` then `h` to get a help menu."
     }
 
     fn run(
@@ -94,13 +95,7 @@ impl Command for Explore {
             Err(err) => {
                 let shell_error = match err.downcast::<ShellError>() {
                     Ok(e) => e,
-                    Err(e) => ShellError::GenericError {
-                        error: e.to_string(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    },
+                    Err(e) => ShellError::Generic(GenericError::new_internal(e.to_string(), "")),
                 };
 
                 Ok(PipelineData::value(
@@ -115,22 +110,22 @@ impl Command for Explore {
         vec![
             Example {
                 description: "Explore the system host information record",
-                example: r#"sys host | explore"#,
+                example: "sys host | explore",
                 result: None,
             },
             Example {
                 description: "Explore the output of `ls` without column names",
-                example: r#"ls | explore --head false"#,
+                example: "ls | explore --head false",
                 result: None,
             },
             Example {
                 description: "Explore a list of Markdown files' contents, with row indexes",
-                example: r#"glob *.md | each {|| open } | explore --index"#,
+                example: "glob *.md | each {|| open } | explore --index",
                 result: None,
             },
             Example {
                 description: "Explore a JSON file, then save the last visited sub-structure to a file",
-                example: r#"open file.json | explore --peek | to json | save part.json"#,
+                example: "open file.json | explore --peek | to json | save part.json",
                 result: None,
             },
         ]

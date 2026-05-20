@@ -1,17 +1,10 @@
+use std::ops::ControlFlow;
+
 use crate::engine::StateWorkingSet;
 
 use super::{
     Block, Expr, Expression, ListItem, MatchPattern, Pattern, PipelineRedirection, RecordItem,
 };
-
-/// Result of find_map closure
-#[derive(Default)]
-pub enum FindMapResult<T> {
-    Found(T),
-    #[default]
-    Continue,
-    Stop,
-}
 
 /// Trait for traversing the AST
 pub trait Traverse {
@@ -33,7 +26,7 @@ pub trait Traverse {
     /// * `f` - function that overrides the default behavior
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> FindMapResult<T>;
+        F: Fn(&'a Expression) -> ControlFlow<Option<T>>;
 }
 
 impl Traverse for Block {
@@ -53,7 +46,7 @@ impl Traverse for Block {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> FindMapResult<T>,
+        F: Fn(&'a Expression) -> ControlFlow<Option<T>>,
     {
         self.pipelines.iter().find_map(|pipeline| {
             pipeline.elements.iter().find_map(|element| {
@@ -84,7 +77,7 @@ impl Traverse for PipelineRedirection {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> FindMapResult<T>,
+        F: Fn(&'a Expression) -> ControlFlow<Option<T>>,
     {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         match self {
@@ -192,13 +185,13 @@ impl Traverse for Expression {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> FindMapResult<T>,
+        F: Fn(&'a Expression) -> ControlFlow<Option<T>>,
     {
         // behavior overridden by f
         match f(self) {
-            FindMapResult::Found(t) => Some(t),
-            FindMapResult::Stop => None,
-            FindMapResult::Continue => {
+            ControlFlow::Break(Some(t)) => Some(t),
+            ControlFlow::Break(None) => None,
+            ControlFlow::Continue(()) => {
                 let recur = |expr: &'a Expression| expr.find_map(working_set, f);
                 match &self.expr {
                     Expr::RowCondition(block_id)
@@ -284,7 +277,7 @@ impl Traverse for MatchPattern {
 
     fn find_map<'a, T, F>(&'a self, working_set: &'a StateWorkingSet, f: &F) -> Option<T>
     where
-        F: Fn(&'a Expression) -> FindMapResult<T>,
+        F: Fn(&'a Expression) -> ControlFlow<Option<T>>,
     {
         let recur = |expr: &'a Expression| expr.find_map(working_set, f);
         let recur_pattern = |pattern: &'a MatchPattern| pattern.find_map(working_set, f);

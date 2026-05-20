@@ -270,7 +270,7 @@ fn update_value_by_closure(
     }
 
     let new_value = closure
-        .add_arg(value.clone())
+        .add_arg(value.clone())?
         .run_with_input(value_at_path.into_owned().into_pipeline_data())?
         .into_value(span)?;
 
@@ -305,7 +305,7 @@ fn update_single_value_by_closure(
     };
 
     let new_value = closure
-        .add_arg(arg.clone())
+        .add_arg(arg.clone())?
         .run_with_input(value_at_path.into_owned().into_pipeline_data())?
         .into_value(span)?;
 
@@ -317,9 +317,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Update {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Update)
     }
 }

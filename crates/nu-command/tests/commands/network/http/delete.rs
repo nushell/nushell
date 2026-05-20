@@ -1,47 +1,42 @@
 use std::{thread, time::Duration};
 
 use mockito::Server;
-use nu_test_support::nu;
+use nu_protocol::shell_error;
+use nu_test_support::prelude::*;
 
 #[test]
-fn http_delete_is_success() {
+fn http_delete_is_success() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("DELETE", "/").create();
-
-    let actual = nu!(format!(r#"http delete {url}"#, url = server.url()));
-
-    assert!(actual.out.is_empty())
+    let code = format!("http delete {url}", url = server.url());
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn http_delete_is_success_pipeline() {
+fn http_delete_is_success_pipeline() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("DELETE", "/").create();
-
-    let actual = nu!(format!(r#""foo" | http delete {url}"#, url = server.url()));
-
-    assert!(actual.out.is_empty())
+    let code = format!(r#""foo" | http delete {url}"#, url = server.url());
+    test().run(code).expect_value_eq("")
 }
 
 #[test]
-fn http_delete_failed_due_to_server_error() {
+fn http_delete_failed_due_to_server_error() -> Result {
     let mut server = Server::new();
-
     let _mock = server.mock("DELETE", "/").with_status(400).create();
-
-    let actual = nu!(format!(r#"http delete {url}"#, url = server.url()));
-
-    assert!(
-        actual.err.contains("Bad request (400)"),
-        "unexpected error: {:?}",
-        actual.err
-    )
+    let code = format!("http delete {url}", url = server.url());
+    let err = test().run(code).expect_error()?;
+    match err {
+        ShellError::NetworkFailure { msg, .. } => {
+            assert_contains("Bad request (400)", msg);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn http_delete_follows_redirect() {
+fn http_delete_follows_redirect() -> Result {
     let mut server = Server::new();
 
     let _mock = server.mock("GET", "/bar").with_body("bar").create();
@@ -51,13 +46,12 @@ fn http_delete_follows_redirect() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!("http delete {url}/foo", url = server.url()));
-
-    assert_eq!(&actual.out, "bar");
+    let code = format!("http delete {url}/foo", url = server.url());
+    test().run(code).expect_value_eq("bar")
 }
 
 #[test]
-fn http_delete_redirect_mode_manual() {
+fn http_delete_redirect_mode_manual() -> Result {
     let mut server = Server::new();
 
     let _mock = server
@@ -67,16 +61,16 @@ fn http_delete_redirect_mode_manual() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http delete --redirect-mode manual {url}/foo",
         url = server.url()
-    ));
+    );
 
-    assert_eq!(&actual.out, "foo");
+    test().run(code).expect_value_eq("foo")
 }
 
 #[test]
-fn http_delete_redirect_mode_error() {
+fn http_delete_redirect_mode_error() -> Result {
     let mut server = Server::new();
 
     let _mock = server
@@ -86,20 +80,28 @@ fn http_delete_redirect_mode_error() {
         .with_header("Location", "/bar")
         .create();
 
-    let actual = nu!(format!(
+    let code = format!(
         "http delete --redirect-mode error {url}/foo",
         url = server.url()
-    ));
+    );
 
-    assert!(&actual.err.contains("nu::shell::network_failure"));
-    assert!(&actual.err.contains(
-        "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
-    ));
+    let err = test().run(code).expect_shell_error()?;
+    match err {
+        ShellError::NetworkFailure { msg, .. } => {
+            assert_eq!(
+                msg,
+                "Redirect encountered when redirect handling mode was 'error' (301 Moved Permanently)"
+            );
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn http_delete_timeout() {
+fn http_delete_timeout() -> Result {
     let mut server = Server::new();
+
     let _mock = server
         .mock("DELETE", "/")
         .with_chunked_body(|w| {
@@ -108,19 +110,13 @@ fn http_delete_timeout() {
         })
         .create();
 
-    let actual = nu!(format!(
-        "http delete --max-time 100ms {url}",
-        url = server.url()
+    let code = format!("http delete --max-time 100ms {url}", url = server.url());
+
+    let err = test().run(code).expect_io_error()?;
+    assert!(matches!(
+        err.kind,
+        shell_error::io::ErrorKind::Std(std::io::ErrorKind::TimedOut, ..)
     ));
 
-    assert!(
-        &actual.err.contains("nu::shell::io::timed_out"),
-        "unexpected error : {:?}",
-        actual.err
-    );
-    assert!(
-        &actual.err.contains("Timed out"),
-        "unexpected error : {:?}",
-        actual.err
-    );
+    Ok(())
 }

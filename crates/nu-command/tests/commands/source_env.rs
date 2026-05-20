@@ -23,9 +23,9 @@ fn sources_also_files_under_custom_lib_dirs_path() {
 
         nu.within("lib").with_files(&[FileWithContent(
             "my_library.nu",
-            r#"
+            "
                 source-env my_library/main.nu
-            "#,
+            ",
         )]);
         nu.within("lib/my_library").with_files(&[FileWithContent(
             "main.nu",
@@ -70,7 +70,7 @@ fn try_source_foo_with_single_quotes_in(testdir: &str, playdir: &str) {
         sandbox.mkdir(&testdir);
         sandbox.with_files(&[FileWithContent(&foo_file, "echo foo")]);
 
-        let cmd = String::from("source-env ") + r#"'"# + foo_file.as_str() + r#"'"#;
+        let cmd = String::from("source-env ") + "'" + foo_file.as_str() + "'";
 
         let actual = nu!(cwd: dirs.test(), &cmd);
 
@@ -158,12 +158,12 @@ fn source_env_eval_export_env() {
     Playground::setup("source_env_eval_export_env", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 export-env { $env.FOO = 'foo' }
-            "#,
+            ",
         )]);
 
-        let inp = &[r#"source-env spam.nu"#, r#"$env.FOO"#];
+        let inp = &["source-env spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -176,16 +176,12 @@ fn source_env_eval_export_env_hide() {
     Playground::setup("source_env_eval_export_env", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 export-env { hide-env FOO }
-            "#,
+            ",
         )]);
 
-        let inp = &[
-            r#"$env.FOO = 'foo'"#,
-            r#"source-env spam.nu"#,
-            r#"$env.FOO"#,
-        ];
+        let inp = &["$env.FOO = 'foo'", "source-env spam.nu", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -200,15 +196,12 @@ fn source_env_do_cd() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     cd test1/test2
-                "#,
+                ",
             )]);
 
-        let inp = &[
-            r#"source-env test1/test2/spam.nu"#,
-            r#"$env.PWD | path basename"#,
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -223,15 +216,12 @@ fn source_env_do_cd_file_relative() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     cd ($env.FILE_PWD | path join '..')
-                "#,
+                ",
             )]);
 
-        let inp = &[
-            r#"source-env test1/test2/spam.nu"#,
-            r#"$env.PWD | path basename"#,
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -246,17 +236,14 @@ fn source_env_dont_cd_overlay() {
             .mkdir("test1/test2")
             .with_files(&[FileWithContentToBeTrimmed(
                 "test1/test2/spam.nu",
-                r#"
+                "
                     overlay new spam
                     cd test1/test2
                     overlay hide spam
-                "#,
+                ",
             )]);
 
-        let inp = &[
-            r#"source-env test1/test2/spam.nu"#,
-            r#"$env.PWD | path basename"#,
-        ];
+        let inp = &["source-env test1/test2/spam.nu", "$env.PWD | path basename"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -269,13 +256,13 @@ fn source_env_is_scoped() {
     Playground::setup("source_env_is_scoped", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 def no-name-similar-to-this [] { 'no-name-similar-to-this' }
                 alias nor-similar-to-this = echo 'nor-similar-to-this'
-            "#,
+            ",
         )]);
 
-        let inp = &[r#"source-env spam.nu"#, r#"no-name-similar-to-this"#];
+        let inp = &["source-env spam.nu", "no-name-similar-to-this"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -285,7 +272,7 @@ fn source_env_is_scoped() {
                 .contains("Command `no-name-similar-to-this` not found")
         );
 
-        let inp = &[r#"source-env spam.nu"#, r#"nor-similar-to-this"#];
+        let inp = &["source-env spam.nu", "nor-similar-to-this"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -302,16 +289,12 @@ fn source_env_const_file() {
     Playground::setup("source_env_const_file", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "spam.nu",
-            r#"
+            "
                 $env.FOO = 'foo'
-            "#,
+            ",
         )]);
 
-        let inp = &[
-            r#"const file = 'spam.nu'"#,
-            r#"source-env $file"#,
-            r#"$env.FOO"#,
-        ];
+        let inp = &["const file = 'spam.nu'", "source-env $file", "$env.FOO"];
 
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
 
@@ -333,7 +316,7 @@ fn source_after_use_should_not_error() {
     Playground::setup("source_after_use", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("spam.nu")]);
 
-        let inp = &[r#"use spam.nu"#, r#"source spam.nu"#];
+        let inp = &["use spam.nu", "source spam.nu"];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert!(actual.err.is_empty());
     })
@@ -344,7 +327,7 @@ fn use_after_source_should_not_error() {
     Playground::setup("use_after_source", |dirs, sandbox| {
         sandbox.with_files(&[EmptyFile("spam.nu")]);
 
-        let inp = &[r#"source spam.nu"#, r#"use spam.nu"#];
+        let inp = &["source spam.nu", "use spam.nu"];
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert!(actual.err.is_empty());
     })

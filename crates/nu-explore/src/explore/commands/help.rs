@@ -27,7 +27,7 @@ static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
     let dim = nu_ansi_term::Style::new().dimmed();
 
     format!(
-        r#"
+        "
   {} Explore Help {}
 
   Explore helps you dynamically navigate through your data.
@@ -58,7 +58,7 @@ static HELP_MESSAGE: LazyLock<String> = LazyLock::new(|| {
     {}                  Start reverse search
     {} {} {}          Navigate search results
 
-"#,
+",
         title.paint("━━"),
         title.paint("━━"),
         code.paint("ls | explore"),

@@ -5,6 +5,7 @@ use crate::{
     values::CustomValueSupport,
 };
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Spanned,
     SyntaxShape, Value,
@@ -69,6 +70,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -104,6 +106,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -139,6 +142,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -174,6 +178,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -198,6 +203,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -230,6 +236,7 @@ impl PluginCommand for WithColumn {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -243,9 +250,9 @@ impl PluginCommand for WithColumn {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuDataFrame(df) => command_eager(plugin, engine, call, df),
@@ -273,13 +280,14 @@ fn command_eager(
 
     if NuExpression::can_downcast(&new_column) {
         if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
-            return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsupported when used with expressions. Please use the `polars as` expression to name a column".into(),
-            msg: "".into(),
-            span: Some(name.span),
-            help: Some("Use a `polars as` expression to name a column".into()),
-            inner: vec![],
-        });
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Flag 'name' is unsupported when used with expressions. Please use the `polars as` expression to name a column",
+                    "",
+                    name.span,
+                )
+                .with_help("Use a `polars as` expression to name a column"),
+            ));
         }
         let vals: Vec<Value> = call.rest(0)?;
         let value = Value::list(vals, call.head);
@@ -299,15 +307,13 @@ fn command_eager(
         let series = other.rename(name.into()).clone();
 
         let mut polars_df = df.to_polars();
-        polars_df
-            .with_column(series.into())
-            .map_err(|e| ShellError::GenericError {
-                error: "Error adding column to dataframe".into(),
-                msg: e.to_string(),
-                span: Some(column_span),
-                help: None,
-                inner: vec![],
-            })?;
+        polars_df.with_column(series.into()).map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error adding column to dataframe",
+                e.to_string(),
+                column_span,
+            ))
+        })?;
 
         let df = NuDataFrame::new(df.from_lazy, polars_df);
         df.to_pipeline_data(plugin, engine, call.head)
@@ -321,13 +327,14 @@ fn command_lazy(
     lazy: NuLazyFrame,
 ) -> Result<PipelineData, ShellError> {
     if let Some(name) = call.get_flag::<Spanned<String>>("name")? {
-        return Err(ShellError::GenericError {
-            error: "Flag 'name' is unsupported for lazy dataframes. Please use the `polars as` expression to name a column".into(),
-            msg: "".into(),
-            span: Some(name.span),
-            help: Some("Use a `polars as` expression to name a column".into()),
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(
+            GenericError::new(
+                "Flag 'name' is unsupported for lazy dataframes. Please use the `polars as` expression to name a column",
+                "",
+                name.span,
+            )
+            .with_help("Use a `polars as` expression to name a column"),
+        ));
     }
 
     let vals: Vec<Value> = call.rest(0)?;

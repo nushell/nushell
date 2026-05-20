@@ -43,6 +43,11 @@ impl Command for ToNuon {
                 "Serialize table values as list-of-records instead of table syntax.",
                 Some('l'),
             )
+            .switch(
+                "no-commas",
+                "Do not use commas between items in tables and lists.",
+                Some('c'),
+            )
             .category(Category::Formats)
     }
 
@@ -55,16 +60,12 @@ impl Command for ToNuon {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let metadata = input
-            .metadata()
-            .unwrap_or_default()
-            .with_content_type(Some("application/x-nuon".into()));
-
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
         let raw_strings = call.has_flag(engine_state, stack, "raw-strings")?;
         let list_of_records = call.has_flag(engine_state, stack, "list-of-records")?;
+        let no_commas = call.has_flag(engine_state, stack, "no-commas")?;
         let style = if call.has_flag(engine_state, stack, "raw")? {
             nuon::ToStyle::Raw
         } else if let Some(t) = call.get_flag(engine_state, stack, "tabs")? {
@@ -76,6 +77,11 @@ impl Command for ToNuon {
         };
 
         let span = call.head;
+        let metadata = input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-nuon".into()));
+
         let value = input.into_value(span)?;
 
         let config = nuon::ToNuonConfig::default()
@@ -83,7 +89,8 @@ impl Command for ToNuon {
             .span(Some(span))
             .serialize_types(serialize_types)
             .raw_strings(raw_strings)
-            .list_of_records(list_of_records);
+            .list_of_records(list_of_records)
+            .use_commas(!no_commas);
 
         match nuon::to_nuon(engine_state, &value, config) {
             Ok(serde_nuon_string) => Ok(Value::string(serde_nuon_string, span)
@@ -140,6 +147,16 @@ impl Command for ToNuon {
                 example: "[[a, b]; [1, 2], [3, 4]] | to nuon --list-of-records --indent 2",
                 result: Some(Value::test_string("[\n  {a: 1, b: 2},\n  {a: 3, b: 4}\n]")),
             },
+            Example {
+                description: "Output a list without commas between items.",
+                example: "[1 2 3] | to nuon --no-commas",
+                result: Some(Value::test_string("[1 2 3]")),
+            },
+            Example {
+                description: "Output a record without commas between fields.",
+                example: "{a: 1, b: 2} | to nuon --no-commas",
+                result: Some(Value::test_string("{a: 1 b: 2}")),
+            },
         ]
     }
 }
@@ -152,10 +169,9 @@ mod test {
     use crate::{Get, Metadata};
 
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::ToNuon;
-        use crate::test_examples;
-        test_examples(ToNuon {})
+        nu_test_support::test().examples(ToNuon)
     }
 
     #[test]

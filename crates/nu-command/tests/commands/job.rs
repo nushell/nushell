@@ -6,9 +6,9 @@ use nu_test_support::nu;
 #[test]
 #[serial]
 fn job_send_root_job_works() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn { 'beep' | job send 0 }
-        job recv --timeout 10sec"#);
+        job recv --timeout 10sec");
 
     assert_eq!(actual.out, "beep");
 }
@@ -16,10 +16,10 @@ fn job_send_root_job_works() {
 #[test]
 #[serial]
 fn job_send_background_job_works() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let job = job spawn { job recv | job send 0 }
         'boop' | job send $job
-        job recv --timeout 10sec"#);
+        job recv --timeout 10sec");
 
     assert_eq!(actual.out, "boop");
 }
@@ -37,13 +37,13 @@ fn job_send_to_self_works() {
 #[test]
 #[serial]
 fn job_send_to_self_from_background_works() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn {
             'beep' | job send (job id)
             job recv | job send 0
         }
 
-        job recv --timeout 10sec"#);
+        job recv --timeout 10sec");
 
     assert_eq!(actual.out, "beep");
 }
@@ -51,7 +51,7 @@ fn job_send_to_self_from_background_works() {
 #[test]
 #[serial]
 fn job_id_of_root_job_is_zero() {
-    let actual = nu!(r#"job id"#);
+    let actual = nu!("job id");
 
     assert_eq!(actual.out, "0");
 }
@@ -59,7 +59,7 @@ fn job_id_of_root_job_is_zero() {
 #[test]
 #[serial]
 fn job_id_of_background_jobs_works() {
-    let actual = nu!(r#"
+    let actual = nu!("
         let job1 = job spawn { job id | job send 0 }
         let id1 = job recv --timeout 5sec
 
@@ -71,7 +71,7 @@ fn job_id_of_background_jobs_works() {
 
         [($job1 == $id1) ($job2 == $id2) ($job3 == $id3)] | to nuon
 
-        "#);
+        ");
 
     assert_eq!(actual.out, "[true, true, true]");
 }
@@ -226,7 +226,7 @@ fn job_flush_with_tag() {
 #[test]
 #[serial]
 fn first_job_id_is_one() {
-    let actual = nu!(r#"job spawn {} | to nuon"#);
+    let actual = nu!("job spawn {} | to nuon");
 
     assert_eq!(actual.out, "1");
 }
@@ -235,7 +235,7 @@ fn first_job_id_is_one() {
 #[serial]
 fn job_list_adds_jobs_correctly() {
     let actual = nu!(format!(
-        r#"
+        "
             let list0 = job list | get id;
             let job1 = job spawn {{ job recv }};
             let list1 = job list | get id;
@@ -244,7 +244,7 @@ fn job_list_adds_jobs_correctly() {
             let job3 = job spawn {{ job recv }};
             let list3 = job list | get id;
             [({}), ({}), ({}), ({})] | to nuon
-            "#,
+            ",
         "$list0 == []",
         "$list1 == [$job1]",
         "($list2 | sort) == ([$job1, $job2] | sort)",
@@ -301,7 +301,7 @@ fn job_list_shows_pids() {
 #[serial]
 fn killing_job_removes_it_from_table() {
     let actual = nu!(format!(
-        r#"
+        "
             let job1 = job spawn {{ job recv }}
             let job2 = job spawn {{ job recv }}
             let job3 = job spawn {{ job recv }}
@@ -318,7 +318,7 @@ fn killing_job_removes_it_from_table() {
             let list_after_kill_3 = job list | get id
 
             [({}) ({}) ({}) ({})] | to nuon
-            "#,
+            ",
         "($list_before | sort) == ([$job1 $job2 $job3] | sort)",
         "($list_after_kill_1 | sort) == ([$job2 $job3] | sort)",
         "($list_after_kill_2 | sort) == ([$job3] | sort)",
@@ -441,12 +441,12 @@ fn job_extern_into_pipe_is_not_silent() {
 #[test]
 #[serial]
 fn job_list_returns_no_description_when_job_is_undescribed() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn { sleep 10sec }
         job spawn { sleep 10sec }
         job spawn { sleep 10sec }
 
-        ('description' in (job list | columns)) | to nuon"#);
+        ('description' in (job list | columns)) | to nuon");
 
     assert_eq!(actual.out, "false");
     assert_eq!(actual.err, "");
@@ -455,10 +455,10 @@ fn job_list_returns_no_description_when_job_is_undescribed() {
 #[test]
 #[serial]
 fn job_list_returns_description_when_job_is_spawned_with_description() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn { sleep 10sec } --description abc
         job list | where id == 1 | get description.0
-        "#);
+        ");
 
     assert_eq!(actual.out, "abc");
     assert_eq!(actual.err, "");
@@ -467,12 +467,12 @@ fn job_list_returns_description_when_job_is_spawned_with_description() {
 #[test]
 #[serial]
 fn job_describe_modifies_descriptionless_job_desc() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn { sleep 10sec }
 
         job describe 1 beep
 
-        job list | where id == 1 | get description.0"#);
+        job list | where id == 1 | get description.0");
 
     assert_eq!(actual.out, "beep");
     assert_eq!(actual.err, "");
@@ -481,12 +481,12 @@ fn job_describe_modifies_descriptionless_job_desc() {
 #[test]
 #[serial]
 fn job_describe_modifies_described_job_description() {
-    let actual = nu!(r#"
+    let actual = nu!("
         job spawn { sleep 10sec } --description abc
 
         job describe 1 beep
 
-        job list | where id == 1 | get description.0"#);
+        job list | where id == 1 | get description.0");
 
     assert_eq!(actual.out, "beep");
     assert_eq!(actual.err, "");

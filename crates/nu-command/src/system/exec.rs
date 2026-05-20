@@ -27,8 +27,8 @@ impl Command for Exec {
     }
 
     fn extra_description(&self) -> &str {
-        r#"On Unix-based systems, the current process is replaced with the command.
-On Windows based systems, Nushell will wait for the command to finish and then exit with the command's exit code."#
+        "On Unix-based systems, the current process is replaced with the command.
+On Windows based systems, Nushell will wait for the command to finish and then exit with the command's exit code."
     }
 
     fn run(

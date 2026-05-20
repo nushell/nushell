@@ -24,6 +24,10 @@ impl Command for Clear {
         "By default clears the current screen and the off-screen scrollback buffer."
     }
 
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["cls"]
+    }
+
     fn signature(&self) -> Signature {
         Signature::build("clear")
             .category(Category::Platform)

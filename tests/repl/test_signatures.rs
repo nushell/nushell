@@ -123,8 +123,8 @@ fn list_annotations_with_default_val_1() -> TestResult {
 #[test]
 fn list_annotations_with_default_val_2() -> TestResult {
     let input = "def run [list: list<string> = [2 5 4]] {$list | length}; run";
-    let expected = "Default value wrong type";
-    fail_test(input, expected)
+    let expected = "3";
+    run_test(input, expected)
 }
 
 #[test]
@@ -366,7 +366,7 @@ fn oneof_type_checking(
     #[case] expect: &str,
 ) {
     let _ = testfn(
-        &format!(r#"def run [p: record<a: oneof<int, nothing>>] {{ }}; run {argument}"#),
+        &format!("def run [p: record<a: oneof<int, nothing>>] {{ }}; run {argument}"),
         expect,
     );
 }

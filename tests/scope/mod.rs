@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
 // Note: These tests might slightly overlap with crates/nu-command/tests/commands/help.rs
@@ -89,7 +89,7 @@ fn correctly_report_of_shadowed_alias() {
 
 #[test]
 fn correct_scope_modules_fields() {
-    let module_setup = r#"
+    let module_setup = "
         # nice spam
         #
         # and some extra description for spam
@@ -106,7 +106,7 @@ fn correct_scope_modules_fields() {
         export const X = 4
 
         export-env { $env.SPAM = 'spam' }
-    "#;
+    ";
 
     Playground::setup("correct_scope_modules_fields", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
@@ -184,11 +184,38 @@ fn correct_scope_modules_fields() {
 }
 
 #[test]
+fn scope_modules_ignores_leading_shebang_in_module_description() -> Result {
+    Playground::setup(
+        "scope_modules_ignores_leading_shebang_in_module_description",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "spam.nu",
+                "\
+#!/usr/bin/env nu
+
+# module_line1
+#
+# module_line2
+
+export def foo [] {}
+",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let description: String = tester
+                .run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
+            assert_eq!(description, "module_line1");
+            Ok(())
+        },
+    )
+}
+
+#[test]
 fn correct_scope_aliases_fields() {
-    let module_setup = r#"
+    let module_setup = "
         # nice alias
         export alias xaz = print
-    "#;
+    ";
 
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);
@@ -242,10 +269,10 @@ fn scope_alias_aliased_decl_id_external() {
 
 #[test]
 fn correct_scope_externs_fields() {
-    let module_setup = r#"
+    let module_setup = "
         # nice extern
         export extern git []
-    "#;
+    ";
 
     Playground::setup("correct_scope_aliases_fields", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent("spam.nu", module_setup)]);

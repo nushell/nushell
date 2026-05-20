@@ -87,10 +87,12 @@ impl Command for BytesAt {
                 call.head,
                 engine_state.signals(),
             )
-            .map(|pipeline| {
-                // bytes 3..5 of an image/png stream are not image/png themselves
-                let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
-                pipeline.set_metadata(metadata)
+            .map(|mut pipeline| {
+                if let Some(metadata) = pipeline.metadata_mut() {
+                    // bytes 3..5 of an image/png stream are not image/png themselves
+                    metadata.content_type = None;
+                }
+                pipeline
             })
         }
     }
@@ -126,7 +128,7 @@ impl Command for BytesAt {
             },
             Example {
                 description: "Slice bytes across multiple table columns.",
-                example: r#"[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC"#,
+                example: "[[ColA ColB ColC]; [0x[11 12 13] 0x[14 15 16] 0x[17 18 19]]] | bytes at 1.. ColB ColC",
                 result: Some(Value::test_list(vec![Value::test_record(record! {
                     "ColA" => Value::test_binary(vec![0x11, 0x12, 0x13]),
                     "ColB" => Value::test_binary(vec![0x15, 0x16]),
@@ -193,8 +195,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-        test_examples(BytesAt {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(BytesAt)
     }
 }

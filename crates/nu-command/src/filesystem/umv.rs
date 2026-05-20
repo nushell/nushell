@@ -2,8 +2,8 @@ use nu_engine::command_prelude::*;
 use nu_glob::MatchOptions;
 use nu_path::expand_path_with;
 use nu_protocol::{
-    NuGlob,
-    shell_error::{self, io::IoError},
+    NuGlob, record,
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use std::{ffi::OsString, path::PathBuf};
 use uu_mv::{BackupMode, UpdateMode};
@@ -48,16 +48,41 @@ impl Command for UMv {
                 example: "mv test.txt .../my/",
                 result: None,
             },
+            Example {
+                description: "Move a file and show what is being done.",
+                example: "mv -v before.txt after.txt",
+                result: Some(Value::test_list(vec![
+                    record! {
+                        "source" => Value::string("before.txt", Span::test_data()),
+                        "destination" => Value::string("after.txt", Span::test_data()),
+                        "message" => Value::string("renamed ", Span::test_data()),
+                    }
+                    .into_value(Span::test_data()),
+                ])),
+            },
         ]
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["move", "file", "files", "coreutils"]
+        vec!["move", "file", "files", "coreutils", "rename", "ren"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("mv")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (
+                    Type::Nothing,
+                    Type::Table(
+                        [
+                            ("source".into(), Type::String),
+                            ("destination".into(), Type::String),
+                            ("message".into(), Type::String),
+                        ]
+                        .into(),
+                    ),
+                ),
+                (Type::Nothing, Type::Nothing),
+            ])
             .switch("force", "Do not prompt before overwriting.", Some('f'))
             .switch("verbose", "Explain what is being done.", Some('v'))
             .switch("progress", "Display a progress bar.", Some('p'))
@@ -109,27 +134,22 @@ impl Command for UMv {
         let cwd = engine_state.cwd(Some(stack))?.into_std_path_buf();
         let mut paths = call.rest::<Spanned<NuGlob>>(engine_state, stack, 0)?;
         if paths.is_empty() {
-            return Err(ShellError::GenericError {
-                error: "Missing file operand".into(),
-                msg: "Missing file operand".into(),
-                span: Some(call.head),
-                help: Some("Please provide source and destination paths".into()),
-                inner: Vec::new(),
-            });
+            return Err(ShellError::Generic(
+                GenericError::new("Missing file operand", "Missing file operand", call.head)
+                    .with_help("Please provide source and destination paths"),
+            ));
         }
         if paths.len() == 1 {
             // expand path for better error message
-            return Err(ShellError::GenericError {
-                error: "Missing destination path".into(),
-                msg: format!(
+            return Err(ShellError::Generic(GenericError::new(
+                "Missing destination path",
+                format!(
                     "Missing destination path operand after {}",
                     expand_path_with(paths[0].item.as_ref(), cwd, paths[0].item.is_expand())
                         .to_string_lossy()
                 ),
-                span: Some(paths[0].span),
-                help: None,
-                inner: Vec::new(),
-            });
+                paths[0].span,
+            )));
         }
 
         // Do not glob target
@@ -187,7 +207,7 @@ impl Command for UMv {
                 }
             }
         }
-        let mut files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
+        let source_files: Vec<PathBuf> = files.into_iter().flat_map(|x| x.0).collect();
 
         // Add back the target after globbing
         let abs_target_path = expand_path_with(
@@ -195,15 +215,33 @@ impl Command for UMv {
             &cwd,
             matches!(spanned_target.item, NuGlob::Expand(..)),
         );
-        files.push(abs_target_path.clone());
-        let files = files
+
+        // Collect verbose messages before the move
+        let verbose_msgs: Vec<(PathBuf, PathBuf)> = if verbose {
+            source_files
+                .iter()
+                .map(|src| {
+                    let dest = if abs_target_path.is_dir() {
+                        abs_target_path.join(src.file_name().unwrap_or_default())
+                    } else {
+                        abs_target_path.clone()
+                    };
+                    (src.clone(), dest)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let mut files_for_mv = source_files;
+        files_for_mv.push(abs_target_path.clone());
+        let files_for_mv = files_for_mv
             .into_iter()
             .map(|p| p.into_os_string())
             .collect::<Vec<OsString>>();
         let options = uu_mv::Options {
             overwrite,
             progress_bar: progress,
-            verbose,
+            verbose: false,
             suffix: String::from("~"),
             backup: BackupMode::None,
             update,
@@ -213,15 +251,32 @@ impl Command for UMv {
             debug: false,
             context: None,
         };
-        if let Err(error) = uu_mv::mv(&files, &options) {
-            return Err(ShellError::GenericError {
-                error: format!("{error}"),
-                msg: translate!(&error.to_string()),
-                span: None,
-                help: None,
-                inner: Vec::new(),
-            });
+        if let Err(error) = uu_mv::mv(&files_for_mv, &options) {
+            return Err(ShellError::Generic(GenericError::new_internal(
+                format!("{error}"),
+                translate!(&error.to_string()),
+            )));
         }
-        Ok(PipelineData::empty())
+
+        if verbose {
+            let output: Vec<Value> = verbose_msgs
+                .into_iter()
+                .map(|(src, dest)| {
+                    record! {
+                        "source" => Value::string(src.display().to_string(), call.head),
+                        "destination" => Value::string(dest.display().to_string(), call.head),
+                        "message" => Value::string(translate!(
+                            "mv-verbose-renamed",
+                            "from" => src.display().to_string(),
+                            "to" => dest.display().to_string(),
+                        ), call.head)
+                    }
+                    .into_value(call.head)
+                })
+                .collect();
+            Ok(PipelineData::Value(Value::list(output, call.head), None))
+        } else {
+            Ok(PipelineData::empty())
+        }
     }
 }

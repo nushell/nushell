@@ -73,12 +73,12 @@ impl Command for Find {
         vec![
             Example {
                 description: "Search for multiple terms in a command output.",
-                example: r#"ls | find toml md sh"#,
+                example: "ls | find toml md sh",
                 result: None,
             },
             Example {
                 description: "Search and highlight text for a term in a string.",
-                example: r#"'Cargo.toml' | find Cargo"#,
+                example: "'Cargo.toml' | find Cargo",
                 result: Some(Value::test_string(
                     "\u{1b}[39m\u{1b}[0m\u{1b}[41;39mCargo\u{1b}[0m\u{1b}[39m.toml\u{1b}[0m"
                         .to_owned(),
@@ -86,7 +86,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search a number or a file size in a list of numbers.",
-                example: r#"[1 5 3kb 4 35 3Mb] | find 5 3kb"#,
+                example: "[1 5 3kb 4 35 3Mb] | find 5 3kb",
                 result: Some(Value::list(
                     vec![Value::test_int(5), Value::test_filesize(3000)],
                     Span::test_data(),
@@ -94,7 +94,7 @@ impl Command for Find {
             },
             Example {
                 description: "Search a char in a list of string.",
-                example: r#"[moe larry curly] | find l"#,
+                example: "[moe larry curly] | find l",
                 result: Some(Value::list(
                     vec![
                         Value::test_string(
@@ -240,7 +240,7 @@ impl Command for Find {
             },
             Example {
                 description: "Find and highlight the last occurrence in a string.",
-                example: r#"'hello world hello' | find --rfind hello"#,
+                example: "'hello world hello' | find --rfind hello",
                 result: Some(Value::test_string(
                     "\u{1b}[39mhello world \u{1b}[0m\u{1b}[41;39mhello\u{1b}[0m\u{1b}[39m\u{1b}[0m",
                 )),
@@ -339,64 +339,62 @@ fn get_match_pattern_from_arguments(
     let highlight_style =
         style_computer.compute("search_result", &Value::string("search result", span));
 
-    let (regex_str, search_terms) = if let Some(regex) = regex {
-        if !terms.is_empty() {
+    let (regex_str, search_terms) = match (regex, terms.as_slice()) {
+        (Some(_), [_, ..]) => {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Cannot use a `--regex` parameter with additional search terms".into(),
                 span: call.get_flag_span(stack, "regex").expect("has flag"),
             });
         }
+        (Some(regex), []) => {
+            let flags = match (ignore_case, dotall) {
+                (false, false) => "",
+                (true, false) => "(?i)", // case insensitive
+                (false, true) => "(?s)", // allow . to match \n
+                (true, true) => "(?is)", // case insensitive and allow . to match \n
+            };
 
-        let flags = match (ignore_case, dotall) {
-            (false, false) => "",
-            (true, false) => "(?i)", // case insensitive
-            (false, true) => "(?s)", // allow . to match \n
-            (true, true) => "(?is)", // case insensitive and allow . to match \n
-        };
-
-        (flags.to_string() + regex.as_str(), Vec::new())
-    } else {
-        if dotall {
+            (flags.to_string() + regex.as_str(), Vec::new())
+        }
+        (None, _) if dotall => {
             return Err(ShellError::IncompatibleParametersSingle {
                 msg: "Flag --dotall only works for regex search".into(),
                 span: call.get_flag_span(stack, "dotall").expect("has flag"),
             });
         }
+        // NOTE: Should this be an error? It doesn't make sense to call `find` with no arguments.
+        // (None, []) => {}
+        (None, terms) => {
+            let mut regex = String::new();
 
-        let mut regex = String::new();
+            if ignore_case {
+                regex += "(?i)";
+            }
 
-        if ignore_case {
-            regex += "(?i)";
-        }
+            let search_terms = terms
+                .iter()
+                .map(|v| {
+                    if ignore_case {
+                        v.to_expanded_string("", &config).to_lowercase()
+                    } else {
+                        v.to_expanded_string("", &config)
+                    }
+                })
+                .collect::<Vec<String>>();
 
-        let search_terms = terms
-            .iter()
-            .map(|v| {
-                if ignore_case {
-                    v.to_expanded_string("", &config).to_lowercase()
-                } else {
-                    v.to_expanded_string("", &config)
+            if let [first, rest @ ..] = search_terms.as_slice() {
+                regex.push_str(escape(first).as_ref());
+                for term in rest {
+                    regex.push('|');
+                    regex.push_str(escape(term).as_ref());
                 }
-            })
-            .collect::<Vec<String>>();
+            }
 
-        let escaped_terms = search_terms
-            .iter()
-            .map(|v| escape(v).into())
-            .collect::<Vec<String>>();
-
-        if let Some(term) = escaped_terms.first() {
-            regex += term;
+            (regex, search_terms)
         }
-
-        for term in escaped_terms.iter().skip(1) {
-            regex += "|";
-            regex += term;
-        }
-
-        (regex, search_terms)
     };
 
+    // TODO: Should be InvalidValue
     let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
         err_message: format!("invalid regex: {e}"),
         span,
@@ -454,15 +452,11 @@ fn highlight_all_matches(pattern: &MatchPattern, text: &str) -> String {
     let mut highlighted = String::new();
 
     for cap in pattern.regex.captures_iter(text) {
-        let capture = match cap {
-            Ok(capture) => capture,
-            Err(_) => return pattern.string_style.paint(text).to_string(),
+        let Ok(capture) = cap else {
+            return pattern.string_style.paint(text).to_string();
         };
 
-        let m = match capture.get(0) {
-            Some(m) => m,
-            None => continue,
-        };
+        let Some(m) = capture.get(0) else { continue };
 
         highlighted.push_str(
             &pattern
@@ -649,18 +643,14 @@ fn value_should_be_printed(
 fn split_string_if_multiline(input: PipelineData, head_span: Span) -> PipelineData {
     let span = input.span().unwrap_or(head_span);
     match input {
-        PipelineData::Value(Value::String { ref val, .. }, _) => {
-            if val.contains('\n') {
-                Value::list(
-                    val.lines()
-                        .map(|s| Value::string(s.to_string(), span))
-                        .collect(),
-                    span,
-                )
-                .into_pipeline_data_with_metadata(input.metadata())
-            } else {
-                input
-            }
+        PipelineData::Value(Value::String { ref val, .. }, metadata) if val.contains('\n') => {
+            Value::list(
+                val.lines()
+                    .map(|s| Value::string(s.to_string(), span))
+                    .collect(),
+                span,
+            )
+            .into_pipeline_data_with_metadata(metadata)
         }
         _ => input,
     }
@@ -674,8 +664,9 @@ pub fn find_internal(
     search_term: &str,
     columns_to_search: &[&str],
     highlight: bool,
+    head: Span,
 ) -> Result<PipelineData, ShellError> {
-    let span = input.span().unwrap_or(Span::unknown());
+    let span = input.span().unwrap_or(head);
 
     let style_computer = StyleComputer::from_config(engine_state, stack);
     let string_style = style_computer.compute("string", &Value::string("search result", span));
@@ -686,7 +677,7 @@ pub fn find_internal(
 
     let regex = Regex::new(regex_str.as_str()).map_err(|e| ShellError::TypeMismatch {
         err_message: format!("invalid regex: {e}"),
-        span: Span::unknown(),
+        span: head,
     })?;
 
     let pattern = MatchPattern {
@@ -713,9 +704,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Find)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Find)
     }
 }

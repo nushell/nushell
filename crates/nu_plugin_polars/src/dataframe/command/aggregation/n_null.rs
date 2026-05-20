@@ -48,6 +48,7 @@ impl PluginCommand for NNull {
                         vec![Value::test_int(2)],
                     )],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -60,9 +61,9 @@ impl PluginCommand for NNull {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))
@@ -83,6 +84,7 @@ fn command(
     let df = NuDataFrame::try_from_columns(
         vec![Column::new("count_null".to_string(), vec![value])],
         None,
+        call.head,
     )?;
     df.to_pipeline_data(plugin, engine, call.head)
 }

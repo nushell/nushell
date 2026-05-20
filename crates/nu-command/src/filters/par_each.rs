@@ -1,7 +1,14 @@
 use super::utils::chain_error_with_input;
 use nu_engine::{ClosureEval, ClosureEvalOnce, command_prelude::*};
-use nu_protocol::{Signals, engine::Closure};
+use nu_protocol::{Signals, engine::Closure, shell_error::generic::GenericError};
 use rayon::prelude::*;
+use std::{
+    sync::mpsc::{self, RecvTimeoutError},
+    time::Duration,
+};
+
+const STREAM_BUFFER_SIZE: usize = 64;
+const CTRL_C_CHECK_INTERVAL: Duration = Duration::from_millis(100);
 
 #[derive(Clone)]
 pub struct ParEach;
@@ -53,7 +60,7 @@ impl Command for ParEach {
                 result: None,
             },
             Example {
-                example: r#"[1 2 3] | par-each --keep-order {|e| $e * 2 }"#,
+                example: "[1 2 3] | par-each --keep-order {|e| $e * 2 }",
                 description: "Multiplies each number, keeping an original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
@@ -62,7 +69,7 @@ impl Command for ParEach {
                 ])),
             },
             Example {
-                example: r#"1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item"#,
+                example: "1..3 | enumerate | par-each {|p| update item ($p.item * 2)} | sort-by item | get item",
                 description: "Enumerate and sort-by can be used to reconstruct the original order.",
                 result: Some(Value::test_list(vec![
                     Value::test_int(2),
@@ -71,7 +78,7 @@ impl Command for ParEach {
                 ])),
             },
             Example {
-                example: r#"[foo bar baz] | par-each {|e| $e + '!' } | sort"#,
+                example: "[foo bar baz] | par-each {|e| $e + '!' } | sort",
                 description: "Output can still be sorted afterward.",
                 result: Some(Value::test_list(vec![
                     Value::test_string("bar!"),
@@ -99,12 +106,12 @@ impl Command for ParEach {
                 .num_threads(num_threads)
                 .build()
             {
-                Err(e) => Err(e).map_err(|e| ShellError::GenericError {
-                    error: "Error creating thread pool".into(),
-                    msg: e.to_string(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
+                Err(e) => Err(e).map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Error creating thread pool",
+                        e.to_string(),
+                        head,
+                    ))
                 }),
                 Ok(pool) => Ok(pool),
             }
@@ -115,9 +122,10 @@ impl Command for ParEach {
         let threads: Option<usize> = call.get_flag(engine_state, stack, "threads")?;
         let max_threads = threads.unwrap_or(0);
         let keep_order = call.has_flag(engine_state, stack, "keep-order")?;
+        let signals = engine_state.signals().clone();
 
-        let input = input.into_stream_or_original(engine_state);
-        let metadata = input.metadata();
+        let mut input = input.into_stream_or_original(engine_state);
+        let metadata = input.take_metadata();
 
         // A helper function sorts the output if needed
         let apply_order = |mut vec: Vec<(usize, Value)>| {
@@ -135,21 +143,55 @@ impl Command for ParEach {
             PipelineData::Value(value, ..) => {
                 let span = value.span();
                 match value {
-                    Value::List { vals, .. } => Ok(create_pool(max_threads, head)?.install(|| {
-                        let par_iter = vals.into_par_iter().enumerate();
-                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
-                        apply_order(mapped.collect())
-                            .into_pipeline_data(span, engine_state.signals().clone())
-                    })),
-                    Value::Range { val, .. } => Ok(create_pool(max_threads, head)?.install(|| {
-                        let par_iter = val
-                            .into_range_iter(span, Signals::empty())
-                            .enumerate()
-                            .par_bridge();
-                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
-                        apply_order(mapped.collect())
-                            .into_pipeline_data(span, engine_state.signals().clone())
-                    })),
+                    Value::List { vals, .. } => {
+                        let pool = create_pool(max_threads, head)?;
+                        if keep_order {
+                            Ok(pool.install(|| {
+                                let par_iter = vals.into_par_iter().enumerate();
+                                let mapped =
+                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                apply_order(mapped.collect())
+                                    .into_pipeline_data(span, signals.clone())
+                            }))
+                        } else {
+                            let par_iter = vals.into_par_iter();
+                            Ok(stream_parallel_values(
+                                engine_state,
+                                stack,
+                                closure.clone(),
+                                pool,
+                                span,
+                                signals.clone(),
+                                par_iter,
+                            ))
+                        }
+                    }
+                    Value::Range { val, .. } => {
+                        let pool = create_pool(max_threads, head)?;
+                        if keep_order {
+                            Ok(pool.install(|| {
+                                let par_iter = val
+                                    .into_range_iter(span, signals.clone())
+                                    .enumerate()
+                                    .par_bridge();
+                                let mapped =
+                                    parallel_closure_map(engine_state, stack, &closure, par_iter);
+                                apply_order(mapped.collect())
+                                    .into_pipeline_data(span, signals.clone())
+                            }))
+                        } else {
+                            let par_iter = val.into_range_iter(span, signals.clone()).par_bridge();
+                            Ok(stream_parallel_values(
+                                engine_state,
+                                stack,
+                                closure.clone(),
+                                pool,
+                                span,
+                                signals.clone(),
+                                par_iter,
+                            ))
+                        }
+                    }
                     // This match allows non-iterables to be accepted,
                     // which is currently considered undesirable (Nov 2022).
                     value => {
@@ -158,27 +200,56 @@ impl Command for ParEach {
                 }
             }
             PipelineData::ListStream(stream, ..) => {
-                Ok(create_pool(max_threads, head)?.install(|| {
-                    let par_iter = stream.into_iter().enumerate().par_bridge();
-                    let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
+                let pool = create_pool(max_threads, head)?;
+                if keep_order {
+                    Ok(pool.install(|| {
+                        let par_iter = stream.into_iter().enumerate().par_bridge();
+                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
 
-                    apply_order(mapped.collect())
-                        .into_pipeline_data(head, engine_state.signals().clone())
-                }))
+                        apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
+                    }))
+                } else {
+                    let par_iter = stream.into_iter().par_bridge();
+                    Ok(stream_parallel_values(
+                        engine_state,
+                        stack,
+                        closure.clone(),
+                        pool,
+                        head,
+                        signals.clone(),
+                        par_iter,
+                    ))
+                }
             }
             PipelineData::ByteStream(stream, ..) => {
                 if let Some(chunks) = stream.chunks() {
-                    Ok(create_pool(max_threads, head)?.install(|| {
+                    let pool = create_pool(max_threads, head)?;
+                    if keep_order {
+                        Ok(pool.install(|| {
+                            let par_iter = chunks
+                                .enumerate()
+                                .map(move |(idx, val)| {
+                                    (idx, val.unwrap_or_else(|err| Value::error(err, head)))
+                                })
+                                .par_bridge();
+                            let mapped =
+                                parallel_closure_map(engine_state, stack, &closure, par_iter);
+                            apply_order(mapped.collect()).into_pipeline_data(head, signals.clone())
+                        }))
+                    } else {
                         let par_iter = chunks
-                            .enumerate()
-                            .map(move |(idx, val)| {
-                                (idx, val.unwrap_or_else(|err| Value::error(err, head)))
-                            })
+                            .map(move |val| val.unwrap_or_else(|err| Value::error(err, head)))
                             .par_bridge();
-                        let mapped = parallel_closure_map(engine_state, stack, &closure, par_iter);
-                        apply_order(mapped.collect())
-                            .into_pipeline_data(head, engine_state.signals().clone())
-                    }))
+                        Ok(stream_parallel_values(
+                            engine_state,
+                            stack,
+                            closure.clone(),
+                            pool,
+                            head,
+                            signals.clone(),
+                            par_iter,
+                        ))
+                    }
                 } else {
                     Ok(PipelineData::empty())
                 }
@@ -187,6 +258,98 @@ impl Command for ParEach {
         .and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         .map(|data| data.set_metadata(metadata))
     }
+}
+
+fn stream_parallel_values(
+    engine_state: &EngineState,
+    stack: &Stack,
+    closure: Closure,
+    pool: rayon::ThreadPool,
+    span: Span,
+    signals: Signals,
+    input: impl ParallelIterator<Item = Value> + 'static,
+) -> PipelineData {
+    let (tx, rx) = mpsc::sync_channel(STREAM_BUFFER_SIZE);
+    let worker_engine_state = engine_state.clone();
+    let worker_stack = stack.clone();
+    let worker_signals = signals.clone();
+
+    pool.install(|| {
+        rayon::spawn(move || {
+            let map_signals = worker_signals.clone();
+            let send_signals = worker_signals.clone();
+
+            let _ = input
+                .map_init(
+                    move || ClosureEval::new(&worker_engine_state, &worker_stack, closure.clone()),
+                    move |closure_eval, value| {
+                        if map_signals.interrupted() {
+                            return Err(());
+                        }
+
+                        let value = run_closure_on_value(closure_eval, value);
+
+                        if map_signals.interrupted() {
+                            Err(())
+                        } else {
+                            Ok(value)
+                        }
+                    },
+                )
+                .try_for_each(move |value| match value {
+                    Ok(value) => {
+                        if send_signals.interrupted() {
+                            Err(())
+                        } else {
+                            tx.send(value).map_err(|_| ())
+                        }
+                    }
+                    Err(()) => Err(()),
+                });
+        });
+    });
+
+    ReceiverIter::new(rx, signals).into_pipeline_data(span, Signals::empty())
+}
+
+// Polls channel reads so Ctrl+C can stop blocked receives promptly.
+struct ReceiverIter {
+    receiver: mpsc::Receiver<Value>,
+    signals: Signals,
+}
+
+impl ReceiverIter {
+    fn new(receiver: mpsc::Receiver<Value>, signals: Signals) -> Self {
+        Self { receiver, signals }
+    }
+}
+
+impl Iterator for ReceiverIter {
+    type Item = Value;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if self.signals.interrupted() {
+                return None;
+            }
+
+            match self.receiver.recv_timeout(CTRL_C_CHECK_INTERVAL) {
+                Ok(value) => return Some(value),
+                Err(RecvTimeoutError::Timeout) => {}
+                Err(RecvTimeoutError::Disconnected) => return None,
+            }
+        }
+    }
+}
+
+fn run_closure_on_value(closure_eval: &mut ClosureEval, value: Value) -> Value {
+    let span = value.span();
+    let is_error = value.is_error();
+
+    closure_eval
+        .run_with_value(value)
+        .and_then(|data| data.into_value(span))
+        .unwrap_or_else(|err| Value::error(chain_error_with_input(err, is_error, span), span))
 }
 
 fn parallel_closure_map(
@@ -198,14 +361,7 @@ fn parallel_closure_map(
     input.map_init(
         move || ClosureEval::new(engine_state, stack, closure.clone()),
         |closure_eval, (index, value)| {
-            let span = value.span();
-            let is_error = value.is_error();
-            let value = closure_eval
-                .run_with_value(value)
-                .and_then(|data| data.into_value(span))
-                .unwrap_or_else(|err| {
-                    Value::error(chain_error_with_input(err, is_error, span), span)
-                });
+            let value = run_closure_on_value(closure_eval, value);
 
             (index, value)
         },
@@ -217,9 +373,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(ParEach {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(ParEach)
     }
 }

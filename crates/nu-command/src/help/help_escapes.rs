@@ -141,9 +141,8 @@ fn generate_escape_info() -> Vec<EscapeInfo> {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpEscapes;
-        use crate::test_examples;
-        test_examples(HelpEscapes {})
+        nu_test_support::test().examples(HelpEscapes)
     }
 }

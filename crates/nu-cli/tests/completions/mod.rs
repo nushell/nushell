@@ -1,7 +1,7 @@
 pub mod support;
 
 use std::{
-    fs::{FileType, ReadDir, read_dir},
+    fs::{ReadDir, read_dir},
     path::MAIN_SEPARATOR,
     sync::Arc,
 };
@@ -30,14 +30,20 @@ use support::{
 // *.nu files and subdirectories.
 pub fn match_dir_content_for_dotnu(dir: ReadDir, suggestions: &[Suggestion]) {
     let actual_dir_entries: Vec<_> = dir.filter_map(|c| c.ok()).collect();
-    let type_name_pairs: Vec<(FileType, String)> = actual_dir_entries
+    // Use entry.path().is_dir() instead of FileType::is_dir() so that symlinks
+    // to directories are treated the same way as the completer treats them.
+    let name_pairs: Vec<(bool, String)> = actual_dir_entries
         .into_iter()
-        .filter_map(|t| t.file_type().ok().zip(t.file_name().into_string().ok()))
+        .filter_map(|t| {
+            let is_dir = t.path().is_dir();
+            let name = t.file_name().into_string().ok()?;
+            Some((is_dir, name))
+        })
         .collect();
-    let mut simple_dir_entries: Vec<&str> = type_name_pairs
+    let mut simple_dir_entries: Vec<&str> = name_pairs
         .iter()
-        .filter_map(|(t, n)| {
-            if t.is_dir() || n.ends_with(".nu") {
+        .filter_map(|(is_dir, n)| {
+            if *is_dir || n.ends_with(".nu") {
                 Some(n.as_str())
             } else {
                 None
@@ -121,12 +127,12 @@ fn custom_completer_with_options(
 ) -> NuCompleter {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!(
-        r#"
+        "
         {}
         def comp [] {{
             {{ completions: [{}], options: {{ {} }} }}
         }}
-        def my-command [arg: string@comp] {{}}"#,
+        def my-command [arg: string@comp] {{}}",
         global_opts,
         completions
             .iter()
@@ -146,7 +152,7 @@ fn custom_completer() -> NuCompleter {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Add record value as example
-    let record = r#"
+    let record = "
         let external_completer = {|spans|
             $spans
         }
@@ -156,7 +162,7 @@ fn custom_completer() -> NuCompleter {
             max_results: 100
             completer: $external_completer
         }
-    "#;
+    ";
     assert!(support::merge_input(record.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
@@ -288,7 +294,7 @@ fn customcompletions_no_sort() {
 fn customcompletions_no_filter() {
     let mut completer = custom_completer_with_options(
         "",
-        r#"filter: false"#,
+        "filter: false",
         &["zzzfoo", "foo", "not matched", "abcfoo"],
     );
     let suggestions = completer.complete("my-command foo", 14);
@@ -308,9 +314,9 @@ fn custom_completions_override_span(
 ) {
     let (_, _, mut engine, mut stack) = new_engine();
     let command = format!(
-        r#"
+        "
         def comp [] {{ [{{ value: foobarbaz, span: {span_string} }}] }}
-        def my-command [arg: string@comp] {{}}"#
+        def my-command [arg: string@comp] {{}}"
     );
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
@@ -343,6 +349,51 @@ fn custom_completions_override_display_value() {
     let completion_str = "my-command sir";
     let suggestions = completer.complete(completion_str, completion_str.len());
     match_suggestions(&vec!["first", "second"], &suggestions);
+}
+
+#[test]
+fn custom_completions_filter_by_description() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            {
+                completions: [
+                    { value: red,   description: "warm color" },
+                    { value: blue,  description: "cool color" },
+                    { value: green, description: "warm-ish color" },
+                    { value: cyan,  description: "another cool one" },
+                ],
+                options: { match_description: true }
+            }
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&vec!["red", "green"], &suggestions);
+}
+
+#[test]
+fn custom_completions_match_description_disabled_by_default() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"
+        def comp [] {
+            [
+                { value: red,   description: "warm color" },
+                { value: blue,  description: "cool color" },
+                { value: green, description: "warm-ish color" },
+                { value: cyan,  description: "another cool one" },
+            ]
+        }
+        def my-command [arg: string@comp] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-command warm";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(&Vec::<&str>::new(), &suggestions);
 }
 
 #[test]
@@ -379,11 +430,11 @@ fn custom_completions_strip_ansi_from_record_values() {
 
 #[rstest]
 /// Fallback to file completions if custom completer returns null
-#[case::fallback(r#"
+#[case::fallback("
     def comp [] { null }
-    def my-command [arg: string@comp] {}"#,
+    def my-command [arg: string@comp] {}",
     "my-command test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b")],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b")],
     4
 )]
 /// Custom function arguments mixed with subcommands
@@ -391,7 +442,7 @@ fn custom_completions_strip_ansi_from_record_values() {
     def foo [i: directory] {}
     def "foo test bar" [] {}"#,
     "foo test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo test bar".into()],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b"), "foo test bar".into()],
     8
 )]
 /// If argument type is something like int/string, complete only subcommands
@@ -415,24 +466,24 @@ fn custom_completions_strip_ansi_from_record_values() {
     def foo [--test: directory] {}
     def "foo --test test" [] {}"#,
     "foo --test test", None,
-    vec![folder("test_a"), file("test_a_symlink"), folder("test_b"), "foo --test test".into()],
+    vec![folder("test_a"), folder("test_a_symlink"), folder("test_b"), "foo --test test".into()],
     "foo --test test".len()
 )]
 // Directory only
-#[case::flag_value_respect_to_type(r#"
-    def foo [--test: directory] {}"#,
+#[case::flag_value_respect_to_type("
+    def foo [--test: directory] {}",
     &format!("foo --test=directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::short_flag_value(r#"
-    def foo [-t: directory] {}"#,
+#[case::short_flag_value("
+    def foo [-t: directory] {}",
     &format!("foo -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag1(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag1("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path directory_completion{MAIN_SEPARATOR}"), None,
     vec![
         folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder")),
@@ -440,14 +491,14 @@ fn custom_completions_strip_ansi_from_record_values() {
     ],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag2(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag2("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path bar baz directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
 )]
-#[case::mixed_positional_and_flag3(r#"
-    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}"#,
+#[case::mixed_positional_and_flag3("
+    def foo [-t: directory, --path: path, pos: string, opt?: directory] {}",
     &format!("foo --path bar baz qux -t directory_completion{MAIN_SEPARATOR}"), None,
     vec![folder(format!("directory_completion{MAIN_SEPARATOR}folder_inside_folder"))],
     format!("directory_completion{MAIN_SEPARATOR}").len()
@@ -529,12 +580,12 @@ fn list_completions_defined_inline() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = /* lang=nu */ r#"
+    let completion_str = /* lang=nu */ "
         export def say [
           animal: string@[cat dog]
         ] { }
 
-        say "#;
+        say ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // including only subcommand completions
@@ -548,12 +599,12 @@ fn list_completions_extern() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let completion_str = /* lang=nu */ r#"
+    let completion_str = /* lang=nu */ "
         export extern say [
           animal: string@[cat dog]
         ]
 
-        say "#;
+        say ";
     let suggestions = completer.complete(completion_str, completion_str.len());
 
     // including only subcommand completions
@@ -627,7 +678,12 @@ fn external_commands() {
     #[cfg(windows)]
     let expected: Vec<_> = vec!["sleep", "sleep.exe"];
     #[cfg(not(windows))]
-    let expected: Vec<_> = vec!["sleep", "^sleep"];
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
+    match_suggestions(&expected, &suggestions);
+
+    let completion_str = "ls; %sl";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["sleep", "slice"];
     match_suggestions(&expected, &suggestions);
 
     #[cfg(windows)]
@@ -637,6 +693,35 @@ fn external_commands() {
         let expected: Vec<_> = vec!["script.ps1"];
         match_suggestions(&expected, &suggestions);
     }
+}
+
+#[test]
+fn percent_completion_only_shows_builtins() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = "
+        def slimy [] { }
+        alias slalias = slimy
+    ";
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "%sli";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["slice"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn percent_completion_includes_shadowed_builtin() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let setup = "def ls [] { 'custom-ls' }";
+    assert!(support::merge_input(setup.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "%ls";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["ls"];
+    match_suggestions(&expected, &suggestions);
 }
 
 /// Disable external commands except for those start with `^`
@@ -683,7 +768,7 @@ fn which_command_completions() {
     #[cfg(windows)]
     let expected: Vec<_> = vec!["sleep", "sleep.exe"];
     #[cfg(not(windows))]
-    let expected: Vec<_> = vec!["sleep", "^sleep"];
+    let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -702,9 +787,9 @@ fn hide_env_completions() {
 #[test]
 fn customcompletions_invalid() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"
+    let command = "
         def comp [] { 123 }
-        def my-command [arg: string@comp] {}"#;
+        def my-command [arg: string@comp] {}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -991,7 +1076,7 @@ fn external_completer_fallback() {
     let block = "{|spans| null}";
     let input = "foo test";
 
-    let expected = [folder("test_a"), file("test_a_symlink"), folder("test_b")];
+    let expected = [folder("test_a"), folder("test_a_symlink"), folder("test_b")];
     let suggestions = run_external_completion(block, input);
     match_suggestions_by_string(&expected, &suggestions);
 
@@ -1083,22 +1168,49 @@ fn command_wide_completion_external() {
     match_suggestions(&expected, &suggestions);
 }
 
-#[test]
-fn command_wide_completion_custom() {
+#[rstest]
+// https://github.com/nushell/nushell/issues/18007
+#[case::explicit_return("return")]
+#[case::implicit_return("")]
+fn command_wide_completion_custom(#[case] return_code: &str) {
     let mut completer = custom_completer();
 
-    let sample = /* lang=nu */ r#"
-        def "nu-complete foo" [spans: list] {
-            $spans ++ [some more]
-        }
+    let sample = /* lang=nu */ format!(r#"
+        def "nu-complete foo" [spans: list] {{
+            {return_code} ($spans ++ [some more])
+        }}
 
         @complete "nu-complete foo"
-        def --wrapped "foo" [...rest] {}
+        def --wrapped "foo" [...rest] {{}}
 
-        foo bar baz"#;
+        foo bar baz"#);
+
+    let suggestions = completer.complete(&sample, sample.len());
+    let expected = vec!["foo", "bar", "baz", "some", "more"];
+    match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn command_wide_completion_wrapped_untyped_equals_flag_value() {
+    let mut completer = custom_completer();
+
+    let sample = r#"
+        def "nu-complete wt" [spans: list<string>] {
+            let last = ($spans | last)
+            if ($last | str starts-with "--base=") {
+                [--base=releases/4.x.x --base=main]
+            } else {
+                [switch --base]
+            }
+        }
+
+        @complete "nu-complete wt"
+        def --wrapped "wt" [...args] {}
+
+        wt switch --base=rel"#;
 
     let suggestions = completer.complete(sample, sample.len());
-    let expected = vec!["foo", "bar", "baz", "some", "more"];
+    let expected = vec!["--base=releases/4.x.x", "--base=main"];
     match_suggestions(&expected, &suggestions);
 }
 
@@ -1109,7 +1221,7 @@ fn command_wide_completion_custom() {
     @complete "nu-complete foo""#
 )]
 #[case::external(
-    r#"
+    "
     let external_completer = {|spans| null }
 
     $env.config.completions.external = {
@@ -1118,7 +1230,7 @@ fn command_wide_completion_custom() {
         completer: $external_completer
     }
 
-    @complete external"#
+    @complete external"
 )]
 fn command_wide_completion_fallback(#[case] code: &str) {
     // Create a new engine with PWD
@@ -1134,7 +1246,7 @@ fn command_wide_completion_fallback(#[case] code: &str) {
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
-    let sample = /* lang=nu */ r#"foo bar completions"#;
+    let sample = /* lang=nu */ "foo bar completions";
 
     let suggestions = completer.complete(sample, sample.len());
     let expected = vec![folder("completions")];
@@ -1241,7 +1353,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1275,7 +1387,7 @@ fn file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1342,7 +1454,7 @@ fn file_completions() {
 fn custom_command_rest_any_args_file_completions() {
     // Create a new engine
     let (dir, dir_str, mut engine, mut stack) = new_engine();
-    let command = r#"def list [ ...args: any ] {}"#;
+    let command = "def list [ ...args: any ] {}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Instantiate a new completer
@@ -1359,7 +1471,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1379,7 +1491,7 @@ fn custom_command_rest_any_args_file_completions() {
         folder(dir.join("directory_completion")),
         file(dir.join("nushell")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         file(dir.join(".hidden_file")),
         folder(dir.join(".hidden_folder")),
@@ -1701,7 +1813,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1713,7 +1825,7 @@ fn command_ls_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1745,7 +1857,7 @@ fn command_open_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1757,7 +1869,7 @@ fn command_open_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1789,7 +1901,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1801,7 +1913,7 @@ fn command_rm_with_globcompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1826,7 +1938,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1838,7 +1950,7 @@ fn command_cp_with_globcompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1863,7 +1975,7 @@ fn command_save_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1875,7 +1987,7 @@ fn command_save_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1900,7 +2012,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1912,7 +2024,7 @@ fn command_touch_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -1937,7 +2049,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -1949,7 +2061,7 @@ fn command_watch_with_filecompletion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -2207,7 +2319,7 @@ fn folder_with_directorycompletions() {
         folder(dir.join("another")),
         folder(dir.join("directory_completion")),
         folder(dir.join("test_a")),
-        file(dir.join("test_a_symlink")),
+        folder(dir.join("test_a_symlink")),
         folder(dir.join("test_b")),
         folder(dir.join(".hidden_folder")),
     ];
@@ -2310,7 +2422,7 @@ fn folder_with_directorycompletions_with_three_trailing_dots() {
                 .join("...")
                 .join("test_a"),
         ),
-        file(
+        folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
                 .join("...")
@@ -2388,7 +2500,7 @@ fn folder_with_directorycompletions_do_not_collapse_dots() {
                 .join("..")
                 .join("test_a"),
         ),
-        file(
+        folder(
             dir.join("directory_completion")
                 .join("folder_inside_folder")
                 .join("..")
@@ -2443,8 +2555,6 @@ fn variables_completions() {
     // Test completions for $nu
     let suggestions = completer.complete("$nu.", 4);
 
-    assert_eq!(21, suggestions.len());
-
     let expected: Vec<_> = vec![
         "cache-dir",
         "config-path",
@@ -2462,12 +2572,15 @@ fn variables_completions() {
         "loginshell-path",
         "os-info",
         "pid",
+        #[cfg(feature = "plugin")]
         "plugin-path",
         "startup-time",
         "temp-dir",
         "user-autoload-dirs",
         "vendor-autoload-dirs",
     ];
+
+    assert_eq!(expected.len(), suggestions.len());
 
     // Match results
     match_suggestions(&expected, &suggestions);
@@ -2680,7 +2793,7 @@ fn unlet_variable_grandparent_stack_not_in_completions() {
 #[case("{a: [1 {a: 2}]}.a.1.")]
 fn record_cell_path_completions(#[case] input: &str) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}"#;
+    let command = "let foo = {a: [1 {a: 2}]}; const bar = {a: [1 {a: 2}]}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -2698,7 +2811,7 @@ fn record_cell_path_completions(#[case] input: &str) {
 #[case("($bar).", ["a", "b"].into())]
 fn table_cell_path_completions(#[case] input: &str, #[case] expected: Vec<&str>) {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]"#;
+    let command = "let foo = [{a:{b:1}}, {a:{b:2}}]; const bar = [[a b]; [1 2]]";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
@@ -2740,16 +2853,16 @@ fn alias_of_command_and_flags() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -l"#;
+    let alias = "alias ll = ls -l";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2759,16 +2872,16 @@ fn alias_of_basic_command() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls "#;
+    let alias = "alias ll = ls ";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let suggestions = completer.complete("ll t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2778,19 +2891,19 @@ fn alias_of_another_alias() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -la"#;
+    let alias = "alias ll = ls -la";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
     // Create the second alias
-    let alias = r#"alias lf = ll -f"#;
+    let alias = "alias lf = ll -f";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
 
     let suggestions = completer.complete("lf t", 4);
     #[cfg(windows)]
-    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink", "test_b\\"];
+    let expected_paths: Vec<_> = vec!["test_a\\", "test_a_symlink\\", "test_b\\"];
     #[cfg(not(windows))]
-    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink", "test_b/"];
+    let expected_paths: Vec<_> = vec!["test_a/", "test_a_symlink/", "test_b/"];
 
     match_suggestions(&expected_paths, &suggestions)
 }
@@ -2848,7 +2961,7 @@ fn unknown_command_completion() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -2860,7 +2973,7 @@ fn unknown_command_completion() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -2884,7 +2997,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion\\",
         "nushell",
         "test_a\\",
-        "test_a_symlink",
+        "test_a_symlink\\",
         "test_b\\",
         ".hidden_file",
         ".hidden_folder\\",
@@ -2896,7 +3009,7 @@ fn filecompletions_triggers_after_cursor() {
         "directory_completion/",
         "nushell",
         "test_a/",
-        "test_a_symlink",
+        "test_a_symlink/",
         "test_b/",
         ".hidden_file",
         ".hidden_folder/",
@@ -3055,7 +3168,7 @@ fn alias_offset_bug_7648() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ea = ^$env.EDITOR /tmp/test.s"#;
+    let alias = "alias ea = ^$env.EDITOR /tmp/test.s";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3073,7 +3186,7 @@ fn alias_offset_bug_7754() {
     let (_, _, mut engine, mut stack) = new_engine();
 
     // Create an alias
-    let alias = r#"alias ll = ls -l"#;
+    let alias = "alias ll = ls -l";
     assert!(support::merge_input(alias.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3230,7 +3343,7 @@ fn assignment_operator_completions(mut custom_completer: NuCompleter) {
 #[test]
 fn cellpath_assignment_operator_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"mut foo = {'foo': [1, '1']}"#;
+    let command = "mut foo = {'foo': [1, '1']}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3247,7 +3360,7 @@ fn cellpath_assignment_operator_completions() {
     match_suggestions(&expected, &suggestions);
 
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"mut foo = {'foo': [1, (date now)]}"#;
+    let command = "mut foo = {'foo': [1, (date now)]}";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3265,11 +3378,11 @@ fn cellpath_assignment_operator_completions() {
 #[test]
 fn alias_expansion_for_external_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"alias example_alias = example_cmd arg1 arg2"#;
+    let command = "alias example_alias = example_cmd arg1 arg2";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    let command = "$env.config.completions.external.completer = {|s| $s }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
@@ -3282,11 +3395,11 @@ fn alias_expansion_for_external_completions() {
 #[test]
 fn nested_alias_expansion_for_external_completions() {
     let (_, _, mut engine, mut stack) = new_engine();
-    let command = r#"alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg"#;
+    let command = "alias example_alias = example_cmd arg1 arg2; alias nested_alias = example_alias nested_alias_arg";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     // Define an external completer that returns the arguments passed to it
-    let command = r#"$env.config.completions.external.completer = {|s| $s }"#;
+    let command = "$env.config.completions.external.completer = {|s| $s }";
     assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));

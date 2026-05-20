@@ -519,9 +519,9 @@ fn dynamic_closure_type_check() {
 
 #[test]
 fn dynamic_closure_optional_arg() {
-    let actual = nu!(r#"let closure = {|x: int = 3| echo $x}; do $closure"#);
+    let actual = nu!("let closure = {|x: int = 3| echo $x}; do $closure");
     assert_eq!(actual.out, "3");
-    let actual = nu!(r#"let closure = {|x: int = 3| echo $x}; do $closure 10"#);
+    let actual = nu!("let closure = {|x: int = 3| echo $x}; do $closure 10");
     assert_eq!(actual.out, "10");
 }
 
@@ -1088,10 +1088,10 @@ fn outerr_pipe_input_to_print() {
 
 #[test]
 fn command_not_found_error_shows_not_found_2() {
-    let actual = nu!(r#"
+    let actual = nu!("
             export def --wrapped my-foo [...rest] { foo };
             my-foo
-        "#);
+        ");
     assert!(
         actual.err.contains("Command `foo` not found")
             && actual.err.contains("Did you mean `for`?")
@@ -1116,7 +1116,7 @@ fn error_with_backtrace() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3"#);
+            "def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};a 3");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -1128,7 +1128,7 @@ fn error_with_backtrace() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b"#);
+            "def a [x] { if $x == 3 { error make {msg: 'a custom error'}}};def b [] { a 1; a 3; a 2 };b");
 
         let chained_error_cnt: Vec<&str> = actual
             .err
@@ -1141,7 +1141,7 @@ fn error_with_backtrace() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"error make {msg: 'a custom err'}"#);
+            "error make {msg: 'a custom err'}");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -1159,7 +1159,7 @@ fn liststream_error_with_backtrace_custom() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3"#);
+            "def a [x] { if $x == 3 { [1] | each {error make {'msg': 'a custom error'}}}};a 3");
         assert!(actual.err.contains("a custom error"));
     });
 }
@@ -1171,7 +1171,7 @@ fn liststream_error_with_backtrace_function() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"def a [x] {
+            "def a [x] {
     if $x == 3 {
         [1]
         | each {
@@ -1187,7 +1187,7 @@ def b [] {
     a 2
 }
 b
-"#);
+");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")
@@ -1206,7 +1206,7 @@ fn liststream_error_with_backtrace_single_stream() {
         let actual = nu!(
             env_config: "tmp_env.nu",
             cwd: dirs.test(),
-            r#"[1] | each { error make {msg: 'a custom err'} }"#);
+            "[1] | each { error make {msg: 'a custom err'} }");
         let chained_error_cnt: Vec<&str> = actual
             .err
             .matches("diagnostic code: chained_error")

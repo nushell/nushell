@@ -17,7 +17,7 @@ impl Command for Cd {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["change", "directory", "dir", "folder", "switch"]
+        vec!["change", "directory", "dir", "folder", "switch", "chdir"]
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -37,7 +37,9 @@ impl Command for Cd {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let physical = call.has_flag(engine_state, stack, "physical")?;
-        let path_val: Option<Spanned<String>> = call.opt(engine_state, stack, 0)?;
+        let path_val = call
+            .opt::<Spanned<String>>(engine_state, stack, 0)?
+            .map(|p| p.map(nu_utils::strip_ansi_string_unlikely));
 
         // If getting PWD failed, default to the home directory. The user can
         // use `cd` to reset PWD to a good state.
@@ -47,17 +49,6 @@ impl Command for Cd {
             .or_else(nu_path::home_dir)
             .map(|path| path.into_std_path_buf())
             .unwrap_or_default();
-
-        let path_val = {
-            if let Some(path) = path_val {
-                Some(Spanned {
-                    item: nu_utils::strip_ansi_string_unlikely(path.item),
-                    span: path.span,
-                })
-            } else {
-                path_val
-            }
-        };
 
         let path = match path_val {
             Some(v) => {
@@ -147,27 +138,27 @@ impl Command for Cd {
         vec![
             Example {
                 description: "Change to your home directory.",
-                example: r#"cd ~"#,
+                example: "cd ~",
                 result: None,
             },
             Example {
                 description: r#"Change to the previous working directory (same as "cd $env.OLDPWD")."#,
-                example: r#"cd -"#,
+                example: "cd -",
                 result: None,
             },
             Example {
                 description: "Changing directory with a custom command requires 'def --env'.",
-                example: r#"def --env gohome [] { cd ~ }"#,
+                example: "def --env gohome [] { cd ~ }",
                 result: None,
             },
             Example {
                 description: "Move two directories up in the tree (the parent directory's parent). Additional dots can be added for additional levels.",
-                example: r#"cd ..."#,
+                example: "cd ...",
                 result: None,
             },
             Example {
                 description: "The cd command itself is often optional. Simply entering a path to a directory will cd to it.",
-                example: r#"/home"#,
+                example: "/home",
                 result: None,
             },
         ]

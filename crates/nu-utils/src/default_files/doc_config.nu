@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.111.1"
+# version = "0.112.3"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -75,6 +75,12 @@ $env.config.history.path = "~/custom/my-history.txt"
 # If set to a directory, the appropriate file name (e.g., history.txt) is used.
 # If set to a filename only, the file will be stored in $nu.default-config-dir.
 
+# history.ignore_space_prefixed (bool): Whether commands starting with leading whitespace are saved to history.
+# true: Commands starting with one or more spaces or tabs will NOT be saved.
+# false: All commands are saved, including those with any amount of leading whitespace.
+# Default: true
+$env.config.history.ignore_space_prefixed = true
+
 # ----------------------
 # Miscellaneous Settings
 # ----------------------
@@ -99,6 +105,13 @@ $env.config.rm.always_trash = false
 # Must be greater than 1.
 # Default: 50
 $env.config.recursion_limit = 50
+
+# auto_cd_implicit (bool): Gives precedence to auto-cd when command string is
+# an existing directory path.  
+# false: A relative (e.g.  './dirname') or absolute path is required to auto-cd.
+# true: If the command string matches a subdirectory in the current directory
+# (e.g. 'src'), auto-cd will be triggered without needing './' or '/'.
+$env.config.auto_cd_implicit = false
 
 # ------------------
 # Clipboard Settings
@@ -162,6 +175,31 @@ $env.config.cursor_shape.vi_normal = "inherit"
 # false: Don't show hints.
 # Default: true
 $env.config.show_hints = true
+
+# hinter.closure (closure|null): Custom hint closure.
+# Closure input: one record argument {|ctx| ... } where
+#   $ctx.line (string): current line buffer
+#   $ctx.pos (int): current cursor position
+#   $ctx.cwd (string): current working directory
+# Return:
+#   string -> hint suffix to render and accept
+#   record -> {hint: string, next_token?: string} for custom token splitting
+#   null   -> no hint (equivalent to "")
+# Any closure error or unsupported return type yields no hint.
+# To use the built-in hinter instead, set hinter.closure = null in config.
+# This closure runs frequently while typing, so keep it lightweight.
+# Default: null
+$env.config.hinter.closure = null
+
+# Example:
+# $env.config.hinter.closure = {|ctx|
+#   let last = (history | last 1 | get command_line? | get 0?)
+#   if $last == null or not ($last | str starts-with $ctx.line) {
+#     null
+#   } else {
+#     ($last | str substring ($ctx.line | str length)..)
+#   }
+# }
 
 # completions.algorithm (string): The algorithm used for matching completions.
 # "prefix": Match from the beginning of the text.
@@ -339,7 +377,8 @@ $env.config.footer_mode = 25
 # table.mode (string): Visual border style for tables.
 # One of: "rounded", "basic", "compact", "compact_double", "light", "thin",
 # "with_love", "reinforced", "heavy", "none", "psql", "markdown", "dots",
-# "restructured", "ascii_rounded", "basic_compact", "single", "double".
+# "restructured", "ascii_rounded", "basic_compact", "single", "double",
+# "frameless".
 # Can be overridden with `| table --theme/-t`.
 # Default: "rounded"
 $env.config.table.mode = "rounded"
@@ -858,6 +897,26 @@ $env.config.color_config.closure = "green_bold"
 # color_config.binary: Style for binary values in output.
 # Default: default
 $env.config.color_config.binary = "default"
+
+# color_config.binary_null_char: Style for null characters (\0) in binary hex viewer.
+# Default: grey42
+$env.config.color_config.binary_null_char = "grey42"
+
+# color_config.binary_printable: Style for printable ASCII characters in binary hex viewer.
+# Default: cyan_bold
+$env.config.color_config.binary_printable = "cyan_bold"
+
+# color_config.binary_whitespace: Style for whitespace ASCII characters in binary hex viewer.
+# Default: green_bold
+$env.config.color_config.binary_whitespace = "green_bold"
+
+# color_config.binary_ascii_other: Style for other ASCII characters in binary hex viewer.
+# Default: purple_bold
+$env.config.color_config.binary_ascii_other = "purple_bold"
+
+# color_config.binary_non_ascii: Style for non-ASCII characters in binary hex viewer.
+# Default: yellow_bold
+$env.config.color_config.binary_non_ascii = "yellow_bold"
 
 # color_config.custom: Style for custom values in output.
 # Default: default

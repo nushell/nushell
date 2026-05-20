@@ -64,7 +64,7 @@ impl Command for ViewBlocks {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "View the blocks registered in Nushell's EngineState memory.",
-            example: r#"view blocks"#,
+            example: "view blocks",
             result: None,
         }]
     }

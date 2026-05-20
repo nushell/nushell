@@ -1,6 +1,5 @@
-use nu_test_support::fs::Stub;
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_protocol::{ByteStream, ByteStreamType, PipelineData, Signals, Span, test_table};
+use nu_test_support::{fs::Stub, prelude::*};
 
 mod simple {
     use super::*;
@@ -10,11 +9,11 @@ mod simple {
         Playground::setup("parse_test_simple_1", |dirs, sandbox| {
             sandbox.with_files(&[Stub::FileWithContentToBeTrimmed(
                 "key_value_separated_arepa_ingredients.txt",
-                r#"
+                "
                     VAR1=Cheese
                     VAR2=JTParsed
                     VAR3=NushellSecretIngredient
-                "#,
+                ",
             )]);
 
             let actual = nu!(cwd: dirs.test(), r#"
@@ -38,6 +37,38 @@ mod simple {
             | get name.0
         "#);
         assert_eq!(actual.out, "123");
+    }
+
+    #[test]
+    fn char_lbrace_before_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""1234{56" | parse $'{a}(char lbrace){b}' | get a.0"#)
+            .expect_value_eq("1234")
+    }
+
+    #[test]
+    fn double_brace_at_end_matches_literal_brace_with_capture() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{hello" | parse "{{foo}" | get foo.0"#)
+            .expect_value_eq("hello")
+    }
+
+    #[test]
+    fn double_brace_at_end_does_not_match_without_brace_in_input() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""hello" | parse "{{foo}" | length"#)
+            .expect_value_eq(0)
+    }
+
+    #[test]
+    fn double_brace_with_suffix_before_capture_stays_literal() -> nu_test_support::Result {
+        use nu_test_support::prelude::*;
+        test()
+            .run(r#""{foo}x123" | parse "{{foo}x{bar}" | get bar.0"#)
+            .expect_value_eq("123")
     }
 
     #[test]
@@ -99,10 +130,10 @@ mod regex {
     fn nushell_git_log_oneline<'a>() -> Vec<Stub<'a>> {
         vec![Stub::FileWithContentToBeTrimmed(
             "nushell_git_log_oneline.txt",
-            r#"
+            "
                 ae87582c Fix missing invocation errors (#1846)
                 b89976da let format access variables also (#1842)
-            "#,
+            ",
         )]
     }
 
@@ -205,5 +236,43 @@ mod regex {
 
             assert_eq!(actual.out, "1000");
         })
+    }
+
+    #[test]
+    fn multiline_regex() -> Result {
+        let mut tester = test();
+
+        let pattern = r#"(?ms)^(?<n>\d+)\. (?<text>.*?)(?=$\s^\d|\Z)"#;
+        let () = tester.run_with_data("let pattern = $in", pattern)?;
+
+        let input = [
+            "1. one\n",
+            "2. two and\n",
+            "   a half\n",
+            "3. three\n",
+            "4. four and\n",
+            "   some more\n",
+        ];
+        let byte_stream = PipelineData::ByteStream(
+            ByteStream::from_iter(
+                input,
+                Span::test_data(),
+                Signals::empty(),
+                ByteStreamType::Unknown,
+            ),
+            None,
+        );
+
+        let code = "parse -r $pattern";
+        tester
+            .run_raw_with_data(code, byte_stream)
+            .and_then(|x| x.body.into_value(Span::test_data()).map_err(Error::from))
+            .expect_value_eq(test_table![
+              ["n", "text"];
+              ["1", "one"],
+              ["2", "two and\n   a half"],
+              ["3", "three"],
+              ["4", "four and\n   some more"]
+            ])
     }
 }

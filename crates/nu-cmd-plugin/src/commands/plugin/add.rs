@@ -2,7 +2,8 @@ use crate::util::{get_plugin_dirs, modify_plugin_file};
 use nu_engine::command_prelude::*;
 use nu_plugin_engine::{GetPlugin, PersistentPlugin};
 use nu_protocol::{
-    PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin, shell_error::io::IoError,
+    PluginGcConfig, PluginIdentity, PluginRegistryItem, RegisteredPlugin,
+    shell_error::generic::GenericError, shell_error::io::IoError,
 };
 use std::{path::PathBuf, sync::Arc};
 
@@ -43,14 +44,14 @@ impl Command for PluginAdd {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This does not load the plugin commands into the scope - see `plugin use` for
 that.
 
 Instead, it runs the plugin to get its command signatures, and then edits the
 plugin registry file (by default, `$nu.plugin-path`). The changes will be
 apparent the next time `nu` is next launched with that plugin registry file.
-"#
+"
         .trim()
     }
 
@@ -105,13 +106,11 @@ apparent the next time `nu` is next launched with that plugin registry file.
 
         // Parse the plugin filename so it can be used to spawn the plugin
         let identity = PluginIdentity::new(filename_expanded, shell_expanded).map_err(|_| {
-            ShellError::GenericError {
-                error: "Plugin filename is invalid".into(),
-                msg: "plugin executable files must start with `nu_plugin_`".into(),
-                span: Some(filename.span),
-                help: None,
-                inner: vec![],
-            }
+            ShellError::Generic(GenericError::new(
+                "Plugin filename is invalid",
+                "plugin executable files must start with `nu_plugin_`",
+                filename.span,
+            ))
         })?;
 
         let custom_path = call.get_flag(engine_state, stack, "plugin-config")?;

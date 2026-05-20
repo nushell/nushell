@@ -24,10 +24,10 @@ impl Command for Prepend {
     }
 
     fn extra_description(&self) -> &str {
-        r#"Be aware that this command 'unwraps' lists passed to it. So, if you pass a variable to it,
+        "Be aware that this command 'unwraps' lists passed to it. So, if you pass a variable to it,
 and you want the variable's contents to be prepended without being unwrapped, it's wise to
 pre-emptively wrap the variable in a list, like so: `prepend [$val]`. This way, `prepend` will
-only unwrap the outer list, and leave the variable's contents untouched."#
+only unwrap the outer list, and leave the variable's contents untouched."
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -108,10 +108,10 @@ only unwrap the outer list, and leave the variable's contents untouched."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let other: Value = call.req(engine_state, stack, 0)?;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         Ok(other
             .into_pipeline_data()
@@ -126,9 +126,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Prepend {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Prepend)
     }
 }

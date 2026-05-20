@@ -16,9 +16,9 @@ impl Command for Get {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
+        "This is equivalent to using the cell path access syntax: `$env.OS` is the same as `$env | get OS`.
 
-If multiple cell paths are given, this will produce a list of values."#
+If multiple cell paths are given, this will produce a list of values."
     }
 
     fn signature(&self) -> nu_protocol::Signature {
@@ -151,7 +151,6 @@ If multiple cell paths are given, this will produce a list of values."#
         let optional = call.has_flag_const(working_set, "optional")?
             || call.has_flag_const(working_set, "ignore-errors")?;
         let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
-        let metadata = input.metadata();
         action(
             input,
             cell_path,
@@ -161,7 +160,6 @@ If multiple cell paths are given, this will produce a list of values."#
             working_set.permanent().signals().clone(),
             call.head,
         )
-        .map(|x| x.set_metadata(metadata))
     }
 
     fn run(
@@ -176,7 +174,6 @@ If multiple cell paths are given, this will produce a list of values."#
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
-        let metadata = input.metadata();
         action(
             input,
             cell_path,
@@ -186,7 +183,6 @@ If multiple cell paths are given, this will produce a list of values."#
             engine_state.signals().clone(),
             call.head,
         )
-        .map(|x| x.set_metadata(metadata))
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
@@ -210,7 +206,7 @@ If multiple cell paths are given, this will produce a list of values."#
 }
 
 fn action(
-    input: PipelineData,
+    mut input: PipelineData,
     mut cell_path: CellPath,
     mut rest: Vec<CellPath>,
     optional: bool,
@@ -236,8 +232,16 @@ fn action(
         return Err(ShellError::PipelineEmpty { dst_span: span });
     }
 
+    let mut metadata = input.take_metadata();
+
     if rest.is_empty() {
-        follow_cell_path_into_stream(input, signals, cell_path.members, span)
+        let cell_path_is_index = matches!(&cell_path.members[..], &[PathMember::Int { .. }]);
+        follow_cell_path_into_stream(input, signals, cell_path.members, span).map(|data| {
+            if !cell_path_is_index && let Some(metadata) = &mut metadata {
+                metadata.path_columns.clear();
+            }
+            data.set_metadata(metadata)
+        })
     } else {
         let mut output = vec![];
 
@@ -245,11 +249,20 @@ fn action(
 
         let input = input.into_value(span)?;
 
+        let mut any_cell_path_is_index = false;
+
         for path in paths {
+            any_cell_path_is_index |= matches!(&path.members[..], &[PathMember::Int { .. }]);
             output.push(input.follow_cell_path(&path.members)?.into_owned());
         }
 
-        Ok(output.into_iter().into_pipeline_data(span, signals))
+        if !any_cell_path_is_index && let Some(metadata) = &mut metadata {
+            metadata.path_columns.clear();
+        }
+
+        Ok(output
+            .into_iter()
+            .into_pipeline_data_with_metadata(span, signals, metadata))
     }
 }
 
@@ -299,9 +312,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Get)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Get)
     }
 }

@@ -1,5 +1,5 @@
 let toolchain_spec = open rust-toolchain.toml | get toolchain.channel
-let msrv_spec = open Cargo.toml | get package.rust-version
+let msrv_spec = open Cargo.toml | get workspace.package.rust-version
 
 # This check is conservative in the sense that we use `rust-toolchain.toml`'s
 # override to ensure that this is the upper-bound for the minimum supported

@@ -335,7 +335,7 @@ fn upsert_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(value.clone())
+        .add_arg(value.clone())?
         .run_with_input(input)?
         .into_value(span)?;
 
@@ -369,7 +369,7 @@ fn upsert_single_value_by_closure(
         .unwrap_or(PipelineData::empty());
 
     let new_value = closure
-        .add_arg(arg)
+        .add_arg(arg)?
         .run_with_input(input)?
         .into_value(span)?;
 
@@ -381,9 +381,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Upsert {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Upsert)
     }
 }

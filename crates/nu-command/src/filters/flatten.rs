@@ -117,10 +117,10 @@ fn flatten(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let columns: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let flatten_all = call.has_flag(engine_state, stack, "all")?;
 
     input
@@ -311,9 +311,7 @@ fn flat_value(columns: &[CellPath], item: Value, all: bool) -> Vec<Value> {
 mod test {
     use super::*;
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Flatten {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Flatten)
     }
 }

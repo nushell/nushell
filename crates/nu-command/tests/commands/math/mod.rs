@@ -18,81 +18,81 @@ use nu_test_support::prelude::*;
 
 #[test]
 fn one_arg() -> Result {
-    let code = r#"
+    let code = "
         1
-    "#;
+    ";
     test().run(code).expect_value_eq(1)
 }
 
 #[test]
 fn add() -> Result {
-    let code = r#"
+    let code = "
         1 + 1
-    "#;
+    ";
     test().run(code).expect_value_eq(2)
 }
 
 #[test]
 fn add_compound() -> Result {
-    let code = r#"
+    let code = "
         1 + 2 + 2
-    "#;
+    ";
     test().run(code).expect_value_eq(5)
 }
 
 #[test]
 fn precedence_of_operators() -> Result {
-    let code = r#"
+    let code = "
         1 + 2 * 2
-    "#;
+    ";
     test().run(code).expect_value_eq(5)
 }
 
 #[test]
 fn precedence_of_operators2() -> Result {
-    let code = r#"
+    let code = "
         1 + 2 * 2 + 1
-    "#;
+    ";
     test().run(code).expect_value_eq(6)
 }
 
 #[test]
 fn precedence_of_operators3() -> Result {
-    let code = r#"
+    let code = "
         5 - 5 * 10 + 5
-    "#;
+    ";
     test().run(code).expect_value_eq(-40)
 }
 
 #[test]
 fn precedence_of_operators4() -> Result {
-    let code = r#"
+    let code = "
         5 - (5 * 10) + 5
-    "#;
+    ";
     test().run(code).expect_value_eq(-40)
 }
 
 #[test]
 fn division_of_ints() -> Result {
-    let code = r#"
+    let code = "
         4 / 2
-    "#;
+    ";
     test().run(code).expect_value_eq(2.0)
 }
 
 #[test]
 fn division_of_ints2() -> Result {
-    let code = r#"
+    let code = "
         1 / 4
-    "#;
+    ";
     test().run(code).expect_value_eq(0.25)
 }
 
 #[test]
 fn error_zero_division_int_int() -> Result {
-    let code = r#"
+    let code = "
         1 / 0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -101,9 +101,9 @@ fn error_zero_division_int_int() -> Result {
 
 #[test]
 fn error_zero_division_float_int() -> Result {
-    let code = r#"
+    let code = "
         1.0 / 0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -112,9 +112,9 @@ fn error_zero_division_float_int() -> Result {
 
 #[test]
 fn error_zero_division_int_float() -> Result {
-    let code = r#"
+    let code = "
         1 / 0.0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -123,9 +123,9 @@ fn error_zero_division_int_float() -> Result {
 
 #[test]
 fn error_zero_division_float_float() -> Result {
-    let code = r#"
+    let code = "
         1.0 / 0.0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -134,33 +134,33 @@ fn error_zero_division_float_float() -> Result {
 
 #[test]
 fn floor_division_of_ints() -> Result {
-    let code = r#"
+    let code = "
         5 // 2
-    "#;
+    ";
     test().run(code).expect_value_eq(2)
 }
 
 #[test]
 fn floor_division_of_ints2() -> Result {
-    let code = r#"
+    let code = "
         -3 // 2
-    "#;
+    ";
     test().run(code).expect_value_eq(-2)
 }
 
 #[test]
 fn floor_division_of_floats() -> Result {
-    let code = r#"
+    let code = "
         -3.0 // 2.0
-    "#;
+    ";
     test().run(code).expect_value_eq(-2.0)
 }
 
 #[test]
 fn error_zero_floor_division_int_int() -> Result {
-    let code = r#"
+    let code = "
         1 // 0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -169,9 +169,9 @@ fn error_zero_floor_division_int_int() -> Result {
 
 #[test]
 fn error_zero_floor_division_float_int() -> Result {
-    let code = r#"
+    let code = "
         1.0 // 0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -180,9 +180,9 @@ fn error_zero_floor_division_float_int() -> Result {
 
 #[test]
 fn error_zero_floor_division_int_float() -> Result {
-    let code = r#"
+    let code = "
         1 // 0.0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -191,9 +191,9 @@ fn error_zero_floor_division_int_float() -> Result {
 
 #[test]
 fn error_zero_floor_division_float_float() -> Result {
-    let code = r#"
+    let code = "
         1.0 // 0.0
-    "#;
+    ";
     let outcome = test().run(code).expect_shell_error()?;
 
     assert!(matches!(outcome, ShellError::DivisionByZero { .. }));
@@ -201,25 +201,25 @@ fn error_zero_floor_division_float_float() -> Result {
 }
 #[test]
 fn proper_precedence_history() -> Result {
-    let code = r#"
+    let code = "
         2 / 2 / 2 + 1
-    "#;
+    ";
     test().run(code).expect_value_eq(1.5)
 }
 
 #[test]
 fn parens_precedence() -> Result {
-    let code = r#"
+    let code = "
         4 * (6 - 3)
-    "#;
+    ";
     test().run(code).expect_value_eq(12)
 }
 
 #[test]
 fn modulo() -> Result {
-    let code = r#"
+    let code = "
         9 mod 2
-    "#;
+    ";
     test().run(code).expect_value_eq(1)
 }
 
@@ -302,9 +302,9 @@ fn unit_float_division_math() -> Result {
 
 #[test]
 fn duration_math() -> Result {
-    let code = r#"
+    let code = "
         1wk + 1day
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(691_200_000_000_000))
@@ -312,9 +312,9 @@ fn duration_math() -> Result {
 
 #[test]
 fn duration_decimal_math() -> Result {
-    let code = r#"
+    let code = "
         5.5day + 0.5day
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(518_400_000_000_000))
@@ -322,9 +322,9 @@ fn duration_decimal_math() -> Result {
 
 #[test]
 fn duration_math_with_nanoseconds() -> Result {
-    let code = r#"
+    let code = "
         1wk + 10ns
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(604_800_000_000_010))
@@ -332,9 +332,9 @@ fn duration_math_with_nanoseconds() -> Result {
 
 #[test]
 fn duration_decimal_math_with_nanoseconds() -> Result {
-    let code = r#"
+    let code = "
         1.5wk + 10ns
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(907_200_000_000_010))
@@ -342,9 +342,9 @@ fn duration_decimal_math_with_nanoseconds() -> Result {
 
 #[test]
 fn duration_decimal_math_with_all_units() -> Result {
-    let code = r#"
+    let code = "
         1wk + 3day + 8hr + 10min + 16sec + 121ms + 11us + 12ns
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(893_416_121_011_012))
@@ -352,9 +352,9 @@ fn duration_decimal_math_with_all_units() -> Result {
 
 #[test]
 fn duration_decimal_dans_test() -> Result {
-    let code = r#"
+    let code = "
         3.14sec
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(3_140_000_000))
@@ -362,9 +362,9 @@ fn duration_decimal_dans_test() -> Result {
 
 #[test]
 fn duration_math_with_negative() -> Result {
-    let code = r#"
+    let code = "
         1day - 1wk
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq(Value::test_duration(-518_400_000_000_000))
@@ -372,9 +372,9 @@ fn duration_math_with_negative() -> Result {
 
 #[test]
 fn compound_comparison() -> Result {
-    let code = r#"
+    let code = "
         4 > 3 and 2 > 1
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
 
     assert!(outcome);
@@ -383,9 +383,9 @@ fn compound_comparison() -> Result {
 
 #[test]
 fn compound_comparison2() -> Result {
-    let code = r#"
+    let code = "
         4 < 3 or 2 > 1
-    "#;
+    ";
     let outcome: bool = test().run(code)?;
 
     assert!(outcome);
@@ -414,17 +414,17 @@ fn compound_where_paren() -> Result {
 
 #[test]
 fn concat_lists() -> Result {
-    let code = r#"
+    let code = "
         [1 3] ++ [5 6] | to nuon
-    "#;
+    ";
     test().run(code).expect_value_eq("[1, 3, 5, 6]")
 }
 
 #[test]
 fn concat_tables() -> Result {
-    let code = r#"
+    let code = "
         [[a b]; [1 2]] ++ [[c d]; [10 11]] | to nuon
-    "#;
+    ";
     test()
         .run(code)
         .expect_value_eq("[{a: 1, b: 2}, {c: 10, d: 11}]")
@@ -440,8 +440,8 @@ fn concat_strings() -> Result {
 
 #[test]
 fn concat_binary_values() -> Result {
-    let code = r#"
+    let code = "
         0x[01 02] ++ 0x[03 04] | to nuon
-    "#;
+    ";
     test().run(code).expect_value_eq("0x[01020304]")
 }

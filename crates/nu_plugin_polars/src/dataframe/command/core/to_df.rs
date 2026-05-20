@@ -65,6 +65,7 @@ impl PluginCommand for ToDataFrame {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -86,6 +87,7 @@ impl PluginCommand for ToDataFrame {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -115,6 +117,7 @@ impl PluginCommand for ToDataFrame {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -134,6 +137,7 @@ impl PluginCommand for ToDataFrame {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -153,6 +157,7 @@ impl PluginCommand for ToDataFrame {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -249,9 +254,8 @@ impl PluginCommand for ToDataFrame {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let maybe_schema = call
             .get_flag("schema")?
             .map(|schema| NuSchema::try_from_value(plugin, &schema))
@@ -261,8 +265,10 @@ impl PluginCommand for ToDataFrame {
 
         let maybe_as_columns = call.has_flag("as-columns")?;
 
+        let metadata = input.take_metadata();
+
         let df = if !maybe_as_columns {
-            NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
+            NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone(), call.head)?
         } else {
             match &input {
                 PipelineData::Value(Value::Record { val, .. }, _) => {
@@ -279,7 +285,7 @@ impl PluginCommand for ToDataFrame {
                                 .iter()
                                 .map(|(k, v)| Column::new(k.to_owned(), v.to_owned()))
                                 .collect::<Vec<Column>>();
-                            NuDataFrame::try_from_columns(columns, maybe_schema)?
+                            NuDataFrame::try_from_columns(columns, maybe_schema, call.head)?
                         }
                         Err(e) => {
                             debug!(
@@ -289,13 +295,19 @@ impl PluginCommand for ToDataFrame {
                                 plugin,
                                 input.into_iter(),
                                 maybe_schema.clone(),
+                                call.head,
                             )?
                         }
                     }
                 }
                 _ => {
                     debug!("Other input: {input:?}");
-                    NuDataFrame::try_from_iter(plugin, input.into_iter(), maybe_schema.clone())?
+                    NuDataFrame::try_from_iter(
+                        plugin,
+                        input.into_iter(),
+                        maybe_schema.clone(),
+                        call.head,
+                    )?
                 }
             }
         };

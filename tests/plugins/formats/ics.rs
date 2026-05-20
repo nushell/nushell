@@ -8,7 +8,7 @@ fn infers_types() {
     Playground::setup("filter_from_ics_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "calendar.ics",
-            r#"
+            "
                 BEGIN:VCALENDAR
                 PRODID:-//Google Inc//Google Calendar 70.9054//EN
                 VERSION:2.0
@@ -41,7 +41,7 @@ fn infers_types() {
                 TRANSP:OPAQUE
                 END:VEVENT
                 END:VCALENDAR
-            "#,
+            ",
         )]);
         let cwd = dirs.test();
 
@@ -60,7 +60,7 @@ fn from_ics_text_to_table() {
     Playground::setup("filter_from_ics_test_2", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "calendar.txt",
-            r#"
+            "
                 BEGIN:VCALENDAR
                 BEGIN:VEVENT
                 DTSTART:20171007T200000Z
@@ -77,7 +77,7 @@ fn from_ics_text_to_table() {
                 TRANSP:TRANSPARENT
                 END:VEVENT
                 END:VCALENDAR
-            "#,
+            ",
         )]);
 
         let cwd = dirs.test();
@@ -104,7 +104,7 @@ fn from_ics_text_with_linebreak_to_table() {
     Playground::setup("filter_from_ics_test_3", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
             "calendar.txt",
-            r#"BEGIN:VCALENDAR
+            "BEGIN:VCALENDAR
 BEGIN:VEVENT
 DTSTART:20171007T200000Z
 DTEND:20171007T233000Z
@@ -121,7 +121,7 @@ STATUS:CONFIRMED
 SUMMARY:Dinner
 TRANSP:TRANSPARENT
 END:VEVENT
-END:VCALENDAR"#,
+END:VCALENDAR",
         )]);
 
         let cwd = dirs.test();

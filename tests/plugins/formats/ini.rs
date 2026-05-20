@@ -35,7 +35,7 @@ fn read_ini_with_missing_session() {
     Playground::setup("from ini with missiong session", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "some_missing.ini",
-            r#"
+            "
             min-width=450
             max-width=820
             [normal]
@@ -44,7 +44,7 @@ fn read_ini_with_missing_session() {
             border-color=FAB387ff
             default-timeout=20
             sound-file=/usr/share/sounds/freedesktop/stereo/dialog-warning.oga
-            "#,
+            ",
         )]);
 
         let cwd = dirs.test();

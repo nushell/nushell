@@ -1,4 +1,5 @@
-use std::fmt::Debug;
+use core::fmt;
+use std::fmt::Display;
 use std::sync::{Arc, Mutex};
 
 use crate::{ShellError, SignalAction, engine::Sequence};
@@ -7,28 +8,22 @@ use crate::{ShellError, SignalAction, engine::Sequence};
 pub type Handler = Box<dyn Fn(SignalAction) + Send + Sync>;
 
 /// Manages a collection of handlers.
-#[derive(Clone)]
+#[derive(Clone, derive_more::Debug, Default)]
 pub struct Handlers {
     /// List of handler tuples containing an ID and the handler itself.
+    #[debug("{}", debug_fmt_handlers(&self.handlers))]
     handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
     /// Sequence generator for unique IDs.
     next_id: Arc<Sequence>,
 }
 
-impl Debug for Handlers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Handlers")
-            .field("next_id", &self.next_id)
-            .finish()
-    }
-}
-
 /// HandlerGuard that unregisters a handler when dropped.
-#[derive(Clone)]
+#[derive(Clone, derive_more::Debug)]
 pub struct HandlerGuard {
     /// Unique ID of the handler.
     id: usize,
     /// Reference to the handlers list.
+    #[debug("{}", debug_fmt_handlers(&self.handlers))]
     handlers: Arc<Mutex<Vec<(usize, Handler)>>>,
 }
 
@@ -41,17 +36,9 @@ impl Drop for HandlerGuard {
     }
 }
 
-impl Debug for HandlerGuard {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Guard").field("id", &self.id).finish()
-    }
-}
-
 impl Handlers {
     pub fn new() -> Handlers {
-        let handlers = Arc::new(Mutex::new(vec![]));
-        let next_id = Arc::new(Sequence::default());
-        Handlers { handlers, next_id }
+        Self::default()
     }
 
     /// Registers a new handler and returns an RAII guard which will unregister the handler when
@@ -91,10 +78,16 @@ impl Handlers {
     }
 }
 
-impl Default for Handlers {
-    fn default() -> Self {
-        Self::new()
-    }
+#[inline]
+#[expect(unused, reason = "used in `Debug` impls")]
+fn debug_fmt_handlers(handlers: &Mutex<Vec<(usize, Handler)>>) -> impl Display {
+    fmt::from_fn(|f| match handlers.try_lock() {
+        Err(err) => write!(f, "{err:?}"),
+        Ok(handlers) => {
+            let ids: Vec<_> = handlers.iter().map(|(id, _)| id).collect();
+            write!(f, "{ids:?}")
+        }
+    })
 }
 
 #[cfg(test)]

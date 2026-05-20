@@ -1,5 +1,6 @@
 mod custom_value;
 
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{Expr, PlSmallStr, Selector};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -83,13 +84,10 @@ impl Cacheable for NuSelector {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuSelector(selector) => Ok(selector),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a selector".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a selector",
+                "",
+            ))),
         }
     }
 }
@@ -140,13 +138,7 @@ impl CustomValueSupport for NuSelector {
                 } else if let Some(cv) = val.as_any().downcast_ref::<NuExpressionCustomValue>() {
                     let expr = NuExpression::try_from_custom_value(plugin, cv)?;
                     let selector = expr.into_polars().try_into_selector().map_err(|e| {
-                        ShellError::GenericError {
-                            error: e.to_string(),
-                            msg: "".into(),
-                            span: Some(*internal_span),
-                            help: None,
-                            inner: vec![],
-                        }
+                        ShellError::Generic(GenericError::new(e.to_string(), "", *internal_span))
                     })?;
                     Ok(NuSelector::new(Some(selector)))
                 } else {

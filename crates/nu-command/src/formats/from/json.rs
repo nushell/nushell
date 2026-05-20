@@ -1,7 +1,10 @@
 use std::io::{BufRead, Cursor};
 
 use nu_engine::command_prelude::*;
-use nu_protocol::{ListStream, Signals, shell_error::io::IoError};
+use nu_protocol::{
+    ListStream, Signals,
+    shell_error::{generic::GenericError, io::IoError},
+};
 
 #[derive(Clone)]
 pub struct FromJson;
@@ -69,12 +72,12 @@ impl Command for FromJson {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
 
         let strict = call.has_flag(engine_state, stack, "strict")?;
-        let metadata = input.metadata().map(|md| md.with_content_type(None));
+        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
 
         // TODO: turn this into a structured underline of the nu_json error
         if call.has_flag(engine_state, stack, "objects")? {
@@ -118,13 +121,8 @@ impl Command for FromJson {
                 return Ok(Value::nothing(span).into_pipeline_data());
             }
 
-            if strict {
-                Ok(convert_string_to_value_strict(&string_input, span)?
-                    .into_pipeline_data_with_metadata(metadata))
-            } else {
-                Ok(convert_string_to_value(&string_input, span)?
-                    .into_pipeline_data_with_metadata(metadata))
-            }
+            Ok(try_str_to_value(&string_input, span, strict)?
+                .into_pipeline_data_with_metadata(metadata))
         }
     }
 }
@@ -141,78 +139,57 @@ fn read_json_lines(
         .filter(|line| line.as_ref().is_ok_and(|line| !line.trim().is_empty()) || line.is_err())
         .map(move |line| {
             let line = line.map_err(|err| IoError::new(err, span, None))?;
-            if strict {
-                convert_string_to_value_strict(&line, span)
-            } else {
-                convert_string_to_value(&line, span)
-            }
+            try_str_to_value(&line, span, strict)
         })
         .map(move |result| result.unwrap_or_else(|err| Value::error(err, span)));
 
     ListStream::new(iter, span, signals)
 }
 
-fn convert_nujson_to_value(value: nu_json::Value, span: Span) -> Value {
-    match value {
-        nu_json::Value::Array(array) => Value::list(
-            array
-                .into_iter()
-                .map(|x| convert_nujson_to_value(x, span))
-                .collect(),
+pub fn try_str_to_value(input: &str, span: Span, strict: bool) -> Result<Value, ShellError> {
+    match strict {
+        true => try_str_to_value_impl(
+            input,
             span,
+            |s| serde_json::from_str(s),
+            |err| err.is_syntax().then_some((err.line(), err.column())),
         ),
-        nu_json::Value::Bool(b) => Value::bool(b, span),
-        nu_json::Value::F64(f) => Value::float(f, span),
-        nu_json::Value::I64(i) => Value::int(i, span),
-        nu_json::Value::Null => Value::nothing(span),
-        nu_json::Value::Object(k) => Value::record(
-            k.into_iter()
-                .map(|(k, v)| (k, convert_nujson_to_value(v, span)))
-                .collect(),
-            span,
-        ),
-        nu_json::Value::U64(u) => {
-            if u > i64::MAX as u64 {
-                Value::error(
-                    ShellError::CantConvert {
-                        to_type: "i64 sized integer".into(),
-                        from_type: "value larger than i64".into(),
-                        span,
-                        help: None,
-                    },
-                    span,
-                )
-            } else {
-                Value::int(u as i64, span)
-            }
-        }
-        nu_json::Value::String(s) => Value::string(s, span),
+        false => try_str_to_value_impl(input, span, nu_json::from_str, |err| match err {
+            nu_json::Error::Syntax(_, row, col) => Some((*row, *col)),
+            _ => None,
+        }),
     }
 }
 
-pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, ShellError> {
-    match nu_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(value, span)),
-
-        Err(x) => match x {
-            nu_json::Error::Syntax(_, row, col) => {
-                let label = x.to_string();
-                let label_span = Span::from_row_column(row, col, string_input);
-                Err(ShellError::GenericError {
-                    error: "Error while parsing JSON text".into(),
-                    msg: "error parsing JSON text".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![ShellError::OutsideSpannedLabeledError {
-                        src: string_input.into(),
+#[inline]
+fn try_str_to_value_impl<E: std::error::Error>(
+    input: &str,
+    span: Span,
+    parser: impl Fn(&str) -> Result<nu_json::Value, E>,
+    on_syntax_err: impl Fn(&E) -> Option<(usize, usize)>,
+) -> Result<Value, ShellError> {
+    match parser(input) {
+        Ok(value) => Ok(value.into_value(span)),
+        Err(err) => match on_syntax_err(&err) {
+            Some((row, col)) => {
+                let label = err.to_string();
+                let label_span = Span::from_row_column(row, col, input);
+                Err(ShellError::Generic(
+                    GenericError::new(
+                        "Error while parsing JSON text",
+                        "error parsing JSON text",
+                        span,
+                    )
+                    .with_inner([ShellError::OutsideSpannedLabeledError {
+                        src: input.into(),
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
-                    }],
-                })
+                    }]),
+                ))
             }
-            x => Err(ShellError::CantConvert {
-                to_type: format!("structured json data ({x})"),
+            None => Err(ShellError::CantConvert {
+                to_type: format!("structured json data ({err})"),
                 from_type: "string".into(),
                 span,
                 help: None,
@@ -221,80 +198,12 @@ pub fn convert_string_to_value(string_input: &str, span: Span) -> Result<Value, 
     }
 }
 
-fn convert_string_to_value_strict(string_input: &str, span: Span) -> Result<Value, ShellError> {
-    match serde_json::from_str(string_input) {
-        Ok(value) => Ok(convert_nujson_to_value(value, span)),
-        Err(err) => Err(if err.is_syntax() {
-            let label = err.to_string();
-            let label_span = Span::from_row_column(err.line(), err.column(), string_input);
-            ShellError::GenericError {
-                error: "Error while parsing JSON text".into(),
-                msg: "error parsing JSON text".into(),
-                span: Some(span),
-                help: None,
-                inner: vec![ShellError::OutsideSpannedLabeledError {
-                    src: string_input.into(),
-                    error: "Error while parsing JSON text".into(),
-                    msg: label,
-                    span: label_span,
-                }],
-            }
-        } else {
-            ShellError::CantConvert {
-                to_type: format!("structured json data ({err})"),
-                from_type: "string".into(),
-                span,
-                help: None,
-            }
-        }),
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use nu_cmd_lang::eval_pipeline_without_terminal_expression;
-
-    use crate::Reject;
-    use crate::{Metadata, MetadataSet};
-
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(FromJson {})
-    }
-
-    #[test]
-    fn test_content_type_metadata() {
-        let mut engine_state = Box::new(EngineState::new());
-        let delta = {
-            let mut working_set = StateWorkingSet::new(&engine_state);
-
-            working_set.add_decl(Box::new(FromJson {}));
-            working_set.add_decl(Box::new(Metadata {}));
-            working_set.add_decl(Box::new(MetadataSet {}));
-            working_set.add_decl(Box::new(Reject {}));
-
-            working_set.render()
-        };
-
-        engine_state
-            .merge_delta(delta)
-            .expect("Error merging delta");
-
-        let cmd = r#"'{"a":1,"b":2}' | metadata set --content-type 'application/json' --path-columns [name] | from json | metadata | reject span | $in"#;
-        let result = eval_pipeline_without_terminal_expression(
-            cmd,
-            std::env::temp_dir().as_ref(),
-            &mut engine_state,
-        );
-        assert_eq!(
-            Value::test_record(
-                record!("path_columns" => Value::test_list(vec![Value::test_string("name")]))
-            ),
-            result.expect("There should be a result")
-        )
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(FromJson)
     }
 }

@@ -15,19 +15,12 @@
 //! - Case is preserved when storing the variable name
 //! - Existing scripts may need updates if they relied on case sensitivity
 
-use std::fmt;
-use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
 /// A `String` that's case-insensitive for all environment variable names, used for environment variable names.
-#[derive(Clone)]
+#[derive(Clone, derive_more::Debug)]
+#[debug("{_0:?}")]
 pub struct EnvName(pub(crate) String);
-
-impl Debug for EnvName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
 
 impl<T: Into<String>> From<T> for EnvName {
     fn from(name: T) -> Self {

@@ -1,6 +1,7 @@
 use std::ops::Not;
 
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 #[derive(Clone, Debug)]
 enum Location {
@@ -109,7 +110,7 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
@@ -129,26 +130,22 @@ impl Command for Move {
             (None, None, true, false) => Location::First,
             (None, None, false, true) => Location::Last,
             (None, None, false, false) => {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "Missing required location flag".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "Missing required location flag",
+                    head,
+                )));
             }
             _ => {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "Use only a single flag".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "Use only a single flag",
+                    head,
+                )));
             }
         };
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
@@ -167,7 +164,8 @@ impl Command for Move {
                 ))
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
-                Ok(move_record_columns(&val, &columns, &location, head)?.into_pipeline_data())
+                Ok(move_record_columns(&val, &columns, &location, head)?
+                    .into_pipeline_data_with_metadata(metadata))
             }
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record or table".to_string(),
@@ -193,13 +191,11 @@ fn move_record_columns(
         if let Some(idx) = record.index_of(column.coerce_string()?) {
             column_idx.push(idx);
         } else {
-            return Err(ShellError::GenericError {
-                error: "Cannot move columns".into(),
-                msg: "column does not exist".into(),
-                span: Some(column.span()),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "Cannot move columns",
+                "column does not exist",
+                column.span(),
+            )));
         }
     }
 
@@ -209,13 +205,11 @@ fn move_record_columns(
         Location::Before(pivot) | Location::After(pivot) => {
             // Check if pivot exists
             if !record.contains(&pivot.item) {
-                return Err(ShellError::GenericError {
-                    error: "Cannot move columns".into(),
-                    msg: "column does not exist".into(),
-                    span: Some(pivot.span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Cannot move columns",
+                    "column does not exist",
+                    pivot.span,
+                )));
             }
 
             for (i, (inp_col, inp_val)) in record.iter().enumerate() {
@@ -307,10 +301,8 @@ mod test {
     }
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Move {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Move)
     }
 
     #[test]

@@ -25,8 +25,8 @@ impl Command for Def {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -47,12 +47,12 @@ impl Command for Def {
         vec![
             Example {
                 description: "Define a command and run it.",
-                example: r#"def say-hi [] { echo 'hi' }; say-hi"#,
+                example: "def say-hi [] { echo 'hi' }; say-hi",
                 result: Some(Value::test_string("hi")),
             },
             Example {
                 description: "Define a command and run it with parameter(s).",
-                example: r#"def say-sth [sth: string] { echo $sth }; say-sth hi"#,
+                example: "def say-sth [sth: string] { echo $sth }; say-sth hi",
                 result: Some(Value::test_string("hi")),
             },
             Example {
@@ -62,7 +62,7 @@ impl Command for Def {
             },
             Example {
                 description: "cd affects the environment, so '--env' is required to change directory from within a command.",
-                example: r#"def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)"#,
+                example: "def --env gohome [] { cd ~ }; gohome; $env.PWD == ('~' | path expand)",
                 result: Some(Value::test_string("true")),
             },
             Example {
@@ -72,7 +72,7 @@ impl Command for Def {
             },
             Example {
                 description: "Define a custom command with a type signature. Passing a non-int value will result in an error.",
-                example: r#"def only_int []: int -> int { $in }; 42 | only_int"#,
+                example: "def only_int []: int -> int { $in }; 42 | only_int",
                 result: Some(Value::test_int(42)),
             },
         ]

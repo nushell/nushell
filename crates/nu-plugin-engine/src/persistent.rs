@@ -17,7 +17,7 @@ use std::{
 };
 
 /// A box that can keep a plugin that was spawned persistent for further uses. The plugin may or
-/// may not be currently running. [`.get()`] gets the currently running plugin, or spawns it if it's
+/// may not be currently running. [`.get()`](Self::get) gets the currently running plugin, or spawns it if it's
 /// not running.
 #[derive(Debug)]
 pub struct PersistentPlugin {

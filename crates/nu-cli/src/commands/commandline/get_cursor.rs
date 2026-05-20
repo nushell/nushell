@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Clone)]
@@ -40,13 +41,10 @@ impl Command for CommandlineGetCursor {
             .expect("Cursor position isn't on a grapheme boundary");
         match i64::try_from(char_pos) {
             Ok(pos) => Ok(Value::int(pos, call.head).into_pipeline_data()),
-            Err(e) => Err(ShellError::GenericError {
-                error: "Failed to convert cursor position to int".to_string(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            Err(e) => Err(ShellError::Generic(GenericError::new_internal(
+                "Failed to convert cursor position to int",
+                e.to_string(),
+            ))),
         }
     }
 }

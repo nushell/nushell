@@ -1,7 +1,6 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::{
-    BlockId, ByteStreamSource, Category, PipelineMetadata, Signature,
-    engine::{Closure, StateWorkingSet},
+    ByteStreamSource, Category, PipelineMetadata, Signature, engine::StateWorkingSet,
 };
 use std::any::type_name;
 #[derive(Clone)]
@@ -72,10 +71,10 @@ impl Command for Describe {
             },
             Example {
                 description: "Describe the type of a record in a detailed way.",
-                example: "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], on_save: {|x| $'Saving ($x)'}, first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
+                example: "{shell:'true', uwu:true, features: {bugs:false, multiplatform:true, speed: 10}, fib: [1 1 2 3 5 8], first_commit: 2019-05-10, my_duration: (4min + 20sec)} | describe -d",
                 result: Some(Value::test_record(record!(
                     "type" => Value::test_string("record"),
-                    "detailed_type" => Value::test_string("record<shell: string, uwu: bool, features: record<bugs: bool, multiplatform: bool, speed: int>, fib: list<int>, on_save: closure, first_commit: datetime, my_duration: duration>"),
+                    "detailed_type" => Value::test_string("record<shell: string, uwu: bool, features: record<bugs: bool, multiplatform: bool, speed: int>, fib: list<int>, first_commit: datetime, my_duration: duration>"),
                     "columns" => Value::test_record(record!(
                         "shell" => Value::test_record(record!(
                             "type" => Value::test_string("string"),
@@ -158,19 +157,6 @@ impl Command for Describe {
                                 ))]
                         ),
                         )),
-                        "on_save" => Value::test_record(record!(
-                            "type" => Value::test_string("closure"),
-                            "detailed_type" => Value::test_string("closure"),
-                            "rust_type" => Value::test_string("&alloc::boxed::Box<nu_protocol::engine::closure::Closure>"),
-                            "value" => Value::test_closure(Closure {
-                                block_id: BlockId::new(1),
-                                captures: vec![],
-                            }),
-                            "signature" => Value::test_record(record!(
-                                "name" => Value::test_string(""),
-                                "category" => Value::test_string("default"),
-                            )),
-                        )),
                         "first_commit" => Value::test_record(record!(
                             "type" => Value::test_string("datetime"),
                             "detailed_type" => Value::test_string("datetime"),
@@ -234,11 +220,11 @@ struct Options {
 fn run(
     engine_state: Option<&EngineState>,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
     options: Options,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
 
     let description = match input {
         PipelineData::ByteStream(stream, ..) => {
@@ -498,9 +484,8 @@ fn metadata_to_value(metadata: Option<PipelineMetadata>, head: Span) -> Value {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Describe;
-        use crate::test_examples;
-        test_examples(Describe {})
+        nu_test_support::test().examples(Describe)
     }
 }

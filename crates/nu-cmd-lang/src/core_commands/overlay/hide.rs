@@ -32,8 +32,8 @@ impl Command for OverlayHide {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -128,9 +128,9 @@ impl Command for OverlayHide {
             },
             Example {
                 description: "Keep the current working directory when removing an overlay.",
-                example: r#"overlay new spam
+                example: "overlay new spam
     cd some-dir
-    overlay hide --keep-env [ PWD ] spam"#,
+    overlay hide --keep-env [ PWD ] spam",
                 result: None,
             },
         ]

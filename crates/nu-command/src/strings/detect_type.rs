@@ -1,6 +1,7 @@
 use chrono::{Local, TimeZone, Utc};
 use fancy_regex::{Regex, RegexBuilder};
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 use std::sync::LazyLock;
 
 #[derive(Clone)]
@@ -130,17 +131,14 @@ impl Command for DetectType {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let metadata = input
-            .metadata()
-            .map(|metadata| metadata.with_content_type(None));
         let span = call.head;
         let display_as_filesize = call.has_flag(engine_state, stack, "prefer-filesize")?;
         let prefer_dmy = call.has_flag(engine_state, stack, "prefer-dmy")?;
+        let metadata = input.take_metadata();
         let val = input.into_value(call.head)?;
-        let val = process(val, display_as_filesize, prefer_dmy, span)?;
-        Ok(val.into_pipeline_data_with_metadata(metadata))
+        process(val, metadata, display_as_filesize, prefer_dmy, span)
     }
 }
 
@@ -205,10 +203,11 @@ fn parse_date_from_string_with_dayfirst(
 // If it does, it will convert the value to that datatype.
 fn process(
     val: Value,
+    metadata: Option<PipelineMetadata>,
     display_as_filesize: bool,
     prefer_dmy: bool,
     span: Span,
-) -> Result<Value, ShellError> {
+) -> Result<PipelineData, ShellError> {
     // step 1: convert value to string
     let val_str = val.coerce_str().unwrap_or_default();
 
@@ -227,7 +226,7 @@ fn process(
     };
 
     // step 2: bounce string up against regexes
-    if BOOLEAN_RE.is_match(&val_str).unwrap_or(false) {
+    let value = if BOOLEAN_RE.is_match(&val_str).unwrap_or(false) {
         let bval = val_str
             .to_lowercase()
             .parse::<bool>()
@@ -344,8 +343,14 @@ fn process(
         Ok(Value::date(dt, span))
     } else {
         // If we don't know what it is, just return whatever it was passed in as
-        Ok(val)
-    }
+        return Ok(val.into_pipeline_data_with_metadata(metadata));
+    };
+
+    value.map(|value| {
+        value.into_pipeline_data_with_metadata(
+            metadata.map(|metadata| metadata.with_content_type(None)),
+        )
+    })
 }
 
 // region: datatype regexes
@@ -500,12 +505,11 @@ static BOOLEAN_RE: LazyLock<Regex> = LazyLock::new(|| {
 #[cfg(test)]
 mod test {
     use super::*;
+    use rstest::rstest;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(DetectType)
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(DetectType)
     }
 
     #[test]
@@ -708,39 +712,31 @@ mod test {
         assert!(!DATETIME_MDY_RE.is_match("009/24/2012").unwrap());
     }
 
-    #[test]
-    fn test_ambiguous_date_default() {
+    #[rstest]
+    // Ambiguous date defaults to MDY (Jan 2)
+    #[case("01/02/2025", 2025, 1, 2)]
+    // Non-ambiguous DMY (Feb 13)
+    #[case("13/02/2025", 2025, 2, 13)]
+    // Non-ambiguous MDY (Feb 13)
+    #[case("02/13/2025", 2025, 2, 13)]
+    fn test_ambiguous_date_default(
+        #[case] input: &str,
+        #[case] year: i32,
+        #[case] month: u32,
+        #[case] day: u32,
+    ) {
         use chrono::{DateTime, FixedOffset, Local, TimeZone};
         let span = Span::test_data();
-        // Ambiguous date defaults to MDY (Jan 2)
-        let result = process(Value::string("01/02/2025", span), false, false, span).unwrap();
-        if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(Local.with_ymd_and_hms(2025, 1, 2, 0, 0, 0).unwrap())
-            );
-        } else {
-            panic!("Expected date");
-        }
-        // Non-ambiguous DMY (Feb 13)
-        let result = process(Value::string("13/02/2025", span), false, false, span).unwrap();
+        let result = process(Value::string(input, span), None, false, false, span)
+            .unwrap()
+            .into_value(span)
+            .unwrap();
+
         if let Value::Date { val, .. } = result {
             assert_eq!(
                 val,
                 DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
-                )
-            );
-        } else {
-            panic!("Expected date");
-        }
-        // Non-ambiguous MDY (Feb 13)
-        let result = process(Value::string("02/13/2025", span), false, false, span).unwrap();
-        if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                    Local.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
                 )
             );
         } else {
@@ -748,39 +744,31 @@ mod test {
         }
     }
 
-    #[test]
-    fn test_ambiguous_date_prefer_dmy() {
+    #[rstest]
+    // Ambiguous date with prefer_dmy=true -> parsed as Feb 1 (DMY)
+    #[case("01/02/2025", 2025, 2, 1)]
+    // Non-ambiguous still works (Feb 13)
+    #[case("13/02/2025", 2025, 2, 13)]
+    // Non-ambiguous still works (Feb 13)
+    #[case("02/13/2025", 2025, 2, 13)]
+    fn test_ambiguous_date_prefer_dmy(
+        #[case] input: &str,
+        #[case] year: i32,
+        #[case] month: u32,
+        #[case] day: u32,
+    ) {
         use chrono::{DateTime, FixedOffset, Local, TimeZone};
         let span = Span::test_data();
-        // Ambiguous date with prefer_dmy=true -> parsed as Feb 1 (DMY)
-        let result = process(Value::string("01/02/2025", span), false, true, span).unwrap();
-        if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(Local.with_ymd_and_hms(2025, 2, 1, 0, 0, 0).unwrap())
-            );
-        } else {
-            panic!("Expected date");
-        }
-        // Non-ambiguous still works (Feb 13)
-        let result = process(Value::string("13/02/2025", span), false, true, span).unwrap();
+        let result = process(Value::string(input, span), None, false, true, span)
+            .unwrap()
+            .into_value(span)
+            .unwrap();
+
         if let Value::Date { val, .. } = result {
             assert_eq!(
                 val,
                 DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
-                )
-            );
-        } else {
-            panic!("Expected date");
-        }
-        // Non-ambiguous still works (Feb 13)
-        let result = process(Value::string("02/13/2025", span), false, true, span).unwrap();
-        if let Value::Date { val, .. } = result {
-            assert_eq!(
-                val,
-                DateTime::<FixedOffset>::from(
-                    Local.with_ymd_and_hms(2025, 2, 13, 0, 0, 0).unwrap()
+                    Local.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap()
                 )
             );
         } else {

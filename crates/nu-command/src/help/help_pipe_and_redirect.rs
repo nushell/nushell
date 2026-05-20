@@ -13,8 +13,8 @@ impl Command for HelpPipeAndRedirect {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command contains basic usage of pipe and redirect symbol, for more detail, check:
-https://www.nushell.sh/lang-guide/chapters/pipelines.html"#
+        "This command contains basic usage of pipe and redirect symbol, for more detail, check:
+https://www.nushell.sh/lang-guide/chapters/pipelines.html"
     }
 
     fn signature(&self) -> Signature {
@@ -135,9 +135,8 @@ impl HelpExamples {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::HelpPipeAndRedirect;
-        use crate::test_examples;
-        test_examples(HelpPipeAndRedirect {})
+        nu_test_support::test().examples(HelpPipeAndRedirect)
     }
 }

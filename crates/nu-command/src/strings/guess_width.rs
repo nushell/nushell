@@ -593,11 +593,11 @@ E F G H";
 
     #[test]
     fn test_guess_no_panic_for_some_cases() {
-        let input = r#"nu_plugin_highlight = '1.2.2+0.97.1'    # A nushell plugin for syntax highlighting
+        let input = "nu_plugin_highlight = '1.2.2+0.97.1'    # A nushell plugin for syntax highlighting
 trace_nu_plugin = '0.3.1'               # A wrapper to trace Nu plugins
 nu_plugin_bash_env = '0.13.0'           # Nu plugin bash-env
 nu_plugin_from_sse = '0.4.0'            # Nushell plugin to convert a HTTP server sent event stream to structured data
-... and 90 crates more (use --limit N to see more)"#;
+... and 90 crates more (use --limit N to see more)";
         let r = Box::new(std::io::BufReader::new(input.as_bytes())) as Box<dyn std::io::Read>;
         let reader = std::io::BufReader::new(r);
 

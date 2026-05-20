@@ -10,7 +10,7 @@ use std::{
 use chrono::{DateTime, FixedOffset, Local};
 pub use list::ListDF;
 use nu_plugin::{EngineInterface, PluginCommand};
-use nu_protocol::{LabeledError, ShellError, Span};
+use nu_protocol::{LabeledError, ShellError, Span, shell_error::generic::GenericError};
 use uuid::Uuid;
 
 use crate::{EngineWrapper, PolarsPlugin, values::PolarsPluginObject};
@@ -33,12 +33,11 @@ pub struct Cache {
 
 impl Cache {
     fn lock(&self) -> Result<MutexGuard<'_, HashMap<Uuid, CacheValue>>, ShellError> {
-        self.cache.lock().map_err(|e| ShellError::GenericError {
-            error: format!("error acquiring cache lock: {e}"),
-            msg: "".into(),
-            span: None,
-            help: None,
-            inner: vec![],
+        self.cache.lock().map_err(|e| {
+            ShellError::Generic(GenericError::new_internal(
+                format!("error acquiring cache lock: {e}"),
+                "",
+            ))
         })
     }
 
@@ -223,7 +222,7 @@ mod test {
                 uuid: Uuid::new_v4(),
                 value: PolarsPluginObject::NuPolarsTestData(Uuid::new_v4(), "object_0".into()),
                 created: Local::now().into(),
-                span: Span::unknown(),
+                span: Span::test_data(),
                 reference_count: 1,
             },
         );
@@ -235,7 +234,7 @@ mod test {
                 uuid: Uuid::new_v4(),
                 value: PolarsPluginObject::NuPolarsTestData(Uuid::new_v4(), "object_1".into()),
                 created: Local::now().into(),
-                span: Span::unknown(),
+                span: Span::test_data(),
                 reference_count: 1,
             },
         );

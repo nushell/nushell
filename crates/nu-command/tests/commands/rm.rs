@@ -47,7 +47,7 @@ fn removes_files_with_wildcard() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm src/*/*/*.rs"#
+            "rm src/*/*/*.rs"
         );
 
         assert!(!files_exist_at(
@@ -303,7 +303,7 @@ fn rm_wildcard_keeps_dotfiles() {
 
         nu!(
             cwd: dirs.test(),
-            r#"rm *"#
+            "rm *"
         );
 
         assert!(!files_exist_at(&["foo"], dirs.test()));
@@ -563,6 +563,53 @@ fn force_rm_suppress_error() {
 
         assert!(actual.err.is_empty());
     });
+}
+
+#[test]
+fn rm_verbose_returns_deleted_record() {
+    Playground::setup("rm_verbose_returns_deleted_record", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("test_file.txt")]);
+
+        let actual = nu!(
+            cwd: dirs.test(),
+            "rm -v test_file.txt | to json",
+        );
+
+        assert!(actual.err.is_empty());
+        assert!(!dirs.test().join("test_file.txt").exists());
+        assert!(actual.out.contains("path"));
+        assert!(actual.out.contains("test_file.txt"));
+        assert!(actual.out.contains("deleted"));
+        assert!(actual.out.contains("true"));
+        assert!(actual.out.contains("error"));
+        assert!(actual.out.contains("nul"));
+    });
+}
+
+#[test]
+fn rm_verbose_returns_error_record_without_failing_pipeline() {
+    Playground::setup(
+        "rm_verbose_returns_error_record_without_failing_pipeline",
+        |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("present.txt")]);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                "rm -v present.txt missing.txt | to json",
+            );
+
+            assert!(actual.err.is_empty());
+            assert!(!dirs.test().join("present.txt").exists());
+            assert!(actual.out.contains("path"));
+            assert!(actual.out.contains("present.txt"));
+            assert!(actual.out.contains("missing.txt"));
+            assert!(actual.out.contains("deleted"));
+            assert!(actual.out.contains("true"));
+            assert!(actual.out.contains("false"));
+            assert!(actual.out.contains("error"));
+            assert!(actual.out.contains("null"));
+        },
+    );
 }
 
 #[test]

@@ -49,17 +49,17 @@ impl Command for DateNow {
             },
             Example {
                 description: "Get the time duration since 2019-04-30.",
-                example: r#"(date now) - 2019-05-01"#,
+                example: "(date now) - 2019-05-01",
                 result: None,
             },
             Example {
                 description: "Get the time duration since a more specific time.",
-                example: r#"(date now) - 2019-05-01T04:12:05.20+08:00"#,
+                example: "(date now) - 2019-05-01T04:12:05.20+08:00",
                 result: None,
             },
             Example {
                 description: "Get current time and format it in the debug format (RFC 2822 with timezone).",
-                example: r#"date now | debug"#,
+                example: "date now | debug",
                 result: None,
             },
         ]

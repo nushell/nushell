@@ -8,10 +8,11 @@ use libproc::libproc::task_info::{TaskAllInfo, TaskInfo};
 use libproc::libproc::thread_info::ThreadInfo;
 use libproc::processes::{ProcFilter, pids_by_type};
 use mach2::mach_time;
+use nu_utils::time::Instant;
 use std::cmp;
 use std::path::{Path, PathBuf};
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub struct ProcessInfo {
     pub pid: i32,

@@ -4,14 +4,16 @@ use std::{
     fmt::{Debug, Display},
     panic::Location,
     path::PathBuf,
-    sync::LazyLock,
+    sync::{Arc, LazyLock},
 };
 
 use nu_protocol::{
-    CompileError, Config, FromValue, IntoValue, ParseError, PipelineData, PipelineExecutionData,
-    ShellError, Span, Value,
+    CompileError, Config, FromValue, IntoValue, LabeledError, ParseError, PipelineData,
+    PipelineExecutionData, ShellError, Span, Value,
+    ast::Block,
     debugger::WithoutDebug,
-    engine::{EngineState, Stack, StateWorkingSet},
+    engine::{Command, EngineState, Stack, StateDelta, StateWorkingSet},
+    shell_error::{io::IoError, network::NetworkError},
 };
 use nu_utils::{consts::ENV_PATH_SEPARATOR_CHAR, sync::KeyedLazyLock};
 
@@ -115,7 +117,7 @@ impl Default for NuTester {
     fn default() -> Self {
         Self {
             engine_state: INITIAL_ENGINE_STATES.get(&GroupKey::current()).clone(),
-            stack: Stack::new(),
+            stack: Stack::new().collect_value(),
         }
     }
 }
@@ -161,10 +163,63 @@ impl NuTester {
         self.locale("en_US.utf8")
     }
 
-    /// Inherit the PATH environment variable from the running process.
+    /// Inherit the `PATH` environment variable from the running process.
+    ///
+    /// This is useful for tests that spawn external commands and should resolve
+    /// binaries the same way as the parent test process.
+    ///
+    /// Panics if `PATH` is not set in the current process environment.
     pub fn inherit_path(self) -> Self {
         let path = env::var("PATH").expect("PATH not available in env");
         self.env("PATH", path)
+    }
+
+    /// Inherit an environment variable from the running process, but only if it is set.
+    ///
+    /// This is useful for optional variables whose absence should not cause a panic.
+    pub fn inherit_env_if_set(self, key: impl AsRef<str>) -> Self {
+        let key = key.as_ref();
+        match env::var(key) {
+            Ok(val) => self.env(key, val),
+            Err(_) => self,
+        }
+    }
+
+    /// Inherit Rust toolchain related environment variables from the running process,
+    /// but only when they are set.
+    ///
+    /// This helps tests that spawn `cargo`, `rustc`, or `rustup` behave more like
+    /// the parent process, especially when the active toolchain or install location
+    /// is configured through environment variables.
+    ///
+    /// The following variables are inherited when present:
+    /// - `PATH`
+    /// - `CARGO_HOME`
+    /// - `RUSTUP_HOME`
+    /// - `RUSTUP_TOOLCHAIN`
+    /// - `RUSTUP_DIST_SERVER`
+    /// - `RUSTUP_UPDATE_ROOT`
+    ///
+    /// Proxy variables are also inherited when present since `rustup` may need them
+    /// to download or resolve toolchain metadata:
+    /// - `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`
+    /// - `http_proxy`, `https_proxy`, `no_proxy`
+    ///
+    /// This does not guarantee identical behavior to an interactive shell since the
+    /// current working directory can still affect rustup toolchain resolution.
+    pub fn inherit_rust_toolchain_env(self) -> Self {
+        self.inherit_env_if_set("PATH")
+            .inherit_env_if_set("CARGO_HOME")
+            .inherit_env_if_set("RUSTUP_HOME")
+            .inherit_env_if_set("RUSTUP_TOOLCHAIN")
+            .inherit_env_if_set("RUSTUP_DIST_SERVER")
+            .inherit_env_if_set("RUSTUP_UPDATE_ROOT")
+            .inherit_env_if_set("HTTP_PROXY")
+            .inherit_env_if_set("HTTPS_PROXY")
+            .inherit_env_if_set("NO_PROXY")
+            .inherit_env_if_set("http_proxy")
+            .inherit_env_if_set("https_proxy")
+            .inherit_env_if_set("no_proxy")
     }
 
     /// Adds the "nu" binary for testing to the path.
@@ -229,6 +284,18 @@ impl NuTester {
         data: PipelineData,
     ) -> Result<PipelineExecutionData> {
         let location = TestLocation(Location::caller());
+        let (delta, block) = self.parse_and_compile(code)?;
+        self.engine_state.merge_delta(delta)?;
+        nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
+            .map_err(|err| TestError {
+                location,
+                kind: TestErrorKind::Shell(err),
+            })
+    }
+
+    #[track_caller]
+    pub fn parse_and_compile(&self, code: impl AsRef<str>) -> Result<(StateDelta, Arc<Block>)> {
+        let location = TestLocation(Location::caller());
         let code = code.as_ref().as_bytes();
 
         let mut working_set = StateWorkingSet::new(&self.engine_state);
@@ -248,12 +315,7 @@ impl NuTester {
             });
         }
 
-        self.engine_state.merge_delta(working_set.delta)?;
-        nu_engine::eval_block::<WithoutDebug>(&self.engine_state, &mut self.stack, &block, data)
-            .map_err(|err| TestError {
-                location,
-                kind: TestErrorKind::Shell(err),
-            })
+        Ok((working_set.delta, block))
     }
 
     #[track_caller]
@@ -265,6 +327,44 @@ impl NuTester {
         let value = T::from_value(value)?;
         Ok(value)
     }
+
+    /// Test examples of a command.
+    #[track_caller]
+    pub fn examples(&self, command: impl Command + 'static) -> Result {
+        let location = TestLocation(Location::caller());
+        for example in command.examples() {
+            match example.result {
+                None => self
+                    .parse_and_compile(example.example)
+                    .map(|_| ())
+                    .map_err(|err| TestError {
+                        location,
+                        kind: TestErrorKind::ExampleFailed {
+                            command: command.name().to_string(),
+                            description: example.description.to_string(),
+                            code: example.example.to_string(),
+                            err: Box::new(err.kind),
+                        },
+                    })?,
+                Some(expected) => {
+                    let got = self.clone().run(example.example)?;
+                    if got != expected {
+                        return Err(TestError {
+                            location,
+                            kind: TestErrorKind::ExampleFailed {
+                                command: command.name().to_string(),
+                                description: example.description.to_string(),
+                                code: example.example.to_string(),
+                                err: Box::new(TestErrorKind::UnexpectedValue { expected, got }),
+                            },
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -273,14 +373,9 @@ pub struct TestError {
     kind: TestErrorKind,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Copy, PartialEq, derive_more::Debug)]
+#[debug("{_0}")]
 pub struct TestLocation(&'static Location<'static>);
-
-impl Debug for TestLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 /// Errors emitted by `NuTester` when parsing, compiling, or evaluating code.
 ///
@@ -291,10 +386,24 @@ pub enum TestErrorKind {
     Parse(ParseError),
     Compile(CompileError),
     Shell(ShellError),
-    GotValue { got: Value },
+    GotValue {
+        got: Value,
+    },
     NoInner,
-    NotGeneric { got: ShellError },
-    UnexpectedValue { expected: Value, got: Value },
+    UnexpectedErrorKind {
+        expected: &'static str,
+        got: ShellError,
+    },
+    UnexpectedValue {
+        expected: Value,
+        got: Value,
+    },
+    ExampleFailed {
+        command: String,
+        description: String,
+        code: String,
+        err: Box<TestErrorKind>,
+    },
 }
 
 impl Display for TestError {
@@ -311,6 +420,16 @@ impl From<ShellError> for TestError {
         Self {
             location: TestLocation(Location::caller()),
             kind: TestErrorKind::Shell(err),
+        }
+    }
+}
+
+impl From<ParseError> for TestError {
+    #[track_caller]
+    fn from(err: ParseError) -> Self {
+        Self {
+            location: TestLocation(Location::caller()),
+            kind: TestErrorKind::Parse(err),
         }
     }
 }
@@ -364,6 +483,13 @@ pub trait TestResultExt: Sized {
     fn expect_parse_error(self) -> Result<ParseError>;
     /// Expect the result to be a [`CompileError`].
     fn expect_compile_error(self) -> Result<CompileError>;
+
+    /// Expect the result to be a [`ShellError::Io`].
+    fn expect_io_error(self) -> Result<IoError>;
+    /// Expect the result to be a [`ShellError::Network`].
+    fn expect_network_error(self) -> Result<NetworkError>;
+    /// Expect the result to be a [`ShellError::LabeledError`].
+    fn expect_labeled_error(self) -> Result<LabeledError>;
 
     /// Expect the result to be a [`ShellError`].
     #[track_caller]
@@ -433,6 +559,51 @@ impl TestResultExt for Result<Value> {
             Err(err) => Err(err.update_location()),
         }
     }
+
+    #[track_caller]
+    fn expect_io_error(self) -> Result<IoError> {
+        match self {
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(ShellError::Io(err)),
+                ..
+            }) => Ok(err),
+            Err(err) => Err(err.update_location()),
+        }
+    }
+
+    #[track_caller]
+    fn expect_network_error(self) -> Result<NetworkError> {
+        match self {
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(ShellError::Network(err)),
+                ..
+            }) => Ok(err),
+            Err(err) => Err(err.update_location()),
+        }
+    }
+
+    #[track_caller]
+    fn expect_labeled_error(self) -> Result<LabeledError> {
+        match self {
+            Ok(got) => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::GotValue { got },
+            }),
+            Err(TestError {
+                kind: TestErrorKind::Shell(ShellError::LabeledError(err)),
+                ..
+            }) => Ok(*err),
+            Err(err) => Err(err.update_location()),
+        }
+    }
 }
 
 /// Extensions for interrogating [`ShellError`] values in tests.
@@ -443,17 +614,20 @@ pub trait ShellErrorExt {
     /// chained error that chained another error.
     ///
     /// However, this function returns [`None`]
-    /// - if `inner` of [`ShellError::GenericError`] is empty
+    /// - if `inner` of [`ShellError::Generic`] is empty
     /// - if `sources` of [`ShellError::ChainedError`] is empty
     /// - the error is none of the above types
     ///
     /// So make sure that a [`None`] value is not surprise.
     fn into_inner(self) -> Result<ShellError>;
 
-    /// Extract the error field from [`ShellError::GenericError`], if it is one.
+    /// Extract the [`LabeledError`] from [`ShellError::LabeledError`], if it is one.
+    fn into_labeled(self) -> Result<LabeledError>;
+
+    /// Extract the error field from [`ShellError::Generic`], if it is one.
     fn generic_error(self) -> Result<String>;
 
-    /// Extract the message field from [`ShellError::GenericError`], if it is one.
+    /// Extract the message field from [`ShellError::Generic`], if it is one.
     fn generic_msg(self) -> Result<String>;
 }
 
@@ -465,19 +639,36 @@ impl ShellErrorExt for ShellError {
             kind: TestErrorKind::NoInner,
         };
         match self {
-            ShellError::GenericError { inner, .. } => inner.into_iter().next().ok_or(no_inner),
+            ShellError::Generic(err) => err.inner.into_iter().next().ok_or(no_inner),
             ShellError::ChainedError(err) => err.sources_iter().next().ok_or(no_inner),
             _ => Err(no_inner),
         }
     }
 
     #[track_caller]
-    fn generic_error(self) -> Result<String> {
+    fn into_labeled(self) -> Result<LabeledError> {
         match self {
-            ShellError::GenericError { error, .. } => Ok(error),
+            ShellError::LabeledError(err) => Ok(*err),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
-                kind: TestErrorKind::NotGeneric { got },
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Labeled",
+                    got,
+                },
+            }),
+        }
+    }
+
+    #[track_caller]
+    fn generic_error(self) -> Result<String> {
+        match self {
+            ShellError::Generic(err) => Ok(err.error.into_owned()),
+            got => Err(TestError {
+                location: TestLocation(Location::caller()),
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Generic",
+                    got,
+                },
             }),
         }
     }
@@ -485,10 +676,13 @@ impl ShellErrorExt for ShellError {
     #[track_caller]
     fn generic_msg(self) -> Result<String> {
         match self {
-            ShellError::GenericError { msg, .. } => Ok(msg),
+            ShellError::Generic(err) => Ok(err.msg.into_owned()),
             got => Err(TestError {
                 location: TestLocation(Location::caller()),
-                kind: TestErrorKind::NotGeneric { got },
+                kind: TestErrorKind::UnexpectedErrorKind {
+                    expected: "Generic",
+                    got,
+                },
             }),
         }
     }

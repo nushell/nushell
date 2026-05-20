@@ -52,6 +52,7 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
                 .unwrap_or((cleaned.into(), None, entry))
         }))
     {
+        // Skip labels when span is unknown (CLI args parsed before engine setup)
         let labels = if ctx.span == nu_protocol::Span::unknown() {
             Vec::new()
         } else {

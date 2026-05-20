@@ -1,6 +1,7 @@
 use nu_test_support::fs::{Stub::FileWithContent, file_contents};
 use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use std::fmt::Write;
 
 #[test]
 fn redirect_err() {
@@ -62,12 +63,12 @@ fn two_lines_redirection() {
     Playground::setup("redirections with two lines commands", |dirs, _| {
         nu!(
                 cwd: dirs.test(),
-                r#"
+                "
 def foobar [] {
     'hello' out> output1.txt
     'world' out> output2.txt
 }
-foobar"#);
+foobar");
         let file_out1 = dirs.test().join("output1.txt");
         let actual = file_contents(file_out1);
         assert!(actual.contains("hello"));
@@ -139,7 +140,7 @@ fn same_target_redirection_with_too_much_stderr_not_hang_nushell() {
 
         // not hangs in append mode either.
         let cloned_body = large_file_body.clone();
-        large_file_body.push_str(&format!("\n{cloned_body}"));
+        write!(large_file_body, "\n{cloned_body}").expect("writing to a String is infallible");
         nu!(cwd: dirs.test(), "
         $env.LARGE = (open --raw a_large_file.txt);
         nu --testbin echo_env_stderr LARGE out+err>> another_large_file.txt
@@ -208,7 +209,7 @@ fn redirection_with_pipeline_works() {
     Playground::setup(
         "external with stdout message with pipeline should write data",
         |dirs, sandbox| {
-            let script_body = r"echo message";
+            let script_body = "echo message";
             let expect_body = "message";
 
             sandbox.with_files(&[FileWithContent("test.sh", script_body)]);

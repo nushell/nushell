@@ -73,10 +73,12 @@ impl Command for BytesRemove {
             all: call.has_flag(engine_state, stack, "all")?,
         };
 
-        operate(remove, arg, input, call.head, engine_state.signals()).map(|pipeline| {
-            // image/png with some bytes removed is likely not a valid image/png anymore
-            let metadata = pipeline.metadata().map(|m| m.with_content_type(None));
-            pipeline.set_metadata(metadata)
+        operate(remove, arg, input, call.head, engine_state.signals()).map(|mut pipeline| {
+            if let Some(metadata) = pipeline.metadata_mut() {
+                // image/png with some bytes removed is likely not a valid image/png anymore
+                metadata.content_type = None;
+            }
+            pipeline
         })
     }
 
@@ -193,9 +195,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(BytesRemove {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(BytesRemove)
     }
 }

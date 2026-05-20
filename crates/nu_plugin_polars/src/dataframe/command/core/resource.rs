@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use crate::{PolarsPlugin, cloud::build_cloud_options};
 use nu_path::expand_path_with;
 use nu_plugin::EngineInterface;
-use nu_protocol::{ShellError, Span, Spanned};
+use nu_protocol::{ShellError, Span, Spanned, shell_error::generic::GenericError};
 use polars::{
     io::cloud::CloudOptions,
     prelude::{PlRefPath, SinkDestination, SinkTarget},
@@ -39,24 +39,21 @@ impl Resource {
         let (path, cloud_options): (PlRefPath, Option<CloudOptions>) = if path.has_scheme() {
             let options = build_cloud_options(plugin, &path)?;
             if options.is_none() {
-                return Err(ShellError::GenericError {
-                    error: format!("Could not determine a supported cloud type from path: {path}"),
-                    msg: "".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new_internal(
+                    format!("Could not determine a supported cloud type from path: {path}"),
+                    "",
+                )));
             }
             (path, options)
         } else {
             let new_path = expand_path_with(&spanned_path.item, engine.get_current_dir()?, true);
             (
-                PlRefPath::try_from_path(&new_path).map_err(|e| ShellError::GenericError {
-                    error: format!("Could not resolve resource: {new_path:?} : {e}"),
-                    msg: "".into(),
-                    span: Some(spanned_path.span),
-                    help: None,
-                    inner: vec![],
+                PlRefPath::try_from_path(&new_path).map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        format!("Could not resolve resource: {new_path:?} : {e}"),
+                        "",
+                        spanned_path.span,
+                    ))
                 })?,
                 None,
             )

@@ -3,7 +3,7 @@ use nu_path::is_windows_device_path;
 use nu_protocol::{
     DataSource, NuGlob, PipelineMetadata, ast,
     debugger::{WithDebug, WithoutDebug},
-    shell_error::{self, io::IoError},
+    shell_error::{self, generic::GenericError, io::IoError},
 };
 use std::{
     collections::HashMap,
@@ -226,14 +226,24 @@ impl Command for Open {
                                 eval_call::<WithoutDebug>(engine_state, stack, &open_call, stream)
                             };
                             output.push(command_output.map_err(|inner| {
-                                    ShellError::GenericError{
-                                        error: format!("Error while parsing as {ext}"),
-                                        msg: format!("Could not parse '{}' with `from {}`", path.display(), ext),
-                                        span: Some(arg_span),
-                                        help: Some(format!("Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`", ext, path.display())),
-                                        inner: vec![inner],
-                                }
-                                })?);
+                                ShellError::Generic(
+                                    GenericError::new(
+                                        format!("Error while parsing as {ext}"),
+                                        format!(
+                                            "Could not parse '{}' with `from {}`",
+                                            path.display(),
+                                            ext
+                                        ),
+                                        arg_span,
+                                    )
+                                    .with_help(format!(
+                                        "Check out `help from {}` or `help from` for more options or open raw data with `open --raw '{}'`",
+                                        ext,
+                                        path.display()
+                                    ))
+                                    .with_inner([inner]),
+                                )
+                            })?);
                         }
                         None => {
                             // If no converter was found, add content-type metadata

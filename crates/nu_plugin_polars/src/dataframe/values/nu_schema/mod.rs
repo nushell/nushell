@@ -3,6 +3,7 @@ pub mod custom_value;
 use std::sync::Arc;
 
 use custom_value::NuSchemaCustomValue;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value};
 use polars::prelude::{DataType, Field, Schema, SchemaExt, SchemaRef};
 use uuid::Uuid;
@@ -53,13 +54,10 @@ impl Cacheable for NuSchema {
     fn from_cache_value(cv: super::PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuSchema(dt) => Ok(dt),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a dataframe".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a dataframe",
+                "",
+            ))),
         }
     }
 }
@@ -95,7 +93,7 @@ impl CustomValueSupport for NuSchema {
                 })
             }
         } else {
-            let schema = value_to_schema(plugin, value, Span::unknown())?;
+            let schema = value_to_schema(plugin, value, value.span())?;
             Ok(Self::new(Arc::new(schema)))
         }
     }
@@ -156,7 +154,7 @@ mod test {
             "address" => Value::test_record(address)
         });
 
-        let schema = value_to_schema(&plugin, &value, Span::unknown()).unwrap();
+        let schema = value_to_schema(&plugin, &value, Span::test_data()).unwrap();
         let expected = Schema::from_iter(vec![
             Field::new("name".into(), DataType::String),
             Field::new("age".into(), DataType::Int32),

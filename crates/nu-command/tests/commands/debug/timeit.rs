@@ -29,11 +29,11 @@ fn echo_env_stderr(key: impl Display) -> impl Display {
 #[test]
 fn timeit_show_stdout() -> Result {
     let code = format!(
-        r#"
+        "
         timeit --output {{ do {{ run-external {} }} | complete }}
         | get output.stdout
         | str trim
-    "#,
+    ",
         echo_stdout("abcdefg")
     );
     test().inherit_path().run(code).expect_value_eq("abcdefg")
@@ -42,24 +42,24 @@ fn timeit_show_stdout() -> Result {
 #[test]
 fn timeit_show_stderr() -> Result {
     let stdout_code = format!(
-        r#"
+        "
         with-env {{FOO: bar, FOO2: baz}} {{
             timeit --output {{ do {{ run-external {} }} | complete }}
             | get output.stdout
         }}
-    "#,
+    ",
         echo_env_stdout("FOO")
     );
     let stdout: String = test().inherit_path().run(stdout_code)?;
     assert_contains("bar", stdout);
 
     let stderr_code = format!(
-        r#"
+        "
         with-env {{FOO: bar, FOO2: baz}} {{
             timeit --output {{ do {{ run-external {} }} | complete }}
             | get output.stderr
         }}
-    "#,
+    ",
         echo_env_stderr("FOO2")
     );
     let stderr: String = test().inherit_path().run(stderr_code)?;

@@ -1,5 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::{Result, TestResultExt, test};
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
@@ -133,7 +134,7 @@ fn prefixed_overlay_keeps_custom_decl() {
 fn def_before_overlay_use_should_work() {
     let inp = &[
         r#"def something [] { "example" }"#,
-        r#"module spam { }"#,
+        "module spam { }",
         "overlay use spam",
         r#"def bar [] { "bar" }"#,
         "overlay hide spam",
@@ -228,6 +229,32 @@ fn add_overlay_from_const_module_name_decl() {
     let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn add_overlay_from_file_with_stored_where_condition() -> Result {
+    Playground::setup(
+        "add_overlay_from_file_with_stored_where_condition",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
+
+            let mut tester = test().cwd(dirs.test()).add_nu_to_path();
+            tester.run(inp.join("; ")).expect_value_eq("[[a];[1]]")?;
+            tester.run(nu_repl_code(inp)).expect_value_eq("[[a];[1]]")
+        },
+    )
 }
 
 #[test]
@@ -964,7 +991,7 @@ fn overlay_use_export_env_config_affected() {
         "module spam { export-env { $env.config.filesize.unit = 'binary' } }",
         "overlay use spam",
         "$out ++= [(20MiB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     let actual = nu!(&inp.join("; "));
@@ -985,7 +1012,7 @@ fn overlay_hide_config_affected() {
         "$out ++= [(20MiB | into string)]",
         "overlay hide",
         "$out ++= [(20MB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     // Can't hide overlay within the same source file
@@ -1009,7 +1036,7 @@ fn overlay_use_after_hide_config_affected() {
         "$out ++= [(20MB | into string)]",
         "overlay use spam",
         "$out ++= [(20MiB | into string)]",
-        r#"$out | to json --raw"#,
+        "$out | to json --raw",
     ];
 
     // Can't hide overlay within the same source file
@@ -1603,11 +1630,11 @@ fn test_overlay_use_with_printing_file_pwd() {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.FILE_PWD
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(
@@ -1625,11 +1652,11 @@ fn test_overlay_use_with_printing_current_file() {
         let file = dirs.test().join("foo").join("mod.nu");
         nu.mkdir("foo").with_files(&[FileWithContent(
             file.as_os_str().to_str().unwrap(),
-            r#"
+            "
                 export-env {
                     print $env.CURRENT_FILE
                 }
-            "#,
+            ",
         )]);
 
         let actual = nu!(

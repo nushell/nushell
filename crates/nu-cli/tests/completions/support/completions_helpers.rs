@@ -182,7 +182,7 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     let mut working_set = StateWorkingSet::new(&engine_state);
     let var_id = working_set.add_variable(
         b"$NU_LIB_DIRS".into(),
-        Span::unknown(),
+        Span::test_data(),
         nu_protocol::Type::List(Box::new(nu_protocol::Type::String)),
         false,
     );
@@ -280,7 +280,7 @@ pub fn merge_input(
             engine_state,
             stack,
             &block,
-            PipelineData::value(Value::nothing(Span::unknown()), None),
+            PipelineData::value(Value::nothing(Span::test_data()), None),
         )
         .is_ok()
     );

@@ -173,6 +173,37 @@ impl PartialOrd for PathMember {
     }
 }
 
+/// [`PathMember`] for testing purposes.
+///
+/// This path member may be converted via [`into_path_member`](Self::into_path_member) into a
+/// [`PathMember`] that is using a [`Span::test_data()`](crate::Span::test_data) span.
+#[doc(hidden)]
+pub struct TestPathMember<T>(T);
+
+impl<S: Into<String>> From<S> for TestPathMember<String> {
+    fn from(value: S) -> Self {
+        Self(value.into())
+    }
+}
+
+impl TestPathMember<String> {
+    pub fn into_path_member(self) -> PathMember {
+        PathMember::test_string(self.0, false, Casing::Sensitive)
+    }
+}
+
+impl From<usize> for TestPathMember<usize> {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl TestPathMember<usize> {
+    pub fn into_path_member(self) -> PathMember {
+        PathMember::test_int(self.0, false)
+    }
+}
+
 /// Represents the potentially nested access to fields/cells of a container type
 ///
 /// In our current implementation for table access the order of row/column is commutative.

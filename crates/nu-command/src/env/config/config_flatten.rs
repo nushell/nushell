@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_utils::JsonFlattener; // Ensure this import is present // Ensure this import is present
 
 #[derive(Clone)]
@@ -37,14 +38,13 @@ impl Command for ConfigFlatten {
         // Get the Config instance from the stack
         let config = stack.get_config(engine_state);
         // Serialize the Config instance to JSON
-        let serialized_config =
-            serde_json::to_value(&*config).map_err(|err| ShellError::GenericError {
-                error: format!("Failed to serialize config to json: {err}"),
-                msg: "".into(),
-                span: Some(call.head),
-                help: None,
-                inner: vec![],
-            })?;
+        let serialized_config = serde_json::to_value(&*config).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                format!("Failed to serialize config to json: {err}"),
+                "",
+                call.head,
+            ))
+        })?;
         // Create a JsonFlattener instance with appropriate arguments
         let flattener = JsonFlattener {
             separator: ".",
@@ -73,18 +73,19 @@ fn convert_string_to_value(
             nu_json::Error::Syntax(_, row, col) => {
                 let label = x.to_string();
                 let label_span = Span::from_row_column(row, col, string_input);
-                Err(ShellError::GenericError {
-                    error: "Error while parsing JSON text".into(),
-                    msg: "error parsing JSON text".into(),
-                    span: Some(span),
-                    help: None,
-                    inner: vec![ShellError::OutsideSpannedLabeledError {
+                Err(ShellError::Generic(
+                    GenericError::new(
+                        "Error while parsing JSON text",
+                        "error parsing JSON text",
+                        span,
+                    )
+                    .with_inner([ShellError::OutsideSpannedLabeledError {
                         src: string_input.into(),
                         error: "Error while parsing JSON text".into(),
                         msg: label,
                         span: label_span,
-                    }],
-                })
+                    }]),
+                ))
             }
             x => Err(ShellError::CantConvert {
                 to_type: format!("structured json data ({x})"),

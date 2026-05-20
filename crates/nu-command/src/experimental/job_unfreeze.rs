@@ -80,8 +80,8 @@ impl Command for JobUnfreeze {
     }
 
     fn extra_description(&self) -> &str {
-        r#"When a running process is frozen (with the SIGTSTP signal or with the Ctrl-Z key on unix),
-a background job gets registered for this process, which can then be resumed using this command."#
+        "When a running process is frozen (with the SIGTSTP signal or with the Ctrl-Z key on unix),
+a background job gets registered for this process, which can then be resumed using this command."
     }
 }
 

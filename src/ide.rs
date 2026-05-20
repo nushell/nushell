@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use reedline::Completer;
 use serde_json::{Value as JsonValue, json};
-use std::{path::PathBuf, sync::Arc};
+use std::{fmt::Write, path::PathBuf, sync::Arc};
 
 #[derive(Debug)]
 enum Id {
@@ -24,9 +24,10 @@ fn find_id(
     file: &[u8],
     location: &Value,
 ) -> Option<(Id, usize, Span)> {
-    let file_id = working_set.add_file(file_path.to_string(), file);
-    let offset = working_set.get_span_for_file(file_id).start;
-    let _ = working_set.files.push(file_path.into(), Span::unknown());
+    let file_id = working_set.add_file(file_path, file);
+    let file_span = working_set.get_span_for_file(file_id);
+    let offset = file_span.start;
+    let _ = working_set.files.push(file_path.into(), file_span);
     let block = parse(working_set, Some(file_path), file, false);
     let flattened = flatten_block(working_set, &block);
 
@@ -55,6 +56,7 @@ fn read_in_file<'a>(
     engine_state: &'a mut EngineState,
     file_path: &str,
 ) -> (Vec<u8>, StateWorkingSet<'a>) {
+    // No source span — this is the IDE entry point reading the file from disk
     let file = std::fs::read(file_path)
         .map_err(|err| {
             ShellError::Io(IoError::new_with_additional_context(
@@ -92,6 +94,7 @@ pub fn check(engine_state: &mut EngineState, file_path: &str, max_errors: &Value
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        // Top-level IDE check — no source location triggered this file load
         let _ = working_set.files.push(file_path.into(), Span::unknown());
         let block = parse(&mut working_set, Some(file_path), &contents, false);
 
@@ -208,28 +211,33 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
             let mut description = String::new();
 
             // first description
-            description.push_str(&format!("{}\n", decl.description()));
+            writeln!(description, "{}", decl.description())
+                .expect("writing to a String is infallible");
 
             // additional description
             if !decl.extra_description().is_empty() {
-                description.push_str(&format!("\n{}\n", decl.extra_description()));
+                write!(description, "\n{}\n", decl.extra_description())
+                    .expect("writing to a String is infallible");
             }
 
             // Usage
             description.push_str("### Usage\n```\n");
             let signature = decl.signature();
-            description.push_str(&format!("  {}", signature.name));
+            write!(description, "  {}", signature.name).expect("writing to a String is infallible");
             if !signature.named.is_empty() {
                 description.push_str(" {flags}")
             }
             for required_arg in &signature.required_positional {
-                description.push_str(&format!(" <{}>", required_arg.name));
+                write!(description, " <{}>", required_arg.name)
+                    .expect("writing to a String is infallible");
             }
             for optional_arg in &signature.optional_positional {
-                description.push_str(&format!(" <{}?>", optional_arg.name));
+                write!(description, " <{}?>", optional_arg.name)
+                    .expect("writing to a String is infallible");
             }
             if let Some(arg) = &signature.rest_positional {
-                description.push_str(&format!(" <...{}>", arg.name));
+                write!(description, " <...{}>", arg.name)
+                    .expect("writing to a String is infallible");
             }
 
             description.push_str("\n```\n");
@@ -247,22 +255,26 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                     }
                     description.push_str("  ");
                     if let Some(short_flag) = &named.short {
-                        description.push_str(&format!("`-{short_flag}`"));
+                        write!(description, "`-{short_flag}`")
+                            .expect("writing to a String is infallible");
                     }
 
                     if !named.long.is_empty() {
                         if named.short.is_some() {
                             description.push_str(", ")
                         }
-                        description.push_str(&format!("`--{}`", named.long));
+                        write!(description, "`--{}`", named.long)
+                            .expect("writing to a String is infallible");
                     }
 
                     if let Some(arg) = &named.arg {
-                        description.push_str(&format!(" `<{}>`", arg.to_type()))
+                        write!(description, " `<{}>`", arg.to_type())
+                            .expect("writing to a String is infallible");
                     }
 
                     if !named.desc.is_empty() {
-                        description.push_str(&format!(" - {}", named.desc));
+                        write!(description, " - {}", named.desc)
+                            .expect("writing to a String is infallible");
                     }
                 }
                 description.push('\n');
@@ -282,13 +294,16 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         first = false;
                     }
 
-                    description.push_str(&format!(
+                    write!(
+                        description,
                         "  `{}: {}`",
                         required_arg.name,
                         required_arg.shape.to_type()
-                    ));
+                    )
+                    .expect("writing to a String is infallible");
                     if !required_arg.desc.is_empty() {
-                        description.push_str(&format!(" - {}", required_arg.desc));
+                        write!(description, " - {}", required_arg.desc)
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -299,13 +314,16 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         first = false;
                     }
 
-                    description.push_str(&format!(
+                    write!(
+                        description,
                         "  `{}: {}`",
                         optional_arg.name,
                         optional_arg.shape.to_type()
-                    ));
+                    )
+                    .expect("writing to a String is infallible");
                     if !optional_arg.desc.is_empty() {
-                        description.push_str(&format!(" - {}", optional_arg.desc));
+                        write!(description, " - {}", optional_arg.desc)
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -314,9 +332,11 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                         description.push_str("\\\n");
                     }
 
-                    description.push_str(&format!(" `...{}: {}`", arg.name, arg.shape.to_type()));
+                    write!(description, " `...{}: {}`", arg.name, arg.shape.to_type())
+                        .expect("writing to a String is infallible");
                     if !arg.desc.is_empty() {
-                        description.push_str(&format!(" - {}", arg.desc));
+                        write!(description, " - {}", arg.desc)
+                            .expect("writing to a String is infallible");
                     }
                     description.push('\n');
                 }
@@ -330,7 +350,8 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
 
                 description.push_str("\n```\n");
                 for input_output in &signature.input_output_types {
-                    description.push_str(&format!("  {} | {}\n", input_output.0, input_output.1));
+                    writeln!(description, "  {} | {}", input_output.0, input_output.1)
+                        .expect("writing to a String is infallible");
                 }
                 description.push_str("\n```\n");
             }
@@ -340,10 +361,12 @@ pub fn hover(engine_state: &mut EngineState, file_path: &str, location: &Value) 
                 description.push_str("### Example(s)\n```\n");
 
                 for example in decl.examples() {
-                    description.push_str(&format!(
+                    write!(
+                        description,
                         "```\n  {}\n```\n  {}\n\n",
                         example.description, example.example
-                    ));
+                    )
+                    .expect("writing to a String is infallible");
                 }
             }
 
@@ -636,6 +659,7 @@ pub fn ast(engine_state: &mut EngineState, file_path: &str) {
 
     if let Ok(contents) = file {
         let offset = working_set.next_span_start();
+        // Top-level IDE ast dump — no source location triggered this file load
         let _ = working_set.files.push(file_path.into(), Span::unknown());
         let parsed_block = parse(&mut working_set, Some(file_path), &contents, false);
 

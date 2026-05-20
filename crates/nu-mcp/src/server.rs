@@ -1,19 +1,18 @@
-use std::sync::Arc;
-
+use crate::evaluation::Evaluator;
 use nu_protocol::{UseAnsiColoring, engine::EngineState};
 use rmcp::{
-    ErrorData as McpError, RoleServer, ServerHandler,
+    RoleServer, ServerHandler,
     handler::server::{tool::ToolRouter, wrapper::Parameters},
-    model::{ServerCapabilities, ServerInfo},
+    model::{Implementation, ServerCapabilities, ServerInfo},
     service::RequestContext,
     tool, tool_handler, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-
-use crate::evaluation::Evaluator;
+use std::sync::Arc;
 
 pub struct NushellMcpServer {
+    #[allow(dead_code)]
     tool_router: ToolRouter<Self>,
     evaluator: Evaluator,
 }
@@ -36,28 +35,21 @@ impl NushellMcpServer {
 By default all available commands will be returned. To find a specific command by searching command names, descriptions and search terms, use the find parameter."#)]
     async fn list_commands(
         &self,
-        ctx: RequestContext<RoleServer>,
+        _ctx: RequestContext<RoleServer>,
         Parameters(ListCommandsRequest { find }): Parameters<ListCommandsRequest>,
-    ) -> Result<String, McpError> {
-        let cmd = if let Some(f) = find {
-            format!("help commands --find {f}")
-        } else {
-            "help commands".to_string()
-        };
-
-        self.evaluator.eval_async(&cmd, ctx.ct).await
+    ) -> Result<String, String> {
+        self.evaluator.list_available_commands(find).await
     }
 
     #[tool(
-        description = "Get help for a specific Nushell command. This will only work on commands that are native to nushell. To find out if a command is native to nushell you can use the find_command tool."
+        description = "Get help for a specific Nushell command. This will only work on commands that are native to nushell. To find out if a command is native to nushell you can use the list_commands tool."
     )]
     async fn command_help(
         &self,
-        ctx: RequestContext<RoleServer>,
+        _ctx: RequestContext<RoleServer>,
         Parameters(CommandNameRequest { name }): Parameters<CommandNameRequest>,
-    ) -> Result<String, McpError> {
-        let cmd = format!("help {name}");
-        self.evaluator.eval_async(&cmd, ctx.ct).await
+    ) -> Result<String, String> {
+        self.evaluator.command_help(&name).await
     }
 
     #[doc = include_str!("evaluate_tool.md")]
@@ -66,8 +58,11 @@ By default all available commands will be returned. To find a specific command b
         &self,
         ctx: RequestContext<RoleServer>,
         Parameters(NuSourceRequest { input }): Parameters<NuSourceRequest>,
-    ) -> Result<String, McpError> {
-        self.evaluator.eval_async(&input, ctx.ct).await
+    ) -> Result<String, String> {
+        self.evaluator
+            .eval_async(&input, ctx.ct)
+            .await
+            .map_err(|err| err.message.to_string())
     }
 }
 
@@ -92,10 +87,258 @@ struct NuSourceRequest {
 #[tool_handler]
 impl ServerHandler for NushellMcpServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo {
-            instructions: Some(include_str!("instructions.md").to_string()),
-            capabilities: ServerCapabilities::builder().enable_tools().build(),
-            ..Default::default()
-        }
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+            .with_server_info(
+                Implementation::new("nushell-mcp-server", env!("CARGO_PKG_VERSION"))
+                    .with_title("Nushell MCP Server")
+                    .with_website_url("https://www.nushell.sh"),
+            )
+            .with_instructions(include_str!("instructions.md"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use futures::channel::mpsc;
+    use nu_cmd_lang::create_default_context;
+    use rmcp::model::RequestId;
+    use rmcp::service::{RxJsonRpcMessage, TxJsonRpcMessage, serve_directly};
+    use serde_json::Value as JsonValue;
+
+    fn make_request_context(request_id: i64) -> RequestContext<RoleServer> {
+        let engine_state = create_default_context();
+        let server = NushellMcpServer::new(engine_state);
+
+        let (tx, _rx_sink) = mpsc::unbounded::<TxJsonRpcMessage<RoleServer>>();
+        let (_tx_stream, rx_stream) = mpsc::unbounded::<RxJsonRpcMessage<RoleServer>>();
+        let transport = (tx, rx_stream);
+
+        let running = serve_directly(server, transport, None);
+        let peer = running.peer().clone();
+        drop(running);
+
+        RequestContext::new(RequestId::Number(request_id), peer)
+    }
+
+    #[test]
+    fn server_info_serializes_expected_mcp_metadata() {
+        let engine_state = create_default_context();
+        let server = NushellMcpServer::new(engine_state);
+        let info = server.get_info();
+        let json = serde_json::to_value(&info).expect("ServerInfo should serialize to JSON");
+
+        let capabilities = json
+            .get("capabilities")
+            .expect("ServerInfo JSON should include capabilities");
+        let tools = capabilities
+            .get("tools")
+            .and_then(JsonValue::as_object)
+            .expect("Server capabilities should include tools");
+        assert!(
+            tools.is_empty(),
+            "tools capability should be present as an empty object"
+        );
+
+        let instructions = json
+            .get("instructions")
+            .expect("ServerInfo JSON should include instructions")
+            .as_str()
+            .expect("instructions should be a string");
+        assert!(
+            instructions.contains("list_commands") && instructions.contains("command_help"),
+            "instructions should point at the command discovery tools (list_commands / command_help)"
+        );
+
+        let server_info = json
+            .get("serverInfo")
+            .or_else(|| json.get("server_info"))
+            .expect("ServerInfo JSON should include serverInfo");
+        assert_eq!(
+            server_info.get("name").and_then(JsonValue::as_str),
+            Some("nushell-mcp-server")
+        );
+        assert_eq!(
+            server_info.get("title").and_then(JsonValue::as_str),
+            Some("Nushell MCP Server")
+        );
+        assert_eq!(
+            server_info.get("version").and_then(JsonValue::as_str),
+            Some(env!("CARGO_PKG_VERSION"))
+        );
+        assert_eq!(
+            server_info
+                .get("websiteUrl")
+                .or_else(|| server_info.get("website_url"))
+                .and_then(JsonValue::as_str),
+            Some("https://www.nushell.sh")
+        );
+    }
+
+    #[test]
+    fn tool_router_exposes_expected_mcp_tools() {
+        let router = NushellMcpServer::tool_router();
+        let tool_names: Vec<_> = router
+            .list_all()
+            .iter()
+            .map(|tool| tool.name.clone())
+            .collect();
+        assert_eq!(
+            tool_names,
+            vec![
+                "command_help".to_string(),
+                "evaluate".to_string(),
+                "list_commands".to_string()
+            ]
+        );
+
+        let list_commands_tool = router
+            .get("list_commands")
+            .expect("list_commands tool should be registered");
+        assert!(
+            list_commands_tool
+                .description
+                .as_deref()
+                .unwrap_or("")
+                .contains("List available Nushell native commands"),
+            "list_commands tool description should mention native command discovery"
+        );
+    }
+
+    #[test]
+    fn evaluate_tool_input_schema_exposes_only_input_property() {
+        let router = NushellMcpServer::tool_router();
+        let evaluate_tool = router
+            .get("evaluate")
+            .expect("evaluate tool should be registered");
+
+        let properties = evaluate_tool
+            .input_schema
+            .get("properties")
+            .and_then(JsonValue::as_object)
+            .expect("evaluate input schema should expose a properties object");
+
+        let mut property_names: Vec<_> = properties.keys().cloned().collect();
+        property_names.sort();
+        assert_eq!(
+            property_names,
+            vec!["input".to_string()],
+            "evaluate tool should accept only `input`; per-call timeout must be \
+             controlled exclusively via the NU_MCP_PROMOTE_AFTER env var"
+        );
+    }
+
+    fn create_mcp_server() -> NushellMcpServer {
+        let engine_state = create_default_context();
+        NushellMcpServer::new(engine_state)
+    }
+
+    #[tokio::test]
+    async fn list_commands_tool_returns_non_empty_help() {
+        let server = create_mcp_server();
+        let ctx = make_request_context(0);
+
+        let result = server
+            .list_commands(
+                ctx,
+                Parameters(ListCommandsRequest {
+                    find: Some("version".to_string()),
+                }),
+            )
+            .await
+            .expect("list_commands should succeed");
+
+        assert!(
+            result.len() > 20,
+            "list_commands output should not be empty"
+        );
+        assert!(
+            result.to_lowercase().contains("version"),
+            "list_commands output should mention version"
+        );
+    }
+
+    #[tokio::test]
+    async fn evaluate_tool_computes_basic_expression() {
+        let server = create_mcp_server();
+        let ctx = make_request_context(1);
+
+        let result = server
+            .evaluate(
+                ctx,
+                Parameters(NuSourceRequest {
+                    input: "5 + 2".to_string(),
+                }),
+            )
+            .await
+            .expect("evaluate should succeed");
+
+        assert!(
+            result.contains("output"),
+            "evaluate output should include output metadata"
+        );
+        assert!(
+            result.contains('7'),
+            "evaluate output should include the computed result"
+        );
+    }
+
+    #[tokio::test]
+    async fn evaluate_tool_history_index_increments() {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let server = NushellMcpServer::new(engine_state);
+
+        let result1 = server
+            .evaluate(
+                make_request_context(3),
+                Parameters(NuSourceRequest {
+                    input: "1".to_string(),
+                }),
+            )
+            .await
+            .expect("first evaluate should succeed");
+        assert!(
+            result1.contains("history_index:0") || result1.contains("history_index: 0"),
+            "first evaluation should have history_index 0"
+        );
+
+        let result2 = server
+            .evaluate(
+                make_request_context(4),
+                Parameters(NuSourceRequest {
+                    input: "2".to_string(),
+                }),
+            )
+            .await
+            .expect("second evaluate should succeed");
+        assert!(
+            result2.contains("history_index:1") || result2.contains("history_index: 1"),
+            "second evaluation should have history_index 1"
+        );
+    }
+
+    #[tokio::test]
+    async fn command_help_tool_returns_help_for_version_command() {
+        let server = create_mcp_server();
+        let ctx = make_request_context(2);
+
+        let result = server
+            .command_help(
+                ctx,
+                Parameters(CommandNameRequest {
+                    name: "version".to_string(),
+                }),
+            )
+            .await
+            .expect("command_help should succeed");
+
+        assert!(
+            result.to_lowercase().contains("version"),
+            "command_help output should mention the command name"
+        );
+        assert!(
+            result.to_lowercase().contains("usage") || result.contains("Usage"),
+            "command_help output should include usage information"
+        );
     }
 }

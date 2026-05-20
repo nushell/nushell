@@ -63,12 +63,12 @@ impl Command for ViewFiles {
         vec![
             Example {
                 description: "View the files registered in Nushell's EngineState memory.",
-                example: r#"view files"#,
+                example: "view files",
                 result: None,
             },
             Example {
                 description: "View how Nushell was originally invoked.",
-                example: r#"view files | get 0"#,
+                example: "view files | get 0",
                 result: None,
             },
         ]

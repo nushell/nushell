@@ -309,6 +309,7 @@ pub struct CompletionOptions {
     pub case_sensitive: bool,
     pub match_algorithm: MatchAlgorithm,
     pub sort: CompletionSort,
+    pub match_description: bool,
 }
 
 impl Default for CompletionOptions {
@@ -317,6 +318,7 @@ impl Default for CompletionOptions {
             case_sensitive: true,
             match_algorithm: MatchAlgorithm::Prefix,
             sort: Default::default(),
+            match_description: false,
         }
     }
 }

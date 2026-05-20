@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{Config, PipelineMetadata, Span};
+use nu_protocol::{Config, PipelineMetadata, Span, shell_error::generic::GenericError};
 
 use std::fmt::Write;
 
@@ -26,46 +26,46 @@ impl Command for ViewSource {
         vec![
             Example {
                 description: "View the source of a code block.",
-                example: r#"let abc = {|| echo 'hi' }; view source $abc"#,
+                example: "let abc = {|| echo 'hi' }; view source $abc",
                 result: Some(Value::test_string("{|| echo 'hi' }")),
             },
             Example {
                 description: "View the source of a custom command.",
-                example: r#"def hi [] { echo 'Hi!' }; view source hi"#,
+                example: "def hi [] { echo 'Hi!' }; view source hi",
                 result: Some(Value::test_string("def hi [] { echo 'Hi!' }")),
             },
             Example {
                 description: "View the source of a custom command, which participates in the caller environment.",
-                example: r#"def --env foo [] { $env.BAR = 'BAZ' }; view source foo"#,
+                example: "def --env foo [] { $env.BAR = 'BAZ' }; view source foo",
                 result: Some(Value::test_string("def --env foo [] { $env.BAR = 'BAZ' }")),
             },
             Example {
                 description: "View the source of a custom command with flags.",
-                example: r#"def --wrapped --env foo [...rest: string] { print $rest }; view source foo"#,
+                example: "def --wrapped --env foo [...rest: string] { print $rest }; view source foo",
                 result: Some(Value::test_string(
                     "def --env --wrapped foo [ ...rest: string] { print $rest }",
                 )),
             },
             Example {
                 description: "View the source of a custom command with flags and arguments.",
-                example: r#"def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test"#,
+                example: "def test [a?:any --b:int ...rest:string] { echo 'test' }; view source test",
                 result: Some(Value::test_string(
                     "def test [ a?: any --b: int ...rest: string] { echo 'test' }",
                 )),
             },
             Example {
                 description: "View the source of a module.",
-                example: r#"module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo"#,
+                example: "module mod-foo { export-env { $env.FOO_ENV = 'BAZ' } }; view source mod-foo",
                 result: Some(Value::test_string(" export-env { $env.FOO_ENV = 'BAZ' }")),
             },
             Example {
                 description: "View the source of an alias.",
-                example: r#"alias hello = echo hi; view source hello"#,
+                example: "alias hello = echo hi; view source hello",
                 result: Some(Value::test_string("echo hi")),
             },
             Example {
                 description: "View the file where a definition lives via metadata.",
-                example: r#"view source some_command | metadata"#,
+                example: "view source some_command | metadata",
                 result: None,
             },
         ]
@@ -92,22 +92,18 @@ impl Command for ViewSource {
 
                         Ok(make_output(engine_state, src, Some(span), call.head))
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view int value".to_string(),
-                            msg: "the block does not have a viewable span".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view int value",
+                            "the block does not have a viewable span",
+                            arg_span,
+                        )))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: format!("Block Id {} does not exist", arg.coerce_into_string()?),
-                        msg: "this number does not correspond to a block".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        format!("Block Id {} does not exist", arg.coerce_into_string()?),
+                        "this number does not correspond to a block",
+                        arg_span,
+                    )))
                 }
             }
 
@@ -237,22 +233,18 @@ impl Command for ViewSource {
                                 call.head,
                             ))
                         } else {
-                            Err(ShellError::GenericError {
-                                error: "Cannot view string value".to_string(),
-                                msg: "the command does not have a viewable block span".to_string(),
-                                span: Some(arg_span),
-                                help: None,
-                                inner: vec![],
-                            })
+                            Err(ShellError::Generic(GenericError::new(
+                                "Cannot view string value",
+                                "the command does not have a viewable block span",
+                                arg_span,
+                            )))
                         }
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view string decl value".to_string(),
-                            msg: "the command does not have a viewable block".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view string decl value",
+                            "the command does not have a viewable block",
+                            arg_span,
+                        )))
                     }
                 } else if let Some(module_id) = engine_state.find_module(val.as_bytes(), &[]) {
                     // arg is a module
@@ -267,22 +259,18 @@ impl Command for ViewSource {
                             call.head,
                         ))
                     } else {
-                        Err(ShellError::GenericError {
-                            error: "Cannot view string module value".to_string(),
-                            msg: "the module does not have a viewable block".to_string(),
-                            span: Some(arg_span),
-                            help: None,
-                            inner: vec![],
-                        })
+                        Err(ShellError::Generic(GenericError::new(
+                            "Cannot view string module value",
+                            "the module does not have a viewable block",
+                            arg_span,
+                        )))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Cannot view string value".to_string(),
-                        msg: "this name does not correspond to a viewable value".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Cannot view string value",
+                        "this name does not correspond to a viewable value",
+                        arg_span,
+                    )))
                 }
             }
             value => {
@@ -307,13 +295,11 @@ impl Command for ViewSource {
                         ))
                     }
                 } else {
-                    Err(ShellError::GenericError {
-                        error: "Cannot view value".to_string(),
-                        msg: "this value cannot be viewed".to_string(),
-                        span: Some(arg_span),
-                        help: None,
-                        inner: vec![],
-                    })
+                    Err(ShellError::Generic(GenericError::new(
+                        "Cannot view value",
+                        "this value cannot be viewed",
+                        arg_span,
+                    )))
                 }
             }
         }

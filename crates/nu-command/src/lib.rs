@@ -7,7 +7,6 @@ mod date;
 mod debug;
 mod default_context;
 mod env;
-mod example_test;
 mod experimental;
 #[cfg(feature = "os")]
 mod filesystem;
@@ -43,8 +42,6 @@ pub use date::*;
 pub use debug::*;
 pub use default_context::*;
 pub use env::*;
-#[cfg(test)]
-pub use example_test::{test_examples, test_examples_with_commands};
 pub use experimental::*;
 #[cfg(feature = "os")]
 pub use filesystem::*;

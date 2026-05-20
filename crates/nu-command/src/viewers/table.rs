@@ -7,13 +7,13 @@ use std::{collections::VecDeque, io::Read, path::PathBuf, str::FromStr, time::Du
 use devicons::icon_for_file;
 use lscolors::{LsColors, Style};
 use nu_color_config::lookup_ansi_color_style;
+use nu_utils::time::Instant;
 use url::Url;
-use web_time::Instant;
 
 use nu_color_config::{StyleComputer, TextStyle, color_from_hex};
 use nu_engine::{command_prelude::*, env_to_string};
 use nu_path::form::Absolute;
-use nu_pretty_hex::HexConfig;
+use nu_pretty_hex::{HexConfig, HexStyles};
 use nu_protocol::{
     ByteStream, Config, DataSource, ListStream, PipelineMetadata, Signals, TableMode,
     ValueIterator,
@@ -139,12 +139,12 @@ impl Command for Table {
         vec![
             Example {
                 description: "List the files in current directory, with indexes starting from 1",
-                example: r#"ls | table --index 1"#,
+                example: "ls | table --index 1",
                 result: None,
             },
             Example {
                 description: "Render data in table view",
-                example: r#"[[a b]; [1 2] [3 4]] | table"#,
+                example: "[[a b]; [1 2] [3 4]] | table",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -158,7 +158,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (expanded)",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --expand"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --expand",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -175,7 +175,7 @@ impl Command for Table {
             },
             Example {
                 description: "Render data in table view (collapsed)",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --collapse"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --collapse",
                 result: Some(Value::test_list(vec![
                     Value::test_record(record! {
                         "a" =>  Value::test_int(1),
@@ -192,22 +192,22 @@ impl Command for Table {
             },
             Example {
                 description: "Change the table theme to the specified theme for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table --theme basic"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table --theme basic",
                 result: None,
             },
             Example {
                 description: "Force showing of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i true"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i true",
                 result: None,
             },
             Example {
                 description: "Set the starting number of the #/index column to 100 for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i 100"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i 100",
                 result: None,
             },
             Example {
                 description: "Force hiding of the #/index column for a single run",
-                example: r#"[[a b]; [1 2] [3 [4 4]]] | table -i false"#,
+                example: "[[a b]; [1 2] [3 [4 4]]] | table -i false",
                 result: None,
             },
         ]
@@ -244,28 +244,7 @@ struct TableConfig {
     index: Option<usize>,
     use_ansi_coloring: bool,
     icons: bool,
-}
-
-impl TableConfig {
-    fn new(
-        view: TableView,
-        width: usize,
-        theme: TableMode,
-        abbreviation: Option<usize>,
-        index: Option<usize>,
-        use_ansi_coloring: bool,
-        icons: bool,
-    ) -> Self {
-        Self {
-            view,
-            width,
-            theme,
-            abbreviation,
-            index,
-            use_ansi_coloring,
-            icons,
-        }
-    }
+    hex_styles: HexStyles,
 }
 
 #[derive(Debug, Clone)]
@@ -281,7 +260,7 @@ enum TableView {
 
 struct CLIArgs {
     width: Option<i64>,
-    abbrivation: Option<usize>,
+    abbreviation: Option<usize>,
     theme: TableMode,
     expand: bool,
     expand_limit: Option<usize>,
@@ -298,19 +277,29 @@ fn parse_table_config(
     state: &EngineState,
     stack: &mut Stack,
 ) -> ShellResult<TableConfig> {
-    let args = get_cli_args(call, state, stack)?;
+    let args @ CLIArgs {
+        abbreviation,
+        theme,
+        index,
+        use_ansi_coloring,
+        icons,
+        ..
+    } = get_cli_args(call, state, stack)?;
+
     let table_view = get_table_view(&args);
     let term_width = get_table_width(args.width);
+    let hex_styles = get_hex_styles(state, stack);
 
-    let cfg = TableConfig::new(
-        table_view,
-        term_width,
-        args.theme,
-        args.abbrivation,
-        args.index,
-        args.use_ansi_coloring,
-        args.icons,
-    );
+    let cfg = TableConfig {
+        view: table_view,
+        width: term_width,
+        theme,
+        abbreviation,
+        index,
+        use_ansi_coloring,
+        icons,
+        hex_styles,
+    };
 
     Ok(cfg)
 }
@@ -335,7 +324,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
     let expand_flatten_separator: Option<String> =
         call.get_flag(state, stack, "flatten-separator")?;
     let collapse: bool = call.has_flag(state, stack, "collapse")?;
-    let abbrivation: Option<usize> = call
+    let abbreviation: Option<usize> = call
         .get_flag(state, stack, "abbreviated")?
         .or_else(|| stack.get_config(state).table.abbreviated_row_count);
     let theme =
@@ -347,7 +336,7 @@ fn get_cli_args(call: &Call<'_>, state: &EngineState, stack: &mut Stack) -> Shel
 
     Ok(CLIArgs {
         theme,
-        abbrivation,
+        abbreviation,
         collapse,
         expand,
         expand_limit,
@@ -458,14 +447,14 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     match input.data {
         // Binary streams should behave as if they really are `binary` data, and printed as hex
         PipelineData::ByteStream(stream, _) if stream.type_() == ByteStreamType::Binary => Ok(
-            PipelineData::byte_stream(pretty_hex_stream(stream, input.call.head), None),
+            PipelineData::byte_stream(pretty_hex_stream(stream, input.cfg, input.call.head), None),
         ),
         PipelineData::ByteStream(..) => Ok(input.data),
         PipelineData::Value(Value::Binary { val, .. }, ..) => {
             let signals = input.engine_state.signals().clone();
             let stream = ByteStream::read_binary(val, input.call.head, signals);
             Ok(PipelineData::byte_stream(
-                pretty_hex_stream(stream, input.call.head),
+                pretty_hex_stream(stream, input.cfg, input.call.head),
                 None,
             ))
         }
@@ -490,8 +479,10 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
             // instead of stdout.
             Err(*error)
         }
-        PipelineData::Value(Value::Custom { val, .. }, ..) => {
-            let base_pipeline = val.to_base_value(span)?.into_pipeline_data();
+        PipelineData::Value(Value::Custom { val, .. }, metadata) => {
+            let base_pipeline = val
+                .to_base_value(span)?
+                .into_pipeline_data_with_metadata(metadata);
             Table.run(input.engine_state, input.stack, input.call, base_pipeline)
         }
         PipelineData::Value(Value::Range { val, .. }, metadata) => {
@@ -505,12 +496,13 @@ fn handle_table_command(mut input: CmdInput<'_>) -> ShellResult<PipelineData> {
     }
 }
 
-fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
+fn pretty_hex_stream(stream: ByteStream, table_cfg: TableConfig, span: Span) -> ByteStream {
     let mut cfg = HexConfig {
         // We are going to render the title manually first
         title: true,
         // If building on 32-bit, the stream size might be bigger than a usize
         length: stream.known_size().and_then(|sz| sz.try_into().ok()),
+        styles: table_cfg.hex_styles,
         ..HexConfig::default()
     };
 
@@ -539,7 +531,8 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
 
             // Write the title at the beginning
             if cfg.title {
-                nu_pretty_hex::write_title(&mut write_buf, cfg, true).expect("format error");
+                nu_pretty_hex::write_title(&mut write_buf, cfg, table_cfg.use_ansi_coloring)
+                    .expect("format error");
                 cfg.title = false;
 
                 // Put the write_buf back into buffer
@@ -558,8 +551,13 @@ fn pretty_hex_stream(stream: ByteStream, span: Span) -> ByteStream {
                     })?;
 
                 if !read_buf.is_empty() {
-                    nu_pretty_hex::hex_write(&mut write_buf, &read_buf, cfg, Some(true))
-                        .expect("format error");
+                    nu_pretty_hex::hex_write(
+                        &mut write_buf,
+                        &read_buf,
+                        cfg,
+                        Some(table_cfg.use_ansi_coloring),
+                    )
+                    .expect("format error");
                     write_buf.push('\n');
 
                     // Advance the address offset for next time
@@ -597,21 +595,15 @@ fn handle_record(
     };
 
     if let Some(limit) = input.cfg.abbreviation {
-        record = make_record_abbreviation(record, limit);
+        record = make_record_abbreviation(record, limit, span);
     }
 
     let config = input.get_config();
 
     if let Some(PipelineMetadata {
-        data_source,
-        mut path_columns,
-        ..
+        mut path_columns, ..
     }) = metadata
     {
-        #[allow(deprecated)]
-        if data_source == DataSource::Ls {
-            path_columns.push(String::from("name"));
-        }
         // Remove duplicates
         path_columns.sort_unstable();
         path_columns.dedup();
@@ -666,7 +658,7 @@ fn handle_record(
     Ok(data)
 }
 
-fn make_record_abbreviation(mut record: Record, limit: usize) -> Record {
+fn make_record_abbreviation(mut record: Record, limit: usize, span: Span) -> Record {
     if record.len() <= limit * 2 + 1 {
         return record;
     }
@@ -676,7 +668,7 @@ fn make_record_abbreviation(mut record: Record, limit: usize) -> Record {
     let mut record_iter = record.into_iter();
     record = Record::with_capacity(limit * 2 + 1);
     record.extend(record_iter.by_ref().take(limit));
-    record.push(String::from("..."), Value::string("...", Span::unknown()));
+    record.push(String::from("..."), Value::string("...", span));
     record.extend(record_iter.skip(prev_len - 2 * limit));
     record
 }
@@ -798,15 +790,9 @@ fn handle_row_stream(
         };
 
         let PipelineMetadata {
-            data_source,
-            mut path_columns,
-            ..
+            mut path_columns, ..
         } = metadata;
 
-        #[allow(deprecated)]
-        if data_source == DataSource::Ls {
-            path_columns.push(String::from("name"));
-        }
         // Remove duplicates
         path_columns.sort_unstable();
         path_columns.dedup();
@@ -975,8 +961,12 @@ impl Iterator for PagingTableCreator {
 
         match self.table_config.abbreviation {
             Some(abbr) => {
-                (batch, _, end) =
-                    stream_collect_abbreviated(&mut self.stream, abbr, self.engine_state.signals());
+                (batch, _, end) = stream_collect_abbreviated(
+                    &mut self.stream,
+                    abbr,
+                    self.engine_state.signals(),
+                    self.head,
+                );
             }
             None => {
                 // Pull from stream until time runs out or we have enough items
@@ -1070,6 +1060,7 @@ fn stream_collect_abbreviated(
     stream: impl Iterator<Item = Value>,
     size: usize,
     signals: &Signals,
+    span: Span,
 ) -> (Vec<Value>, usize, bool) {
     let mut end = true;
     let mut read = 0;
@@ -1100,7 +1091,7 @@ fn stream_collect_abbreviated(
 
     let have_filled_list = head.len() == size && tail.len() == size;
     if have_filled_list {
-        let dummy = get_abbreviated_dummy(&head, &tail);
+        let dummy = get_abbreviated_dummy(&head, &tail, span);
         head.insert(size, dummy)
     }
 
@@ -1109,8 +1100,8 @@ fn stream_collect_abbreviated(
     (head, read, end)
 }
 
-fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
-    let dummy = || Value::string(String::from("..."), Span::unknown());
+fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>, span: Span) -> Value {
+    let dummy = || Value::string(String::from("..."), span);
     let is_record_list = is_record_list(head.iter()) && is_record_list(tail.iter());
 
     if is_record_list {
@@ -1122,7 +1113,7 @@ fn get_abbreviated_dummy(head: &[Value], tail: &VecDeque<Value>) -> Value {
                 .columns()
                 .map(|key| (key.clone(), dummy()))
                 .collect(),
-            Span::unknown(),
+            span,
         )
     } else {
         dummy()
@@ -1289,6 +1280,7 @@ const SUPPORTED_TABLE_MODES: &[&str] = &[
     "compact",
     "compact_double",
     "default",
+    "frameless",
     "heavy",
     "light",
     "none",
@@ -1349,5 +1341,17 @@ fn get_table_width(width_param: Option<i64>) -> usize {
         w as usize
     } else {
         DEFAULT_TABLE_WIDTH
+    }
+}
+
+fn get_hex_styles(engine_state: &EngineState, stack: &mut Stack) -> HexStyles {
+    let comp = StyleComputer::from_config(engine_state, stack);
+    let null = Value::nothing(Span::unknown());
+    HexStyles {
+        null_char: comp.compute("binary_null_char", &null),
+        printable: comp.compute("binary_printable", &null),
+        whitespace: comp.compute("binary_whitespace", &null),
+        ascii_other: comp.compute("binary_ascii_other", &null),
+        non_ascii: comp.compute("binary_non_ascii", &null),
     }
 }

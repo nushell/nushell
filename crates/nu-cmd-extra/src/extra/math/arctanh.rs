@@ -98,9 +98,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(MathArcTanH {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(MathArcTanH)
     }
 }

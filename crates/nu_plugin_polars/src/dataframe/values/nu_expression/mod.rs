@@ -1,6 +1,7 @@
 mod custom_value;
 
 use crate::values::{NuSelector, NuSelectorCustomValue};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ShellError, Span, Value, record};
 use polars::{
     chunked_array::cast::CastOptions,
@@ -420,7 +421,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type SubPlan are not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: span,
         }),
         Expr::Selector(selector) => {
             // Convert Selector to NuSelector and then to Value
@@ -431,7 +432,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: span,
         }),
         Expr::Field(column_name) => {
             let fields: Vec<Value> = column_name
@@ -516,13 +517,10 @@ impl Cacheable for NuExpression {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuExpression(df) => Ok(df),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not an expression".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not an expression",
+                "",
+            ))),
         }
     }
 }
@@ -565,12 +563,12 @@ impl CustomValueSupport for NuExpression {
             Value::Date { val, .. } => val
                 .to_owned()
                 .timestamp_nanos_opt()
-                .ok_or_else(|| ShellError::GenericError {
-                    error: "Integer overflow".into(),
-                    msg: "Provided datetime in nanoseconds is too large for i64".into(),
-                    span: Some(value.span()),
-                    help: None,
-                    inner: vec![],
+                .ok_or_else(|| {
+                    ShellError::Generic(GenericError::new(
+                        "Integer overflow",
+                        "Provided datetime in nanoseconds is too large for i64",
+                        value.span(),
+                    ))
                 })
                 .map(|nanos| -> NuExpression {
                     nanos
@@ -589,10 +587,11 @@ impl CustomValueSupport for NuExpression {
                 ))
                 .into()),
             Value::List { vals, .. } => {
-                NuDataFrame::try_from_iter(plugin, vals.iter().cloned(), None).and_then(|ndf| {
-                    let series = ndf.as_series(value.span())?;
-                    Ok(series.lit().into())
-                })
+                NuDataFrame::try_from_iter(plugin, vals.iter().cloned(), None, value.span())
+                    .and_then(|ndf| {
+                        let series = ndf.as_series(value.span())?;
+                        Ok(series.lit().into())
+                    })
             }
             x => Err(ShellError::CantConvert {
                 to_type: "lazy expression".into(),
@@ -615,7 +614,7 @@ impl CustomValueSupport for NuExpression {
         }
     }
 
-    fn base_value(self, _span: Span) -> Result<Value, ShellError> {
-        self.to_value(Span::unknown())
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        self.to_value(span)
     }
 }

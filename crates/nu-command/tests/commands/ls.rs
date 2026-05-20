@@ -57,34 +57,34 @@ fn lists_regular_files_in_special_folder() {
             .with_files(&[EmptyFile("abcd/?/test2.txt")]);
 
         let actual = nu!(
-            cwd: dirs.test().join("abcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd]"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test(), format!(r#"ls abcd] | length"#));
+            cwd: dirs.test(), format!("ls abcd] | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("[abcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("[abcd]"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("[bbcd]"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("[bbcd]"), format!("ls | length"));
         assert_eq!(actual.out, "0");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls | length"));
         assert_eq!(actual.out, "1");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls -D ../* | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls -D ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/*"), format!(r#"ls ../* | length"#));
+            cwd: dirs.test().join("abcd/*"), format!("ls ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls -D ../* | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls -D ../* | length"));
         assert_eq!(actual.out, "2");
         let actual = nu!(
-            cwd: dirs.test().join("abcd/?"), format!(r#"ls ../* | length"#));
+            cwd: dirs.test().join("abcd/?"), format!("ls ../* | length"));
         assert_eq!(actual.out, "2");
     })
 }
@@ -127,7 +127,7 @@ fn lists_regular_files_using_question_mark(#[case] command: &str, #[case] expect
         ]);
 
         let actual = nu!(
-            cwd: dirs.test(), format!(r#"ls {command} | length"#));
+            cwd: dirs.test(), format!("ls {command} | length"));
         assert_eq!(actual.out, expected.to_string());
     })
 }
@@ -479,14 +479,14 @@ fn lists_with_directory_flag() {
             .within("dir_files")
             .with_files(&[EmptyFile("nushell.json")])
             .within("dir_empty");
-        let actual = nu!(cwd: dirs.test(), r#"
+        let actual = nu!(cwd: dirs.test(), "
             cd dir_empty;
             ['.' '././.' '..' '../dir_files' '../dir_files/*']
             | each { |it| ls --directory ($it | into glob) }
             | flatten
             | get name
             | to text
-        "#);
+        ");
         let expected = [".", ".", "..", "../dir_files", "../dir_files/nushell.json"].join("");
         #[cfg(windows)]
         let expected = expected.replace('/', "\\");

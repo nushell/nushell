@@ -1,26 +1,37 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
-fn export_command_help() {
-    let actual = nu!("export -h");
+fn export_command_help() -> Result {
+    let actual: String = test().run("export -h")?;
 
-    assert!(
-        actual
-            .out
-            .contains("Export definitions or environment variables from a module")
+    assert_contains(
+        "Export definitions or environment variables from a module",
+        actual,
     );
+
+    Ok(())
 }
 
 #[test]
-fn export_command_unexpected() {
-    let actual = nu!("export foo");
-
-    assert!(actual.err.contains("unexpected export"));
+fn export_command_unexpected() -> Result {
+    let err = test().run("export foo").expect_parse_error()?;
+    match err {
+        ParseError::UnexpectedKeyword(keyword, ..) => {
+            assert_eq!(keyword, "export");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn export_alias_should_not_panic() {
-    let actual = nu!("export alias");
-
-    assert!(actual.err.contains("Missing"));
+fn export_alias_should_not_panic() -> Result {
+    let err = test().run("export alias").expect_parse_error()?;
+    match err {
+        ParseError::UnknownState(msg, ..) => {
+            assert_eq!(msg, "Missing positional after call check");
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
 }

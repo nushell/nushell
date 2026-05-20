@@ -232,13 +232,13 @@ fn copies_using_path_with_wildcard_impl(progress: bool) {
         let dst_hashes = nu!(
             cwd: dirs.formats(),
             format!(
-                r#"
+                "
                     for file in (ls {}) {{
                         open --raw $file.name
                         | to text
                         | hash md5
                     }}
-                "#,
+                ",
                 dirs.test().display()
             )
         )
@@ -288,13 +288,13 @@ fn copies_using_a_glob_impl(progress: bool) {
         let dst_hashes = nu!(
             cwd: dirs.formats(),
             format!(
-                r#"
+                "
                     for file in (ls {}) {{
                         open --raw $file.name
                         | to text
                         | hash md5
                     }}
-                "#,
+                ",
                 dirs.test().display()
             )
         )
@@ -499,13 +499,13 @@ fn copy_dir_symlink_file_body_not_changed_impl(progress: bool) {
         // make symbolic link and copy.
         nu!(
             cwd: sandbox.cwd(),
-            format!(r#"
+            format!("
                 rm tmp_dir/good_bye
                 cp {progress_flag} -r -n tmp_dir tmp_dir_2
                 rm -r tmp_dir
                 cp {progress_flag} -r -n tmp_dir_2 tmp_dir
                 echo hello_data | save tmp_dir/good_bye
-            "#),
+            "),
         );
 
         // check dangle_symlink in tmp_dir is no longer dangling.
@@ -615,6 +615,62 @@ fn copy_file_with_read_permission_impl(progress: bool) {
             format!("cp {progress_flag} valid.txt invalid_prem.txt"),
         );
         assert!(actual.err.contains("invalid_prem.txt") && actual.err.contains("denied"));
+    });
+}
+
+#[test]
+fn copies_file_symlink_without_dereferencing() {
+    copies_file_symlink_without_dereferencing_impl(false);
+    copies_file_symlink_without_dereferencing_impl(true);
+}
+
+fn copies_file_symlink_without_dereferencing_impl(progress: bool) {
+    Playground::setup("ucp_file_symlink_no_dereference", |_dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile("file")])
+            .symlink("file", "link_to_file");
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        nu!(
+            cwd: sandbox.cwd(),
+            format!(
+                "cp {progress_flag} --no-dereference link_to_file second_link_to_file"
+            )
+        );
+
+        let second_link = sandbox.cwd().join("second_link_to_file");
+        assert!(second_link.is_symlink());
+        assert_eq!(
+            std::fs::read_link(second_link).unwrap(),
+            sandbox.cwd().join("file")
+        );
+    });
+}
+
+#[test]
+fn copies_directory_symlink_without_dereferencing() {
+    copies_directory_symlink_without_dereferencing_impl(false);
+    copies_directory_symlink_without_dereferencing_impl(true);
+}
+
+fn copies_directory_symlink_without_dereferencing_impl(progress: bool) {
+    Playground::setup("ucp_dir_symlink_no_dereference", |_dirs, sandbox| {
+        sandbox.mkdir("dir").symlink("dir", "link_to_dir");
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        nu!(
+            cwd: sandbox.cwd(),
+            format!("cp {progress_flag} -P link_to_dir second_link_to_dir")
+        );
+
+        let second_link = sandbox.cwd().join("second_link_to_dir");
+        assert!(second_link.is_symlink());
+        assert_eq!(
+            std::fs::read_link(second_link).unwrap(),
+            sandbox.cwd().join("dir")
+        );
     });
 }
 
@@ -1102,8 +1158,8 @@ fn copies_files_with_glob_metachars_when_input_are_variables(#[case] src_name: &
 
 #[cfg(not(windows))]
 #[rstest]
-#[case(r#"'a]?c'"#)]
-#[case(r#"'a*.?c'"#)]
+#[case("'a]?c'")]
+#[case("'a*.?c'")]
 // windows doesn't allow filename with `*`.
 fn copies_files_with_glob_metachars_nw(#[case] src_name: &str) {
     copies_files_with_glob_metachars(src_name);
@@ -1301,7 +1357,7 @@ fn cp_with_cd() {
 
         let actual = nu!(
             cwd: sandbox.cwd(),
-            r#"do { cd tmp_dir; let f = 'file.txt'; cp $f .. }; open file.txt"#,
+            "do { cd tmp_dir; let f = 'file.txt'; cp $f .. }; open file.txt",
         );
         assert!(actual.out.contains("body"));
     });

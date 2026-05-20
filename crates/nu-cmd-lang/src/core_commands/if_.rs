@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_engine::command_prelude::*;
 use nu_protocol::{
     engine::{CommandType, StateWorkingSet},
@@ -40,8 +41,8 @@ impl Command for If {
     }
 
     fn extra_description(&self) -> &str {
-        r#"This command is a parser keyword. For details, check:
-  https://www.nushell.sh/book/thinking_in_nu.html"#
+        "This command is a parser keyword. For details, check:
+  https://www.nushell.sh/book/thinking_in_nu.html"
     }
 
     fn command_type(&self) -> CommandType {
@@ -59,15 +60,21 @@ impl Command for If {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let call = call.assert_ast_call()?;
-        let cond = call.positional_nth(0).expect("checked through parser");
-        let then_expr = call.positional_nth(1).expect("checked through parser");
+
+        let ([cond, then_expr], else_case) = {
+            let mut iter = call.positional_iter();
+            (
+                iter.next_array().expect("checked through parser"),
+                iter.next(),
+            )
+        };
+
         let then_block = then_expr
             .as_block()
             .ok_or_else(|| ShellError::TypeMismatch {
                 err_message: "expected block".into(),
                 span: then_expr.span,
             })?;
-        let else_case = call.positional_nth(2);
 
         if eval_constant(working_set, cond)?.as_bool()? {
             let block = working_set.get_block(then_block);
@@ -138,9 +145,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(If {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(If)
     }
 }

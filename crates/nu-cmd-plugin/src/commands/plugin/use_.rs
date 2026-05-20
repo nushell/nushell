@@ -31,7 +31,7 @@ impl Command for PluginUse {
     }
 
     fn extra_description(&self) -> &str {
-        r#"
+        "
 This command is a parser keyword. For details, check:
   https://www.nushell.sh/book/thinking_in_nu.html
 
@@ -45,7 +45,7 @@ the registry file into scope.
 
 Note that even if the plugin filename is specified, it will only be loaded if
 it was already previously registered with `plugin add`.
-"#
+"
         .trim()
     }
 
@@ -71,17 +71,17 @@ it was already previously registered with `plugin add`.
         vec![
             Example {
                 description: "Load the commands for the `query` plugin from $nu.plugin-path",
-                example: r#"plugin use query"#,
+                example: "plugin use query",
                 result: None,
             },
             Example {
                 description: "Load the commands for the plugin with the filename `~/.cargo/bin/nu_plugin_query` from $nu.plugin-path",
-                example: r#"plugin use ~/.cargo/bin/nu_plugin_query"#,
+                example: "plugin use ~/.cargo/bin/nu_plugin_query",
                 result: None,
             },
             Example {
                 description: "Load the commands for the `query` plugin from a custom plugin registry file",
-                example: r#"plugin use --plugin-config local-plugins.msgpackz query"#,
+                example: "plugin use --plugin-config local-plugins.msgpackz query",
                 result: None,
             },
         ]

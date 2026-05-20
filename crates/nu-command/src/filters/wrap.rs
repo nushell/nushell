@@ -29,11 +29,11 @@ impl Command for Wrap {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let span = call.head;
         let name: String = call.req(engine_state, stack, 0)?;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         match input {
             PipelineData::Empty => Ok(PipelineData::empty()),
@@ -95,9 +95,8 @@ impl Command for Wrap {
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_examples() {
+    fn test_examples() -> nu_test_support::Result {
         use super::Wrap;
-        use crate::test_examples;
-        test_examples(Wrap {})
+        nu_test_support::test().examples(Wrap)
     }
 }

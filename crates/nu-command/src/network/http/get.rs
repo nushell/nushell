@@ -134,7 +134,7 @@ impl Command for HttpGet {
             },
             Example {
                 description: "Get the response status code.",
-                example: r#"http get https://www.example.com | metadata | get http_response.status"#,
+                example: "http get https://www.example.com | metadata | get http_response.status",
                 result: None,
             },
             Example {
@@ -254,9 +254,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(HttpGet {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(HttpGet)
     }
 }

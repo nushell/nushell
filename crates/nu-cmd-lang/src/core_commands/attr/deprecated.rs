@@ -89,8 +89,8 @@ impl Command for AttrDeprecated {
         vec![
             Example {
                 description: "Add a deprecation warning to a custom command.",
-                example: r###"@deprecated
-    def outdated [] {}"###,
+                example: "@deprecated
+    def outdated [] {}",
                 result: Some(Value::nothing(Span::test_data())),
             },
             Example {

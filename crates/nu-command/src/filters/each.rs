@@ -131,21 +131,21 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let closure: Closure = call.req(engine_state, stack, 0)?;
         let keep_empty = call.has_flag(engine_state, stack, "keep-empty")?;
         let flatten = call.has_flag(engine_state, stack, "flatten")?;
 
-        let metadata = input.metadata();
         let result = match input {
-            empty @ (PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..)) => {
-                return Ok(empty);
+            PipelineData::Empty | PipelineData::Value(Value::Nothing { .. }, ..) => {
+                return Ok(input);
             }
             PipelineData::Value(Value::Range { .. }, ..)
             | PipelineData::Value(Value::List { .. }, ..)
             | PipelineData::ListStream(..) => {
+                let metadata = input.take_metadata();
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
                 let out = if flatten {
@@ -166,10 +166,12 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
             // Handle iterable custom values (like SQLiteQueryBuilder)
+            #[expect(deprecated)]
             PipelineData::Value(Value::Custom { ref val, .. }, ..) if val.is_iterable() => {
+                let metadata = input.take_metadata();
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
 
                 let out = if flatten {
@@ -190,11 +192,11 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
-            PipelineData::ByteStream(stream, ..) => {
+            PipelineData::ByteStream(stream, metadata) => {
                 let Some(chunks) = stream.chunks() else {
-                    return Ok(PipelineData::empty().set_metadata(metadata));
+                    return Ok(PipelineData::empty());
                 };
 
                 let mut closure = ClosureEval::new(engine_state, stack, closure);
@@ -217,12 +219,13 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
                         })
                         .into_pipeline_data(head, engine_state.signals().clone())
                 };
-                Ok(out)
+                Ok(out.set_metadata(metadata))
             }
             // This match allows non-iterables to be accepted,
             // which is currently considered undesirable (Nov 2022).
-            PipelineData::Value(value, ..) => {
-                ClosureEvalOnce::new(engine_state, stack, closure).run_with_value(value)
+            PipelineData::Value(value, metadata) => {
+                ClosureEvalOnce::new(engine_state, stack, closure)
+                    .run_with_value_with_metadata(value, metadata)
             }
         };
 
@@ -231,7 +234,6 @@ list of lists like `list<list<string>>` into a flat list like `list<string>`."#
         } else {
             result.and_then(|x| x.filter(|v| !v.is_nothing(), engine_state.signals()))
         }
-        .map(|data| data.set_metadata(metadata))
     }
 }
 
@@ -250,9 +252,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_examples() {
-        use crate::test_examples;
-
-        test_examples(Each {})
+    fn test_examples() -> nu_test_support::Result {
+        nu_test_support::test().examples(Each)
     }
 }
