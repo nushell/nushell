@@ -205,6 +205,24 @@ fn to_nuon_escaping5() -> Result {
 }
 
 #[test]
+fn to_nuon_raw_strings_need_more_hashes_for_leading_hash_content() -> Result {
+    let code = "
+        open -r raw_strings.toml
+        | to nuon --no-commas --raw-strings
+    ";
+
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(
+            r##"r##'# example.toml
+name = "my-app"
+version = "1.0.0"
+'##"##,
+        )
+}
+
+#[test]
 fn to_nuon_negative_int() -> Result {
     let code = "
         -1
