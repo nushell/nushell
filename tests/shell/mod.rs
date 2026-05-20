@@ -68,7 +68,7 @@ fn exit_failure_if_stdout_full() {
     let mut child = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} > /dev/full",
+            "{:?} -n > /dev/full",
             nu_test_support::fs::executable_path()
         ))
         .spawn()
@@ -101,7 +101,7 @@ fn exit_failure_if_stderr_full() {
     let mut child = std::process::Command::new("sh")
         .arg("-c")
         .arg(format!(
-            "{:?} 2>/dev/full",
+            "{:?} -n 2>/dev/full",
             nu_test_support::fs::executable_path()
         ))
         .spawn()
