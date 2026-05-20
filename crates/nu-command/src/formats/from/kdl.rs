@@ -1,6 +1,7 @@
 use nu_engine::command_prelude::*;
 
 use kdl::{KdlDocument, KdlNode, KdlValue};
+use num_traits::ToPrimitive;
 
 #[derive(Debug)]
 pub struct FromKdlError;
@@ -83,12 +84,8 @@ impl Command for FromKdl {
         let kdl_string_object = input.collect_string_strict(span)?;
 
         // parse the string into a KDL document
-        let kdl_data = KdlDocument::parse(&kdl_string_object.0).map_err(|_| {
-            FromKdlError::cant_convert(
-                span,
-                Some("failed to parse kdl string - check the input string syntax".to_owned()),
-            )
-        })?;
+        let kdl_data = KdlDocument::parse(&kdl_string_object.0)
+            .map_err(|err| FromKdlError::cant_convert(span, Some(format!("{}", err))))?;
 
         // make the output record to inject the data in
         let mut output_record = Record::new();
@@ -140,7 +137,7 @@ fn inject_kdl_document_into_record_recursively(
             value = Value::nothing(span);
         }
 
-        output_record.insert(node.name().value().to_string(), value);
+        output_record.push(node.name().value().to_string(), value);
     }
 
     Ok(())
@@ -153,28 +150,36 @@ fn get_kdl_node_entries(kdl_node: &KdlNode, span: Span) -> Result<Vec<Value>, Sh
         if let Some(name) = entry.name() {
             let mut row = Record::new();
 
-            row.insert(
+            row.push(
                 name.value().to_string(),
-                convert_kdl_value_to_nu_value(entry.value(), span),
+                convert_kdl_value_to_nu_value(entry.value(), span)?,
             );
 
             output_list.push(row.into_value(span));
             continue;
         }
 
-        output_list.push(convert_kdl_value_to_nu_value(entry.value(), span).into_value(span));
+        output_list.push(convert_kdl_value_to_nu_value(entry.value(), span)?.into_value(span));
     }
 
     Ok(output_list)
 }
 
-fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Value {
+fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Result<Value, ShellError> {
     match value {
-        KdlValue::String(val) => Value::string(val, span),
-        KdlValue::Integer(val) => Value::int(*val as i64, span),
-        KdlValue::Float(val) => Value::float(*val, span),
-        KdlValue::Bool(val) => Value::bool(*val, span),
-        KdlValue::Null => Value::nothing(span),
+        KdlValue::String(val) => Ok(Value::string(val, span)),
+        KdlValue::Integer(val) => Ok(Value::int(
+            val.to_i64().ok_or(ShellError::UnsupportedInput {
+                msg: "integer value is too large to fit in i64".to_owned(),
+                input: "value originates from here".to_owned(),
+                msg_span: span,
+                input_span: span,
+            })?,
+            span,
+        )),
+        KdlValue::Float(val) => Ok(Value::float(*val, span)),
+        KdlValue::Bool(val) => Ok(Value::bool(*val, span)),
+        KdlValue::Null => Ok(Value::nothing(span)),
     }
 }
 

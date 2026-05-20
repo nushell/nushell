@@ -1,8 +1,3 @@
-/*
- * NOTE: read before modifying, the `convert_nu_value_to_kdl_value` function has a unreachable branch, make sure to not reachable it or the shell may panic insha'Allah
- *
- * */
-
 use kdl::{KdlDocument, KdlEntry, KdlIdentifier, KdlNode, KdlValue};
 use nu_engine::command_prelude::*;
 
@@ -37,7 +32,10 @@ impl Command for ToKdl {
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let call_span = input.span().unwrap_or(call.head);
-        let metadata = input.take_metadata().map(|md| md.with_content_type(None));
+        let metadata = input
+            .take_metadata()
+            .unwrap_or_default()
+            .with_content_type(Some("application/x-kdl".to_owned()));
 
         // get args
         let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
@@ -266,12 +264,13 @@ fn convert_nu_value_to_kdl_value(
             val.coerce_into_string(engine_state, span)?.to_string(),
         )),
         Value::Nothing { .. } => Ok(KdlValue::Null),
-        Value::Error { error, .. } => Ok(KdlValue::String(format!("{error:?}"))),
         Value::Binary { val, .. } => Ok(KdlValue::String(format!("{val:?}"))),
         Value::CellPath { val, .. } => Ok(KdlValue::String(val.to_string())),
         Value::Custom { val, .. } => Ok(KdlValue::String(format!("<{}>", val.type_name()))),
-        // UNSAFE: i struct the code above to ensure insha'Allah that this is never reached but it's still danger because this project has many people work on it so this can be change.
-        _ => unreachable!("can't convert record and list values to kdl"),
+        Value::Error { error, .. } => Err(*(error.clone())),
+        _ => Err(ShellError::NushellFailed {
+            msg: "Can't stringify record and list values".to_owned(),
+        }),
     }
 }
 
@@ -292,7 +291,13 @@ mod errors {
         call_span: Span,
         first_span: Span,
     ) -> ShellError {
-        ShellError::UnsupportedInput { msg: "can't have more than one child for each node in kdl, make sure input don't contain a node has a value of multiple records and more then one of these records has more then one item".to_owned(), input: format!("issue in node: '{}'", node.name().value()), msg_span: call_span, input_span: first_span }
+        ShellError::UnsupportedInput {
+            msg: "a node can't have multiple child records with more than one field each"
+                .to_owned(),
+            input: format!("issue in node: '{}'", node.name().value()),
+            msg_span: call_span,
+            input_span: first_span,
+        }
     }
 
     pub fn nushell_failed(msg: &str) -> ShellError {
