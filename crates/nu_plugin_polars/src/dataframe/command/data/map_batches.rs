@@ -5,7 +5,6 @@ use crate::{
         cant_convert_err,
     },
 };
-use log::error;
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
@@ -156,7 +155,7 @@ impl PluginCommand for MapBatches {
 
         let result_value = engine
             .eval_closure(&closure, vec![inputs], None)
-            .inspect_err(|e| error!("Error evaluating closure in polars map-batches: {e}"))
+            .inspect_err(|e| eprintln!("Error evaluating closure in polars map-batches: {e}"))
             .map_err(LabeledError::from)?;
 
         let mut result_series = value_to_series(plugin, result_value, call.head)?;
