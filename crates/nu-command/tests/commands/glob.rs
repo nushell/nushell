@@ -293,6 +293,7 @@ fn glob_debug_subcommands_enabled() -> Result {
 }
 
 #[test]
+#[exp(nu_experimental::DC_GLOB = false)]
 fn glob_debug_subcommands_disabled() -> Result {
     Playground::setup("glob_dc_debug_subcommands_off", |dirs, _sandbox| {
         let err = test()

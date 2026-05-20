@@ -346,7 +346,7 @@ pub fn complete_item(
 /// Returns `None` if nothing had to be escaped.
 pub fn escape_path(path: &str) -> Option<String> {
     // make glob pattern have the highest priority.
-    if nu_engine::glob_is_glob(path) || path.contains('`') {
+    if nu_glob::is_glob_with_backend(path) || path.contains('`') {
         // expand home `~` for https://github.com/nushell/nushell/issues/13905
         let pathbuf = nu_path::expand_tilde(path);
         let path = pathbuf.to_string_lossy();

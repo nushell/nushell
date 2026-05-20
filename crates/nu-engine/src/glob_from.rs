@@ -9,30 +9,6 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-/// Returns `true` if the pattern contains glob metacharacters.
-///
-/// Routes through `dc_glob::is_glob` when the DC_GLOB experimental option is enabled,
-/// or through the legacy `nu_glob::is_glob` otherwise.
-pub fn glob_is_glob(pattern: &str) -> bool {
-    if nu_experimental::DC_GLOB.get() {
-        nu_glob::dc_glob::is_glob(pattern)
-    } else {
-        nu_glob::is_glob(pattern)
-    }
-}
-
-/// Escapes glob metacharacters in a path string.
-///
-/// Routes through `dc_glob::escape` when the DC_GLOB experimental option is enabled,
-/// or through `nu_glob::Pattern::escape` otherwise.
-fn glob_escape(pattern: &str) -> String {
-    if nu_experimental::DC_GLOB.get() {
-        nu_glob::dc_glob::escape(pattern)
-    } else {
-        nu_glob::Pattern::escape(pattern)
-    }
-}
-
 /// This function is like `nu_glob::glob` from the `glob` crate, except it is relative to a given cwd.
 ///
 /// It returns a tuple of two values: the first is an optional prefix that the expanded filenames share.
@@ -56,7 +32,7 @@ pub fn glob_from(
 > {
     let no_glob_for_pattern = matches!(pattern.item, NuGlob::DoNotExpand(_));
     let pattern_span = pattern.span;
-    let (prefix, pattern) = if glob_is_glob(pattern.item.as_ref()) {
+    let (prefix, pattern) = if nu_glob::is_glob_with_backend(pattern.item.as_ref()) {
         // Pattern contains glob, split it
         let mut p = PathBuf::new();
         let path = PathBuf::from(&pattern.item.as_ref());
@@ -65,7 +41,7 @@ pub fn glob_from(
 
         for c in components {
             if let Component::Normal(os) = c
-                && glob_is_glob(os.to_string_lossy().as_ref())
+                && nu_glob::is_glob_with_backend(os.to_string_lossy().as_ref())
             {
                 break;
             }
@@ -80,12 +56,14 @@ pub fn glob_from(
             }
         }
         if no_glob_for_pattern {
-            just_pattern = PathBuf::from(glob_escape(&just_pattern.to_string_lossy()));
+            just_pattern = PathBuf::from(nu_glob::escape_with_backend(
+                &just_pattern.to_string_lossy(),
+            ));
         }
 
         // Now expand `p` to get full prefix
         let path = expand_path_with(p, cwd, pattern.item.is_expand());
-        let escaped_prefix = PathBuf::from(glob_escape(&path.to_string_lossy()));
+        let escaped_prefix = PathBuf::from(nu_glob::escape_with_backend(&path.to_string_lossy()));
 
         (Some(path), escaped_prefix.join(just_pattern))
     } else {
@@ -101,11 +79,11 @@ pub fn glob_from(
         } else {
             let path = match absolute_with(path.clone(), cwd) {
                 Ok(p) if p.exists() => {
-                    if glob_is_glob(p.to_string_lossy().as_ref()) {
+                    if nu_glob::is_glob_with_backend(p.to_string_lossy().as_ref()) {
                         // our path might contain glob metacharacters too.
                         // in such case, we need to escape our path to make
                         // glob work successfully
-                        PathBuf::from(glob_escape(&p.to_string_lossy()))
+                        PathBuf::from(nu_glob::escape_with_backend(&p.to_string_lossy()))
                     } else {
                         p
                     }

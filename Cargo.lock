@@ -4717,6 +4717,7 @@ dependencies = [
  "anyhow",
  "doc-comment",
  "log",
+ "nu-experimental",
  "rayon",
 ]
 

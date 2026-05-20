@@ -1,7 +1,6 @@
 use chrono::{DateTime, FixedOffset};
 use filetime::FileTime;
 use nu_engine::command_prelude::*;
-use nu_engine::glob_is_glob;
 use nu_path::expand_path_with;
 use nu_protocol::{
     NuGlob, shell_error::generic::GenericError, shell_error::io::ErrorKind,
@@ -200,7 +199,7 @@ impl Command for UTouch {
                             return Err(err);
                         };
 
-                        if glob_is_glob(&file_name.to_string_lossy()) {
+                        if nu_glob::is_glob_with_backend(&file_name.to_string_lossy()) {
                             return Err(err);
                         }
 
@@ -237,7 +236,7 @@ impl Command for UTouch {
                         )));
                     };
 
-                    if glob_is_glob(&file_name.to_string_lossy()) {
+                    if nu_glob::is_glob_with_backend(&file_name.to_string_lossy()) {
                         return Err(ShellError::Generic(
                             GenericError::new(
                                 format!(

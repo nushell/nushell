@@ -366,6 +366,26 @@ pub fn is_glob(pattern: &str) -> bool {
     pattern.contains(GLOB_CHARS)
 }
 
+/// Returns true if the given pattern contains glob metacharacters, selecting
+/// the active backend via the `dc-glob` experimental option.
+pub fn is_glob_with_backend(pattern: &str) -> bool {
+    if nu_experimental::DC_GLOB.get() {
+        dc_glob::is_glob(pattern)
+    } else {
+        is_glob(pattern)
+    }
+}
+
+/// Escapes glob metacharacters for literal path matching, selecting the active
+/// backend via the `dc-glob` experimental option.
+pub fn escape_with_backend(pattern: &str) -> String {
+    if nu_experimental::DC_GLOB.get() {
+        dc_glob::escape(pattern)
+    } else {
+        Pattern::escape(pattern)
+    }
+}
+
 /// A glob iteration error.
 ///
 /// This is typically returned when a particular path cannot be read

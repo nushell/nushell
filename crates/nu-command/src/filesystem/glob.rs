@@ -161,7 +161,11 @@ impl Command for Glob {
     }
 
     fn extra_description(&self) -> &str {
-        "For more glob pattern help, please refer to https://docs.rs/crate/wax/latest."
+        if nu_experimental::DC_GLOB.get() {
+            ""
+        } else {
+            "For more glob pattern help, please refer to https://docs.rs/crate/wax/latest."
+        }
     }
 
     fn run(
@@ -279,175 +283,227 @@ impl Command for Glob {
             ));
         }
 
-        if nu_experimental::DC_GLOB.get() {
-            let folder_depth = if let Some(depth) = depth {
-                depth
-            } else if glob_pattern.contains("**") {
-                usize::MAX
-            } else if glob_pattern.contains('/') {
-                glob_pattern.split('/').count() + 1
-            } else {
-                1
-            };
-
-            let cwd = engine_state.cwd(Some(stack))?;
-            let options = nu_glob::dc_glob::GlobWalkOptions {
-                max_depth: (folder_depth != usize::MAX).then_some(folder_depth),
+        match nu_experimental::DC_GLOB.get() {
+            true => run_dc_glob(
+                engine_state,
+                stack,
+                &glob_pattern,
+                depth,
                 follow_symlinks,
-                excludes: not_patterns,
-                interrupt: engine_state.signals().interrupt_flag(),
-            };
-            let cwd_for_matches = cwd.as_std_path().to_path_buf();
-            let matches = nu_glob::dc_glob::glob_with(cwd.as_std_path(), &glob_pattern, &options)
-                .map_err(|err| {
-                ShellError::Generic(GenericError::new(
-                    "error with glob pattern",
-                    err.to_string(),
-                    glob_span,
-                ))
-            })?;
-
-            let matches = matches.map(move |item| {
-                item.map(|path| {
-                    if path.is_absolute() {
-                        path
-                    } else {
-                        cwd_for_matches.join(path)
-                    }
-                })
-                .map_err(|err| {
-                    ShellError::Generic(GenericError::new(
-                        "error with glob pattern",
-                        err.to_string(),
-                        glob_span,
-                    ))
-                })
-            });
-            let values = glob_paths_to_value(
-                engine_state.signals(),
-                matches,
+                not_patterns,
+                glob_span,
                 no_dirs,
                 no_files,
                 no_symlinks,
                 span,
-            );
-
-            return Ok(values.into_pipeline_data(span, engine_state.signals().clone()));
+            ),
+            false => run_legacy_glob(
+                engine_state,
+                stack,
+                &glob_pattern,
+                depth,
+                follow_symlinks,
+                not_patterns,
+                glob_span,
+                not_pattern_span,
+                no_dirs,
+                no_files,
+                no_symlinks,
+                span,
+            ),
         }
+    }
+}
 
-        // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
-        // using a glob like **\*.rs should fail because it's not a valid glob pattern
-        let folder_depth = if let Some(depth) = depth {
-            depth
-        } else if glob_pattern.contains("**") {
-            usize::MAX
-        } else if glob_pattern.contains('/') {
-            glob_pattern.split('/').count() + 1
-        } else {
-            1
-        };
+fn infer_folder_depth(glob_pattern: &str, depth: Option<usize>) -> usize {
+    if let Some(depth) = depth {
+        depth
+    } else if glob_pattern.contains("**") {
+        usize::MAX
+    } else if glob_pattern.contains('/') {
+        glob_pattern.split('/').count() + 1
+    } else {
+        1
+    }
+}
 
-        let (prefix, glob) = match WaxGlob::new(&glob_pattern) {
-            Ok(p) => p.partition_or_empty(),
-            Err(e) => {
-                return Err(ShellError::Generic(GenericError::new(
-                    "error with glob pattern",
-                    format!("{e}"),
-                    glob_span,
-                )));
-            }
-        };
+#[allow(clippy::too_many_arguments)]
+fn run_dc_glob(
+    engine_state: &EngineState,
+    stack: &Stack,
+    glob_pattern: &str,
+    depth: Option<usize>,
+    follow_symlinks: bool,
+    not_patterns: Vec<String>,
+    glob_span: Span,
+    no_dirs: bool,
+    no_files: bool,
+    no_symlinks: bool,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    let folder_depth = infer_folder_depth(glob_pattern, depth);
+    let cwd = engine_state.cwd(Some(stack))?;
+    let options = nu_glob::dc_glob::GlobWalkOptions {
+        max_depth: (folder_depth != usize::MAX).then_some(folder_depth),
+        follow_symlinks,
+        excludes: not_patterns,
+        interrupt: engine_state.signals().interrupt_flag(),
+    };
+    let cwd_for_matches = cwd.as_std_path().to_path_buf();
 
-        let path = engine_state.cwd_as_string(Some(stack))?;
-        let path = nu_path::absolute_with(prefix, path).map_err(|e| {
-            ShellError::Generic(GenericError::new("invalid path", format!("{e}"), glob_span))
+    let matches =
+        nu_glob::dc_glob::glob_with(cwd.as_std_path(), glob_pattern, &options).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "error with glob pattern",
+                err.to_string(),
+                glob_span,
+            ))
         })?;
-        let path = match path.try_exists() {
-            Ok(true) => path,
-            Ok(false) =>
-            // path we're trying to glob doesn't exist,
-            {
-                std::path::PathBuf::new() // user should get empty list not an error
+
+    let matches = matches.map(move |item| {
+        item.map(|path| {
+            if path.is_absolute() {
+                path
+            } else {
+                cwd_for_matches.join(path)
             }
-            Err(e) => {
-                return Err(ShellError::Generic(GenericError::new(
-                    "error accessing path",
-                    format!("{e}"),
-                    glob_span,
-                )));
-            }
-        };
+        })
+        .map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "error with glob pattern",
+                err.to_string(),
+                glob_span,
+            ))
+        })
+    });
 
-        let link_behavior = match follow_symlinks {
-            true => LinkBehavior::ReadTarget,
-            false => LinkBehavior::ReadFile,
-        };
+    let values = glob_paths_to_value(
+        engine_state.signals(),
+        matches,
+        no_dirs,
+        no_files,
+        no_symlinks,
+        span,
+    );
 
-        let make_walk_behavior = |depth: usize| WalkBehavior {
-            depth: DepthBehavior::Max(DepthMax(depth)),
-            link: link_behavior,
-        };
+    Ok(values.into_pipeline_data(span, engine_state.signals().clone()))
+}
 
-        let result = if !not_patterns.is_empty() {
-            let patterns: Vec<WaxGlob<'static>> = not_patterns
-                .into_iter()
-                .map(|pattern| {
-                    WaxGlob::new(&pattern)
-                        .map_err(|err| {
-                            ShellError::Generic(GenericError::new(
-                                "error with glob's not pattern",
-                                format!("{err}"),
-                                not_pattern_span,
-                            ))
-                        })
-                        .map(|g| g.into_owned())
-                })
-                .collect::<Result<_, _>>()?;
+#[allow(clippy::too_many_arguments)]
+fn run_legacy_glob(
+    engine_state: &EngineState,
+    stack: &Stack,
+    glob_pattern: &str,
+    depth: Option<usize>,
+    follow_symlinks: bool,
+    not_patterns: Vec<String>,
+    glob_span: Span,
+    not_pattern_span: Span,
+    no_dirs: bool,
+    no_files: bool,
+    no_symlinks: bool,
+    span: Span,
+) -> Result<PipelineData, ShellError> {
+    // below we have to check / instead of MAIN_SEPARATOR because glob uses / as separator
+    // using a glob like **\\*.rs should fail because it's not a valid glob pattern
+    let folder_depth = infer_folder_depth(glob_pattern, depth);
 
-            let any_pattern = any(patterns).map_err(|err| {
+    let (prefix, glob) = match WaxGlob::new(glob_pattern) {
+        Ok(p) => p.partition_or_empty(),
+        Err(e) => {
+            return Err(ShellError::Generic(GenericError::new(
+                "error with glob pattern",
+                format!("{e}"),
+                glob_span,
+            )));
+        }
+    };
+
+    let path = engine_state.cwd_as_string(Some(stack))?;
+    let path = nu_path::absolute_with(prefix, path).map_err(|e| {
+        ShellError::Generic(GenericError::new("invalid path", format!("{e}"), glob_span))
+    })?;
+    let path = match path.try_exists() {
+        Ok(true) => path,
+        Ok(false) => std::path::PathBuf::new(), // user should get empty list not an error
+        Err(e) => {
+            return Err(ShellError::Generic(GenericError::new(
+                "error accessing path",
+                format!("{e}"),
+                glob_span,
+            )));
+        }
+    };
+
+    let link_behavior = match follow_symlinks {
+        true => LinkBehavior::ReadTarget,
+        false => LinkBehavior::ReadFile,
+    };
+
+    let make_walk_behavior = |depth: usize| WalkBehavior {
+        depth: DepthBehavior::Max(DepthMax(depth)),
+        link: link_behavior,
+    };
+
+    let result = if !not_patterns.is_empty() {
+        let patterns: Vec<WaxGlob<'static>> = not_patterns
+            .into_iter()
+            .map(|pattern| {
+                WaxGlob::new(&pattern)
+                    .map_err(|err| {
+                        ShellError::Generic(GenericError::new(
+                            "error with glob's not pattern",
+                            format!("{err}"),
+                            not_pattern_span,
+                        ))
+                    })
+                    .map(|g| g.into_owned())
+            })
+            .collect::<Result<_, _>>()?;
+
+        let any_pattern = any(patterns).map_err(|err| {
+            ShellError::Generic(GenericError::new(
+                "error with glob's not pattern",
+                format!("{err}"),
+                not_pattern_span,
+            ))
+        })?;
+
+        let glob_results = glob
+            .walk_with_behavior(path, make_walk_behavior(folder_depth))
+            .not(any_pattern)
+            .map_err(|err| {
                 ShellError::Generic(GenericError::new(
                     "error with glob's not pattern",
                     format!("{err}"),
                     not_pattern_span,
                 ))
-            })?;
+            })?
+            .flatten();
 
-            let glob_results = glob
-                .walk_with_behavior(path, make_walk_behavior(folder_depth))
-                .not(any_pattern)
-                .map_err(|err| {
-                    ShellError::Generic(GenericError::new(
-                        "error with glob's not pattern",
-                        format!("{err}"),
-                        not_pattern_span,
-                    ))
-                })?
-                .flatten();
+        glob_to_value(
+            engine_state.signals(),
+            glob_results,
+            no_dirs,
+            no_files,
+            no_symlinks,
+            span,
+        )
+    } else {
+        let glob_results = glob
+            .walk_with_behavior(path, make_walk_behavior(folder_depth))
+            .flatten();
+        glob_to_value(
+            engine_state.signals(),
+            glob_results,
+            no_dirs,
+            no_files,
+            no_symlinks,
+            span,
+        )
+    };
 
-            glob_to_value(
-                engine_state.signals(),
-                glob_results,
-                no_dirs,
-                no_files,
-                no_symlinks,
-                span,
-            )
-        } else {
-            let glob_results = glob
-                .walk_with_behavior(path, make_walk_behavior(folder_depth))
-                .flatten();
-            glob_to_value(
-                engine_state.signals(),
-                glob_results,
-                no_dirs,
-                no_files,
-                no_symlinks,
-                span,
-            )
-        };
-
-        Ok(result.into_pipeline_data(span, engine_state.signals().clone()))
-    }
+    Ok(result.into_pipeline_data(span, engine_state.signals().clone()))
 }
 
 #[cfg(windows)]
@@ -581,25 +637,13 @@ fn run_debug_subcommand(
         });
     }
 
-    match subcommand.as_str() {
-        "dbg-parse" => {
-            let Some(pattern) = args.first() else {
-                return Err(ShellError::MissingParameter {
-                    param_name: "pattern".to_string(),
-                    span,
-                });
-            };
+    match (subcommand.as_str(), args.first()) {
+        ("dbg-parse", Some(pattern)) => {
             let text = nu_glob::dc_glob::debug_parse(&pattern.item);
 
             Ok(Value::string(text, span).into_pipeline_data())
         }
-        "dbg-compile" => {
-            let Some(pattern) = args.first() else {
-                return Err(ShellError::MissingParameter {
-                    param_name: "pattern".to_string(),
-                    span,
-                });
-            };
+        ("dbg-compile", Some(pattern)) => {
             let text = nu_glob::dc_glob::debug_compile(&pattern.item).map_err(|err| {
                 ShellError::Generic(GenericError::new(
                     "failed to compile debug glob pattern",
@@ -609,13 +653,7 @@ fn run_debug_subcommand(
             })?;
             Ok(Value::string(text, span).into_pipeline_data())
         }
-        "dbg-matches" => {
-            let Some(pattern) = args.first() else {
-                return Err(ShellError::MissingParameter {
-                    param_name: "pattern".to_string(),
-                    span,
-                });
-            };
+        ("dbg-matches", Some(pattern)) => {
             let path = args.get(1).map(|p| p.item.as_str()).unwrap_or(".");
             let matches = nu_glob::dc_glob::debug_matches(&pattern.item, path).map_err(|err| {
                 ShellError::Generic(GenericError::new(
@@ -626,13 +664,7 @@ fn run_debug_subcommand(
             })?;
             Ok(Value::bool(matches, span).into_pipeline_data())
         }
-        "dbg-glob" => {
-            let Some(pattern) = args.first() else {
-                return Err(ShellError::MissingParameter {
-                    param_name: "pattern".to_string(),
-                    span,
-                });
-            };
+        ("dbg-glob", Some(pattern)) => {
             let pattern_span = pattern.span;
             let relative_to = args.get(1).map(|p| p.item.as_str()).unwrap_or(".");
             let cwd = engine_state.cwd(Some(stack))?;
@@ -673,8 +705,14 @@ fn run_debug_subcommand(
                     .into_pipeline_data(span, engine_state.signals().clone()),
             )
         }
-        _ => Err(ShellError::IncompatibleParametersSingle {
-            msg: format!("unknown debug subcommand '{subcommand}'"),
+        ("dbg-parse" | "dbg-compile" | "dbg-matches" | "dbg-glob", None) => {
+            Err(ShellError::MissingParameter {
+                param_name: "pattern".to_string(),
+                span,
+            })
+        }
+        (unknown, _) => Err(ShellError::IncompatibleParametersSingle {
+            msg: format!("unknown debug subcommand '{unknown}'"),
             span,
         }),
     }

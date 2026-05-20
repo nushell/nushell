@@ -29,6 +29,7 @@ log = { workspace = true }
 default = ["os"]
 os = [
   "nu-protocol/os",
+  "nu-test-support/os",
   "nu-utils/os",
 ]
 plugin = [
@@ -37,4 +38,4 @@ plugin = [
 ]
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", features = ["os"] }
+nu-test-support = { path = "../nu-test-support" }

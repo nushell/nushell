@@ -388,7 +388,7 @@ fn ls_for_one_pattern(
                     return Ok(Value::test_nothing().into_pipeline_data());
                 }
                 just_read_dir =
-                    !(pat.item.is_expand() && nu_engine::glob_is_glob(pat.item.as_ref()));
+                    !(pat.item.is_expand() && nu_glob::is_glob_with_backend(pat.item.as_ref()));
             }
 
             // it's absolute path if:
