@@ -365,6 +365,8 @@ fn oneof_annotations(
 #[case::closure_cell_path("oneof<cell-path, closure>", "foo", Type::CellPath)]
 #[case::closure_closure_with_bars("oneof<cell-path, closure>", "{|| get foo }", Type::Closure)]
 #[case::closure_closure_without_bars("oneof<cell-path, closure>", "{ get foo }", Type::Closure)]
+#[case::closure_closure_empty_with_bars("oneof<cell-path, closure>", "{|| }", Type::Closure)]
+#[case::closure_closure_empty_without_bars("oneof<cell-path, closure>", "{ }", Type::Closure)]
 fn oneof_positional_named(
     #[values(("value", ""), ("--value", "--value"))] (param_definition, arg_prefix): (&str, &str),
     #[case] type_annotation: &str,
