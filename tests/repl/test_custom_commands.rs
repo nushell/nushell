@@ -305,3 +305,22 @@ fn allow_pass_negative_float() -> TestResult {
     run_test("def spam [val: float] { $val }; spam -1.4", "-1.4")?;
     run_test("def spam [val: float] { $val }; spam -2", "-2.0")
 }
+
+#[test]
+fn test_runtime_check_for_flag() -> TestResult {
+    fail_test(
+        r#"
+def foo [
+  --target: record<url: string> 
+] {
+  echo $target
+}
+
+def barboozle [] {
+  {a: 1}
+}
+
+foo --target (barboozle)"#,
+        "can't convert record<a: int> to record<url: string>",
+    )
+}

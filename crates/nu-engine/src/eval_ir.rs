@@ -1454,6 +1454,8 @@ fn gather_arguments(
                 ..
             } => {
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
+                let variable = engine_state.get_var(var_id);
+                check_type(&val, &variable.ty)?;
                 callee_stack.add_var(var_id, val)
             }
             Argument::ParserInfo { .. } => (),
