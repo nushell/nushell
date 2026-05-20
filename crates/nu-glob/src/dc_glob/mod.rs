@@ -334,14 +334,26 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
         assert!(paths.contains(&expected_path(&["src", "keep", "main.rs"])));
-        assert!(!paths.iter().any(|p| p.contains(&format!("target{}skip.rs", std::path::MAIN_SEPARATOR))));
-        assert!(!paths.iter().any(|p| p.contains(&format!(".git{}config", std::path::MAIN_SEPARATOR))));
-        assert!(!paths.iter().any(|p| p.contains(&format!(".git{}hooks{}pre-commit", std::path::MAIN_SEPARATOR, std::path::MAIN_SEPARATOR))));
         assert!(
             !paths
                 .iter()
-                .any(|p| p.contains(&format!("node_modules{}pkg{}index.js", std::path::MAIN_SEPARATOR, std::path::MAIN_SEPARATOR)))
+                .any(|p| p.contains(&format!("target{}skip.rs", std::path::MAIN_SEPARATOR)))
         );
+        assert!(
+            !paths
+                .iter()
+                .any(|p| p.contains(&format!(".git{}config", std::path::MAIN_SEPARATOR)))
+        );
+        assert!(!paths.iter().any(|p| p.contains(&format!(
+            ".git{}hooks{}pre-commit",
+            std::path::MAIN_SEPARATOR,
+            std::path::MAIN_SEPARATOR
+        ))));
+        assert!(!paths.iter().any(|p| p.contains(&format!(
+            "node_modules{}pkg{}index.js",
+            std::path::MAIN_SEPARATOR,
+            std::path::MAIN_SEPARATOR
+        ))));
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -359,7 +371,9 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
         assert!(
-            paths.iter().any(|p| p == &expected_path(&["src", "lib.rs"])),
+            paths
+                .iter()
+                .any(|p| p == &expected_path(&["src", "lib.rs"])),
             "absolute recursive pattern should include nested files"
         );
 
@@ -406,7 +420,12 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
         assert!(paths.contains(&expected_path(&["crates", "nu-glob", "src", "mod.rs"])));
-        assert!(paths.contains(&expected_path(&["crates", "nu-protocol", "src", "mod_helpers.rs"])));
+        assert!(paths.contains(&expected_path(&[
+            "crates",
+            "nu-protocol",
+            "src",
+            "mod_helpers.rs"
+        ])));
         assert!(!paths.contains(&expected_path(&["crates", "nu-glob", "src", "index.rs"])));
 
         let _ = fs::remove_dir_all(&root);
