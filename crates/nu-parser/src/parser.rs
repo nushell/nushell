@@ -37,50 +37,18 @@ pub fn garbage_pipeline(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pi
     Pipeline::from_vec(vec![garbage(working_set, Span::concat(spans))])
 }
 
-fn is_identifier_byte(b: u8) -> bool {
-    b != b'.'
-        && b != b'['
-        && b != b'('
-        && b != b'{'
-        && b != b'+'
-        && b != b'-'
-        && b != b'*'
-        && b != b'^'
-        && b != b'%'
-        && b != b'/'
-        && b != b'='
-        && b != b'!'
-        && b != b'<'
-        && b != b'>'
-        && b != b'&'
-        && b != b'|'
+fn is_identifier_byte(b: &u8) -> bool {
+    !b".[({+-*^%/=!<>&|".contains(b)
 }
 
 pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) -> bool {
     let bytes = working_set.get_span_contents(span);
-    if bytes.is_empty() {
-        return false;
-    }
-
-    if bytes == b"true"
-        || bytes == b"false"
-        || bytes == b"null"
-        || bytes == b"not"
-        || bytes == b"if"
-        || bytes == b"match"
-    {
-        return true;
-    }
-
-    let b = bytes[0];
-
-    // check for raw string
-    if bytes.starts_with(b"r#") {
-        return true;
-    }
-
-    if b == b'(' || b == b'{' || b == b'[' || b == b'$' || b == b'"' || b == b'\'' || b == b'-' {
-        return true;
+    match bytes {
+        [] => return false,
+        b"true" | b"false" | b"null" | b"not" | b"if" | b"match" => return true,
+        [b'r', b'#', ..] => return true,
+        [b'(' | b'{' | b'[' | b'$' | b'"' | b'\'' | b'-', ..] => return true,
+        _ => {}
     }
 
     let starting_error_count = working_set.parse_errors.len();
@@ -132,52 +100,42 @@ pub fn is_math_expression_like(working_set: &mut StateWorkingSet, span: Span) ->
 }
 
 fn is_env_variable_name(bytes: &[u8]) -> bool {
-    if bytes.is_empty() {
-        return false;
+    match bytes {
+        [first, rest @ ..] if first == &b'_' || first.is_ascii_alphabetic() => {
+            rest.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'_')
+        }
+        _ => false,
     }
-
-    let first = bytes[0];
-    if !first.is_ascii_alphabetic() && first != b'_' {
-        return false;
-    }
-
-    bytes
-        .iter()
-        .skip(1)
-        .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 fn is_identifier(bytes: &[u8]) -> bool {
-    bytes.iter().all(|x| is_identifier_byte(*x))
+    bytes.iter().all(is_identifier_byte)
 }
 
 pub fn is_variable(bytes: &[u8]) -> bool {
-    if bytes.len() > 1 && bytes[0] == b'$' {
-        is_identifier(&bytes[1..])
-    } else {
-        is_identifier(bytes)
+    match bytes {
+        [b'$', var @ ..] | var if !var.is_empty() => is_identifier(var),
+        _ => false,
     }
 }
 
+#[rustfmt::skip]
 pub fn trim_quotes(bytes: &[u8]) -> &[u8] {
-    if (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
-        || (bytes.starts_with(b"`") && bytes.ends_with(b"`") && bytes.len() > 1)
-    {
-        &bytes[1..(bytes.len() - 1)]
-    } else {
-        bytes
+    match bytes {
+          [b'\'', trimmed @ .., b'\'']
+        | [ b'"', trimmed @ ..,  b'"']
+        | [ b'`', trimmed @ ..,  b'`'] => trimmed,
+        not_trimmed => not_trimmed,
     }
 }
 
+#[rustfmt::skip]
 pub fn trim_quotes_str(s: &str) -> &str {
-    if (s.starts_with('"') && s.ends_with('"') && s.len() > 1)
-        || (s.starts_with('\'') && s.ends_with('\'') && s.len() > 1)
-        || (s.starts_with('`') && s.ends_with('`') && s.len() > 1)
-    {
-        &s[1..(s.len() - 1)]
-    } else {
-        s
+    match s.as_bytes() {
+          [b'\'', .., b'\'']
+        | [ b'"', ..,  b'"']
+        | [ b'`', ..,  b'`'] => &s[1..(s.len() - 1)],
+        _ => s,
     }
 }
 
@@ -509,16 +467,11 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 }
 
 fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
-    let contents = working_set.get_span_contents(span);
-
-    if contents.starts_with(b"$") {
-        parse_dollar_expr(working_set, span)
-    } else if contents.starts_with(b"(") {
-        parse_paren_expr(working_set, span, &SyntaxShape::Any)
-    } else if contents.starts_with(b"[") {
-        parse_list_expression(working_set, span, &SyntaxShape::Any)
-    } else {
-        parse_external_string(working_set, span)
+    match working_set.get_span_contents(span) {
+        [b'$', ..] => parse_dollar_expr(working_set, span),
+        [b'(', ..] => parse_paren_expr(working_set, span, &SyntaxShape::Any),
+        [b'[', ..] => parse_list_expression(working_set, span, &SyntaxShape::Any),
+        _ => parse_external_string(working_set, span),
     }
 }
 
@@ -531,9 +484,9 @@ pub fn parse_external_call(
 
     let head_span = spans[0];
 
-    let head_contents = working_set.get_span_contents(head_span).to_vec();
+    let head_contents = working_set.get_span_contents(head_span);
 
-    let head = if head_contents.starts_with(b"$") || head_contents.starts_with(b"(") {
+    let head = if let [b'$' | b'(', ..] = head_contents {
         // the expression is inside external_call, so it's a subexpression
         let arg = parse_expression(working_set, &[head_span]);
         Box::new(arg)
@@ -3058,12 +3011,7 @@ fn parse_path_like(
     trace!("parsing: {}", kind.trace_name());
 
     // Check for bare word interpolation
-    if !bytes.is_empty()
-        && bytes[0] != b'\''
-        && bytes[0] != b'"'
-        && bytes[0] != b'`'
-        && bytes.contains(&b'(')
-    {
+    if is_bare_string_interpolation(bytes) {
         let interpolation_expr = parse_string_interpolation(working_set, span);
 
         // Convert StringInterpolation to the appropriate interpolation type
@@ -3092,6 +3040,14 @@ fn parse_path_like(
         working_set.error(ParseError::Expected(kind.error_msg(), span));
 
         garbage(working_set, span)
+    }
+}
+
+fn is_bare_string_interpolation(bytes: &[u8]) -> bool {
+    match bytes {
+        [] => false,
+        [b'\'' | b'"' | b'`', ..] => false,
+        _ => bytes.contains(&b'('),
     }
 }
 
@@ -3782,7 +3738,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
     }
 
     // Check for bare word interpolation
-    if bytes[0] != b'\'' && bytes[0] != b'"' && bytes[0] != b'`' && bytes.contains(&b'(') {
+    if is_bare_string_interpolation(bytes) {
         return parse_string_interpolation(working_set, span);
     }
 
@@ -3809,8 +3765,7 @@ pub fn parse_string(working_set: &mut StateWorkingSet, span: Span) -> Expression
 /// Returns `true` if the bytes start and end with matching quotes (either `"` or `'`)
 /// and have at least one character between them.
 fn is_quoted(bytes: &[u8]) -> bool {
-    (bytes.starts_with(b"\"") && bytes.ends_with(b"\"") && bytes.len() > 1)
-        || (bytes.starts_with(b"\'") && bytes.ends_with(b"\'") && bytes.len() > 1)
+    matches!(bytes, [b'\'', .., b'\''] | [b'"', .., b'"'])
 }
 
 pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Expression {
