@@ -37,23 +37,37 @@ impl Command for FromKdl {
     fn examples(&self) -> Vec<Example<'_>> {
         let span = Span::unknown();
 
-        vec![Example {
-            example: r#""node attr=1 attr2=#true {bloc}" | from kdl"#,
-            description: "Converts kdl formatted string to record.",
-            result: Some(Value::test_record(record! {
-                "node" => vec![
-                    record! {
-                        "attr" => 1.into_value(span),
-                    },
-                    record! {
-                        "attr2" => true.into_value(span),
-                    },
-                    record! {
-                        "bloc" => Value::nothing(span),
+        vec![
+            Example {
+                example: r#""node attr=1 attr2=#true {bloc}" | from kdl"#,
+                description: "Converts kdl formatted string to record.",
+                result: Some(Value::test_record(record! {
+                    "node" => vec![
+                        record! {
+                            "attr" => 1.into_value(span),
+                        },
+                        record! {
+                            "attr2" => true.into_value(span),
+                        },
+                        record! {
+                            "bloc" => Value::nothing(span),
+                        }
+                    ].into_value(span),
+                })),
+            },
+            Example {
+                description: "Converts kdl formatted string to record.",
+                example: r#"'package { name nu; version 0.1; description "new type of shell" }' | from kdl"#,
+                result: Some(Value::test_record(record! {
+                    "package" => record! {
+                        "name" => Value::string("nu", span),
+                        "version" => Value::float(0.1, span),
+                        "description" => Value::string("new type of shell", span),
                     }
-                ].into_value(span),
-            })),
-        }]
+                    .into_value(span),
+                })),
+            },
+        ]
     }
 
     fn run(
@@ -109,7 +123,12 @@ fn inject_kdl_document_into_record_recursively(
                 list.push(children_record.into_value(span));
                 value = Value::list(list, span);
             } else if entries.len() == 1 {
-                value = entries.first().expect("entries is not empty").clone();
+                value = entries
+                    .first()
+                    .ok_or(ShellError::NushellFailed {
+                        msg: "entries is empty".to_owned(),
+                    })?
+                    .clone();
             } else {
                 value = entries.into_value(span);
             }
@@ -204,13 +223,13 @@ mod test {
         }"#;
 
         let kdl_document =
-            KdlDocument::parse(KDL_WEBSITE_EXAMPLE).expect("fiald to parse kdl string");
+            KdlDocument::parse(KDL_WEBSITE_EXAMPLE).expect("failed to parse kdl string");
 
         let span = Span::test_data();
 
         let mut output_record = Record::new();
         inject_kdl_document_into_record_recursively(&mut output_record, &kdl_document, span)
-            .expect("injecing kdl document data into record recursively fiald");
+            .expect("injecing kdl document data into record recursively failed");
 
         assert_eq!(
             output_record
