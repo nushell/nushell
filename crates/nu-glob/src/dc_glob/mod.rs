@@ -237,7 +237,7 @@ mod tests {
     static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
     fn expected_path(parts: &[&str]) -> String {
-        parts.join(&std::path::MAIN_SEPARATOR.to_string())
+        parts.join(std::path::MAIN_SEPARATOR_STR)
     }
 
     fn unique_test_dir(prefix: &str) -> PathBuf {
