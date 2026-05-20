@@ -285,16 +285,17 @@ impl ChildProcess {
         span: Span,
         callback: Option<PostWaitCallback>,
     ) -> Result<Self, ShellError> {
-        let (stdout, stderr) = if let Some(combined) = reader {
-            (Some(combined), None)
-        } else {
-            let stdout = child.as_mut().stdout.take().map(convert_file);
-            let stderr = child.as_mut().stderr.take().map(convert_file);
+        let (stdout, stderr) = match reader {
+            Some(combined) => (Some(combined), None),
+            None => {
+                let stdout = child.as_mut().stdout.take().map(convert_file);
+                let stderr = child.as_mut().stderr.take().map(convert_file);
 
-            if swap {
-                (stderr, stdout)
-            } else {
-                (stdout, stderr)
+                if swap {
+                    (stderr, stdout)
+                } else {
+                    (stdout, stderr)
+                }
             }
         };
 
@@ -382,11 +383,11 @@ impl ChildProcess {
             )));
         }
 
-        let bytes = if let Some(stdout) = self.stdout {
-            collect_bytes(stdout).map_err(|err| IoError::new(err, self.span, None))?
-        } else {
-            Vec::new()
-        };
+        let bytes = (self.stdout)
+            .map(collect_bytes)
+            .transpose()
+            .map_err(|err| IoError::new(err, self.span, None))?
+            .unwrap_or_default();
 
         let mut exit_status = self
             .exit_status
@@ -462,39 +463,32 @@ impl ChildProcess {
 
     pub fn wait_with_output(self) -> Result<ProcessOutput, ShellError> {
         let from_io_error = IoError::factory(self.span, None);
-        let (stdout, stderr) = if let Some(stdout) = self.stdout {
-            let stderr = self
-                .stderr
-                .map(|stderr| thread::Builder::new().spawn(move || collect_bytes(stderr)))
-                .transpose()
-                .map_err(&from_io_error)?;
 
-            let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
+        let (stdout, stderr) = match (self.stdout, self.stderr) {
+            (None, None) => (None, None),
+            (None, Some(stderr)) => (None, Some(collect_bytes(stderr).map_err(&from_io_error)?)),
+            (Some(stdout), None) => (Some(collect_bytes(stdout).map_err(&from_io_error)?), None),
+            (Some(stdout), Some(stderr)) => {
+                let stderr = thread::Builder::new()
+                    .spawn(move || collect_bytes(stderr))
+                    .map_err(&from_io_error)?;
 
-            let stderr = stderr
-                .map(|handle| {
-                    handle.join().map_err(|e| match e.downcast::<io::Error>() {
+                let stdout = collect_bytes(stdout).map_err(&from_io_error)?;
+
+                let stderr = stderr
+                    .join()
+                    .map_err(|e| match e.downcast::<io::Error>() {
                         Ok(io) => from_io_error(*io).into(),
                         Err(err) => ShellError::Generic(GenericError::new(
                             "Unknown error",
                             format!("{err:?}"),
                             self.span,
                         )),
-                    })
-                })
-                .transpose()?
-                .transpose()
-                .map_err(&from_io_error)?;
+                    })?
+                    .map_err(&from_io_error)?;
 
-            (Some(stdout), stderr)
-        } else {
-            let stderr = self
-                .stderr
-                .map(collect_bytes)
-                .transpose()
-                .map_err(&from_io_error)?;
-
-            (None, stderr)
+                (Some(stdout), Some(stderr))
+            }
         };
 
         let mut exit_status = self

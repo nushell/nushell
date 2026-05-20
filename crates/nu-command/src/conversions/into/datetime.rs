@@ -141,27 +141,19 @@ impl Command for IntoDatetime {
             let cell_paths = call.rest(engine_state, stack, 0)?;
             let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
 
-            // if zone-offset is specified, then zone will be neglected
-            let timezone = call.get_flag::<Spanned<String>>(engine_state, stack, "timezone")?;
-            let zone_options =
-                match &call.get_flag::<Spanned<i64>>(engine_state, stack, "offset")? {
-                    Some(zone_offset) => Some(Spanned {
-                        item: Zone::new(zone_offset.item),
-                        span: zone_offset.span,
-                    }),
-                    None => timezone.as_ref().map(|zone| Spanned {
-                        item: Zone::from_string(&zone.item),
-                        span: zone.span,
-                    }),
-                };
+            let zone_options = {
+                // if zone-offset is specified, then zone will be neglected
+                let offset = call.get_flag::<Spanned<i64>>(engine_state, stack, "offset")?;
+                let timezone = call.get_flag::<Spanned<String>>(engine_state, stack, "timezone")?;
+
+                offset
+                    .map(|offset| offset.map(Zone::new))
+                    .or_else(|| timezone.map(|tz| tz.as_deref().map(Zone::from_string)))
+            };
 
             let format_options = call
                 .get_flag::<Spanned<String>>(engine_state, stack, "format")?
-                .as_ref()
-                .map(|fmt| Spanned {
-                    item: DatetimeFormat(fmt.item.to_string()),
-                    span: fmt.span,
-                });
+                .map(|fmt| fmt.map(DatetimeFormat));
 
             let args = Arguments {
                 zone_options,

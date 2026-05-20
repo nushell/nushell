@@ -7,6 +7,25 @@ use shadow_rs::shadow;
 
 shadow!(build);
 
+/// Static container for the version shown by the `version` command.
+///
+/// By default, this falls back to `nu_cmd_lang`'s own crate version
+/// (`env!("CARGO_PKG_VERSION")`).
+///
+/// If you're embedding Nushell (or wiring `nu_cmd_lang` into another binary),
+/// set this static before calling `version` so it reports your host binary's version.
+///
+/// ```no_run
+/// let version = env!("CARGO_PKG_VERSION")
+///     .parse()
+///     .expect("cargo sets valid version");
+///
+/// nu_cmd_lang::VERSION
+///     .set(version)
+///     .expect("VERSION is unset");
+/// ```
+pub static VERSION: OnceLock<semver::Version> = OnceLock::new();
+
 /// Static container for the cargo features used by the `version` command.
 ///
 /// This `OnceLock` holds the features from `nu`.
@@ -20,7 +39,7 @@ shadow!(build);
 /// # How to get cargo features in your build script
 ///
 /// In your binary's build script:
-/// ```rust,ignore
+/// ```no_run
 /// // Re-export CARGO_CFG_FEATURE to the main binary.
 /// // It holds all the features that cargo sets for your binary as a comma-separated list.
 /// println!(
@@ -30,7 +49,7 @@ shadow!(build);
 /// ```
 ///
 /// Then, before you call `version`:
-/// ```rust,ignore
+/// ```ignore
 /// // This uses static strings, but since we're using `Cow`, you can also pass owned strings.
 /// let features = env!("NU_FEATURES")
 ///     .split(',')
@@ -100,32 +119,48 @@ fn push_non_empty(record: &mut Record, name: &str, value: &str, span: Span) {
     }
 }
 
+fn load_version() -> Cow<'static, semver::Version> {
+    match VERSION.get() {
+        Some(version) => Cow::Borrowed(version),
+        None => Cow::Owned(
+            semver::Version::parse(env!("CARGO_PKG_VERSION")).expect("cargo sets valid version"),
+        ),
+    }
+}
+
 pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, ShellError> {
-    // Pre-allocate the arrays in the worst case (17 items):
-    // - version
-    // - major
-    // - minor
-    // - patch
-    // - pre
-    // - branch
-    // - commit_hash
-    // - build_os
-    // - build_target
-    // - rust_version
-    // - rust_channel
-    // - cargo_version
-    // - build_time
-    // - build_rust_channel
-    // - allocator
-    // - features
-    // - installed_plugins
-    let mut record = Record::with_capacity(17);
+    // Pre-allocate the arrays in the worst case:
+    const VERSION_MAX_ROWS: usize = [
+        "version",
+        "major",
+        "minor",
+        "patch",
+        "pre",
+        "build",
+        "branch",
+        "commit_hash",
+        "build_os",
+        "build_target",
+        "rust_version",
+        "rust_channel",
+        "cargo_version",
+        "build_time",
+        "build_rust_channel",
+        "allocator",
+        "features",
+        "installed_plugins",
+    ]
+    .len();
 
-    record.push("version", Value::string(env!("CARGO_PKG_VERSION"), span));
+    let mut record = Record::with_capacity(VERSION_MAX_ROWS);
 
-    push_version_numbers(&mut record, span);
-
-    push_non_empty(&mut record, "pre", build::PKG_VERSION_PRE, span);
+    let version = load_version();
+    record.push("version", Value::string(version.to_string(), span));
+    record.push("major", Value::int(version.major as i64, span));
+    record.push("minor", Value::int(version.minor as i64, span));
+    record.push("patch", Value::int(version.patch as i64, span));
+    push_non_empty(&mut record, "pre", version.pre.as_str(), span);
+    push_non_empty(&mut record, "build", version.build.as_str(), span);
 
     record.push("branch", Value::string(build::BRANCH, span));
 
@@ -200,22 +235,6 @@ pub fn version(engine_state: &EngineState, span: Span) -> Result<PipelineData, S
     );
 
     Ok(Value::record(record, span).into_pipeline_data())
-}
-
-/// Add version numbers as integers to the given record
-fn push_version_numbers(record: &mut Record, head: Span) {
-    static VERSION_NUMBERS: OnceLock<(u8, u8, u8)> = OnceLock::new();
-
-    let &(major, minor, patch) = VERSION_NUMBERS.get_or_init(|| {
-        (
-            build::PKG_VERSION_MAJOR.parse().expect("Always set"),
-            build::PKG_VERSION_MINOR.parse().expect("Always set"),
-            build::PKG_VERSION_PATCH.parse().expect("Always set"),
-        )
-    });
-    record.push("major", Value::int(major.into(), head));
-    record.push("minor", Value::int(minor.into(), head));
-    record.push("patch", Value::int(patch.into(), head));
 }
 
 fn global_allocator() -> &'static str {

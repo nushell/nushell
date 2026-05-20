@@ -26,10 +26,4 @@ pub use eval::{
 pub use eval_helpers::*;
 pub use eval_ir::eval_ir_block;
 pub use glob_from::{glob_from, glob_is_glob};
-
-#[cfg(test)]
-#[macro_use]
-extern crate nu_test_support;
-
-#[cfg(test)]
-use nu_test_support::harness::main;
+pub use scope::find_builtin_decl;

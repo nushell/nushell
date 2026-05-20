@@ -746,6 +746,7 @@ impl NuCompleter {
             case_sensitive: config.completions.case_sensitive,
             match_algorithm: config.completions.algorithm.into(),
             sort: config.completions.sort,
+            match_description: false,
         };
 
         completer.fetch(

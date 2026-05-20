@@ -1,6 +1,6 @@
-use std::os::unix::ffi::OsStrExt;
-
-use nu_protocol::{shell_error, test_record};
+use nu_protocol::shell_error;
+#[cfg(unix)]
+use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::EmptyFile, prelude::*};
 
 #[test]
@@ -51,6 +51,7 @@ fn filesystem_change_from_current_directory_using_absolute_path() -> Result {
     })
 }
 
+#[cfg(unix)]
 #[test]
 fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_slash() -> Result {
     Playground::setup("cd_test_2", |dirs, _| {
@@ -59,7 +60,7 @@ fn filesystem_change_from_current_directory_using_absolute_path_with_trailing_sl
             // It works and is unlikely to break, but is not explicitly documented behavior
             // Also Path::with_trailing_sep is unstable
             dir.push("");
-            assert!(dir.as_os_str().as_bytes().ends_with(b"/"));
+            assert!(dir.as_os_str().as_encoded_bytes().ends_with(b"/"));
             dir
         };
 

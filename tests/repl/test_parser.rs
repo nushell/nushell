@@ -1,6 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
 use nu_protocol::ParseError;
-use nu_test_support::{nu_repl_code, prelude::*};
+use nu_test_support::{fs::Stub, nu_repl_code, prelude::*};
 use rstest::rstest;
 use std::collections::HashMap;
 
@@ -516,6 +516,93 @@ fn percent_requires_builtin(#[case] code: &str) -> Result {
         }
         err => Err(err.into()),
     }
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_builtin() -> Result {
+    let code = "let cmd = 'echo'; %($cmd) 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_bare_var() -> Result {
+    let code = "let cmd = 'echo'; %$cmd 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_paren_expr() -> Result {
+    let code = "%('echo') 'world'";
+    test().run(code).expect_value_eq("world")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_non_builtin() -> Result {
+    let code = "let cmd = 'my_nonexistent_cmd'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_custom_command() -> Result {
+    let code = "def custom_cmd [] { 'nope' }; let cmd = 'custom_cmd'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_prefers_builtin_when_custom_shadows_name() -> Result {
+    let code = "def echo [] { 'shadowed' }; let cmd = 'echo'; %($cmd) 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_prefers_builtin_inside_same_name_wrapper() -> Result {
+    let code = "def echo [] { 'shadowed' }; def wrapper [cmd] { %($cmd) 'hello' }; wrapper 'echo'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_alias_to_custom_command_is_not_builtin() -> Result {
+    let code = "def custom_cmd [] { 'shadowed' }; alias maybe_builtin = custom_cmd; let cmd = 'maybe_builtin'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['hello' 'world']; %($cmd) ...$args | to nuon";
+    test().run(code).expect_value_eq("[hello, world]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['middle' 'end']; %($cmd) 'start' ...$args | to nuon";
+    test().run(code).expect_value_eq("[start, middle, end]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
+    let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
+    test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults() {
+    Playground::setup(
+        "percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults",
+        |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped] | to nuon"
+            );
+            assert_eq!(actual.out, "[1, 1]");
+        },
+    );
 }
 
 #[test]

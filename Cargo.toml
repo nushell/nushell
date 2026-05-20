@@ -77,6 +77,7 @@ members = [
   "crates/nu-test-support",
   "crates/nu-test-support-macros",
   "crates/nu-utils",
+  "crates/nu-heavy-utils",
   "crates/nuon",
   "crates/nu-mcp",
 ]
@@ -92,7 +93,7 @@ byteorder = "1.5"
 bytes = "1"
 bytesize = "2.3.1"
 byteyarn = "0.5"
-calamine = "0.34"
+calamine = "0.35"
 chardetng = "0.1.17"
 chrono = { default-features = false, version = "0.4.41" } # polars is requiring <= 0.4.41
 chrono-humanize = "0.2.3"
@@ -112,6 +113,8 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
+fff-search = { version = "0.8.1", default-features = false }
+fluent = "0.17.0"
 fuzzy-matcher = { version = "^0.3.7" }
 gatekeeper = "3.0.0"
 heck = "0.5.0"
@@ -162,7 +165,7 @@ proc-macro-error2 = "2.0"
 proc-macro2 = "1.0"
 procfs = "0.18.0"
 pwd = "1.4"
-quick-xml = "0.39.2"
+quick-xml = "0.40.1"
 quickcheck = "1.1"
 quickcheck_macros = "1.2"
 quote = "1.0.45"
@@ -191,6 +194,7 @@ rusqlite = "0.37"
 rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
 scopeguard = { version = "1.2.0" }
+semver = "1.0"
 serde = { version = "1.0" }
 serde_json = "1.0.149"
 serde_urlencoded = "0.7.1"
@@ -244,6 +248,10 @@ result_large_err = "allow"
 unchecked_time_subtraction = "warn"
 unwrap_used = "deny"
 used_underscore_binding = "warn"
+# need to allow this temporarily because it may change code logic.
+# let's keep it until we update rustc version to 1.96
+# which resolve the issue: https://github.com/rust-lang/rust-clippy/issues/16875
+collapsible_match = "allow"
 
 [lints]
 workspace = true
@@ -299,6 +307,7 @@ nix = { workspace = true, default-features = false, features = [
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", version = "0.112.3", features = ["os"] }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.112.3" }
+nu-table = { path = "./crates/nu-table", version = "0.112.3" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.112.3" }
 assert_cmd = "2.2.1"
 dirs = { workspace = true }

@@ -1,5 +1,5 @@
-use super::common::{ListMerge, MergeStrategy, do_merge, typecheck_merge};
 use nu_engine::command_prelude::*;
+use nu_heavy_utils::merge::{self, ListMerge, Merge as _, MergeStrategy};
 
 #[derive(Clone)]
 pub struct MergeDeep;
@@ -151,9 +151,9 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             }
         };
 
-        typecheck_merge(&input, &merge_value, head)?;
+        merge::typecheck(&input, &merge_value, head)?;
 
-        let merged = do_merge(input, merge_value, strategy, head)?;
+        let merged = input.merge(merge_value, strategy, head)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }

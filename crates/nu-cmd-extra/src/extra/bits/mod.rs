@@ -18,6 +18,7 @@ pub use shift_left::BitsShl;
 pub use shift_right::BitsShr;
 pub use xor::BitsXor;
 
+use nu_heavy_utils::Endian;
 use nu_protocol::{ShellError, Span, Spanned, Value};
 use std::iter;
 
@@ -120,7 +121,7 @@ fn get_input_num_type(val: i64, signed: bool, number_size: NumberBytes) -> Input
     }
 }
 
-fn binary_op<F>(lhs: &Value, rhs: &Value, little_endian: bool, f: F, head: Span) -> Value
+fn binary_op<F>(lhs: &Value, rhs: &Value, endian: Endian, f: F, head: Span) -> Value
 where
     F: Fn((i64, i64)) -> i64,
 {
@@ -140,12 +141,15 @@ where
             let mut a;
             let mut b;
 
-            let padded: &mut dyn Iterator<Item = u8> = if little_endian {
-                a = rhs.iter().copied().chain(pad);
-                &mut a
-            } else {
-                b = pad.chain(rhs.iter().copied());
-                &mut b
+            let padded: &mut dyn Iterator<Item = u8> = match endian {
+                Endian::Little => {
+                    a = rhs.iter().copied().chain(pad);
+                    &mut a
+                }
+                Endian::Big => {
+                    b = pad.chain(rhs.iter().copied());
+                    &mut b
+                }
             };
 
             let bytes: Vec<u8> = lhs

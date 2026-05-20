@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// protocol should not rely on a cli relative interface.
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct DynamicSuggestion {
-    /// String replacement that will be introduced to the the buffer
+    /// String replacement that will be introduced to the buffer
     pub value: String,
     /// If given, overrides `value` as text displayed to user
     pub display_override: Option<String>,

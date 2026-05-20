@@ -35,6 +35,7 @@ fn config_preserved_after_do() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn config_affected_when_mutated() -> Result {
     let mut tester = test();
     let () = tester.run("$env.config = { filesize: { unit: binary } }")?;
@@ -43,6 +44,7 @@ fn config_affected_when_mutated() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn config_affected_when_deep_mutated() -> Result {
     let mut tester = test().cwd(DEFAULT_FILES_DIR);
     let () = tester.run("source default_config.nu")?;

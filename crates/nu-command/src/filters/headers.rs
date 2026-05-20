@@ -80,7 +80,7 @@ fn extract_headers(
     span: Span,
     config: &Config,
 ) -> Result<(Vec<String>, Vec<String>), ShellError> {
-    table
+    let record = table
         .first()
         .ok_or_else(|| {
             ShellError::Generic(GenericError::new(
@@ -88,46 +88,38 @@ fn extract_headers(
                 "unable to extract headers",
                 span,
             ))
-        })
-        .and_then(Value::as_record)
-        .and_then(|record| {
-            for v in record.values() {
-                if !is_valid_header(v) {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "needs compatible type: Null, String, Bool, Float, Int"
-                            .to_string(),
-                        span: v.span(),
-                    });
-                }
-            }
+        })?
+        .as_record()?;
 
-            let old_headers = record.columns().cloned().collect();
-            let new_headers = record
-                .values()
-                .enumerate()
-                .map(|(idx, value)| {
-                    let col = value.to_expanded_string("", config);
-                    if col.is_empty() {
-                        format!("column{idx}")
-                    } else {
-                        col
-                    }
-                })
-                .collect();
+    let new_headers = record
+        .values()
+        .enumerate()
+        .map(|(idx, value)| make_header_string(config, idx, value))
+        .collect::<Result<Vec<_>, _>>()?;
 
-            Ok((old_headers, new_headers))
-        })
+    let old_headers = record.columns().cloned().collect();
+
+    Ok((old_headers, new_headers))
 }
 
-fn is_valid_header(value: &Value) -> bool {
-    matches!(
-        value,
+fn make_header_string(config: &Config, idx: usize, value: &Value) -> Result<String, ShellError> {
+    match value {
         Value::Nothing { .. }
-            | Value::String { val: _, .. }
-            | Value::Bool { val: _, .. }
-            | Value::Float { val: _, .. }
-            | Value::Int { val: _, .. }
-    )
+        | Value::String { .. }
+        | Value::Bool { .. }
+        | Value::Float { .. }
+        | Value::Int { .. } => {
+            let col = value.to_expanded_string("", config);
+            Ok(match col.is_empty() {
+                true => format!("column{idx}"),
+                false => col,
+            })
+        }
+        _ => Err(ShellError::TypeMismatch {
+            err_message: "needs compatible type: Null, String, Bool, Float, Int".to_string(),
+            span: value.span(),
+        }),
+    }
 }
 
 fn replace_headers(

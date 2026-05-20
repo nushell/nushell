@@ -409,3 +409,17 @@ fn try_wont_generate_extra_output() {
     );
     assert_eq!(actual.out, "here")
 }
+
+#[test]
+fn try_wont_run_twice_when_no_catch_and_finally_block() {
+    let actual = nu!(
+        experimental: vec!["pipefail".to_string()],
+        r#"
+        do {
+            try {}
+            print "aa"
+            not_real_cmd
+        }"#
+    );
+    assert_eq!(actual.out, "aa")
+}

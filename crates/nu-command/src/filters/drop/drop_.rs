@@ -78,20 +78,10 @@ impl Command for Drop {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let metadata = input.take_metadata();
-        let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let rows = call.opt::<usize>(engine_state, stack, 0)?.unwrap_or(1);
         let mut values = input.into_iter_strict(head)?.collect::<Vec<_>>();
 
-        let rows_to_drop = if let Some(rows) = rows {
-            if rows.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: rows.span });
-            } else {
-                rows.item as usize
-            }
-        } else {
-            1
-        };
-
-        values.truncate(values.len().saturating_sub(rows_to_drop));
+        values.truncate(values.len().saturating_sub(rows));
         Ok(Value::list(values, head).into_pipeline_data_with_metadata(metadata))
     }
 }

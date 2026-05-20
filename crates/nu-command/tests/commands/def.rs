@@ -1,3 +1,4 @@
+use nu_test_support::fs::Stub;
 use nu_test_support::prelude::*;
 use rstest::rstest;
 use std::fs;
@@ -357,6 +358,22 @@ fn def_wrapped_explicit_string_rest_keeps_double_quoted_equals_value() {
 fn def_wrapped_explicit_string_rest_keeps_tilde_literal() {
     let actual = nu!("def --wrapped foo [...rest: string] { $rest.0 }; foo ~");
     assert_eq!(actual.out, "~");
+}
+
+#[test]
+fn def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults() {
+    Playground::setup(
+        "def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults",
+        |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped] | to nuon"
+            );
+
+            assert_eq!(actual.out, "[1, 1]");
+        },
+    );
 }
 
 #[test]

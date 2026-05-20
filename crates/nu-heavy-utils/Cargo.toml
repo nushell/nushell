@@ -1,0 +1,23 @@
+[package]
+name = "nu-heavy-utils"
+description = "Nushell utility types and functions with heavier dependencies"
+authors = ["The Nushell Project Developers"]
+license = "MIT"
+repository = "https://github.com/nushell/nushell/tree/main/crates/nu-heavy-utils"
+version = "0.112.3"
+edition.workspace = true
+rust-version.workspace = true
+autotests = false
+
+[lib]
+bench = false
+harness = false
+
+[lints]
+workspace = true
+
+[dependencies]
+nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support" }

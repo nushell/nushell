@@ -54,45 +54,39 @@ fn get_prompt_string(
     engine_state: &EngineState,
     stack: &mut Stack,
 ) -> Option<String> {
-    stack
-        .get_env_var(engine_state, prompt)
-        .and_then(|v| match v {
-            Value::Closure { val, .. } => {
-                let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
-                    .run_with_input(PipelineData::empty());
+    let mut output = match stack.get_env_var(engine_state, prompt)? {
+        Value::String { val, .. } => val.clone(),
+        Value::Closure { val, .. } => {
+            let result = ClosureEvalOnce::new(engine_state, stack, val.as_ref().clone())
+                .run_with_input(PipelineData::empty());
 
-                trace!(
-                    "get_prompt_string (block) {}:{}:{}",
-                    file!(),
-                    line!(),
-                    column!()
-                );
+            trace!(
+                "get_prompt_string (block) {}:{}:{}",
+                file!(),
+                line!(),
+                column!()
+            );
 
-                result
-                    .map_err(|err| {
-                        report_shell_error(None, engine_state, &err);
-                    })
-                    .ok()
-            }
-            Value::String { .. } => Some(PipelineData::value(v.clone(), None)),
-            _ => None,
-        })
-        .and_then(|pipeline_data| {
-            let output = pipeline_data.collect_string("", config).ok();
-            let ansi_output = output.map(|mut x| {
-                // Always reset the color at the start of the right prompt
-                // to ensure there is no ansi bleed over
-                if x.is_empty() && prompt == PROMPT_COMMAND_RIGHT {
-                    x.insert_str(0, "\x1b[0m")
-                };
+            let result_string = result
+                .map_err(|err| report_shell_error(None, engine_state, &err))
+                .ok()
+                .and_then(|pd| pd.collect_string("", config).ok());
 
-                x
-            });
-            // Let's keep this for debugging purposes with nu --log-level warn
-            warn!("{}:{}:{} {:?}", file!(), line!(), column!(), ansi_output);
+            result_string?
+        }
+        _ => return None,
+    };
 
-            ansi_output
-        })
+    // Always reset the color at the start of the right prompt
+    // to ensure there is no ansi bleed over
+    if output.is_empty() && prompt == PROMPT_COMMAND_RIGHT {
+        output.insert_str(0, "\x1b[0m")
+    };
+
+    // Let's keep this for debugging purposes with nu --log-level warn
+    warn!("{}:{}:{} {:?}", file!(), line!(), column!(), output);
+
+    Some(output)
 }
 
 pub fn update_prompt(

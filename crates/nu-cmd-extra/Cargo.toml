@@ -26,6 +26,7 @@ harness = false
 [dependencies]
 nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
 nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
+nu-heavy-utils = { path = "../nu-heavy-utils", version = "0.112.3" }
 nu-json = { version = "0.112.3", path = "../nu-json" }
 nu-parser = { path = "../nu-parser", version = "0.112.3" }
 nu-pretty-hex = { version = "0.112.3", path = "../nu-pretty-hex" }

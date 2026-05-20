@@ -8,6 +8,7 @@ use crate::{
     type_check::{check_block_input_output, type_compatible},
 };
 
+use itertools::Itertools;
 use log::trace;
 use nu_path::absolute_with;
 use nu_path::is_windows_device_path;
@@ -320,99 +321,84 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     // Parsing the spans and checking that they match the register signature
     // Using a parsed call makes more sense than checking for how many spans are in the call
     // Also, by creating a call, it can be checked if it matches the declaration signature
-    let (call, call_span) = match working_set.find_decl(b"for") {
-        None => {
-            working_set.error(ParseError::UnknownState(
-                "internal error: for declaration not found".into(),
-                Span::concat(spans),
-            ));
-            return garbage(working_set, spans[0]);
-        }
-        Some(decl_id) => {
-            let starting_error_count = working_set.parse_errors.len();
-            working_set.enter_scope();
-            let ParsedInternalCall {
-                call,
-                output,
-                call_kind,
-            } = parse_internal_call(
-                working_set,
-                spans[0],
-                &spans[1..],
-                decl_id,
-                ArgumentParsingLevel::Full,
-            );
-
-            if working_set
-                .parse_errors
-                .get(starting_error_count..)
-                .is_none_or(|new_errors| {
-                    new_errors
-                        .iter()
-                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
-                })
-            {
-                working_set.exit_scope();
-            }
-
-            let call_span = Span::concat(spans);
-            let decl = working_set.get_decl(decl_id);
-            let sig = decl.signature();
-
-            if call_kind != CallKind::Valid {
-                return Expression::new(working_set, Expr::Call(call), call_span, output);
-            }
-
-            // Let's get our block and make sure it has the right signature
-            if let Some(
-                Expression {
-                    expr: Expr::Block(block_id),
-                    ..
-                }
-                | Expression {
-                    expr: Expr::RowCondition(block_id),
-                    ..
-                },
-            ) = call.positional_nth(2)
-            {
-                {
-                    let block = working_set.get_block_mut(*block_id);
-
-                    *block.signature = sig;
-                }
-            }
-
-            (call, call_span)
-        }
+    let Some(decl_id) = working_set.find_decl(b"for") else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: for declaration not found".into(),
+            Span::concat(spans),
+        ));
+        return garbage(working_set, spans[0]);
     };
 
-    // All positional arguments must be in the call positional vector by this point
-    let var_decl = call.positional_nth(0).expect("for call already checked");
-    let iteration_expr = call.positional_nth(1).expect("for call already checked");
-    let block = call.positional_nth(2).expect("for call already checked");
+    let starting_error_count = working_set.parse_errors.len();
+    working_set.enter_scope();
+    let ParsedInternalCall {
+        call,
+        output,
+        call_kind,
+    } = parse_internal_call(
+        working_set,
+        spans[0],
+        &spans[1..],
+        decl_id,
+        ArgumentParsingLevel::Full,
+    );
 
-    let iteration_expr_ty = iteration_expr.ty.clone();
+    if working_set
+        .parse_errors
+        .get(starting_error_count..)
+        .is_none_or(|new_errors| {
+            new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+        })
+    {
+        working_set.exit_scope();
+    }
+
+    let call_span = Span::concat(spans);
+    let decl = working_set.get_decl(decl_id);
+    let sig = decl.signature();
+
+    if call_kind != CallKind::Valid {
+        return Expression::new(working_set, Expr::Call(call), call_span, output);
+    }
+
+    // All positional arguments must be in the call positional vector by this point
+    let [var_decl, iteration_expr, block_expr] = call
+        .positional_iter()
+        .next_array()
+        .expect("for call already checked");
+
+    // Let's get our block and make sure it has the right signature
+    if let Expression {
+        expr: Expr::Block(block_id) | Expr::RowCondition(block_id),
+        ..
+    } = block_expr
+    {
+        let block = working_set.get_block_mut(*block_id);
+
+        *block.signature = sig;
+    };
 
     // Figure out the type of the variable the `for` uses for iteration
-    let var_type = match iteration_expr_ty {
+    let var_type = match iteration_expr.ty.clone() {
         Type::List(x) => *x,
         Type::Table(x) => Type::Record(x),
         Type::Range => Type::Number, // Range elements can be int or float
         x => x,
     };
 
-    if let (Some(var_id), Some(block_id)) = (&var_decl.as_var(), block.as_block()) {
-        working_set.set_variable_type(*var_id, var_type.clone());
+    if let (Some(var_id), Some(block_id)) = (var_decl.as_var(), block_expr.as_block()) {
+        working_set.set_variable_type(var_id, var_type.clone());
 
         let block = working_set.get_block_mut(block_id);
-
         block.signature.required_positional.insert(
             0,
             PositionalArg {
                 name: String::new(),
                 desc: String::new(),
                 shape: var_type.to_shape(),
-                var_id: Some(*var_id),
+                var_id: Some(var_id),
                 default_value: None,
                 completion: None,
             },
@@ -612,98 +598,92 @@ fn parse_def_inner(
     // NOTE: Here we only search for `def` in the permanent state,
     // since recursively redefining `def` is dangerous,
     // see https://github.com/nushell/nushell/issues/16586
-    let (call, call_span) = match working_set.permanent_state.find_decl(def_call, &[]) {
-        None => {
-            working_set.error(ParseError::UnknownState(
-                "internal error: def declaration not found".into(),
-                Span::concat(spans),
-            ));
+    let Some(decl_id) = working_set.permanent_state.find_decl(def_call, &[]) else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: def declaration not found".into(),
+            Span::concat(spans),
+        ));
+        return garbage_result(working_set);
+    };
+
+    working_set.enter_scope();
+    let (command_spans, rest_spans) = spans.split_at(split_id);
+
+    // Find the first span that is not a flag
+    let mut decl_name_span = None;
+
+    for span in rest_spans {
+        if !working_set.get_span_contents(*span).starts_with(b"-") {
+            decl_name_span = Some(*span);
+            break;
+        }
+    }
+
+    if let Some(name_span) = decl_name_span {
+        // Check whether name contains [] or () -- possible missing space error
+        if let Some(err) = detect_params_in_name(working_set, name_span, decl_id) {
+            working_set.error(err);
             return garbage_result(working_set);
         }
-        Some(decl_id) => {
-            working_set.enter_scope();
-            let (command_spans, rest_spans) = spans.split_at(split_id);
+    }
 
-            // Find the first span that is not a flag
-            let mut decl_name_span = None;
+    let starting_error_count = working_set.parse_errors.len();
+    let ParsedInternalCall {
+        call,
+        output,
+        call_kind,
+    } = parse_internal_call(
+        working_set,
+        Span::concat(command_spans),
+        rest_spans,
+        decl_id,
+        ArgumentParsingLevel::Full,
+    );
 
-            for span in rest_spans {
-                if !working_set.get_span_contents(*span).starts_with(b"-") {
-                    decl_name_span = Some(*span);
-                    break;
-                }
-            }
+    if working_set
+        .parse_errors
+        .get(starting_error_count..)
+        .is_none_or(|new_errors| {
+            new_errors
+                .iter()
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+        })
+    {
+        working_set.exit_scope();
+    }
 
-            if let Some(name_span) = decl_name_span {
-                // Check whether name contains [] or () -- possible missing space error
-                if let Some(err) = detect_params_in_name(working_set, name_span, decl_id) {
-                    working_set.error(err);
-                    return garbage_result(working_set);
-                }
-            }
+    let call_span = Span::concat(spans);
+    let decl = working_set.get_decl(decl_id);
+    let sig = decl.signature();
 
-            let starting_error_count = working_set.parse_errors.len();
-            let ParsedInternalCall {
-                call,
-                output,
-                call_kind,
-            } = parse_internal_call(
-                working_set,
-                Span::concat(command_spans),
-                rest_spans,
-                decl_id,
-                ArgumentParsingLevel::Full,
-            );
-
-            if working_set
-                .parse_errors
-                .get(starting_error_count..)
-                .is_none_or(|new_errors| {
-                    new_errors
-                        .iter()
-                        .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
-                })
-            {
-                working_set.exit_scope();
-            }
-
-            let call_span = Span::concat(spans);
-            let decl = working_set.get_decl(decl_id);
-            let sig = decl.signature();
-
-            // Let's get our block and make sure it has the right signature
-            if let Some(arg) = call.positional_nth(2) {
-                match arg {
-                    Expression {
-                        expr: Expr::Closure(block_id),
-                        ..
-                    } => {
-                        // Custom command bodies' are compiled eagerly
-                        // 1.  `module`s are not compiled, since they aren't ran/don't have any
-                        //     executable code. So `def`s inside modules have to be compiled by
-                        //     themselves.
-                        // 2.  `def` calls in scripts/runnable code don't *run* any code either,
-                        //     they are handled completely by the parser.
-                        compile_block_with_id(working_set, *block_id);
-                        *working_set.get_block_mut(*block_id).signature = sig.clone();
-                    }
-                    _ => working_set.error(ParseError::Expected(
-                        "definition body closure { ... }",
-                        arg.span,
-                    )),
-                }
-            }
-
-            if call_kind != CallKind::Valid {
-                return (
-                    Expression::new(working_set, Expr::Call(call), call_span, output),
-                    None,
-                );
-            }
-
-            (call, call_span)
+    // Let's get our block and make sure it has the right signature
+    match call.positional_iter().nth(2) {
+        Some(Expression {
+            expr: Expr::Closure(block_id),
+            ..
+        }) => {
+            // Custom command bodies' are compiled eagerly
+            // 1.  `module`s are not compiled, since they aren't ran/don't have any
+            //     executable code. So `def`s inside modules have to be compiled by
+            //     themselves.
+            // 2.  `def` calls in scripts/runnable code don't *run* any code either,
+            //     they are handled completely by the parser.
+            compile_block_with_id(working_set, *block_id);
+            *working_set.get_block_mut(*block_id).signature = sig.clone();
         }
-    };
+        Some(arg) => working_set.error(ParseError::Expected(
+            "definition body closure { ... }",
+            arg.span,
+        )),
+        None => (),
+    }
+
+    if call_kind != CallKind::Valid {
+        return (
+            Expression::new(working_set, Expr::Call(call), call_span, output),
+            None,
+        );
+    }
 
     let Ok(has_env) = has_flag_const(working_set, &call, "env") else {
         return garbage_result(working_set);
@@ -713,30 +693,12 @@ fn parse_def_inner(
     };
 
     // All positional arguments must be in the call positional vector by this point
-    let name_expr = call.positional_nth(0).expect("def call already checked");
-    let sig = call.positional_nth(1).expect("def call already checked");
-    let block = call.positional_nth(2).expect("def call already checked");
+    let [name_expr, sig_expr, block_expr] = call
+        .positional_iter()
+        .next_array()
+        .expect("def call already checked");
 
-    let name = if let Some(name) = name_expr.as_string() {
-        if let Some(mod_name) = module_name
-            && name.as_bytes() == mod_name
-        {
-            let name_expr_span = name_expr.span;
-
-            working_set.error(ParseError::NamedAsModule(
-                "command".to_string(),
-                name,
-                "main".to_string(),
-                name_expr_span,
-            ));
-            return (
-                Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
-                None,
-            );
-        }
-
-        name
-    } else {
+    let Some(name) = name_expr.as_string() else {
         working_set.error(ParseError::UnknownState(
             "Could not get string from string expression".into(),
             name_expr.span,
@@ -744,42 +706,70 @@ fn parse_def_inner(
         return garbage_result(working_set);
     };
 
+    if let Some(mod_name) = module_name
+        && name.as_bytes() == mod_name
+    {
+        let name_expr_span = name_expr.span;
+
+        working_set.error(ParseError::NamedAsModule(
+            "command".to_string(),
+            name,
+            "main".to_string(),
+            name_expr_span,
+        ));
+        return (
+            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+            None,
+        );
+    }
+
     let mut result = None;
 
-    if let (Some(mut signature), Some(block_id)) = (sig.as_signature(), block.as_block()) {
+    if let (Some(mut signature), Some(block_id)) = (sig_expr.as_signature(), block_expr.as_block())
+    {
         if has_wrapped {
-            if let Some(rest) = &mut signature.rest_positional {
-                if !rest_param_is_type_annotated(
-                    working_set.get_span_contents(sig.span),
-                    &rest.name,
-                ) {
-                    rest.shape = SyntaxShape::ExternalArgument;
-                }
-
-                if let Some(var_id) = rest.var_id {
-                    let rest_var = &working_set.get_variable(var_id);
-
-                    if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String))
-                    {
-                        working_set.error(ParseError::TypeMismatchHelp(
-                            Type::List(Box::new(Type::String)),
-                            rest_var.ty.clone(),
-                            rest_var.declaration_span,
-                            format!("...rest-like positional argument used in 'def --wrapped' supports only strings. Change the type annotation of ...{} to 'string'.", &rest.name)));
-
-                        return (
-                            Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
-                            result,
-                        );
-                    }
-                }
-            } else {
-                working_set.error(ParseError::MissingPositional("...rest-like positional argument".to_string(), name_expr.span, "def --wrapped must have a ...rest-like positional argument. Add '...rest: string' to the command's signature.".to_string()));
+            let Some(rest) = signature.rest_positional.as_mut() else {
+                working_set.error(ParseError::MissingPositional(
+                    "...rest-like positional argument".to_string(),
+                    name_expr.span,
+                    "def --wrapped must have a ...rest-like positional argument. \
+                            Add '...rest: string' to the command's signature."
+                        .to_string(),
+                ));
 
                 return (
                     Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
                     result,
                 );
+            };
+
+            if !rest_param_is_type_annotated(
+                working_set.get_span_contents(sig_expr.span),
+                &rest.name,
+            ) {
+                rest.shape = SyntaxShape::ExternalArgument;
+            }
+
+            if let Some(var_id) = rest.var_id {
+                let rest_var = &working_set.get_variable(var_id);
+
+                if rest_var.ty != Type::Any && rest_var.ty != Type::List(Box::new(Type::String)) {
+                    working_set.error(ParseError::TypeMismatchHelp(
+                        Type::List(Box::new(Type::String)),
+                        rest_var.ty.clone(),
+                        rest_var.declaration_span,
+                        format!(
+                            "...rest-like positional argument used in 'def --wrapped' supports only strings. \
+                                Change the type annotation of ...{} to 'string'.",
+                            &rest.name
+                        ),
+                    ));
+
+                    return (
+                        Expression::new(working_set, Expr::Call(call), call_span, Type::Any),
+                        result,
+                    );
+                }
             }
         }
 
@@ -912,11 +902,13 @@ fn parse_extern_inner(
             (call, call_span)
         }
     };
-    let name_expr = call.positional_nth(0);
-    let sig = call.positional_nth(1);
-    let body = call.positional_nth(2);
 
-    if let (Some(name_expr), Some(sig)) = (name_expr, sig) {
+    let (name_and_sig_exprs, body_expr) = {
+        let mut positional_iter = call.positional_iter();
+        (positional_iter.next_array::<2>(), positional_iter.next())
+    };
+
+    if let Some([name_expr, sig]) = name_and_sig_exprs {
         if let (Some(name), Some(mut signature)) = (&name_expr.as_string(), sig.as_signature()) {
             if let Some(mod_name) = module_name
                 && name.as_bytes() == mod_name
@@ -952,7 +944,7 @@ fn parse_extern_inner(
 
                 let declaration = working_set.get_decl_mut(decl_id);
 
-                if let Some(block_id) = body.and_then(|x| x.as_block()) {
+                if let Some(block_id) = body_expr.and_then(|x| x.as_block()) {
                     if signature.rest_positional.is_none() {
                         working_set.error(ParseError::InternalError(
                             "Extern block must have a rest positional argument".into(),
@@ -1223,7 +1215,7 @@ pub fn parse_alias(
             return alias_pipeline;
         }
 
-        let Some(alias_name_expr) = alias_call.positional_nth(0) else {
+        let Some(alias_name_expr) = alias_call.positional_iter().next() else {
             working_set.error(ParseError::UnknownState(
                 "Missing positional after call check".to_string(),
                 Span::concat(spans),
@@ -1824,7 +1816,7 @@ pub fn parse_export_env(
         }
     };
 
-    let block_id = if let Some(block) = call.positional_nth(0) {
+    let block_id = if let Some(block) = call.positional_iter().next() {
         if let Some(block_id) = block.as_block() {
             block_id
         } else {
@@ -2349,43 +2341,39 @@ pub fn parse_module(
         }
     };
 
-    let (module_name_or_path, module_name_or_path_span) = if let Some(name) = call.positional_nth(0)
-    {
-        if let Some(s) = name.as_string() {
-            if let Some(mod_name) = module_name
-                && s.as_bytes() == mod_name
-            {
-                working_set.error(ParseError::NamedAsModule(
-                    "module".to_string(),
-                    s,
-                    "mod".to_string(),
-                    name.span,
-                ));
-                return (
-                    Pipeline::from_vec(vec![Expression::new(
-                        working_set,
-                        Expr::Call(call),
-                        call_span,
-                        Type::Any,
-                    )]),
-                    None,
-                );
-            }
-            (s, name.span)
-        } else {
-            working_set.error(ParseError::UnknownState(
-                "internal error: name not a string".into(),
-                Span::concat(spans),
-            ));
-            return (garbage_pipeline(working_set, spans), None);
-        }
-    } else {
+    let Some(name_expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: missing positional".into(),
             Span::concat(spans),
         ));
         return (garbage_pipeline(working_set, spans), None);
     };
+    let Some(name) = name_expr.as_string() else {
+        working_set.error(ParseError::UnknownState(
+            "internal error: name not a string".into(),
+            Span::concat(spans),
+        ));
+        return (garbage_pipeline(working_set, spans), None);
+    };
+
+    if module_name.is_some_and(|mod_name| mod_name == name.as_bytes()) {
+        working_set.error(ParseError::NamedAsModule(
+            "module".to_string(),
+            name,
+            "mod".to_string(),
+            name_expr.span,
+        ));
+        return (
+            Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]),
+            None,
+        );
+    }
+    let (module_name_or_path, module_name_or_path_span) = (name, name_expr.span);
 
     if spans.len() == split_id + 1 {
         let pipeline = Pipeline::from_vec(vec![Expression::new(
@@ -2914,27 +2902,22 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
 pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, _) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(val) => match val.coerce_into_string() {
-                Ok(s) => (s, expr.span),
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
-            },
-            Err(err) => {
-                working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(working_set, &[call_span]);
-            }
-        }
-    } else {
+    let Some(expr) = call.positional_iter().next() else {
         working_set.error(ParseError::UnknownState(
             "internal error: Missing required positional after call parsing".into(),
             call_span,
         ));
         return garbage_pipeline(working_set, &[call_span]);
     };
+
+    let (overlay_name, _) =
+        match eval_constant(working_set, expr).and_then(Value::coerce_into_string) {
+            Ok(s) => (s, expr.span),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
+            }
+        };
 
     let pipeline = Pipeline::from_vec(vec![Expression::new(
         working_set,
@@ -2962,34 +2945,12 @@ pub fn parse_overlay_new(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
-        match eval_constant(working_set, expr) {
-            Ok(Value::Nothing { .. }) => {
-                let mut call = call;
-                call.set_parser_info(
-                    "noop".to_string(),
-                    Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
-                );
-                return Pipeline::from_vec(vec![Expression::new(
-                    working_set,
-                    Expr::Call(call),
-                    call_span,
-                    Type::Any,
-                )]);
-            }
-            Ok(val) => match val.coerce_into_string() {
-                Ok(s) => (s, expr.span),
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
-            },
-            Err(err) => {
-                working_set.error(err.wrap(working_set, call_span));
-                return garbage_pipeline(working_set, &[call_span]);
-            }
-        }
-    } else {
+    let (overlay_name_expr, as_name_expr) = {
+        let mut iter = call.positional_iter();
+        (iter.next(), iter.next())
+    };
+
+    let Some(overlay_name_expr) = overlay_name_expr else {
         working_set.error(ParseError::UnknownState(
             "internal error: Missing required positional after call parsing".into(),
             call_span,
@@ -2997,30 +2958,47 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
         return garbage_pipeline(working_set, &[call_span]);
     };
 
-    let new_name = if let Some(kw_expression) = call.positional_nth(1) {
-        if let Some(new_name_expression) = kw_expression.as_keyword() {
-            match eval_constant(working_set, new_name_expression) {
-                Ok(val) => match val.coerce_into_string() {
-                    Ok(s) => Some(Spanned {
-                        item: s,
-                        span: new_name_expression.span,
-                    }),
-                    Err(err) => {
-                        working_set.error(err.wrap(working_set, call_span));
-                        return garbage_pipeline(working_set, &[call_span]);
-                    }
-                },
-                Err(err) => {
-                    working_set.error(err.wrap(working_set, call_span));
-                    return garbage_pipeline(working_set, &[call_span]);
-                }
+    let (overlay_name, overlay_name_span) = match eval_constant(working_set, overlay_name_expr) {
+        Ok(Value::Nothing { .. }) => {
+            let mut call = call;
+            call.set_parser_info(
+                "noop".to_string(),
+                Expression::new_unknown(Expr::Bool(true), Span::unknown(), Type::Bool),
+            );
+            return Pipeline::from_vec(vec![Expression::new(
+                working_set,
+                Expr::Call(call),
+                call_span,
+                Type::Any,
+            )]);
+        }
+        result => match result.and_then(Value::coerce_into_string) {
+            Ok(s) => (s, overlay_name_expr.span),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
             }
-        } else {
+        },
+    };
+
+    let new_name = if let Some(as_name_expr) = as_name_expr {
+        let Some((b"as", new_name_expression)) = as_name_expr.as_keyword_with_name() else {
             working_set.error(ParseError::ExpectedKeyword(
                 "as keyword".to_string(),
-                kw_expression.span,
+                as_name_expr.span,
             ));
             return garbage_pipeline(working_set, &[call_span]);
+        };
+
+        match eval_constant(working_set, new_name_expression).and_then(Value::coerce_into_string) {
+            Ok(s) => Some(Spanned {
+                item: s,
+                span: new_name_expression.span,
+            }),
+            Err(err) => {
+                working_set.error(err.wrap(working_set, call_span));
+                return garbage_pipeline(working_set, &[call_span]);
+            }
         }
     } else {
         None
@@ -3200,7 +3178,7 @@ pub fn parse_overlay_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> 
 pub fn parse_overlay_hide(working_set: &mut StateWorkingSet, call: Box<Call>) -> Pipeline {
     let call_span = call.span();
 
-    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_nth(0) {
+    let (overlay_name, overlay_name_span) = if let Some(expr) = call.positional_iter().next() {
         match eval_constant(working_set, expr) {
             Ok(val) => match val.coerce_into_string() {
                 Ok(s) => (s, expr.span),
@@ -3695,7 +3673,8 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
             }
 
             // Command and one file name
-            if let Some(expr) = call.positional_nth(0) {
+            let first_expr = call.positional_iter().next();
+            if let Some(expr) = first_expr {
                 let val = match eval_constant(working_set, expr) {
                     Ok(val) => val,
                     Err(err) => {
@@ -3898,7 +3877,8 @@ pub fn parse_plugin_use(working_set: &mut StateWorkingSet, call: Box<Call>) -> P
 
     if let Err(err) = (|| {
         let name = call
-            .positional_nth(0)
+            .positional_iter()
+            .next()
             .map(|expr| {
                 eval_constant(working_set, expr)
                     .and_then(Spanned::<String>::from_value)

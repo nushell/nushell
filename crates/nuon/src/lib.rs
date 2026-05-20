@@ -635,4 +635,38 @@ mod tests {
         // Has '# so needs r##'...'##
         assert_eq!(result, r#"r##'contains '# and "quote"'##"#);
     }
+
+    #[test]
+    fn raw_strings_need_more_hashes_when_content_starts_with_hash() {
+        let engine_state = EngineState::new();
+        let val = Value::test_string("# example.toml\nname = \"my-app\"\nversion = \"1.0.0\"\n");
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().raw_strings(true),
+        )
+        .unwrap();
+
+        assert_eq!(
+            result,
+            r##"r##'# example.toml
+name = "my-app"
+version = "1.0.0"
+'##"##
+        );
+    }
+
+    #[test]
+    fn raw_strings_roundtrip_when_content_starts_with_hash() {
+        let input = r##"r##'# example.toml
+name = "my-app"
+version = "1.0.0"
+'##"##;
+        let parsed = from_nuon(input, None).unwrap();
+
+        assert_eq!(
+            parsed,
+            Value::test_string("# example.toml\nname = \"my-app\"\nversion = \"1.0.0\"\n")
+        );
+    }
 }
