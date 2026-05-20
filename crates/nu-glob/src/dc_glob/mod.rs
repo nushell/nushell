@@ -236,6 +236,10 @@ mod tests {
 
     static NEXT_ID: AtomicU64 = AtomicU64::new(0);
 
+    fn expected_path(parts: &[&str]) -> String {
+        parts.join(&std::path::MAIN_SEPARATOR.to_string())
+    }
+
     fn unique_test_dir(prefix: &str) -> PathBuf {
         let ts = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -259,7 +263,13 @@ mod tests {
     ) -> anyhow::Result<Vec<String>> {
         let mut out = Vec::new();
         for item in iter {
-            out.push(item?.to_string_lossy().into_owned());
+            let path_str = item?.to_string_lossy().into_owned();
+            // Normalize path separators to native platform style
+            #[cfg(windows)]
+            let normalized = path_str.replace('/', "\\");
+            #[cfg(not(windows))]
+            let normalized = path_str.replace('\\', "/");
+            out.push(normalized);
         }
         out.sort();
         Ok(out)
@@ -323,14 +333,14 @@ mod tests {
         let result = glob_with(root.as_path(), "**/*", &options).expect("glob_with should succeed");
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
-        assert!(paths.contains(&"src/keep/main.rs".to_string()));
-        assert!(!paths.iter().any(|p| p.contains("target/skip.rs")));
-        assert!(!paths.iter().any(|p| p.contains(".git/config")));
-        assert!(!paths.iter().any(|p| p.contains(".git/hooks/pre-commit")));
+        assert!(paths.contains(&expected_path(&["src", "keep", "main.rs"])));
+        assert!(!paths.iter().any(|p| p.contains(&format!("target{}skip.rs", std::path::MAIN_SEPARATOR))));
+        assert!(!paths.iter().any(|p| p.contains(&format!(".git{}config", std::path::MAIN_SEPARATOR))));
+        assert!(!paths.iter().any(|p| p.contains(&format!(".git{}hooks{}pre-commit", std::path::MAIN_SEPARATOR, std::path::MAIN_SEPARATOR))));
         assert!(
             !paths
                 .iter()
-                .any(|p| p.contains("node_modules/pkg/index.js"))
+                .any(|p| p.contains(&format!("node_modules{}pkg{}index.js", std::path::MAIN_SEPARATOR, std::path::MAIN_SEPARATOR)))
         );
 
         let _ = fs::remove_dir_all(&root);
@@ -349,7 +359,7 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
         assert!(
-            paths.iter().any(|p| p == "src/lib.rs"),
+            paths.iter().any(|p| p == &expected_path(&["src", "lib.rs"])),
             "absolute recursive pattern should include nested files"
         );
 
@@ -395,9 +405,9 @@ mod tests {
         .expect("glob_with should succeed");
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
-        assert!(paths.contains(&"crates/nu-glob/src/mod.rs".to_string()));
-        assert!(paths.contains(&"crates/nu-protocol/src/mod_helpers.rs".to_string()));
-        assert!(!paths.contains(&"crates/nu-glob/src/index.rs".to_string()));
+        assert!(paths.contains(&expected_path(&["crates", "nu-glob", "src", "mod.rs"])));
+        assert!(paths.contains(&expected_path(&["crates", "nu-protocol", "src", "mod_helpers.rs"])));
+        assert!(!paths.contains(&expected_path(&["crates", "nu-glob", "src", "index.rs"])));
 
         let _ = fs::remove_dir_all(&root);
     }
