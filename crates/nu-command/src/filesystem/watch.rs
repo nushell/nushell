@@ -198,6 +198,7 @@ impl Command for Watch {
 
         let iter = {
             let (tx, rx) = channel();
+
             let mut debouncer = new_debouncer(debounce_duration, None, tx)
                 .and_then(|mut debouncer| {
                     debouncer.watcher().watch(&path, recursive_mode)?;
@@ -210,14 +211,12 @@ impl Command for Watch {
                         call.head,
                     ))
                 })?;
+
             // need to cache to make sure that rename event works.
             debouncer.cache().add_root(&path, recursive_mode);
+
             WatchIterator::new(debouncer, rx, engine_state.signals().clone())
         };
-
-        if !quiet {
-            eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
-        }
 
         if let Some(closure) = closure {
             report_shell_warning(
