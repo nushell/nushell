@@ -330,7 +330,7 @@ fn test_flags_will_respect_default_values() -> TestResult {
     run_test(
         "
 def concrete [--platform: string = 'default_value'] {
-  print 'platform is ($platform)'
+  print $'platform is ($platform)'
 }
 
 def main [--platform: string] {
