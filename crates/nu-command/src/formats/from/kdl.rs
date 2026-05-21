@@ -96,6 +96,8 @@ fn inject_kdl_document_into_record_recursively(
 ) -> Result<(), ShellError> {
     let nodes = kdl_document.nodes();
 
+    let mut node_duplication_count = 0;
+
     for node in nodes {
         let entries = get_kdl_node_entries(node, span)?;
 
@@ -121,7 +123,14 @@ fn inject_kdl_document_into_record_recursively(
             Value::nothing(span)
         };
 
-        output_record.push(node.name().value().to_string(), value);
+        output_record.push(
+            unique_key_name_if_duplicated(
+                node.name().value(),
+                output_record,
+                &mut node_duplication_count,
+            ),
+            value,
+        );
     }
 
     Ok(())
@@ -164,6 +173,19 @@ fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Result<Value, 
         KdlValue::Float(val) => Ok(Value::float(*val, span)),
         KdlValue::Bool(val) => Ok(Value::bool(*val, span)),
         KdlValue::Null => Ok(Value::nothing(span)),
+    }
+}
+
+fn unique_key_name_if_duplicated(
+    key_name: &str,
+    record: &Record,
+    duplication_count: &mut u8,
+) -> String {
+    if record.get(key_name).is_some() {
+        *duplication_count += 1;
+        format!("{key_name}_{}", *duplication_count)
+    } else {
+        key_name.to_owned()
     }
 }
 
