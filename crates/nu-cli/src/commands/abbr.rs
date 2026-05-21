@@ -5,7 +5,7 @@ pub struct Abbreviations;
 
 impl Command for Abbreviations {
     fn name(&self) -> &str {
-        "abbreviations"
+        "abbr"
     }
 
     fn signature(&self) -> Signature {

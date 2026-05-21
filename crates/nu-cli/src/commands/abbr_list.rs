@@ -5,7 +5,7 @@ pub struct AbbreviationsList;
 
 impl Command for AbbreviationsList {
     fn name(&self) -> &str {
-        "abbreviations list"
+        "abbr list"
     }
 
     fn signature(&self) -> Signature {
@@ -21,7 +21,7 @@ impl Command for AbbreviationsList {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "List all abbreviations",
-            example: "abbreviations list",
+            example: "abbr list",
             result: None,
         }]
     }
