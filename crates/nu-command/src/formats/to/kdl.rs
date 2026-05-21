@@ -293,8 +293,11 @@ fn convert_nu_value_to_kdl_value(
         Value::CellPath { val, .. } => Ok(KdlValue::String(val.to_string())),
         Value::Custom { val, .. } => Ok(KdlValue::String(format!("<{}>", val.type_name()))),
         Value::Error { error, .. } => Err(*(error.clone())),
-        _ => Err(ShellError::NushellFailed {
-            msg: "Failed to stringify nu value".to_owned(),
+        _ => Err(ShellError::UnsupportedInput {
+            msg: "value cannot be stringified".to_owned(),
+            input: value.get_type().to_string(),
+            msg_span: span,
+            input_span: value.span(),
         }),
     }
 }
