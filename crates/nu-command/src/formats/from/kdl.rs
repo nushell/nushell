@@ -54,6 +54,14 @@ impl Command for FromKdl {
                     .into_value(span),
                 })),
             },
+            Example {
+                description: "Duplicated keys are renamed",
+                example: r#""node one; node two" | from kdl"#,
+                result: Some(Value::test_record(record! {
+                    "node" => "one".into_value(span),
+                    "node_1" => "two".into_value(span),
+                })),
+            },
         ]
     }
 
