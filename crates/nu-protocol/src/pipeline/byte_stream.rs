@@ -853,9 +853,7 @@ impl Iterator for Lines {
             match self.reader.read_until(b'\n', &mut buf) {
                 Ok(0) => None,
                 Ok(_) => {
-                    let Ok(mut string) = String::from_utf8(buf) else {
-                        return Some(Err(ShellError::NonUtf8 { span: self.span }));
-                    };
+                    let mut string = String::from_utf8_lossy(&buf).into_owned();
                     trim_end_newline(&mut string);
                     Some(Ok(string))
                 }
