@@ -67,8 +67,8 @@ impl Command for FromKdl {
 
     fn run(
         &self,
-        _: &EngineState,
-        _: &mut Stack,
+        _engine: &EngineState,
+        _stack: &mut Stack,
         call: &Call,
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
