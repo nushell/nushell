@@ -302,6 +302,12 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
 
         line_editor = setup_history(engine_state, line_editor, history)?;
 
+        // Lock the startup-only `$env.config.history.*` options (`path`, `max_size`,
+        // `file_format`, `isolation`) against further changes. Reedline owns the history
+        // backend from this point on, so runtime mutations of these fields would silently do
+        // nothing — better to reject them outright.
+        engine_state.history_locked_after_startup = true;
+
         perf!("setup history", start_time, use_color);
     }
     Ok(line_editor)
