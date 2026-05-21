@@ -179,11 +179,8 @@ fn convert_list_into_entries_of_kdl_node_recursively(
     serialize_types: bool,
     call_span: Span,
 ) -> Result<(), ShellError> {
-    let children = list
-        .iter()
-        .filter(|val| val.as_record().is_ok_and(|it| it.len() > 1));
-
-    if children.clone().count() > 1 {
+    // only one child is allowed per node
+    if count_child_records(list) > 1 {
         return Err(errors::cant_have_more_than_one_child_for_each_node_in_kdl(
             node,
             call_span,
@@ -268,6 +265,18 @@ fn convert_nu_value_to_kdl_value(
         Value::Error { error, .. } => Err(*(error.clone())),
         _ => Err(errors::nushell_failed("Failed to stringify nu value")),
     }
+}
+
+// helpers
+fn count_child_records(list: &[Value]) -> usize {
+    list.iter()
+        .map(|val| match val {
+            Value::Record { val, .. } if val.len() > 1 => 1,
+            // that's because this command has a flatten behaviour.
+            Value::List { vals, .. } => count_child_records(vals), // recurse into nested lists
+            _ => 0,
+        })
+        .sum()
 }
 
 mod errors {
