@@ -1454,12 +1454,11 @@ fn gather_arguments(
                 ..
             } => {
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
+
+                // In this path, `Nothing` means a named argument was not passed, such as when an
+                // unset optional flag is forwarded. Do not type-check it as the flag value; the
+                // defaulting step below will treat it as omitted so the callee's default can apply.
                 if !matches!(val, Value::Nothing { .. }) {
-                    // don't need to check type if the value is `null`
-                    // since `null` can be assigned if user don't pass value to a named argument
-                    //
-                    // In the case we'll pass through it, then later the underlying commands can
-                    // be able to apply default flag value.
                     let variable = engine_state.get_var(var_id);
                     check_type(&val, &variable.ty)?;
                 }
@@ -1493,6 +1492,9 @@ fn gather_arguments(
             // For named arguments, we do this check by looking to see if the variable was set yet on
             // the stack. This assumes that the stack's variables was previously empty, but that's a
             // fair assumption for a brand new callee stack.
+            //
+            // Treat a forwarded `Nothing` value the same as an omitted named argument so defaults
+            // are applied consistently.
             let variable_not_on_stack = callee_stack.vars.iter().all(|(id, _)| *id != var_id);
             let variable_is_nothing = callee_stack
                 .vars

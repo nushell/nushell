@@ -324,3 +324,18 @@ foo --target (barboozle)",
         "can't convert record<a: int> to record<url: string>",
     )
 }
+
+#[test]
+fn test_flags_will_respect_default_values() -> TestResult {
+    run_test(
+        "
+def concrete [--platform: string = 'default_value'] {
+  print 'platform is ($platform)'
+}
+
+def main [--platform: string] {
+  concrete --platform=$platform
+}",
+        "platform is default_value",
+    )
+}
