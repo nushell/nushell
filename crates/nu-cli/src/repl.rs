@@ -583,11 +583,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter {
-            engine_state: engine_reference.clone(),
+        .with_highlighter(Box::new(NuHighlighter::new(
+            engine_reference.clone(),
             // STACK-REFERENCE 1
-            stack: stack_arc.clone(),
-        }))
+            stack_arc.clone(),
+        )))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
@@ -608,6 +608,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string(),
         ))
         .with_cursor_config(cursor_config)
+        .with_abbreviations(config.abbreviations.clone())
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()

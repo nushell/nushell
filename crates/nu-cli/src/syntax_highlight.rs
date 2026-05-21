@@ -9,27 +9,82 @@ use nu_protocol::{
     engine::{EngineState, Stack, StateWorkingSet},
 };
 use reedline::{Highlighter, StyledText};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+
+struct HighlightCache {
+    line: String,
+    global_span_offset: usize,
+    shapes: Arc<Vec<(Span, FlatShape)>>,
+}
 
 pub struct NuHighlighter {
     pub engine_state: Arc<EngineState>,
     pub stack: Arc<Stack>,
+    cache: Mutex<Option<HighlightCache>>,
+}
+
+impl NuHighlighter {
+    pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self {
+            engine_state,
+            stack,
+            cache: Mutex::new(None),
+        }
+    }
 }
 
 impl Highlighter for NuHighlighter {
     fn highlight(&self, line: &str, cursor: usize) -> StyledText {
         let result = highlight_syntax(&self.engine_state, &self.stack, line, cursor);
+        *self.cache.lock().unwrap_or_else(|e| e.into_inner()) = Some(HighlightCache {
+            line: line.to_string(),
+            global_span_offset: result.global_span_offset,
+            shapes: Arc::new(result.shapes),
+        });
         result.text
+    }
+
+    fn is_inside_string_literal(&self, line: &str, cursor: usize) -> bool {
+        let (global_span_offset, shapes) = match self
+            .cache
+            .lock()
+            .ok()
+            .as_deref()
+            .and_then(|c| c.as_ref())
+            .filter(|c| c.line == line)
+        {
+            Some(c) => (c.global_span_offset, Arc::clone(&c.shapes)),
+            None => {
+                let mut working_set = StateWorkingSet::new(&self.engine_state);
+                let block = parse(&mut working_set, None, line.as_bytes(), false);
+                (
+                    self.engine_state.next_span_start(),
+                    Arc::new(flatten_block(&working_set, &block)),
+                )
+            }
+        };
+
+        let global_cursor = cursor + global_span_offset;
+        shapes.iter().any(|(span, shape)| {
+            span.contains(global_cursor)
+                && matches!(
+                    shape,
+                    FlatShape::String
+                        | FlatShape::RawString
+                        | FlatShape::StringInterpolation
+                        | FlatShape::ExternalArg
+                )
+        })
     }
 }
 
 /// Result of a syntax highlight operation
 #[derive(Default)]
 pub(crate) struct HighlightResult {
-    /// The highlighted text
     pub(crate) text: StyledText,
-    /// The span of any garbage that was highlighted
     pub(crate) found_garbage: Option<Span>,
+    pub(crate) global_span_offset: usize,
+    pub(crate) shapes: Vec<(Span, FlatShape)>,
 }
 
 pub(crate) fn highlight_syntax(
@@ -47,7 +102,10 @@ pub(crate) fn highlight_syntax(
     // TODO: Traverse::flat_map based highlighting?
     let shapes = flatten_block(&working_set, &block);
     let global_span_offset = engine_state.next_span_start();
-    let mut result = HighlightResult::default();
+    let mut result = HighlightResult {
+        global_span_offset,
+        ..Default::default()
+    };
     let mut last_seen_span_end = global_span_offset;
 
     let global_cursor_offset = cursor + global_span_offset;
@@ -155,6 +213,7 @@ pub(crate) fn highlight_syntax(
         result.text.push((Style::new(), remainder));
     }
 
+    result.shapes = shapes;
     result
 }
 
@@ -521,4 +580,57 @@ fn get_char_at_index(s: &str, index: usize) -> Option<char> {
 
 fn get_char_length(c: char) -> usize {
     c.to_string().len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NuHighlighter;
+    use nu_protocol::engine::{EngineState, Stack};
+    use reedline::Highlighter;
+    use rstest::rstest;
+    use std::sync::Arc;
+
+    fn make_highlighter() -> NuHighlighter {
+        NuHighlighter::new(Arc::new(EngineState::new()), Arc::new(Stack::new()))
+    }
+
+    #[rstest]
+    // 4-byte emoji
+    #[case("\"hello 🎉\" hi", 7, true)] // first byte of 🎉
+    #[case("\"hello 🎉\" hi", 9, true)] // third byte of 🎉
+    #[case("\"hello 🎉\" hi", 13, false)] // after closing quote
+    // 8-byte zwj emoji
+    #[case("\"hello 🤝🏿\" hi", 9, true)] // inside 🤝
+    #[case("\"hello 🤝🏿\" hi", 11, true)] // first byte of 🏿
+    #[case("\"hello 🤝🏿\" hi", 13, true)] // inside 🏿
+    #[case("\"hello 🤝🏿\" hi", 17, false)] // after closing quote
+    // 3-byte unicode
+    #[case("\"こんにちは\" hi", 2, true)] // inside こ
+    #[case("\"こんにちは\" hi", 5, true)] // inside ん
+    #[case("\"こんにちは\" hi", 13, true)] // start of は
+    #[case("\"こんにちは\" hi", 18, false)] // after closing quote
+    // raw string
+    #[case("r#'hello'# hi", 4, true)] // inside 'e'
+    #[case("r#'hello'# hi", 11, false)] // after closing #
+    // string interpolation
+    #[case("$\"hello\" hi", 0, true)] // $ — opening StringInterpolation span (0..2)
+    #[case("$\"hello\" hi", 4, true)] // inside literal 'hello'
+    #[case("$\"hello\" hi", 9, false)] // after closing quote
+    // no string
+    #[case("1 + 2", 0, false)]
+    #[case("1 + 2", 2, false)]
+    // ExternalArg is treated as a string literal to suppress abbreviation expansion in external commands
+    #[case("ls -la", 0, false)] // on 'ls'  — FlatShape::External
+    #[case("ls -la", 3, true)] // on '-la' — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 0, false)] // on 'bash'            — FlatShape::External
+    #[case("bash -c \"echo hello\"", 5, true)] // on '-c'              — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 10, true)] // inside "echo hello"  — FlatShape::ExternalArg
+    fn test_is_inside_string_literal(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] expected: bool,
+    ) {
+        let h = make_highlighter();
+        assert_eq!(h.is_inside_string_literal(line, cursor), expected);
+    }
 }

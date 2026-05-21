@@ -63,6 +63,7 @@ pub struct Config {
     pub hinter: HinterConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
+    pub abbreviations: HashMap<String, String>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm: RmConfig,
@@ -134,6 +135,7 @@ impl Default for Config {
             menus: Vec::new(),
 
             keybindings: Vec::new(),
+            abbreviations: HashMap::new(),
 
             error_style: ErrorStyle::default(),
             error_lines: 1,
@@ -218,6 +220,7 @@ impl UpdateFromValue for Config {
                     Ok(keybindings) => self.keybindings = keybindings,
                     Err(err) => errors.error(err.into()),
                 },
+                "abbreviations" => self.abbreviations.update(val, path, errors),
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),
                 "error_style" => self.error_style.update(val, path, errors),
