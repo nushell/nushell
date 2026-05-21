@@ -3,28 +3,6 @@ use nu_engine::command_prelude::*;
 use kdl::{KdlDocument, KdlNode, KdlValue};
 use num_traits::ToPrimitive;
 
-mod errors {
-    use super::*;
-
-    pub fn cant_convert(from_type: &str, span: Span, help: Option<String>) -> ShellError {
-        ShellError::CantConvert {
-            to_type: "structured kdl data".into(),
-            from_type: from_type.into(),
-            span,
-            help,
-        }
-    }
-
-    pub fn unsupported_input(msg: &str, span: Span) -> ShellError {
-        ShellError::UnsupportedInput {
-            msg: msg.to_owned(),
-            input: "value originates from here".to_owned(),
-            msg_span: span,
-            input_span: span,
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct FromKdl;
 
@@ -92,8 +70,13 @@ impl Command for FromKdl {
         let kdl_string_object = input.collect_string_strict(span)?;
 
         // parse the string into a KDL document
-        let kdl_data = KdlDocument::parse(&kdl_string_object.0)
-            .map_err(|err| errors::cant_convert("string", span, Some(format!("{}", err))))?;
+        let kdl_data =
+            KdlDocument::parse(&kdl_string_object.0).map_err(|err| ShellError::CantConvert {
+                to_type: "structured kdl data".into(),
+                from_type: "string".into(),
+                span,
+                help: Some(format!("{}", err)),
+            })?;
 
         // make the output record to inject the data in
         let mut output_record = Record::new();
@@ -170,10 +153,12 @@ fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Result<Value, 
     match value {
         KdlValue::String(val) => Ok(Value::string(val, span)),
         KdlValue::Integer(val) => Ok(Value::int(
-            val.to_i64().ok_or(errors::unsupported_input(
-                "integer value is too large to fit in i64",
-                span,
-            ))?,
+            val.to_i64().ok_or(ShellError::UnsupportedInput {
+                msg: "integer value is too large to fit in i64".to_owned(),
+                input: "value originates from here".to_owned(),
+                msg_span: span,
+                input_span: span,
+            })?,
             span,
         )),
         KdlValue::Float(val) => Ok(Value::float(*val, span)),

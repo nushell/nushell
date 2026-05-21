@@ -65,7 +65,12 @@ impl Command for ToKdl {
             }
             val => {
                 if val.as_closure().is_ok() && !serialize_types {
-                    return Err(errors::should_use_serialize(call_span, val.span()));
+                    return Err(ShellError::UnsupportedInput {
+            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+            input: "value originates from here".into(),
+            msg_span: call_span,
+            input_span: val.span(),
+        });
                 }
                 convert_nu_value_to_kdl_value(engine_state, call_span, val)?.to_string()
             }
@@ -125,11 +130,18 @@ fn convert_record_into_formatted_kdl_document_recursively(
                     && val_vec[0].1.as_list().is_err()
                 {
                     let (k, v) = val_vec[0];
-                    let identifier = KdlIdentifier::parse(k)
-                        .map_err(|err| errors::nushell_failed(format!("{}", err).as_str()))?;
+                    let identifier =
+                        KdlIdentifier::parse(k).map_err(|err| ShellError::NushellFailed {
+                            msg: format!("{}", err),
+                        })?;
 
                     if v.as_closure().is_ok() && !serialize_types {
-                        return Err(errors::should_use_serialize(call_span, v.span()));
+                        return Err(ShellError::UnsupportedInput {
+            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+            input: "value originates from here".into(),
+            msg_span: call_span,
+            input_span: v.span(),
+        });
                     }
 
                     let value = convert_nu_value_to_kdl_value(engine_state, call_span, v)?;
@@ -158,7 +170,12 @@ fn convert_record_into_formatted_kdl_document_recursively(
             }
             val => {
                 if val.as_closure().is_ok() && !serialize_types {
-                    return Err(errors::should_use_serialize(call_span, val.span()));
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+                        input: "value originates from here".into(),
+                        msg_span: call_span,
+                        input_span: val.span(),
+                    });
                 }
                 node.push(convert_nu_value_to_kdl_value(engine_state, call_span, val)?);
             }
@@ -181,11 +198,13 @@ fn convert_list_into_entries_of_kdl_node_recursively(
 ) -> Result<(), ShellError> {
     // only one child is allowed per node
     if count_child_records(list) > 1 {
-        return Err(errors::cant_have_more_than_one_child_for_each_node_in_kdl(
-            node,
-            call_span,
-            list.first().expect("").span(),
-        ));
+        return Err(ShellError::UnsupportedInput {
+            msg: "a node can't have multiple child records with more than one field each"
+                .to_owned(),
+            input: format!("issue in node: '{}'", node.name().value()),
+            msg_span: call_span,
+            input_span: list.first().expect("").span(),
+        });
     };
 
     for value in list {
@@ -197,12 +216,18 @@ fn convert_list_into_entries_of_kdl_node_recursively(
                     && val_vec[0].1.as_list().is_err()
                 {
                     let (k, v) = val_vec[0];
-                    let identifier = KdlIdentifier::parse(k).map_err(|_| {
-                        errors::nushell_failed("failed to make an identifier for a kdl node")
-                    })?;
+                    let identifier =
+                        KdlIdentifier::parse(k).map_err(|err| ShellError::NushellFailed {
+                            msg: format!("{}", err),
+                        })?;
 
                     if v.as_closure().is_ok() && !serialize_types {
-                        return Err(errors::should_use_serialize(call_span, v.span()));
+                        return Err(ShellError::UnsupportedInput {
+            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+            input: "value originates from here".into(),
+            msg_span: call_span,
+            input_span: v.span(),
+        });
                     }
 
                     let value = convert_nu_value_to_kdl_value(engine_state, call_span, v)?;
@@ -230,7 +255,12 @@ fn convert_list_into_entries_of_kdl_node_recursively(
             }
             val => {
                 if val.as_closure().is_ok() && !serialize_types {
-                    return Err(errors::should_use_serialize(call_span, val.span()));
+                    return Err( ShellError::UnsupportedInput {
+            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
+            input: "value originates from here".into(),
+            msg_span: call_span,
+            input_span: val.span(),
+        });
                 }
                 node.push(convert_nu_value_to_kdl_value(engine_state, call_span, val)?);
             }
@@ -263,7 +293,9 @@ fn convert_nu_value_to_kdl_value(
         Value::CellPath { val, .. } => Ok(KdlValue::String(val.to_string())),
         Value::Custom { val, .. } => Ok(KdlValue::String(format!("<{}>", val.type_name()))),
         Value::Error { error, .. } => Err(*(error.clone())),
-        _ => Err(errors::nushell_failed("Failed to stringify nu value")),
+        _ => Err(ShellError::NushellFailed {
+            msg: "Failed to stringify nu value".to_owned(),
+        }),
     }
 }
 
@@ -277,39 +309,6 @@ fn count_child_records(list: &[Value]) -> usize {
             _ => 0,
         })
         .sum()
-}
-
-mod errors {
-    use super::*;
-
-    pub fn should_use_serialize(call_span: Span, value_span: Span) -> ShellError {
-        ShellError::UnsupportedInput {
-            msg: "closures are currently not deserializable (use --serialize to serialize as a string)".into(),
-            input: "value originates from here".into(),
-            msg_span: call_span,
-            input_span: value_span,
-        }
-    }
-
-    pub fn cant_have_more_than_one_child_for_each_node_in_kdl(
-        node: &KdlNode,
-        call_span: Span,
-        first_span: Span,
-    ) -> ShellError {
-        ShellError::UnsupportedInput {
-            msg: "a node can't have multiple child records with more than one field each"
-                .to_owned(),
-            input: format!("issue in node: '{}'", node.name().value()),
-            msg_span: call_span,
-            input_span: first_span,
-        }
-    }
-
-    pub fn nushell_failed(msg: &str) -> ShellError {
-        ShellError::NushellFailed {
-            msg: msg.to_owned(),
-        }
-    }
 }
 
 #[cfg(test)]
