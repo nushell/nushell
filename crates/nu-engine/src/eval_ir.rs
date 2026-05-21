@@ -1455,7 +1455,11 @@ fn gather_arguments(
             } => {
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
                 if !matches!(val, Value::Nothing { .. }) {
-                    // allow passing null to typed flag.
+                    // don't need to check type if the value is `null`
+                    // since `null` can be assigned if user don't pass value to a named argument
+                    //
+                    // In the case we'll pass through it, then later the underlying commands can
+                    // be able to apply default flag value.
                     let variable = engine_state.get_var(var_id);
                     check_type(&val, &variable.ty)?;
                 }
