@@ -89,7 +89,7 @@ fn first_helper(
     input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let rows: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+    let rows: Option<usize> = call.opt(engine_state, stack, 0)?;
     let strict_mode = call.has_flag(engine_state, stack, "strict")?;
 
     // FIXME: for backwards compatibility reasons, if `rows` is not specified we
@@ -97,15 +97,7 @@ fn first_helper(
     // remove `rows` so that `first` always returns a single element; getting a list of
     // the first N elements is covered by `take`
     let return_single_element = rows.is_none();
-    let rows = if let Some(rows) = rows {
-        if rows.item < 0 {
-            return Err(ShellError::NeedsPositiveValue { span: rows.span });
-        } else {
-            rows.item as usize
-        }
-    } else {
-        1
-    };
+    let rows = rows.unwrap_or(1);
 
     let mut input = input;
     let input_meta = input.take_metadata();

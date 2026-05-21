@@ -3277,6 +3277,16 @@ mod input_types {
         b"def q []: nothing -> record<c: record<a: int b: int> e: int> {{c: {a: 1 b: 2} e: 1}}",
         false
     )]
+    #[case::input_output_pass_through(b"def q []: int -> int {}", false)]
+    #[case::input_output_pass_through(b"def q []: string -> string {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> int, string -> string] {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> string, string -> int] {}", true)]
+    #[case::input_output_pass_through(
+        b"def q []: record<a: int, b: string> -> record<a: int, b: string> {}",
+        false
+    )]
+    #[case::input_output_pass_through_incorrect(b"def q []: int -> nothing {}", true)]
+    #[case::input_output_pass_through_incorrect(b"def q []: nothing -> int {}", true)]
     #[case::input_output(b"def q []: nothing -> list<string {[]}", true)]
     #[case::input_output(b"def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
     #[case::input_output(b"def q []: record<c: int e: int -> record<a: int> {{a: 1}}", true)]

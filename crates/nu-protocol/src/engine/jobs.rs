@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, hash_map::Entry},
     sync::{
         Arc, Mutex,
         mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
@@ -84,7 +84,7 @@ impl Jobs {
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
         self.assign_last_frozen_id_if_frozen(id, &job);
 
-        if let std::collections::hash_map::Entry::Vacant(e) = self.jobs.entry(id) {
+        if let Entry::Vacant(e) = self.jobs.entry(id) {
             e.insert(job);
             Ok(())
         } else {
@@ -383,16 +383,12 @@ impl IgnoredMail {
     fn pop_oldest(&mut self) -> Option<PipelineData> {
         let (id, (tag, value)) = self.messages.pop_first()?;
 
-        if let Some(tag) = tag {
-            let needs_cleanup = if let Some(ids) = self.by_tag.get_mut(&tag) {
-                ids.remove(&id);
-                ids.is_empty()
-            } else {
-                false
-            };
-
-            if needs_cleanup {
-                self.by_tag.remove(&tag);
+        if let Some(tag) = tag
+            && let Entry::Occupied(mut occupied_entry) = self.by_tag.entry(tag)
+        {
+            occupied_entry.get_mut().remove(&id);
+            if occupied_entry.get().is_empty() {
+                occupied_entry.remove();
             }
         }
 

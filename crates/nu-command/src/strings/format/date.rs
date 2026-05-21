@@ -100,28 +100,7 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag(engine_state, stack, "list")?;
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = stack
-            .get_env_var(engine_state, LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| stack.get_env_var(engine_state, "LC_ALL"))
-            .or_else(|| stack.get_env_var(engine_state, "LC_TIME"))
-            .or_else(|| stack.get_env_var(engine_state, "LANG"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale(|name| stack.get_env_var(engine_state, name))?;
 
         run(engine_state, call, input, list, format, locale)
     }
@@ -134,31 +113,38 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag_const(working_set, "list")?;
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
-
-        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = working_set
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| working_set.get_env_var("LC_ALL"))
-            .or_else(|| working_set.get_env_var("LC_TIME"))
-            .or_else(|| working_set.get_env_var("LANG"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale(|name| working_set.get_env_var(name))?;
 
         run(working_set.permanent(), call, input, list, format, locale)
     }
+}
+
+fn get_locale<'a, F>(env_getter: F) -> Result<Locale, ShellError>
+where
+    F: Fn(&str) -> Option<&'a Value> + 'a,
+{
+    // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
+    // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
+    static LOCALE_VAR_NAMES: &[&str] = &[LOCALE_OVERRIDE_ENV_VAR, "LC_ALL", "LC_TIME", "LANG"];
+
+    // get the locale first so we can use the proper get_env_var functions since this is a const command
+    // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
+    let locale_var = LOCALE_VAR_NAMES
+        .iter()
+        .find_map(|name| env_getter(name))
+        .map(Value::as_str)
+        .transpose()?;
+
+    let locale = match locale_var {
+        Some(loc) => (loc.split('.').next())
+            .and_then(|s| Locale::try_from(s).ok())
+            .unwrap_or(Locale::en_US),
+        None => get_system_locale_string()
+            .map(|l| l.replace('-', "_"))
+            .and_then(|s| Locale::try_from(s.as_str()).ok())
+            .unwrap_or(Locale::en_US),
+    };
+    Ok(locale)
 }
 
 fn run(

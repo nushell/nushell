@@ -382,14 +382,17 @@ impl<'a> Completer for CommandWideCompletion<'a> {
             span: args_span,
         } = get_command_arguments(working_set, self.expression);
 
-        let mut new_span = span;
         // strip the placeholder
-        if self.strip
+        let new_span = if self.strip
             && let Some(last) = args.last_mut()
         {
-            last.item.pop();
-            new_span = Span::new(span.start, span.end.saturating_sub(1));
-        }
+            if let Some(popped) = last.item.pop() {
+                last.span.end = last.span.end.saturating_sub(popped.len_utf8())
+            }
+            last.span
+        } else {
+            span
+        };
 
         let mut block = working_set.get_block(self.block_id).clone();
 

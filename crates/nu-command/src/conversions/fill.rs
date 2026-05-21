@@ -1,6 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
+use nu_protocol::FromValue;
 use print_positions::print_positions;
 
 #[derive(Clone)]
@@ -19,12 +20,26 @@ impl CmdArgument for Arguments {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 enum FillAlignment {
+    #[default]
     Left,
     Right,
     Middle,
     MiddleRight,
+}
+
+impl FromValue for FillAlignment {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        Ok(match String::from_value(v)?.to_ascii_lowercase().as_str() {
+            "l" | "left" => Self::Left,
+            "r" | "right" => Self::Right,
+            "c" | "center" | "m" | "middle" => Self::Middle,
+            "cr" | "centerright" | "mr" | "middleright" => Self::MiddleRight,
+            // TODO: This should probably be an error
+            _ => Self::Left,
+        })
+    }
 }
 
 impl Command for Fill {
@@ -152,22 +167,12 @@ fn fill(
     input: PipelineData,
 ) -> Result<nu_protocol::PipelineData, nu_protocol::ShellError> {
     let width_arg: Option<usize> = call.get_flag(engine_state, stack, "width")?;
-    let alignment_arg: Option<String> = call.get_flag(engine_state, stack, "alignment")?;
+    let alignment = call
+        .get_flag::<FillAlignment>(engine_state, stack, "alignment")?
+        .unwrap_or_default();
     let character_arg: Option<String> = call.get_flag(engine_state, stack, "character")?;
     let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
     let cell_paths = (!cell_paths.is_empty()).then_some(cell_paths);
-
-    let alignment = if let Some(arg) = alignment_arg {
-        match arg.to_ascii_lowercase().as_str() {
-            "l" | "left" => FillAlignment::Left,
-            "r" | "right" => FillAlignment::Right,
-            "c" | "center" | "m" | "middle" => FillAlignment::Middle,
-            "cr" | "centerright" | "mr" | "middleright" => FillAlignment::MiddleRight,
-            _ => FillAlignment::Left,
-        }
-    } else {
-        FillAlignment::Left
-    };
 
     let width = width_arg.unwrap_or(1);
 

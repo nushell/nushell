@@ -42,18 +42,8 @@ impl Command for DropColumn {
     ) -> Result<PipelineData, ShellError> {
         let input = input.into_stream_or_original(engine_state);
         // the number of columns to drop
-        let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let columns = call.opt::<usize>(engine_state, stack, 0)?.unwrap_or(1);
         let from_left = call.has_flag(engine_state, stack, "left")?;
-
-        let columns = if let Some(columns) = columns {
-            if columns.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: columns.span });
-            } else {
-                columns.item as usize
-            }
-        } else {
-            1
-        };
 
         drop_cols(engine_state, input, call.head, columns, from_left)
     }

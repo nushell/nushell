@@ -1,5 +1,6 @@
 use super::binary_op;
 use nu_engine::command_prelude::*;
+use nu_heavy_utils::Endian;
 
 #[derive(Clone)]
 pub struct BitsXor;
@@ -29,12 +30,7 @@ impl Command for BitsXor {
                 SyntaxShape::OneOf(vec![SyntaxShape::Binary, SyntaxShape::Int]),
                 "Right-hand side of the operation.",
             )
-            .named(
-                "endian",
-                SyntaxShape::String,
-                "Byte encode endian, available options: native(default), little, big.",
-                Some('e'),
-            )
+            .param(Endian::flag())
             .category(Category::Bits)
     }
 
@@ -55,23 +51,9 @@ impl Command for BitsXor {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let target: Value = call.req(engine_state, stack, 0)?;
-        let endian = call.get_flag::<Spanned<String>>(engine_state, stack, "endian")?;
-
-        let little_endian = if let Some(endian) = endian {
-            match endian.item.as_str() {
-                "native" => cfg!(target_endian = "little"),
-                "little" => true,
-                "big" => false,
-                _ => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "Endian must be one of native, little, big".to_string(),
-                        span: endian.span,
-                    });
-                }
-            }
-        } else {
-            cfg!(target_endian = "little")
-        };
+        let endian = call
+            .get_flag::<Endian>(engine_state, stack, "endian")?
+            .unwrap_or_default();
 
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {
@@ -79,7 +61,7 @@ impl Command for BitsXor {
         }
 
         input.map(
-            move |value| binary_op(&value, &target, little_endian, |(l, r)| l ^ r, head),
+            move |value| binary_op(&value, &target, endian, |(l, r)| l ^ r, head),
             engine_state.signals(),
         )
     }

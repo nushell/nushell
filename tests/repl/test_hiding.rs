@@ -1,3 +1,5 @@
+use nu_test_support::prelude::*;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 
 // TODO: Test the use/hide tests also as separate lines in REPL (i.e., with  merging the delta in between)
@@ -18,11 +20,16 @@ fn hides_alias() -> TestResult {
 }
 
 #[test]
-fn hides_env() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; $env.myfoosymbol"#,
-        "",
-    )
+fn hides_env() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        hide-env myfoosymbol
+        $env.myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -45,11 +52,29 @@ fn hides_alias_then_redefines() -> TestResult {
 }
 
 #[test]
-fn hides_env_then_redefines() -> TestResult {
-    run_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; $env.myfoosymbol = "bar"; $env.myfoosymbol"#,
-        "bar",
-    )
+fn hides_env_then_redefines() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        hide-env myfoosymbol
+        $env.myfoosymbol = "bar"
+        $env.myfoosymbol
+    "#;
+    test().run(code).expect_value_eq("bar")
+}
+
+#[test]
+fn hide_env_affects_stack_and_engine_state() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"$env.AAAA = "before""#)?;
+    let code = r#"
+        $env.AAAA = "after"
+        hide-env AAAA
+    "#;
+    let () = tester.run(code)?;
+    match tester.run("$env.AAAA").expect_shell_error()? {
+        ShellError::CantFindColumn { col_name, .. } if col_name == "AAAA" => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -117,35 +142,65 @@ fn hides_alias_in_scope_4() -> TestResult {
 }
 
 #[test]
-fn hides_env_in_scope_1() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; $env.myfoosymbol }"#,
-        "not_found",
-    )
+fn hides_env_in_scope_1() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        do {
+            hide-env myfoosymbol
+            $env.myfoosymbol
+        }
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn hides_env_in_scope_2() -> TestResult {
-    run_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; do { $env.myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
-        "myfoosymbol",
-    )
+fn hides_env_in_scope_2() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        do {
+            $env.myfoosymbol = "bar"
+            hide-env myfoosymbol
+            $env.myfoosymbol
+        }
+    "#;
+    test().run(code).expect_value_eq("myfoosymbol")
 }
 
 #[test]
-fn hides_env_in_scope_3() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; do { hide-env myfoosymbol; $env.myfoosymbol = "bar"; hide-env myfoosymbol; $env.myfoosymbol }"#,
-        "",
-    )
+fn hides_env_in_scope_3() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        do {
+            hide-env myfoosymbol
+            $env.myfoosymbol = "bar"
+            hide-env myfoosymbol
+            $env.myfoosymbol
+        }
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn hides_env_in_scope_4() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; do { $env.myfoosymbol = "bar"; hide-env myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol }"#,
-        "",
-    )
+fn hides_env_in_scope_4() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        do {
+            $env.myfoosymbol = "bar"
+            hide-env myfoosymbol
+            hide-env myfoosymbol
+            $env.myfoosymbol
+        }
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -167,19 +222,30 @@ fn hide_alias_twice_not_allowed() -> TestResult {
 }
 
 #[test]
-fn hide_env_twice_not_allowed() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env myfoosymbol"#,
-        "",
-    )
+fn hide_env_twice_not_allowed() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        hide-env myfoosymbol
+        hide-env myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::EnvVarNotFoundAtRuntime { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
-fn hide_env_twice_allowed() -> TestResult {
-    fail_test(
-        r#"$env.myfoosymbol = "myfoosymbol"; hide-env myfoosymbol; hide-env -i myfoosymbol; $env.myfoosymbol"#,
-        "",
-    )
+fn hide_env_twice_allowed() -> Result {
+    let code = r#"
+        $env.myfoosymbol = "myfoosymbol"
+        hide-env myfoosymbol
+        hide-env -i myfoosymbol
+        $env.myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -303,11 +369,19 @@ fn hides_alias_import_then_reimports() -> TestResult {
 }
 
 #[test]
-fn hides_env_import_1() -> TestResult {
-    fail_test(
-        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
-        "",
-    )
+fn hides_env_import_1() -> Result {
+    let code = r#"
+        module myspammodule {
+            export-env { $env.myfoosymbol = "myfoosymbol" }
+        }
+        use myspammodule
+        hide-env myfoosymbol
+        $env.myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -319,11 +393,21 @@ fn hides_def_runs_env_import() -> TestResult {
 }
 
 #[test]
-fn hides_def_and_env_import_1() -> TestResult {
-    fail_test(
-        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" }; export def myfoosymbol [] { "bar" } }; use myspammodule myfoosymbol; hide myfoosymbol; hide-env myfoosymbol; $env.myfoosymbol"#,
-        "",
-    )
+fn hides_def_and_env_import_1() -> Result {
+    let code = r#"
+        module myspammodule {
+            export-env { $env.myfoosymbol = "myfoosymbol" }
+            export def myfoosymbol [] { "bar" }
+        }
+        use myspammodule myfoosymbol
+        hide myfoosymbol
+        hide-env myfoosymbol
+        $env.myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]
@@ -335,11 +419,17 @@ fn use_def_import_after_hide() -> TestResult {
 }
 
 #[test]
-fn use_env_import_after_hide() -> TestResult {
-    run_test(
-        r#"module myspammodule { export-env { $env.myfoosymbol = "myfoosymbol" } }; use myspammodule; hide-env myfoosymbol; use myspammodule; $env.myfoosymbol"#,
-        "myfoosymbol",
-    )
+fn use_env_import_after_hide() -> Result {
+    let code = r#"
+        module myspammodule {
+            export-env { $env.myfoosymbol = "myfoosymbol" }
+        }
+        use myspammodule
+        hide-env myfoosymbol
+        use myspammodule
+        $env.myfoosymbol
+    "#;
+    test().run(code).expect_value_eq("myfoosymbol")
 }
 
 #[test]
@@ -351,11 +441,19 @@ fn hide_shadowed_decl() -> TestResult {
 }
 
 #[test]
-fn hide_shadowed_env() -> TestResult {
-    run_test(
-        r#"module myspammodule { export-env { $env.myfoosymbol = "bar" } }; $env.myfoosymbol = "myfoosymbol"; do { use myspammodule; hide-env myfoosymbol; $env.myfoosymbol }"#,
-        "myfoosymbol",
-    )
+fn hide_shadowed_env() -> Result {
+    let code = r#"
+        module myspammodule {
+            export-env { $env.myfoosymbol = "bar" }
+        }
+        $env.myfoosymbol = "myfoosymbol"
+        do {
+            use myspammodule
+            hide-env myfoosymbol
+            $env.myfoosymbol
+        }
+    "#;
+    test().run(code).expect_value_eq("myfoosymbol")
 }
 
 #[test]
@@ -367,11 +465,20 @@ fn hides_all_decls_within_scope() -> TestResult {
 }
 
 #[test]
-fn hides_all_envs_within_scope() -> TestResult {
-    fail_test(
-        r#"module myspammodule { export-env { $env.myfoosymbol = "bar" } }; $env.myfoosymbol = "myfoosymbol"; use myspammodule; hide-env myfoosymbol; $env.myfoosymbol"#,
-        "",
-    )
+fn hides_all_envs_within_scope() -> Result {
+    let code = r#"
+        module myspammodule {
+            export-env { $env.myfoosymbol = "bar" }
+        }
+        $env.myfoosymbol = "myfoosymbol"
+        use myspammodule
+        hide-env myfoosymbol
+        $env.myfoosymbol
+    "#;
+    match test().run(code).expect_shell_error()? {
+        ShellError::CantFindColumn { .. } => Ok(()),
+        err => Err(err.into()),
+    }
 }
 
 #[test]

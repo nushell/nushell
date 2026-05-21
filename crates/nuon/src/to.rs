@@ -14,7 +14,7 @@ use nu_utils::{ObviousFloat, as_raw_string, escape_quote_string, needs_quoting};
 ///     .raw_strings(true);
 /// to_nuon(&engine_state, &value, config)?;
 /// ```
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ToNuonConfig {
     /// Formatting style (indentation)
@@ -27,6 +27,22 @@ pub struct ToNuonConfig {
     pub raw_strings: bool,
     /// Serialize list-of-records values as list-of-records instead of table syntax
     pub list_of_records: bool,
+    /// Use commas to separate items. Defaults to `true`.
+    /// When `false`, produces compact NUON without commas.
+    pub use_commas: bool,
+}
+
+impl Default for ToNuonConfig {
+    fn default() -> Self {
+        Self {
+            style: ToStyle::default(),
+            span: None,
+            serialize_types: false,
+            raw_strings: false,
+            list_of_records: false,
+            use_commas: true,
+        }
+    }
 }
 
 impl ToNuonConfig {
@@ -57,6 +73,11 @@ impl ToNuonConfig {
     /// Serialize list-of-records values as list-of-records instead of table syntax
     pub fn list_of_records(mut self, list_of_records: bool) -> Self {
         self.list_of_records = list_of_records;
+        self
+    }
+
+    pub fn use_commas(mut self, use_commas: bool) -> Self {
+        self.use_commas = use_commas;
         self
     }
 }
@@ -139,6 +160,7 @@ pub fn to_nuon(
             serialize_types: config.serialize_types,
             raw_strings: config.raw_strings,
             list_of_records: config.list_of_records,
+            use_commas: config.use_commas,
         },
     )?;
 
@@ -150,8 +172,15 @@ struct StringifyOptions {
     serialize_types: bool,
     raw_strings: bool,
     list_of_records: bool,
+    use_commas: bool,
 }
 
+/// Converts a Nushell [`Value`] to its NUON string representation.
+///
+/// This function handles all value types and respects the formatting options
+/// provided in [`StringifyOptions`]. The `use_commas` option controls whether
+/// commas are included as separators in arrays, records, and table rows.
+/// When `false`, produces more compact output while remaining valid NUON.
 fn value_to_string(
     engine_state: &EngineState,
     v: &Value,
@@ -164,6 +193,9 @@ fn value_to_string(
     let idt = get_true_indentation(depth, indent);
     let idt_po = get_true_indentation(depth + 1, indent);
     let idt_pt = get_true_indentation(depth + 2, indent);
+    // Comma separator: either "," or "" (empty) based on use_commas option.
+    // Using a single variable ensures consistent comma handling across all formatting paths.
+    let c = if options.use_commas { "," } else { "" };
 
     match v {
         Value::Binary { val, .. } => {
@@ -263,9 +295,9 @@ fn value_to_string(
                 };
 
                 if indent.is_some_and(|i| !i.is_empty()) {
-                    let header_row = format!("[{}];", headers.join(", "));
+                    let header_row = format!("[{}];", headers.join(c));
 
-                    let value_rows = record_rows(&|row| format!("[{}]", row.join(", ")))?
+                    let value_rows = record_rows(&|row| format!("[{}]", row.join(c)))?
                         .join(&format!(",{nl}{idt_po}"));
 
                     Ok(format!(
@@ -273,11 +305,11 @@ fn value_to_string(
                         header_row, value_rows
                     ))
                 } else {
-                    let headers_output = headers.join(&format!(",{sep}{nl}{idt_pt}"));
+                    let headers_output = headers.join(&format!("{c}{sep}{nl}{idt_pt}"));
 
                     let table_output =
-                        record_rows(&|row| row.join(&format!(",{sep}{nl}{idt_pt}")))?
-                            .join(&format!("{nl}{idt_po}],{sep}{nl}{idt_po}[{nl}{idt_pt}"));
+                        record_rows(&|row| row.join(&format!("{c}{sep}{nl}{idt_pt}")))?
+                            .join(&format!("{nl}{idt_po}]{c}{sep}{nl}{idt_po}[{nl}{idt_pt}"));
 
                     Ok(format!(
                         "[{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}];{sep}{nl}{idt_po}[{nl}{idt_pt}{}{nl}{idt_po}]{nl}{idt}]",
@@ -304,7 +336,7 @@ fn value_to_string(
 
                 Ok(format!(
                     "[{nl}{}{nl}{idt}]",
-                    collection.join(&format!(",{sep}{nl}"))
+                    collection.join(&format!("{c}{sep}{nl}"))
                 ))
             } else {
                 let mut collection = vec![];
@@ -323,7 +355,7 @@ fn value_to_string(
                 }
                 Ok(format!(
                     "[{nl}{}{nl}{idt}]",
-                    collection.join(&format!(",{sep}{nl}"))
+                    collection.join(&format!("{c}{sep}{nl}"))
                 ))
             }
         }
@@ -354,7 +386,7 @@ fn value_to_string(
             }
             Ok(format!(
                 "{{{nl}{}{nl}{idt}}}",
-                collection.join(&format!(",{sep}{nl}"))
+                collection.join(&format!("{c}{sep}{nl}"))
             ))
         }
         // All strings outside data structures are quoted because they are in 'command position'

@@ -39,6 +39,7 @@ nu-system = { path = "../nu-system", version = "0.112.3" }
 nu-table = { path = "../nu-table", version = "0.112.3" }
 nu-term-grid = { path = "../nu-term-grid", version = "0.112.3" }
 nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-heavy-utils = { path = "../nu-heavy-utils", version = "0.112.3" }
 nuon = { path = "../nuon", version = "0.112.3" }
 
 alphanumeric-sort = { workspace = true }
@@ -66,6 +67,7 @@ encoding_rs = { workspace = true }
 fancy-regex = { workspace = true }
 filesize = { workspace = true }
 filetime = { workspace = true }
+fluent = { workspace = true }
 fuzzy-matcher = { workspace = true }
 http = { workspace = true }
 human-date-parser = { workspace = true }

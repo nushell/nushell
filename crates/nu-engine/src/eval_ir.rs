@@ -1877,7 +1877,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     // (the callee hid them)
     for var in caller_env_vars.iter() {
         if !callee_stack.has_env_var(engine_state, var) {
-            caller_stack.remove_env_var(engine_state, var);
+            caller_stack.hide_env_var(engine_state, var);
         }
     }
 

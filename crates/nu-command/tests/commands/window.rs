@@ -12,7 +12,7 @@ fn window_size_zero() -> Result {
     let err = test().run("[0 1 2] | window 0").expect_shell_error()?;
     match err {
         ShellError::IncorrectValue { msg, .. } => {
-            assert_eq!(msg, "`window_size` cannot be zero");
+            assert_eq!(msg, "use a value other than 0");
             Ok(())
         }
         err => Err(err.into()),
@@ -42,7 +42,7 @@ fn stride_zero() -> Result {
     let err = test().run("[0 1 2] | window 1 -s 0").expect_shell_error()?;
     match err {
         ShellError::IncorrectValue { msg, .. } => {
-            assert_eq!(msg, "`stride` cannot be zero");
+            assert_eq!(msg, "use a value other than 0");
             Ok(())
         }
         err => Err(err.into()),

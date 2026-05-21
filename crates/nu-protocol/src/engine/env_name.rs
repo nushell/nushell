@@ -15,10 +15,11 @@
 //! - Case is preserved when storing the variable name
 //! - Existing scripts may need updates if they relied on case sensitivity
 
+use serde::{Deserialize, Serialize};
 use std::hash::{Hash, Hasher};
 
 /// A `String` that's case-insensitive for all environment variable names, used for environment variable names.
-#[derive(Clone, derive_more::Debug)]
+#[derive(Clone, derive_more::Debug, Serialize, Deserialize)]
 #[debug("{_0:?}")]
 pub struct EnvName(pub(crate) String);
 

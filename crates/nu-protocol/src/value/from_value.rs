@@ -375,7 +375,7 @@ macro_rules! impl_from_value_for_uint {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
-                    Value::Int { val, .. } | Value::Duration { val, .. } => {
+                    Value::Int { val, .. } => {
                         match val {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
