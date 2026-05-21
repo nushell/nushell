@@ -3,16 +3,24 @@ use nu_engine::command_prelude::*;
 use kdl::{KdlDocument, KdlNode, KdlValue};
 use num_traits::ToPrimitive;
 
-#[derive(Debug)]
-pub struct FromKdlError;
+mod errors {
+    use super::*;
 
-impl FromKdlError {
-    fn cant_convert(span: Span, help: Option<String>) -> ShellError {
+    pub fn cant_convert(from_type: &str, span: Span, help: Option<String>) -> ShellError {
         ShellError::CantConvert {
             to_type: "structured kdl data".into(),
-            from_type: "string".into(),
+            from_type: from_type.into(),
             span,
             help,
+        }
+    }
+
+    pub fn unsupported_input(msg: &str, span: Span) -> ShellError {
+        ShellError::UnsupportedInput {
+            msg: msg.to_owned(),
+            input: "value originates from here".to_owned(),
+            msg_span: span,
+            input_span: span,
         }
     }
 }
@@ -85,7 +93,7 @@ impl Command for FromKdl {
 
         // parse the string into a KDL document
         let kdl_data = KdlDocument::parse(&kdl_string_object.0)
-            .map_err(|err| FromKdlError::cant_convert(span, Some(format!("{}", err))))?;
+            .map_err(|err| errors::cant_convert("string", span, Some(format!("{}", err))))?;
 
         // make the output record to inject the data in
         let mut output_record = Record::new();
@@ -108,34 +116,27 @@ fn inject_kdl_document_into_record_recursively(
     for node in nodes {
         let entries = get_kdl_node_entries(node, span)?;
 
-        let mut value: Value;
-
-        if !entries.is_empty() {
+        let value: Value = if !entries.is_empty() {
             if let Some(children) = node.children() {
                 let mut children_record = Record::new();
                 inject_kdl_document_into_record_recursively(&mut children_record, children, span)?;
 
-                value = entries.into_value(span);
-                let mut list = value.as_list()?.to_vec();
+                let entries_value = entries.into_value(span);
+                let mut list = entries_value.as_list()?.to_vec();
                 list.push(children_record.into_value(span));
-                value = Value::list(list, span);
-            } else if entries.len() == 1 {
-                value = entries
-                    .first()
-                    .ok_or(ShellError::NushellFailed {
-                        msg: "entries is empty".to_owned(),
-                    })?
-                    .clone();
+                Value::list(list, span)
+            } else if let [single_value] = entries.as_slice() {
+                single_value.clone()
             } else {
-                value = entries.into_value(span);
+                entries.into_value(span)
             }
         } else if let Some(children) = node.children() {
             let mut children_record = Record::new();
             inject_kdl_document_into_record_recursively(&mut children_record, children, span)?;
-            value = children_record.into_value(span);
+            children_record.into_value(span)
         } else {
-            value = Value::nothing(span);
-        }
+            Value::nothing(span)
+        };
 
         output_record.push(node.name().value().to_string(), value);
     }
@@ -169,12 +170,10 @@ fn convert_kdl_value_to_nu_value(value: &KdlValue, span: Span) -> Result<Value, 
     match value {
         KdlValue::String(val) => Ok(Value::string(val, span)),
         KdlValue::Integer(val) => Ok(Value::int(
-            val.to_i64().ok_or(ShellError::UnsupportedInput {
-                msg: "integer value is too large to fit in i64".to_owned(),
-                input: "value originates from here".to_owned(),
-                msg_span: span,
-                input_span: span,
-            })?,
+            val.to_i64().ok_or(errors::unsupported_input(
+                "integer value is too large to fit in i64",
+                span,
+            ))?,
             span,
         )),
         KdlValue::Float(val) => Ok(Value::float(*val, span)),

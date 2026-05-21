@@ -125,10 +125,8 @@ fn convert_record_into_formatted_kdl_document_recursively(
                     && val_vec[0].1.as_list().is_err()
                 {
                     let (k, v) = val_vec[0];
-                    let identifier =
-                        KdlIdentifier::parse(k).map_err(|_| ShellError::NushellFailed {
-                            msg: "failed to make an identifier for a kdl node".to_owned(),
-                        })?;
+                    let identifier = KdlIdentifier::parse(k)
+                        .map_err(|err| errors::nushell_failed(format!("{}", err).as_str()))?;
 
                     if v.as_closure().is_ok() && !serialize_types {
                         return Err(errors::should_use_serialize(call_span, v.span()));
@@ -268,9 +266,7 @@ fn convert_nu_value_to_kdl_value(
         Value::CellPath { val, .. } => Ok(KdlValue::String(val.to_string())),
         Value::Custom { val, .. } => Ok(KdlValue::String(format!("<{}>", val.type_name()))),
         Value::Error { error, .. } => Err(*(error.clone())),
-        _ => Err(ShellError::NushellFailed {
-            msg: "Can't stringify record and list values".to_owned(),
-        }),
+        _ => Err(errors::nushell_failed("Failed to stringify nu value")),
     }
 }
 
