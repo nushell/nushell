@@ -1454,8 +1454,11 @@ fn gather_arguments(
                 ..
             } => {
                 let var_id = find_named_var_id(&block.signature, &data[name], &data[short], span)?;
-                let variable = engine_state.get_var(var_id);
-                check_type(&val, &variable.ty)?;
+                if !matches!(val, Value::Nothing { .. }) {
+                    // allow passing null to typed flag.
+                    let variable = engine_state.get_var(var_id);
+                    check_type(&val, &variable.ty)?;
+                }
                 callee_stack.add_var(var_id, val)
             }
             Argument::ParserInfo { .. } => (),
@@ -1486,7 +1489,13 @@ fn gather_arguments(
             // For named arguments, we do this check by looking to see if the variable was set yet on
             // the stack. This assumes that the stack's variables was previously empty, but that's a
             // fair assumption for a brand new callee stack.
-            if !callee_stack.vars.iter().any(|(id, _)| *id == var_id) {
+            let variable_not_on_stack = callee_stack.vars.iter().all(|(id, _)| *id != var_id);
+            let variable_is_nothing = callee_stack
+                .vars
+                .iter()
+                .any(|(id, val)| *id == var_id && val.is_nothing());
+
+            if variable_not_on_stack || variable_is_nothing {
                 let val = if named_arg.arg.is_none() {
                     Value::bool(false, call_head)
                 } else if let Some(value) = &named_arg.default_value {
