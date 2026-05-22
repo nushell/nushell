@@ -508,6 +508,7 @@ impl ByteStream {
             reader: BufReader::new(reader),
             span: self.span,
             signals: self.signals,
+            strict: false,
         })
     }
 
@@ -834,11 +835,17 @@ pub struct Lines {
     reader: BufReader<SourceReader>,
     span: Span,
     signals: Signals,
+    strict: bool,
 }
 
 impl Lines {
     pub fn span(&self) -> Span {
         self.span
+    }
+
+    pub fn strict(mut self, strict: bool) -> Self {
+        self.strict = strict;
+        self
     }
 }
 
@@ -853,7 +860,14 @@ impl Iterator for Lines {
             match self.reader.read_until(b'\n', &mut buf) {
                 Ok(0) => None,
                 Ok(_) => {
-                    let mut string = String::from_utf8_lossy(&buf).into_owned();
+                    let mut string = if self.strict {
+                        match String::from_utf8(buf) {
+                            Ok(s) => s,
+                            Err(_) => return Some(Err(ShellError::NonUtf8 { span: self.span })),
+                        }
+                    } else {
+                        String::from_utf8_lossy(&buf).into_owned()
+                    };
                     trim_end_newline(&mut string);
                     Some(Ok(string))
                 }
