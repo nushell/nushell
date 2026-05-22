@@ -47,31 +47,38 @@ impl Command for NuHighlight {
         let engine_state = Arc::new(engine_state.clone());
         let stack = Arc::new(stack.clone());
 
-        input.map(
-            move |x| match x.coerce_into_string() {
-                Ok(line) => {
-                    let result = highlight_syntax(&engine_state, &stack, &line, line.len());
+        input
+            .map(
+                move |x| match x.coerce_into_string() {
+                    Ok(line) => {
+                        let result = highlight_syntax(&engine_state, &stack, &line, line.len());
 
-                    let highlights = match (reject_garbage, result.found_garbage) {
-                        (false, _) => result.text,
-                        (true, None) => result.text,
-                        (true, Some(span)) => {
-                            let error = ShellError::OutsideSpannedLabeledError {
-                                src: line,
-                                error: "encountered invalid syntax while highlighting".into(),
-                                msg: "invalid syntax".into(),
-                                span,
-                            };
-                            return Value::error(error, head);
-                        }
-                    };
+                        let highlights = match (reject_garbage, result.found_garbage) {
+                            (false, _) => result.text,
+                            (true, None) => result.text,
+                            (true, Some(span)) => {
+                                let error = ShellError::OutsideSpannedLabeledError {
+                                    src: line,
+                                    error: "encountered invalid syntax while highlighting".into(),
+                                    msg: "invalid syntax".into(),
+                                    span,
+                                };
+                                return Value::error(error, head);
+                            }
+                        };
 
-                    Value::string(highlights.render_simple(), head)
+                        Value::string(highlights.render_simple(), head)
+                    }
+                    Err(err) => Value::error(err, head),
+                },
+                signals,
+            )
+            .map(|mut pipeline| {
+                if let Some(meta) = pipeline.metadata_mut() {
+                    meta.content_type = None;
                 }
-                Err(err) => Value::error(err, head),
-            },
-            signals,
-        )
+                pipeline
+            })
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
