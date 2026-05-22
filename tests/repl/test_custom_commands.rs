@@ -345,3 +345,19 @@ fn glob_no_interpolation() -> TestResult {
         "glob",
     )
 }
+
+#[test]
+fn glob_literal_string_interpolation() -> TestResult {
+    run_test(
+        "def spam [foo: glob] { $foo }; spam $\"/path/to/file\"",
+        "/path/to/file",
+    )
+}
+
+#[test]
+fn glob_literal_string_interpolation_with_metachars() -> TestResult {
+    run_test(
+        "def spam [foo: glob] { $foo }; spam $\"/path/[foo]*.txt\"",
+        "/path/[foo]*.txt",
+    )
+}

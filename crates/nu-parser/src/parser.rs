@@ -2209,7 +2209,7 @@ pub(crate) fn parse_dollar_expr(
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
-        if matches!(shape, SyntaxShape::GlobPattern) {
+        if matches!(shape, SyntaxShape::GlobPattern) && is_bare_string_interpolation(contents) {
             parse_glob_pattern(working_set, span)
         } else {
             parse_string_interpolation(working_set, span)
