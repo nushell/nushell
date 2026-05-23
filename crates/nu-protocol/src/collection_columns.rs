@@ -1,4 +1,4 @@
-use crate::Type;
+use crate::{CompareTypes, Type, TypeRelation};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -130,6 +130,65 @@ impl CollectionColumns<Type> {
                 })
                 .collect()
         }
+    }
+}
+
+impl<T> CompareTypes for CollectionColumns<T>
+where
+    T: CompareTypes,
+{
+    fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
+        let self_fields = self.fields.as_ref();
+        let other_fields = other.fields.as_ref();
+
+        // Handle the simplest cases
+        match (self_fields, other_fields) {
+            ([], []) => return Some(TypeRelation::Equal),
+            ([], _) => return Some(TypeRelation::Supertype),
+            (_, []) => return Some(TypeRelation::Subtype),
+            _ => (),
+        }
+
+        let lhs_super = match self.fields.len().cmp(&other_fields.len()) {
+            std::cmp::Ordering::Less => true,
+            std::cmp::Ordering::Greater => false,
+            std::cmp::Ordering::Equal => {
+                // start neutral
+                let mut state = TypeRelation::Equal;
+                for (name, lhs_ty) in self_fields {
+                    let (_, rhs_ty) = other_fields.iter().find(|(o_name, _)| o_name == name)?;
+                    if lhs_ty.is_any() || rhs_ty.is_any() {
+                        continue;
+                    }
+                    state = state.combine(lhs_ty.compare_types(rhs_ty)?)?;
+                }
+
+                return Some(state);
+            }
+        };
+
+        let (super_ty, sub_ty) = match lhs_super {
+            true => (self_fields, other_fields),
+            false => (other_fields, self_fields),
+        };
+
+        for (name, super_elem_ty) in super_ty {
+            let (_, sub_elem_ty) = sub_ty.iter().find(|(o_name, _)| o_name == name)?;
+            match super_elem_ty.compare_types(sub_elem_ty)? {
+                TypeRelation::Equal | TypeRelation::Supertype => (),
+                TypeRelation::Subtype => return None,
+            }
+        }
+
+        Some(match lhs_super {
+            true => TypeRelation::Supertype,
+            false => TypeRelation::Subtype,
+        })
+    }
+
+    /// Our type system uses the empty record as both the bottom and the top type of records
+    fn is_any(&self) -> bool {
+        self.fields.is_empty()
     }
 }
 
