@@ -30,6 +30,7 @@ rustls-tls = ["nu-command/rustls-tls"]
 nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.112.3", default-features = false }
 nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.3", default-features = false }
 nu-command = { path = "../nu-command", version = "0.112.3", default-features = false }
+nu-cli = { path = "../nu-cli", version = "0.112.3", default-features = false  }
 nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
 nu-experimental = { path = "../nu-experimental", version = "0.112.3", default-features = false }
 nu-glob = { path = "../nu-glob", version = "0.112.3", default-features = false }
