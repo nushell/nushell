@@ -48,6 +48,6 @@ fn nu_highlight_removes_content_type_metadata() -> Result {
         .run_raw_with_data("nu-highlight", data)?
         .take_metadata();
 
-    assert_eq!(out_meta.map(|m| m.with_content_type(None)), in_meta);
+    assert_eq!(out_meta, in_meta.map(|m| m.with_content_type(None)));
     Ok(())
 }
