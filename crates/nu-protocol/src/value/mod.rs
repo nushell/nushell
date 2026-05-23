@@ -841,6 +841,30 @@ impl Value {
         }
     }
 
+    /// Get the type of the current Value, without inner type specification of lists, tables and
+    /// records
+    pub fn get_type_shallow(&self) -> Type {
+        match self {
+            Value::Bool { .. } => Type::Bool,
+            Value::Int { .. } => Type::Int,
+            Value::Float { .. } => Type::Float,
+            Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
+            Value::Date { .. } => Type::Date,
+            Value::Range { .. } => Type::Range,
+            Value::String { .. } => Type::String,
+            Value::Glob { .. } => Type::Glob,
+            Value::Record { .. } => Type::record(),
+            Value::List { .. } => Type::list(Type::Any),
+            Value::Nothing { .. } => Type::Nothing,
+            Value::Closure { .. } => Type::Closure,
+            Value::Error { .. } => Type::Error,
+            Value::Binary { .. } => Type::Binary,
+            Value::CellPath { .. } => Type::CellPath,
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
+        }
+    }
+
     /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
     ///
     /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
