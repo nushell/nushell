@@ -23,6 +23,8 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
             KeybindingsDefault,
             KeybindingsList,
             KeybindingsListen,
+            NuHighlight,
+            Print,
         };
 
         #[cfg(feature = "sqlite")]

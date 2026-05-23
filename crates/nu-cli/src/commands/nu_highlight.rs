@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use nu_engine::command_prelude::*;
-use reedline::{Highlighter, StyledText};
 
 use crate::syntax_highlight::highlight_syntax;
 
@@ -80,18 +79,5 @@ impl Command for NuHighlight {
             example: "'let x = 3' | nu-highlight",
             result: None,
         }]
-    }
-}
-
-/// A highlighter that does nothing
-///
-/// Used to remove highlighting from a reedline instance
-/// (letting NuHighlighter structs be dropped)
-#[derive(Default)]
-pub struct NoOpHighlighter {}
-
-impl Highlighter for NoOpHighlighter {
-    fn highlight(&self, _line: &str, _cursor: usize) -> reedline::StyledText {
-        StyledText::new()
     }
 }
