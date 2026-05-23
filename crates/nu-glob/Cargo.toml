@@ -15,6 +15,10 @@ categories = ["filesystem"]
 bench = false
 
 [dependencies]
+anyhow = { workspace = true }
+log = { workspace = true }
+nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+rayon = { workspace = true }
 
 [dev-dependencies]
 doc-comment = "0.3"

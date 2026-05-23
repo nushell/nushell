@@ -426,7 +426,7 @@ fn expand_glob(
 ) -> Result<Vec<OsString>, ShellError> {
     // For an argument that isn't a glob, just do the `expand_tilde`
     // and `expand_ndots` expansion
-    if !nu_glob::is_glob(arg) {
+    if !nu_glob::is_glob_with_backend(arg) {
         let path = expand_ndots_safe(expand_tilde(arg));
         return Ok(vec![path.into()]);
     }

@@ -13,6 +13,13 @@ pub mod exit;
 mod glob_from;
 pub mod scope;
 
+#[cfg(test)]
+#[macro_use]
+extern crate nu_test_support;
+
+#[cfg(test)]
+use nu_test_support::harness::main;
+
 pub use call_ext::CallExt;
 pub use closure_eval::*;
 pub use column::get_columns;
