@@ -1,4 +1,4 @@
-use crate::{CompareTypes, Type, TypeRelation};
+use crate::{CompareTypes, TypeRelation, TypeSet};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -83,24 +83,16 @@ impl<T> From<Box<[(String, T)]>> for CollectionColumns<T> {
     }
 }
 
-impl CollectionColumns<Type> {
+impl<T> CollectionColumns<T>
+where
+    T: TypeSet + Clone,
+{
+    /// prefer `TypeSet::union`
     pub fn widen(self, other: Self) -> Self {
-        let Self {
-            fields: self_fields,
-        } = self;
-        let Self {
-            fields: other_fields,
-        } = other;
-
-        Self {
-            fields: Self::widen_fields(self_fields, other_fields),
-        }
+        <Self as TypeSet>::union(self, other)
     }
 
-    fn widen_fields(
-        lhs: Box<[(String, Type)]>,
-        rhs: Box<[(String, Type)]>,
-    ) -> Box<[(String, Type)]> {
+    fn widen_fields(lhs: Box<[(String, T)]>, rhs: Box<[(String, T)]>) -> Box<[(String, T)]> {
         if lhs.is_empty() || rhs.is_empty() {
             return [].into();
         }
@@ -115,10 +107,10 @@ impl CollectionColumns<Type> {
         const MAP_THRESH: usize = 16;
         if big.len() > MAP_THRESH {
             use std::collections::HashMap;
-            let mut big_map: HashMap<String, Type> = big.into_iter().collect();
+            let mut big_map: HashMap<String, T> = big.into_iter().collect();
             small
                 .into_iter()
-                .filter_map(|(col, typ)| big_map.remove(&col).map(|b_typ| (col, typ.widen(b_typ))))
+                .filter_map(|(col, typ)| big_map.remove(&col).map(|b_typ| (col, typ.union(b_typ))))
                 .collect()
         } else {
             small
@@ -126,7 +118,7 @@ impl CollectionColumns<Type> {
                 .filter_map(|(col, typ)| {
                     big.iter()
                         .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
-                        .map(|b_typ| (col, typ.widen(b_typ)))
+                        .map(|b_typ| (col, typ.union(b_typ)))
                 })
                 .collect()
         }
@@ -189,6 +181,24 @@ where
     /// Our type system uses the empty record as both the bottom and the top type of records
     fn is_any(&self) -> bool {
         self.fields.is_empty()
+    }
+}
+
+impl<T> TypeSet for CollectionColumns<T>
+where
+    T: TypeSet + Clone,
+{
+    fn union(self, other: Self) -> Self {
+        let Self {
+            fields: self_fields,
+        } = self;
+        let Self {
+            fields: other_fields,
+        } = other;
+
+        Self {
+            fields: Self::widen_fields(self_fields, other_fields),
+        }
     }
 }
 
