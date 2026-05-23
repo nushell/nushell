@@ -87,6 +87,7 @@ pub const UNALIASABLE_PARSER_KEYWORDS: &[&[u8]] = &[
     b"export-env",
     b"source-env",
     b"source",
+    b"run",
     b"where",
     b"plugin use",
 ];
@@ -3791,6 +3792,236 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
         Span::concat(spans),
     ));
     garbage_pipeline(working_set, spans)
+}
+
+pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
+    trace!("parsing run");
+    let expr = parse_run_expr_internal(working_set, &lite_command.parts, lite_command);
+    Pipeline::from_vec(vec![expr])
+}
+
+fn parse_run_expr_internal(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    lite_command: &LiteCommand,
+) -> Expression {
+    trace!("parsing run expression");
+    let name = working_set.get_span_contents(spans.first().copied().unwrap_or(Span::unknown()));
+
+    if name == b"run" {
+        if let Some(redirection) = lite_command.redirection.as_ref() {
+            working_set.error(redirecting_builtin_error("run", redirection));
+            return garbage(working_set, Span::concat(spans));
+        }
+
+        if let Some(decl_id) = working_set.find_decl(name) {
+            #[allow(deprecated)]
+            let cwd = working_set.get_cwd();
+
+            let ParsedInternalCall {
+                call,
+                output,
+                call_kind,
+            } = parse_internal_call(
+                working_set,
+                spans[0],
+                &spans[1..],
+                decl_id,
+                ArgumentParsingLevel::Full,
+            );
+
+            if call_kind == CallKind::Help {
+                return Expression::new(working_set, Expr::Call(call), Span::concat(spans), output);
+            }
+
+            // Get the script filename (first positional argument)
+            let first_expr = call.positional_iter().next();
+            if let Some(expr) = first_expr {
+                let val = match eval_constant(working_set, expr) {
+                    Ok(val) => val,
+                    Err(err) => {
+                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
+                        return Expression::new(
+                            working_set,
+                            Expr::Call(call),
+                            Span::concat(&spans[1..]),
+                            Type::Any,
+                        );
+                    }
+                };
+
+                if val.is_nothing() {
+                    let mut call = call;
+                    call.set_parser_info(
+                        "noop".to_string(),
+                        Expression::new_unknown(Expr::Nothing, Span::unknown(), Type::Nothing),
+                    );
+                    return Expression::new(
+                        working_set,
+                        Expr::Call(call),
+                        Span::concat(spans),
+                        Type::Any,
+                    );
+                }
+
+                let filename = match val.coerce_into_string() {
+                    Ok(s) => s,
+                    Err(err) => {
+                        working_set.error(err.wrap(working_set, Span::concat(&spans[1..])));
+                        return Expression::new(
+                            working_set,
+                            Expr::Call(call),
+                            Span::concat(&spans[1..]),
+                            Type::Any,
+                        );
+                    }
+                };
+
+                if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
+                    if let Some(contents) = path.read(working_set) {
+                        let script_has_main_def = {
+                            let (tokens, err) = lex(&contents, 0, &[], &[], false);
+                            if let Some(err) = err {
+                                working_set.error(err);
+                            }
+                            let (lite_block, err) = lite_parse(&tokens, working_set);
+                            if let Some(err) = err {
+                                working_set.error(err);
+                            }
+
+                            lite_block.block.iter().any(|pipeline| {
+                                if pipeline.commands.len() != 1 {
+                                    return false;
+                                }
+
+                                let command_parts = pipeline.commands[0].command_parts();
+                                match (command_parts.first(), command_parts.get(1)) {
+                                    (Some(head), Some(name)) => {
+                                        let head_bytes =
+                                            contents.get(head.start..head.end).unwrap_or_default();
+                                        let name_bytes =
+                                            contents.get(name.start..name.end).unwrap_or_default();
+
+                                        head_bytes == b"def" && name_bytes == b"main"
+                                    }
+                                    _ => false,
+                                }
+                            })
+                        };
+
+                        // Add the file to the stack of files being processed.
+                        if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
+                            working_set.error(e);
+                            return garbage(working_set, Span::concat(spans));
+                        }
+
+                        // Parse the script as a non-scoped block
+                        let mut block = parse(
+                            working_set,
+                            Some(&path.path().to_string_lossy()),
+                            &contents,
+                            false,
+                        );
+                        if block.ir_block.is_none() {
+                            let block_mut = Arc::make_mut(&mut block);
+                            compile_block(working_set, block_mut);
+                        }
+
+                        // Remove the file from the stack of files being processed.
+                        working_set.files.pop();
+
+                        // Save the block into the working set
+                        let block_id = working_set.add_block(block);
+                        let script_main_decl_id = if script_has_main_def {
+                            working_set.find_decl(b"main")
+                        } else {
+                            None
+                        };
+                        let script_main_block_id = script_main_decl_id
+                            .and_then(|main_decl_id| working_set.get_decl(main_decl_id).block_id());
+
+                        let mut call_with_block = call;
+
+                        // Store the block_id as parser info
+                        call_with_block.set_parser_info(
+                            "block_id".to_string(),
+                            Expression::new(
+                                working_set,
+                                Expr::Int(block_id.get() as i64),
+                                spans[1],
+                                Type::Any,
+                            ),
+                        );
+
+                        // Store the file path for debugging
+                        call_with_block.set_parser_info(
+                            "block_id_name".to_string(),
+                            Expression::new(
+                                working_set,
+                                Expr::Filepath(path.path_buf().display().to_string(), false),
+                                spans[1],
+                                Type::String,
+                            ),
+                        );
+                        if let Some(main_block_id) = script_main_block_id {
+                            call_with_block.set_parser_info(
+                                "main_block_id".to_string(),
+                                Expression::new(
+                                    working_set,
+                                    Expr::Int(main_block_id.get() as i64),
+                                    spans[1],
+                                    Type::Any,
+                                ),
+                            );
+                        }
+                        if let Some(main_decl_id) = script_main_decl_id {
+                            call_with_block.set_parser_info(
+                                "main_decl_id".to_string(),
+                                Expression::new(
+                                    working_set,
+                                    Expr::Int(main_decl_id.get() as i64),
+                                    spans[1],
+                                    Type::Any,
+                                ),
+                            );
+                        }
+
+                        return Expression::new(
+                            working_set,
+                            Expr::Call(call_with_block),
+                            Span::concat(spans),
+                            Type::Any,
+                        );
+                    }
+                } else {
+                    working_set.error(ParseError::SourcedFileNotFound(filename, spans[1]));
+                }
+            }
+            return Expression::new(
+                working_set,
+                Expr::Call(call),
+                Span::concat(spans),
+                Type::Any,
+            );
+        }
+    }
+    working_set.error(ParseError::UnknownState(
+        "internal error: run statement unparsable".into(),
+        Span::concat(spans),
+    ));
+    garbage(working_set, Span::concat(spans))
+}
+
+pub fn parse_run_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+    // Create a temporary LiteCommand for internal use
+    let lite_command = LiteCommand {
+        parts: spans.to_vec(),
+        pipe: None,
+        redirection: None,
+        comments: vec![],
+        attribute_idx: vec![],
+    };
+    parse_run_expr_internal(working_set, spans, &lite_command)
 }
 
 pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
