@@ -52,10 +52,11 @@ pub fn get_system_locale_string() -> Option<String> {
 /// - LANG
 ///
 /// [1]: https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-pub fn get_env_locale<'a, F>(locale_for: Option<&str>, env_getter: F) -> Option<Cow<'a, str>>
+pub fn get_env_locale<'a, F, O>(locale_for: Option<&str>, env_getter: F) -> Option<Cow<'a, str>>
 where
     F: 'a,
-    F: Fn(&str) -> Option<&'a str>,
+    F: Fn(&str) -> Option<O>,
+    O: Into<Cow<'a, str>>,
 {
     let mut env_var_names = [LOCALE_OVERRIDE_ENV_VAR, "LC_ALL"]
         .iter()
@@ -63,10 +64,12 @@ where
         .chain(locale_for)
         .chain(["LANG"]);
 
-    env_var_names
-        .find_map(env_getter)
-        .map(|s| s.split('.').next().unwrap_or(s))
-        .map(Cow::Borrowed)
+    let env_var = env_var_names.find_map(env_getter).map(Into::into);
+    env_var
+        .map(|s| match s {
+            Cow::Borrowed(s) => Cow::Borrowed(s.split('.').next().unwrap_or(s)),
+            Cow::Owned(s) => Cow::Owned(s.split('.').next().map(ToOwned::to_owned).unwrap_or(s)),
+        })
         .or_else(|| {
             get_system_locale_string()
                 .map(|l| l.replace('-', "_"))
