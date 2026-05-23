@@ -1,4 +1,4 @@
-use crate::{CollectionColumns, SyntaxShape, ast::PathMember};
+use crate::{CollectionColumns, CompareTypes, SyntaxShape, TypeRelation, ast::PathMember};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Display};
 #[cfg(test)]
@@ -138,53 +138,7 @@ impl Type {
     /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
     /// you should use their respective `is_subtype_of` methods instead.
     pub fn is_subtype_of(&self, other: &Type) -> bool {
-        // Structural subtyping
-        let is_subtype_collection =
-            |this: &CollectionColumns<Type>, that: &CollectionColumns<Type>| {
-                let (this, that) = (this.fields.as_ref(), that.fields.as_ref());
-                if this.is_empty() || that.is_empty() {
-                    true
-                } else if this.len() < that.len() {
-                    false
-                } else {
-                    that.iter().all(|(col_y, ty_y)| {
-                        if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
-                            ty_x.is_subtype_of(ty_y)
-                        } else {
-                            false
-                        }
-                    })
-                }
-            };
-
-        match (self, other) {
-            (t, u) if t == u => true,
-            (_, Type::Any) => true,
-            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
-            // use them with variables, without having to explicitly convert them into cell-paths
-            (Type::String | Type::Int, Type::CellPath) => true,
-            (Type::OneOf(oneof), Type::CellPath) => {
-                oneof.iter().all(|t| t.is_subtype_of(&Type::CellPath))
-            }
-            (Type::Float | Type::Int, Type::Number) => true,
-            (Type::Glob, Type::String) | (Type::String, Type::Glob) => true,
-            (Type::List(t), Type::List(u)) if t.is_subtype_of(u) => true, // List is covariant
-            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
-                is_subtype_collection(this, that)
-            }
-            (Type::Table(_), Type::List(that)) if matches!(**that, Type::Any) => true,
-            (Type::Table(this), Type::List(that)) => {
-                matches!(that.as_ref(), Type::Record(that) if is_subtype_collection(this, that))
-            }
-            (Type::List(this), Type::Table(that)) => {
-                matches!(this.as_ref(), Type::Record(this) if is_subtype_collection(this, that))
-            }
-            (Type::OneOf(this), that @ Type::OneOf(_)) => {
-                this.iter().all(|t| t.is_subtype_of(that))
-            }
-            (this, Type::OneOf(that)) => that.iter().any(|t| this.is_subtype_of(t)),
-            _ => false,
-        }
+        <Self as CompareTypes>::is_subtype_of(self, other)
     }
 
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
@@ -440,6 +394,113 @@ impl Type {
     }
 }
 
+impl CompareTypes for Type {
+    fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
+        match (self, other) {
+            (t, u) if t == u => Some(TypeRelation::Equal),
+
+            (_, Type::Any) => Some(TypeRelation::Subtype),
+            (Type::Any, _) => Some(TypeRelation::Supertype),
+
+            // I don't know how this was decided but this is the behavior that was present in the
+            // parser
+            (Type::Closure, Type::Block) => Some(TypeRelation::Supertype),
+            (Type::Block, Type::Closure) => Some(TypeRelation::Subtype),
+
+            // We want `get`/`select`/etc to accept string and int values, so it's convenient to
+            // use them with variables, without having to explicitly convert them into cell-paths
+            (Type::String | Type::Int, Type::CellPath) => Some(TypeRelation::Subtype),
+            (Type::CellPath, Type::String | Type::Int) => Some(TypeRelation::Supertype),
+
+            (Type::Float | Type::Int, Type::Number) => Some(TypeRelation::Subtype),
+            (Type::Number, Type::Float | Type::Int) => Some(TypeRelation::Supertype),
+
+            (Type::Glob, Type::String) => Some(TypeRelation::Supertype),
+            (Type::String, Type::Glob) => Some(TypeRelation::Subtype),
+
+            // List is covariant
+            (Type::List(t), Type::List(u)) => t.compare_types(u),
+
+            (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
+                this.compare_types(that)
+            }
+
+            (Type::Table(_), Type::List(list_elem)) if matches!(**list_elem, Type::Any) => {
+                Some(TypeRelation::Subtype)
+            }
+            (Type::List(list_elem), Type::Table(_)) if matches!(**list_elem, Type::Any) => {
+                Some(TypeRelation::Supertype)
+            }
+
+            (Type::Table(table_cols), Type::List(list_elem)) => match list_elem.as_ref() {
+                Type::Record(record_cols) => table_cols.compare_types(record_cols),
+                _ => None,
+            },
+            (Type::List(list_elem), Type::Table(table_cols)) => match list_elem.as_ref() {
+                Type::Record(record_cols) => record_cols.compare_types(table_cols),
+                _ => None,
+            },
+
+            (Type::OneOf(oneof), Type::CellPath) => oneof
+                .iter()
+                .all(|t| {
+                    matches!(
+                        t.compare_types(&Type::CellPath),
+                        Some(TypeRelation::Subtype | TypeRelation::Equal)
+                    )
+                })
+                .then_some(TypeRelation::Subtype),
+            (Type::OneOf(lhs_list), Type::OneOf(rhs_list)) => {
+                // iterate the shorter list to reduce quadratic behaviour
+                let ((small, big), flipped) = if lhs_list.len() <= rhs_list.len() {
+                    ((lhs_list, rhs_list), false)
+                } else {
+                    ((rhs_list, lhs_list), true)
+                };
+
+                for s_ty in small {
+                    let _ = big.iter().find(|b_ty| {
+                        matches!(
+                            s_ty.compare_types(b_ty),
+                            Some(TypeRelation::Subtype | TypeRelation::Equal)
+                        )
+                    })?;
+                }
+
+                Some(match flipped {
+                    false => TypeRelation::Subtype,
+                    true => TypeRelation::Supertype,
+                })
+            }
+
+            (Type::OneOf(lhs_tys), rhs) => lhs_tys
+                .iter()
+                .any(|lhs_ty| {
+                    matches!(
+                        lhs_ty.compare_types(rhs),
+                        Some(TypeRelation::Supertype | TypeRelation::Equal)
+                    )
+                })
+                .then_some(TypeRelation::Supertype),
+            (lhs, Type::OneOf(rhs_tys)) => rhs_tys
+                .iter()
+                .any(|rhs_ty| {
+                    matches!(
+                        lhs.compare_types(rhs_ty),
+                        Some(TypeRelation::Subtype | TypeRelation::Equal)
+                    )
+                })
+                .then_some(TypeRelation::Subtype),
+
+            _ => None,
+        }
+    }
+
+    fn is_any(&self) -> bool {
+        matches!(self, Type::Any)
+    }
+}
+
 impl Display for Type {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -511,7 +572,7 @@ pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::Type;
+    use super::*;
     use strum::IntoEnumIterator;
 
     mod subtype_relation {
