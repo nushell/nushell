@@ -45,7 +45,8 @@ fn list_annotations_empty_4() -> TestResult {
 
 #[test]
 fn list_annotations_nested() -> TestResult {
-    let input = "def my_run [list: list<list<float>>] {$list | length}; my_run [ [2.0] [5.0] [4.0]]";
+    let input =
+        "def my_run [list: list<list<float>>] {$list | length}; my_run [ [2.0] [5.0] [4.0]]";
     let expected = "3";
     run_test(input, expected)
 }
@@ -59,7 +60,8 @@ fn list_annotations_unknown_inner_type() -> TestResult {
 
 #[test]
 fn list_annotations_nested_unknown_inner() -> TestResult {
-    let input = "def my_run [list: list<list<str>>] {$list | length}; my_run [ [nushell] [nunu] [nana]]";
+    let input =
+        "def my_run [list: list<list<str>>] {$list | length}; my_run [ [nushell] [nunu] [nana]]";
     let expected = "unknown type";
     fail_test(input, expected)
 }
@@ -171,15 +173,15 @@ fn record_annotations_key_with_no_type() -> TestResult {
 
 #[test]
 fn record_annotations_two_types_one_with_no_type() -> TestResult {
-    let input =
-        "def my_run [rec: record<name: string, age>] { $rec }; my_run {name: nushell age: 3} | describe";
+    let input = "def my_run [rec: record<name: string, age>] { $rec }; my_run {name: nushell age: 3} | describe";
     let expected = "record<name: string, age: int>";
     run_test(input, expected)
 }
 
 #[test]
 fn record_annotations_two_types_both_with_no_types() -> TestResult {
-    let input = "def my_run [rec: record<name age>] { $rec }; my_run {name: nushell age: 3} | describe";
+    let input =
+        "def my_run [rec: record<name age>] { $rec }; my_run {name: nushell age: 3} | describe";
     let expected = "record<name: string, age: int>";
     run_test(input, expected)
 }
