@@ -68,9 +68,9 @@ fn peek_works_with_list_value() -> Result {
 }
 
 #[rstest]
-#[case::string(r#"'hello' | peek 2"#, "string")]
-#[case::binary(r#"0x[de ad be ef] | peek 2"#, "binary")]
-#[case::string(r#"42 | peek 2"#, "int")]
+#[case::string("'hello' | peek 2", "string")]
+#[case::binary("0x[de ad be ef] | peek 2", "binary")]
+#[case::string("42 | peek 2", "int")]
 fn peek_with_value(#[case] code: &str, #[case] expected_type: &str) -> Result {
     let outcome = test().run_raw(code)?;
 
