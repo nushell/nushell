@@ -91,9 +91,33 @@ impl Command for MathAbs {
 fn abs_helper(val: Value, head: Span) -> Value {
     let span = val.span();
     match val {
-        Value::Int { val, .. } => Value::int(val.abs(), span),
+        Value::Int { val, .. } => match val.checked_abs() {
+            Some(abs) => Value::int(abs, span),
+            None => Value::error(
+                ShellError::OperatorOverflow {
+                    msg: "absolute value operation overflowed".into(),
+                    span,
+                    help: Some(format!(
+                        "the absolute value of {val} cannot be represented as a 64-bit integer"
+                    )),
+                },
+                span,
+            ),
+        },
         Value::Float { val, .. } => Value::float(val.abs(), span),
-        Value::Duration { val, .. } => Value::duration(val.abs(), span),
+        Value::Duration { val, .. } => match val.checked_abs() {
+            Some(abs) => Value::duration(abs, span),
+            None => Value::error(
+                ShellError::OperatorOverflow {
+                    msg: "absolute value operation overflowed".into(),
+                    span,
+                    help: Some(
+                        "the absolute value of the minimum duration cannot be represented".into(),
+                    ),
+                },
+                span,
+            ),
+        },
         Value::Error { .. } => val,
         other => Value::error(
             ShellError::OnlySupportsThisInputType {
