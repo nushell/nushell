@@ -1,6 +1,6 @@
 [package]
 name = "nu-mcp"
-version = "0.112.3"
+version = "0.113.0"
 edition.workspace = true
 rust-version.workspace = true
 authors = ["The Nushell Project Developers"]
@@ -15,10 +15,10 @@ nix = { workspace = true, features = ["process"] }
 [dependencies]
 futures = "0.3.31"
 miette = { workspace = true }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["plugin"] }
-nu-engine = { path = "../nu-engine", version = "0.112.3" }
-nu-parser = { path = "../nu-parser", version = "0.112.3" }
-nuon = { path = "../nuon", version = "0.112.3" }
+nu-protocol = { path = "../nu-protocol", version = "0.113.0", features = ["plugin"] }
+nu-engine = { path = "../nu-engine", version = "0.113.0" }
+nu-parser = { path = "../nu-parser", version = "0.113.0" }
+nuon = { path = "../nuon", version = "0.113.0" }
 
 rmcp = { version = "1.7.0", features = ["server", "transport-io", "schemars", "transport-streamable-http-server"] }
 hyper-util = { version = "0.1", features = ["tokio", "server-auto", "service"] }
