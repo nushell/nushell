@@ -5436,6 +5436,7 @@ mod tests {
 
         use super::*;
 
+        #[track_caller]
         fn assert_subtype_equivalent(value: &Value, ty: &Type) {
             assert_eq!(value.is_subtype_of(ty), value.get_type().is_subtype_of(ty));
         }

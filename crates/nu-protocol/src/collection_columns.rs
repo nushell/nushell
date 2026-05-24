@@ -229,3 +229,23 @@ where
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::assert_eq;
+
+    use super::*;
+    use crate::Type;
+
+    #[test]
+    fn equal_size() {
+        let param_ty: CollectionColumns<Type> =
+            vec![("foo".into(), Type::one_of([Type::Int, Type::Nothing]))].into();
+        let arg_ty: CollectionColumns<Type> = vec![("foo".into(), Type::Int)].into();
+
+        assert_eq!(
+            param_ty.compare_types(&arg_ty),
+            Some(TypeRelation::Supertype)
+        );
+    }
+}

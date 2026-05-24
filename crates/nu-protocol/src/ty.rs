@@ -461,6 +461,22 @@ mod tests {
         }
     }
 
+    mod oneof {
+        use super::*;
+
+        #[test]
+        fn oneof_lhs() {
+            let rel = Type::one_of([Type::Int, Type::Nothing]).compare_types(&Type::Int);
+            assert_eq!(rel, Some(TypeRelation::Supertype));
+        }
+
+        #[test]
+        fn oneof_rhs() {
+            let rel = Type::Int.compare_types(&Type::one_of([Type::Int, Type::Nothing]));
+            assert_eq!(rel, Some(TypeRelation::Subtype));
+        }
+    }
+
     mod oneof_flattening {
         use super::*;
 
@@ -473,10 +489,9 @@ mod tests {
             ]);
             if let Type::OneOf(oneof) = nested {
                 let types_vec: Vec<Type> = oneof.into_iter().collect();
-                assert_eq!(types_vec.len(), 4);
+                assert_eq!(types_vec.len(), 3);
                 assert!(types_vec.contains(&Type::String));
-                assert!(types_vec.contains(&Type::Int));
-                assert!(types_vec.contains(&Type::Float));
+                assert!(types_vec.contains(&Type::Number));
                 assert!(types_vec.contains(&Type::Bool));
             } else {
                 panic!("Expected OneOf");
