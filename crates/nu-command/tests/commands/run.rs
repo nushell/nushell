@@ -308,3 +308,29 @@ fn run_main_script_can_be_invoked_repeatedly() -> Result {
         },
     )
 }
+
+#[test]
+fn run_main_script_tracks_file_edits_in_repl_session() -> Result {
+    Playground::setup(
+        "run_main_script_tracks_file_edits_in_repl_session",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "run-edit.nu",
+                "
+                def main [] {
+                    'hello'
+                }
+            ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester.run("run run-edit.nu").expect_value_eq("hello")?;
+            tester.run::<()>(r#"'def main [] { "hello world" }' | save --force run-edit.nu"#)?;
+            tester
+                .run("run run-edit.nu")
+                .expect_value_eq("hello world")?;
+            tester.run::<()>(r#"'def main [] { "hello" }' | save --force run-edit.nu"#)?;
+            tester.run("run run-edit.nu").expect_value_eq("hello")
+        },
+    )
+}

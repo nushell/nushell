@@ -2,7 +2,7 @@ use nu_engine::{
     CallEval, command_prelude::*, get_eval_block_with_early_return, get_eval_expression,
 };
 use nu_path::{absolute_with, is_windows_device_path};
-use nu_protocol::{BlockId, DeclId, Value, engine::CommandType, shell_error::io::IoError};
+use nu_protocol::{BlockId, Value, engine::CommandType, shell_error::io::IoError};
 use std::borrow::Cow;
 use std::sync::Arc;
 
@@ -110,15 +110,12 @@ impl Command for Run {
             if call.get_parser_info(stack, "main_block_id").is_some() {
                 // These IDs are parser-scoped to the resolved script and avoid cross-script `main`
                 // lookup collisions from ambient declarations.
-                let main_decl_id: i64 =
-                    call.req_parser_info(engine_state, stack, "main_decl_id")?;
                 let main_block_id: i64 =
                     call.req_parser_info(engine_state, stack, "main_block_id")?;
-                let main_decl_id = DeclId::new(main_decl_id as usize);
                 let main_block = engine_state
                     .get_block(BlockId::new(main_block_id as usize))
                     .clone();
-                let signature = engine_state.get_decl(main_decl_id).signature().clone();
+                let signature = (*main_block.signature).clone();
                 let callee_stack = stack.gather_captures(engine_state, &main_block.captures);
                 let mut call_eval = CallEval::new(
                     callee_stack,

@@ -3930,15 +3930,14 @@ fn parse_run_expr_internal(
                         // Remove the file from the stack of files being processed.
                         working_set.files.pop();
 
-                        // Save the block into the working set
-                        let block_id = working_set.add_block(block);
-                        let script_main_decl_id = if script_has_main_def {
-                            working_set.find_decl(b"main")
+                        let script_main_block_id = if script_has_main_def {
+                            find_main_block_id_in_script(working_set, &block)
                         } else {
                             None
                         };
-                        let script_main_block_id = script_main_decl_id
-                            .and_then(|main_decl_id| working_set.get_decl(main_decl_id).block_id());
+
+                        // Save the block into the working set
+                        let block_id = working_set.add_block(block);
 
                         let mut call_with_block = call;
 
@@ -3974,18 +3973,6 @@ fn parse_run_expr_internal(
                                 ),
                             );
                         }
-                        if let Some(main_decl_id) = script_main_decl_id {
-                            call_with_block.set_parser_info(
-                                "main_decl_id".to_string(),
-                                Expression::new(
-                                    working_set,
-                                    Expr::Int(main_decl_id.get() as i64),
-                                    spans[1],
-                                    Type::Any,
-                                ),
-                            );
-                        }
-
                         return Expression::new(
                             working_set,
                             Expr::Call(call_with_block),
@@ -4010,6 +3997,34 @@ fn parse_run_expr_internal(
         Span::concat(spans),
     ));
     garbage(working_set, Span::concat(spans))
+}
+
+fn find_main_block_id_in_script(
+    working_set: &StateWorkingSet<'_>,
+    script_block: &Block,
+) -> Option<BlockId> {
+    script_block.pipelines.iter().find_map(|pipeline| {
+        if pipeline.elements.len() != 1 {
+            return None;
+        }
+
+        let expr = &pipeline.elements[0].expr;
+        let Expr::Call(call) = &expr.expr else {
+            return None;
+        };
+        if working_set.get_decl(call.decl_id).name() != "def" {
+            return None;
+        }
+
+        let mut positional = call.positional_iter();
+        let command_name = positional.next().and_then(Expression::as_string)?;
+        if command_name != "main" {
+            return None;
+        }
+
+        let _ = positional.next();
+        positional.next().and_then(Expression::as_block)
+    })
 }
 
 pub fn parse_run_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
