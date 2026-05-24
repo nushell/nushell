@@ -1,5 +1,5 @@
 use nu_protocol::{
-    CollectionColumns, ParseError, Span, Type,
+    CollectionColumns, CompareTypes, ParseError, Span, Type,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -42,67 +42,47 @@ fn type_error(
 }
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-    // Structural subtyping
-    let is_compatible = |expected: &CollectionColumns<Type>, found: &CollectionColumns<Type>| {
-        if expected.fields.is_empty() || found.fields.is_empty() {
-            // We treat an incoming empty table/record type as compatible for typechecking purposes
-            // It is the responsibility of the runtime to reject if necessary
-            true
-        } else if expected.fields.len() > found.fields.len() {
-            false
-        } else {
-            expected.fields.iter().all(|(col_x, ty_x)| {
-                if let Some((_, ty_y)) = found.fields.iter().find(|(col_y, _)| col_x == col_y) {
-                    type_compatible(ty_x, ty_y)
-                } else {
-                    false
-                }
-            })
-        }
-    };
+    fn is_columns_compatible(lhs: &CollectionColumns<Type>, rhs: &CollectionColumns<Type>) -> bool {
+        lhs.is_any() || rhs.is_any() || rhs.is_subtype_of(lhs)
+    }
 
     match (lhs, rhs) {
-        (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::List(c), Type::Table(table_fields)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(fields, table_fields)
-            } else {
-                false
-            }
+        (Type::Table(lhs_cols), Type::List(rhs_ty))
+            if let Type::Record(rhs_cols) = rhs_ty.as_ref() =>
+        {
+            is_columns_compatible(lhs_cols, rhs_cols)
         }
-        (Type::Table(table_fields), Type::List(c)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(table_fields, fields)
-            } else {
-                false
-            }
+        (Type::List(lhs_ty), Type::Table(rhs_cols))
+            if let Type::Record(lhs_cols) = lhs_ty.as_ref() =>
+        {
+            is_columns_compatible(lhs_cols, rhs_cols)
         }
-        (Type::Number, Type::Int) => true,
-        (Type::Int, Type::Number) => true,
-        (Type::Number, Type::Float) => true,
-        (Type::Float, Type::Number) => true,
-        (Type::Closure, Type::Block) => true,
-        (Type::Any, _) => true,
-        (_, Type::Any) => true,
         (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
-            is_compatible(lhs, rhs)
+            is_columns_compatible(lhs, rhs)
         }
+        // glob string compatibility is one way
         (Type::Glob, Type::String) => true,
-        (Type::CellPath, other) => {
-            other.is_subtype_of(&Type::CellPath) || Type::CellPath.is_subtype_of(other)
+        (Type::String, Type::Glob) => false,
+        (Type::OneOf(lhs_tys), Type::OneOf(rhs_tys)) => {
+            match (lhs_tys.is_empty(), rhs_tys.is_empty()) {
+                (_, true) => true,
+                (true, _) => false,
+                _ => rhs_tys
+                    .iter()
+                    .any(|rhs_ty| lhs_tys.iter().any(|lhs_ty| type_compatible(lhs_ty, rhs_ty))),
+            }
         }
-        (Type::OneOf(types), u) | (u, Type::OneOf(types)) => {
-            types.iter().any(|t| type_compatible(t, u))
+        (Type::OneOf(lhs_tys), rhs_ty) => {
+            lhs_tys.iter().any(|lhs_ty| type_compatible(lhs_ty, rhs_ty))
         }
-        (lhs, rhs) => lhs == rhs,
+        (lhs_ty, Type::OneOf(rhs_tys)) => {
+            if rhs_tys.is_empty() {
+                true
+            } else {
+                rhs_tys.iter().any(|rhs_ty| type_compatible(lhs_ty, rhs_ty))
+            }
+        }
+        (lhs, rhs) => rhs.compare_types(lhs).is_some(),
     }
 }
 
