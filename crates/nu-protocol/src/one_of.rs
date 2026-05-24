@@ -19,7 +19,7 @@ impl OneOf {
         }
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Type> {
+    pub fn iter(&self) -> impl Iterator<Item = &Type> + Clone {
         self.into_iter()
     }
 

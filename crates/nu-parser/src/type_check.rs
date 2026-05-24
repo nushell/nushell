@@ -1,5 +1,5 @@
 use nu_protocol::{
-    CompareTypes, ParseError, Span, Type,
+    CompareTypes, ParseError, Span, Type, TypeSet,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -45,6 +45,307 @@ pub fn type_compatible(dst: &Type, src: &Type) -> bool {
     src.is_assignable_to(dst)
 }
 
+fn type_combinations<'a, F, IL, IR>(op: F, lhs_tys: IL, rhs_ty: IR) -> Option<Type>
+where
+    F: Fn(&Type, &Type) -> Option<Type>,
+    IL: IntoIterator<Item = &'a Type>,
+    IR: IntoIterator<Item = &'a Type> + Clone,
+{
+    lhs_tys
+        .into_iter()
+        .flat_map(|lhs| rhs_ty.clone().into_iter().filter_map(|rhs| op(lhs, rhs)))
+        .reduce(Type::union)
+}
+
+fn operator_check<F>(op: F, on_any: impl Into<Option<Type>>, lhs: &Type, rhs: &Type) -> Option<Type>
+where
+    F: Fn(&Type, &Type) -> Option<Type>,
+{
+    use std::slice::from_ref as as_slice;
+    let on_any = on_any.into();
+
+    match (lhs, rhs) {
+        (Type::Any, _) | (_, Type::Any) if let Some(on_any) = on_any => Some(on_any),
+        (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => {
+            type_combinations(op, lhs_oneof.iter(), rhs_oneof.iter())
+        }
+        (Type::OneOf(lhs_oneof), rhs) => type_combinations(op, lhs_oneof.iter(), as_slice(rhs)),
+        (lhs, Type::OneOf(rhs_oneof)) => type_combinations(op, as_slice(lhs), rhs_oneof.iter()),
+        (lhs, rhs) => op(lhs, rhs),
+    }
+}
+
+mod math {
+    use super::*;
+
+    fn commutative<F>(op: F) -> impl Fn(&Type, &Type) -> Option<Type>
+    where
+        F: Fn(&Type, &Type) -> Option<Type>,
+    {
+        move |lhs, rhs| op(lhs, rhs).or_else(|| op(rhs, lhs))
+    }
+
+    pub(super) fn add(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn reversible_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+                (Type::Float, Type::Float) => Type::Float,
+                (Type::Number, Type::Number) => Type::Number,
+
+                (Type::Number, Type::Int) => Type::Number,
+                (Type::Number, Type::Float) => Type::Float,
+                (Type::Int, Type::Float) => Type::Float,
+
+                (Type::String, Type::String) => Type::String,
+                // TODO: should this include glob
+                (Type::Date, Type::Duration) => Type::Date,
+
+                (Type::Duration, Type::Duration) => Type::Duration,
+                (Type::Filesize, Type::Filesize) => Type::Filesize,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(commutative(reversible_op), Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn subtract(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+
+                (Type::Float | Type::Int, Type::Float | Type::Int) => Type::Float,
+
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Number,
+
+                (Type::Date, Type::Date) => Type::Duration,
+                (Type::Date, Type::Duration) => Type::Date,
+
+                (Type::Duration, Type::Duration) => Type::Duration,
+                (Type::Filesize, Type::Filesize) => Type::Filesize,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(op, Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn multiply(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn reversible_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+                (Type::Float, Type::Float) => Type::Float,
+                (Type::Number, Type::Number) => Type::Number,
+
+                (Type::Number, Type::Int) => Type::Number,
+                (Type::Number, Type::Float) => Type::Float,
+                (Type::Int, Type::Float) => Type::Float,
+
+                (Type::Filesize, Type::Int | Type::Float | Type::Number) => Type::Filesize,
+                (Type::Duration, Type::Int | Type::Float | Type::Number) => Type::Duration,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(commutative(reversible_op), Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn divide(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Float,
+
+                (Type::Filesize, Type::Filesize) => Type::Float,
+                (Type::Duration, Type::Duration) => Type::Float,
+
+                (Type::Filesize, Type::Int | Type::Float | Type::Number) => Type::Filesize,
+                (Type::Duration, Type::Int | Type::Float | Type::Number) => Type::Duration,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(op, Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn floor_divide(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+
+                (Type::Int | Type::Float, Type::Int | Type::Float) => Type::Float,
+
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Number,
+
+                (Type::Filesize, Type::Filesize) => Type::Int,
+                (Type::Duration, Type::Duration) => Type::Int,
+
+                (Type::Filesize, Type::Int | Type::Float | Type::Number) => Type::Filesize,
+                (Type::Duration, Type::Int | Type::Float | Type::Number) => Type::Duration,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(op, Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn modulo(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+
+                (Type::Float | Type::Int, Type::Float | Type::Int) => Type::Float,
+
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Number,
+
+                (Type::Filesize, Type::Filesize) => Type::Filesize,
+                (Type::Duration, Type::Duration) => Type::Duration,
+
+                (Type::Filesize, Type::Int | Type::Float | Type::Number) => Type::Filesize,
+                (Type::Duration, Type::Int | Type::Float | Type::Number) => Type::Duration,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(op, Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn pow(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::Int, Type::Int) => Type::Int,
+
+                (Type::Int | Type::Float, Type::Int | Type::Float) => Type::Float,
+
+                (
+                    Type::Int | Type::Float | Type::Number,
+                    Type::Int | Type::Float | Type::Number,
+                ) => Type::Number,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(op, Type::Any, lhs, rhs)
+    }
+
+    pub(super) fn concatenate(lhs: &Type, rhs: &Type) -> Option<Type> {
+        fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+            Some(match (lhs, rhs) {
+                (Type::List(a), Type::List(b)) => {
+                    Type::list(a.as_ref().clone().union(b.as_ref().clone()))
+                }
+                (Type::Table(a), Type::Table(b)) => Type::Table(a.clone().union(b.clone())),
+                (Type::Table(table), Type::List(list)) => {
+                    Type::list(Type::Record(table.clone()).union(list.as_ref().clone()))
+                }
+                (Type::String, Type::String) => Type::String,
+                // TODO: should this include glob
+                (Type::Binary, Type::Binary) => Type::Binary,
+
+                (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+                _ => return None,
+            })
+        }
+        operator_check(commutative(op), Type::Any, lhs, rhs)
+    }
+}
+
+fn ord_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (Type::Int | Type::Float | Type::Number, Type::Int | Type::Float | Type::Number) => {
+                Type::Bool
+            }
+
+            (Type::String, Type::String) => Type::Bool,
+            (Type::Duration, Type::Duration) => Type::Bool,
+            (Type::Date, Type::Date) => Type::Bool,
+            (Type::Filesize, Type::Filesize) => Type::Bool,
+            (Type::Bool, Type::Bool) => Type::Bool,
+
+            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+            (Type::Custom(a), _) => Type::Custom(a.clone()),
+
+            (Type::Nothing, _) | (_, Type::Nothing) => Type::Nothing, // TODO: is this right
+            // TODO: should this include:
+            // - binary
+            // - glob
+            // - list
+            // - table
+            // - record
+            // - range
+            _ => return None,
+        })
+    }
+    operator_check(op, Type::Bool, lhs, rhs)
+}
+
+fn str_cmp_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (Type::String | Type::Any, Type::String | Type::Any) => Type::Bool,
+            // TODO: should this include glob?
+            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            _ => return None,
+        })
+    }
+    operator_check(op, None, lhs, rhs)
+}
+
+fn in_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    fn op(lhs: &Type, rhs: &Type) -> Option<Type> {
+        Some(match (lhs, rhs) {
+            (t, Type::List(u)) if type_compatible(t, u) => Type::Bool,
+            (Type::Int | Type::Float | Type::Number, Type::Range) => Type::Bool,
+            (Type::String, Type::String) => Type::Bool,
+            (Type::String, Type::Record(_)) => Type::Bool,
+            (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+            (Type::Custom(a), _) => Type::Custom(a.clone()),
+            _ => return None,
+        })
+    }
+    operator_check(op, Type::Any, lhs, rhs)
+}
+
+fn has_op(lhs: &Type, rhs: &Type) -> Option<Type> {
+    in_op(rhs, lhs)
+}
+
 // TODO: rework type checking for Custom values
 pub fn math_result_type(
     working_set: &mut StateWorkingSet,
@@ -60,27 +361,9 @@ pub fn math_result_type(
         );
     };
     match operator {
-        Operator::Math(Math::Add) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::String, Type::String) => (Type::String, None),
-            // TODO: should this include glob
-            (Type::Date, Type::Duration) => (Type::Date, None),
-            (Type::Duration, Type::Date) => (Type::Date, None),
-            (Type::Duration, Type::Duration) => (Type::Duration, None),
-            (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Add) => match math::add(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -96,25 +379,9 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Subtract) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Date, Type::Date) => (Type::Duration, None),
-            (Type::Date, Type::Duration) => (Type::Date, None),
-            (Type::Duration, Type::Duration) => (Type::Duration, None),
-            (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Subtract) => match math::subtract(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -129,29 +396,9 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Multiply) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Filesize, Type::Int) => (Type::Filesize, None),
-            (Type::Int, Type::Filesize) => (Type::Filesize, None),
-            (Type::Filesize, Type::Float) => (Type::Filesize, None),
-            (Type::Float, Type::Filesize) => (Type::Filesize, None),
-            (Type::Duration, Type::Int) => (Type::Duration, None),
-            (Type::Int, Type::Duration) => (Type::Duration, None),
-            (Type::Duration, Type::Float) => (Type::Duration, None),
-            (Type::Float, Type::Duration) => (Type::Duration, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Multiply) => match math::multiply(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -161,27 +408,9 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Divide) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Float, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Float, None),
-            (Type::Number, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Number) => (Type::Float, None),
-            (Type::Number, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Number) => (Type::Float, None),
-            (Type::Filesize, Type::Filesize) => (Type::Float, None),
-            (Type::Filesize, Type::Int) => (Type::Filesize, None),
-            (Type::Filesize, Type::Float) => (Type::Filesize, None),
-            (Type::Duration, Type::Duration) => (Type::Float, None),
-            (Type::Duration, Type::Int) => (Type::Duration, None),
-            (Type::Duration, Type::Float) => (Type::Duration, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Divide) => match math::divide(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -191,27 +420,9 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::FloorDivide) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Filesize, Type::Filesize) => (Type::Int, None),
-            (Type::Filesize, Type::Int) => (Type::Filesize, None),
-            (Type::Filesize, Type::Float) => (Type::Filesize, None),
-            (Type::Duration, Type::Duration) => (Type::Int, None),
-            (Type::Duration, Type::Int) => (Type::Duration, None),
-            (Type::Duration, Type::Float) => (Type::Duration, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::FloorDivide) => match math::floor_divide(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -221,27 +432,9 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Modulo) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Filesize, Type::Filesize) => (Type::Filesize, None),
-            (Type::Filesize, Type::Int) => (Type::Filesize, None),
-            (Type::Filesize, Type::Float) => (Type::Filesize, None),
-            (Type::Duration, Type::Duration) => (Type::Duration, None),
-            (Type::Duration, Type::Int) => (Type::Duration, None),
-            (Type::Duration, Type::Float) => (Type::Duration, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Modulo) => match math::modulo(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -251,57 +444,18 @@ pub fn math_result_type(
                 })
             }
         },
-        Operator::Math(Math::Pow) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Float, Type::Int) => (Type::Float, None),
-            (Type::Int, Type::Float) => (Type::Float, None),
-            (Type::Float, Type::Float) => (Type::Float, None),
-            (Type::Number, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Int) => (Type::Number, None),
-            (Type::Int, Type::Number) => (Type::Number, None),
-            (Type::Number, Type::Float) => (Type::Number, None),
-            (Type::Float, Type::Number) => (Type::Number, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Pow) => match math::pow(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(ty, Type::Int | Type::Float | Type::Number)
                 })
             }
         },
-        Operator::Math(Math::Concatenate) => match (&lhs.ty, &rhs.ty) {
-            (Type::List(a), Type::List(b)) => {
-                if a == b {
-                    (Type::list(a.as_ref().clone()), None)
-                } else {
-                    (Type::list(Type::Any), None)
-                }
-            }
-            (Type::Table(a), Type::Table(_)) => (Type::Table(a.clone()), None),
-            (Type::Table(table), Type::List(list)) => {
-                if matches!(list.as_ref(), Type::Record(..)) {
-                    (Type::Table(table.clone()), None)
-                } else {
-                    (Type::list(Type::Any), None)
-                }
-            }
-            (Type::List(list), Type::Table(_)) => {
-                if matches!(list.as_ref(), Type::Record(..)) {
-                    (Type::list(list.as_ref().clone()), None)
-                } else {
-                    (Type::list(Type::Any), None)
-                }
-            }
-            (Type::String, Type::String) => (Type::String, None),
-            // TODO: should this include glob
-            (Type::Binary, Type::Binary) => (Type::Binary, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) | (_, Type::Any) => (Type::Any, None),
-            _ => {
+        Operator::Math(Math::Concatenate) => match math::concatenate(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 let is_supported = |ty: &Type| {
                     matches!(
@@ -351,184 +505,36 @@ pub fn math_result_type(
                 (Type::Any, Some(err))
             }
         },
-        Operator::Boolean(_) => match (&lhs.ty, &rhs.ty) {
-            (Type::Bool, Type::Bool) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Bool))
+        Operator::Boolean(_) => {
+            let out = operator_check(
+                |lhs, rhs| {
+                    Some(match (lhs, rhs) {
+                        (Type::Bool, Type::Bool) => Type::Bool,
+                        (Type::Custom(a), Type::Custom(b)) if a == b => Type::Custom(a.clone()),
+                        (Type::Custom(a), _) => Type::Custom(a.clone()),
+                        _ => return None,
+                    })
+                },
+                Type::Any,
+                &lhs.ty,
+                &rhs.ty,
+            );
+            match out {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Bool))
+                }
             }
-        },
-        Operator::Comparison(Comparison::LessThan) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Bool, None),
-            (Type::Float, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Float) => (Type::Bool, None),
-            (Type::Number, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Number) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::Duration, Type::Duration) => (Type::Bool, None),
-            (Type::Date, Type::Date) => (Type::Bool, None),
-            (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-            (Type::Bool, Type::Bool) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Nothing, _) => (Type::Nothing, None), // TODO: is this right
-            (_, Type::Nothing) => (Type::Nothing, None), // TODO: is this right
-            // TODO: should this include:
-            // - binary
-            // - glob
-            // - list
-            // - table
-            // - record
-            // - range
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(operator, op.span, lhs, rhs, |ty| {
-                    matches!(
-                        ty,
-                        Type::Int
-                            | Type::Float
-                            | Type::Number
-                            | Type::String
-                            | Type::Filesize
-                            | Type::Duration
-                            | Type::Date
-                            | Type::Bool
-                            | Type::Nothing
-                    )
-                })
-            }
-        },
-        Operator::Comparison(Comparison::LessThanOrEqual) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Bool, None),
-            (Type::Float, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Float) => (Type::Bool, None),
-            (Type::Number, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Number) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::Duration, Type::Duration) => (Type::Bool, None),
-            (Type::Date, Type::Date) => (Type::Bool, None),
-            (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-            (Type::Bool, Type::Bool) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Nothing, _) => (Type::Nothing, None), // TODO: is this right
-            (_, Type::Nothing) => (Type::Nothing, None), // TODO: is this right
-            // TODO: should this include:
-            // - binary
-            // - glob
-            // - list
-            // - table
-            // - record
-            // - range
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(operator, op.span, lhs, rhs, |ty| {
-                    matches!(
-                        ty,
-                        Type::Int
-                            | Type::Float
-                            | Type::Number
-                            | Type::String
-                            | Type::Filesize
-                            | Type::Duration
-                            | Type::Date
-                            | Type::Bool
-                            | Type::Nothing
-                    )
-                })
-            }
-        },
-        Operator::Comparison(Comparison::GreaterThan) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Bool, None),
-            (Type::Float, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Float) => (Type::Bool, None),
-            (Type::Number, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Number) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::Duration, Type::Duration) => (Type::Bool, None),
-            (Type::Date, Type::Date) => (Type::Bool, None),
-            (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-            (Type::Bool, Type::Bool) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Nothing, _) => (Type::Nothing, None), // TODO: is this right
-            (_, Type::Nothing) => (Type::Nothing, None), // TODO: is this right
-            // TODO: should this include:
-            // - binary
-            // - glob
-            // - list
-            // - table
-            // - record
-            // - range
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(operator, op.span, lhs, rhs, |ty| {
-                    matches!(
-                        ty,
-                        Type::Int
-                            | Type::Float
-                            | Type::Number
-                            | Type::String
-                            | Type::Filesize
-                            | Type::Duration
-                            | Type::Date
-                            | Type::Bool
-                            | Type::Nothing
-                    )
-                })
-            }
-        },
-        Operator::Comparison(Comparison::GreaterThanOrEqual) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Bool, None),
-            (Type::Float, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Float) => (Type::Bool, None),
-            (Type::Number, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Int) => (Type::Bool, None),
-            (Type::Int, Type::Number) => (Type::Bool, None),
-            (Type::Number, Type::Float) => (Type::Bool, None),
-            (Type::Float, Type::Number) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::Duration, Type::Duration) => (Type::Bool, None),
-            (Type::Date, Type::Date) => (Type::Bool, None),
-            (Type::Filesize, Type::Filesize) => (Type::Bool, None),
-            (Type::Bool, Type::Bool) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Nothing, _) => (Type::Nothing, None), // TODO: is this right
-            (_, Type::Nothing) => (Type::Nothing, None), // TODO: is this right
-            // TODO: should this include:
-            // - binary
-            // - glob
-            // - list
-            // - table
-            // - record
-            // - range
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
+        }
+        Operator::Comparison(
+            Comparison::LessThan
+            | Comparison::LessThanOrEqual
+            | Comparison::GreaterThan
+            | Comparison::GreaterThanOrEqual,
+        ) => match ord_cmp_op(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 *op = Expression::garbage(working_set, op.span);
                 type_error(operator, op.span, lhs, rhs, |ty| {
                     matches!(
@@ -553,45 +559,23 @@ pub fn math_result_type(
                 _ => (Type::Bool, None),
             }
         }
-        Operator::Comparison(Comparison::RegexMatch | Comparison::NotRegexMatch) => {
-            match (&lhs.ty, &rhs.ty) {
-                (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-                // TODO: should this include glob?
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-                _ => {
-                    *op = Expression::garbage(working_set, op.span);
-                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
-                }
-            }
-        }
         Operator::Comparison(
-            Comparison::StartsWith
+            Comparison::RegexMatch
+            | Comparison::NotRegexMatch
+            | Comparison::StartsWith
             | Comparison::NotStartsWith
             | Comparison::EndsWith
             | Comparison::NotEndsWith,
-        ) => {
-            match (&lhs.ty, &rhs.ty) {
-                (Type::String | Type::Any, Type::String | Type::Any) => (Type::Bool, None),
-                // TODO: should this include glob?
-                (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-                (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-                _ => {
-                    *op = Expression::garbage(working_set, op.span);
-                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
-                }
+        ) => match str_cmp_op(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
+                *op = Expression::garbage(working_set, op.span);
+                type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::String))
             }
-        }
-        Operator::Comparison(Comparison::In | Comparison::NotIn) => match (&lhs.ty, &rhs.ty) {
-            (t, Type::List(u)) if type_compatible(t, u) => (Type::Bool, None),
-            (Type::Int | Type::Float | Type::Number, Type::Range) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::String, Type::Record(_)) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
+        },
+        Operator::Comparison(Comparison::In | Comparison::NotIn) => match in_op(&lhs.ty, &rhs.ty) {
+            Some(ty) => (ty, None),
+            None => {
                 let err = if matches!(
                     &rhs.ty,
                     Type::List(_)
@@ -623,56 +607,62 @@ pub fn math_result_type(
                 (Type::Any, Some(err))
             }
         },
-        Operator::Comparison(Comparison::Has | Comparison::NotHas) => match (&lhs.ty, &rhs.ty) {
-            (Type::List(u), t) if type_compatible(u, t) => (Type::Bool, None),
-            (Type::Range, Type::Int | Type::Float | Type::Number) => (Type::Bool, None),
-            (Type::String, Type::String) => (Type::Bool, None),
-            (Type::Record(_), Type::String) => (Type::Bool, None),
-            (Type::Custom(a), Type::Custom(b)) if a == b => (Type::Custom(a.clone()), None),
-            (Type::Custom(a), _) => (Type::Custom(a.clone()), None),
-            (Type::Any, _) => (Type::Bool, None),
-            (_, Type::Any) => (Type::Bool, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                let err = if matches!(
-                    &lhs.ty,
-                    Type::List(_)
-                        | Type::Range
-                        | Type::String
-                        | Type::Record(_)
-                        | Type::Custom(_)
-                        | Type::Any
-                ) {
-                    ParseError::OperatorIncompatibleTypes {
-                        op: operator.as_str(),
-                        lhs: lhs.ty.clone(),
-                        rhs: rhs.ty.clone(),
-                        op_span: op.span,
-                        lhs_span: lhs.span,
-                        rhs_span: rhs.span,
-                        help: None,
-                    }
-                } else {
-                    ParseError::OperatorUnsupportedType {
-                        op: operator.as_str(),
-                        unsupported: lhs.ty.clone(),
-                        op_span: op.span,
-                        unsupported_span: lhs.span,
-                        help: None,
-                    }
-                };
-                (Type::Any, Some(err))
+        Operator::Comparison(Comparison::Has | Comparison::NotHas) => {
+            match has_op(&lhs.ty, &rhs.ty) {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    let err = if matches!(
+                        &lhs.ty,
+                        Type::List(_)
+                            | Type::Range
+                            | Type::String
+                            | Type::Record(_)
+                            | Type::Custom(_)
+                            | Type::Any
+                    ) {
+                        ParseError::OperatorIncompatibleTypes {
+                            op: operator.as_str(),
+                            lhs: lhs.ty.clone(),
+                            rhs: rhs.ty.clone(),
+                            op_span: op.span,
+                            lhs_span: lhs.span,
+                            rhs_span: rhs.span,
+                            help: None,
+                        }
+                    } else {
+                        ParseError::OperatorUnsupportedType {
+                            op: operator.as_str(),
+                            unsupported: lhs.ty.clone(),
+                            op_span: op.span,
+                            unsupported_span: lhs.span,
+                            help: None,
+                        }
+                    };
+                    (Type::Any, Some(err))
+                }
             }
-        },
-        Operator::Bits(_) => match (&lhs.ty, &rhs.ty) {
-            (Type::Int, Type::Int) => (Type::Int, None),
-            (Type::Any, _) => (Type::Any, None),
-            (_, Type::Any) => (Type::Any, None),
-            _ => {
-                *op = Expression::garbage(working_set, op.span);
-                type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Int))
+        }
+        Operator::Bits(_) => {
+            let out = operator_check(
+                |lhs, rhs| {
+                    Some(match (lhs, rhs) {
+                        (Type::Int, Type::Int) => Type::Int,
+                        _ => return None,
+                    })
+                },
+                Type::Any,
+                &lhs.ty,
+                &rhs.ty,
+            );
+            match out {
+                Some(ty) => (ty, None),
+                None => {
+                    *op = Expression::garbage(working_set, op.span);
+                    type_error(operator, op.span, lhs, rhs, |ty| matches!(ty, Type::Int))
+                }
             }
-        },
+        }
         Operator::Assignment(Assignment::AddAssign) => {
             compound_assignment_result_type(working_set, lhs, op, rhs, operator, Math::Add)
         }
@@ -709,8 +699,6 @@ pub fn math_result_type(
 }
 
 /// Determine the possible output types of a pipeline.
-///
-/// Output is union of types in the `Vec`.
 pub fn check_pipeline_type(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
