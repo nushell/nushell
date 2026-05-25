@@ -25,7 +25,7 @@ impl Command for IdxImport {
     }
 
     fn extra_description(&self) -> &str {
-        "Reads a SQLite snapshot created by `idx export` and hydrates the runtime from stored rows. Watch mode is not restored from the snapshot."
+        "Reads a SQLite snapshot created by `idx export` and auto-initializes idx runtime for immediate queries. Watch mode is not restored from the snapshot."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
