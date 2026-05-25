@@ -165,7 +165,7 @@ fn idx_dirs_optional_query_filters_results() -> Result {
 
             test()
             .cwd(dirs.test())
-            .run("idx init . --wait; idx dirs comp | get full_path | any {|path| $path | str contains 'src/components' }")
+            .run("idx init . --wait; idx dirs comp | get relative_path | any {|path| ($path | str contains 'src/components') or ($path | str contains 'src\\components') }")
             .expect_value_eq(true)
         },
     )
