@@ -7039,7 +7039,7 @@ pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline
                 let element = parse_pipeline_element(working_set, element);
                 // Handle $in for pipeline elements beyond the first one
                 if index > 0 && element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element.clone())
+                    wrap_element_with_collect(working_set, element)
                 } else {
                     element
                 }
@@ -7609,7 +7609,7 @@ fn wrap_element_with_collect(
     }
 }
 
-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -> Expression {
+fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, mut expr: Expression) -> Expression {
     let span = expr.span;
 
     // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
@@ -7620,7 +7620,6 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
         Type::Any,
         false,
     );
-    let mut expr = expr.clone();
     expr.replace_in_variable(working_set, var_id);
 
     // Bind the custom `$in` variable for that particular expression
