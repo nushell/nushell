@@ -7,6 +7,7 @@
 //! The runtime is stored as a thread-safe singleton (`IDX_RUNTIME`) and can be accessed by all idx subcommands.
 //! Public functions handle initialization, status reporting, and streaming results to Nushell.
 
+use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 use fff_search::{
     FFFMode, FilePicker, FilePickerOptions, FuzzySearchOptions, GrepMode, GrepSearchOptions,
     MixedItemRef, PaginationArgs, QueryParser, SharedFilePicker, SharedFrecency,
@@ -15,7 +16,6 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ListStream, PipelineMetadata, Signals};
 use nu_utils::time::Instant;
-use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, OptionalExtension, params};
 #[cfg(feature = "sqlite")]
@@ -113,7 +113,10 @@ impl IdxStatus {
                 ("scanning".to_string(), Value::bool(self.scanning, span)),
                 (
                     "scan_duration".to_string(),
-                    Value::duration(i64::try_from(self.scan_duration_ns).unwrap_or(i64::MAX), span),
+                    Value::duration(
+                        i64::try_from(self.scan_duration_ns).unwrap_or(i64::MAX),
+                        span,
+                    ),
                 ),
                 (
                     "files".to_string(),

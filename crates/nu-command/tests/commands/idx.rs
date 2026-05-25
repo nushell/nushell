@@ -81,17 +81,14 @@ fn idx_files_returns_records_with_full_path() -> Result {
 #[test]
 #[serial]
 fn idx_files_returns_ext_and_native_types() -> Result {
-    Playground::setup(
-        "idx_files_returns_ext_and_native_types",
-        |dirs, sandbox| {
-            sandbox.with_files(&[EmptyFile("quote.txt")]);
+    Playground::setup("idx_files_returns_ext_and_native_types", |dirs, sandbox| {
+        sandbox.with_files(&[EmptyFile("quote.txt")]);
 
-            test()
+        test()
                 .cwd(dirs.test())
                 .run("idx init . --wait; let row = (idx files quote | where file_name == quote.txt | first); let modified_kind = ($row.modified | describe | str downcase); ($row.ext == 'txt') and (($row.size | describe) == 'filesize') and ($modified_kind | str contains 'date')")
                 .expect_value_eq(true)
-        },
-    )
+    })
 }
 
 #[test]
