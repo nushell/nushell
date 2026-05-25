@@ -808,7 +808,7 @@ fn parse_oneof(
             false => parse_value(working_set, spans[*spans_idx], shape),
         };
 
-        let new_errors = working_set.parse_errors[starting_error_count..].to_vec();
+        let new_errors = &working_set.parse_errors[starting_error_count..];
         // no new errors found means success
         let Some(first_error_offset) = new_errors.iter().map(|e| e.span().start).min() else {
             return value;
@@ -829,7 +829,8 @@ fn parse_oneof(
             };
             max_first_error_offset = first_error_offset;
             best_guess = Some(value);
-            best_guess_errors = new_errors;
+            best_guess_errors.clear();
+            best_guess_errors.extend_from_slice(new_errors);
         }
         working_set.parse_errors.truncate(starting_error_count);
     }
