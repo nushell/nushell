@@ -2177,9 +2177,9 @@ dependencies = [
 
 [[package]]
 name = "fff-grep"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "697e1af89b7fc59645ffceb88ea71ab30c579d9d78f96f7800408418cf072a43"
+checksum = "68286213d07412846c0010a0b227b79c08fbc214cf7822f85cabd9e3f36606ae"
 dependencies = [
  "bstr",
  "memchr",
@@ -2201,15 +2201,15 @@ dependencies = [
 
 [[package]]
 name = "fff-query-parser"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eaa5f10169c5e1e34d4d8a7bef6cd89371a4bdbc84b9c88e2e3987f4650a13a"
+checksum = "f5eb0a0363657b57a3a60d12a76a41f799406514b238123487e54290a6f1a62f"
 
 [[package]]
 name = "fff-search"
-version = "0.8.3"
+version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0a394dc08d526390e26c974fa2fbaa91103ae3b73d9973dcef4d878f73f0f3b"
+checksum = "1b6b4517eb8a9b87a46d09e9958f2ddbc036440a9fb5d5ddfc05e6dcf4655ce2"
 dependencies = [
  "ahash",
  "aho-corasick",
