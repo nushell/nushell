@@ -263,6 +263,7 @@ pub fn init_runtime(
     path: &Path,
     watch: bool,
     wait: bool,
+    follow_symlinks: bool,
     span: Span,
 ) -> Result<IdxStatus, ShellError> {
     let shared_picker = SharedFilePicker::default();
@@ -278,6 +279,7 @@ pub fn init_runtime(
             mode: FFFMode::Ai,
             cache_budget: None,
             watch,
+            follow_symlinks,
         },
     )
     .map_err(|err| fff_error(err, span))?;
