@@ -3983,7 +3983,7 @@ pub fn parse_var_with_opt_type(
     mutable: bool,
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
-    let bytes = working_set.get_span_contents(name_span).to_vec();
+    let bytes = working_set.get_span_contents(name_span);
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
@@ -4052,7 +4052,7 @@ pub fn parse_var_with_opt_type(
             )
         }
     } else {
-        let var_name = bytes;
+        let var_name = bytes.to_vec();
 
         if !is_variable(&var_name) {
             working_set.error(ParseError::Expected(
