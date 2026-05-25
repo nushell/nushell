@@ -48,6 +48,22 @@ fn idx_status_reports_watch_disabled_by_default() -> Result {
 
 #[test]
 #[serial]
+fn idx_status_reports_scan_duration_as_duration() -> Result {
+    Playground::setup(
+        "idx_status_reports_scan_duration_as_duration",
+        |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("timed.txt")]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; idx status | get scan_duration | describe")
+                .expect_value_eq("duration")
+        },
+    )
+}
+
+#[test]
+#[serial]
 fn idx_files_returns_records_with_full_path() -> Result {
     Playground::setup(
         "idx_files_returns_records_with_full_path",
@@ -57,6 +73,22 @@ fn idx_files_returns_records_with_full_path() -> Result {
             test()
                 .cwd(dirs.test())
                 .run("idx init . --wait; idx files | get 0.full_path | str contains gamma.txt")
+                .expect_value_eq(true)
+        },
+    )
+}
+
+#[test]
+#[serial]
+fn idx_files_returns_ext_and_native_types() -> Result {
+    Playground::setup(
+        "idx_files_returns_ext_and_native_types",
+        |dirs, sandbox| {
+            sandbox.with_files(&[EmptyFile("quote.txt")]);
+
+            test()
+                .cwd(dirs.test())
+                .run("idx init . --wait; let row = (idx files quote | where file_name == quote.txt | first); let modified_kind = ($row.modified | describe | str downcase); ($row.ext == 'txt') and (($row.size | describe) == 'filesize') and ($modified_kind | str contains 'date')")
                 .expect_value_eq(true)
         },
     )

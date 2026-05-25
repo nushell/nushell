@@ -15,6 +15,7 @@ use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{ListStream, PipelineMetadata, Signals};
 use nu_utils::time::Instant;
+use chrono::{DateTime, Local, LocalResult, TimeZone, Utc};
 #[cfg(feature = "sqlite")]
 use rusqlite::{Connection, OptionalExtension, params};
 #[cfg(feature = "sqlite")]
@@ -35,7 +36,7 @@ pub struct IdxRuntime {
     pub shared_picker: SharedFilePicker,
     pub scan_start_time: Instant,
     pub scan_completed: Arc<AtomicBool>,
-    pub scan_duration_ms: Arc<AtomicU64>,
+    pub scan_duration_ns: Arc<AtomicU64>,
     pub restored_files: Option<Arc<Vec<IdxRestoredFile>>>,
     pub restored_dirs: Option<Arc<Vec<IdxRestoredDir>>>,
     pub restored_arena_bytes_base: usize,
@@ -87,7 +88,7 @@ pub struct IdxStatus {
     pub base_path: String,
     pub watch: bool,
     pub scanning: bool,
-    pub scan_duration_ms: u128,
+    pub scan_duration_ns: u64,
     pub files: usize,
     pub dirs: usize,
     pub arena_bytes_base: usize,
@@ -111,11 +112,8 @@ impl IdxStatus {
                 ("watch".to_string(), Value::bool(self.watch, span)),
                 ("scanning".to_string(), Value::bool(self.scanning, span)),
                 (
-                    "scan_duration_ms".to_string(),
-                    Value::int(
-                        i64::try_from(self.scan_duration_ms).unwrap_or(i64::MAX),
-                        span,
-                    ),
+                    "scan_duration".to_string(),
+                    Value::duration(i64::try_from(self.scan_duration_ns).unwrap_or(i64::MAX), span),
                 ),
                 (
                     "files".to_string(),
@@ -126,28 +124,28 @@ impl IdxStatus {
                     Value::int(i64::try_from(self.dirs).unwrap_or(i64::MAX), span),
                 ),
                 (
-                    "arena_bytes_base".to_string(),
+                    "arena_size_base".to_string(),
                     Value::filesize(
                         i64::try_from(self.arena_bytes_base).unwrap_or(i64::MAX),
                         span,
                     ),
                 ),
                 (
-                    "arena_bytes_overflow".to_string(),
+                    "arena_size_overflow".to_string(),
                     Value::filesize(
                         i64::try_from(self.arena_bytes_overflow).unwrap_or(i64::MAX),
                         span,
                     ),
                 ),
                 (
-                    "arena_bytes_untracked".to_string(),
+                    "arena_size_untracked".to_string(),
                     Value::filesize(
                         i64::try_from(self.arena_bytes_untracked).unwrap_or(i64::MAX),
                         span,
                     ),
                 ),
                 (
-                    "arena_bytes_total".to_string(),
+                    "arena_size_total".to_string(),
                     Value::filesize(
                         i64::try_from(
                             self.arena_bytes_base
@@ -249,14 +247,14 @@ fn idx_status_from_picker(
     base_path: &Path,
     watch: bool,
     picker: &FilePicker,
-    scan_duration_ms: u128,
+    scan_duration_ns: u64,
 ) -> IdxStatus {
     IdxStatus {
         initialized: true,
         base_path: base_path.display().to_string(),
         watch,
         scanning: picker.is_scan_active(),
-        scan_duration_ms,
+        scan_duration_ns,
         files: picker.get_files().len(),
         dirs: picker.get_dirs().len(),
         arena_bytes_base: picker.arena_bytes().0,
@@ -265,9 +263,9 @@ fn idx_status_from_picker(
     }
 }
 
-/// Get elapsed milliseconds since the given scan start time.
-fn elapsed_ms(scan_start: Instant) -> u64 {
-    u64::try_from(scan_start.elapsed().as_millis()).unwrap_or(u64::MAX)
+/// Get elapsed nanoseconds since the given scan start time.
+fn elapsed_ns(scan_start: Instant) -> u64 {
+    u64::try_from(scan_start.elapsed().as_nanos()).unwrap_or(u64::MAX)
 }
 
 /// Compute the scan duration, freezing it once the scan completes.
@@ -276,28 +274,28 @@ fn elapsed_ms(scan_start: Instant) -> u64 {
 /// even if called concurrently from multiple threads.
 fn freeze_scan_duration_if_needed(
     scan_completed: &AtomicBool,
-    scan_duration_ms: &AtomicU64,
+    scan_duration_ns: &AtomicU64,
     scan_start: Instant,
     scanning: bool,
-) -> u128 {
+) -> u64 {
     if scan_completed.load(Ordering::Acquire) {
-        return u128::from(scan_duration_ms.load(Ordering::Acquire));
+        return scan_duration_ns.load(Ordering::Acquire);
     }
 
-    let elapsed = elapsed_ms(scan_start);
+    let elapsed = elapsed_ns(scan_start);
     if !scanning {
         if scan_completed
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
         {
-            scan_duration_ms.store(elapsed, Ordering::Release);
-            return u128::from(elapsed);
+            scan_duration_ns.store(elapsed, Ordering::Release);
+            return elapsed;
         }
 
-        return u128::from(scan_duration_ms.load(Ordering::Acquire));
+        return scan_duration_ns.load(Ordering::Acquire);
     }
 
-    u128::from(elapsed)
+    elapsed
 }
 
 /// Poll until the background scan completes or times out.
@@ -354,7 +352,7 @@ fn runtime_snapshot() -> Option<RuntimeSnapshot> {
         shared_picker: runtime.shared_picker.clone(),
         scan_start_time: runtime.scan_start_time,
         scan_completed: runtime.scan_completed.clone(),
-        scan_duration_ms: runtime.scan_duration_ms.clone(),
+        scan_duration_ns: runtime.scan_duration_ns.clone(),
         restored_files: runtime.restored_files.clone(),
         restored_dirs: runtime.restored_dirs.clone(),
         restored_arena_bytes_base: runtime.restored_arena_bytes_base,
@@ -385,7 +383,7 @@ pub fn current_status(scan_start_override: Option<Instant>) -> IdxStatus {
             base_path: snapshot.base_path.display().to_string(),
             watch: snapshot.watch,
             scanning: false,
-            scan_duration_ms: 0,
+            scan_duration_ns: 0,
             files: restored_files.len(),
             dirs: restored_dirs.len(),
             arena_bytes_base: snapshot.restored_arena_bytes_base,
@@ -399,7 +397,7 @@ pub fn current_status(scan_start_override: Option<Instant>) -> IdxStatus {
     let Ok(guard) = snapshot.shared_picker.read() else {
         let duration = freeze_scan_duration_if_needed(
             &snapshot.scan_completed,
-            &snapshot.scan_duration_ms,
+            &snapshot.scan_duration_ns,
             scan_start,
             false,
         );
@@ -408,7 +406,7 @@ pub fn current_status(scan_start_override: Option<Instant>) -> IdxStatus {
             base_path: snapshot.base_path.display().to_string(),
             watch: snapshot.watch,
             scanning: false,
-            scan_duration_ms: duration,
+            scan_duration_ns: duration,
             ..Default::default()
         };
     };
@@ -419,7 +417,7 @@ pub fn current_status(scan_start_override: Option<Instant>) -> IdxStatus {
             let scanning = picker.is_scan_active();
             let duration = freeze_scan_duration_if_needed(
                 &snapshot.scan_completed,
-                &snapshot.scan_duration_ms,
+                &snapshot.scan_duration_ns,
                 scan_start,
                 scanning,
             );
@@ -473,7 +471,7 @@ pub fn init_runtime(
         shared_picker: shared_picker.clone(),
         scan_start_time: Instant::now(),
         scan_completed: Arc::new(AtomicBool::new(false)),
-        scan_duration_ms: Arc::new(AtomicU64::new(0)),
+        scan_duration_ns: Arc::new(AtomicU64::new(0)),
         restored_files: None,
         restored_dirs: None,
         restored_arena_bytes_base: 0,
@@ -858,6 +856,7 @@ fn build_file_record(
     base_path: &Path,
     span: Span,
 ) -> Value {
+    let file_name = item.file_name(picker);
     let full_path = item.absolute_path(picker, base_path);
     build_record_from_cols(
         [
@@ -871,7 +870,11 @@ fn build_file_record(
             ),
             (
                 "file_name".to_string(),
-                Value::string(item.file_name(picker), span),
+                Value::string(file_name.clone(), span),
+            ),
+            (
+                "ext".to_string(),
+                Value::string(file_extension(&file_name), span),
             ),
             (
                 "directory".to_string(),
@@ -879,11 +882,11 @@ fn build_file_record(
             ),
             (
                 "size".to_string(),
-                Value::int(i64::try_from(item.size).unwrap_or(i64::MAX), span),
+                Value::filesize(i64::try_from(item.size).unwrap_or(i64::MAX), span),
             ),
             (
                 "modified".to_string(),
-                Value::int(i64::try_from(item.modified).unwrap_or(i64::MAX), span),
+                modified_to_date_value(item.modified, span),
             ),
         ],
         span,
@@ -924,20 +927,51 @@ fn build_restored_file_record(item: &IdxRestoredFile, span: Span) -> Value {
                 Value::string(item.file_name.clone(), span),
             ),
             (
+                "ext".to_string(),
+                Value::string(file_extension(&item.file_name), span),
+            ),
+            (
                 "directory".to_string(),
                 Value::string(item.directory.clone(), span),
             ),
             (
                 "size".to_string(),
-                Value::int(i64::try_from(item.size).unwrap_or(i64::MAX), span),
+                Value::filesize(i64::try_from(item.size).unwrap_or(i64::MAX), span),
             ),
             (
                 "modified".to_string(),
-                Value::int(i64::try_from(item.modified).unwrap_or(i64::MAX), span),
+                modified_to_date_value(item.modified, span),
             ),
         ],
         span,
     )
+}
+
+/// Convert an indexed file timestamp (unix seconds) to a Nushell date value.
+fn modified_to_date_value(modified: u64, span: Span) -> Value {
+    let to_fixed = |secs: i64| -> Option<DateTime<chrono::FixedOffset>> {
+        let utc = match Utc.timestamp_opt(secs, 0) {
+            LocalResult::Single(ts) => ts,
+            _ => return None,
+        };
+        let local = utc.with_timezone(&Local);
+        Some(local.with_timezone(local.offset()))
+    };
+
+    let secs = i64::try_from(modified).unwrap_or(i64::MAX);
+    if let Some(dt) = to_fixed(secs).or_else(|| to_fixed(0)) {
+        Value::date(dt, span)
+    } else {
+        Value::nothing(span)
+    }
+}
+
+/// Extract a file extension without the leading dot.
+fn file_extension(file_name: &str) -> String {
+    Path::new(file_name)
+        .extension()
+        .map(|ext| ext.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 /// Helper to construct a Nushell record from a small array of columns.
@@ -1755,7 +1789,7 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
         shared_picker: shared_picker.clone(),
         scan_start_time: Instant::now(),
         scan_completed: Arc::new(AtomicBool::new(true)),
-        scan_duration_ms: Arc::new(AtomicU64::new(0)),
+        scan_duration_ns: Arc::new(AtomicU64::new(0)),
         restored_files: Some(restored_files.clone()),
         restored_dirs: Some(restored_dirs.clone()),
         restored_arena_bytes_base: arena_bytes_base,
