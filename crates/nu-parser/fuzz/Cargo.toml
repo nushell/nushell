@@ -9,8 +9,8 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-nu-protocol = { path = "../../nu-protocol" }
-nu-cmd-lang = { path = "../../nu-cmd-lang" }
+nu-protocol.workspace = true
+nu-cmd-lang.workspace = true
 
 
 [dependencies.nu-parser]
