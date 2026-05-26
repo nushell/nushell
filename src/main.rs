@@ -595,7 +595,10 @@ fn main() -> Result<()> {
 
     if is_lsp {
         #[cfg(feature = "lsp")]
-        run_lsp(engine_state, parsed_nu_cli_args, use_color)?;
+        {
+            start_time = nu_utils::time::Instant::now();
+            run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)?;
+        }
         #[cfg(not(feature = "lsp"))]
         unreachable!()
     } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
