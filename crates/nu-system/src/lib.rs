@@ -11,14 +11,12 @@ mod exit_status;
 mod foreground;
 mod util;
 
-#[cfg(target_os = "freebsd")]
-mod freebsd;
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+mod bsd;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
-mod netbsd;
 pub mod os_info;
 #[cfg(target_family = "unix")]
 mod unix;
@@ -34,14 +32,12 @@ pub use self::foreground::{
 
 pub use self::util::*;
 
-#[cfg(target_os = "freebsd")]
-pub use self::freebsd::*;
+#[cfg(any(target_os = "freebsd", target_os = "netbsd", target_os = "openbsd"))]
+pub use self::bsd::*;
 #[cfg(any(target_os = "android", target_os = "linux"))]
 pub use self::linux::*;
 #[cfg(target_os = "macos")]
 pub use self::macos::*;
-#[cfg(any(target_os = "netbsd", target_os = "openbsd"))]
-pub use self::netbsd::*;
 #[cfg(target_family = "unix")]
 pub use self::unix::*;
 #[cfg(target_os = "windows")]
