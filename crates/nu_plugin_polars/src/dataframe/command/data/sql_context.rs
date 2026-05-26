@@ -158,7 +158,7 @@ impl SQLContext {
                 .chain(agg_proj_pos)
                 .collect::<Vec<_>>();
 
-            final_proj_pos.sort_by(|(proj_pa, _), (proj_pb, _)| proj_pa.cmp(proj_pb));
+            final_proj_pos.sort_by_key(|(proj_p, _)| *proj_p);
             let final_proj = final_proj_pos
                 .into_iter()
                 .map(|(_, shm_p)| {

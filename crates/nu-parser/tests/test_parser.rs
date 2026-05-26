@@ -922,6 +922,106 @@ fn parse_percent_prefixed_internal_call() {
 }
 
 #[test]
+fn parse_percent_prefixed_dynamic_dispatch() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%('echo') hello", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            // Check that the call has the percent_forced_builtin marker
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_bare_var() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%$cmd hello", true);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::VariableNotFound(..)))
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_with_spaced_head() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"% ('echo') hello", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_with_spread_arg() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%('echo') ...$args", true);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::VariableNotFound(..)))
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+            assert!(matches!(call.arguments.first(), Some(Argument::Spread(_))));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
 fn parse_caret_prefixed_call_forces_external_parse() {
     let mut engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1515,7 +1615,7 @@ fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     assert!(element.redirection.is_none()); // it should be in the let block, not here
 
     if let Expr::Call(call) = &element.expr.expr {
-        let arg = call.positional_nth(1).expect("no positional args");
+        let arg = call.positional_iter().nth(1).expect("no positional args");
         let block_id = arg.as_block().expect("arg 1 is not a block");
         let block = working_set.get_block(block_id);
         let inner_element = &block.pipelines[0].elements[0];
@@ -3177,6 +3277,16 @@ mod input_types {
         b"def q []: nothing -> record<c: record<a: int b: int> e: int> {{c: {a: 1 b: 2} e: 1}}",
         false
     )]
+    #[case::input_output_pass_through(b"def q []: int -> int {}", false)]
+    #[case::input_output_pass_through(b"def q []: string -> string {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> int, string -> string] {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> string, string -> int] {}", true)]
+    #[case::input_output_pass_through(
+        b"def q []: record<a: int, b: string> -> record<a: int, b: string> {}",
+        false
+    )]
+    #[case::input_output_pass_through_incorrect(b"def q []: int -> nothing {}", true)]
+    #[case::input_output_pass_through_incorrect(b"def q []: nothing -> int {}", true)]
     #[case::input_output(b"def q []: nothing -> list<string {[]}", true)]
     #[case::input_output(b"def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
     #[case::input_output(b"def q []: record<c: int e: int -> record<a: int> {{a: 1}}", true)]

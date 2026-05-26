@@ -152,13 +152,14 @@ fn const_string_interpolation_date() -> Result {
 }
 
 #[test]
+#[env(NU_TEST_LOCALE_OVERRIDE = "en_US.UTF-8")]
 fn const_string_interpolation_filesize() -> Result {
     let code = r#"
         const s = $"(2kB)"
         $s
     "#;
 
-    test().locale_en().run(code).expect_value_eq("2.0 kB")
+    test().run(code).expect_value_eq("2.0 kB")
 }
 
 #[test]

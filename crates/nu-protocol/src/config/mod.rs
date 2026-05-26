@@ -63,6 +63,7 @@ pub struct Config {
     pub hinter: HinterConfig,
     pub history: HistoryConfig,
     pub keybindings: Vec<ParsedKeybinding>,
+    pub abbreviations: HashMap<String, String>,
     pub menus: Vec<ParsedMenu>,
     pub hooks: Hooks,
     pub rm: RmConfig,
@@ -134,6 +135,7 @@ impl Default for Config {
             menus: Vec::new(),
 
             keybindings: Vec::new(),
+            abbreviations: HashMap::new(),
 
             error_style: ErrorStyle::default(),
             error_lines: 1,
@@ -218,6 +220,7 @@ impl UpdateFromValue for Config {
                     Ok(keybindings) => self.keybindings = keybindings,
                     Err(err) => errors.error(err.into()),
                 },
+                "abbreviations" => self.abbreviations.update(val, path, errors),
                 "hooks" => self.hooks.update(val, path, errors),
                 "datetime_format" => self.datetime_format.update(val, path, errors),
                 "error_style" => self.error_style.update(val, path, errors),
@@ -255,10 +258,28 @@ impl Config {
         old: &Config,
         value: &Value,
     ) -> Result<Option<ShellWarning>, ShellError> {
+        self.update_from_value_with_options(old, value, false)
+    }
+
+    /// Like [`Config::update_from_value`], but allows callers to indicate that runtime-locked
+    /// options should refuse to change.
+    ///
+    /// `history_locked_after_startup` should be set to `true` once the REPL has finished
+    /// initializing reedline's history backend. After that point, changing any of the
+    /// startup-only history fields (`path`, `max_size`, `file_format`, `isolation`) has no
+    /// effect on the live history, so we reject the assignment with a clear error instead of
+    /// silently ignoring it.
+    pub fn update_from_value_with_options(
+        &mut self,
+        old: &Config,
+        value: &Value,
+        history_locked_after_startup: bool,
+    ) -> Result<Option<ShellWarning>, ShellError> {
         // Current behaviour is that config errors are displayed, but do not prevent the rest
         // of the config from being updated (fields with errors are skipped/not updated).
         // Errors are simply collected one-by-one and wrapped into a ShellError variant at the end.
-        let mut errors = ConfigErrors::new(old);
+        let mut errors =
+            ConfigErrors::new(old).with_history_locked_after_startup(history_locked_after_startup);
         let mut path = ConfigPath::new();
 
         self.update(value, &mut path, &mut errors);

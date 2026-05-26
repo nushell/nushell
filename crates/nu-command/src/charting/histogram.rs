@@ -287,7 +287,7 @@ fn histogram_impl(
             ),
         ));
     }
-    result.sort_by(|a, b| b.0.cmp(&a.0));
+    result.sort_by_key(|entry| std::cmp::Reverse(entry.0));
     Value::list(result.into_iter().map(|x| x.1).collect(), span).into_pipeline_data()
 }
 

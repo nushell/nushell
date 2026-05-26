@@ -6,7 +6,7 @@ license = "MIT"
 name = "nu-utils"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-utils"
 rust-version.workspace = true
-version = "0.112.3"
+version = "0.113.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [[bin]]
@@ -20,7 +20,7 @@ bench = false
 [dependencies]
 byteyarn.workspace = true
 crossterm = { workspace = true, optional = true }
-derive_more = { workspace = true }
+derive_more = { workspace = true, features = ["debug"]}
 fancy-regex = { workspace = true }
 lean_string.workspace = true
 log = { workspace = true }

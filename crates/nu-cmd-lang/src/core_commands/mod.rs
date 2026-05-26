@@ -71,5 +71,5 @@ pub use return_::Return;
 pub use scope::*;
 pub use try_::Try;
 pub use use_::Use;
-pub use version::{VERSION_NU_FEATURES, Version};
+pub use version::{VERSION, VERSION_NU_FEATURES, Version};
 pub use while_::While;

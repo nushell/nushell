@@ -51,6 +51,7 @@ mod hash_;
 mod headers;
 mod help;
 mod histogram;
+mod idx;
 mod ignore;
 mod insert;
 mod inspect;

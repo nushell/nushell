@@ -3,7 +3,8 @@ use nu_test_support::nu;
 #[test]
 fn headers_uses_first_row_as_header() {
     let actual = nu!(cwd: "tests/fixtures/formats", "
-        open sample_headers.xlsx
+        open sample_headers.xlsx --raw
+        | from xlsx --header-row null
         | get Sheet1
         | headers
         | get header0
@@ -15,7 +16,8 @@ fn headers_uses_first_row_as_header() {
 #[test]
 fn headers_adds_missing_column_name() {
     let actual = nu!(cwd: "tests/fixtures/formats", "
-        open sample_headers.xlsx
+        open sample_headers.xlsx --raw
+        | from xlsx --header-row null
         | get Sheet1
         | headers
         | get column1

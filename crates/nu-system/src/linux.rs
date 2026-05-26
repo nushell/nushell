@@ -229,6 +229,20 @@ impl ProcessInfo {
         }
     }
 
+    /// Working set size in bytes
+    pub fn working_size(&self) -> u64 {
+        self.mem_size()
+    }
+
+    /// Paged memory size in bytes
+    pub fn paged_size(&self) -> u64 {
+        self.curr_status
+            .as_ref()
+            .and_then(|status| status.vmswap)
+            .map(|swap_kib| swap_kib.saturating_mul(1024))
+            .unwrap_or_default()
+    }
+
     /// Virtual memory size in bytes
     pub fn virtual_size(&self) -> u64 {
         self.curr_proc.stat().map(|p| p.vsize).unwrap_or_default()

@@ -17,6 +17,7 @@ fn grid_errors_with_few_columns() -> Result {
 // and there are some other inconsistencies.
 
 #[rstest]
+#[case::empty_list("[]", "")]
 #[case::empty_record("{}", "")]
 #[case::list_of_string("[a b c]", "a │ b │ c\n")]
 #[case::list_of_various_data_types(
@@ -37,13 +38,17 @@ fn grid_errors_with_few_columns() -> Result {
     "[{test: name} a 33 {name: in_the_middle} null {record: without_name} [ijkl {name: e}]]",
     ""
 )]
-fn test_output(#[case] code: &str, #[case] expected: &str) -> Result {
+fn test_output_without_column_name(#[case] code: &str, #[case] expected: &str) -> Result {
     test()
         .run(format!("{code} | grid --width 100"))
         .expect_value_eq(expected)
 }
 
-#[test]
-fn empty_list_returns_nothing() -> Result {
-    test().run("[] | grid").expect_value_eq(())
+#[rstest]
+#[case::record_with_name("{name: test}", "test\n")]
+#[case::table_with_name("[Darren Juhan Piep] | wrap name", "Darren │ Juhan │ Piep\n")]
+fn test_output_with_column_name(#[case] code: &str, #[case] expected: &str) -> Result {
+    test()
+        .run(format!("{code} | grid name --width 100"))
+        .expect_value_eq(expected)
 }

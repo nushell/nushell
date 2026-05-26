@@ -29,7 +29,7 @@ impl PluginCommand for ExprLen {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Count the number of rows in the the dataframe.",
+                description: "Count the number of rows in the dataframe.",
                 example: "[[a b]; [1 2] [3 4]] | polars into-df | polars select (polars len) | polars collect",
                 result: Some(
                     NuDataFrame::try_from_columns(

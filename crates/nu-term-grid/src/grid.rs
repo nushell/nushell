@@ -307,7 +307,7 @@ impl Grid {
         let mut col_total_width_so_far = 0;
 
         let mut cells = self.cells.clone();
-        cells.sort_unstable_by(|a, b| b.width.cmp(&a.width)); // Sort in reverse order
+        cells.sort_unstable_by_key(|cell| std::cmp::Reverse(cell.width)); // Sort in reverse order
 
         for cell in &cells {
             if cell.width + col_total_width_so_far <= maximum_width {

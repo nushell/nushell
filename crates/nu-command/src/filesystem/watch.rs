@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{Receiver, RecvTimeoutError, channel},
     time::Duration,
 };
@@ -15,8 +15,10 @@ use notify_debouncer_full::{
 
 use nu_engine::{ClosureEval, command_prelude::*};
 use nu_protocol::{
-    Signals, engine::Closure, report_shell_error, shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    Signals,
+    engine::Closure,
+    report_shell_error, report_shell_warning,
+    shell_error::{generic::GenericError, io::IoError},
 };
 
 // durations chosen mostly arbitrarily
@@ -49,39 +51,69 @@ impl Command for Watch {
                 (Type::Nothing, Type::Nothing),
                 (
                     Type::Nothing,
-                    Type::Table(vec![
-                        ("operation".into(), Type::String),
-                        ("path".into(), Type::OneOf([Type::String, Type::Nothing].into())),
-                        ("new_path".into(), Type::OneOf([Type::String, Type::Nothing].into())),
-                    ].into_boxed_slice())
+                    Type::Table(
+                        vec![
+                            ("operation".into(), Type::String),
+                            (
+                                "path".into(),
+                                Type::OneOf([Type::String, Type::Nothing].into()),
+                            ),
+                            (
+                                "new_path".into(),
+                                Type::OneOf([Type::String, Type::Nothing].into()),
+                            ),
+                        ]
+                        .into_boxed_slice(),
+                    ),
                 ),
             ])
-            .required("path", SyntaxShape::Filepath, "The path to watch. Can be a file or directory.")
+            .required(
+                "path",
+                SyntaxShape::Filepath,
+                "The path to watch. Can be a file or directory.",
+            )
             .optional(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::String, SyntaxShape::String, SyntaxShape::String])),
-                "Some Nu code to run whenever a file changes. The closure will be passed `operation`, `path`, and `new_path` (for renames only) arguments in that order.",
+                SyntaxShape::Closure(Some(vec![
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                    SyntaxShape::String,
+                ])),
+                "Some Nu code to run whenever a file changes. \
+                    The closure will be passed `operation`, `path`, \
+                    and `new_path` (for renames only) arguments in that order (deprecated).",
             )
             .named(
                 "debounce",
                 SyntaxShape::Duration,
-                "Debounce changes for this duration (default: 100ms). Adjust if you find that single writes are reported as multiple events.",
+                "Debounce changes for this duration (default: 100ms). \
+                    Adjust if you find that single writes are reported as multiple events.",
                 Some('d'),
             )
             .named(
                 "glob",
-                SyntaxShape::String, // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
+                // SyntaxShape::GlobPattern gets interpreted relative to cwd, so use String instead
+                SyntaxShape::String,
                 "Only report changes for files that match this glob pattern (default: all files)",
                 Some('g'),
             )
             .named(
                 "recursive",
                 SyntaxShape::Boolean,
-                "Watch all directories under `<path>` recursively. Will be ignored if `<path>` is a file (default: true).",
+                "Watch all directories under `<path>` recursively. \
+                    Will be ignored if `<path>` is a file (default: true).",
                 Some('r'),
             )
-            .switch("quiet", "Hide the initial status message (default: false).", Some('q'))
-            .switch("verbose", "Operate in verbose mode (default: false).", Some('v'))
+            .switch(
+                "quiet",
+                "Hide the initial status message (default: false).",
+                Some('q'),
+            )
+            .switch(
+                "verbose",
+                "Operate in verbose mode (default: false).",
+                Some('v'),
+            )
             .category(Category::FileSystem)
     }
 
@@ -93,30 +125,30 @@ impl Command for Watch {
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let cwd = engine_state.cwd_as_string(Some(stack))?;
-        let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+        let path = {
+            let cwd = engine_state.cwd_as_string(Some(stack))?;
+            let path_arg: Spanned<String> = call.req(engine_state, stack, 0)?;
+            let path_no_whitespace = path_arg
+                .item
+                .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
 
-        let path_no_whitespace = path_arg
-            .item
-            .trim_end_matches(|x| matches!(x, '\x09'..='\x0d'));
-
-        let path = nu_path::absolute_with(path_no_whitespace, cwd).map_err(|err| {
-            ShellError::Io(IoError::new(
-                err,
-                path_arg.span,
-                PathBuf::from(path_no_whitespace),
-            ))
-        })?;
-
-        let closure: Option<Closure> = call.opt(engine_state, stack, 1)?;
+            nu_path::absolute_with(path_no_whitespace, cwd).map_err(|err| {
+                ShellError::Io(IoError::new(
+                    err,
+                    path_arg.span,
+                    PathBuf::from(path_no_whitespace),
+                ))
+            })?
+        };
+        let closure: Option<Spanned<Closure>> = call.opt(engine_state, stack, 1)?;
         let verbose = call.has_flag(engine_state, stack, "verbose")?;
         let quiet = call.has_flag(engine_state, stack, "quiet")?;
         let debounce_duration: Duration = call
             .get_flag(engine_state, stack, "debounce")?
             .unwrap_or(DEFAULT_WATCH_DEBOUNCE_DURATION);
 
-        let glob_flag: Option<Spanned<String>> = call.get_flag(engine_state, stack, "glob")?;
-        let glob_pattern = glob_flag
+        let glob_pattern = call
+            .get_flag::<Spanned<String>>(engine_state, stack, "glob")?
             .map(|glob| {
                 let absolute_path = path.join(glob.item);
                 if verbose {
@@ -132,82 +164,64 @@ impl Command for Watch {
             })
             .transpose()?;
 
-        let recursive_flag: Option<Spanned<bool>> =
-            call.get_flag(engine_state, stack, "recursive")?;
-        let recursive_mode = match recursive_flag {
-            Some(recursive) => {
-                if recursive.item {
-                    RecursiveMode::Recursive
-                } else {
-                    RecursiveMode::NonRecursive
-                }
+        let recursive_mode = {
+            let recursive_flag = call
+                .get_flag::<bool>(engine_state, stack, "recursive")?
+                .unwrap_or(true);
+            match recursive_flag {
+                true => RecursiveMode::Recursive,
+                false => RecursiveMode::NonRecursive,
             }
-            None => RecursiveMode::Recursive,
         };
 
-        let (tx, rx) = channel();
-
-        let mut debouncer = new_debouncer(debounce_duration, None, tx).map_err(|err| {
-            ShellError::Generic(GenericError::new(
-                "Failed to create watcher",
-                err.to_string(),
-                call.head,
-            ))
-        })?;
-
-        if let Err(err) = debouncer.watcher().watch(&path, recursive_mode) {
-            return Err(ShellError::Generic(GenericError::new(
-                "Failed to create watcher",
-                err.to_string(),
-                call.head,
-            )));
-        }
-        // need to cache to make sure that rename event works.
-        debouncer.cache().add_root(&path, recursive_mode);
-
-        if !quiet {
-            eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
-        }
-
-        let iter = WatchIterator::new(debouncer, rx, engine_state.signals().clone());
-
-        fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
-            let Some(glob) = glob else { return true };
-            let path = ev
-                .path
-                .as_deref()
-                .or(ev.new_path.as_deref())
-                .expect("at least one of path or new_path should be present");
-            glob.matches_path(path)
-        }
+        let iter = {
+            let (tx, rx) = channel();
+            let mut debouncer = new_debouncer(debounce_duration, None, tx)
+                .and_then(|mut debouncer| {
+                    debouncer.watcher().watch(&path, recursive_mode)?;
+                    Ok(debouncer)
+                })
+                .map_err(|err| {
+                    ShellError::Generic(GenericError::new(
+                        "Failed to create watcher",
+                        err.to_string(),
+                        call.head,
+                    ))
+                })?;
+            // need to cache to make sure that rename event works.
+            debouncer.cache().add_root(&path, recursive_mode);
+            WatchIterator::new(debouncer, rx, engine_state.signals().clone())
+        };
 
         if let Some(closure) = closure {
-            let mut closure = ClosureEval::new(engine_state, stack, closure);
+            report_shell_warning(
+                Some(stack),
+                engine_state,
+                &ShellWarning::Deprecated {
+                    dep_type: "Argument".into(),
+                    label: "remove this".into(),
+                    span: closure.span,
+                    help: "Since 0.113.0, running a closure with `watch` is deprecated. \
+                            Instead, use `watch` by piping its output to `each` \
+                            or as the source of a `for` loop."
+                        .to_string()
+                        .into(),
+                    report_mode: nu_protocol::ReportMode::FirstUse,
+                },
+            );
 
-            for events in iter {
-                for event in events? {
-                    let matches_glob = glob_filter(glob_pattern.as_ref(), &event);
-
-                    if verbose && glob_pattern.is_some() {
-                        eprintln!("Matches glob: {matches_glob}");
-                    }
-
-                    if matches_glob {
-                        let result = closure
-                            .add_arg(event.operation.into_value(head))?
-                            .add_arg(event.path.into_value(head))?
-                            .add_arg(event.new_path.into_value(head))?
-                            .run_with_input(PipelineData::empty());
-
-                        match result {
-                            Ok(val) => val.print_table(engine_state, stack, false, false)?,
-                            Err(err) => report_shell_error(Some(stack), engine_state, &err),
-                        };
-                    }
-                }
-            }
-
-            Ok(PipelineData::empty())
+            #[allow(deprecated)]
+            run_closure(
+                engine_state,
+                stack,
+                head,
+                quiet,
+                verbose,
+                &path,
+                glob_pattern,
+                iter,
+                closure.item,
+            )
         } else {
             let out = iter
                 .flat_map(|e| match e {
@@ -228,16 +242,16 @@ impl Command for Watch {
         vec![
             Example {
                 description: "Run `cargo test` whenever a Rust file changes.",
-                example: "watch . --glob=**/*.rs {|| cargo test }",
+                example: "for _ in (watch . --glob=**/*.rs) { cargo test }",
                 result: None,
             },
             Example {
                 description: "Watch all changes in the current directory.",
-                example: r#"watch . { |op, path, new_path| $"($op) ($path) ($new_path)"}"#,
+                example: "watch . | each { print }",
                 result: None,
             },
             Example {
-                description: "`watch` (when run without a closure) can also emit a stream of events it detects.",
+                description: "Filter, limit and modify `watch`'s output by using it as part of a pipeline.",
                 example: r#"watch /foo/bar
     | where operation == Create
     | first 5
@@ -248,7 +262,7 @@ impl Command for Watch {
             },
             Example {
                 description: "Print file changes with a debounce time of 5 minutes.",
-                example: r#"watch /foo/bar --debounce 5min { |op, path| $"Registered ($op) on ($path)" | print }"#,
+                example: r#"watch /foo/bar --debounce 5min | each {|e| $"Registered ($e.operation) on ($e.path)" | print }"#,
                 result: None,
             },
             Example {
@@ -256,8 +270,68 @@ impl Command for Watch {
                 example: "loop { command; sleep duration }",
                 result: None,
             },
+            Example {
+                description: "Run `cargo test` whenever a Rust file changes (with the deprecated closure argument).",
+                example: "watch . --glob=**/*.rs {|| cargo test }",
+                result: None,
+            },
         ]
     }
+}
+
+fn glob_filter(glob: Option<&nu_glob::Pattern>, ev: &WatchEvent) -> bool {
+    let Some(glob) = glob else { return true };
+    let path = ev
+        .path
+        .as_deref()
+        .or(ev.new_path.as_deref())
+        .expect("at least one of path or new_path should be present");
+    glob.matches_path(path)
+}
+
+#[allow(clippy::too_many_arguments)]
+#[inline]
+#[deprecated(since = "0.113.0")]
+fn run_closure(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    head: Span,
+    quiet: bool,
+    verbose: bool,
+    path: &Path,
+    glob_pattern: Option<nu_glob::Pattern>,
+    iter: WatchIterator,
+    closure: Closure,
+) -> Result<PipelineData, ShellError> {
+    if !quiet {
+        eprintln!("Now watching files at {path:?}. Press ctrl+c to abort.");
+    }
+
+    let mut closure = ClosureEval::new(engine_state, stack, closure);
+    for events in iter {
+        for event in events? {
+            let matches_glob = glob_filter(glob_pattern.as_ref(), &event);
+
+            if verbose && glob_pattern.is_some() {
+                eprintln!("Matches glob: {matches_glob}");
+            }
+
+            if matches_glob {
+                let result = closure
+                    .add_arg(event.operation.into_value(head))?
+                    .add_arg(event.path.into_value(head))?
+                    .add_arg(event.new_path.into_value(head))?
+                    .run_with_input(PipelineData::empty());
+
+                match result {
+                    Ok(val) => val.print_table(engine_state, stack, false, false)?,
+                    Err(err) => report_shell_error(Some(stack), engine_state, &err),
+                };
+            }
+        }
+    }
+
+    Ok(PipelineData::empty())
 }
 
 #[derive(IntoValue)]

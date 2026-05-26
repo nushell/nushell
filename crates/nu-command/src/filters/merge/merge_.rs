@@ -1,5 +1,5 @@
-use super::common::{MergeStrategy, do_merge, typecheck_merge};
 use nu_engine::command_prelude::*;
+use nu_heavy_utils::merge::{self, Merge as _, MergeStrategy};
 
 #[derive(Clone)]
 pub struct Merge;
@@ -96,9 +96,9 @@ repeating this process with row 1, and so on."
         let metadata = input.take_metadata();
         let input = input.into_value(input_span)?;
 
-        typecheck_merge(&input, &merge_value, head)?;
+        merge::typecheck(&input, &merge_value, head)?;
 
-        let merged = do_merge(input, merge_value, MergeStrategy::Shallow, head)?;
+        let merged = input.merge(merge_value, MergeStrategy::Shallow, head)?;
         Ok(merged.into_pipeline_data_with_metadata(metadata))
     }
 }
