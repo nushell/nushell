@@ -4,6 +4,7 @@ use rstest::rstest;
 /// checks that garbage is highlighted as error
 #[rstest]
 #[case::out_pipe_as_garbage("ps out>| $in", "garbage")]
+#[case::out_pipe_as_garbage_external("^ps out>| $in", "garbage")]
 #[case::out_pipe_as_garbage_without_following_elements("ps out>|", "garbage")]
 #[case::and_and_as_garbage("^foobar && ls", "garbage")]
 #[case::number_redirection_as_garbage("^foobar 2> err", "garbage")]
