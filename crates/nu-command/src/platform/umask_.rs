@@ -1,20 +1,10 @@
-use std::ops::Deref;
-
-use nix::libc::mode_t;
 use nu_engine::command_prelude::*;
 use nu_system::get_umask;
 
-/// Wraps umask::Mode, providing conversions to and from mode_t regardless of its
-/// size.
-//
-// The nix::sys::stat::Mode struct (used for setting the umask) only provides
-// conversions to and from nix::libc::mode_t, the size of which is
-// platform-dependant. However, umask::Mode (used for parsing and formatting)
-// only provides conversions for u32, which causes problems on platforms where
-// mode_t is u16.
+/// Wraps umask::Mode, providing u32 conversions.
 struct Mode(umask::Mode);
 
-impl Deref for Mode {
+impl std::ops::Deref for Mode {
     type Target = umask::Mode;
 
     fn deref(&self) -> &Self::Target {
@@ -22,19 +12,15 @@ impl Deref for Mode {
     }
 }
 
-impl From<Mode> for mode_t {
-    #[allow(clippy::unnecessary_cast)]
+impl From<Mode> for u32 {
     fn from(mode: Mode) -> Self {
-        // This is "u32 as u16" or "u32 as u32", depending on platform.
-        u32::from(mode.0) as mode_t
+        u32::from(mode.0)
     }
 }
 
-impl From<mode_t> for Mode {
-    #[allow(clippy::unnecessary_cast)]
-    fn from(value: mode_t) -> Self {
-        // This is "u16 as u32" or "u32 as u32", depending on platform.
-        Self((value as u32).into())
+impl From<u32> for Mode {
+    fn from(value: u32) -> Self {
+        Self(value.into())
     }
 }
 
@@ -92,20 +78,21 @@ impl Command for UMask {
 
             // The `umask` syscall wants the bits to mask *out*, not *in*, so
             // the mask needs inverted before passing it in.
-            let mask_bits = 0o777 ^ mode_t::from(perms);
+            let mask_bits = 0o777 ^ u32::from(perms);
 
-            let mask =
-                nix::sys::stat::Mode::from_bits(mask_bits).ok_or(ShellError::IncorrectValue {
+            let mask = nix::sys::stat::Mode::from_bits(mask_bits as nix::libc::mode_t).ok_or(
+                ShellError::IncorrectValue {
                     // Can't happen? The umask crate shouldn't ever set bits
                     // which the nix crate doesn't recognize.
                     msg: "Invalid mask; unrecognized permission bits.".into(),
                     val_span: perms_val.span,
                     call_span: call.head,
-                })?;
+                },
+            )?;
 
-            nix::sys::stat::umask(mask).bits()
+            nix::sys::stat::umask(mask).bits() as u32
         } else {
-            get_umask() as mode_t
+            get_umask()
         };
 
         // The `umask` syscall wants the bits to mask *out*, not *in*, so
