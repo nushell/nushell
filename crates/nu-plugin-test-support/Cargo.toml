@@ -23,7 +23,7 @@ nu-plugin.workspace = true
 nu-plugin-core.workspace = true
 nu-plugin-engine.workspace = true
 nu-plugin-protocol.workspace = true
-nu-cmd-lang.workspace = true
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
 nu-ansi-term.workspace = true
 similar = "3.1"
 

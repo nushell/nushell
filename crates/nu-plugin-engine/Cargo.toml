@@ -15,7 +15,7 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-engine.workspace = true
+nu-engine = { workspace = true, features = ["plugin"] }
 nu-protocol.workspace = true
 nu-system.workspace = true
 nu-plugin-protocol.workspace = true

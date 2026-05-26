@@ -15,11 +15,11 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol.workspace = true
-nu-parser.workspace = true
+nu-protocol = { workspace = true, features = ["os"] }
 nu-path.workspace = true
+nu-parser.workspace = true
 nu-color-config.workspace = true
-nu-engine.workspace = true
+nu-engine = { workspace = true, features = ["os"] }
 nu-table.workspace = true
 nu-json.workspace = true
 nu-utils.workspace = true

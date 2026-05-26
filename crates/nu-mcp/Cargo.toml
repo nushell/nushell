@@ -16,7 +16,7 @@ nix = { workspace = true, features = ["process"] }
 futures = "0.3.31"
 miette = { workspace = true }
 nu-protocol = { workspace = true, features = ["plugin"] }
-nu-engine.workspace = true
+nu-engine = { workspace = true, features = ["plugin"] }
 nu-parser.workspace = true
 nuon.workspace = true
 
