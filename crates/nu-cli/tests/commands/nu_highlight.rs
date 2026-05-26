@@ -7,7 +7,7 @@ use rstest::rstest;
 #[case::out_pipe_as_garbage_without_following_elements("ps out>|", "garbage")]
 #[case::and_and_as_garbage("^foobar && ls", "garbage")]
 #[case::number_redirection_as_garbage("^foobar 2> err", "garbage")]
-#[case::number_redirection_as_garbage("^foobar 2>&1 err", "garbage")]
+#[case::number_merged_redirection_as_garbage("^foobar 2>&1 err", "garbage")]
 #[case::redirection_pipe_has_a_redirection_part("^ls o+e>| ls", "redirection")]
 #[case::redirection_pipe_has_a_pipe_part("^ls e>| ls", "pipe")]
 #[case::separate_redirection_pipe_has_a_redirection_part("^ls o> foo e>| ls", "redirection")]
