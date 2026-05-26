@@ -106,10 +106,10 @@ optional = false
 version = "=0.53.0"
 
 [dev-dependencies]
-nu-cmd-lang.workspace = true
-nu-engine.workspace = true
-nu-parser.workspace = true
-nu-command.workspace = true
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-parser = { workspace = true, features = ["plugin"] }
+nu-command = { workspace = true, features = ["plugin"] }
 nu-plugin-test-support.workspace = true
 
 tempfile.workspace = true
