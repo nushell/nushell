@@ -319,7 +319,7 @@ fn main() -> Result<()> {
     #[cfg(unix)]
     {
         start_time = nu_utils::time::Instant::now();
-        terminal::acquire(engine_state.is_interactive);
+        let _term_guard = terminal::acquire(engine_state.is_interactive);
         perf!("acquire_terminal", start_time, use_color);
     }
 
