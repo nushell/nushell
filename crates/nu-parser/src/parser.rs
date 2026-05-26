@@ -2252,11 +2252,7 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     // check for unbalanced # and single quotes.
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_sharp_cnt..bytes.len()];
     if postfix_bytes.iter().any(|b| *b != b'#') {
-        working_set.error(ParseError::Unbalanced(
-            "prefix #".to_string(),
-            "postfix #".to_string(),
-            span,
-        ));
+        working_set.error(ParseError::Unbalanced("prefix #", "postfix #", span));
         return garbage(working_set, span);
     }
     // check for unblanaced single quotes.
@@ -2304,7 +2300,7 @@ pub fn parse_paren_expr(
             .first()
             .is_some_and(|e| match e {
                 ParseError::Unclosed(right, _) if (right == ")") => true,
-                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                ParseError::Unbalanced(left, right, _) if *left == "(" && *right == ")" => true,
                 _ => false,
             });
         if malformed_subexpr {
@@ -6764,8 +6760,8 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     };
     while !lex_state.input.is_empty() {
         if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref()
-            && left == "{"
-            && right == "}"
+            && *left == "{"
+            && *right == "}"
         {
             extra_tokens = true;
             unclosed = false;

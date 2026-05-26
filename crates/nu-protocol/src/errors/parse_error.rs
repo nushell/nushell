@@ -45,7 +45,11 @@ pub enum ParseError {
 
     #[error("Unbalanced delimiter.")]
     #[diagnostic(code(nu::parser::unbalanced_delimiter))]
-    Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
+    Unbalanced(
+        &'static str,
+        &'static str,
+        #[label("unbalanced {0} and {1}")] Span,
+    ),
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
