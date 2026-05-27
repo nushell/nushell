@@ -195,6 +195,7 @@ default = ["os", "network", "rustls-tls", "sqlite"]
 os = [
 	# include other features
 	"js",
+	"nu-cmd-lang/os",
 	"nu-engine/os",
 	"nu-protocol/os",
 	"nu-utils/os",

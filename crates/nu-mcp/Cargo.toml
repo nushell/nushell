@@ -41,4 +41,4 @@ mcp = []
 workspace = true
 
 [dev-dependencies]
-nu-cmd-lang.workspace = true
+nu-cmd-lang = { workspace = true, features = ["os"] }

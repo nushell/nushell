@@ -306,7 +306,7 @@ workspace = true
 nu-cli.workspace = true
 nu-cmd-base.workspace = true
 nu-cmd-extra.workspace = true
-nu-cmd-lang= { workspace = true, features = ["os"] }
+nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-cmd-plugin = { workspace = true, optional = true }
 nu-command = { workspace = true, features = ["os"] }
 nu-engine.workspace = true

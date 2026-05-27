@@ -28,8 +28,8 @@ serde_json = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang.workspace = true
-nu-command.workspace = true
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os"] }
 nu-engine.workspace = true
 nu-std.workspace = true
 nu-test-support.workspace = true
