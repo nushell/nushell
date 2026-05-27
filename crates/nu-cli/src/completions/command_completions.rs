@@ -9,7 +9,19 @@ use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
-// TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
+fn formatted_name(name: String, wrap: bool) -> String {
+    if !wrap {
+        return name;
+    }
+    if name.contains('\'') {
+        format!("\"{}\"", name.replace('"', r#"\""#))
+    } else if name.contains(' ') || name.contains('"') {
+        format!("'{name}'")
+    } else {
+        name
+    }
+}
+
 pub struct CommandCompletion {
     /// Whether to include internal commands
     pub internals: bool,
@@ -17,6 +29,8 @@ pub struct CommandCompletion {
     pub externals: bool,
     /// Whether internal completion should include only built-in commands
     pub builtins_only: bool,
+    /// Whether to quote space-seperated internal commands
+    pub quote_internals: bool,
 }
 
 impl CommandCompletion {
@@ -196,7 +210,10 @@ impl Completer for CommandCompletion {
                 }
             } else {
                 working_set.traverse_commands(|name, decl_id| {
-                    let name = String::from_utf8_lossy(name);
+                    let name = formatted_name(
+                        String::from_utf8_lossy(name).into_owned(),
+                        self.quote_internals,
+                    );
                     let command = working_set.get_decl(decl_id);
                     if command.signature().category == Category::Removed {
                         return;
@@ -204,7 +221,7 @@ impl Completer for CommandCompletion {
 
                     let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
                         suggestion: Suggestion {
-                            value: name.to_string(),
+                            value: name.clone(),
                             description: Some(command.description().to_string()),
                             span: sugg_span,
                             append_whitespace: true,
@@ -216,7 +233,7 @@ impl Completer for CommandCompletion {
                         )),
                     });
                     if matched {
-                        internal_suggs.insert(name.to_string());
+                        internal_suggs.insert(name);
                     }
                 });
             }

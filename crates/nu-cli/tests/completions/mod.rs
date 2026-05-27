@@ -770,6 +770,11 @@ fn which_command_completions() {
     #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
+    // commands with spaces
+    let completion_str = "which detect";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["detect", "'detect columns'", "'detect type'"];
+    match_suggestions(&expected, &suggestions);
 }
 
 /// hide-env completes environment variable names
