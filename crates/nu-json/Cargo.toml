@@ -17,7 +17,7 @@ version.workspace = true
 bench = false
 
 [features]
-preserve_order = ["linked-hash-map", "linked-hash-map/serde_impl"]
+preserve_order = ["linked-hash-map", "linked-hash-map/serde_impl", "serde_json/preserve_order"]
 default = ["preserve_order"]
 
 [dependencies]
