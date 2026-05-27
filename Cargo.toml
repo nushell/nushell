@@ -303,24 +303,24 @@ collapsible_match = "allow"
 workspace = true
 
 [dependencies]
-nu-cli.workspace = true
-nu-cmd-base.workspace = true
-nu-cmd-extra.workspace = true
-nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-cli = { workspace = true }
+nu-cmd-base = { workspace = true }
+nu-cmd-extra = { workspace = true }
+nu-cmd-lang = { workspace = true, features = ["default"] }
 nu-cmd-plugin = { workspace = true, optional = true }
-nu-command = { workspace = true, features = ["os"] }
-nu-engine.workspace = true
-nu-experimental.workspace = true
-nu-explore.workspace = true
-nu-lsp.workspace = true
-nu-parser.workspace = true
-nu-path.workspace = true
-nu-plugin-engine = { workspace = true, optional = true }
-nu-protocol.workspace = true
-nu-std.workspace = true
-nu-system.workspace = true
-nu-utils.workspace = true
-nu-mcp = { workspace = true, optional = true }
+nu-command = { workspace = true, features = ["default"] }
+nu-engine = { workspace = true, features = ["default"] }
+nu-experimental = { workspace = true }
+nu-explore = { workspace = true }
+nu-lsp = { workspace = true }
+nu-parser = { workspace = true }
+nu-path = { workspace = true }
+nu-plugin-engine = { workspace = true, features = ["default"], optional = true }
+nu-protocol = { workspace = true, features = ["default"] }
+nu-std = { workspace = true }
+nu-system = { workspace = true }
+nu-utils = { workspace = true, features = ["default"] }
+nu-mcp = { workspace = true, features = ["default"], optional = true }
 reedline = { workspace = true, features = ["bashisms"] }
 
 crossterm = { workspace = true }
