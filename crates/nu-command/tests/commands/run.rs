@@ -36,6 +36,15 @@ fn run_script_with_main_implicit_in() {
 }
 
 #[test]
+fn run_null_passes_pipeline_input_through() {
+    Playground::setup("run_null_passes_pipeline_input_through", |dirs, _| {
+        let actual = nu!(cwd: dirs.test(), r#""hello" | run null"#);
+        assert_eq!(actual.out, "hello");
+        assert!(actual.err.is_empty());
+    });
+}
+
+#[test]
 fn run_script_with_main_parameters_and_flags() {
     Playground::setup(
         "run_script_with_main_parameters_and_flags",
@@ -44,13 +53,13 @@ fn run_script_with_main_parameters_and_flags() {
                 "format.nu",
                 "
                 def main [value: string, --char: string] {
-                    $\"($value) ($char)\"
+                    $\"($in) ($value) ($char)\"
                 }
             ",
             )]);
 
-            let actual = nu!(cwd: dirs.test(), r#""hello" | run format.nu --char "!" "#);
-            assert_eq!(actual.out, "hello !");
+            let actual = nu!(cwd: dirs.test(), r#""hello" | run format.nu "arg" --char "!" "#);
+            assert_eq!(actual.out, "hello arg !");
             assert!(actual.err.is_empty());
         },
     );
@@ -65,16 +74,106 @@ fn run_script_with_main_parameters_and_short_flags() {
                 "format_short.nu",
                 "
                 def main [value: string, --char(-c): string] {
-                    $\"($value) ($char)\"
+                    $\"($in) ($value) ($char)\"
                 }
             ",
             )]);
 
-            let actual = nu!(cwd: dirs.test(), r#""hello" | run format_short.nu -c "!" "#);
-            assert_eq!(actual.out, "hello !");
+            let actual = nu!(cwd: dirs.test(), r#""hello" | run format_short.nu "arg" -c "!" "#);
+            assert_eq!(actual.out, "hello arg !");
             assert!(actual.err.is_empty());
         },
     );
+}
+
+#[test]
+fn run_script_with_main_required_positional_does_not_implicitly_bind_pipeline_input() {
+    Playground::setup(
+        "run_script_with_main_required_positional_does_not_implicitly_bind_pipeline_input",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "needs_arg.nu",
+                "
+                def main [value: string] {
+                    $value
+                }
+            ",
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), r#""hello" | run needs_arg.nu"#);
+            assert!(actual.out.is_empty());
+            assert!(!actual.err.is_empty());
+        },
+    );
+}
+
+#[test]
+fn run_script_with_main_keeps_pipeline_input_in_in_when_positional_is_provided() {
+    Playground::setup(
+        "run_script_with_main_keeps_pipeline_input_in_in_when_positional_is_provided",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "in_and_arg.nu",
+                "
+                def main [file: path] {
+                    $\"($in) -> ($file)\"
+                }
+            ",
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), r#""stream" | run in_and_arg.nu "path.txt""#);
+            assert_eq!(actual.out, "stream -> path.txt");
+            assert!(actual.err.is_empty());
+        },
+    );
+}
+
+#[test]
+fn run_script_with_exported_main_uses_main_entrypoint() {
+    Playground::setup(
+        "run_script_with_exported_main_uses_main_entrypoint",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "exported_main.nu",
+                "
+                export def main [] {
+                    $in | str upcase
+                }
+            ",
+            )]);
+
+            let actual = nu!(cwd: dirs.test(), r#""hello" | run exported_main.nu"#);
+            assert_eq!(actual.out, "HELLO");
+            assert!(actual.err.is_empty());
+        },
+    );
+}
+
+#[test]
+fn run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env() -> Result {
+    Playground::setup(
+        "run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "exported_env_main.nu",
+                "
+                    export def --env main [] {
+                        $env.RUN_LOCAL = 'secret'
+                        $in | str upcase
+                    }
+                ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run(r#""hello" | run exported_env_main.nu"#)
+                .expect_value_eq("HELLO")?;
+            match tester.run("$env.RUN_LOCAL").expect_shell_error()? {
+                ShellError::CantFindColumn { col_name, .. } if col_name == "RUN_LOCAL" => Ok(()),
+                err => Err(err.into()),
+            }
+        },
+    )
 }
 
 #[test]

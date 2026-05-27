@@ -3,7 +3,6 @@ use nu_engine::{
 };
 use nu_path::{absolute_with, is_windows_device_path};
 use nu_protocol::{BlockId, Value, engine::CommandType, shell_error::io::IoError};
-use std::borrow::Cow;
 use std::sync::Arc;
 
 /// Run a script file in an isolated scope as part of a pipeline.
@@ -55,7 +54,7 @@ impl Command for Run {
         // `run null` is parsed as a no-op so pipelines can keep flowing without
         // introducing conditional command dispatch in the runtime path.
         if call.get_parser_info(stack, "noop").is_some() {
-            return Ok(PipelineData::empty());
+            return Ok(input);
         }
 
         // Parser-time metadata tells us exactly which script block was compiled for this call.
@@ -124,25 +123,21 @@ impl Command for Run {
                     eval_block_with_early_return,
                 );
 
-                let mut input_for_main = input;
-                // When `main` declares positional parameters, bind piped input to the first one so:
-                //   "value" | run script.nu --flag x
-                // behaves like:
-                //   main "value" --flag x
-                //
-                // If there are no positional parameters, keep pipeline data as `$in`.
-                if !signature.required_positional.is_empty()
-                    || !signature.optional_positional.is_empty()
-                {
-                    let piped_input_value = input_for_main.into_value(call.head)?;
-                    call_eval.add_positional(&signature, Cow::Owned(piped_input_value))?;
-                    input_for_main = PipelineData::empty();
-                }
-
                 // Forward remaining run arguments (`run file.nu ...args`) to `main`.
-                // This helper normalizes long/short flags and supports AST+IR call representations.
+                // This helper normalizes long/short flags and supports AST+IR call representations
+                // while delegating actual binding/type validation to CallEval.
                 bind_main_arguments(engine_state, stack, call, &signature, &mut call_eval)?;
-                call_eval.run(engine_state, &main_block, input_for_main)
+                call_eval.finalize_for_signature(&signature)?;
+
+                // Execute a signature-stripped copy of `main` after manually binding all
+                // arguments so pipeline input remains available as `$in` and is not rebound
+                // to positional parameters by call-time argument machinery.
+                // Pipeline input passes through as `$in`; positional args come only from
+                // explicit `run file.nu ...args` tokens bound above.
+                let mut executable_main_block = (*main_block).clone();
+                *executable_main_block.signature = Signature::new("main");
+
+                call_eval.run_prebound(engine_state, &executable_main_block, input)
             } else {
                 // No explicit `main`: execute the script block directly in an isolated child stack.
                 // Parent scope values remain readable via stack parenting, but script mutations do
@@ -240,10 +235,11 @@ fn parse_flag_token(engine_state: &EngineState, value: &Value) -> Option<(String
 }
 
 /// Check whether a parsed flag token matches a named parameter from a signature.
+///
+/// Matches on the long name (`--char` → `"char"`) or by comparing the single short character
+/// extracted from a `-c` token against the flag's declared short character.
 fn matches_named_flag(named: &Flag, long: &str, short: Option<&str>) -> bool {
-    named.long == long
-        || short.and_then(|name| name.chars().next()) == named.short
-        || named.short.map(|name| name.to_string()).as_deref() == Some(long)
+    named.long == long || short.and_then(|name| name.chars().next()) == named.short
 }
 
 /// Resolve a parsed flag token to the matching signature flag, if any.
@@ -258,43 +254,53 @@ fn resolve_named_flag<'a>(
         .find(|named| matches_named_flag(named, long, short))
 }
 
-/// Bind `run` arguments (after the script filename) to a script `def main` signature.
-///
-/// Arguments are read in evaluator-agnostic form so this works for both AST and IR execution.
+/// Bind explicit `run file.nu ...args` arguments onto a script `def main` call evaluator.
 fn bind_main_arguments(
     engine_state: &EngineState,
-    stack: &mut Stack,
+    caller_stack: &mut Stack,
     call: &Call,
     signature: &Signature,
     call_eval: &mut CallEval,
 ) -> Result<(), ShellError> {
-    let eval_expression = get_eval_expression(engine_state);
-    let rest_values = call.rest_iter_flattened(engine_state, stack, eval_expression, 1)?;
+    let rest_values = collect_explicit_run_arguments(engine_state, caller_stack, call)?;
 
     let mut index = 0;
     while index < rest_values.len() {
         if let Some((long, short)) = parse_flag_token(engine_state, &rest_values[index]) {
             let matched_flag = resolve_named_flag(signature, &long, short.as_deref());
-            let canonical_long = matched_flag.map(|flag| flag.long.as_str()).unwrap_or(&long);
-            let expects_value = matched_flag.is_some_and(|flag| flag.arg.is_some());
+            if let Some(flag) = matched_flag {
+                let expects_value = flag.arg.is_some();
+                let value = if expects_value
+                    && index + 1 < rest_values.len()
+                    && parse_flag_token(engine_state, &rest_values[index + 1]).is_none()
+                {
+                    index += 1;
+                    Some(std::borrow::Cow::Owned(rest_values[index].clone()))
+                } else {
+                    None
+                };
 
-            let value = if expects_value
-                && index + 1 < rest_values.len()
-                && parse_flag_token(engine_state, &rest_values[index + 1]).is_none()
-            {
-                index += 1;
-                Some(Cow::Owned(rest_values[index].clone()))
-            } else {
-                None
-            };
-
-            call_eval.add_named(signature, canonical_long, short, value)?;
+                call_eval.add_named(signature, &flag.long, short, value)?;
+            }
         } else {
-            call_eval.add_positional(signature, Cow::Owned(rest_values[index].clone()))?;
+            call_eval.add_positional(
+                signature,
+                std::borrow::Cow::Owned(rest_values[index].clone()),
+            )?;
         }
 
         index += 1;
     }
 
     Ok(())
+}
+
+/// Collect only the explicit run arguments after the script filename.
+fn collect_explicit_run_arguments(
+    engine_state: &EngineState,
+    stack: &mut Stack,
+    call: &Call,
+) -> Result<Vec<Value>, ShellError> {
+    let eval_expression = get_eval_expression(engine_state);
+    call.rest_iter_flattened(engine_state, stack, eval_expression, 1)
 }
