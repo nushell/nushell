@@ -29,7 +29,7 @@ pub struct CommandCompletion {
     pub externals: bool,
     /// Whether internal completion should include only built-in commands
     pub builtins_only: bool,
-    /// Whether to quote space-seperated internal commands
+    /// Whether to quote space-separated internal commands
     pub quote_internals: bool,
 }
 
