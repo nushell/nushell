@@ -1022,9 +1022,6 @@ pub fn parse_internal_call(
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
     let output = signature.get_output_type();
-    // Known external commands (declared with `extern`) need `--` passed through to
-    // the external program rather than consumed. Capture this before mutable borrows.
-    let is_known_external = decl.is_known_external();
 
     let deprecation = decl.deprecation_info();
 
@@ -1093,11 +1090,16 @@ pub fn parse_internal_call(
 
             match flag_parse_result {
                 LongFlagParseResult::EndOfOptions => {
-                    if is_known_external {
-                        // For known externals, -- is passed through to the program.
-                        // Fall through to positional parsing so -- becomes a rest arg.
+                    if signature.allows_unknown_args {
+                        // For commands that pass through unknown args (extern, def --wrapped,
+                        // exec, etc.), -- must be forwarded to the underlying program.
+                        // Directly add -- as an unknown arg, then advance past it.
+                        let arg = parse_unknown_arg(working_set, arg_span, &signature);
+                        call.add_unknown(arg);
+                        spans_idx += 1;
+                        continue;
                     } else {
-                        // For internal commands, consume -- and switch to positional-only mode.
+                        // For regular commands, consume -- and switch to positional-only mode.
                         end_of_options = true;
                         spans_idx += 1;
                         continue;

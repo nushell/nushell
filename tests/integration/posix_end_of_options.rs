@@ -78,10 +78,11 @@ fn end_of_options_with_wrapped_command() {
 def --wrapped my_wrap [...args] { $args | str join " " }
 my_wrap -- -flag value
 "#);
-    // In wrapped mode, -- should still be recognized and consumed
+    // def --wrapped passes -- through to the underlying program (it allows unknown args),
+    // so -- itself must appear in the rest args.
+    assert!(actual.out.contains("--"));
     assert!(actual.out.contains("-flag"));
     assert!(actual.out.contains("value"));
-    assert!(!actual.out.contains("--")); // -- should be consumed
 }
 
 #[test]
