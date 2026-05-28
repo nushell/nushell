@@ -159,12 +159,6 @@ fn render_yaml_string(value: &str) -> String {
     }
 }
 
-#[derive(Clone, Copy)]
-enum YamlScalarContext {
-    Key,
-    Value,
-}
-
 /// Returns true when a plain scalar would be resolved to a non-string type.
 ///
 /// We quote these values to preserve string semantics across Core-schema loaders
@@ -193,9 +187,8 @@ fn has_yaml_non_string_semantics(string: &str) -> bool {
 
 /// Returns true when a scalar must be quoted to remain valid and unambiguous.
 ///
-/// This helper applies plain-scalar restrictions and then context-specific
-/// constraints for implicit mapping keys vs values.
-fn should_quote_yaml_scalar(string: &str, context: YamlScalarContext) -> bool {
+/// This helper applies YAML plain-scalar restrictions shared by keys and values.
+fn should_quote_yaml_scalar(string: &str) -> bool {
     fn needs_quotes_due_to_start(string: &str) -> bool {
         let mut chars = string.chars();
         let Some(first) = chars.next() else {
@@ -224,27 +217,15 @@ fn should_quote_yaml_scalar(string: &str, context: YamlScalarContext) -> bool {
     // Plain scalars cannot contain these combinations.
     let has_plain_ambiguity = string.contains(": ") || string.contains(" #");
 
-    match context {
-        YamlScalarContext::Key | YamlScalarContext::Value => {
-            needs_quotes_due_to_start(string) || has_plain_ambiguity
-        }
-    }
-}
-
-fn should_quote_yaml_key(string: &str) -> bool {
-    should_quote_yaml_scalar(string, YamlScalarContext::Key)
+    needs_quotes_due_to_start(string) || has_plain_ambiguity
 }
 
 fn render_yaml_key(key: &serde_yaml::Value) -> String {
     match key {
-        serde_yaml::Value::String(key) if should_quote_yaml_key(key) => render_yaml_string(key),
+        serde_yaml::Value::String(key) if should_quote_yaml_scalar(key) => render_yaml_string(key),
         serde_yaml::Value::String(key) => key.clone(),
         _ => render_inline_yaml_value(key),
     }
-}
-
-fn should_quote_yaml_string(string: &str) -> bool {
-    should_quote_yaml_scalar(string, YamlScalarContext::Value)
 }
 
 fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
@@ -252,7 +233,7 @@ fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
         serde_yaml::Value::Null => "null".to_string(),
         serde_yaml::Value::Bool(value) => value.to_string(),
         serde_yaml::Value::Number(value) => value.to_string(),
-        serde_yaml::Value::String(value) if should_quote_yaml_string(value) => {
+        serde_yaml::Value::String(value) if should_quote_yaml_scalar(value) => {
             render_yaml_string(value)
         }
         serde_yaml::Value::String(value) => value.clone(),
