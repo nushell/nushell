@@ -37,10 +37,10 @@ fn echo_before_and_after_end_of_options() -> Result {
 fn custom_command_with_end_of_options_and_positional() -> Result {
     test()
         .run(
-            r#"
+            "
             def my_cmd [x y] { [$x $y] }
             my_cmd -- -value1 -value2
-        "#,
+        ",
         )
         .expect_value_eq(vec!["-value1", "-value2"])
 }
@@ -49,10 +49,10 @@ fn custom_command_with_end_of_options_and_positional() -> Result {
 fn custom_command_with_end_of_options_and_rest() -> Result {
     test()
         .run(
-            r#"
+            "
             def my_cmd [x ...rest] { [$x] ++ $rest }
             my_cmd first -- -second -third
-        "#,
+        ",
         )
         .expect_value_eq(vec!["first", "-second", "-third"])
 }
@@ -62,10 +62,10 @@ fn custom_command_with_flags_before_end_of_options() -> Result {
     // --flag is a boolean switch; value1 becomes the first positional x
     test()
         .run(
-            r#"
+            "
             def my_cmd [--flag x y z] { [$x $y $z] }
             my_cmd --flag value1 -- -value2 -value3
-        "#,
+        ",
         )
         .expect_value_eq(vec!["value1", "-value2", "-value3"])
 }
@@ -74,10 +74,10 @@ fn custom_command_with_flags_before_end_of_options() -> Result {
 fn custom_command_with_optional_positional_and_end_of_options() -> Result {
     test()
         .run(
-            r#"
+            "
             def my_cmd [x y?] { if ($y == null) { $x } else { [$x $y] } }
             my_cmd -- -value1 -value2
-        "#,
+        ",
         )
         .expect_value_eq(vec!["-value1", "-value2"])
 }
@@ -135,10 +135,10 @@ fn custom_command_short_flags_before_end_of_options() -> Result {
     // -f and --long are boolean switches; value1 becomes positional x
     test()
         .run(
-            r#"
+            "
             def my_cmd [-f --long x y z] { [$x $y $z] }
             my_cmd -f --long value1 -- -value2 -value3
-        "#,
+        ",
         )
         .expect_value_eq(vec!["value1", "-value2", "-value3"])
 }
@@ -156,10 +156,10 @@ fn end_of_options_preserves_special_chars() -> Result {
 fn end_of_options_with_equals_syntax() -> Result {
     test()
         .run(
-            r#"
+            "
             def my_cmd [--flag: string, y] { [$flag $y] }
             my_cmd --flag=value1 -- -value2
-        "#,
+        ",
         )
         .expect_value_eq(vec!["value1", "-value2"])
 }
@@ -179,7 +179,7 @@ fn end_of_options_no_args_after() -> Result {
 #[test]
 fn external_command_with_end_of_options() -> Result {
     // External commands receive -- and following args verbatim
-    let out: String = test().inherit_path().run(r#"^echo -- -n hello"#)?;
+    let out: String = test().inherit_path().run("^echo -- -n hello")?;
     assert!(out.contains("--"), "expected '--' in output, got: {out}");
     assert!(out.contains("-n"), "expected '-n' in output, got: {out}");
     Ok(())
@@ -189,10 +189,10 @@ fn external_command_with_end_of_options() -> Result {
 fn custom_command_rest_param_with_end_of_options() -> Result {
     test()
         .run(
-            r#"
+            "
             def collect_args [...args] { $args | length }
             collect_args -- -a -b -c
-        "#,
+        ",
         )
         .expect_value_eq(3i64)
 }
@@ -202,10 +202,10 @@ fn end_of_options_with_negative_numbers() -> Result {
     // -5 after -- is treated as a positional integer literal, not a flag
     test()
         .run(
-            r#"
+            "
             def add_nums [x y] { $x + $y }
             add_nums -- -5 10
-        "#,
+        ",
         )
         .expect_value_eq(5i64)
 }
@@ -214,10 +214,10 @@ fn end_of_options_with_negative_numbers() -> Result {
 fn custom_command_mixed_positionals_and_flags_with_end_of_options() -> Result {
     test()
         .run(
-            r#"
+            "
             def complex [x --flag: string y z] { [$x $flag $y $z] }
             complex first --flag flagval -- -second -third
-        "#,
+        ",
         )
         .expect_value_eq(vec!["first", "flagval", "-second", "-third"])
 }
