@@ -36,20 +36,24 @@ fn echo_before_and_after_end_of_options() -> Result {
 #[test]
 fn custom_command_with_end_of_options_and_positional() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [x y] { [$x $y] }
             my_cmd -- -value1 -value2
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["-value1", "-value2"])
 }
 
 #[test]
 fn custom_command_with_end_of_options_and_rest() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [x ...rest] { [$x] ++ $rest }
             my_cmd first -- -second -third
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["first", "-second", "-third"])
 }
 
@@ -57,20 +61,24 @@ fn custom_command_with_end_of_options_and_rest() -> Result {
 fn custom_command_with_flags_before_end_of_options() -> Result {
     // --flag is a boolean switch; value1 becomes the first positional x
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [--flag x y z] { [$x $y $z] }
             my_cmd --flag value1 -- -value2 -value3
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["value1", "-value2", "-value3"])
 }
 
 #[test]
 fn custom_command_with_optional_positional_and_end_of_options() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [x y?] { if ($y == null) { $x } else { [$x $y] } }
             my_cmd -- -value1 -value2
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["-value1", "-value2"])
 }
 
@@ -79,10 +87,12 @@ fn end_of_options_with_wrapped_command() -> Result {
     // def --wrapped passes -- through to the underlying program (allows_unknown_args),
     // so -- itself must appear in the rest args.
     test()
-        .run(r#"
+        .run(
+            r#"
             def --wrapped my_wrap [...args] { $args | str join " " }
             my_wrap -- -flag value
-        "#)
+        "#,
+        )
         .expect_value_eq("-- -flag value")
 }
 
@@ -98,10 +108,12 @@ fn end_of_options_multiple_occurrences() -> Result {
 fn end_of_options_with_spread_operator() -> Result {
     // Spread operator still works after --
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [...rest] { $rest | str join " " }
             my_cmd -- ...["-a" "-b"]
-        "#)
+        "#,
+        )
         .expect_value_eq("-a -b")
 }
 
@@ -122,10 +134,12 @@ fn end_of_options_with_unknown_args() -> Result {
 fn custom_command_short_flags_before_end_of_options() -> Result {
     // -f and --long are boolean switches; value1 becomes positional x
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [-f --long x y z] { [$x $y $z] }
             my_cmd -f --long value1 -- -value2 -value3
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["value1", "-value2", "-value3"])
 }
 
@@ -141,20 +155,24 @@ fn end_of_options_preserves_special_chars() -> Result {
 #[test]
 fn end_of_options_with_equals_syntax() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [--flag: string, y] { [$flag $y] }
             my_cmd --flag=value1 -- -value2
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["value1", "-value2"])
 }
 
 #[test]
 fn end_of_options_no_args_after() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def my_cmd [x?] { if ($x == null) { "empty" } else { $x } }
             my_cmd --
-        "#)
+        "#,
+        )
         .expect_value_eq("empty")
 }
 
@@ -170,10 +188,12 @@ fn external_command_with_end_of_options() -> Result {
 #[test]
 fn custom_command_rest_param_with_end_of_options() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def collect_args [...args] { $args | length }
             collect_args -- -a -b -c
-        "#)
+        "#,
+        )
         .expect_value_eq(3i64)
 }
 
@@ -181,19 +201,23 @@ fn custom_command_rest_param_with_end_of_options() -> Result {
 fn end_of_options_with_negative_numbers() -> Result {
     // -5 after -- is treated as a positional integer literal, not a flag
     test()
-        .run(r#"
+        .run(
+            r#"
             def add_nums [x y] { $x + $y }
             add_nums -- -5 10
-        "#)
+        "#,
+        )
         .expect_value_eq(5i64)
 }
 
 #[test]
 fn custom_command_mixed_positionals_and_flags_with_end_of_options() -> Result {
     test()
-        .run(r#"
+        .run(
+            r#"
             def complex [x --flag: string y z] { [$x $flag $y $z] }
             complex first --flag flagval -- -second -third
-        "#)
+        "#,
+        )
         .expect_value_eq(vec!["first", "flagval", "-second", "-third"])
 }
