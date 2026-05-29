@@ -1230,6 +1230,12 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+    // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
+    // whether to suppress or rethrow.
+    let stderr_pipe_separate = matches!(
+        redirect_err.as_ref(),
+        Some(Redirection::Pipe(OutDest::PipeSeparate))
+    );
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1270,7 +1276,16 @@ fn eval_call<D: DebugContext>(
 
             result
         } else {
-            check_input_types(&input, &decl.signature(), head)?;
+            // `ignore` intentionally handles upstream error values at command level.
+            // Skip early input-error propagation for the built-in `ignore` command so
+            // `run()` can apply `--stderr`/`--show-errors` semantics.
+            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+                && engine_state
+                    .find_decl(b"ignore", &[])
+                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+            if !allow_error_input {
+                check_input_types(&input, &decl.signature(), head)?;
+            }
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1307,7 +1322,10 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
-    result
+    match result {
+        Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
+        result => result,
+    }
 }
 
 fn find_named_var_id(
