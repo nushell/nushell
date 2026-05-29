@@ -624,8 +624,8 @@ fn deep_import_patterns() {
                 export module beans {
                     export def foo [] { 'foo' };
                     export def bar [] { 'bar' }
-                };
-            };
+                }; export use beans
+            }; export use eggs
         }
     ";
 
@@ -661,8 +661,8 @@ fn deep_import_aliased_external_args(
             export module eggs {
                 export module beans {
                     export alias foo = ^echo
-                }
-            }
+                }; export use beans
+            }; export use eggs
         }
     ";
     let actual = nu!(format!("{module_decl}; {input}"));
