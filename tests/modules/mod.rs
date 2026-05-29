@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::prelude::{Result, TestResultExt, test};
+use nu_test_support::prelude::*;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -669,54 +669,21 @@ fn deep_import_aliased_external_args(
     assert_eq!(actual.out, "bar");
 }
 
-#[test]
-fn module_dir() {
-    let import = "use samples/spam";
-
-    let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spam");
-
-    let inp = &[import, "spam foo"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foo");
-
-    let inp = &[import, "spam bar"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "bar");
-
-    let inp = &[import, "spam foo baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foobaz");
-
-    let inp = &[import, "spam bar baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "barbaz");
-
-    let inp = &[import, "spam baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spambaz");
-}
-
-#[test]
-fn module_dir_deep() {
-    let import = "use samples/spam";
-
-    let inp = &[import, "spam bacon"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "bacon");
-
-    let inp = &[import, "spam bacon foo"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "bacon foo");
-
-    let inp = &[import, "spam bacon beans"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "beans");
-
-    let inp = &[import, "spam bacon beans foo"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "beans foo");
+#[rstest]
+#[case("spam", "spam")]
+#[case("spam foo", "foo")]
+#[case("spam bar", "bar")]
+#[case("spam foo baz", "foobaz")]
+#[case("spam bar baz", "barbaz")]
+#[case("spam baz", "spambaz")]
+#[case::deep("spam bacon", "bacon")]
+#[case::deep("spam bacon foo", "bacon foo")]
+#[case::deep("spam bacon beans", "beans")]
+#[case::deep("spam bacon beans foo", "beans foo")]
+fn module_dir(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
+    let mut tester = test().cwd("tests/modules");
+    let () = tester.run("use samples/spam")?;
+    tester.run(code).expect_value_eq(expected)
 }
 
 #[test]
