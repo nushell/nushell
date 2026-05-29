@@ -770,10 +770,23 @@ fn which_command_completions() {
     #[cfg(not(windows))]
     let expected: Vec<_> = vec!["sleep", "%sleep", "^sleep"];
     match_suggestions(&expected, &suggestions);
-    // commands with spaces
-    let completion_str = "which detect";
+}
+
+#[test]
+fn which_command_quoted_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"def "foo's" [] {}; def 'foo"s' [] {}; def "foo\"b\"a'r" [] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Commands with spaces
+    let completion_str = "which \"detect";
     let suggestions = completer.complete(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["detect", "'detect columns'", "'detect type'"];
+    match_suggestions(&expected, &suggestions);
+    // Commands with quotes
+    let completion_str = "which foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["'foo\"s'", "\"foo's\"", r#""foo\"b\"a'r""#];
     match_suggestions(&expected, &suggestions);
 }
 
