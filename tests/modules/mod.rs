@@ -814,7 +814,7 @@ fn nested_list_export_works() {
 fn reload_submodules(#[case] inp: &[&str]) {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("voice.nu", "export module animals.nu"),
+            FileWithContent("voice.nu", "export module animals.nu; export use animals"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
