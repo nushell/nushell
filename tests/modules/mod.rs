@@ -791,8 +791,9 @@ fn nested_list_export_works() {
         "use voice.nu",
         r#""export def cat [] {'woem'}" | save -f animals.nu"#,
         "use voice.nu",
-        "(voice animals cat) == 'woem'",
-    ]
+    ],
+    "voice animals cat",
+    "woem"
 )]
 #[case(
     &[
@@ -800,27 +801,36 @@ fn nested_list_export_works() {
         r#""export def cat [] {'meow'}" | save -f animals.nu"#,
         // should also verify something unchanged if `use voice`.
         "use voice",
-        "(voice animals cat) == 'woem'",
-    ]
+    ],
+    "voice animals cat",
+    "woem"
 )]
 #[case(
     &[
         "use voice.nu animals cat",
         r#""export def cat [] {'woem'}" | save -f animals.nu"#,
         "use voice.nu animals cat",
-        "(cat) == 'woem'",
-    ]
+    ],
+    "cat",
+    "woem"
 )]
-fn reload_submodules(#[case] inp: &[&str]) {
+fn reload_submodules(
+    #[case] setup: &[&str],
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContent("voice.nu", "export module animals.nu; export use animals"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(inp));
-        assert_eq!(actual.out, "true");
-    });
+        let mut tester = test().cwd(dirs.test());
+        for line in setup {
+            let () = tester.run(line)?;
+        }
+        tester.run(code).expect_value_eq(expected)
+    })
 }
 
 #[test]
