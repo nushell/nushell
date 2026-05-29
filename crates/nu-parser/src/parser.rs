@@ -544,7 +544,7 @@ fn ensure_flag_arg_type(
 /// or the end-of-options delimiter `--` was found (which stops all flag parsing).
 enum LongFlagParseResult {
     /// A long flag was successfully parsed: (flag_name, value_expression)
-    FoundFlag(Option<Spanned<String>>, Option<Expression>),
+    FoundFlag(Spanned<String>, Option<Expression>),
     /// No long flag found at this position
     NoFlag,
     /// End-of-options delimiter `--` found; stop flag parsing
@@ -587,14 +587,14 @@ fn parse_long_flag(
                             arg_shape,
                             Span::new(arg_span.start, arg_span.start + long_name_len + 2),
                         );
-                        LongFlagParseResult::FoundFlag(Some(arg_name), Some(val_expression))
+                        LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
                         let arg = parse_value(working_set, *arg, arg_shape);
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
                             ensure_flag_arg_type(working_set, long_name, arg, arg_shape, arg_span);
-                        LongFlagParseResult::FoundFlag(Some(arg_name), Some(val_expression))
+                        LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else {
                         working_set.error(ParseError::MissingFlagParam(
                             arg_shape.to_string(),
@@ -603,10 +603,10 @@ fn parse_long_flag(
                         // NOTE: still need to cover this incomplete flag in the final expression
                         // see https://github.com/nushell/nushell/issues/16375
                         LongFlagParseResult::FoundFlag(
-                            Some(Spanned {
+                            Spanned {
                                 item: long_name,
                                 span: arg_span,
-                            }),
+                            },
                             None,
                         )
                     }
@@ -628,13 +628,13 @@ fn parse_long_flag(
                             &SyntaxShape::Boolean,
                             Span::new(arg_span.start, arg_span.start + long_name_len + 2),
                         );
-                        LongFlagParseResult::FoundFlag(Some(arg_name), Some(val_expression))
+                        LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else {
                         LongFlagParseResult::FoundFlag(
-                            Some(Spanned {
+                            Spanned {
                                 item: long_name,
                                 span: arg_span,
-                            }),
+                            },
                             None,
                         )
                     }
@@ -650,20 +650,20 @@ fn parse_long_flag(
                     suggestion,
                 ));
                 LongFlagParseResult::FoundFlag(
-                    Some(Spanned {
+                    Spanned {
                         item: long_name.clone(),
                         span: arg_span,
-                    }),
+                    },
                     None,
                 )
             }
         } else {
             working_set.error(ParseError::NonUtf8(arg_span));
             LongFlagParseResult::FoundFlag(
-                Some(Spanned {
+                Spanned {
                     item: "--".into(),
                     span: arg_span,
-                }),
+                },
                 None,
             )
         }
@@ -1106,25 +1106,22 @@ pub fn parse_internal_call(
                     }
                 }
                 LongFlagParseResult::FoundFlag(long_name, arg) => {
-                    if let Some(long_name) = long_name {
-                        // We found a long flag, like --bar
-                        if working_set.parse_errors[starting_error_count..]
-                            .iter()
-                            .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
-                            && signature.allows_unknown_args
-                        {
-                            working_set.parse_errors.truncate(starting_error_count);
-                            let arg = parse_unknown_arg(working_set, arg_span, &signature);
+                    // We found a long flag, like --bar
+                    if working_set.parse_errors[starting_error_count..]
+                        .iter()
+                        .any(|x| matches!(x, ParseError::UnknownFlag(_, _, _, _)))
+                        && signature.allows_unknown_args
+                    {
+                        working_set.parse_errors.truncate(starting_error_count);
+                        let arg = parse_unknown_arg(working_set, arg_span, &signature);
 
-                            call.add_unknown(arg);
-                        } else {
-                            call.add_named((long_name, None, arg));
-                        }
-
-                        spans_idx += 1;
-                        continue;
+                        call.add_unknown(arg);
+                    } else {
+                        call.add_named((long_name, None, arg));
                     }
-                    // If long_name is None, fall through to short flag parsing
+
+                    spans_idx += 1;
+                    continue;
                 }
                 LongFlagParseResult::NoFlag => {
                     // No long flag found, continue to short flag parsing
