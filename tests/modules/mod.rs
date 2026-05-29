@@ -803,7 +803,7 @@ fn nested_list_export_works() {
         "use voice",
     ],
     "voice animals cat",
-    "woem"
+    "meow"
 )]
 #[case(
     &[
