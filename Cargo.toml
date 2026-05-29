@@ -351,7 +351,7 @@ nix = { workspace = true, default-features = false, features = [
 ] }
 
 [dev-dependencies]
-nu-test-support = { path = "./crates/nu-test-support", version = "0.113.1", features = ["os"] }
+nu-test-support = { path = "./crates/nu-test-support", features = ["os"] }
 nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.113.1" }
 nu-table = { path = "./crates/nu-table", version = "0.113.1" }
 nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.113.1" }

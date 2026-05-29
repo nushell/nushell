@@ -31,7 +31,7 @@ shadow-rs = { version = "2.0", default-features = false }
 shadow-rs = { version = "2.0", default-features = false, features = ["build"] }
 
 [dev-dependencies]
-nu-test-support.workspace = true
+nu-test-support = { path = "../nu-test-support" }
 
 quickcheck = { workspace = true }
 quickcheck_macros = { workspace = true }

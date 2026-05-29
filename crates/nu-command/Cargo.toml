@@ -254,7 +254,7 @@ trash-support = ["trash"]
 
 [dev-dependencies]
 nu-cmd-lang.workspace = true
-nu-test-support.workspace = true
+nu-test-support = { path = "../nu-test-support" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }
