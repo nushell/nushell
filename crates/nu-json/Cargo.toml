@@ -30,7 +30,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-nu-test-support.workspace = true
+nu-test-support = { path = "../nu-test-support" }
 nu-path.workspace = true
 
 serde_json = "1.0"
