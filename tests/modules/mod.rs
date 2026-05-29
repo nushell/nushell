@@ -785,45 +785,40 @@ fn nested_list_export_works() {
     assert_eq!(actual.out, "bacon");
 }
 
-#[test]
-fn reload_submodules() {
+#[rstest]
+#[case(
+    &[
+        "use voice.nu",
+        r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+        "use voice.nu",
+        "(voice animals cat) == 'woem'",
+    ]
+)]
+#[case(
+    &[
+        "use voice.nu",
+        r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+        // should also verify something unchanged if `use voice`.
+        "use voice",
+        "(voice animals cat) == 'woem'",
+    ]
+)]
+#[case(
+    &[
+        "use voice.nu animals cat",
+        r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+        "use voice.nu animals cat",
+        "(cat) == 'woem'",
+    ]
+)]
+fn reload_submodules(#[case] inp: &[&str]) {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
             FileWithContent("voice.nu", "export module animals.nu"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
-        let inp = [
-            "use voice.nu",
-            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
-            "use voice.nu",
-            "(voice animals cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual.out, "true");
-
-        // should also verify something unchanged if `use voice`.
-        let inp = [
-            "use voice.nu",
-            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
-            "use voice",
-            "(voice animals cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual.out, "true");
-
-        // should also works if we use members directly.
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export module animals.nu"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
-        ]);
-        let inp = [
-            "use voice.nu animals cat",
-            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
-            "use voice.nu animals cat",
-            "(cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
+        let actual = nu!(cwd: dirs.test(), nu_repl_code(inp));
         assert_eq!(actual.out, "true");
     });
 }
