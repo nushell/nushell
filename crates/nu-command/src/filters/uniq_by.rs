@@ -1,6 +1,6 @@
 pub use super::uniq;
-use nu_engine::{column::nonexistent_column, command_prelude::*};
-use nu_protocol::shell_error::generic::GenericError;
+use nu_engine::command_prelude::*;
+use nu_protocol::{ast::PathMember, casing::Casing};
 
 #[derive(Clone)]
 pub struct UniqBy;
@@ -131,25 +131,14 @@ impl Command for UniqBy {
 }
 
 fn validate(vec: &[Value], columns: &[String], span: Span) -> Result<(), ShellError> {
-    let first = vec.first();
-    if let Some(v) = first {
-        let val_span = v.span();
-        if let Value::Record { val: record, .. } = &v {
-            if columns.is_empty() {
-                return Err(ShellError::Generic(GenericError::new(
-                    "expected name",
-                    "requires a column name to filter table data",
-                    span,
-                )));
-            }
-
-            if let Some(nonexistent) = nonexistent_column(columns, record.columns()) {
-                return Err(ShellError::CantFindColumn {
-                    col_name: nonexistent,
-                    span: Some(span),
-                    src_span: val_span,
-                });
-            }
+    // Perform a real cell-path access for every element and column, mirroring how
+    // `group-by` resolves cell paths (see `group_cell_path`). This yields the natural
+    // errors: `IncompatiblePathAccess` for non-record input ("<type> doesn't support
+    // cell paths") and `CantFindColumn`/`DidYouMean` for records missing the column.
+    for v in vec {
+        for col in columns {
+            let member = PathMember::string(col.clone(), false, Casing::Sensitive, span);
+            v.follow_cell_path(std::slice::from_ref(&member))?;
         }
     }
 
