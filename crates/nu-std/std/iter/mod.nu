@@ -17,8 +17,11 @@
 @example "Try to find an even element" { ["shell", "abc", "around", "nushell", "std"] | iter find {|e| $e mod 2 == 0} } --result null
 export def find [
     fn: closure # the closure used to perform the search 
+]: [
+    list -> any
+    range -> oneof<number, nothing>
 ] {
-    where {|e| try {do $fn $e} } | try { first }
+    where {|e| try {do $fn $e} } | first
 }
 
 # Returns the index of the first element that matches the predicate or -1 if none
