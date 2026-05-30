@@ -1,7 +1,21 @@
-use nu_cmd_base::input_handler::{CellPathOnlyArgs, operate};
+use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+
+struct Arguments {
+    cell_paths: Option<Vec<CellPath>>,
+    ascii_set: &'static AsciiSet,
+}
+
+static ASCII_SET_ALL: &AsciiSet = NON_ALPHANUMERIC;
+static ASCII_SET_NOT_ALL: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
+
+impl CmdArgument for Arguments {
+    fn take_cell_paths(&mut self) -> Option<Vec<CellPath>> {
+        self.cell_paths.take()
+    }
+}
 
 #[derive(Clone)]
 pub struct UrlEncode;
@@ -48,12 +62,16 @@ impl Command for UrlEncode {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let cell_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        let args = CellPathOnlyArgs::from(cell_paths);
-        if call.has_flag(engine_state, stack, "all")? {
-            operate(action_all, args, input, call.head, engine_state.signals())
-        } else {
-            operate(action, args, input, call.head, engine_state.signals())
-        }
+        let cell_paths = Some(cell_paths).filter(|v| !v.is_empty());
+        let ascii_set = match call.has_flag(engine_state, stack, "all")? {
+            true => ASCII_SET_ALL,
+            false => ASCII_SET_NOT_ALL,
+        };
+        let args = Arguments {
+            cell_paths,
+            ascii_set,
+        };
+        operate(action, args, input, call.head, engine_state.signals())
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -86,30 +104,11 @@ impl Command for UrlEncode {
     }
 }
 
-fn action_all(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
+fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val, .. } => {
-            const FRAGMENT: &AsciiSet = NON_ALPHANUMERIC;
-            Value::string(utf8_percent_encode(val, FRAGMENT).to_string(), head)
-        }
-        Value::Error { .. } => input.clone(),
-        _ => Value::error(
-            ShellError::OnlySupportsThisInputType {
-                exp_input_type: "string".into(),
-                wrong_type: input.get_type().to_string(),
-                dst_span: head,
-                src_span: input.span(),
-            },
-            head,
-        ),
-    }
-}
-
-fn action(input: &Value, _arg: &CellPathOnlyArgs, head: Span) -> Value {
-    match input {
-        Value::String { val, .. } => {
-            const FRAGMENT: &AsciiSet = &NON_ALPHANUMERIC.remove(b'/').remove(b':').remove(b'.');
-            Value::string(utf8_percent_encode(val, FRAGMENT).to_string(), head)
+            let utf8_percent_encode = utf8_percent_encode(val, args.ascii_set);
+            Value::string(utf8_percent_encode.to_string(), head)
         }
         Value::Error { .. } => input.clone(),
         _ => Value::error(
