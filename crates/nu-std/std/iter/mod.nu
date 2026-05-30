@@ -55,6 +55,14 @@ export def intersperse [
     each --flatten { [$separator $in] } | skip 1
 }
 
+def scan-with-init [init: any, closure: closure] {
+    generate {|e, acc|
+        let out = $acc | do $closure $e $acc
+        {next: $out, out: $out}
+    } $init
+    | prepend [$init]
+}
+
 # Returns a list of intermediate steps performed by `reduce` (`fold`).
 #
 # It takes two arguments:
@@ -64,22 +72,39 @@ export def intersperse [
 #   2. the internal state
 #
 # The internal state is also provided as pipeline input.
-@example "Get a running sum of the input list" {
-    [1 2 3] | iter scan 0 {|x, y| $x + $y}
-} --result [0, 1, 3, 6]
-@example "use the `--noinit(-n)` flag to remove the initial value from the final result" {
-    [1 2 3] | iter scan 0 {|x, y| $x + $y} -n
+@example "Get a running sum of the input list." {
+    [1 2 3] | iter scan {|x, y| $x + $y}
 } --result [1, 3, 6]
-export def scan [ # -> list<any>
-    init: any            # initial value to seed the initial state
-    fn: closure          # the closure to perform the scan
-    --noinit(-n)         # remove the initial value from the result
+@example "Append items to a list one at a time and receive all steps." {
+    [1 2 3] | iter scan --fold [] {|e, acc| $acc ++ [$e]}
+} --result [[], [1], [1, 2], [1, 2, 3]]
+export def scan [
+    --fold(-f): any  # Scan with initial value.
+    closure: closure # Scanning closure.
+]: [
+    list -> list
+    range -> list
 ] {
-    generate {|e, acc|
-        let out = $acc | do $fn $e $acc
-        {next: $out, out: $out}
-    } $init
-    | if not $noinit { prepend $init } else { }
+    match (
+        # we really need to a better way to discern why `$flag == null`
+        # - `cmd`
+        # - `cmd --flag null`
+        $fold == null and not (if true {
+            let span = (metadata $fold).span
+            let src = view span $span.start $span.end
+            ($src starts-with "--foo" or $src starts-with "-f")
+        })
+    ) {
+        # --fold
+        false => { scan-with-init $fold $closure }
+        # no --fold
+        true => {
+            peek 1 | metadata access {|md| match $md.peek.value {
+                [] => []
+                [$init] => { skip 1 | scan-with-init $init $closure }
+            }}
+        }
+    }
 }
 
 # Returns a list of values for which the supplied closure does not return `null` or an error.
