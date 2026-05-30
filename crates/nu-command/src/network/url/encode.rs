@@ -1,7 +1,7 @@
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
 
-use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, percent_encode, utf8_percent_encode};
 
 struct Arguments {
     cell_paths: Option<Vec<CellPath>>,
@@ -29,7 +29,8 @@ impl Command for UrlEncode {
         Signature::build("url encode")
             .input_output_types(vec![
                 (Type::String, Type::String),
-                (Type::List(Box::new(Type::String)), Type::List(Box::new(Type::String))),
+                (Type::Binary, Type::String),
+                (Type::List(Box::new(Type::one_of([Type::String, Type::Binary]))), Type::List(Box::new(Type::String))),
                 (Type::table(), Type::table()),
                 (Type::record(), Type::record()),
             ])
@@ -108,6 +109,10 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
     match input {
         Value::String { val, .. } => {
             let utf8_percent_encode = utf8_percent_encode(val, args.ascii_set);
+            Value::string(utf8_percent_encode.to_string(), head)
+        }
+        Value::Binary { val, .. } => {
+            let utf8_percent_encode = percent_encode(val, args.ascii_set);
             Value::string(utf8_percent_encode.to_string(), head)
         }
         Value::Error { .. } => input.clone(),
