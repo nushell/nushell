@@ -96,6 +96,11 @@ impl Command for UrlDecode {
                     Span::test_data(),
                 )),
             },
+            Example {
+                description: "Decode a percent-encoded iso-8859-1 string.",
+                example: "'%A3%20rates' | url decode --binary | decode iso-8859-1",
+                result: Some(Value::test_string("£ rates")),
+            },
         ]
     }
 }

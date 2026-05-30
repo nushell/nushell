@@ -101,6 +101,11 @@ impl Command for UrlEncode {
                     "https%3A%2F%2Fexample%2Ecom%2Ffoo%20bar",
                 )),
             },
+            Example {
+                description: "Encode a iso-8859-1 encoded string.",
+                example: "'£ rates' | encode iso-8859-1 | url encode",
+                result: Some(Value::test_string("%A3%20rates")),
+            },
         ]
     }
 }
