@@ -264,13 +264,16 @@ fn cast_series(series: Series, dtype: &DataType, span: Span) -> Result<Series, S
 
 #[cfg(test)]
 mod test {
-    use nu_command::{Get, Zip};
+    use nu_command::{Each, Get, Zip};
 
     use super::*;
     use crate::test::test_polars_plugin_command_with_decls;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {
-        test_polars_plugin_command_with_decls(&MapBatches, vec![Box::new(Zip), Box::new(Get)])
+        test_polars_plugin_command_with_decls(
+            &MapBatches,
+            vec![Box::new(Zip), Box::new(Get), Box::new(Each)],
+        )
     }
 }
