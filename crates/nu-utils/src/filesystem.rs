@@ -91,57 +91,19 @@ pub mod users {
     /// ```
     #[cfg(not(any(target_os = "linux", target_os = "freebsd", target_os = "android")))]
     pub fn get_user_groups(username: &str, gid: Gid) -> Option<Vec<Gid>> {
-        use nix::libc::{c_int, gid_t};
-        use std::ffi::CString;
-
-        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
-        #[cfg(target_os = "macos")]
-        let mut buff: Vec<i32> = vec![0; 1024];
-        #[cfg(not(target_os = "macos"))]
-        let mut buff: Vec<gid_t> = vec![0; 1024];
-
-        let name = CString::new(username).ok()?;
-
-        let mut count = buff.len() as c_int;
-
-        // MacOS uses i32 instead of gid_t in getgrouplist for unknown reasons
-        // SAFETY:
-        // int getgrouplist(const char *user, gid_t group, gid_t *groups, int *ngroups);
-        //
-        // `name` is valid CStr to be `const char*` for `user`
-        // every valid value will be accepted for `group`
-        // The capacity for `*groups` is passed in as `*ngroups` which is the buffer max length/capacity (as we initialize with 0)
-        // Following reads from `*groups`/`buff` will only happen after `buff.truncate(*ngroups)`
-        #[cfg(target_os = "macos")]
-        let res = unsafe {
-            nix::libc::getgrouplist(
-                name.as_ptr(),
-                gid.as_raw() as i32,
-                buff.as_mut_ptr(),
-                &mut count,
-            )
-        };
-
-        #[cfg(not(target_os = "macos"))]
-        let res = unsafe {
-            nix::libc::getgrouplist(name.as_ptr(), gid.as_raw(), buff.as_mut_ptr(), &mut count)
-        };
-
-        if res < 0 {
+        let ugids = uzers::get_user_groups(username, gid.as_raw())?;
+        if ugids.is_empty() {
             None
         } else {
-            buff.truncate(count as usize);
-            buff.sort_unstable();
-            buff.dedup();
-            // allow trivial cast: on macos i is i32, on linux it's already gid_t
-            #[allow(trivial_numeric_casts)]
-            Some(
-                buff.into_iter()
-                    .map(|id| Gid::from_raw(id as gid_t))
-                    .filter_map(get_group_by_gid)
-                    .map(|group| group.gid)
-                    .collect(),
-            )
+            let mut gids: Vec<Gid> = ugids
+                .into_iter()
+                .map(|g| Gid::from_raw(g.gid()))
+                .filter_map(get_group_by_gid)
+                .map(|group| group.gid)
+                .collect();
+            gids.sort_unstable_by_key(|g| g.as_raw());
+            gids.dedup();
+            Some(gids)
         }
     }
 }

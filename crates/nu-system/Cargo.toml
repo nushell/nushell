@@ -19,7 +19,6 @@ workspace = true
 [dependencies]
 nu-utils.workspace = true
 
-libc = { workspace = true }
 log = { workspace = true }
 sysinfo = { workspace = true }
 itertools = { workspace = true }

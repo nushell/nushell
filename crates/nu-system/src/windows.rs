@@ -3,7 +3,7 @@
 
 use chrono::offset::TimeZone;
 use chrono::{Local, NaiveDate};
-use libc::c_void;
+use core::ffi::c_void;
 
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};

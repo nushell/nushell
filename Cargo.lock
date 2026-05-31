@@ -4970,7 +4970,6 @@ version = "0.113.2"
 dependencies = [
  "chrono",
  "itertools 0.14.0",
- "libc",
  "libproc",
  "log",
  "mach2",
@@ -5070,6 +5069,7 @@ dependencies = [
  "strip-ansi-escapes",
  "sys-locale",
  "unicase",
+ "uzers",
  "web-time",
 ]
 
@@ -9431,6 +9431,16 @@ dependencies = [
  "serde_core",
  "sha1_smol",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "uzers"
+version = "0.12.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b8275fb1afee25b4111d2dc8b5c505dbbc4afd0b990cb96deb2d88bff8be18d"
+dependencies = [
+ "libc",
+ "log",
 ]
 
 [[package]]

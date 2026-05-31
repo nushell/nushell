@@ -268,7 +268,7 @@ impl ForegroundGuard {
                 log::trace!("Giving control of the terminal to the process group, pid={pid}");
 
                 // Set the terminal controlling process group to the child process
-                unistd::tcsetpgrp(unsafe { stdin_fd() }, pid_nix)?;
+                unistd::tcsetpgrp(stdin_fd(), pid_nix)?;
 
                 return Ok(guard);
             } else if pcnt
@@ -350,22 +350,19 @@ mod child_pgroup {
     };
     use std::{
         io::Write,
-        os::{
-            fd::{AsFd, BorrowedFd},
-            unix::prelude::CommandExt,
-        },
+        os::{fd::BorrowedFd, unix::prelude::CommandExt},
         process::{Child, Command},
     };
 
-    /// Alternative to having to call `std::io::stdin()` just to get the file descriptor of stdin
+    /// Returns a borrowed file descriptor for stdin (fd 0).
     ///
-    /// # Safety
-    /// I/O safety of reading from `STDIN_FILENO` unclear.
+    /// This avoids the overhead of `std::io::stdin()` and is async-signal-safe.
     ///
     /// Currently only intended to access `tcsetpgrp` and `tcgetpgrp` with the I/O safe `nix`
     /// interface.
-    pub unsafe fn stdin_fd() -> impl AsFd {
-        unsafe { BorrowedFd::borrow_raw(nix::libc::STDIN_FILENO) }
+    pub fn stdin_fd() -> BorrowedFd<'static> {
+        // Safety: fd 0 (stdin) is always open for the lifetime of the process.
+        unsafe { BorrowedFd::borrow_raw(0) }
     }
 
     pub fn prepare_command(external_command: &mut Command, existing_pgrp: u32, background: bool) {
@@ -419,13 +416,13 @@ mod child_pgroup {
         let _ = unistd::setpgid(pid, pgrp);
 
         if !background {
-            let _ = unistd::tcsetpgrp(unsafe { stdin_fd() }, pgrp);
+            let _ = unistd::tcsetpgrp(stdin_fd(), pgrp);
         }
     }
 
     /// Reset the foreground process group to the shell
     pub fn reset() {
-        if let Err(e) = unistd::tcsetpgrp(unsafe { stdin_fd() }, unistd::getpgrp()) {
+        if let Err(e) = unistd::tcsetpgrp(stdin_fd(), unistd::getpgrp()) {
             // Use write_all instead of eprintln! to avoid panicking (and
             // subsequently aborting due to a double-panic) when stderr is
             // unavailable — e.g. the terminal has already been torn down.

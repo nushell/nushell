@@ -1,4 +1,3 @@
-use libc::{c_int, c_void, size_t};
 use libproc::libproc::bsd_info::BSDInfo;
 use libproc::libproc::file_info::{ListFDs, ProcFDType, pidfdinfo};
 use libproc::libproc::net_info::{InSockInfo, SocketFDInfo, SocketInfoKind, TcpSockInfo};
@@ -13,6 +12,8 @@ use std::cmp;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
+
+const IPPROTO_UDP: i32 = 17;
 
 pub struct ProcessInfo {
     pub pid: i32,
@@ -33,9 +34,10 @@ pub struct ProcessInfo {
 }
 
 pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> {
+    use sysinfo::{ProcessesToUpdate, System};
+
     let mut base_procs = Vec::new();
     let mut ret = Vec::new();
-    let arg_max = get_arg_max();
 
     if let Ok(procs) = pids_by_type(ProcFilter::All) {
         for p in procs {
@@ -49,6 +51,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
 
     thread::sleep(interval);
 
+    let mut path_system = System::new();
+    path_system.refresh_processes(ProcessesToUpdate::All, false);
+
     for (pid, prev_task, prev_res, prev_time) in base_procs {
         let curr_task = if let Ok(task) = pidinfo::<TaskAllInfo>(pid, 0) {
             task
@@ -56,7 +61,7 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
             clone_task_all_info(&prev_task)
         };
 
-        let curr_path = get_path_info(pid, arg_max);
+        let curr_path = get_path_info(pid, &path_system);
 
         let threadids = listpidinfo::<ListThreads>(pid, curr_task.ptinfo.pti_threadnum as usize);
         let mut curr_threads = Vec::new();
@@ -78,11 +83,9 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
                     && let Ok(socket) = pidfdinfo::<SocketFDInfo>(pid, fd.proc_fd)
                 {
                     match socket.psi.soi_kind.into() {
-                        SocketInfoKind::In => {
-                            if socket.psi.soi_protocol == libc::IPPROTO_UDP {
-                                let info = unsafe { socket.psi.soi_proto.pri_in };
-                                curr_udps.push(info);
-                            }
+                        SocketInfoKind::In if socket.psi.soi_protocol == IPPROTO_UDP => {
+                            let info = unsafe { socket.psi.soi_proto.pri_in };
+                            curr_udps.push(info);
                         }
                         SocketInfoKind::Tcp => {
                             let info = unsafe { socket.psi.soi_proto.pri_tcp };
@@ -128,24 +131,6 @@ pub fn collect_proc(interval: Duration, _with_thread: bool) -> Vec<ProcessInfo> 
     ret
 }
 
-fn get_arg_max() -> size_t {
-    let mut mib: [c_int; 2] = [libc::CTL_KERN, libc::KERN_ARGMAX];
-    let mut arg_max = 0i32;
-    let mut size = ::std::mem::size_of::<c_int>();
-    unsafe {
-        while libc::sysctl(
-            mib.as_mut_ptr(),
-            2,
-            (&mut arg_max) as *mut i32 as *mut c_void,
-            &mut size,
-            ::std::ptr::null_mut(),
-            0,
-        ) == -1
-        {}
-    }
-    arg_max as size_t
-}
-
 pub struct PathInfo {
     pub name: String,
     pub exe: PathBuf,
@@ -155,112 +140,58 @@ pub struct PathInfo {
     pub cwd: PathBuf,
 }
 
-unsafe fn get_unchecked_str(cp: *mut u8, start: *mut u8) -> String {
-    unsafe {
-        let len = (cp as usize).saturating_sub(start as usize);
-        let part = std::slice::from_raw_parts(start, len);
-        String::from_utf8_unchecked(part.to_vec())
+fn get_path_info(pid: i32, system: &sysinfo::System) -> Option<PathInfo> {
+    use sysinfo::Pid;
+
+    let spid = Pid::from_u32(pid as u32);
+    let process = system.process(spid)?;
+
+    let exe = process.exe().map(|p| p.to_path_buf()).unwrap_or_default();
+    let name = exe
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let cmd: Vec<String> = process
+        .cmd()
+        .iter()
+        .map(|s| s.to_string_lossy().to_string())
+        .collect();
+
+    let env: Vec<String> = process
+        .environ()
+        .iter()
+        .map(|s| s.to_string_lossy().to_string())
+        .collect();
+
+    let cwd = process.cwd().map(|p| p.to_path_buf()).unwrap_or_default();
+
+    let mut need_root = true;
+    let mut root = PathBuf::default();
+    if exe.is_absolute()
+        && let Some(parent) = exe.parent()
+    {
+        root = parent.to_path_buf();
+        need_root = false;
     }
-}
 
-fn get_path_info(pid: i32, mut size: size_t) -> Option<PathInfo> {
-    let mut proc_args = Vec::with_capacity(size);
-    let ptr: *mut u8 = proc_args.as_mut_slice().as_mut_ptr();
-
-    let mut mib: [c_int; 3] = [libc::CTL_KERN, libc::KERN_PROCARGS2, pid as c_int];
-
-    unsafe {
-        let ret = libc::sysctl(
-            mib.as_mut_ptr(),
-            3,
-            ptr as *mut c_void,
-            &mut size,
-            ::std::ptr::null_mut(),
-            0,
-        );
-        if ret != -1 {
-            let mut n_args: c_int = 0;
-            libc::memcpy(
-                (&mut n_args) as *mut c_int as *mut c_void,
-                ptr as *const c_void,
-                ::std::mem::size_of::<c_int>(),
-            );
-            let mut cp = ptr.add(::std::mem::size_of::<c_int>());
-            let mut start = cp;
-            if cp < ptr.add(size) {
-                while cp < ptr.add(size) && *cp != 0 {
-                    cp = cp.offset(1);
-                }
-                let exe = Path::new(get_unchecked_str(cp, start).as_str()).to_path_buf();
-                let name = exe
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_str()
-                    .unwrap_or("")
-                    .to_owned();
-                let mut need_root = true;
-                let mut root = Default::default();
-                if exe.is_absolute()
-                    && let Some(parent) = exe.parent()
-                {
-                    root = parent.to_path_buf();
-                    need_root = false;
-                }
-                while cp < ptr.add(size) && *cp == 0 {
-                    cp = cp.offset(1);
-                }
-                start = cp;
-                let mut c = 0;
-                let mut cmd = Vec::new();
-                while c < n_args && cp < ptr.add(size) {
-                    if *cp == 0 {
-                        c += 1;
-                        cmd.push(get_unchecked_str(cp, start));
-                        start = cp.offset(1);
-                    }
-                    cp = cp.offset(1);
-                }
-                start = cp;
-                let mut env = Vec::new();
-                let mut cwd = PathBuf::default();
-                while cp < ptr.add(size) {
-                    if *cp == 0 {
-                        if cp == start {
-                            break;
-                        }
-                        let env_str = get_unchecked_str(cp, start);
-                        if let Some(pwd) = env_str.strip_prefix("PWD=") {
-                            cwd = PathBuf::from(pwd)
-                        }
-                        env.push(env_str);
-                        start = cp.offset(1);
-                    }
-                    cp = cp.offset(1);
-                }
-                if need_root {
-                    for env in env.iter() {
-                        if env.starts_with("PATH=") {
-                            root = Path::new(&env[6..]).to_path_buf();
-                            break;
-                        }
-                    }
-                }
-
-                Some(PathInfo {
-                    exe,
-                    name,
-                    root,
-                    cmd,
-                    env,
-                    cwd,
-                })
-            } else {
-                None
+    if need_root {
+        for e in &env {
+            if let Some(path) = e.strip_prefix("PATH=") {
+                root = Path::new(path).to_path_buf();
+                break;
             }
-        } else {
-            None
         }
     }
+
+    Some(PathInfo {
+        name,
+        exe,
+        root,
+        cmd,
+        env,
+        cwd,
+    })
 }
 
 fn clone_task_all_info(src: &TaskAllInfo) -> TaskAllInfo {

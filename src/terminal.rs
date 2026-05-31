@@ -5,21 +5,23 @@ use std::{
 
 use nix::{
     errno::Errno,
-    libc,
     sys::signal::{SaFlags, SigAction, SigHandler, SigSet, Signal, killpg, raise, sigaction},
     unistd::{self, Pid},
 };
 
 static INITIAL_PGID: AtomicI32 = AtomicI32::new(-1);
 
-pub(crate) fn acquire(interactive: bool) {
+pub(crate) struct TerminalGuard;
+
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        restore_terminal();
+    }
+}
+
+pub(crate) fn acquire(interactive: bool) -> Option<TerminalGuard> {
     if interactive && std::io::stdin().is_terminal() {
         // see also: https://www.gnu.org/software/libc/manual/html_node/Initializing-the-Shell.html
-
-        if unsafe { libc::atexit(restore_terminal) } != 0 {
-            eprintln!("ERROR: failed to set exit function");
-            std::process::exit(1);
-        };
 
         let initial_pgid = take_control();
 
@@ -57,7 +59,11 @@ pub(crate) fn acquire(interactive: bool) {
             }
         }
         // Set our possibly new pgid to be in control of terminal
-        let _ = unistd::tcsetpgrp(unsafe { nu_system::stdin_fd() }, shell_pgid);
+        let _ = unistd::tcsetpgrp(nu_system::stdin_fd(), shell_pgid);
+
+        Some(TerminalGuard)
+    } else {
+        None
     }
 }
 
@@ -66,7 +72,7 @@ pub(crate) fn acquire(interactive: bool) {
 fn take_control() -> Pid {
     let shell_pgid = unistd::getpgrp();
 
-    match unistd::tcgetpgrp(unsafe { nu_system::stdin_fd() }) {
+    match unistd::tcgetpgrp(nu_system::stdin_fd()) {
         Ok(owner_pgid) if owner_pgid == shell_pgid => {
             // Common case, nothing to do
             return owner_pgid;
@@ -91,14 +97,14 @@ fn take_control() -> Pid {
     }
 
     for _ in 0..4096 {
-        match unistd::tcgetpgrp(unsafe { nu_system::stdin_fd() }) {
+        match unistd::tcgetpgrp(nu_system::stdin_fd()) {
             Ok(owner_pgid) if owner_pgid == shell_pgid => {
                 // success
                 return owner_pgid;
             }
             Ok(owner_pgid) if owner_pgid == Pid::from_raw(0) => {
                 // Zero basically means something like "not owned" and we can just take it
-                let _ = unistd::tcsetpgrp(unsafe { nu_system::stdin_fd() }, shell_pgid);
+                let _ = unistd::tcsetpgrp(nu_system::stdin_fd(), shell_pgid);
             }
             Err(Errno::ENOTTY) => {
                 eprintln!("ERROR: no TTY for interactive shell");
@@ -123,26 +129,26 @@ extern "C" fn restore_terminal() {
     // `tcsetpgrp` and `getpgrp` are async-signal-safe
     let initial_pgid = Pid::from_raw(INITIAL_PGID.load(Ordering::Relaxed));
     if initial_pgid.as_raw() > 0 && initial_pgid != unistd::getpgrp() {
-        let _ = unistd::tcsetpgrp(unsafe { nu_system::stdin_fd() }, initial_pgid);
+        let _ = unistd::tcsetpgrp(nu_system::stdin_fd(), initial_pgid);
     }
 }
 
-extern "C" fn sigterm_handler(_signum: libc::c_int) {
+extern "C" fn sigterm_handler(_signum: core::ffi::c_int) {
     // Safety: can only call async-signal-safe functions here
-    // `restore_terminal`, `sigaction`, `raise`, and `_exit` are all async-signal-safe
+    // `restore_terminal`, `sigaction`, `raise` are all async-signal-safe
 
     restore_terminal();
 
     let default = SigAction::new(SigHandler::SigDfl, SaFlags::empty(), SigSet::empty());
+
     if unsafe { sigaction(Signal::SIGTERM, &default) }.is_err() {
-        // Failed to set signal handler to default.
-        // This should not be possible, but if it does happen,
-        // then this could result in an infinite loop due to the raise below.
-        // So, we'll just exit immediately if this happens.
-        unsafe { libc::_exit(1) };
-    };
+        // Failed to set signal handler to default. This should not be possible, but if it does
+        // happen, the raise below could result in an infinite loop. So abort immediately.
+        std::process::abort();
+    }
 
     if raise(Signal::SIGTERM).is_err() {
-        unsafe { libc::_exit(1) };
-    };
+        // This should never happen, but if it does, abort.
+        std::process::abort();
+    }
 }
