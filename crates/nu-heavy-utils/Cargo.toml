@@ -24,6 +24,7 @@ merge = []
 
 [dependencies]
 nu-protocol.workspace = true
+saphyr.workspace = true
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }

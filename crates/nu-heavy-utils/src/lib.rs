@@ -4,6 +4,7 @@
 pub mod endian;
 #[cfg(feature = "merge")]
 pub mod merge;
+pub mod yaml;
 
 #[cfg(test)]
 #[allow(unused_imports)]
