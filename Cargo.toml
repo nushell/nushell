@@ -3,7 +3,7 @@ authors = ["The Nushell Project Developers"]
 edition = "2024"
 rust-version = "1.93.1"
 license = "MIT"
-version = "0.113.1"
+version = "0.113.2"
 
 [package]
 authors.workspace = true
@@ -38,8 +38,8 @@ pkg-fmt = "zip"
 [package.metadata.winresource]
 LegalCopyright = "Copyright © 2019-2026 The Nushell Project Developers"
 FileDescription = "A new type of shell"
-FileVersion = "0.113.1"
-ProductVersion = "0.113.1"
+FileVersion = "0.113.2"
+ProductVersion = "0.113.2"
 ProductName = "Nushell"
 
 [workspace]
@@ -87,47 +87,47 @@ members = [
 
 [workspace.dependencies]
 
-nu-cli = { path = "crates/nu-cli", version = "0.113.1", default-features = false }
-nu-cmd-base = { path = "crates/nu-cmd-base", version = "0.113.1", default-features = false }
-nu-cmd-extra = { path = "crates/nu-cmd-extra", version = "0.113.1", default-features = false }
-nu-cmd-lang = { path = "crates/nu-cmd-lang", version = "0.113.1", default-features = false }
-nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.113.1", default-features = false }
-nu-color-config = { path = "crates/nu-color-config", version = "0.113.1", default-features = false }
-nu-command = { path = "crates/nu-command", version = "0.113.1", default-features = false }
-nu-derive-value = { path = "crates/nu-derive-value", version = "0.113.1", default-features = false }
-nu-engine = { path = "crates/nu-engine", version = "0.113.1", default-features = false }
-nu-experimental = { path = "crates/nu-experimental", version = "0.113.1", default-features = false }
-nu-explore = { path = "crates/nu-explore", version = "0.113.1", default-features = false }
-nu-glob = { path = "crates/nu-glob", version = "0.113.1", default-features = false }
-nu-heavy-utils = { path = "crates/nu-heavy-utils", version = "0.113.1", default-features = false }
-nu-json = { path = "crates/nu-json", version = "0.113.1", default-features = false }
-nu-lsp = { path = "crates/nu-lsp", version = "0.113.1", default-features = false }
-nu-mcp = { path = "crates/nu-mcp", version = "0.113.1", default-features = false }
-nu-parser = { path = "crates/nu-parser", version = "0.113.1", default-features = false }
-nu-path = { path = "crates/nu-path", version = "0.113.1", default-features = false }
-nu-plugin = { path = "crates/nu-plugin", version = "0.113.1", default-features = false }
-nu-plugin-core = { path = "crates/nu-plugin-core", version = "0.113.1", default-features = false }
-nu-plugin-engine = { path = "crates/nu-plugin-engine", version = "0.113.1", default-features = false }
-nu-plugin-protocol = { path = "crates/nu-plugin-protocol", version = "0.113.1", default-features = false }
-nu-plugin-test-support = { path = "crates/nu-plugin-test-support", version = "0.113.1", default-features = false }
-nu-pretty-hex = { path = "crates/nu-pretty-hex", version = "0.113.1", default-features = false }
-nu-protocol = { path = "crates/nu-protocol", version = "0.113.1", default-features = false }
-nu-std = { path = "crates/nu-std", version = "0.113.1", default-features = false }
-nu-system = { path = "crates/nu-system", version = "0.113.1", default-features = false }
-nu-table = { path = "crates/nu-table", version = "0.113.1", default-features = false }
-nu-term-grid = { path = "crates/nu-term-grid", version = "0.113.1", default-features = false }
-nu-test-support = { path = "crates/nu-test-support", version = "0.113.1", default-features = false }
-nu-test-support-macros = { path = "crates/nu-test-support-macros", version = "0.113.1", default-features = false }
-nu-utils = { path = "crates/nu-utils", version = "0.113.1", default-features = false }
-nu_plugin_custom_values = { path = "crates/nu_plugin_custom_values", version = "0.113.1", default-features = false }
-nu_plugin_example = { path = "crates/nu_plugin_example", version = "0.113.1", default-features = false }
-nu_plugin_formats = { path = "crates/nu_plugin_formats", version = "0.113.1", default-features = false }
-nu_plugin_gstat = { path = "crates/nu_plugin_gstat", version = "0.113.1", default-features = false }
-nu_plugin_inc = { path = "crates/nu_plugin_inc", version = "0.113.1", default-features = false }
-nu_plugin_polars = { path = "crates/nu_plugin_polars", version = "0.113.1", default-features = false }
-nu_plugin_query = { path = "crates/nu_plugin_query", version = "0.113.1", default-features = false }
-nu_plugin_stress_internals = { path = "crates/nu_plugin_stress_internals", version = "0.113.1", default-features = false }
-nuon = { path = "crates/nuon", version = "0.113.1", default-features = false }
+nu-cli = { path = "crates/nu-cli", version = "0.113.2", default-features = false }
+nu-cmd-base = { path = "crates/nu-cmd-base", version = "0.113.2", default-features = false }
+nu-cmd-extra = { path = "crates/nu-cmd-extra", version = "0.113.2", default-features = false }
+nu-cmd-lang = { path = "crates/nu-cmd-lang", version = "0.113.2", default-features = false }
+nu-cmd-plugin = { path = "crates/nu-cmd-plugin", version = "0.113.2", default-features = false }
+nu-color-config = { path = "crates/nu-color-config", version = "0.113.2", default-features = false }
+nu-command = { path = "crates/nu-command", version = "0.113.2", default-features = false }
+nu-derive-value = { path = "crates/nu-derive-value", version = "0.113.2", default-features = false }
+nu-engine = { path = "crates/nu-engine", version = "0.113.2", default-features = false }
+nu-experimental = { path = "crates/nu-experimental", version = "0.113.2", default-features = false }
+nu-explore = { path = "crates/nu-explore", version = "0.113.2", default-features = false }
+nu-glob = { path = "crates/nu-glob", version = "0.113.2", default-features = false }
+nu-heavy-utils = { path = "crates/nu-heavy-utils", version = "0.113.2", default-features = false }
+nu-json = { path = "crates/nu-json", version = "0.113.2", default-features = false }
+nu-lsp = { path = "crates/nu-lsp", version = "0.113.2", default-features = false }
+nu-mcp = { path = "crates/nu-mcp", version = "0.113.2", default-features = false }
+nu-parser = { path = "crates/nu-parser", version = "0.113.2", default-features = false }
+nu-path = { path = "crates/nu-path", version = "0.113.2", default-features = false }
+nu-plugin = { path = "crates/nu-plugin", version = "0.113.2", default-features = false }
+nu-plugin-core = { path = "crates/nu-plugin-core", version = "0.113.2", default-features = false }
+nu-plugin-engine = { path = "crates/nu-plugin-engine", version = "0.113.2", default-features = false }
+nu-plugin-protocol = { path = "crates/nu-plugin-protocol", version = "0.113.2", default-features = false }
+nu-plugin-test-support = { path = "crates/nu-plugin-test-support", version = "0.113.2", default-features = false }
+nu-pretty-hex = { path = "crates/nu-pretty-hex", version = "0.113.2", default-features = false }
+nu-protocol = { path = "crates/nu-protocol", version = "0.113.2", default-features = false }
+nu-std = { path = "crates/nu-std", version = "0.113.2", default-features = false }
+nu-system = { path = "crates/nu-system", version = "0.113.2", default-features = false }
+nu-table = { path = "crates/nu-table", version = "0.113.2", default-features = false }
+nu-term-grid = { path = "crates/nu-term-grid", version = "0.113.2", default-features = false }
+nu-test-support = { path = "crates/nu-test-support", version = "0.113.2", default-features = false }
+nu-test-support-macros = { path = "crates/nu-test-support-macros", version = "0.113.2", default-features = false }
+nu-utils = { path = "crates/nu-utils", version = "0.113.2", default-features = false }
+nu_plugin_custom_values = { path = "crates/nu_plugin_custom_values", version = "0.113.2", default-features = false }
+nu_plugin_example = { path = "crates/nu_plugin_example", version = "0.113.2", default-features = false }
+nu_plugin_formats = { path = "crates/nu_plugin_formats", version = "0.113.2", default-features = false }
+nu_plugin_gstat = { path = "crates/nu_plugin_gstat", version = "0.113.2", default-features = false }
+nu_plugin_inc = { path = "crates/nu_plugin_inc", version = "0.113.2", default-features = false }
+nu_plugin_polars = { path = "crates/nu_plugin_polars", version = "0.113.2", default-features = false }
+nu_plugin_query = { path = "crates/nu_plugin_query", version = "0.113.2", default-features = false }
+nu_plugin_stress_internals = { path = "crates/nu_plugin_stress_internals", version = "0.113.2", default-features = false }
+nuon = { path = "crates/nuon", version = "0.113.2", default-features = false }
 
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
@@ -352,9 +352,9 @@ nix = { workspace = true, default-features = false, features = [
 
 [dev-dependencies]
 nu-test-support = { path = "./crates/nu-test-support", features = ["os"] }
-nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.113.1" }
-nu-table = { path = "./crates/nu-table", version = "0.113.1" }
-nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.113.1" }
+nu-plugin-protocol = { path = "./crates/nu-plugin-protocol", version = "0.113.2" }
+nu-table = { path = "./crates/nu-table", version = "0.113.2" }
+nu-plugin-core = { path = "./crates/nu-plugin-core", version = "0.113.2" }
 assert_cmd = "2.2.1"
 dirs = { workspace = true }
 tango-bench = "0.7.2"
