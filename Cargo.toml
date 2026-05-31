@@ -433,10 +433,12 @@ sqlite = [
   "reedline/sqlite",
 ]
 
+# Reduce release binary size and improve runtime performance at the cost of longer compile times
 [profile.release]
-opt-level = "s"     # Optimize for size
-strip = "debuginfo"
-lto = "thin"
+codegen-units = 1
+lto = true # "fat"
+panic = "abort"
+strip = true # "symbols"
 
 # build with `cargo build --profile profiling`
 # to analyze performance with tooling like linux perf
