@@ -14,7 +14,7 @@ fn formatted_name(name: String, wrap: bool) -> String {
         return name;
     }
     if name.contains('\'') {
-        format!("\"{}\"", name.replace('"', r#"\""#))
+        format!("\"{}\"", name.replace('\\', "\\\\").replace('"', r#"\""#))
     } else if name.contains(' ') || name.contains('"') {
         format!("'{name}'")
     } else {
