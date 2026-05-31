@@ -2,6 +2,44 @@ use crate::Type;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
+#[allow(unused_imports)]
+use crate::SyntaxShape;
+
+/// Very basic ordered mapping, essentially a list of pairs.
+///
+/// Handles logic common to [`SyntaxShape::Record`], [`SyntaxShape::Table`], [`Type::Record`],
+/// [`Type::Table`], and possibly any other ordered mapping.
+///
+/// Implements [`Display`] for `T: Display`:
+/// ```rust
+/// # use nu_protocol::{CollectionColumns, Type};
+/// let cols = CollectionColumns::from(vec![
+///     ("a".to_string(), 1),
+///     ("b".to_string(), 2),
+/// ]);
+/// assert_eq!(cols.to_string(), "<a: 1, b: 2>");
+/// ```
+///
+/// Type widening (union) for [`Type`]:
+/// ```rust
+/// # use nu_protocol::{CollectionColumns, Type};
+/// let foo = CollectionColumns::from(vec![
+///     ("a".to_string(), Type::Int),
+///     ("b".to_string(), Type::String),
+/// ]);
+/// let bar = CollectionColumns::from(vec![
+///     ("a".to_string(), Type::Float),
+///     ("b".to_string(), Type::Int),
+///     ("c".to_string(), Type::Date),
+/// ]);
+/// assert_eq!(
+///     foo.widen(bar),
+///     CollectionColumns::from(vec![
+///         ("a".to_string(), Type::Number),
+///         ("b".to_string(), Type::OneOf([Type::String, Type::Int].into())),
+///     ])
+/// );
+/// ```
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 #[serde(transparent)]
 pub struct CollectionColumns<T> {
