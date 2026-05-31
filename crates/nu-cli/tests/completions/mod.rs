@@ -1020,7 +1020,7 @@ fn exportable_completions() {
 
     let completion_str = "use std/assert \"not eq";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["'not equal'"], &suggestions);
+    match_suggestions(&vec!["\"not equal\""], &suggestions);
 
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete(completion_str, completion_str.len());
