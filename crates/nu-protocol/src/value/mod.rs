@@ -20,7 +20,7 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    BlockId, Config, ShellError, Signals, Span, Type,
+    BlockId, CollectionColumns, Config, ShellError, Signals, Span, Type,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
@@ -877,8 +877,9 @@ impl Value {
     /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // records are structurally typed
-        let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
+        let record_compatible = |val: &Value, other: &CollectionColumns<Type>| match val {
             Value::Record { val, .. } => other
+                .fields
                 .iter()
                 .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
             _ => false,
@@ -4837,11 +4838,16 @@ mod tests {
             assert_subtype_equivalent(&list, &ty_list_list_int);
 
             // The type of an empty lists is a subtype of any list or table type
-            let ty_table = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
+            let ty_table = {
+                Type::Table(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
             let empty = Value::test_list(vec![]);
 
             assert_subtype_equivalent(&empty, &ty_any_list);
@@ -4851,13 +4857,18 @@ mod tests {
 
         #[test]
         fn test_record() {
-            let ty_abc = Type::Record(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Record(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
-            let ty_inner = Type::Record(Box::new([("inner".into(), ty_abc.clone())]));
+            let ty_abc = {
+                Type::Record(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
+            let ty_ab = Type::Record(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
+            let ty_inner = Type::Record(vec![("inner".into(), ty_abc.clone())].into());
 
             let record_abc = Value::test_record(record! {
                 "a" => Value::test_int(1),
@@ -4882,12 +4893,15 @@ mod tests {
 
         #[test]
         fn test_table() {
-            let ty_abc = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_abc = Type::Table(
+                vec![
+                    ("a".into(), Type::Int),
+                    ("b".into(), Type::Int),
+                    ("c".into(), Type::Int),
+                ]
+                .into(),
+            );
+            let ty_ab = Type::Table(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
             let ty_list_any = Type::list(Type::Any);
 
             let record_abc = Value::test_record(record! {
@@ -4913,7 +4927,7 @@ mod tests {
             assert_subtype_equivalent(&table_mixed, &ty_abc);
             assert!(table_mixed.is_subtype_of(&ty_ab));
 
-            let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
+            let ty_a = Type::Table(vec![("a".into(), Type::Any)].into());
             let table_mixed_types = Value::test_list(vec![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),

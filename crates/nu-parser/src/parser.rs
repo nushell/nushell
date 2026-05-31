@@ -5301,7 +5301,7 @@ fn table_type(head: &[Expression], rows: &[Vec<Expression>]) -> (Type, Vec<Parse
         span,
     };
 
-    let ty: Box<[(String, Type)]> = head
+    let ty = head
         .iter()
         .zip(column_types)
         .filter_map(|(expr, col_ty)| {
@@ -6826,14 +6826,14 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             let inner = parse_value(
                 working_set,
                 Span::new(curr_span.start + 3, curr_span.end),
-                &SyntaxShape::Record(vec![]),
+                &SyntaxShape::record(),
             );
             idx += 1;
 
             match &inner.ty {
                 Type::Record(inner_fields) => {
                     if let Some(fields) = &mut field_types {
-                        for (field, ty) in inner_fields.as_ref() {
+                        for (field, ty) in inner_fields.fields.as_ref() {
                             fields.push((field.clone(), ty.clone()));
                         }
                     }

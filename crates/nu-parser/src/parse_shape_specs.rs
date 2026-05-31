@@ -4,8 +4,8 @@ use std::borrow::Cow;
 
 use crate::{TokenContents, lex::lex_signature, parser::parse_value};
 use nu_protocol::{
-    Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape, Type, Value,
-    engine::StateWorkingSet, eval_const::eval_constant,
+    CollectionColumns, Completion, IntoSpanned, ParseError, ShellError, Span, Spanned, SyntaxShape,
+    Type, Value, engine::StateWorkingSet, eval_const::eval_constant,
 };
 use nu_utils::NuCow;
 
@@ -187,14 +187,16 @@ fn parse_generic_shape(
             }
             None => SyntaxShape::Any,
         })),
-        b"record" => SyntaxShape::Record(match type_params {
-            Some(params) => parse_named_type_params(working_set, params),
-            None => vec![],
-        }),
-        b"table" => SyntaxShape::Table(match type_params {
-            Some(params) => parse_named_type_params(working_set, params),
-            None => vec![],
-        }),
+        b"record" => SyntaxShape::Record(
+            type_params
+                .map(|params| parse_named_type_params(working_set, params))
+                .unwrap_or_default(),
+        ),
+        b"table" => SyntaxShape::Table(
+            type_params
+                .map(|params| parse_named_type_params(working_set, params))
+                .unwrap_or_default(),
+        ),
         _ => {
             working_set.error(ParseError::UnknownType(span));
             SyntaxShape::Any
@@ -243,12 +245,12 @@ fn split_generic_params<'a>(
 fn parse_named_type_params(
     working_set: &mut StateWorkingSet,
     Spanned { item: source, span }: Spanned<&[u8]>,
-) -> Vec<(String, SyntaxShape)> {
+) -> CollectionColumns<SyntaxShape> {
     let (tokens, err) = lex_signature(source, span.start, &[b'\n', b'\r'], &[b':', b','], true);
 
     if let Some(err) = err {
         working_set.error(err);
-        return Vec::new();
+        return CollectionColumns::default();
     }
 
     let mut sig = Vec::new();
@@ -266,7 +268,7 @@ fn parse_named_type_params(
     while idx < tokens.len() {
         let TokenContents::Item = tokens[idx].contents else {
             working_set.error(key_error(tokens[idx].span));
-            return Vec::new();
+            return CollectionColumns::default();
         };
 
         if working_set
@@ -281,7 +283,7 @@ fn parse_named_type_params(
             parse_value(working_set, tokens[idx].span, &SyntaxShape::String).as_string()
         else {
             working_set.error(key_error(tokens[idx].span));
-            return Vec::new();
+            return CollectionColumns::default();
         };
 
         // we want to allow such an annotation
@@ -322,7 +324,7 @@ fn parse_named_type_params(
         idx += 1;
     }
 
-    sig
+    CollectionColumns::new(sig.into_boxed_slice())
 }
 
 fn parse_type_params(

@@ -22,7 +22,7 @@ impl Command for MetadataAccess {
         Signature::build("metadata access")
             .required(
                 "closure",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Record(vec![])])),
+                SyntaxShape::Closure(Some(vec![SyntaxShape::record()])),
                 "The closure to run with metadata access.",
             )
             .input_output_types(vec![(Type::Any, Type::Any)])

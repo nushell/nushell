@@ -46,7 +46,7 @@ impl Command for UMkdir {
                 (
                     Type::Nothing,
                     Type::Table(
-                        [
+                        vec![
                             ("path".to_string(), Type::String),
                             ("created".to_string(), Type::Bool),
                             (
