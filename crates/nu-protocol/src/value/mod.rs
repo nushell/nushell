@@ -28,10 +28,7 @@ use crate::{
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::{
-    ObviousFloat, SharedCow, contains_emoji,
-    locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
-};
+use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -956,20 +953,9 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale = if let Ok(l) =
-            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
-        {
-            let locale_str = l.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            // LC_ALL > LC_CTYPE > LANG else en_US
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale_from_env_vars(Some("LC_TIME"), |name| std::env::var(name).ok())
+            .and_then(|s| s.as_ref().try_into().ok())
+            .unwrap_or(Locale::en_US);
         let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {

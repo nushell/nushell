@@ -3,7 +3,6 @@ use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::generic::GenericError;
 
-use nu_utils::locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string};
 use std::fmt::{Display, Write};
 
 #[derive(Clone)]
@@ -100,7 +99,7 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag(engine_state, stack, "list")?;
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-        let locale = get_locale(|name| stack.get_env_var(engine_state, name))?;
+        let locale = get_locale(|name| stack.get_env_var(engine_state, name)?.as_str().ok());
 
         run(engine_state, call, input, list, format, locale)
     }
@@ -113,38 +112,19 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag_const(working_set, "list")?;
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
-        let locale = get_locale(|name| working_set.get_env_var(name))?;
+        let locale = get_locale(|name| working_set.get_env_var(name)?.as_str().ok());
 
         run(working_set.permanent(), call, input, list, format, locale)
     }
 }
 
-fn get_locale<'a, F>(env_getter: F) -> Result<Locale, ShellError>
+fn get_locale<'a, F>(env_getter: F) -> Locale
 where
-    F: Fn(&str) -> Option<&'a Value> + 'a,
+    F: Fn(&str) -> Option<&'a str> + 'a,
 {
-    // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-    // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
-    static LOCALE_VAR_NAMES: &[&str] = &[LOCALE_OVERRIDE_ENV_VAR, "LC_ALL", "LC_TIME", "LANG"];
-
-    // get the locale first so we can use the proper get_env_var functions since this is a const command
-    // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-    let locale_var = LOCALE_VAR_NAMES
-        .iter()
-        .find_map(|name| env_getter(name))
-        .map(Value::as_str)
-        .transpose()?;
-
-    let locale = match locale_var {
-        Some(loc) => (loc.split('.').next())
-            .and_then(|s| Locale::try_from(s).ok())
-            .unwrap_or(Locale::en_US),
-        None => get_system_locale_string()
-            .map(|l| l.replace('-', "_"))
-            .and_then(|s| Locale::try_from(s.as_str()).ok())
-            .unwrap_or(Locale::en_US),
-    };
-    Ok(locale)
+    nu_utils::get_locale_from_env_vars(Some("LC_TIME"), env_getter)
+        .and_then(|s| Locale::try_from(s.as_ref()).ok())
+        .unwrap_or(Locale::en_US)
 }
 
 fn run(
