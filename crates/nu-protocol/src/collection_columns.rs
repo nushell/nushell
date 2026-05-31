@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
+#[serde(transparent)]
 pub struct CollectionColumns<T> {
     pub fields: Box<[(String, T)]>,
 }
