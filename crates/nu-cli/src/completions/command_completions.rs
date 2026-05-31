@@ -9,16 +9,11 @@ use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
-fn formatted_name(name: String, wrap: bool) -> String {
-    if !wrap {
-        return name;
-    }
-    if name.contains('\'') {
-        format!("\"{}\"", name.replace('\\', "\\\\").replace('"', r#"\""#))
-    } else if name.contains(' ') || name.contains('"') {
-        format!("'{name}'")
+fn formatted_name(name: &str, wrap: bool) -> String {
+    if wrap && nu_utils::needs_quoting(name) {
+        nu_utils::escape_quote_string(name)
     } else {
-        name
+        name.to_string()
     }
 }
 
@@ -210,10 +205,7 @@ impl Completer for CommandCompletion {
                 }
             } else {
                 working_set.traverse_commands(|name, decl_id| {
-                    let name = formatted_name(
-                        String::from_utf8_lossy(name).into_owned(),
-                        self.quote_internals,
-                    );
+                    let name = formatted_name(&String::from_utf8_lossy(name), self.quote_internals);
                     let command = working_set.get_decl(decl_id);
                     if command.signature().category == Category::Removed {
                         return;
