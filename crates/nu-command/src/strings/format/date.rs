@@ -122,7 +122,7 @@ fn get_locale<'a, F>(env_getter: F) -> Locale
 where
     F: Fn(&str) -> Option<&'a str> + 'a,
 {
-    nu_utils::get_env_locale(Some("LC_TIME"), env_getter)
+    nu_utils::get_locale_from_env_vars(Some("LC_TIME"), env_getter)
         .and_then(|s| Locale::try_from(s.as_ref()).ok())
         .unwrap_or(Locale::en_US)
 }

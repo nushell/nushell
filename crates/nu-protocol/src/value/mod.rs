@@ -28,7 +28,7 @@ use crate::{
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_env_locale};
+use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -953,7 +953,7 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale = get_env_locale(Some("LC_TIME"), |name| std::env::var(name).ok())
+        let locale = get_locale_from_env_vars(Some("LC_TIME"), |name| std::env::var(name).ok())
             .and_then(|s| s.as_ref().try_into().ok())
             .unwrap_or(Locale::en_US);
         let format = date_time.format_localized(formatter, locale);

@@ -43,16 +43,24 @@ pub fn get_system_locale_string() -> Option<String> {
     sys_locale::get_locale()
 }
 
-/// env var preference is documented in [gettext manual][1]
+/// Get the current locale from environment variables.
 ///
-/// in priority order:
+/// - Checks multiple environment variables.
+/// - Generic over how to read environment variables (can be used to read environment variables from
+///   `StateWorkingSet`, `Stack`, or from process environment variables)
+/// - Allows specifying a locale category (`LC_TIME`, `LC_NUMERIC`, etc.)
+///
+/// Priority order as documented in [`gettext` manual][1]:
 /// - NU_TEST_LOCALE_OVERRIDE
 /// - LC_ALL
-/// - (`locale_for`) LC_xxx, according to selected locale category: LC_CTYPE, LC_NUMERIC, LC_TIME
+/// - `locale_category` (if provided)
 /// - LANG
 ///
 /// [1]: https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-pub fn get_env_locale<'a, F, O>(locale_for: Option<&str>, env_getter: F) -> Option<Cow<'a, str>>
+pub fn get_locale_from_env_vars<'a, F, O>(
+    locale_category: Option<&str>,
+    env_getter: F,
+) -> Option<Cow<'a, str>>
 where
     F: 'a,
     F: Fn(&str) -> Option<O>,
@@ -61,7 +69,7 @@ where
     let mut env_var_names = [LOCALE_OVERRIDE_ENV_VAR, "LC_ALL"]
         .iter()
         .copied()
-        .chain(locale_for)
+        .chain(locale_category)
         .chain(["LANG"]);
 
     let env_var = env_var_names.find_map(env_getter).map(Into::into);
