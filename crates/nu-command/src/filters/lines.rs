@@ -16,6 +16,7 @@ impl Command for Lines {
         Signature::build("lines")
             .input_output_types(vec![(Type::Any, Type::List(Box::new(Type::String)))])
             .switch("skip-empty", "Skip empty lines.", Some('s'))
+            .switch("strict", "Validate UTF-8 strictly.", None)
             .category(Category::Filters)
     }
     fn run(
@@ -27,6 +28,7 @@ impl Command for Lines {
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let skip_empty = call.has_flag(engine_state, stack, "skip-empty")?;
+        let strict = call.has_flag(engine_state, stack, "strict")?;
 
         let span = input.span().unwrap_or(call.head);
         match input {
@@ -84,7 +86,7 @@ impl Command for Lines {
                 Ok(PipelineData::list_stream(stream, metadata))
             }
             PipelineData::ByteStream(stream, ..) => {
-                if let Some(lines) = stream.lines() {
+                if let Some(lines) = stream.lines().map(|l| l.strict(strict)) {
                     Ok(lines
                         .map(move |line| match line {
                             Ok(line) => Value::string(line, head),
