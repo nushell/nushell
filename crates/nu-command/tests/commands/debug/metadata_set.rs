@@ -28,6 +28,12 @@ fn works_with_path_columns_multiple() -> Result {
 }
 
 #[test]
+fn works_with_table_width_priority_columns() -> Result {
+    let code = r#"[] | metadata set --table-width-priority-columns [command virtual] | metadata | get table_width_priority_columns | str join " ""#;
+    test().run(code).expect_value_eq("command virtual")
+}
+
+#[test]
 fn works_with_merge_arbitrary_metadata() -> Result {
     let code = r#"
         echo "foo"

@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Record;
+use crate::{Record, Span, Value};
+
+pub const TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY: &str = "table_width_priority_columns";
 
 /// Metadata that is valid for the whole [`PipelineData`](crate::PipelineData)
 ///
@@ -45,6 +47,41 @@ impl PipelineMetadata {
             content_type,
             ..self
         }
+    }
+
+    /// Set table width-priority columns in custom metadata.
+    ///
+    /// This helper accepts plain strings to avoid manually constructing `Value::list`.
+    pub fn set_table_width_priority_columns<I, S>(&mut self, span: Span, columns: I)
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        let columns: Vec<Value> = columns
+            .into_iter()
+            .map(|column| Value::string(column.as_ref(), span))
+            .collect();
+
+        // Replace an existing entry if present.
+        self.custom
+            .retain(|key, _| key != TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY);
+
+        if !columns.is_empty() {
+            self.custom.push(
+                TABLE_WIDTH_PRIORITY_COLUMNS_METADATA_KEY.to_string(),
+                Value::list(columns, span),
+            );
+        }
+    }
+
+    /// Builder-style variant of [`PipelineMetadata::set_table_width_priority_columns`].
+    pub fn with_table_width_priority_columns<I, S>(mut self, span: Span, columns: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.set_table_width_priority_columns(span, columns);
+        self
     }
 
     /// Transform metadata for the `collect` operation.

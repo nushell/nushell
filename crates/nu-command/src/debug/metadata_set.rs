@@ -40,6 +40,12 @@ impl Command for MetadataSet {
                 "Assign content type metadata to the input.",
                 Some('c'),
             )
+            .named(
+                "table-width-priority-columns",
+                SyntaxShape::List(Box::new(SyntaxShape::String)),
+                "A list of columns to prioritize during table width allocation.",
+                Some('w'),
+            )
             .allow_variants_without_examples(true)
             .category(Category::Debug)
     }
@@ -58,6 +64,8 @@ impl Command for MetadataSet {
             call.get_flag(engine_state, stack, "path-columns")?;
         let content_type: Option<Option<String>> =
             call.get_flag(engine_state, stack, "content-type")?;
+        let table_width_priority_columns: Option<Vec<String>> =
+            call.get_flag(engine_state, stack, "table-width-priority-columns")?;
 
         let mut metadata = match &mut input {
             PipelineData::Value(_, metadata)
@@ -68,7 +76,11 @@ impl Command for MetadataSet {
 
         // Handle closure parameter - mutually exclusive with flags
         if let Some(closure) = closure {
-            if ds_fp.is_some() || path_columns.is_some() || content_type.is_some() {
+            if ds_fp.is_some()
+                || path_columns.is_some()
+                || content_type.is_some()
+                || table_width_priority_columns.is_some()
+            {
                 return Err(ShellError::Generic(
                     GenericError::new(
                         "Incompatible parameters",
@@ -104,6 +116,10 @@ impl Command for MetadataSet {
 
         if let Some(path_columns) = path_columns {
             metadata.path_columns = path_columns;
+        }
+
+        if let Some(table_width_priority_columns) = table_width_priority_columns {
+            metadata.set_table_width_priority_columns(head, table_width_priority_columns);
         }
 
         // Flag-based metadata modification
@@ -144,6 +160,11 @@ impl Command for MetadataSet {
                 description: "Set metadata using a closure.",
                 example: r#""data" | metadata set --content-type "text/csv" | metadata set {|m| $m | update content_type {$in + "-processed"}} | metadata | get content_type"#,
                 result: Some(Value::test_string("text/csv-processed")),
+            },
+            Example {
+                description: "Set table width-priority columns metadata.",
+                example: r#""data" | metadata set --table-width-priority-columns [command virtual] | metadata | get table_width_priority_columns | str join ",""#,
+                result: Some(Value::test_string("command,virtual")),
             },
         ]
     }
