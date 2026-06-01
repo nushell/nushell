@@ -185,6 +185,7 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                         internals: true,
                         externals: true,
                         builtins_only: false,
+                        quote_internals: true,
                     };
                     return self.completer.process_completion(&mut completer, &ctx);
                 }
@@ -193,6 +194,7 @@ impl<'a> Completer for ArgValueCompletion<'a> {
                         internals: true,
                         externals: false,
                         builtins_only: false,
+                        quote_internals: true,
                     };
                     return self.completer.process_completion(&mut completer, &ctx);
                 }

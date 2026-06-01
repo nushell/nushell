@@ -772,6 +772,32 @@ fn which_command_completions() {
     match_suggestions(&expected, &suggestions);
 }
 
+#[test]
+fn which_command_quoted_completions() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = r#"def "foo's" [] {}
+        def "foo\"b\"a'r" [] {}
+        def 'foo"s' [] {}
+        def "foo\\'s'" [] {}"#;
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    // Commands with spaces
+    let completion_str = "which \"detect";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec!["detect", "\"detect columns\"", "\"detect type\""];
+    match_suggestions(&expected, &suggestions);
+    // Commands with quotes
+    let completion_str = "which foo";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    let expected: Vec<_> = vec![
+        r#""foo's""#,
+        r#""foo\"b\"a'r""#,
+        r#""foo\"s""#,
+        r#""foo\\'s'""#,
+    ];
+    match_suggestions(&expected, &suggestions);
+}
+
 /// hide-env completes environment variable names
 #[test]
 fn hide_env_completions() {
@@ -994,7 +1020,7 @@ fn exportable_completions() {
 
     let completion_str = "use std/assert \"not eq";
     let suggestions = completer.complete(completion_str, completion_str.len());
-    match_suggestions(&vec!["'not equal'"], &suggestions);
+    match_suggestions(&vec!["\"not equal\""], &suggestions);
 
     let completion_str = "use std/math [E, `TAU";
     let suggestions = completer.complete(completion_str, completion_str.len());
