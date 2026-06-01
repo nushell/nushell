@@ -9,14 +9,14 @@ use nu_test_support::prelude::*;
 #[test]
 fn echo_with_end_of_options_stops_flag_parsing() -> Result {
     test()
-        .run(r#"echo -- -n hello"#)
+        .run("echo -- -n hello")
         .expect_value_eq(["-n", "hello"])
 }
 
 #[test]
 fn echo_with_end_of_options_multiple_dashes() -> Result {
     test()
-        .run(r#"echo -- --foo -bar baz"#)
+        .run("echo -- --foo -bar baz")
         .expect_value_eq(["--foo", "-bar", "baz"])
 }
 
@@ -29,7 +29,7 @@ fn echo_with_end_of_options_alone() -> Result {
 #[test]
 fn echo_before_and_after_end_of_options() -> Result {
     test()
-        .run(r#"echo arg1 -- -arg2"#)
+        .run("echo arg1 -- -arg2")
         .expect_value_eq(["arg1", "-arg2"])
 }
 
@@ -88,10 +88,10 @@ fn end_of_options_with_wrapped_command() -> Result {
     // so -- itself must appear in the rest args.
     test()
         .run(
-            r#"
+            "
             def --wrapped my_wrap [...args] { $args }
             my_wrap -- -flag value
-        "#,
+        ",
         )
         .expect_value_eq(["--", "-flag", "value"])
 }
