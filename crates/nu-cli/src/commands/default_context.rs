@@ -12,7 +12,10 @@ pub fn add_cli_context(mut engine_state: EngineState) -> EngineState {
         }
 
         bind_command! {
+            Abbreviations,
+            AbbreviationsList,
             Commandline,
+            CommandlineComplete,
             CommandlineEdit,
             CommandlineGetCursor,
             CommandlineSetCursor,

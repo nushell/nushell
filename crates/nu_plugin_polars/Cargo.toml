@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell dataframe plugin commands based on polars."
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.112.3"
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,10 +18,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
-nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
+nu-protocol.workspace = true
+nu-plugin.workspace = true
+nu-path.workspace = true
+nu-utils.workspace = true
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = [
@@ -106,10 +106,10 @@ optional = false
 version = "=0.53.0"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang" }
-nu-engine = { path = "../nu-engine" }
-nu-parser = { path = "../nu-parser" }
-nu-command = { path = "../nu-command" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support" }
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-parser = { workspace = true, features = ["plugin"] }
+nu-command = { workspace = true, features = ["plugin"] }
+nu-plugin-test-support.workspace = true
 
 tempfile.workspace = true

@@ -25,8 +25,13 @@ pub fn handle_search_input(app: &mut App, key: KeyCode, modifiers: KeyModifiers)
             app.apply_search_filter();
         }
         KeyCode::Char(c) if !modifiers.contains(KeyModifiers::CONTROL) => {
-            app.search_query.push(c);
-            app.apply_search_filter();
+            // Bound interactive search input to keep filtering responsive on every keystroke.
+            // Search is re-applied after each character, so very long queries can make the TUI
+            // feel sluggish even when the matcher itself is safe.
+            if app.search_query.len() < 256 {
+                app.search_query.push(c);
+                app.apply_search_filter();
+            }
         }
         _ => {}
     }

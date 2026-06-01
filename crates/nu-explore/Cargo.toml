@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell table pager"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-explore"
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-explore"
 rust-version.workspace = true
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 bench = false
@@ -15,16 +15,16 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
-nu-parser = { path = "../nu-parser", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-color-config = { path = "../nu-color-config", version = "0.112.3" }
-nu-engine = { path = "../nu-engine", version = "0.112.3" }
-nu-table = { path = "../nu-table", version = "0.112.3" }
-nu-json = { path = "../nu-json", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
-nu-ansi-term = { workspace = true }
-nu-pretty-hex = { path = "../nu-pretty-hex", version = "0.112.3" }
+nu-protocol = { workspace = true, features = ["os"] }
+nu-path.workspace = true
+nu-parser.workspace = true
+nu-color-config.workspace = true
+nu-engine = { workspace = true, features = ["os"] }
+nu-table.workspace = true
+nu-json.workspace = true
+nu-utils.workspace = true
+nu-ansi-term.workspace = true
+nu-pretty-hex.workspace = true
 
 ansi-str = { workspace = true }
 anyhow = { workspace = true }

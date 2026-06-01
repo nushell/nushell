@@ -4,6 +4,7 @@ use chrono::{Local, TimeZone};
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 
+use nu_protocol::PipelineMetadata;
 #[cfg(target_os = "linux")]
 use procfs::WithCurrentSystemInfo;
 use std::time::Duration;
@@ -135,6 +136,8 @@ fn run_ps(
                 // record.push("tpg_id", Value::int(proc_stat.tpgid as i64, span));
                 record.push("priority", Value::int(proc_stat.priority, span));
                 record.push("process_threads", Value::int(proc_stat.num_threads, span));
+                record.push("working", Value::filesize(proc.working_size() as i64, span));
+                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
                 record.push("cwd", Value::string(proc.cwd(), span));
             }
             #[cfg(windows)]
@@ -165,6 +168,8 @@ fn run_ps(
                     ),
                 );
                 record.push("priority", Value::int(proc.priority as i64, span));
+                record.push("working", Value::filesize(proc.working_size() as i64, span));
+                record.push("paged", Value::filesize(proc.paged_size() as i64, span));
                 record.push("cwd", Value::string(proc.cwd(), span));
                 record.push(
                     "environment",
@@ -193,5 +198,20 @@ fn run_ps(
         output.push(Value::record(record, span));
     }
 
-    Ok(output.into_pipeline_data(span, engine_state.signals().clone()))
+    Ok(output.into_pipeline_data_with_metadata(
+        span,
+        engine_state.signals().clone(),
+        ps_pipeline_metadata(long, span),
+    ))
+}
+
+/// Builds `ps` output metadata with table width-priority hints.
+fn ps_pipeline_metadata(long: bool, span: Span) -> PipelineMetadata {
+    let width_priority_columns: &[&str] = if long {
+        &["command", "name"]
+    } else {
+        &["name"]
+    };
+
+    PipelineMetadata::default().with_table_width_priority_columns(span, width_priority_columns)
 }

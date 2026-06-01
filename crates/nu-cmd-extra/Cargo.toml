@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell's extra commands that are not part of the 1.0 api standard."
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-cmd-extra"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-cmd-extra"
 rust-version.workspace = true
-version = "0.112.3"
+version.workspace = true
 autotests = false
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,14 +24,14 @@ path = "tests/main.rs"
 harness = false
 
 [dependencies]
-nu-cmd-base = { path = "../nu-cmd-base", version = "0.112.3" }
-nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
-nu-heavy-utils = { path = "../nu-heavy-utils", version = "0.112.3" }
-nu-json = { version = "0.112.3", path = "../nu-json" }
-nu-parser = { path = "../nu-parser", version = "0.112.3" }
-nu-pretty-hex = { version = "0.112.3", path = "../nu-pretty-hex" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-cmd-base.workspace = true
+nu-engine.workspace = true
+nu-heavy-utils.workspace = true
+nu-json.workspace = true
+nu-parser.workspace = true
+nu-pretty-hex.workspace = true
+nu-protocol.workspace = true
+nu-utils.workspace = true
 
 # Potential dependencies for extras
 heck = { workspace = true }
@@ -45,12 +45,13 @@ itertools = { workspace = true }
 mime = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang" }
-nu-command = { path = "../nu-command" }
+# "os" feature required for testing examples
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os"] }
 nu-test-support = { path = "../nu-test-support" }
 
 [build-dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
+nu-protocol.workspace = true
 
 serde = { workspace = true }
 serde_json = { workspace = true }

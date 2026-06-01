@@ -73,7 +73,7 @@ impl Command for UMv {
                 (
                     Type::Nothing,
                     Type::Table(
-                        [
+                        vec![
                             ("source".into(), Type::String),
                             ("destination".into(), Type::String),
                             ("message".into(), Type::String),

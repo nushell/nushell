@@ -3,7 +3,7 @@
 # Warning: This file is intended for documentation purposes only and
 # is not intended to be used as an actual configuration file as-is.
 #
-# version = "0.112.3"
+# version = "0.113.2"
 #
 # A `config.nu` file is used to override default Nushell settings,
 # define (or import) custom commands, or run any other startup tasks.
@@ -41,11 +41,17 @@
 # history.file_format (string): The format used for the command history file.
 # "sqlite": Store history in an SQLite database with additional context (timestamps, etc.).
 # "plaintext": Store one command per line without additional context.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.file_format = "..."`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: "plaintext"
 $env.config.history.file_format = "plaintext"
 
 # history.max_size (int): Maximum number of entries allowed in the history.
 # After exceeding this value, the oldest history items will be removed.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.max_size = ...`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: 100_000
 $env.config.history.max_size = 100_000
 
@@ -61,15 +67,22 @@ $env.config.history.sync_on_enter = true
 # when scrolling through history (Up/Down keys).
 # false: All commands from other sessions are mixed with the current shell's history.
 # Note: Only applies to SQLite-backed history. Older history items are always shown.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.isolation = ...`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Default: false
 $env.config.history.isolation = false
 
 # history.path (string): Path to the history file.
 # If not set, Nushell will use the default location.
 # You can also provide a custom path for your history file.
+# Note: This option is read once at startup. Changing it from the REPL
+# (e.g. `$env.config.history.path = "..."`) will produce an error -
+# set it in your `config.nu`, via `--config`, or via env, then restart Nushell.
 # Examples:
 # Use a custom location (e.g., in your home directory):
 $env.config.history.path = "~/custom/my-history.txt"
+
 # Default behavior:
 # If not set (null), Nushell stores history in the default config directory.
 # If set to a directory, the appropriate file name (e.g., history.txt) is used.
@@ -211,7 +224,7 @@ $env.config.completions.algorithm = "prefix"
 # completions.sort (string): How completion results are sorted.
 # "smart": Sort order depends on the algorithm setting.
 # "alphabetical": Always sort alphabetically.
-# In "smart" mode: prefix/substring use alphabetical; fuzzy uses match score.
+# In "smart",  mode: prefix/substring use alphabetical; fuzzy uses match score.
 # Default: "smart"
 $env.config.completions.sort = "smart"
 
@@ -410,7 +423,7 @@ $env.config.table.padding.right = 1
 # truncating_suffix (string): Suffix for truncated text (only for truncating).
 # wrapping_try_keep_words (bool): Avoid breaking words when wrapping.
 # Default: { methodology: "wrapping", wrapping_try_keep_words: true }
-$env.config.table.trim = { methodology: "wrapping", wrapping_try_keep_words: true }
+$env.config.table.trim = {methodology: "wrapping", wrapping_try_keep_words: true}
 
 # Example: Using truncating mode instead:
 # $env.config.table.trim = { methodology: "truncating", truncating_suffix: "..." }
@@ -570,6 +583,24 @@ $env.config.keybindings = []
 #     ]
 #   }
 # ]
+
+# -------------
+# Abbreviations
+# -------------
+
+# abbreviations (record): User-defined abbreviations for Reedline.
+# Each element is a string pair that defines an abbreviation and its
+# corresponding expansion.
+# See https://www.nushell.sh/book/line_editor.html#abbreviations for details.
+# Default: {}
+$env.config.abbreviations = {}
+
+# Example: add abbreviations for common commands: 
+# $env.config.abbreviations = {
+#   gs: "git status",
+#   ll: "ls -l",
+#   ptop: "ps | sort-by -r cpu | first 10"
+# }
 
 # -----
 # Menus
@@ -792,7 +823,7 @@ $env.config.color_config.shape_glob_interpolation = "cyan_bold"
 # color_config.shape_garbage: Style for invalid or unparsable arguments.
 # Also shown for unclosed expressions while typing.
 # Default: { fg: default, bg: red, attr: b }
-$env.config.color_config.shape_garbage = { fg: "default", bg: "red", attr: "b" }
+$env.config.color_config.shape_garbage = {fg: "default", bg: "red", attr: "b"}
 
 # color_config.shape_variable: Style for variable references ($env, $a).
 # Default: purple
@@ -804,7 +835,7 @@ $env.config.color_config.shape_vardecl = "purple"
 
 # color_config.shape_matching_brackets: Style for matching bracket pairs when cursor is on one.
 # Default: { attr: u }
-$env.config.color_config.shape_matching_brackets = { attr: "u" }
+$env.config.color_config.shape_matching_brackets = {attr: "u"}
 
 # color_config.shape_pipe: Style for the pipe symbol (|) in pipelines.
 # Default: purple_bold
@@ -969,7 +1000,7 @@ $env.config.color_config.hints = "dark_gray"
 
 # color_config.search_result: Style for `find` command search result highlights.
 # Default: { bg: red, fg: default }
-$env.config.color_config.search_result = { bg: "red", fg: "default" }
+$env.config.color_config.search_result = {bg: "red", fg: "default"}
 
 # color_config.header: Style for table column headers.
 # Default: green_bold
@@ -991,7 +1022,7 @@ $env.config.color_config.empty = "blue"
 # color_config.leading_trailing_space_bg: Style for leading/trailing whitespace in strings.
 # Use { attr: n } to disable highlighting.
 # Default: { attr: n }
-$env.config.color_config.leading_trailing_space_bg = { attr: "n" }
+$env.config.color_config.leading_trailing_space_bg = {attr: "n"}
 
 # -------------
 # Banner Colors
@@ -1051,7 +1082,11 @@ $env.config.explore = {}
 # Note: PROMPT_INDICATOR is appended to this value.
 # Default: A closure that displays the current directory with colors.
 $env.PROMPT_COMMAND = {||
-    let dir = match (do -i { $env.PWD | path relative-to $nu.home-dir }) {
+    let dir = match (
+        do -i {
+            $env.PWD | path relative-to $nu.home-dir
+        }
+    ) {
         null => $env.PWD
         '' => '~'
         $relative_pwd => ([~ $relative_pwd] | path join)
@@ -1081,13 +1116,18 @@ $env.PROMPT_COMMAND_RIGHT = {||
     ] | str join | str replace --regex --all "([/:])" $"(ansi green)${1}(ansi magenta)" |
         str replace --regex --all "([AP]M)" $"(ansi magenta_underline)${1}")
 
-    let last_exit_code = if ($env.LAST_EXIT_CODE != 0) {([
+    let last_exit_code = if $env.LAST_EXIT_CODE != 0 {
+        ([
         (ansi rb)
         ($env.LAST_EXIT_CODE)
     ] | str join)
     } else { "" }
 
-    ([$last_exit_code, (char space), $time_segment] | str join)
+    ([
+        $last_exit_code
+        (char space)
+        $time_segment
+    ] | str join)
 }
 
 # Example: Simple right prompt with just date/time:
@@ -1144,8 +1184,8 @@ $env.ENV_CONVERSIONS = {}
 # Example: Convert XDG_DATA_DIRS to/from a list:
 # $env.ENV_CONVERSIONS = $env.ENV_CONVERSIONS | merge {
 #     "XDG_DATA_DIRS": {
-#         from_string: { |s| $s | split row (char esep) | path expand --no-symlink }
-#         to_string: { |v| $v | path expand --no-symlink | str join (char esep) }
+#         from_string: {|s| $s | split row (char esep) | path expand --no-symlink }
+#         to_string: {|v| $v | path expand --no-symlink | str join (char esep) }
 #     }
 # }
 

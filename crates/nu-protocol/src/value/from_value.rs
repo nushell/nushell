@@ -660,7 +660,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::Record(vec![].into_boxed_slice())
+        Type::record()
     }
 }
 

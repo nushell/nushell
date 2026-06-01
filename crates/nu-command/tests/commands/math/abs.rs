@@ -21,3 +21,24 @@ fn cannot_abs_infinite_range() -> Result {
     assert!(matches!(outcome, ShellError::IncorrectValue { .. }));
     Ok(())
 }
+
+#[test]
+fn abs_int_min_overflows_without_panic() -> Result {
+    // i64::MIN has no representable absolute value; `math abs` must report an
+    // overflow error rather than panic. i64::MIN is produced via `into int` to
+    // avoid relying on negated-literal parsing.
+    let code = "0x[00 00 00 00 00 00 00 80] | into int --endian little | math abs";
+    let outcome = test().run(code).expect_shell_error()?;
+
+    assert!(matches!(outcome, ShellError::OperatorOverflow { .. }));
+    Ok(())
+}
+
+#[test]
+fn abs_duration_min_overflows_without_panic() -> Result {
+    let code = "0x[00 00 00 00 00 00 00 80] | into int --endian little | into duration | math abs";
+    let outcome = test().run(code).expect_shell_error()?;
+
+    assert!(matches!(outcome, ShellError::OperatorOverflow { .. }));
+    Ok(())
+}

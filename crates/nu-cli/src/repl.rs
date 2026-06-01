@@ -302,6 +302,12 @@ fn get_line_editor(engine_state: &mut EngineState, use_color: bool) -> Result<Re
 
         line_editor = setup_history(engine_state, line_editor, history)?;
 
+        // Lock the startup-only `$env.config.history.*` options (`path`, `max_size`,
+        // `file_format`, `isolation`) against further changes. Reedline owns the history
+        // backend from this point on, so runtime mutations of these fields would silently do
+        // nothing — better to reject them outright.
+        engine_state.history_locked_after_startup = true;
+
         perf!("setup history", start_time, use_color);
     }
     Ok(line_editor)
@@ -533,6 +539,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Juhan said to do this :)
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    repl.cursor_pos = line_editor.current_insertion_point();
+    repl.buffer = line_editor.current_buffer_contents().to_string();
+    drop(repl);
+
     // Check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
@@ -583,11 +596,11 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
         // try to enable bracketed paste
         // It doesn't work on windows system: https://github.com/crossterm-rs/crossterm/issues/737
         .use_bracketed_paste(cfg!(not(target_os = "windows")) && config.bracketed_paste)
-        .with_highlighter(Box::new(NuHighlighter {
-            engine_state: engine_reference.clone(),
+        .with_highlighter(Box::new(NuHighlighter::new(
+            engine_reference.clone(),
             // STACK-REFERENCE 1
-            stack: stack_arc.clone(),
-        }))
+            stack_arc.clone(),
+        )))
         .with_validator(Box::new(NuValidator {
             engine_state: engine_reference.clone(),
         }))
@@ -608,6 +621,7 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 .to_string(),
         ))
         .with_cursor_config(cursor_config)
+        .with_abbreviations(config.abbreviations.clone())
         .with_visual_selection_style(nu_ansi_term::Style {
             is_reverse: true,
             ..Default::default()

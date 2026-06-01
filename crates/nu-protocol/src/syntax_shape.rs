@@ -1,4 +1,4 @@
-use crate::Type;
+use crate::{CollectionColumns, Type};
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -101,7 +101,7 @@ pub enum SyntaxShape {
     Range,
 
     /// A record value, eg `{x: 1, y: 2}`
-    Record(Vec<(String, SyntaxShape)>),
+    Record(CollectionColumns<SyntaxShape>),
 
     /// A math expression which expands shorthand forms on the lefthand side, eg `foo > 1`
     /// The shorthand allows us to more easily reach columns inside of the row being passed in
@@ -117,7 +117,7 @@ pub enum SyntaxShape {
     String,
 
     /// A table is allowed, eg `[[first, second]; [1, 2]]`
-    Table(Vec<(String, SyntaxShape)>),
+    Table(CollectionColumns<SyntaxShape>),
 
     /// A variable with optional type, `x` or `x: int`
     VarWithOptType,
@@ -135,12 +135,6 @@ impl SyntaxShape {
     /// assert_eq!(non_value.to_type(), Type::Any);
     /// ```
     pub fn to_type(&self) -> Type {
-        let mk_ty = |tys: &[(String, SyntaxShape)]| {
-            tys.iter()
-                .map(|(key, val)| (key.clone(), val.to_type()))
-                .collect()
-        };
-
         match self {
             SyntaxShape::Any => Type::Any,
             SyntaxShape::Block => Type::Block,
@@ -172,26 +166,27 @@ impl SyntaxShape {
             SyntaxShape::OneOf(types) => Type::one_of(types.iter().map(SyntaxShape::to_type)),
             SyntaxShape::Operator => Type::Any,
             SyntaxShape::Range => Type::Range,
-            SyntaxShape::Record(entries) => Type::Record(mk_ty(entries)),
+            SyntaxShape::Record(entries) => Type::Record(entries.map(SyntaxShape::to_type)),
             SyntaxShape::RowCondition => Type::Bool,
             SyntaxShape::Boolean => Type::Bool,
             SyntaxShape::Signature | SyntaxShape::ExternalSignature => Type::Any,
             SyntaxShape::String => Type::String,
-            SyntaxShape::Table(columns) => Type::Table(mk_ty(columns)),
+            SyntaxShape::Table(columns) => Type::Table(columns.map(SyntaxShape::to_type)),
             SyntaxShape::VarWithOptType => Type::Any,
         }
+    }
+
+    pub fn record() -> Self {
+        Self::Record(Default::default())
+    }
+
+    pub fn table() -> Self {
+        Self::Table(Default::default())
     }
 }
 
 impl Display for SyntaxShape {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mk_fmt = |tys: &[(String, SyntaxShape)]| -> String {
-            tys.iter()
-                .map(|(x, y)| format!("{x}: {y}"))
-                .collect::<Vec<String>>()
-                .join(", ")
-        };
-
         match self {
             SyntaxShape::Keyword(kw, shape) => {
                 write!(f, "\"{}\" {}", String::from_utf8_lossy(kw), shape)
@@ -220,20 +215,8 @@ impl Display for SyntaxShape {
             }
             SyntaxShape::Binary => write!(f, "binary"),
             SyntaxShape::List(x) => write!(f, "list<{x}>"),
-            SyntaxShape::Table(columns) => {
-                if columns.is_empty() {
-                    write!(f, "table")
-                } else {
-                    write!(f, "table<{}>", mk_fmt(columns))
-                }
-            }
-            SyntaxShape::Record(entries) => {
-                if entries.is_empty() {
-                    write!(f, "record")
-                } else {
-                    write!(f, "record<{}>", mk_fmt(entries))
-                }
-            }
+            SyntaxShape::Table(columns) => write!(f, "table{columns}"),
+            SyntaxShape::Record(columns) => write!(f, "record{columns}"),
             SyntaxShape::Filesize => write!(f, "filesize"),
             SyntaxShape::Duration => write!(f, "duration"),
             SyntaxShape::DateTime => write!(f, "datetime"),
