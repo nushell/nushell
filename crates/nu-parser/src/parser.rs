@@ -2740,11 +2740,21 @@ pub fn parse_cell_path(
                     expr: Expr::Int(val),
                     span,
                     ..
-                } => tail.push(PathMember::Int {
-                    val: val as usize,
-                    span,
-                    optional: false,
-                }),
+                } => {
+                    if val < 0 {
+                        working_set.error(ParseError::InvalidLiteral(
+                            "negative index is not supported".into(),
+                            "cell path".into(),
+                            span,
+                        ));
+                        return tail;
+                    }
+                    tail.push(PathMember::Int {
+                        val: val as usize,
+                        span,
+                        optional: false,
+                    })
+                }
                 _ => {
                     let result = parse_string(working_set, path_element.span);
                     match result {

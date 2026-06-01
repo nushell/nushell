@@ -328,6 +328,11 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
         roxmltree::Error::InvalidExternalID(pos) => {
             make_xml_error_spanned("Invalid ExternalID in the DTD.", source, pos)
         }
+        roxmltree::Error::EntityResolver(pos, msg) => make_xml_error_spanned(
+            format!("Resolving the given entity yielded an error: {}.", msg),
+            source,
+            pos,
+        ),
         roxmltree::Error::InvalidComment(pos) => make_xml_error_spanned(
             "A comment cannot contain `--` or end with `-`.",
             source,
