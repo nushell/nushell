@@ -203,8 +203,8 @@ pub fn lex_item(
                         span,
                     },
                     Some(ParseError::Unbalanced(
-                        "{".to_string(),
-                        "}".to_string(),
+                        "{",
+                        "}",
                         Span::new(span.end - 1, span.end),
                     )),
                 );
@@ -228,8 +228,8 @@ pub fn lex_item(
                         span,
                     },
                     Some(ParseError::Unbalanced(
-                        "(".to_string(),
-                        ")".to_string(),
+                        "(",
+                        ")",
                         Span::new(span.end - 1, span.end),
                     )),
                 );

@@ -2037,7 +2037,7 @@ mod string {
 
             assert!(
                 working_set.parse_errors.iter().any(
-                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if delimiter == ")")
+                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if *delimiter == ")")
                 )
             );
         }

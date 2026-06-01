@@ -808,7 +808,7 @@ fn parse_oneof(
             false => parse_value(working_set, spans[*spans_idx], shape),
         };
 
-        let new_errors = working_set.parse_errors[starting_error_count..].to_vec();
+        let new_errors = &working_set.parse_errors[starting_error_count..];
         // no new errors found means success
         let Some(first_error_offset) = new_errors.iter().map(|e| e.span().start).min() else {
             return value;
@@ -829,7 +829,8 @@ fn parse_oneof(
             };
             max_first_error_offset = first_error_offset;
             best_guess = Some(value);
-            best_guess_errors = new_errors;
+            best_guess_errors.clear();
+            best_guess_errors.extend_from_slice(new_errors);
         }
         working_set.parse_errors.truncate(starting_error_count);
     }
@@ -2244,25 +2245,21 @@ pub fn parse_raw_string(working_set: &mut StateWorkingSet, span: Span) -> Expres
     // the whole raw string should contains at least
     // 1(r) + prefix_sharp_cnt + 1(') + 1(') + postfix_sharp characters
     if bytes.len() < prefix_sharp_cnt + expect_postfix_sharp_cnt + 3 {
-        working_set.error(ParseError::Unclosed('\''.into(), span));
+        working_set.error(ParseError::Unclosed("'", span));
         return garbage(working_set, span);
     }
 
     // check for unbalanced # and single quotes.
     let postfix_bytes = &bytes[bytes.len() - expect_postfix_sharp_cnt..bytes.len()];
     if postfix_bytes.iter().any(|b| *b != b'#') {
-        working_set.error(ParseError::Unbalanced(
-            "prefix #".to_string(),
-            "postfix #".to_string(),
-            span,
-        ));
+        working_set.error(ParseError::Unbalanced("prefix #", "postfix #", span));
         return garbage(working_set, span);
     }
     // check for unblanaced single quotes.
     if bytes[1 + prefix_sharp_cnt] != b'\''
         || bytes[bytes.len() - expect_postfix_sharp_cnt - 1] != b'\''
     {
-        working_set.error(ParseError::Unclosed('\''.into(), span));
+        working_set.error(ParseError::Unclosed("'", span));
         return garbage(working_set, span);
     }
 
@@ -2302,8 +2299,8 @@ pub fn parse_paren_expr(
         let malformed_subexpr = working_set.parse_errors[starting_error_count..]
             .first()
             .is_some_and(|e| match e {
-                ParseError::Unclosed(right, _) if (right == ")") => true,
-                ParseError::Unbalanced(left, right, _) if left == "(" && right == ")" => true,
+                ParseError::Unclosed(right, _) if (*right == ")") => true,
+                ParseError::Unbalanced(left, right, _) if *left == "(" && *right == ")" => true,
                 _ => false,
             });
         if malformed_subexpr {
@@ -2856,7 +2853,7 @@ pub fn parse_full_cell_path(
             if bytes.ends_with(b")") {
                 end -= 1;
             } else {
-                working_set.error(ParseError::Unclosed(")".into(), Span::new(end, end)));
+                working_set.error(ParseError::Unclosed(")", Span::new(end, end)));
                 is_closed = false;
             }
 
@@ -3781,15 +3778,15 @@ pub fn parse_string_strict(working_set: &mut StateWorkingSet, span: Span) -> Exp
             bytes
         };
         if bytes.starts_with(b"\"") && (bytes.len() == 1 || !bytes.ends_with(b"\"")) {
-            working_set.error(ParseError::Unclosed("\"".into(), span));
+            working_set.error(ParseError::Unclosed("\"", span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"\'") && (bytes.len() == 1 || !bytes.ends_with(b"\'")) {
-            working_set.error(ParseError::Unclosed("\'".into(), span));
+            working_set.error(ParseError::Unclosed("\'", span));
             return garbage(working_set, span);
         }
         if bytes.starts_with(b"r#") && (bytes.len() == 1 || !bytes.ends_with(b"#")) {
-            working_set.error(ParseError::Unclosed("r#".into(), span));
+            working_set.error(ParseError::Unclosed("r#", span));
             return garbage(working_set, span);
         }
     }
@@ -3983,7 +3980,7 @@ pub fn parse_var_with_opt_type(
     mutable: bool,
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
-    let bytes = working_set.get_span_contents(name_span).to_vec();
+    let bytes = working_set.get_span_contents(name_span);
 
     if bytes.contains(&b' ')
         || bytes.contains(&b'"')
@@ -4052,7 +4049,7 @@ pub fn parse_var_with_opt_type(
             )
         }
     } else {
-        let var_name = bytes;
+        let var_name = bytes.to_vec();
 
         if !is_variable(&var_name) {
             working_set.error(ParseError::Expected(
@@ -4350,7 +4347,7 @@ pub fn parse_signature(
     if (has_paren && bytes.ends_with(b")")) || (!has_paren && bytes.ends_with(b"]")) {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("] or )".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("] or )", Span::new(end, end)));
     }
 
     let sig = parse_signature_helper(working_set, Span::new(start, end), is_external);
@@ -5051,7 +5048,7 @@ pub fn parse_list_expression(
     if bytes.ends_with(b"]") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
     }
 
     let inner_span = Span::new(start, end);
@@ -5172,7 +5169,7 @@ fn parse_table_expression(
             span.end - 1
         } else {
             let end = span.end;
-            working_set.error(ParseError::Unclosed("]".into(), Span::new(end, end)));
+            working_set.error(ParseError::Unclosed("]", Span::new(end, end)));
             span.end
         };
 
@@ -5335,7 +5332,7 @@ pub fn parse_block_expression(working_set: &mut StateWorkingSet, span: Span) -> 
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
         is_closed = false;
     }
 
@@ -5395,7 +5392,7 @@ pub fn parse_match_block_expression(working_set: &mut StateWorkingSet, span: Spa
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
         is_closed = false;
     }
 
@@ -5600,7 +5597,7 @@ pub fn parse_closure_expression(
     if bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
         is_closed = false;
     }
 
@@ -5642,7 +5639,7 @@ pub fn parse_closure_expression(
             let end_point = if let Some(span) = end_span {
                 span.end
             } else {
-                working_set.error(ParseError::Unclosed("|".into(), Span::new(end, end)));
+                working_set.error(ParseError::Unclosed("|", Span::new(end, end)));
                 end
             };
 
@@ -6763,8 +6760,8 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     };
     while !lex_state.input.is_empty() {
         if let Some(ParseError::Unbalanced(left, right, _)) = lex_state.error.as_ref()
-            && left == "{"
-            && right == "}"
+            && *left == "{"
+            && *right == "}"
         {
             extra_tokens = true;
             unclosed = false;
@@ -6799,7 +6796,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
     let (tokens, err) = (lex_state.output, lex_state.error);
 
     if unclosed {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
     } else if extra_tokens {
         working_set.error(ParseError::ExtraTokensAfterClosingDelimiter(Span::new(
             lex_state.span_offset,
@@ -7038,7 +7035,7 @@ pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline
                 let element = parse_pipeline_element(working_set, element);
                 // Handle $in for pipeline elements beyond the first one
                 if index > 0 && element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element.clone())
+                    wrap_element_with_collect(working_set, element)
                 } else {
                     element
                 }
@@ -7608,7 +7605,7 @@ fn wrap_element_with_collect(
     }
 }
 
-fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -> Expression {
+fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, mut expr: Expression) -> Expression {
     let span = expr.span;
 
     // IN_VARIABLE_ID should get replaced with a unique variable, so that we don't have to
@@ -7619,7 +7616,6 @@ fn wrap_expr_with_collect(working_set: &mut StateWorkingSet, expr: Expression) -
         Type::Any,
         false,
     );
-    let mut expr = expr.clone();
     expr.replace_in_variable(working_set, var_id);
 
     // Bind the custom `$in` variable for that particular expression
