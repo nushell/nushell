@@ -19,10 +19,15 @@ nu-protocol = { workspace = true, features = ["plugin"] }
 nu-utils.workspace = true
 
 rmp-serde = { workspace = true }
+schemars = "1.2.1"
 serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 semver = "1.0"
 typetag = "0.2"
 
 [features]
 default = ["local-socket"]
 local-socket = []
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -16,7 +16,8 @@ use nu_plugin_core::{
     PluginWrite,
 };
 use nu_plugin_protocol::{
-    CallInfo, CustomValueOp, GetCompletionInfo, PluginCustomValue, PluginInput, PluginOutput,
+    CallInfo, CustomValueOp, GetCompletionInfo, PLUGIN_PROTOCOL_VERSION, PluginCustomValue,
+    PluginInput, PluginOutput,
 };
 use nu_protocol::{
     CustomValue, IntoSpanned, LabeledError, PipelineData, PluginMetadata, ShellError, Span,
@@ -593,7 +594,12 @@ where
                 // Send metadata back to nushell so it can be stored with the plugin signatures
                 ReceivedPluginCall::Metadata { engine } => {
                     engine
-                        .write_metadata(PluginMetadata::new().with_version(plugin.version()))
+                        .write_metadata(
+                            PluginMetadata::new()
+                                .with_version(plugin.version())
+                                .with_protocol_version(PLUGIN_PROTOCOL_VERSION)
+                                .with_nushell_version(env!("CARGO_PKG_VERSION")),
+                        )
                         .try_to_report(&engine)?;
                 }
                 // Sending the signature back to nushell to create the declaration definition

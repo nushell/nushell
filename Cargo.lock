@@ -4878,8 +4878,10 @@ dependencies = [
  "nu-protocol",
  "nu-utils",
  "rmp-serde",
+ "schemars",
  "semver",
  "serde",
+ "serde_json",
  "typetag",
 ]
 

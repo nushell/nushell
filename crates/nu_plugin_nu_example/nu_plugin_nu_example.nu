@@ -7,6 +7,7 @@
 # language without adding any extra dependencies to our tests.
 
 const NUSHELL_VERSION = "0.113.2"
+const PLUGIN_PROTOCOL_VERSION = "0.93.0"
 const PLUGIN_VERSION = "0.1.1" # bump if you change commands!
 
 def main [--stdio] {
@@ -168,12 +169,12 @@ def tell_nushell_encoding [] {
 
 def tell_nushell_hello [] {
   # A `Hello` message is required at startup to inform nushell of the protocol capabilities and
-  # compatibility of the plugin. The version specified should be the version of nushell that this
-  # plugin was tested and developed against.
+  # compatibility of the plugin. The version specified should be the plugin protocol version that
+  # the plugin implements.
   let hello = {
     Hello: {
       protocol: "nu-plugin", # always this value
-      version: $NUSHELL_VERSION,
+      version: $PLUGIN_PROTOCOL_VERSION,
       features: []
     }
   }
@@ -220,7 +221,7 @@ def write_error [id: int, text: string, span?: record<start: int, end: int>] {
 def handle_input []: any -> nothing {
   match $in {
     { Hello: $hello } => {
-      if ($hello.version != $NUSHELL_VERSION) {
+      if ($hello.version != $PLUGIN_PROTOCOL_VERSION) {
         exit 1
       }
     }
@@ -233,6 +234,8 @@ def handle_input []: any -> nothing {
           write_response $id {
             Metadata: {
               version: $PLUGIN_VERSION
+              protocol_version: $PLUGIN_PROTOCOL_VERSION
+              nushell_version: $NUSHELL_VERSION
             }
           }
         }
