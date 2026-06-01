@@ -55,7 +55,7 @@ impl Command for ExploreConfigCommand {
             .named(
                 "output",
                 SyntaxShape::String,
-                "Optional output file to save changes to (default: output.json).",
+                "Optional output file to save changes to (default: output.json). Ignored when editing nushell config.",
                 Some('o'),
             )
             .category(Category::Viewers)
