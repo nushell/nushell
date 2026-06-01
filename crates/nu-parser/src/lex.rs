@@ -325,7 +325,8 @@ pub fn lex_item(
                 span,
             ));
             Token {
-                contents: TokenContents::Item,
+                // HACK: For more accurate parsing aligned with user intention
+                contents: TokenContents::Pipe,
                 span,
             }
         }
@@ -356,21 +357,24 @@ pub fn lex_item(
         b"&&" => {
             err = Some(ParseError::ShellAndAnd(span));
             Token {
-                contents: TokenContents::Item,
+                // HACK: For more accurate parsing aligned with user intention
+                contents: TokenContents::Pipe,
                 span,
             }
         }
         b"2>" => {
             err = Some(ParseError::ShellErrRedirect(span));
             Token {
-                contents: TokenContents::Item,
+                // HACK: For more accurate parsing aligned with user intention
+                contents: TokenContents::ErrGreaterThan,
                 span,
             }
         }
         b"2>&1" => {
             err = Some(ParseError::ShellOutErrRedirect(span));
             Token {
-                contents: TokenContents::Item,
+                // HACK: For more accurate parsing aligned with user intention
+                contents: TokenContents::Pipe,
                 span,
             }
         }
