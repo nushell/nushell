@@ -5,6 +5,7 @@ use nu_engine::{eval_block, eval_block_with_early_return};
 use nu_parser::{Token, TokenContents, lex, parse, unescape_unquote_string};
 use nu_protocol::{
     PipelineData, ShellError, Span, Value,
+    ast::Block,
     debugger::WithoutDebug,
     engine::{EngineState, Stack, StateWorkingSet},
     process::check_exit_status_future,
@@ -314,10 +315,20 @@ fn evaluate_source(
 
     engine_state.merge_delta(delta)?;
 
+    evaluate_block(engine_state, stack, &block, input, allow_return)
+}
+
+pub(crate) fn evaluate_block(
+    engine_state: &mut EngineState,
+    stack: &mut Stack,
+    block: &Block,
+    input: PipelineData,
+    allow_return: bool,
+) -> Result<bool, ShellError> {
     let pipeline = if allow_return {
-        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block_with_early_return::<WithoutDebug>(engine_state, stack, block, input)
     } else {
-        eval_block::<WithoutDebug>(engine_state, stack, &block, input)
+        eval_block::<WithoutDebug>(engine_state, stack, block, input)
     }?;
     let pipeline_data = pipeline.body;
 
