@@ -428,6 +428,71 @@ fn custom_completions_strip_ansi_from_record_values() {
     match_suggestions(&vec!["magenta_dir", "plain_dir"], &suggestions);
 }
 
+#[test]
+fn custom_completions_wraps_builtin_commandline_complete() {
+    let (_, _, mut engine, mut stack) = new_engine();
+    let command = "
+        def comp [] {
+            '%ls ' | commandline complete --detailed | prepend {
+                value: 'test',
+                display: 'test',
+                description: 'dummy',
+                style: { attr: b },
+            }
+        }
+        def my-ls [arg: string@comp] {}
+    ";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-ls test";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(
+        &vec![
+            "test",
+            &folder("test_a"),
+            &folder("test_a_symlink"),
+            &folder("test_b"),
+        ],
+        &suggestions,
+    );
+}
+
+#[test]
+fn custom_completions_wraps_builtin_commandline_complete_path() {
+    let (_, _, mut engine, mut stack) = new_quote_engine();
+    let command = "
+        def completer [context: string] {
+            $context
+              | split row ' '
+              | last
+              | commandline complete --type path --detailed
+              | reject span # original spans are less useful with --path
+              | prepend { value: `'ten more'`, display_override: 'ten more' }
+        }
+        def my-ls [arg: path@completer] {}
+    ";
+    assert!(support::merge_input(command.as_bytes(), &mut engine, &mut stack).is_ok());
+
+    let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
+    let completion_str = "my-ls te";
+    let suggestions = completer.complete(completion_str, completion_str.len());
+    match_suggestions(
+        &vec![
+            "`te st.txt`",
+            "`te#st.txt`",
+            "`te'st.txt`",
+            "`te(st).txt`",
+            "'ten more'",
+            &format!("`{}`", folder("test dir")),
+        ],
+        &suggestions,
+    );
+
+    let spans: Vec<_> = suggestions.into_iter().map(|sugg| sugg.span).collect();
+    assert_eq!(vec![Span::new(6, 8); 6], spans);
+}
+
 #[rstest]
 /// Fallback to file completions if custom completer returns null
 #[case::fallback("
@@ -1167,6 +1232,23 @@ fn external_completer_sudo() {
     let expected = vec!["--background"];
     let suggestions = run_external_completion(block, input);
     match_suggestions(&expected, &suggestions);
+}
+
+#[test]
+fn external_completer_wraps_builtin_commandline_complete() {
+    let block = "{|spans|
+        $spans | last | commandline complete | prepend 'bar'
+    }";
+    let input = "foo test";
+
+    let expected = vec![
+        "bar".to_string(),
+        folder("test_a"),
+        folder("test_a_symlink"),
+        folder("test_b"),
+    ];
+    let suggestions = run_external_completion(block, input);
+    match_suggestions_by_string(&expected, &suggestions);
 }
 
 /// Suppress completions when external completer returns invalid value
@@ -2960,6 +3042,13 @@ fn run_external_completion_within_pwd(
 
     // Merge environment into the permanent state
     assert!(engine_state.merge_env(&mut stack).is_ok());
+
+    // Set the repl state as if the user typed the given input
+    {
+        let mut repl = engine_state.repl_state.lock().expect("repl state");
+        repl.buffer = input.to_string();
+        repl.cursor_pos = input.len();
+    }
 
     // Instantiate a new completer
     let mut completer = NuCompleter::new(Arc::new(engine_state), Arc::new(stack));

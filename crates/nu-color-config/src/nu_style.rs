@@ -1,5 +1,5 @@
 use nu_ansi_term::{Color, Style};
-use nu_protocol::{ShellError, Value, shell_error::generic::GenericError};
+use nu_protocol::{IntoValue, Record, ShellError, Span, Value, shell_error::generic::GenericError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, PartialEq, Eq, Debug)]
@@ -7,6 +7,18 @@ pub struct NuStyle {
     pub fg: Option<String>,
     pub bg: Option<String>,
     pub attr: Option<String>,
+}
+
+impl IntoValue for NuStyle {
+    fn into_value(self, span: Span) -> nu_protocol::Value {
+        let mut rec = Record::new();
+        for (key, val) in [("fg", self.fg), ("bg", self.bg), ("attr", self.attr)] {
+            if let Some(val) = val {
+                rec.insert(key, val.into_value(span));
+            }
+        }
+        Value::record(rec, span)
+    }
 }
 
 // Valid attribute codes and their corresponding names
@@ -98,6 +110,8 @@ fn color_to_string(color: Color) -> Option<String> {
         Color::LightGray => Some(String::from("light_gray")),
         Color::Default => Some(String::from("default")),
         Color::Rgb(r, g, b) => Some(format!("#{r:X}{g:X}{b:X}")),
+
+        // TODO... maybe a little macro could help with lookups str <-> int
         Color::Fixed(_) => None,
     }
 }
