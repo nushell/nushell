@@ -1337,14 +1337,12 @@ impl TableOption<NuRecords, ColoredConfig, CompleteDimension> for SetLineHeaders
             .map(|(s, width)| Truncate::truncate(&s, width - pad).into_owned())
             .collect::<Vec<_>>();
 
-        // TODO: Isn't it too complicated interface for such a small feature?
-        let mut names = ColumnNames::new(columns).line(self.line);
-
+        let mut names = ColumnNames::new(columns)
+            .line(self.line)
+            .alignment(Alignment::from(self.head.align));
         if let Some(color) = self.head.color {
             names = names.color(color);
         }
-
-        names = names.alignment(Alignment::from(self.head.align));
 
         //  FIXME: because of bug in tabled(latest) we got to modify columns
         //         because it fails to regognize right padding value
