@@ -1,8 +1,9 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::prelude::{Result, TestResultExt, test};
+use nu_test_support::prelude::*;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn add_overlay() {
@@ -1585,33 +1586,17 @@ fn overlay_use_module_dir() {
     assert_eq!(actual.out, "spambaz");
 }
 
-#[test]
-fn overlay_use_module_dir_prefix() {
-    let import = "overlay use samples/spam --prefix";
-
-    let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spam");
-
-    let inp = &[import, "spam foo"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foo");
-
-    let inp = &[import, "spam bar"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "bar");
-
-    let inp = &[import, "spam foo baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foobaz");
-
-    let inp = &[import, "spam bar baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "barbaz");
-
-    let inp = &[import, "spam baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spambaz");
+#[rstest]
+#[case("spam", "spam")]
+#[case("spam foo", "foo")]
+#[case("spam bar", "bar")]
+#[case("spam foo baz", "foobaz")]
+#[case("spam bar baz", "barbaz")]
+#[case("spam baz", "spambaz")]
+fn overlay_use_module_dir_prefix(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
+    let mut tester = test().cwd("tests/modules");
+    let () = tester.run("overlay use samples/spam --prefix")?;
+    tester.run(code).expect_value_eq(expected)
 }
 
 #[test]
