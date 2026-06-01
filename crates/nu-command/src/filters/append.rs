@@ -16,6 +16,7 @@ impl Command for Append {
                 SyntaxShape::Any,
                 "The row, list, or table to append.",
             )
+            .rest("rest", SyntaxShape::Any, "Additional values to append.")
             .allow_variants_without_examples(true)
             .category(Category::Filters)
     }
@@ -32,7 +33,7 @@ only unwrap the outer list, and leave the variable's contents untouched."
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["add", "concatenate"]
+        vec!["add", "concatenate", "push"]
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -67,17 +68,6 @@ only unwrap the outer list, and leave the variable's contents untouched."
                 ])),
             },
             Example {
-                example: "[0 1] | append [2 3 4]",
-                description: "Append three int items.",
-                result: Some(Value::test_list(vec![
-                    Value::test_int(0),
-                    Value::test_int(1),
-                    Value::test_int(2),
-                    Value::test_int(3),
-                    Value::test_int(4),
-                ])),
-            },
-            Example {
                 example: "[0 1] | append [2 nu 4 shell]",
                 description: "Append ints and strings.",
                 result: Some(Value::test_list(vec![
@@ -100,6 +90,17 @@ only unwrap the outer list, and leave the variable's contents untouched."
                     Value::test_int(4),
                 ])),
             },
+            Example {
+                example: "[0] | append [1 2] [3] [] 4",
+                description: "Append multiple lists and values.",
+                result: Some(Value::test_list(vec![
+                    Value::test_int(0),
+                    Value::test_int(1),
+                    Value::test_int(2),
+                    Value::test_int(3),
+                    Value::test_int(4),
+                ])),
+            },
         ]
     }
 
@@ -111,11 +112,16 @@ only unwrap the outer list, and leave the variable's contents untouched."
         mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let other: Value = call.req(engine_state, stack, 0)?;
+        let rest: Vec<Value> = call.rest(engine_state, stack, 1)?;
         let metadata = input.take_metadata();
 
         Ok(input
             .into_iter()
             .chain(other.into_pipeline_data())
+            .chain(
+                rest.into_iter()
+                    .flat_map(|value| value.into_pipeline_data()),
+            )
             .into_pipeline_data_with_metadata(call.head, engine_state.signals().clone(), metadata))
     }
 }
