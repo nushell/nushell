@@ -11,6 +11,7 @@
 mod alias;
 pub mod ast;
 pub mod casing;
+mod collection_columns;
 mod completion;
 pub mod config;
 pub mod debugger;
@@ -39,6 +40,7 @@ mod value;
 
 pub use alias::*;
 pub use ast::unit::*;
+pub use collection_columns::*;
 pub use completion::*;
 pub use config::*;
 pub use deprecation::*;

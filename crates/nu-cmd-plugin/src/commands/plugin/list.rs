@@ -17,7 +17,7 @@ impl Command for PluginList {
             .input_output_type(
                 Type::Nothing,
                 Type::Table(
-                    [
+                    vec![
                         ("name".into(), Type::String),
                         ("version".into(), Type::String),
                         ("status".into(), Type::String),

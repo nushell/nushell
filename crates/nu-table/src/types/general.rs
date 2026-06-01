@@ -98,6 +98,8 @@ fn create_table_with_header(
     table.set_header_style(get_header_style(&opts.style_computer));
     table.set_index_style(get_index_style(&opts.style_computer));
     table.set_indent(opts.config.table.padding);
+    let priority_columns = resolve_priority_columns(&headers, &opts.width_priority_columns, false);
+    table.set_width_priority_columns(&priority_columns);
 
     for (row, item) in input.into_iter().enumerate() {
         opts.signals.check(&opts.span)?;
@@ -124,6 +126,7 @@ fn create_table_with_header_and_index(
     row_offset: usize,
     opts: &TableOpts<'_>,
 ) -> Result<Option<NuTable>, ShellError> {
+    let priority_columns = resolve_priority_columns(&headers, &opts.width_priority_columns, true);
     let head = collect_headers(headers, true);
 
     let count_rows = input.len() + 1;
@@ -133,6 +136,7 @@ fn create_table_with_header_and_index(
     table.set_header_style(get_header_style(&opts.style_computer));
     table.set_index_style(get_index_style(&opts.style_computer));
     table.set_indent(opts.config.table.padding);
+    table.set_width_priority_columns(&priority_columns);
 
     table.set_row(0, head.clone());
 
@@ -259,4 +263,45 @@ fn collect_headers(headers: Vec<String>, index: bool) -> Vec<NuRecordsValue> {
     }
 
     v
+}
+
+/// Resolves configured priority column names into concrete table column indexes.
+///
+/// The returned indexes preserve caller order and contain no duplicates.
+fn resolve_priority_columns(
+    headers: &[String],
+    width_priority_columns: &[String],
+    with_index: bool,
+) -> Vec<usize> {
+    let mut resolved = Vec::new();
+
+    for priority_column in width_priority_columns {
+        let mut resolved_index = None;
+
+        if with_index && priority_column == INDEX_COLUMN_NAME {
+            resolved_index = Some(0);
+        } else {
+            let mut table_index = usize::from(with_index);
+            for header in headers {
+                if header == INDEX_COLUMN_NAME && with_index {
+                    continue;
+                }
+
+                if header == priority_column {
+                    resolved_index = Some(table_index);
+                    break;
+                }
+
+                table_index += 1;
+            }
+        }
+
+        if let Some(index) = resolved_index
+            && !resolved.contains(&index)
+        {
+            resolved.push(index);
+        }
+    }
+
+    resolved
 }

@@ -480,18 +480,8 @@ fn bench_type_widen_simple() -> impl IntoBenchmarks {
 }
 
 fn bench_type_widen_large_records() -> impl IntoBenchmarks {
-    let rec1: Type = Type::Record(
-        (0..50)
-            .map(|i| (format!("f{i}"), Type::Int))
-            .collect::<Vec<_>>()
-            .into(),
-    );
-    let rec2: Type = Type::Record(
-        (0..50)
-            .map(|i| (format!("f{i}"), Type::Number))
-            .collect::<Vec<_>>()
-            .into(),
-    );
+    let rec1: Type = Type::Record((0..50).map(|i| (format!("f{i}"), Type::Int)).collect());
+    let rec2: Type = Type::Record((0..50).map(|i| (format!("f{i}"), Type::Number)).collect());
     [benchmark_fn("type_widen_large_records", move |bench| {
         let rec1 = rec1.clone();
         let rec2 = rec2.clone();

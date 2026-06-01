@@ -350,6 +350,7 @@ impl NuCompleter {
                         internals: need_internals,
                         externals: need_externals,
                         builtins_only: force_builtins_only,
+                        quote_internals: false,
                     },
                     strip,
                 ))
@@ -591,6 +592,7 @@ impl NuCompleter {
                                         internals: true,
                                         externals: true,
                                         builtins_only: false,
+                                        quote_internals: false,
                                     },
                                     strip,
                                 );
@@ -678,6 +680,7 @@ impl NuCompleter {
             externals: !options.internals
                 || (options.externals && config.completions.external.enable),
             builtins_only: options.builtins_only,
+            quote_internals: options.quote_internals,
         };
         let (new_span, prefix) = strip_placeholder_if_any(working_set, &span, strip);
         let ctx = Context::new(working_set, new_span, prefix, offset);
@@ -764,6 +767,7 @@ struct CommandCompletionOptions {
     internals: bool,
     externals: bool,
     builtins_only: bool,
+    quote_internals: bool,
 }
 
 impl ReedlineCompleter for NuCompleter {
