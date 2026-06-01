@@ -6,10 +6,11 @@ use nu_protocol::{
     LabeledError, ShellError, Span, Spanned, Value, config::TableMode, did_you_mean,
 };
 use nu_utils::stdout_write_all_and_flush;
+#[cfg(feature = "plugin")]
+use std::path::Path;
 use std::{
     ffi::OsString,
     fmt::{self, Write},
-    path::Path,
 };
 
 const HELP_SECTION_COLOR: &str = "\x1b[32m";
@@ -94,6 +95,7 @@ enum ValueHint {
     Int,
     Path,
     ListString,
+    #[cfg_attr(not(feature = "plugin"), expect(unused))]
     ListPath,
 }
 
@@ -324,6 +326,7 @@ const CLI_FLAGS: &[CliFlag] = &[
         CliCategory::Experimental,
         "nu --experimental-options [example=false]",
     ),
+    #[cfg(feature = "lsp")]
     CliFlag::switch(
         "lsp",
         None,
@@ -443,6 +446,7 @@ struct CliValues {
     error_style: Option<Value>,
     no_newline: Option<Spanned<String>>,
     include_path: Option<Spanned<String>>,
+    #[cfg(feature = "lsp")]
     lsp: bool,
     ide_goto_def: Option<Value>,
     ide_hover: Option<Value>,
@@ -651,6 +655,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
                     .get_or_insert_with(Vec::new)
                     .extend(values.into_iter().map(spanned_value));
             }
+            #[cfg(feature = "lsp")]
             Long("lsp") => cli.lsp = true,
             Long("ide-goto-def") => {
                 cli.ide_goto_def = Some(parse_ide_int_option(&mut parser, "ide-goto-def")?)
@@ -777,6 +782,7 @@ pub(crate) fn parse_cli_args(args: Vec<OsString>) -> Result<ParsedCli, CliError>
             error_style: cli.error_style,
             no_newline: cli.no_newline,
             include_path: cli.include_path,
+            #[cfg(feature = "lsp")]
             lsp: cli.lsp,
             ide_goto_def: cli.ide_goto_def,
             ide_hover: cli.ide_hover,
@@ -1400,6 +1406,7 @@ pub(crate) struct NushellCliArgs {
     pub(crate) error_style: Option<Value>,
     pub(crate) no_newline: Option<Spanned<String>>,
     pub(crate) include_path: Option<Spanned<String>>,
+    #[cfg(feature = "lsp")]
     pub(crate) lsp: bool,
     pub(crate) ide_goto_def: Option<Value>,
     pub(crate) ide_hover: Option<Value>,

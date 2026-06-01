@@ -1,10 +1,3 @@
-[workspace.package]
-authors = ["The Nushell Project Developers"]
-edition = "2024"
-rust-version = "1.93.1"
-license = "MIT"
-version = "0.113.2"
-
 [package]
 authors.workspace = true
 edition.workspace = true
@@ -20,7 +13,12 @@ homepage = "https://www.nushell.sh"
 name = "nu"
 repository = "https://github.com/nushell/nushell"
 autotests = false
-
+[workspace.package]
+authors = ["The Nushell Project Developers"]
+edition = "2024"
+rust-version = "1.93.1"
+license = "MIT"
+version = "0.113.2"
 [[test]]
 name = "tests"
 path = "tests/main.rs"
@@ -312,7 +310,7 @@ nu-command = { workspace = true, features = ["os"] }
 nu-engine = { workspace = true, features = ["os"] }
 nu-experimental = { workspace = true }
 nu-explore = { workspace = true }
-nu-lsp = { workspace = true }
+nu-lsp = { workspace = true, optional = true }
 nu-parser = { workspace = true }
 nu-path = { workspace = true }
 nu-plugin-engine = { workspace = true, features = ["local-socket"], optional = true }
@@ -367,13 +365,14 @@ tempfile = { workspace = true }
 # Enable all features while still avoiding mutually exclusive features.
 # Use this if `--all-features` fails.
 full = [
+  "lsp",
+  "mcp",
   "network",
   "plugin",
   "rustls-tls",
   "sqlite",
   "system-clipboard",
   "trash-support",
-  "mcp",
 ]
 
 plugin = [
@@ -390,6 +389,8 @@ plugin = [
   "nu-protocol/plugin",
 ]
 
+lsp = ["dep:nu-lsp"]
+
 mcp = [
   "dep:nu-mcp",
   "nu-mcp/mcp",
@@ -400,12 +401,13 @@ native-tls = ["nu-command/native-tls"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 default = [
-  "plugin",
-  "trash-support",
-  "sqlite",
-  "network",
-  "rustls-tls",
+  "lsp",
   "mcp",
+  "network",
+  "plugin",
+  "rustls-tls",
+  "sqlite",
+  "trash-support",
 ]
 stable = ["default"]
 # NOTE: individual features are also passed to `nu-cmd-lang` that uses them to generate the feature matrix in the `version` command
