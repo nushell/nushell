@@ -102,6 +102,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "annotate-snippets"
+version = "0.12.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f211a51805bc641f3ad5b7664c77d2547af685cc33b4cd8d31964027a46f13f1"
+dependencies = [
+ "anstyle",
+ "memchr",
+ "unicode-width 0.2.2",
+]
+
+[[package]]
 name = "ansi-str"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2005,6 +2016,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "encoding_rs_io"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cc3c5651fb62ab8aa3103998dade57efdd028544bd300516baa31840c252a83"
+dependencies = [
+ "encoding_rs",
+]
+
+[[package]]
 name = "enum_dispatch"
 version = "0.3.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2700,6 +2720,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "granit-parser"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f50ba32164f9e098d5da618776a32afbb32270adcbe3d3d006107dae11e37c91"
+dependencies = [
+ "arraydeque",
+ "smallvec",
+]
+
+[[package]]
 name = "h2"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2800,15 +2830,6 @@ dependencies = [
  "rayon",
  "serde",
  "serde_core",
-]
-
-[[package]]
-name = "hashlink"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7382cf6263419f2d8df38c55d7da83da5c18aef87fc7a7fc1fb1e344edfe14c1"
-dependencies = [
- "hashbrown 0.15.5",
 ]
 
 [[package]]
@@ -4277,6 +4298,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4760,9 +4787,10 @@ dependencies = [
 name = "nu-heavy-utils"
 version = "0.113.2"
 dependencies = [
+ "granit-parser",
  "nu-protocol",
  "nu-test-support",
- "saphyr",
+ "serde-saphyr",
 ]
 
 [[package]]
@@ -5624,15 +5652,6 @@ name = "option-ext"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
-
-[[package]]
-name = "ordered-float"
-version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7d950ca161dc355eaf28f82b11345ed76c6e1f6eb1f4f4479e0323b9e2fbd0e"
-dependencies = [
- "num-traits",
-]
 
 [[package]]
 name = "ordered-multimap"
@@ -7619,7 +7638,7 @@ dependencies = [
  "chrono",
  "fallible-iterator",
  "fallible-streaming-iterator",
- "hashlink 0.12.0",
+ "hashlink",
  "libsqlite3-sys",
  "smallvec",
  "sqlite-wasm-rs",
@@ -7791,29 +7810,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "saphyr"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3767dfe8889ebb55a21409df2b6f36e66abfbe1eb92d64ff76ae799d3f91016"
-dependencies = [
- "arraydeque",
- "encoding_rs",
- "hashlink 0.10.0",
- "ordered-float",
- "saphyr-parser",
-]
-
-[[package]]
-name = "saphyr-parser"
-version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb771b59f6b1985d1406325ec28f97cfb14256abcec4fdfb37b36a1766d6af7"
-dependencies = [
- "arraydeque",
- "hashlink 0.10.0",
-]
-
-[[package]]
 name = "schannel"
 version = "0.1.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7950,6 +7946,25 @@ checksum = "9a8e94ea7f378bd32cbbd37198a4a91436180c5bb472411e48b5ec2e2124ae9e"
 dependencies = [
  "serde_core",
  "serde_derive",
+]
+
+[[package]]
+name = "serde-saphyr"
+version = "0.0.27"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5897b4c3faadadd35fdb6689f015641f3bc481d5adaaac56231ea15aeb243db3"
+dependencies = [
+ "ahash",
+ "annotate-snippets",
+ "base64",
+ "encoding_rs_io",
+ "getrandom 0.3.4",
+ "granit-parser",
+ "nohash-hasher",
+ "num-traits",
+ "serde",
+ "smallvec",
+ "zmij",
 ]
 
 [[package]]
