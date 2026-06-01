@@ -359,9 +359,9 @@ fn oneof_annotations(
 }
 
 #[rstest]
-#[case::table_record("oneof<record, table>", "{item: 1}", Type::Record([("item".to_string(), Type::Int)].into()))]
-#[case::table_list_of_record("oneof<record, table>", "[{item: 1}]", Type::Table([("item".to_string(), Type::Int)].into()))]
-#[case::table_table("oneof<record, table>", "[[item]; [1]]", Type::Table([("item".to_string(), Type::Int)].into()))]
+#[case::table_record("oneof<record, table>", "{item: 1}", Type::Record(vec![("item".to_string(), Type::Int)].into()))]
+#[case::table_list_of_record("oneof<record, table>", "[{item: 1}]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
+#[case::table_table("oneof<record, table>", "[[item]; [1]]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
 #[case::closure_cell_path("oneof<cell-path, closure>", "foo", Type::CellPath)]
 #[case::closure_closure_with_bars("oneof<cell-path, closure>", "{|| get foo }", Type::Closure)]
 #[case::closure_closure_without_bars("oneof<cell-path, closure>", "{ get foo }", Type::Closure)]
