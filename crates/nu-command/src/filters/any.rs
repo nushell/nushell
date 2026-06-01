@@ -14,8 +14,8 @@ impl Command for Any {
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Bool)])
             .required(
                 "predicate",
-                SyntaxShape::Closure(Some(vec![SyntaxShape::Any])),
-                "A closure that must evaluate to a boolean.",
+                SyntaxShape::RowCondition,
+                "Row condition or closure that evaluates to a boolean.",
             )
             .category(Category::Filters)
     }
