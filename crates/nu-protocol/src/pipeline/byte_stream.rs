@@ -835,6 +835,14 @@ pub struct Lines {
     reader: BufReader<SourceReader>,
     span: Span,
     signals: Signals,
+    /// Controls UTF-8 decoding behavior for each line.
+    ///
+    /// When `false` (the default), invalid UTF-8 bytes are replaced with the Unicode
+    /// replacement character (U+FFFD) using lossy conversion, so processing continues
+    /// uninterrupted even if the input is not valid UTF-8.
+    ///
+    /// When `true`, any line containing invalid UTF-8 bytes will immediately produce
+    /// a [`ShellError::NonUtf8`] error instead of a string value.
     strict: bool,
 }
 
@@ -843,6 +851,11 @@ impl Lines {
         self.span
     }
 
+    /// Sets the UTF-8 decoding mode for this iterator.
+    ///
+    /// When `strict` is `true`, any line that contains invalid UTF-8 bytes will yield
+    /// a [`ShellError::NonUtf8`] error. When `false` (the default), invalid bytes are
+    /// silently replaced with the Unicode replacement character (U+FFFD `\u{FFFD}`).
     pub fn strict(mut self, strict: bool) -> Self {
         self.strict = strict;
         self
