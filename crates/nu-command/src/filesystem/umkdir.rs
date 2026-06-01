@@ -104,7 +104,7 @@ impl Command for UMkdir {
 
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
-            mode: get_mode(),
+            mode: Some(get_mode()),
             verbose: false,
             set_security_context: false,
             context: None,
