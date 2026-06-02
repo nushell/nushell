@@ -31,8 +31,18 @@ fn to_string_tagged_value(
         | Value::Binary { .. }
         | Value::Custom { .. }
         | Value::Filesize { .. }
-        | Value::CellPath { .. }
-        | Value::Float { .. } => Ok(v.clone().to_abbreviated_string(config)),
+        | Value::CellPath { .. } => Ok(v.clone().to_abbreviated_string(config)),
+        Value::Float { val, .. } if !val.is_finite() => {
+            // f64::from_str accepts these spellings, so `from csv` infers them back to floats.
+            Ok(if val.is_nan() {
+                "NaN".to_string()
+            } else if *val > 0.0 {
+                "inf".to_string()
+            } else {
+                "-inf".to_string()
+            })
+        }
+        Value::Float { .. } => Ok(v.clone().to_abbreviated_string(config)),
         Value::Date { val, .. } => Ok(val.to_string()),
         Value::Nothing { .. } => Ok(String::new()),
         // Propagate existing errors

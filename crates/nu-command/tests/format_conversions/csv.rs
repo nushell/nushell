@@ -76,6 +76,22 @@ fn table_to_csv_float_doesnt_become_int() -> Result {
 }
 
 #[test]
+fn table_to_csv_nonfinite_floats_roundtrip_as_floats() -> Result {
+    let code = r#"
+        [[v]; [inf] [-inf] [NaN] [1.5]]
+        | to csv
+        | from csv
+        | get v
+        | each {|v| $v | describe}
+        | to nuon
+    "#;
+
+    test()
+        .run(code)
+        .expect_value_eq("[float, float, float, float]")
+}
+
+#[test]
 fn infers_types() -> Result {
     Playground::setup("filter_from_csv_test_1", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
