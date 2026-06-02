@@ -552,9 +552,11 @@ fn main() -> Result<()> {
         perf!("load plugins specified in --plugins", start_time, use_color)
     }
 
+    start_time = nu_utils::time::Instant::now();
+
     #[cfg(feature = "mcp")]
     if parsed_nu_cli_args.mcp {
-        perf!("mcp starting", nu_utils::time::Instant::now(), use_color);
+        perf!("mcp starting", start_time, use_color);
         // Mark MCP mode before config evaluation so startup scripts can adapt behavior.
         engine_state.is_mcp = true;
         let mcp_transport_kind = parsed_nu_cli_args
@@ -593,15 +595,13 @@ fn main() -> Result<()> {
         return Ok(());
     }
 
+    #[cfg(feature = "lsp")]
     if is_lsp {
-        #[cfg(feature = "lsp")]
-        {
-            start_time = nu_utils::time::Instant::now();
-            run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time)?;
-        }
-        #[cfg(not(feature = "lsp"))]
-        unreachable!()
-    } else if let Some(commands) = parsed_nu_cli_args.commands.clone() {
+        start_time = nu_utils::time::Instant::now();
+        return run_lsp(engine_state, parsed_nu_cli_args, use_color, start_time);
+    }
+
+    if let Some(commands) = parsed_nu_cli_args.commands.clone() {
         run_commands(
             &mut engine_state,
             stack,
