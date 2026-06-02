@@ -938,17 +938,24 @@ pub(crate) fn compile_for(
     let block_id = block_arg.as_block().ok_or_else(invalid)?;
     let block = working_set.get_block(block_id);
 
+    let stream_reg = builder.next_register()?;
+    builder.push(
+        Instruction::Move {
+            dst: stream_reg,
+            src: io_reg,
+        }
+        .into_spanned(call.head),
+    )?;
+
     // Ensure io_reg is marked so we don't use it
     builder.load_empty(io_reg)?;
-
-    let stream_reg = builder.next_register()?;
 
     compile_expression(
         working_set,
         builder,
         in_expr,
         RedirectModes::caller(in_expr.span),
-        None,
+        Some(stream_reg),
         stream_reg,
     )?;
 

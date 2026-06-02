@@ -6437,7 +6437,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
 
         // For now, check for special parses of certain keywords
         match bytes.as_slice() {
-            b"def" | b"extern" | b"for" | b"module" | b"use" | b"source" | b"alias" | b"export"
+            b"def" | b"extern" | b"module" | b"use" | b"source" | b"alias" | b"export"
             | b"export-env" | b"hide" => {
                 working_set.error(ParseError::BuiltinCommandInPipeline(
                     String::from_utf8(bytes)

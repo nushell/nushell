@@ -15,7 +15,10 @@ impl Command for For {
 
     fn signature(&self) -> nu_protocol::Signature {
         Signature::build("for")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (Type::Any, Type::Nothing),
+            ])
             .allow_variants_without_examples(true)
             .required(
                 "var_name",
