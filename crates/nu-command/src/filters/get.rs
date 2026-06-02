@@ -109,6 +109,28 @@ If multiple cell paths are given, this will produce a list of values."
                 result: Some(Value::test_string("A0")),
             },
             Example {
+                description: "Get multiple columns from a table using a spread list.",
+                example: "[[a b c]; [1 2 3]] | get ...[a c]",
+                result: Some(Value::list(
+                    vec![
+                        Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        Value::list(vec![Value::test_int(3)], Span::test_data()),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
+                description: "Get columns from a table using a spread variable.",
+                example: "let cols = [a b]; [{a: 1, b: 2, c: 3}] | get ...$cols",
+                result: Some(Value::list(
+                    vec![
+                        Value::list(vec![Value::test_int(1)], Span::test_data()),
+                        Value::list(vec![Value::test_int(2)], Span::test_data()),
+                    ],
+                    Span::test_data(),
+                )),
+            },
+            Example {
                 description: "Extract the name of the 3rd record in a list (same as `ls | $in.name.2`).",
                 example: "ls | get name.2",
                 result: None,
@@ -146,8 +168,7 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_path: CellPath = call.req_const(working_set, 0)?;
-        let rest: Vec<CellPath> = call.rest_const(working_set, 1)?;
+        let (cell_path, rest) = split_cell_paths(call.rest_const(working_set, 0)?, call.head)?;
         let optional = call.has_flag_const(working_set, "optional")?
             || call.has_flag_const(working_set, "ignore-errors")?;
         let ignore_case = call.has_flag_const(working_set, "ignore-case")?;
@@ -169,8 +190,7 @@ If multiple cell paths are given, this will produce a list of values."
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let cell_path: CellPath = call.req(engine_state, stack, 0)?;
-        let rest: Vec<CellPath> = call.rest(engine_state, stack, 1)?;
+        let (cell_path, rest) = split_cell_paths(call.rest(engine_state, stack, 0)?, call.head)?;
         let optional = call.has_flag(engine_state, stack, "optional")?
             || call.has_flag(engine_state, stack, "ignore-errors")?;
         let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
@@ -203,6 +223,21 @@ If multiple cell paths are given, this will produce a list of values."
             }
         ]
     }
+}
+
+fn split_cell_paths(
+    cell_paths: Vec<CellPath>,
+    span: Span,
+) -> Result<(CellPath, Vec<CellPath>), ShellError> {
+    let mut cell_paths = cell_paths.into_iter();
+    let Some(cell_path) = cell_paths.next() else {
+        return Err(ShellError::MissingParameter {
+            param_name: "cell_path".into(),
+            span,
+        });
+    };
+
+    Ok((cell_path, cell_paths.collect()))
 }
 
 fn action(
