@@ -393,27 +393,18 @@ impl Signature {
 
     /// Gets the output type from the signature
     ///
-    /// If the output was unspecified or the signature has several different
-    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
-    /// one or same output types, this type is returned.
+    /// - If the output was unspecified [`Type::Any`] is returned.
+    /// - If the signature has a single or multiple identical output types, this type is returned.
+    /// - If the signature has several different input types, supertype of all of them is returned.
+    ///   (see [`Type::widen`])
     // XXX: remove?
     pub fn get_output_type(&self) -> Type {
-        match self.input_output_types.len() {
-            0 => Type::Any,
-            1 => self.input_output_types[0].1.clone(),
-            _ => {
-                let first = &self.input_output_types[0].1;
-                if self
-                    .input_output_types
-                    .iter()
-                    .all(|(_, output)| output == first)
-                {
-                    first.clone()
-                } else {
-                    Type::Any
-                }
-            }
-        }
+        self.input_output_types
+            .iter()
+            .map(|(_, out)| out)
+            .cloned()
+            .reduce(Type::widen)
+            .unwrap_or(Type::Any)
     }
 
     /// Add a default help option to a signature
