@@ -43,7 +43,7 @@ fn checks_all_columns_of_a_table_is_true() -> Result {
 #[test]
 fn checks_if_all_returns_error_with_invalid_command() -> Result {
     let code = "
-        [red orange yellow green blue purple] 
+        [red orange yellow green blue purple]
         | all {|it| ($it | st length) > 4 }
     ";
 
@@ -104,5 +104,26 @@ fn unique_env_each_iteration() -> Result {
     test()
         .cwd("tests/fixtures/formats")
         .run("[1 2] | all {|| let ok = ($env.PWD | str ends-with 'formats'); cd '/'; $ok }")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn works_with_row_condition_it() -> Result {
+    test()
+        .run("[0 2 4 6] | all $it mod 2 == 0")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn works_with_row_condition_column() -> Result {
+    test()
+        .run("[[abc xyz]; [4 16] [5 25]] | all 'xyz' == 'abc' ** 2")
+        .expect_value_eq(true)
+}
+
+#[test]
+fn row_condition_subshell() -> Result {
+    test()
+        .run("[1sec 1min 1hr] | all ($it | describe) == 'duration'")
         .expect_value_eq(true)
 }

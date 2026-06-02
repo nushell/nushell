@@ -37,7 +37,7 @@ impl Command for Any {
             },
             Example {
                 description: "Check if any row's status is the string 'DOWN'.",
-                example: "[[status]; [UP] [DOWN] [UP]] | any {|el| $el.status == DOWN }",
+                example: "[[status]; [UP] [DOWN] [UP]] | any status == DOWN",
                 result: Some(Value::test_bool(true)),
             },
             Example {
@@ -47,7 +47,7 @@ impl Command for Any {
             },
             Example {
                 description: "Check if any value is equal to twice its own index.",
-                example: "[9 8 7 6] | enumerate | any {|i| $i.item == $i.index * 2 }",
+                example: "[9 8 7 6] | enumerate | any item == index * 2",
                 result: Some(Value::test_bool(true)),
             },
             Example {
