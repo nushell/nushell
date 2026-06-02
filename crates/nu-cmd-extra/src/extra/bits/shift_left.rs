@@ -50,7 +50,7 @@ impl Command for BitsShl {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "The word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number).",
+                "The word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to `8`).",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -78,7 +78,7 @@ impl Command for BitsShl {
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes, head)?;
+        let number_size = get_number_bytes(number_bytes, head, NumberBytes::Eight)?;
 
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {
@@ -99,7 +99,7 @@ impl Command for BitsShl {
             Example {
                 description: "Shift left a number by 7 bits",
                 example: "2 | bits shl 7",
-                result: Some(Value::test_int(0)),
+                result: Some(Value::test_int(256)),
             },
             Example {
                 description: "Shift left a number with 2 byte by 7 bits",
@@ -108,7 +108,7 @@ impl Command for BitsShl {
             },
             Example {
                 description: "Shift left a signed number by 1 bit",
-                example: "0x7F | bits shl 1 --signed",
+                example: "0x7F | bits shl 1 --signed --number-bytes 1",
                 result: Some(Value::test_int(-2)),
             },
             Example {
