@@ -3,7 +3,7 @@ use nu_protocol::{
     ast::{
         Argument, Block, Expr, Expression, ExternalArgument, ImportPatternMember, ListItem,
         MatchPattern, PathMember, Pattern, Pipeline, PipelineElement, PipelineRedirection,
-        RecordItem,
+        RecordItem, RedirectionTarget,
     },
     engine::StateWorkingSet,
 };
@@ -133,14 +133,20 @@ fn flatten_pipeline_element_into(
 ) {
     flatten_expression_into(working_set, &pipeline_element.expr, output);
 
-    if let Some(span) = pipeline_element.pipe {
-        output.push((span, FlatShape::Pipe));
-    }
-
     if let Some(redirection) = pipeline_element.redirection.as_ref() {
+        let flatten_redirection_target = |target: &RedirectionTarget| {
+            let span = target.span();
+            // HACK: `2>` should be marked as garbage,
+            // yet extra structure for such marginal case seems not worthy.
+            if working_set.get_span_contents(span) == b"2>" {
+                (span, FlatShape::Garbage)
+            } else {
+                (span, FlatShape::Redirection)
+            }
+        };
         match redirection {
             PipelineRedirection::Single { target, .. } => {
-                output.push((target.span(), FlatShape::Redirection));
+                output.push(flatten_redirection_target(target));
                 if let Some(expr) = target.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
@@ -152,15 +158,39 @@ fn flatten_pipeline_element_into(
                     (err, out)
                 };
 
-                output.push((out.span(), FlatShape::Redirection));
+                output.push(flatten_redirection_target(out));
                 if let Some(expr) = out.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
-                output.push((err.span(), FlatShape::Redirection));
+                output.push(flatten_redirection_target(err));
                 if let Some(expr) = err.expr() {
                     flatten_expression_into(working_set, expr, output);
                 }
             }
+        }
+    }
+
+    // Pipe token should come after redirection
+    if let Some(span) = pipeline_element.pipe {
+        // NOTE: redirection pipes, e.g. `err>|`/`o+e>|` are parsed as both pipe and redirection,
+        // we split each of them into 2 shapes here.
+        if let Some((last_span, _)) = output.last_mut()
+            && span == *last_span
+        {
+            last_span.end = last_span.end.saturating_sub(1);
+            output.push((
+                Span::new(span.end.saturating_sub(1), span.end),
+                FlatShape::Pipe,
+            ));
+        } else {
+            // HACK: `out>|`/`o>|` should be marked as garbage,
+            // but not done in up-level procedures.
+            let shape = if span.len() > 1 {
+                FlatShape::Garbage
+            } else {
+                FlatShape::Pipe
+            };
+            output.push((span, shape));
         }
     }
 }

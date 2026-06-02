@@ -660,7 +660,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::Record(vec![].into_boxed_slice())
+        Type::record()
     }
 }
 
@@ -727,7 +727,12 @@ impl FromValue for CellPath {
             }),
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue { span })
+                    Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: "negative number".into(),
+                        span,
+                        help: None,
+                    })
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {

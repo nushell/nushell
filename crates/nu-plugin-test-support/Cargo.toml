@@ -1,9 +1,9 @@
 [package]
 name = "nu-plugin-test-support"
-version = "0.112.3"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 description = "Testing support for Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-test-support"
 
@@ -16,15 +16,15 @@ workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nu-engine = { path = "../nu-engine", version = "0.112.3", features = ["plugin"] }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", features = ["plugin"] }
-nu-parser = { path = "../nu-parser", version = "0.112.3", features = ["plugin"] }
-nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
-nu-plugin-core = { path = "../nu-plugin-core", version = "0.112.3" }
-nu-plugin-engine = { path = "../nu-plugin-engine", version = "0.112.3" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.112.3" }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.3" }
-nu-ansi-term = { workspace = true }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-protocol = { workspace = true, features = ["plugin"] }
+nu-parser = { workspace = true, features = ["plugin"] }
+nu-plugin.workspace = true
+nu-plugin-core.workspace = true
+nu-plugin-engine.workspace = true
+nu-plugin-protocol.workspace = true
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
+nu-ansi-term.workspace = true
 similar = "3.1"
 
 [dev-dependencies]

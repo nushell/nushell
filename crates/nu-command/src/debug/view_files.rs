@@ -21,7 +21,7 @@ impl Command for ViewFiles {
             .input_output_types(vec![(
                 Type::Nothing,
                 Type::Table(
-                    [
+                    vec![
                         ("filename".into(), Type::String),
                         ("start".into(), Type::Int),
                         ("end".into(), Type::Int),

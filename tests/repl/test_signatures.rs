@@ -1,3 +1,6 @@
+use nu_protocol::Type;
+use nu_test_support::prelude::*;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 use rstest::rstest;
 
@@ -353,6 +356,31 @@ fn oneof_annotations(
 
     let input = format!("def run [t: oneof<{types}>] {{ $t }}; run {argument} | describe");
     run_test(&input, expected)
+}
+
+#[rstest]
+#[case::table_record("oneof<record, table>", "{item: 1}", Type::Record(vec![("item".to_string(), Type::Int)].into()))]
+#[case::table_list_of_record("oneof<record, table>", "[{item: 1}]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
+#[case::table_table("oneof<record, table>", "[[item]; [1]]", Type::Table(vec![("item".to_string(), Type::Int)].into()))]
+#[case::closure_cell_path("oneof<cell-path, closure>", "foo", Type::CellPath)]
+#[case::closure_closure_with_bars("oneof<cell-path, closure>", "{|| get foo }", Type::Closure)]
+#[case::closure_closure_without_bars("oneof<cell-path, closure>", "{ get foo }", Type::Closure)]
+#[case::closure_closure_empty_with_bars("oneof<cell-path, closure>", "{|| }", Type::Closure)]
+#[ignore = "not fixed yet"]
+#[case::closure_closure_empty_without_bars("oneof<cell-path, closure>", "{ }", Type::Closure)]
+fn oneof_positional_named(
+    #[values(("value", ""), ("--value", "--value"))] (param_definition, arg_prefix): (&str, &str),
+    #[case] type_annotation: &str,
+    #[case] arg_src: &str,
+    #[case] expected_type: Type,
+) -> Result {
+    let mut tester = test();
+    let () = tester.run(format!(
+        "def cmd [{param_definition}: {type_annotation}] {{ $value }}"
+    ))?;
+    let out: Value = tester.run(format!("cmd {arg_prefix} {arg_src}"))?;
+    assert_eq!(out.get_type(), expected_type);
+    Ok(())
 }
 
 #[rstest]

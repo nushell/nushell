@@ -29,7 +29,7 @@ impl PluginCommand for Replace {
         Signature::build(self.name())
             .required(
                 "old",
-                SyntaxShape::OneOf(vec![SyntaxShape::Record(vec![]), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
+                SyntaxShape::OneOf(vec![SyntaxShape::record(), SyntaxShape::List(Box::new(SyntaxShape::Any))]),
                 "Values to be replaced.",
             )
             .optional(

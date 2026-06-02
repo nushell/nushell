@@ -4,6 +4,7 @@ use chrono::{Local, TimeZone};
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
 
+use nu_protocol::PipelineMetadata;
 #[cfg(target_os = "linux")]
 use procfs::WithCurrentSystemInfo;
 use std::time::Duration;
@@ -197,5 +198,20 @@ fn run_ps(
         output.push(Value::record(record, span));
     }
 
-    Ok(output.into_pipeline_data(span, engine_state.signals().clone()))
+    Ok(output.into_pipeline_data_with_metadata(
+        span,
+        engine_state.signals().clone(),
+        ps_pipeline_metadata(long, span),
+    ))
+}
+
+/// Builds `ps` output metadata with table width-priority hints.
+fn ps_pipeline_metadata(long: bool, span: Span) -> PipelineMetadata {
+    let width_priority_columns: &[&str] = if long {
+        &["command", "name"]
+    } else {
+        &["name"]
+    };
+
+    PipelineMetadata::default().with_table_width_priority_columns(span, width_priority_columns)
 }

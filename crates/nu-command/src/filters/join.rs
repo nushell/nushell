@@ -35,7 +35,7 @@ impl Command for Join {
         Signature::build("join")
             .required(
                 "right-table",
-                SyntaxShape::Table([].into()),
+                SyntaxShape::table(),
                 "The right table in the join.",
             )
             .required(

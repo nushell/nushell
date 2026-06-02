@@ -1,3 +1,5 @@
+use rstest::rstest;
+
 use crate::repl::tests::{TestResult, fail_test, run_test};
 
 #[test]
@@ -147,4 +149,89 @@ fn commandline_test_accepted_command() -> TestResult {
         "commandline edit --accept \"print accepted\"\n | commandline",
         "print accepted",
     )
+}
+
+#[test]
+fn commandline_test_complete_input() -> TestResult {
+    run_test(
+        "def test-bar [] {}\n\
+        def test-baz [] {}\n\
+        'test-' | commandline complete | to nuon",
+        "[test-bar, test-baz]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_no_input() -> TestResult {
+    run_test(
+        "def test-bar [] {}\n\
+        def test-baz [] {}\n\
+        commandline edit --replace 'test-'\n\
+        commandline complete | to nuon",
+        "[test-bar, test-baz]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_flags() -> TestResult {
+    run_test(
+        "def cmd [ --flag: string, --switch(-s) ] {}\n\
+        'cmd -' | commandline complete | to nuon",
+        "[--flag, --help, --switch, -h, -s]",
+    )
+}
+
+#[test]
+fn commandline_test_complete_reentrant() -> TestResult {
+    run_test(
+        "def recurse [a: string@[a, b, c]] {\n\
+            'recurse ' | commandline complete\n\
+        }\n\
+        def wrapped [arg:string@recurse] {}\n\
+        \n\
+        'wrapped ' | commandline complete | to nuon",
+        "[a, b, c]",
+    )
+}
+
+#[rstest]
+#[case::cmd(
+    "test-",
+    r#"{value: test-cmd, span: {start: 0, end: 5}, description: "", kind: command, type: custom}"#
+)]
+#[case::int(
+    "test-cmd --int ",
+    r#"{value: "1", span: {start: 15, end: 15}, kind: value, type: int}"#
+)]
+#[case::string(
+    "test-cmd --string ",
+    "{value: a, span: {start: 18, end: 18}, kind: value, type: string}"
+)]
+fn commandline_test_complete_detailed(#[case] cmd: &str, #[case] expected: &str) -> TestResult {
+    run_test(
+        &format!(
+            "
+            def complete-int [] {{ [ 1 ] }}
+            def test-cmd [
+                --int: int@complete-int,
+                --string: string@[a],
+            ] {{}}\n\
+            \n\
+            '{cmd}' | commandline complete --detailed | first | to nuon"
+        ),
+        expected,
+    )
+}
+
+#[rstest]
+#[case::invalid_input("123 | commandline complete", "command doesn't support int input")]
+#[case::invalid_type(
+    "commandline complete --type foo",
+    r#"expected type "directory", "path", or "glob", but got "foo""#
+)]
+fn commandline_test_complete_invalid_input(
+    #[case] cmd: &str,
+    #[case] expected_err: &str,
+) -> TestResult {
+    fail_test(cmd, expected_err)
 }

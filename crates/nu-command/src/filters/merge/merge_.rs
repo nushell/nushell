@@ -29,10 +29,7 @@ repeating this process with row 1, and so on."
             ])
             .required(
                 "value",
-                SyntaxShape::OneOf(vec![
-                    SyntaxShape::Record(vec![]),
-                    SyntaxShape::Table(vec![]),
-                ]),
+                SyntaxShape::OneOf(vec![SyntaxShape::record(), SyntaxShape::table()]),
                 "The new value to merge with.",
             )
             .category(Category::Filters)

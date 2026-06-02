@@ -17,6 +17,11 @@ impl Command for IdxInit {
                 "Block until the initial scan completes before returning.",
                 Some('w'),
             )
+            .switch(
+                "follow-symlinks",
+                "Whether to follow symlinks when indexing.",
+                Some('f'),
+            )
             .input_output_types(vec![(Type::Nothing, Type::record())])
             .category(Category::FileSystem)
     }
@@ -53,12 +58,13 @@ impl Command for IdxInit {
     ) -> Result<PipelineData, ShellError> {
         let path: Spanned<String> = call.req(engine_state, stack, 0)?;
         let wait = call.has_flag(engine_state, stack, "wait")?;
+        let follow = call.has_flag(engine_state, stack, "follow-symlinks")?;
         let cwd = engine_state.cwd(Some(stack))?;
         let abs = nu_path::expand_path_with(path.item, cwd, true);
         // There is a functionality in fff-search to update the index via watch but it was non-trivial to get working
         // So, for now, let's always default to watch = false.
         let watch = false;
-        let status = init_runtime(&abs, watch, wait, call.head)?;
+        let status = init_runtime(&abs, watch, wait, follow, call.head)?;
         Ok(PipelineData::value(status.to_value(call.head), None))
     }
 }

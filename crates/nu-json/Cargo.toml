@@ -7,9 +7,9 @@ description = "Fork of serde-hjson"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-json"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-json"
-version = "0.112.3"
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,12 +17,12 @@ version = "0.112.3"
 bench = false
 
 [features]
-preserve_order = ["linked-hash-map", "linked-hash-map/serde_impl"]
+preserve_order = ["linked-hash-map", "linked-hash-map/serde_impl", "serde_json/preserve_order"]
 default = ["preserve_order"]
 
 [dependencies]
-nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false, optional = true }
+nu-utils.workspace = true
+nu-protocol = { workspace = true, optional = true }
 
 linked-hash-map = { version = "0.5", optional = true }
 num-traits = { workspace = true }
@@ -31,7 +31,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }
-nu-path = { path = "../nu-path" }
+nu-path.workspace = true
 
 serde_json = "1.0"
 fancy-regex = "0.18.0"

@@ -349,7 +349,7 @@ pub fn parse_for(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
         .is_none_or(|new_errors| {
             new_errors
                 .iter()
-                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if *token == "}"))
         })
     {
         working_set.exit_scope();
@@ -646,7 +646,7 @@ fn parse_def_inner(
         .is_none_or(|new_errors| {
             new_errors
                 .iter()
-                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if token == "}"))
+                .all(|e| !matches!(e, ParseError::Unclosed(token, _) if *token == "}"))
         })
     {
         working_set.exit_scope();
@@ -2425,7 +2425,7 @@ pub fn parse_module(
     if block_bytes.ends_with(b"}") {
         end -= 1;
     } else {
-        working_set.error(ParseError::Unclosed("}".into(), Span::new(end, end)));
+        working_set.error(ParseError::Unclosed("}", Span::new(end, end)));
     }
 
     let block_content_span = Span::new(start, end);

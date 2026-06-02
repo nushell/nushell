@@ -265,7 +265,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxFiles,
         };
 
-        #[cfg(feature = "sqlite")]
+        #[cfg(all(feature = "os", feature = "sqlite"))]
         bind_command! {
             IdxExport,
             IdxImport,

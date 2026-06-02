@@ -669,4 +669,38 @@ version = "1.0.0"
             Value::test_string("# example.toml\nname = \"my-app\"\nversion = \"1.0.0\"\n")
         );
     }
+
+    #[test]
+    fn table_column_alignment_with_indent() {
+        let engine_state = EngineState::new();
+        let val = Value::test_list(vec![
+            Value::test_record(record!(
+                "name" => Value::test_string("alice"),
+                "age" => Value::test_int(22),
+                "active" => Value::test_bool(true)
+            )),
+            Value::test_record(record!(
+                "name" => Value::test_string("bob"),
+                "age" => Value::test_int(20),
+                "active" => Value::test_bool(false)
+            )),
+            Value::test_record(record!(
+                "name" => Value::test_string("charlie"),
+                "age" => Value::test_int(20),
+                "active" => Value::test_bool(false)
+            )),
+        ]);
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default().style(ToStyle::Spaces(2)),
+        )
+        .unwrap();
+        assert_eq!(
+            result,
+            "[\n  [name,    age, active];\n  [alice,   22,  true],\n  [bob,     20,  false],\n  [charlie, 20,  false]\n]"
+        );
+        // roundtrip: aligned output parses back to the same value
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
 }

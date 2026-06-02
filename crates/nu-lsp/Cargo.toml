@@ -1,19 +1,19 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell's integrated LSP server"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-lsp"
 name = "nu-lsp"
-version = "0.112.3"
+version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 
 [dependencies]
-nu-cli = { path = "../nu-cli", version = "0.112.3" }
-nu-glob = { path = "../nu-glob", version = "0.112.3" }
-nu-parser = { path = "../nu-parser", version = "0.112.3" }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
+nu-cli.workspace = true
+nu-glob.workspace = true
+nu-parser.workspace = true
+nu-protocol.workspace = true
+nu-utils.workspace = true
 
 crossbeam-channel = { workspace = true }
 fancy-regex = { workspace = true }
@@ -28,10 +28,10 @@ serde_json = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang" }
-nu-command = { path = "../nu-command" }
-nu-engine = { path = "../nu-engine" }
-nu-std = { path = "../nu-std" }
+nu-cmd-lang = { workspace = true, features = ["os"] }
+nu-command = { workspace = true, features = ["os"] }
+nu-engine.workspace = true
+nu-std.workspace = true
 nu-test-support = { path = "../nu-test-support" }
 
 assert-json-diff = "2.0"

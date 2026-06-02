@@ -16,14 +16,14 @@ impl Command for IntoCellPath {
                 (Type::Int, Type::CellPath),
                 (Type::List(Box::new(Type::Any)), Type::CellPath),
                 (
-                    Type::List(Box::new(Type::Record(
-                        [
+                    Type::Table(
+                        vec![
                             ("value".into(), Type::Any),
                             ("optional".into(), Type::Bool),
                             ("insensitive".into(), Type::Bool),
                         ]
                         .into(),
-                    ))),
+                    ),
                     Type::CellPath,
                 ),
             ])
@@ -142,7 +142,12 @@ fn int_to_cell_path(val: i64, span: Span) -> Value {
 
 fn int_to_path_member(val: i64, span: Span) -> Result<PathMember, ShellError> {
     let Ok(val) = val.try_into() else {
-        return Err(ShellError::NeedsPositiveValue { span });
+        return Err(ShellError::CantConvert {
+            to_type: "cell path".into(),
+            from_type: "negative number".into(),
+            span,
+            help: None,
+        });
     };
 
     Ok(PathMember::int(val, false, span))

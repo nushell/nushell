@@ -539,6 +539,13 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
     perf!("reset signals", start_time, use_color);
 
     start_time = Instant::now();
+
+    // Juhan said to do this :)
+    let mut repl = engine_state.repl_state.lock().expect("repl state mutex");
+    repl.cursor_pos = line_editor.current_insertion_point();
+    repl.buffer = line_editor.current_buffer_contents().to_string();
+    drop(repl);
+
     // Check all the environment variables they ask for
     // fire the "env_change" hook
     if let Err(error) = hook::eval_env_change_hook(
