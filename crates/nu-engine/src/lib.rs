@@ -20,7 +20,7 @@ pub use compile::compile;
 pub use documentation::get_full_help;
 pub use env::*;
 pub use eval::{
-    eval_block, eval_block_with_early_return, eval_call, eval_expression,
+    CallEval, eval_block, eval_block_with_early_return, eval_call, eval_expression,
     eval_expression_with_input, eval_subexpression, eval_variable, redirect_env,
 };
 pub use eval_helpers::*;
