@@ -5019,10 +5019,39 @@ pub fn parse_signature_helper(
                     }
                     sig.required_positional.push(positional)
                 } else {
+                    // optional parameters can be `null`
+                    // their type within the block should reflect that
+                    if positional.default_value.is_none() {
+                        let var_id = positional
+                            .var_id
+                            .expect("internal error: all custom parameters must have var_ids");
+                        let ty = working_set
+                            .get_variable(var_id)
+                            .ty
+                            .clone()
+                            .widen(Type::Nothing);
+                        working_set.set_variable_type(var_id, ty);
+                    }
                     sig.optional_positional.push(positional)
                 }
             }
-            Arg::Flag { flag, .. } => sig.named.push(flag),
+            Arg::Flag {
+                flag,
+                type_annotated,
+            } => {
+                if type_annotated && flag.default_value.is_none() {
+                    let var_id = flag
+                        .var_id
+                        .expect("internal error: all custom parameters must have var_ids");
+                    let ty = working_set
+                        .get_variable(var_id)
+                        .ty
+                        .clone()
+                        .widen(Type::Nothing);
+                    working_set.set_variable_type(var_id, ty);
+                }
+                sig.named.push(flag)
+            }
             Arg::RestPositional(positional) => {
                 if positional.name.is_empty() {
                     working_set.error(ParseError::RestNeedsName(span))
