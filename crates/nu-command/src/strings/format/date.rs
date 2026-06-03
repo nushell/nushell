@@ -1,8 +1,8 @@
 use crate::{generate_strftime_list, parse_date_from_string};
 use chrono::{DateTime, Datelike, Locale, TimeZone};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
-use nu_utils::locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string};
 use std::fmt::{Display, Write};
 
 #[derive(Clone)]
@@ -99,28 +99,7 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag(engine_state, stack, "list")?;
         let format = call.opt::<Spanned<String>>(engine_state, stack, 0)?;
-
-        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = stack
-            .get_env_var(engine_state, LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| stack.get_env_var(engine_state, "LC_ALL"))
-            .or_else(|| stack.get_env_var(engine_state, "LC_TIME"))
-            .or_else(|| stack.get_env_var(engine_state, "LANG"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale(|name| stack.get_env_var(engine_state, name)?.as_str().ok());
 
         run(engine_state, call, input, list, format, locale)
     }
@@ -133,31 +112,19 @@ impl Command for FormatDate {
     ) -> Result<PipelineData, ShellError> {
         let list = call.has_flag_const(working_set, "list")?;
         let format = call.opt_const::<Spanned<String>>(working_set, 0)?;
-
-        // env var preference is documented at https://www.gnu.org/software/gettext/manual/html_node/Locale-Environment-Variables.html
-        // LC_ALL overrides LC_TIME, LC_TIME overrides LANG
-
-        // get the locale first so we can use the proper get_env_var functions since this is a const command
-        // we can override the locale by setting $env.NU_TEST_LOCALE_OVERRIDE or $env.LC_TIME
-        let locale = if let Some(loc) = working_set
-            .get_env_var(LOCALE_OVERRIDE_ENV_VAR)
-            .or_else(|| working_set.get_env_var("LC_ALL"))
-            .or_else(|| working_set.get_env_var("LC_TIME"))
-            .or_else(|| working_set.get_env_var("LANG"))
-        {
-            let locale_str = loc.as_str()?.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_"))
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale(|name| working_set.get_env_var(name)?.as_str().ok());
 
         run(working_set.permanent(), call, input, list, format, locale)
     }
+}
+
+fn get_locale<'a, F>(env_getter: F) -> Locale
+where
+    F: Fn(&str) -> Option<&'a str> + 'a,
+{
+    nu_utils::get_locale_from_env_vars(Some("LC_TIME"), env_getter)
+        .and_then(|s| Locale::try_from(s.as_ref()).ok())
+        .unwrap_or(Locale::en_US)
 }
 
 fn run(
@@ -255,13 +222,14 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                     val.to_rfc2822()
                 } else {
                     return Value::error(
-                        ShellError::GenericError {
-                            error: "Can't convert date to RFC 2822 format.".into(),
-                            msg: "the RFC 2822 format only supports years 0 through 9999".into(),
-                            span: Some(val_span),
-                            help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
-                            inner: vec![],
-                        },
+                        ShellError::Generic(
+                            GenericError::new(
+                                "Can't convert date to RFC 2822 format.",
+                                "the RFC 2822 format only supports years 0 through 9999",
+                                val_span,
+                            )
+                            .with_help(r#"use the RFC 3339 format option: "%+""#),
+                        ),
                         span,
                     );
                 }
@@ -277,14 +245,14 @@ fn format_helper_rfc2822(value: Value, span: Span) -> Value {
                             x.to_rfc2822()
                         } else {
                             return Value::error(
-                                ShellError::GenericError {
-                                    error: "Can't convert date to RFC 2822 format.".into(),
-                                    msg: "the RFC 2822 format only supports years 0 through 9999"
-                                        .into(),
-                                    span: Some(val_span),
-                                    help: Some(r#"use the RFC 3339 format option: "%+""#.into()),
-                                    inner: vec![],
-                                },
+                                ShellError::Generic(
+                                    GenericError::new(
+                                        "Can't convert date to RFC 2822 format.",
+                                        "the RFC 2822 format only supports years 0 through 9999",
+                                        val_span,
+                                    )
+                                    .with_help(r#"use the RFC 3339 format option: "%+""#),
+                                ),
                                 span,
                             );
                         }

@@ -1,7 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
 use rand::{
-    Rng,
+    RngExt,
     distr::{Alphanumeric, StandardUniform},
     rng,
 };

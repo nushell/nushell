@@ -2,6 +2,7 @@ use super::{arboard_provider::with_clipboard_instance, provider::Clipboard};
 use nu_protocol::{
     Config, ShellError, Value,
     engine::{EngineState, Stack},
+    shell_error::generic::GenericError,
 };
 use std::sync::{OnceLock, mpsc};
 use std::thread;
@@ -58,28 +59,22 @@ impl ClipboardResidentThread {
         let (ack_tx, ack_rx) = mpsc::channel();
         self.tx
             .send(ResidentThreadMessage::SetText(text.to_owned(), ack_tx))
-            .map_err(|err| ShellError::GenericError {
-                error: "Clipboard thread channel failed.".into(),
-                msg: err.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
+            .map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Clipboard thread channel failed.",
+                    err.to_string(),
+                ))
             })?;
 
-        let result = ack_rx.recv().map_err(|err| ShellError::GenericError {
-            error: "Clipboard thread failed.".into(),
-            msg: err.to_string(),
-            span: None,
-            help: None,
-            inner: vec![],
+        let result = ack_rx.recv().map_err(|err| {
+            ShellError::Generic(GenericError::new_internal(
+                "Clipboard thread failed.",
+                err.to_string(),
+            ))
         })?;
 
-        result.map_err(|err| ShellError::GenericError {
-            error: "Clipboard thread failed.".into(),
-            msg: err,
-            span: None,
-            help: None,
-            inner: vec![],
+        result.map_err(|err| {
+            ShellError::Generic(GenericError::new_internal("Clipboard thread failed.", err))
         })?;
 
         Ok(())

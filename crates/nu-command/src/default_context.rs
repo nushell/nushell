@@ -68,6 +68,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             Length,
             Lines,
             ParEach,
+            Peek,
             ChunkBy,
             Prepend,
             Reduce,
@@ -99,6 +100,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             DeleteVar,
             Panic,
+            Run,
             Source,
             Tutor,
         };
@@ -125,6 +127,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             External,
             Exec,
             NuCheck,
+            RunInternal,
             Sys,
             SysCpu,
             SysDisks,
@@ -253,6 +256,20 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             UTouch,
             Glob,
             Watch,
+            Idx,
+            IdxInit,
+            IdxStatus,
+            IdxFind,
+            IdxSearch,
+            IdxDrop,
+            IdxDirs,
+            IdxFiles,
+        };
+
+        #[cfg(all(feature = "os", feature = "sqlite"))]
+        bind_command! {
+            IdxExport,
+            IdxImport,
         };
 
         // Platform
@@ -307,6 +324,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             From,
             FromCsv,
             FromJson,
+            FromMd,
             FromMsgpack,
             FromMsgpackz,
             FromNuon,

@@ -205,6 +205,29 @@ fn to_nuon_escaping5() -> Result {
 }
 
 #[test]
+fn to_nuon_raw_strings_need_more_hashes_for_leading_hash_content() -> Result {
+    let code = "
+        open -r raw_strings.toml
+        | to nuon --no-commas --raw-strings
+    ";
+
+    #[cfg(windows)]
+    let line_ending = "\r\n"; // CRLF
+
+    #[cfg(not(windows))]
+    let line_ending = "\n"; // LF
+
+    let expected = format!(
+        "r##'# example.toml{line_ending}name = \"my-app\"{line_ending}version = \"1.0.0\"{line_ending}'##"
+    );
+
+    test()
+        .cwd("tests/fixtures/formats")
+        .run(code)
+        .expect_value_eq(expected)
+}
+
+#[test]
 fn to_nuon_negative_int() -> Result {
     let code = "
         -1
@@ -531,9 +554,9 @@ fn read_code_should_fail_rather_than_panic() -> Result {
         .cwd("tests/fixtures/formats")
         .run(code)
         .expect_shell_error()?;
-    let ShellError::GenericError { error, .. } = err else {
+    let ShellError::Generic(err) = err else {
         return Err(err.into());
     };
-    assert_eq!(error, "error when loading nuon text");
+    assert_eq!(err.error, "error when loading nuon text");
     Ok(())
 }

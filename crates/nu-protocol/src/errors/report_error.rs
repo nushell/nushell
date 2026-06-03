@@ -47,7 +47,8 @@ impl<'src> CliError<'src> {
 /// A bloom-filter like structure to store the hashes of warnings,
 /// without actually permanently storing the entire warning in memory.
 /// May rarely result in warnings incorrectly being unreported upon hash collision.
-#[derive(Default)]
+#[derive(Default, derive_more::Debug)]
+#[debug("ReportLog([...])")]
 pub struct ReportLog(Vec<u64>);
 
 /// How a warning/error should be reported
@@ -238,14 +239,10 @@ impl std::fmt::Debug for CliError<'_> {
                     .color(ansi_support)
                     .unicode(ansi_support)
                     .terminal_links(ansi_support)
-                    .context_lines(error_lines as usize);
+                    .context_lines(error_lines as usize)
+                    .with_cause_chain();
                 match style {
-                    ErrorStyle::Nested => Box::new(
-                        handler
-                            .show_related_errors_as_nested()
-                            .with_cause_chain()
-                            .build(),
-                    ),
+                    ErrorStyle::Nested => Box::new(handler.show_related_errors_as_nested().build()),
                     _ => Box::new(handler.build()),
                 }
             }

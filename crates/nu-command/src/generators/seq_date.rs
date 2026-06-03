@@ -1,6 +1,6 @@
 use chrono::{Duration, Local, NaiveDate, NaiveDateTime};
 use nu_engine::command_prelude::*;
-use nu_protocol::FromValue;
+use nu_protocol::{FromValue, shell_error::generic::GenericError};
 
 use std::fmt::Write;
 
@@ -205,12 +205,12 @@ impl Command for SeqDate {
                 match increment {
                     Value::Int { val, .. } => Some(
                         val.checked_mul(NANOSECONDS_IN_DAY)
-                            .ok_or_else(|| ShellError::GenericError {
-                                error: "increment is too large".into(),
-                                msg: "increment is too large".into(),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
+                            .ok_or_else(|| {
+                                ShellError::Generic(GenericError::new(
+                                    "increment is too large",
+                                    "increment is too large",
+                                    span,
+                                ))
                             })?
                             .into_spanned(span),
                     ),
@@ -302,26 +302,21 @@ pub fn run_seq_dates(
     let mut step_size: i64 = i64::from_value(increment)?;
 
     if step_size == 0 {
-        return Err(ShellError::GenericError {
-            error: "increment cannot be 0".into(),
-            msg: "increment cannot be 0".into(),
-            span: Some(increment_span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "increment cannot be 0",
+            "increment cannot be 0",
+            increment_span,
+        )));
     }
 
     let in_format = match input_format {
         Some(i) => match i.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("error with input_format as_string".into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal(e.to_string(), "")
+                        .with_help("error with input_format as_string"),
+                ));
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -331,13 +326,10 @@ pub fn run_seq_dates(
         Some(o) => match o.coerce_into_string() {
             Ok(v) => v,
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("error with output_format as_string".into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal(e.to_string(), "")
+                        .with_help("error with output_format as_string"),
+                ));
             }
         },
         _ => "%Y-%m-%d".to_string(),
@@ -347,13 +339,11 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: "Failed to parse date".into(),
-                    span: Some(call_span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    e.to_string(),
+                    "Failed to parse date",
+                    call_span,
+                )));
             }
         },
         _ => today,
@@ -363,13 +353,11 @@ pub fn run_seq_dates(
         Some(d) => match parse_date_string(&d, &in_format) {
             Ok(nd) => nd,
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: e.to_string(),
-                    msg: "Failed to parse date".into(),
-                    span: Some(call_span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    e.to_string(),
+                    "Failed to parse date",
+                    call_span,
+                )));
             }
         },
         _ => today,
@@ -399,24 +387,24 @@ pub fn run_seq_dates(
             .and_then(|val| val.checked_mul(step_size.abs()))
             .map(Duration::nanoseconds)
             .and_then(|inc| start_date.checked_add_signed(inc))
-            .ok_or_else(|| ShellError::GenericError {
-                error: "incrementing by the number of periods is too large".into(),
-                msg: "incrementing by the number of periods is too large".into(),
-                span: Some(call_span),
-                help: None,
-                inner: vec![],
+            .ok_or_else(|| {
+                ShellError::Generic(GenericError::new(
+                    "incrementing by the number of periods is too large",
+                    "incrementing by the number of periods is too large",
+                    call_span,
+                ))
             })?;
     } else if days_to_output != 0 {
         end_date = days_to_output
             .checked_sub(1)
             .and_then(Duration::try_days)
             .and_then(|days| start_date.checked_add_signed(days))
-            .ok_or_else(|| ShellError::GenericError {
-                error: "int value too large".into(),
-                msg: "int value too large".into(),
-                span: Some(call_span),
-                help: None,
-                inner: vec![],
+            .ok_or_else(|| {
+                ShellError::Generic(GenericError::new(
+                    "int value too large",
+                    "int value too large",
+                    call_span,
+                ))
             })?;
     }
 
@@ -434,13 +422,11 @@ pub fn run_seq_dates(
 
     let mut next = start_date;
     if is_out_of_range(next) {
-        return Err(ShellError::GenericError {
-            error: "date is out of range".into(),
-            msg: "date is out of range".into(),
-            span: Some(call_span),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "date is out of range",
+            "date is out of range",
+            call_span,
+        )));
     }
 
     let mut ret = vec![];
@@ -449,26 +435,22 @@ pub fn run_seq_dates(
         match write!(date_string, "{}", next.format(&out_format)) {
             Ok(_) => {}
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: "Invalid output format".into(),
-                    msg: e.to_string(),
-                    span: Some(call_span),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Invalid output format",
+                    e.to_string(),
+                    call_span,
+                )));
             }
         }
         ret.push(Value::string(date_string, call_span));
         if let Some(n) = next.checked_add_signed(step_size) {
             next = n;
         } else {
-            return Err(ShellError::GenericError {
-                error: "date overflow".into(),
-                msg: "adding the increment overflowed".into(),
-                span: Some(call_span),
-                help: None,
-                inner: vec![],
-            });
+            return Err(ShellError::Generic(GenericError::new(
+                "date overflow",
+                "adding the increment overflowed",
+                call_span,
+            )));
         }
 
         if is_out_of_range(next) {

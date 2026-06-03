@@ -4,9 +4,11 @@ use crossterm::event::{
 };
 use crossterm::{execute, terminal};
 use nu_engine::command_prelude::*;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-use nu_protocol::shell_error::io::IoError;
+use nu_utils::time::Instant;
+
+use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 use num_traits::AsPrimitive;
 use std::io::stdout;
 
@@ -44,7 +46,7 @@ impl Command for InputListen {
             )
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record([
+                Type::Record(vec![
                     ("keycode".to_string(), Type::String),
                     ("modifiers".to_string(), Type::List(Box::new(Type::String))),
                 ].into()),
@@ -126,29 +128,19 @@ There are 4 `key_type` variants:
 
         loop {
             if let Some(t) = remaining_time
-                && !crossterm::event::poll(t).map_err(|_| ShellError::GenericError {
-                    error: "Error with user input".into(),
-                    msg: "".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
+                && !crossterm::event::poll(t).map_err(|_| {
+                    ShellError::Generic(GenericError::new("Error with user input", "", head))
                 })?
             {
                 terminal::disable_raw_mode().map_err(|err| IoError::new(err, head, None))?;
-                return Err(ShellError::GenericError {
-                    error: "Timed out while waiting for user input".into(),
-                    msg: "no input was received within the timeout duration".into(),
-                    span: Some(head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    "Timed out while waiting for user input",
+                    "no input was received within the timeout duration",
+                    head,
+                )));
             }
-            let event = crossterm::event::read().map_err(|_| ShellError::GenericError {
-                error: "Error with user input".into(),
-                msg: "".into(),
-                span: Some(head),
-                help: None,
-                inner: vec![],
+            let event = crossterm::event::read().map_err(|_| {
+                ShellError::Generic(GenericError::new("Error with user input", "", head))
             })?;
             let event = parse_event(head, &event, &event_type_filter, add_raw);
             if let Some(event) = event {

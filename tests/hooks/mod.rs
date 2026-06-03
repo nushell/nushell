@@ -391,6 +391,24 @@ fn env_change_block_condition_pwd() {
 }
 
 #[test]
+fn env_change_block_condition_pwd_is_case_insensitive() {
+    let inp = &[
+        &env_change_hook_code_condition(
+            "pWD",
+            "{|before, after| ($after | path basename) == samples }",
+            "'source-env .nu-env'",
+        ),
+        "cd samples",
+        "$env.SPAM",
+    ];
+
+    let actual_repl = nu!(cwd: "tests/hooks", nu_repl_code(inp));
+
+    assert_eq!(actual_repl.err, "");
+    assert_eq!(actual_repl.out, "spam");
+}
+
+#[test]
 fn env_change_block_condition_correct_args() {
     let inp = &[
         "$env.FOO = 1",

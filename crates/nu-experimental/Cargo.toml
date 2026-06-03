@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell experimental options"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+license.workspace = true
 name = "nu-experimental"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-experimental"
-version = "0.111.1"
+rust-version.workspace = true
+version.workspace = true
 
 [dependencies]
 itertools.workspace = true

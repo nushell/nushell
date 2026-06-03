@@ -1,5 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::{Result, TestResultExt, test};
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 
@@ -228,6 +229,32 @@ fn add_overlay_from_const_module_name_decl() {
     let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn add_overlay_from_file_with_stored_where_condition() -> Result {
+    Playground::setup(
+        "add_overlay_from_file_with_stored_where_condition",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
+
+            let mut tester = test().cwd(dirs.test()).add_nu_to_path();
+            tester.run(inp.join("; ")).expect_value_eq("[[a];[1]]")?;
+            tester.run(nu_repl_code(inp)).expect_value_eq("[[a];[1]]")
+        },
+    )
 }
 
 #[test]

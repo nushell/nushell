@@ -1,7 +1,9 @@
 use crate::network::http::client::{
-    RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag, expand_unix_socket_path,
-    http_client, http_client_pool, http_parse_url, request_add_authorization_header,
-    request_add_custom_headers, request_handle_response, request_set_timeout, send_request_no_body,
+    RedirectMode, RequestFlags, RequestMetadata, add_unix_socket_flag, check_response_redirection,
+    discard_response_body, expand_unix_socket_path, extract_response_headers,
+    handle_response_status, headers_to_nu, http_client, http_client_pool, http_parse_url,
+    request_add_authorization_header, request_add_custom_headers, request_handle_response,
+    request_set_timeout, send_request_no_body,
 };
 use nu_engine::command_prelude::*;
 
@@ -45,6 +47,11 @@ impl Command for HttpOptions {
                 SyntaxShape::Any,
                 "Custom headers you want to add.",
                 Some('H'),
+            )
+            .switch(
+                "full",
+                "Returns the full response instead of only the headers.",
+                Some('f'),
             )
             .switch(
                 "insecure",
@@ -93,6 +100,11 @@ impl Command for HttpOptions {
                 result: None,
             },
             Example {
+                description: "Get the full OPTIONS response record (status, headers, etc.).",
+                example: "http options --full https://www.example.com",
+                result: None,
+            },
+            Example {
                 description: "Get options from example.com, with username and password.",
                 example: "http options --user myuser --password mypass https://www.example.com",
                 result: None,
@@ -119,6 +131,7 @@ impl Command for HttpOptions {
 struct Arguments {
     url: Value,
     headers: Option<Value>,
+    full: bool,
     insecure: bool,
     user: Option<String>,
     password: Option<String>,
@@ -137,6 +150,7 @@ fn run_get(
     let args = Arguments {
         url: call.req(engine_state, stack, 0)?,
         headers: call.get_flag(engine_state, stack, "headers")?,
+        full: call.has_flag(engine_state, stack, "full")?,
         insecure: call.has_flag(engine_state, stack, "insecure")?,
         user: call.get_flag(engine_state, stack, "user")?,
         password: call.get_flag(engine_state, stack, "password")?,
@@ -186,28 +200,43 @@ fn helper(
         send_request_no_body(request, request_span, call.head, engine_state.signals());
 
     let response = response?;
+    check_response_redirection(redirect_mode, span, &response)?;
 
-    // http options' response always showed in header, so we set full to true.
-    // And `raw` is useless too because options method doesn't return body, here we set to true
-    // too.
-    let request_flags = RequestFlags {
-        raw: true,
-        full: true,
-        allow_errors: args.allow_errors,
-    };
+    if args.full {
+        // OPTIONS responses are header-only; `raw` matches other verbs' full output.
+        let request_flags = RequestFlags {
+            raw: true,
+            full: true,
+            allow_errors: args.allow_errors,
+        };
 
-    request_handle_response(
-        engine_state,
-        stack,
-        RequestMetadata {
-            requested_url: &requested_url,
-            span,
-            headers: request_headers,
-            redirect_mode,
-            flags: request_flags,
-        },
-        response,
-    )
+        return request_handle_response(
+            engine_state,
+            stack,
+            RequestMetadata {
+                requested_url: &requested_url,
+                span,
+                headers: request_headers,
+                redirect_mode,
+                flags: request_flags,
+            },
+            response,
+        );
+    }
+
+    let response_headers = extract_response_headers(&response);
+    handle_response_status(
+        &response,
+        redirect_mode,
+        &requested_url,
+        span,
+        args.allow_errors,
+    )?;
+    // In the default (non-`--full`) mode we return only headers, but the HTTP client must still
+    // fully read the response body to complete the request (timeouts, chunked bodies, etc.).
+    // The `--full` path uses `request_handle_response`, which already consumes the body.
+    discard_response_body(response, span)?;
+    headers_to_nu(&response_headers, span)
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use crate::util::{canonicalize_possible_filename_arg, modify_plugin_file};
 
@@ -98,13 +99,11 @@ fixed with `plugin add`.
             } else if force {
                 Ok(())
             } else {
-                Err(ShellError::GenericError {
-                    error: format!("Failed to remove the `{}` plugin", name.item),
-                    msg: "couldn't find a plugin with this name in the registry file".into(),
-                    span: Some(name.span),
-                    help: None,
-                    inner: vec![],
-                })
+                Err(ShellError::Generic(GenericError::new(
+                    format!("Failed to remove the `{}` plugin", name.item),
+                    "couldn't find a plugin with this name in the registry file",
+                    name.span,
+                )))
             }
         })?;
 

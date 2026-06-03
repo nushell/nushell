@@ -333,10 +333,11 @@ pub fn make_on_connect(handlers: &nu_protocol::Handlers) -> OnConnect {
 mod tests {
     use super::*;
     use nu_protocol::{Handlers, SignalAction};
+    use nu_utils::time::Instant;
     use std::io::Write;
     use std::net::TcpListener;
     use std::thread;
-    use std::time::{Duration, Instant};
+    use std::time::Duration;
 
     #[test]
     fn test_interrupt_unblocks_read() {

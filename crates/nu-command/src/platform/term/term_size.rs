@@ -18,7 +18,9 @@ impl Command for TermSize {
             .category(Category::Platform)
             .input_output_types(vec![(
                 Type::Nothing,
-                Type::Record([("columns".into(), Type::Int), ("rows".into(), Type::Int)].into()),
+                Type::Record(
+                    vec![("columns".into(), Type::Int), ("rows".into(), Type::Int)].into(),
+                ),
             )])
     }
 

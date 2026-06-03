@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fs::File, sync::Arc};
 
-use nu_path::{expand_path, expand_path_with};
+use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_tilde};
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
@@ -15,6 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
+    shell_error::generic::GenericError,
     shell_error::io::IoError,
 };
 use nu_utils::IgnoreCaseExt;
@@ -22,6 +23,29 @@ use nu_utils::IgnoreCaseExt;
 use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
+
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
+/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
+/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
+/// paths instead of the raw `~` / `...` tokens.
+fn expand_external_glob_arg(val: Value) -> Value {
+    if let Value::Glob {
+        val: ref s,
+        no_expand,
+        internal_span,
+        ..
+    } = val
+        && !no_expand
+        && !nu_glob::is_glob(s)
+    {
+        let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
+        let expanded_str = expanded.to_string_lossy().into_owned();
+        if expanded_str != *s {
+            return Value::string(expanded_str, internal_span);
+        }
+    }
+    val
+}
 
 pub fn eval_ir_block<D: DebugContext>(
     engine_state: &EngineState,
@@ -86,13 +110,25 @@ pub fn eval_ir_block<D: DebugContext>(
         result
     } else {
         // FIXME blocks having IR should not be optional
-        Err(ShellError::GenericError {
-            error: "Can't evaluate block in IR mode".into(),
-            msg: "block is missing compiled representation".into(),
-            span: block.span,
-            help: Some("the IrBlock is probably missing due to a compilation error".into()),
-            inner: vec![],
-        })
+        let error = if let Some(span) = block.span {
+            ShellError::Generic(
+                GenericError::new(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                    span,
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        } else {
+            ShellError::Generic(
+                GenericError::new_internal(
+                    "Can't evaluate block in IR mode",
+                    "block is missing compiled representation",
+                )
+                .with_help("the IrBlock is probably missing due to a compilation error"),
+            )
+        };
+        Err(error)
     }
 }
 
@@ -261,15 +297,33 @@ fn eval_ir_block_impl<D: DebugContext>(
                 }
             }
             Err(err) => {
+                #[cfg(unix)]
+                let is_terminated_by_signal = matches!(&err, ShellError::TerminatedBySignal { .. });
+                #[cfg(not(unix))]
+                let is_terminated_by_signal = false;
+
+                let is_interrupted =
+                    matches!(err, ShellError::Interrupted { .. }) || is_terminated_by_signal;
                 if let Some(error_handler) = ctx.stack.error_handlers.pop(ctx.error_handler_base) {
+                    if is_interrupted {
+                        ctx.engine_state.signals().reset();
+                    }
                     // If an error handler is set, branch there
                     prepare_error_handler(ctx, error_handler, Some(err.into_spanned(*span)));
                     pc = error_handler.handler_index;
                 } else if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
-                    prepare_error_handler(ctx, always_run_handler, Some(err.into_spanned(*span)));
+                    if is_interrupted {
+                        ctx.engine_state.signals().reset();
+                    }
+                    prepare_error_handler(
+                        ctx,
+                        always_run_handler,
+                        Some(err.clone().into_spanned(*span)),
+                    );
                     pc = always_run_handler.handler_index;
+                    ret_val = Some(err);
                 } else if need_backtrace {
                     let err = ShellError::into_chained(err, *span);
                     return Err(err);
@@ -570,13 +624,11 @@ fn eval_instruction<D: DebugContext>(
             {
                 Ok(Continue)
             }
-            _ => Err(ShellError::GenericError {
-                error: "Can't redirect stderr of internal command output".into(),
-                msg: "piping stderr only works on external commands".into(),
-                span: Some(*span),
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new(
+                "Can't redirect stderr of internal command output",
+                "piping stderr only works on external commands",
+                *span,
+            ))),
         },
         Instruction::OpenFile {
             file_num,
@@ -836,10 +888,10 @@ fn eval_instruction<D: DebugContext>(
             path,
             new_value,
         } => {
-            let data = ctx.take_reg(*src_dst);
-            let metadata = data.metadata();
+            let mut data = ctx.take_reg(*src_dst).body;
+            let metadata = data.take_metadata();
             // Change the span because we're modifying it
-            let mut value = data.body.into_value(*span)?;
+            let mut value = data.into_value(*span)?;
             let path = ctx.take_reg(*path);
             let new_value = ctx.collect_reg(*new_value, *span)?;
             if let PipelineData::Value(Value::CellPath { val: path, .. }, _) = path.body {
@@ -925,7 +977,7 @@ fn eval_instruction<D: DebugContext>(
             dst,
             stream,
             end_index,
-        } => eval_iterate(ctx, *dst, *stream, *end_index),
+        } => eval_iterate(ctx, *dst, *stream, *end_index, *span),
         Instruction::OnError { index } => {
             ctx.stack.error_handlers.push(ErrorHandler {
                 handler_index: *index,
@@ -1178,6 +1230,12 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+    // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
+    // whether to suppress or rethrow.
+    let stderr_pipe_separate = matches!(
+        redirect_err.as_ref(),
+        Some(Redirection::Pipe(OutDest::PipeSeparate))
+    );
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1218,7 +1276,16 @@ fn eval_call<D: DebugContext>(
 
             result
         } else {
-            check_input_types(&input, &decl.signature(), head)?;
+            // `ignore` intentionally handles upstream error values at command level.
+            // Skip early input-error propagation for the built-in `ignore` command so
+            // `run()` can apply `--stderr`/`--show-errors` semantics.
+            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+                && engine_state
+                    .find_decl(b"ignore", &[])
+                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+            if !allow_error_input {
+                check_input_types(&input, &decl.signature(), head)?;
+            }
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1255,7 +1322,10 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
-    result
+    match result {
+        Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
+        result => result,
+    }
 }
 
 fn find_named_var_id(
@@ -1332,6 +1402,14 @@ fn gather_arguments(
     let mut rest = vec![];
     let mut rest_span: Option<Span> = None;
 
+    // If the rest param uses ExternalArgument shape (untyped `def --wrapped` or `known extern`),
+    // tilde and ndots in bare glob values should be expanded, matching `run-external` behavior so
+    // that `$args | to nuon` shows expanded paths (e.g. `/home/user`) rather than `~`.
+    // We detect this via `allows_unknown_args`, which is set for all `def --wrapped` and
+    // `known extern` commands, and only affects `Value::Glob` values (explicit `[...rest: string]`
+    // produces `Value::String`, not `Value::Glob`, so those are unaffected).
+    let expand_glob_args = block.signature.allows_unknown_args;
+
     // If we encounter a spread, all further positionals should go to rest
     let mut always_spread = false;
 
@@ -1351,6 +1429,11 @@ fn gather_arguments(
                     callee_stack.add_var(var_id, val);
                 } else {
                     rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
+                    let val = if expand_glob_args {
+                        expand_external_glob_arg(val)
+                    } else {
+                        val
+                    };
                     rest.push(val);
                 }
             }
@@ -1506,7 +1589,7 @@ fn check_input_types(
             exp_input_type: expected_string,
             wrong_type: input.get_type().to_string(),
             dst_span: head,
-            src_span: input.span().unwrap_or(Span::unknown()),
+            src_span: input.span().unwrap_or(head),
         }),
         // expected_string didn't generate properly, so we can't show the proper error
         (_, None) => Err(ShellError::NushellFailed {
@@ -1620,9 +1703,9 @@ fn collect(
     fallback_span: Span,
     #[cfg(feature = "os")] ignore_error: bool,
 ) -> Result<PipelineData, ShellError> {
-    let data = pipe.body;
+    let mut data = pipe.body;
     let span = data.span().unwrap_or(fallback_span);
-    let metadata = data.metadata().and_then(|m| m.for_collect());
+    let metadata = data.take_metadata().and_then(|m| m.for_collect());
     #[cfg(feature = "os")]
     if nu_experimental::PIPE_FAIL.get() && !ignore_error {
         check_exit_status_future(pipe.exit)?;
@@ -1773,6 +1856,7 @@ fn eval_iterate(
     dst: RegId,
     stream: RegId,
     end_index: usize,
+    span: Span,
 ) -> Result<InstructionResult, ShellError> {
     let mut data = ctx.take_reg(stream);
     if let PipelineData::ListStream(list_stream, _) = &mut data.body {
@@ -1788,8 +1872,8 @@ fn eval_iterate(
     } else {
         // Convert the PipelineData to an iterator, and wrap it in a ListStream so it can be
         // iterated on
-        let metadata = data.metadata();
-        let span = data.span().unwrap_or(Span::unknown());
+        let metadata = data.body.take_metadata();
+        let span = data.span().unwrap_or(span);
         ctx.put_reg(
             stream,
             PipelineExecutionData::from(PipelineData::list_stream(
@@ -1797,7 +1881,7 @@ fn eval_iterate(
                 metadata,
             )),
         );
-        eval_iterate(ctx, dst, stream, end_index)
+        eval_iterate(ctx, dst, stream, end_index, span)
     }
 }
 
@@ -1811,7 +1895,7 @@ fn redirect_env(engine_state: &EngineState, caller_stack: &mut Stack, callee_sta
     // (the callee hid them)
     for var in caller_env_vars.iter() {
         if !callee_stack.has_env_var(engine_state, var) {
-            caller_stack.remove_env_var(engine_state, var);
+            caller_stack.hide_env_var(engine_state, var);
         }
     }
 

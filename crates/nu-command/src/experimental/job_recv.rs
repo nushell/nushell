@@ -1,7 +1,9 @@
 use std::{
     sync::mpsc::{RecvTimeoutError, TryRecvError},
-    time::{Duration, Instant},
+    time::Duration,
 };
+
+use nu_utils::time::Instant;
 
 use nu_engine::command_prelude::*;
 

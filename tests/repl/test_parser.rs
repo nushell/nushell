@@ -1,5 +1,6 @@
 use crate::repl::tests::{TestResult, fail_test, run_test, run_test_contains, run_test_with_env};
-use nu_test_support::{nu, nu_repl_code};
+use nu_protocol::ParseError;
+use nu_test_support::{fs::Stub, nu_repl_code, prelude::*};
 use rstest::rstest;
 use std::collections::HashMap;
 
@@ -418,30 +419,190 @@ fn append_assign_takes_pipeline() -> TestResult {
     )
 }
 
-#[test]
-fn assign_bare_external_fails() {
-    let result = nu!("$env.FOO = nu --testbin cococo");
-    assert!(!result.status.success());
-    assert!(result.err.contains("must be explicit"));
+#[rstest]
+#[case::bare("nu")]
+#[case::quoted("`nu`")]
+fn assign_external_fails(#[case] external: &str) -> Result {
+    let code = format!("$env.FOO = {external} --testbin cococo");
+    let err = test().add_nu_to_path().run(code).expect_parse_error()?;
+
+    match err {
+        ParseError::LabeledErrorWithHelp { error, .. } => {
+            assert_contains("must be explicit", error);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[rstest]
+#[case::with_caret("^nu")]
+#[case::quoted_with_caret("^`nu`")]
+fn assign_external_works(#[case] external: &str) -> Result {
+    let code = format!("$env.FOO = {external} --testbin cococo; $env.FOO");
+    test().add_nu_to_path().run(code).expect_value_eq("cococo")
 }
 
 #[test]
-fn assign_bare_external_with_caret() {
-    let result = nu!("$env.FOO = ^nu --testbin cococo");
-    assert!(result.status.success());
+fn percent_forces_builtin_command() -> Result {
+    test().run("%echo ok").expect_value_eq("ok")
 }
 
 #[test]
-fn assign_backtick_quoted_external_fails() {
-    let result = nu!("$env.FOO = `nu` --testbin cococo");
-    assert!(!result.status.success());
-    assert!(result.err.contains("must be explicit"));
+fn percent_prefers_builtin_when_custom_shadows_name() -> Result {
+    let mut tester = test();
+    let () = tester.run("def ls [] { 'hi' }")?;
+    tester
+        .run("(%ls | describe) == 'string'")
+        .expect_value_eq(false)
 }
 
 #[test]
-fn assign_backtick_quoted_external_with_caret() {
-    let result = nu!("$env.FOO = ^`nu` --testbin cococo");
-    assert!(result.status.success());
+fn percent_prefers_builtin_inside_same_name_wrapper() -> TestResult {
+    run_test_contains(
+        "def ls [] { %ls | move name --last }; ls | describe",
+        "table",
+    )
+}
+
+#[test]
+fn percent_help_prefers_builtin_when_alias_shadows_name() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; %cd --help",
+        "Change the current working directory.",
+    )
+}
+
+#[test]
+fn help_percent_prefers_builtin_without_alias() -> TestResult {
+    run_test_contains("help %cd", "Change the current working directory.")
+}
+
+#[test]
+fn help_percent_prefers_builtin_when_alias_shadows_name() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; help %cd",
+        "Change the current working directory.",
+    )
+}
+
+#[test]
+fn help_plain_keeps_alias_resolution_behavior() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; help cd",
+        "Returns its arguments, ignoring the piped-in value.",
+    )
+}
+
+#[test]
+fn plain_help_keeps_alias_resolution_behavior() -> TestResult {
+    run_test_contains(
+        "alias cd = echo; cd --help",
+        "Returns its arguments, ignoring the piped-in value.",
+    )
+}
+
+#[rstest]
+#[case::unknown_command("%nu --version")]
+#[case::custom_command("def foo [] { 'ok' }; %foo")]
+#[case::alias_to_internal("def foo [] { 'ok' }; alias bar = foo; %bar")]
+#[case::alias_to_external("alias ext = ^nu --version; %ext")]
+fn percent_requires_builtin(#[case] code: &str) -> Result {
+    let err = test().run(code).expect_parse_error()?;
+    match err {
+        ParseError::LabeledErrorWithHelp { error, .. } => {
+            assert_contains("percent sigil requires a built-in command", error);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_builtin() -> Result {
+    let code = "let cmd = 'echo'; %($cmd) 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_bare_var() -> Result {
+    let code = "let cmd = 'echo'; %$cmd 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_paren_expr() -> Result {
+    let code = "%('echo') 'world'";
+    test().run(code).expect_value_eq("world")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_non_builtin() -> Result {
+    let code = "let cmd = 'my_nonexistent_cmd'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_custom_command() -> Result {
+    let code = "def custom_cmd [] { 'nope' }; let cmd = 'custom_cmd'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_prefers_builtin_when_custom_shadows_name() -> Result {
+    let code = "def echo [] { 'shadowed' }; let cmd = 'echo'; %($cmd) 'hello'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_prefers_builtin_inside_same_name_wrapper() -> Result {
+    let code = "def echo [] { 'shadowed' }; def wrapper [cmd] { %($cmd) 'hello' }; wrapper 'echo'";
+    test().run(code).expect_value_eq("hello")
+}
+
+#[test]
+fn percent_dynamic_dispatch_alias_to_custom_command_is_not_builtin() -> Result {
+    let code = "def custom_cmd [] { 'shadowed' }; alias maybe_builtin = custom_cmd; let cmd = 'maybe_builtin'; %($cmd)";
+    let err = test().run(code).expect_error()?;
+    assert!(matches!(err, ShellError::CommandNotFound { .. }));
+    Ok(())
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['hello' 'world']; %($cmd) ...$args | to nuon";
+    test().run(code).expect_value_eq("[hello, world]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
+    let code = "let cmd = 'echo'; let args = ['middle' 'end']; %($cmd) 'start' ...$args | to nuon";
+    test().run(code).expect_value_eq("[start, middle, end]")
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
+    let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
+    test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+}
+
+#[test]
+fn percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults() {
+    Playground::setup(
+        "percent_dynamic_dispatch_in_wrapped_command_preserves_no_arg_builtin_defaults",
+        |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped] | to nuon"
+            );
+            assert_eq!(actual.out, "[1, 1]");
+        },
+    );
 }
 
 #[test]
@@ -809,6 +970,26 @@ fn extern_errors_with_no_space_between_params_and_name_1() -> TestResult {
 #[test]
 fn extern_errors_with_no_space_between_params_and_name_2() -> TestResult {
     fail_test("extern cmd(--flag)", "expected space")
+}
+
+#[test]
+fn duration_with_float_number() -> TestResult {
+    run_test(".6min", "36sec")
+}
+
+#[test]
+fn extern_with_reserved_variable_name_1() -> TestResult {
+    run_test("extern cmd [in, --env]", "")
+}
+
+#[test]
+fn extern_with_reserved_variable_name_2() -> TestResult {
+    run_test("export extern cmd (in, --env, ...nu)", "")
+}
+
+#[test]
+fn extern_allows_default_value_in_signature() -> TestResult {
+    run_test("extern cmd [in: bool=true]", "")
 }
 
 #[test]
@@ -1297,4 +1478,10 @@ fn reserved_variable_name_checking(#[case] code: &str) -> TestResult {
 #[test]
 fn allow_it_as_variable_name() -> TestResult {
     run_test("let it = 3; [1 2 3 4] | where $it > 2 | length", "2")
+}
+
+#[test]
+fn keep_variable_it_after_where() -> TestResult {
+    // Test for https://github.com/nushell/nushell/issues/17380
+    run_test("let it = 3; [1 2 3 4] | where $it > 2; $it", "3")
 }

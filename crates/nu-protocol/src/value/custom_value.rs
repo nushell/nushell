@@ -1,10 +1,12 @@
+use std::any::Any;
 use std::{cmp::Ordering, fmt, path::Path};
 
+use crate::shell_error::generic::GenericError;
 use crate::{ShellError, Span, Spanned, Type, Value, ast::Operator, casing::Casing};
 
 /// Trait definition for a custom [`Value`](crate::Value) type
 #[typetag::serde(tag = "type")]
-pub trait CustomValue: fmt::Debug + Send + Sync {
+pub trait CustomValue: fmt::Debug + Send + Sync + Any {
     /// Custom `Clone` implementation
     ///
     /// This can reemit a `Value::Custom(Self, span)` or materialize another representation
@@ -123,20 +125,21 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
         save_span: Span,
     ) -> Result<(), ShellError> {
         let _ = path;
-        Err(ShellError::GenericError {
-            error: "Cannot save custom value".into(),
-            msg: format!("Saving custom value {} failed", self.type_name()),
-            span: Some(save_span),
-            help: None,
-            inner: vec![
-                ShellError::GenericError {
-                error: "Custom value does not implement `save`".into(),
-                msg: format!("{} doesn't implement saving to disk", self.type_name()),
-                span: Some(value_span),
-                help: Some("Check the plugin's documentation for this value type. It might use a different way to save.".into()),
-                inner: vec![],
-            }],
-        })
+        Err(ShellError::Generic(
+            GenericError::new(
+                "Cannot save custom value",
+                format!("Saving custom value {} failed", self.type_name()),
+                save_span,
+            )
+            .with_inner([ShellError::Generic(
+                GenericError::new(
+                    "Custom value does not implement `save`",
+                    format!("{} doesn't implement saving to disk", self.type_name()),
+                    value_span,
+                )
+                .with_help("Check the plugin's documentation for this value type. It might use a different way to save."),
+            )]),
+        ))
     }
 
     /// For custom values in plugins: return `true` here if you would like to be notified when all
@@ -164,6 +167,11 @@ pub trait CustomValue: fmt::Debug + Send + Sync {
     /// query builders that should behave like lists when iterated.
     ///
     /// The default is `false`.
+    #[deprecated(
+        since = "0.111.1",
+        note = "will be replaced by a new custom-value iterator system next release; \
+        avoid new uses unless you need current behavior"
+    )]
     fn is_iterable(&self) -> bool {
         false
     }

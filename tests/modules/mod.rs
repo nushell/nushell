@@ -1,5 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::{Result, TestResultExt, test};
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -134,6 +135,38 @@ fn module_public_import_alias() {
 
         assert_eq!(actual.out, "foo");
     })
+}
+
+#[test]
+fn module_public_import_decl_with_stored_where_condition() -> Result {
+    Playground::setup(
+        "module_public_import_decl_with_stored_where_condition",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "main.nu",
+                "
+                export use mod.nu helper
+            ",
+            )]);
+
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            test()
+                .cwd(dirs.test())
+                .run("use main.nu helper; helper | to nuon --raw")
+                .expect_value_eq("[[a];[1]]")
+        },
+    )
 }
 
 #[test]

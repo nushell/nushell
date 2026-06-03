@@ -84,7 +84,7 @@ fn take_control() -> Pid {
     for sig in Signal::iterator() {
         if let Ok(old_act) = unsafe { sigaction(sig, &default) } {
             // fish preserves ignored SIGHUP, presumably for nohup support, so let's do the same
-            if sig == Signal::SIGHUP && old_act.handler() == SigHandler::SigIgn {
+            if sig == Signal::SIGHUP && matches!(old_act.handler(), SigHandler::SigIgn) {
                 let _ = unsafe { sigaction(sig, &old_act) };
             }
         }

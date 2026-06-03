@@ -3,6 +3,7 @@ use crate::{
     ast::{CellPath, PathMember},
     casing::Casing,
     engine::Closure,
+    shell_error::generic::GenericError,
 };
 use chrono::{DateTime, FixedOffset};
 use std::{
@@ -374,18 +375,16 @@ macro_rules! impl_from_value_for_uint {
                 let span = v.span();
                 const MAX: i64 = $max;
                 match v {
-                    Value::Int { val, .. } | Value::Duration { val, .. } => {
+                    Value::Int { val, .. } => {
                         match val {
                             i64::MIN..=-1 => Err(ShellError::NeedsPositiveValue { span }),
                             0..=MAX => Ok(val as $type),
                             #[allow(unreachable_patterns)] // u64 will max out the i64 number range
-                            n => Err(ShellError::GenericError {
-                                error: "Integer too large".to_string(),
-                                msg: format!("{n} is larger than {MAX}"),
-                                span: Some(span),
-                                help: None,
-                                inner: vec![],
-                            }),
+                            n => Err(ShellError::Generic(GenericError::new(
+                                "Integer too large",
+                                format!("{n} is larger than {MAX}"),
+                                span,
+                            ))),
                         }
                     }
                     v => Err(ShellError::CantConvert {
@@ -661,7 +660,7 @@ where
     }
 
     fn expected_type() -> Type {
-        Type::Record(vec![].into_boxed_slice())
+        Type::record()
     }
 }
 
@@ -728,7 +727,12 @@ impl FromValue for CellPath {
             }),
             Value::Int { val, .. } => {
                 if val.is_negative() {
-                    Err(ShellError::NeedsPositiveValue { span })
+                    Err(ShellError::CantConvert {
+                        to_type: "cell path".into(),
+                        from_type: "negative number".into(),
+                        span,
+                        help: None,
+                    })
                 } else {
                     Ok(CellPath {
                         members: vec![PathMember::Int {
@@ -889,23 +893,19 @@ impl FromValue for bytes::Bytes {
 
 // Use generics with `fmt::Display` to allow passing different kinds of integer
 fn int_too_small_error(int: impl fmt::Display, min: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too small".to_string(),
-        msg: format!("{int} is smaller than {min}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too small",
+        format!("{int} is smaller than {min}"),
+        span,
+    ))
 }
 
 fn int_too_large_error(int: impl fmt::Display, max: impl fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Integer too large".to_string(),
-        msg: format!("{int} is larger than {max}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        "Integer too large",
+        format!("{int} is larger than {max}"),
+        span,
+    ))
 }
 
 #[cfg(test)]

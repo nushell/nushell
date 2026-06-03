@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashMap, HashSet, LinkedList, VecDeque},
     hash::Hash,
     ops::{Range, RangeFrom, RangeInclusive, RangeTo, RangeToInclusive},
@@ -151,5 +152,16 @@ impl<T: PartialOrd> Container for RangeToInclusive<T> {
 
     fn contains(&self, item: &T) -> bool {
         RangeToInclusive::contains(self, item)
+    }
+}
+
+impl<'a, C> Container for Cow<'a, C>
+where
+    C: Container + ToOwned + ?Sized,
+{
+    type Item = C::Item;
+
+    fn contains(&self, item: &Self::Item) -> bool {
+        self.as_ref().contains(item)
     }
 }

@@ -56,7 +56,7 @@ impl Command for AnsiLink {
                 example: "'file:///file.txt' | ansi link --text 'Open Me!'",
                 result: Some(Value::string(
                     "\u{1b}]8;;file:///file.txt\u{1b}\\Open Me!\u{1b}]8;;\u{1b}\\",
-                    Span::unknown(),
+                    Span::test_data(),
                 )),
             },
             Example {
@@ -64,7 +64,7 @@ impl Command for AnsiLink {
                 example: "'https://www.nushell.sh/' | ansi link",
                 result: Some(Value::string(
                     "\u{1b}]8;;https://www.nushell.sh/\u{1b}\\https://www.nushell.sh/\u{1b}]8;;\u{1b}\\",
-                    Span::unknown(),
+                    Span::test_data(),
                 )),
             },
             Example {

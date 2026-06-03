@@ -12,7 +12,9 @@ use reedline::Suggestion;
 use std::path::MAIN_SEPARATOR;
 
 fn create_default_context() -> EngineState {
-    nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
+    let state = nu_cmd_lang::create_default_context();
+    let state = nu_command::add_shell_command_context(state);
+    nu_cli::add_cli_context(state)
 }
 
 // A fake cmd for testing.
@@ -182,7 +184,7 @@ pub fn new_dotnu_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
     let mut working_set = StateWorkingSet::new(&engine_state);
     let var_id = working_set.add_variable(
         b"$NU_LIB_DIRS".into(),
-        Span::unknown(),
+        Span::test_data(),
         nu_protocol::Type::List(Box::new(nu_protocol::Type::String)),
         false,
     );
@@ -219,6 +221,7 @@ pub fn new_partial_engine() -> (AbsolutePathBuf, String, EngineState, Stack) {
 }
 
 /// match a list of suggestions with the expected values
+#[track_caller]
 pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
     let expected_len = expected.len();
     let suggestions_len = suggestions.len();
@@ -239,6 +242,7 @@ pub fn match_suggestions(expected: &Vec<&str>, suggestions: &Vec<Suggestion>) {
 }
 
 /// match a list of suggestions with the expected values
+#[track_caller]
 pub fn match_suggestions_by_string(expected: &[String], suggestions: &Vec<Suggestion>) {
     let expected = expected.iter().map(|it| it.as_str()).collect::<Vec<_>>();
     match_suggestions(&expected, suggestions);
@@ -280,7 +284,7 @@ pub fn merge_input(
             engine_state,
             stack,
             &block,
-            PipelineData::value(Value::nothing(Span::unknown()), None),
+            PipelineData::value(Value::nothing(Span::test_data()), None),
         )
         .is_ok()
     );

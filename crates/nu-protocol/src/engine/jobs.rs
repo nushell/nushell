@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet, hash_map::Entry},
     sync::{
         Arc, Mutex,
         mpsc::{Receiver, RecvTimeoutError, Sender, TryRecvError},
@@ -7,7 +7,9 @@ use std::{
 };
 
 #[cfg(not(target_family = "wasm"))]
-use std::time::{Duration, Instant};
+use nu_utils::time::Instant;
+#[cfg(not(target_family = "wasm"))]
+use std::time::Duration;
 
 use nu_system::{UnfreezeHandle, kill_by_pid};
 
@@ -15,6 +17,7 @@ use crate::{PipelineData, Signals, shell_error};
 
 use crate::JobId;
 
+#[derive(Debug)]
 pub struct Jobs {
     next_job_id: usize,
 
@@ -81,7 +84,7 @@ impl Jobs {
     pub fn add_job_with_id(&mut self, id: JobId, job: Job) -> Result<(), &'static str> {
         self.assign_last_frozen_id_if_frozen(id, &job);
 
-        if let std::collections::hash_map::Entry::Vacant(e) = self.jobs.entry(id) {
+        if let Entry::Vacant(e) = self.jobs.entry(id) {
             e.insert(job);
             Ok(())
         } else {
@@ -127,6 +130,7 @@ impl Jobs {
     }
 }
 
+#[derive(Debug)]
 pub enum Job {
     Thread(ThreadJob),
     Frozen(FrozenJob),
@@ -140,7 +144,7 @@ pub enum Job {
 // is a direct undocumentented requirement of its soundness, and is thus assumed by this
 // implementaation.
 // see issue https://github.com/rust-lang/rust/issues/126239.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ThreadJob {
     signals: Signals,
     pids: Arc<Mutex<HashSet<u32>>>,
@@ -227,6 +231,7 @@ impl Job {
     }
 }
 
+#[derive(Debug)]
 pub struct FrozenJob {
     pub unfreeze: UnfreezeHandle,
     pub description: Option<String>,
@@ -248,7 +253,7 @@ impl FrozenJob {
 }
 
 /// Stores the information about the background job currently being executed by this thread, if any
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CurrentJob {
     pub id: JobId,
 
@@ -266,6 +271,7 @@ pub struct CurrentJob {
 // Messages are initially sent over a mpsc channel,
 // and may then be stored in a IgnoredMail struct when
 // filtered out by a message tag.
+#[derive(Debug)]
 pub struct Mailbox {
     receiver: Receiver<Mail>,
     ignored_mail: IgnoredMail,
@@ -339,7 +345,7 @@ impl Mailbox {
 
 // A data structure used to store messages which were received, but currently ignored by a tag filter
 // messages are added and popped in a first-in-first-out matter.
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct IgnoredMail {
     next_id: usize,
     messages: BTreeMap<usize, Mail>,
@@ -377,16 +383,12 @@ impl IgnoredMail {
     fn pop_oldest(&mut self) -> Option<PipelineData> {
         let (id, (tag, value)) = self.messages.pop_first()?;
 
-        if let Some(tag) = tag {
-            let needs_cleanup = if let Some(ids) = self.by_tag.get_mut(&tag) {
-                ids.remove(&id);
-                ids.is_empty()
-            } else {
-                false
-            };
-
-            if needs_cleanup {
-                self.by_tag.remove(&tag);
+        if let Some(tag) = tag
+            && let Entry::Occupied(mut occupied_entry) = self.by_tag.entry(tag)
+        {
+            occupied_entry.get_mut().remove(&id);
+            if occupied_entry.get().is_empty() {
+                occupied_entry.remove();
             }
         }
 

@@ -58,7 +58,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.109.1
+        version: 0.112.2
 
     - name: Release MSI Packages
       id: nu
@@ -87,9 +87,11 @@ jobs:
     - name: Download Release Archives
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        RELEASE_TAG: ${{ inputs.tag }}
+        REPO: ${{ github.repository }}
       run: >-
-        gh release download ${{ inputs.tag }}
-        --repo ${{ github.repository }}
+        gh release download "$RELEASE_TAG"
+        --repo "$REPO"
         --pattern '*'
         --dir release
     - name: Create Checksums

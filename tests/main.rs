@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+#![allow(clippy::unwrap_used)]
 
 mod const_;
 mod eval;

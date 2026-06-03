@@ -28,6 +28,7 @@
 use crate::explore_regex::app::App;
 use crate::explore_regex::ui::run_app_loop;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use ratatui::{
     Terminal,
     backend::CrosstermBackend,
@@ -102,13 +103,11 @@ Supports AltGr key combinations for international keyboard layouts."
 
 /// Converts a terminal/IO error into a ShellError with consistent formatting.
 fn terminal_error(error: &str, cause: impl std::fmt::Display, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: error.into(),
-        msg: format!("terminal error: {cause}"),
-        span: Some(span),
-        help: None,
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new(
+        error.to_string(),
+        format!("terminal error: {cause}"),
+        span,
+    ))
 }
 
 fn execute_regex_app(span: Span, string_input: String) -> Result<String, ShellError> {

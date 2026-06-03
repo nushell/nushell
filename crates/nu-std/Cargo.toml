@@ -1,16 +1,17 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "The standard library of Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-std"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu-std"
-version = "0.111.1"
+version.workspace = true
 
 [dependencies]
-nu-parser = { version = "0.111.1", path = "../nu-parser" }
-nu-protocol = { version = "0.111.1", path = "../nu-protocol", default-features = false }
-nu-engine = { version = "0.111.1", path = "../nu-engine", default-features = false }
+nu-parser.workspace = true
+nu-protocol.workspace = true
+nu-engine.workspace = true
 miette = { workspace = true, features = ["fancy-no-backtrace"] }
 
 log = "0.4"

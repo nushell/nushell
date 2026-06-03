@@ -285,3 +285,22 @@ fn from_tsv_text_with_wrong_type_comment() -> Result {
         Ok(())
     })
 }
+
+#[test]
+fn streaming_heterogeneous_table_reports_tsv_specific_error() -> Result {
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | to tsv
+    ";
+
+    let outcome = test().run(code).expect_shell_error()?;
+    let message = outcome.to_string();
+    assert_contains("streamed tsv schema changed", message.as_str());
+    assert!(!message.contains("csv"));
+    Ok(())
+}

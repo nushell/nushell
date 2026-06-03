@@ -105,7 +105,7 @@ stor open | query db "SELECT data->'baz' AS baz FROM my_table" | update baz {fro
         let sql: Spanned<String> = call.req(engine_state, stack, 0)?;
         let params_value: Value = call
             .get_flag(engine_state, stack, "params")?
-            .unwrap_or_else(|| Value::nothing(Span::unknown()));
+            .unwrap_or_else(|| Value::nothing(call.head));
 
         let params = nu_value_to_params(engine_state, params_value, call.head)?;
 

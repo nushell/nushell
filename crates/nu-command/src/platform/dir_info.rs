@@ -239,8 +239,8 @@ impl From<FileInfo> for Value {
                     "path" => Value::string(f.path.display().to_string(), f.tag),
                     "apparent" => Value::filesize(f.size as i64, f.tag),
                     "physical" => Value::filesize(f.blocks.unwrap_or(0) as i64, f.tag),
-                    "directories" => Value::nothing(Span::unknown()),
-                    "files" => Value::nothing(Span::unknown()),
+                    "directories" => Value::nothing(f.tag),
+                    "files" => Value::nothing(f.tag),
                 },
                 f.tag,
             )

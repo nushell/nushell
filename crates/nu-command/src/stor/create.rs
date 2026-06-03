@@ -1,5 +1,6 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -21,7 +22,7 @@ impl Command for StorCreate {
             )
             .required_named(
                 "columns",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "A record of column names and datatypes.",
                 Some('c'),
             )
@@ -143,14 +144,12 @@ fn process(
 
                 // dbg!(&create_stmt);
 
-                conn.execute(&create_stmt, [])
-                    .map_err(|err| ShellError::GenericError {
-                        error: "Failed to open SQLite connection in memory from create".into(),
-                        msg: err.to_string(),
-                        span: Some(Span::test_data()),
-                        help: None,
-                        inner: vec![],
-                    })?;
+                conn.execute(&create_stmt, []).map_err(|err| {
+                    ShellError::Generic(GenericError::new_internal(
+                        "Failed to open SQLite connection in memory from create",
+                        err.to_string(),
+                    ))
+                })?;
             }
             None => {
                 return Err(ShellError::MissingParameter {
@@ -177,7 +176,7 @@ mod test {
     #[test]
     fn test_process_with_valid_parameters() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -196,7 +195,7 @@ mod test {
     #[test]
     fn test_process_with_missing_table_name() {
         let table_name = None;
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -221,7 +220,7 @@ mod test {
     #[test]
     fn test_process_with_missing_columns() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),
@@ -241,7 +240,7 @@ mod test {
     #[test]
     fn test_process_with_unsupported_column_data_type() {
         let table_name = Some("test_table".to_string());
-        let span = Span::unknown();
+        let span = Span::test_data();
         let db = Box::new(SQLiteDatabase::new(
             std::path::Path::new(MEMORY_DB),
             Signals::empty(),

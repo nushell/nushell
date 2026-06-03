@@ -27,9 +27,9 @@ impl Command for Shuffle {
         engine_state: &EngineState,
         _stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let mut values = input.into_iter_strict(call.head)?.collect::<Vec<_>>();
         values.shuffle(&mut rng());
         let iter = values.into_iter();

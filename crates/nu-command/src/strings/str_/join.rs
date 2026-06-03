@@ -79,14 +79,14 @@ impl Command for StrJoin {
 fn run(
     engine_state: &EngineState,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
     separator: Option<String>,
 ) -> Result<PipelineData, ShellError> {
     let config = engine_state.config.clone();
 
     let span = call.head;
 
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let mut iter = input.into_iter();
     let mut first = true;
 

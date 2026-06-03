@@ -8,6 +8,7 @@ use nu_protocol::{
     ast::{Argument, Call, Expr, Expression},
     debugger::WithoutDebug,
     engine::{Closure, EngineState, Stack, StateWorkingSet},
+    shell_error::generic::GenericError,
 };
 use nu_utils::{SharedCow, strip_ansi_string_unlikely};
 use reedline::Suggestion;
@@ -162,12 +163,12 @@ impl Completer for CustomCompletion {
                     arguments: vec![
                         Argument::Positional(Expression::new_unknown(
                             Expr::String(self.line.clone()),
-                            Span::unknown(),
+                            span,
                             Type::String,
                         )),
                         Argument::Positional(Expression::new_unknown(
                             Expr::Int(self.line_pos as i64),
-                            Span::unknown(),
+                            span,
                             Type::Int,
                         )),
                     ],
@@ -229,6 +230,13 @@ impl Completer for CustomCompletion {
                             completion_options.case_sensitive = case_sensitive;
                         }
 
+                        if let Some(md) = options
+                            .get("match_description")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.match_description = md;
+                        }
+
                         let positional =
                             options.get("positional").and_then(|val| val.as_bool().ok());
                         if positional.is_some() {
@@ -283,10 +291,16 @@ impl Completer for CustomCompletion {
         let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
 
         for sugg in suggestions {
-            matcher.add(
-                strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string()),
-                sugg,
-            );
+            let value = strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string());
+            if matcher.check_match(&value).is_some() {
+                matcher.add(value, sugg);
+            } else if completion_options.match_description
+                && let Some(description) = sugg.suggestion.description.as_deref()
+                && matcher.check_match(description).is_some()
+            {
+                let description = description.to_string();
+                matcher.add(description, sugg);
+            }
         }
         matcher.suggestion_results()
     }
@@ -362,14 +376,17 @@ impl<'a> Completer for CommandWideCompletion<'a> {
             span: args_span,
         } = get_command_arguments(working_set, self.expression);
 
-        let mut new_span = span;
         // strip the placeholder
-        if self.strip
+        let new_span = if self.strip
             && let Some(last) = args.last_mut()
         {
-            last.item.pop();
-            new_span = Span::new(span.start, span.end.saturating_sub(1));
-        }
+            if let Some(popped) = last.item.pop() {
+                last.span.end = last.span.end.saturating_sub(popped.len_utf8())
+            }
+            last.span
+        } else {
+            span
+        };
 
         let mut block = working_set.get_block(self.block_id).clone();
 
@@ -400,7 +417,7 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         let mut engine_state = working_set.permanent_state.clone();
         let _ = engine_state.merge_delta(working_set.delta.clone());
 
-        let result = nu_engine::eval_block::<WithoutDebug>(
+        let result = nu_engine::eval_block_with_early_return::<WithoutDebug>(
             &engine_state,
             &mut callee_stack,
             &block,
@@ -433,13 +450,13 @@ fn convert_whole_command_completion_results(
         Err(err) => {
             log::error!(
                 "{}",
-                ShellError::GenericError {
-                    error: "nu::shell::completion".into(),
-                    msg: "failed to eval completer block".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![err],
-                }
+                ShellError::Generic(
+                    GenericError::new_internal(
+                        "nu::shell::completion",
+                        "failed to eval completer block",
+                    )
+                    .with_inner([err]),
+                )
             );
             return Some(vec![]);
         }
@@ -456,13 +473,10 @@ fn convert_whole_command_completion_results(
         _ => {
             log::error!(
                 "{}",
-                ShellError::GenericError {
-                    error: "nu::shell::completion".into(),
-                    msg: "completer returned invalid value of type".into(),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                },
+                ShellError::Generic(GenericError::new_internal(
+                    "nu::shell::completion",
+                    "completer returned invalid value of type",
+                )),
             );
             Some(vec![])
         }

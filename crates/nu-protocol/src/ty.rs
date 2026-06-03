@@ -1,4 +1,4 @@
-use crate::{SyntaxShape, ast::PathMember};
+use crate::{CollectionColumns, SyntaxShape, ast::PathMember};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Display};
 #[cfg(test)]
@@ -29,10 +29,10 @@ pub enum Type {
     /// Supertype of all types it contains.
     OneOf(Box<[Type]>),
     Range,
-    Record(Box<[(String, Type)]>),
+    Record(CollectionColumns<Type>),
     String,
     Glob,
-    Table(Box<[(String, Type)]>),
+    Table(CollectionColumns<Type>),
 }
 
 fn follow_cell_path_recursive<'a>(
@@ -43,11 +43,11 @@ fn follow_cell_path_recursive<'a>(
         return Some(current);
     };
     match (current.as_ref(), first) {
-        (Type::Record(fields), PathMember::String { val, .. }) => {
-            let idx = fields.iter().position(|(name, _)| name == val)?;
+        (Type::Record(columns), PathMember::String { val, .. }) => {
+            let idx = columns.fields.iter().position(|(name, _)| name == val)?;
             let next = match current {
-                Cow::Borrowed(Type::Record(f)) => Cow::Borrowed(&f[idx].1),
-                Cow::Owned(Type::Record(f)) => Cow::Owned(f[idx].1.to_owned()),
+                Cow::Borrowed(Type::Record(f)) => Cow::Borrowed(&f.fields[idx].1),
+                Cow::Owned(Type::Record(f)) => Cow::Owned(f.fields[idx].1.to_owned()),
                 _ => unreachable!(),
             };
             follow_cell_path_recursive(next, path_members)
@@ -59,8 +59,8 @@ fn follow_cell_path_recursive<'a>(
         }
 
         // Table to List (String)
-        (Type::Table(fields), PathMember::String { val, .. }) => {
-            let (_, sub_type) = fields.iter().find(|(name, _)| name == val)?;
+        (Type::Table(columns), PathMember::String { val, .. }) => {
+            let (_, sub_type) = columns.fields.iter().find(|(name, _)| name == val)?;
             let list_type = Type::List(Box::new(sub_type.clone()));
             follow_cell_path_recursive(Cow::Owned(list_type), path_members)
         }
@@ -121,11 +121,11 @@ impl Type {
     }
 
     pub fn record() -> Self {
-        Self::Record([].into())
+        Self::Record(Default::default())
     }
 
     pub fn table() -> Self {
-        Self::Table([].into())
+        Self::Table(Default::default())
     }
 
     pub fn custom(name: impl Into<Box<str>>) -> Self {
@@ -139,21 +139,23 @@ impl Type {
     /// you should use their respective `is_subtype_of` methods instead.
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // Structural subtyping
-        let is_subtype_collection = |this: &[(String, Type)], that: &[(String, Type)]| {
-            if this.is_empty() || that.is_empty() {
-                true
-            } else if this.len() < that.len() {
-                false
-            } else {
-                that.iter().all(|(col_y, ty_y)| {
-                    if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
-                        ty_x.is_subtype_of(ty_y)
-                    } else {
-                        false
-                    }
-                })
-            }
-        };
+        let is_subtype_collection =
+            |this: &CollectionColumns<Type>, that: &CollectionColumns<Type>| {
+                let (this, that) = (this.fields.as_ref(), that.fields.as_ref());
+                if this.is_empty() || that.is_empty() {
+                    true
+                } else if this.len() < that.len() {
+                    false
+                } else {
+                    that.iter().all(|(col_y, ty_y)| {
+                        if let Some((_, ty_x)) = this.iter().find(|(col_x, _)| col_x == col_y) {
+                            ty_x.is_subtype_of(ty_y)
+                        } else {
+                            false
+                        }
+                    })
+                }
+            };
 
         match (self, other) {
             (t, u) if t == u => true,
@@ -216,12 +218,10 @@ impl Type {
         // the inner vectors, not the entire `Type` twice.
         match (&lhs, &rhs) {
             (Type::Record(this), Type::Record(that)) => {
-                let widened = Self::widen_collection(this.clone(), that.clone());
-                return Ok(Type::Record(widened));
+                return Ok(Type::Record(this.clone().widen(that.clone())));
             }
             (Type::Table(this), Type::Table(that)) => {
-                let widened = Self::widen_collection(this.clone(), that.clone());
-                return Ok(Type::Table(widened));
+                return Ok(Type::Table(this.clone().widen(that.clone())));
             }
 
             (Type::List(_list_item), Type::Table(_table))
@@ -229,11 +229,11 @@ impl Type {
                 // `lhs` and `rhs` are still owned, so we can match on the original values once again to avoid needless cloning.
                 let item = match (lhs, rhs) {
                     (Type::List(list_item), Type::Table(table)) => match *list_item {
-                        Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
+                        Type::Record(record) => Type::Record(record.widen(table)),
                         list_item => Type::one_of([list_item, Type::Record(table)]),
                     },
                     (Type::Table(table), Type::List(list_item)) => match *list_item {
-                        Type::Record(record) => Type::Record(Self::widen_collection(record, table)),
+                        Type::Record(record) => Type::Record(record.widen(table)),
                         list_item => Type::one_of([list_item, Type::Record(table)]),
                     },
                     _ => unreachable!(),
@@ -261,41 +261,6 @@ impl Type {
 
         // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
         Err((lhs, rhs))
-    }
-
-    fn widen_collection(
-        lhs: Box<[(String, Type)]>,
-        rhs: Box<[(String, Type)]>,
-    ) -> Box<[(String, Type)]> {
-        if lhs.is_empty() || rhs.is_empty() {
-            return [].into();
-        }
-
-        // iterate the shorter list to reduce quadratic behaviour
-        let (small, big) = if lhs.len() <= rhs.len() {
-            (lhs, rhs)
-        } else {
-            (rhs, lhs)
-        };
-
-        const MAP_THRESH: usize = 16;
-        if big.len() > MAP_THRESH {
-            use std::collections::HashMap;
-            let mut big_map: HashMap<String, Type> = big.into_iter().collect();
-            small
-                .into_iter()
-                .filter_map(|(col, typ)| big_map.remove(&col).map(|b_typ| (col, typ.widen(b_typ))))
-                .collect()
-        } else {
-            small
-                .into_iter()
-                .filter_map(|(col, typ)| {
-                    big.iter()
-                        .find_map(|(b_col, b_typ)| (&col == b_col).then(|| b_typ.clone()))
-                        .map(|b_typ| (col, typ.widen(b_typ)))
-                })
-                .collect()
-        }
     }
 
     /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
@@ -415,12 +380,6 @@ impl Type {
     }
 
     pub fn to_shape(&self) -> SyntaxShape {
-        let mk_shape = |tys: &[(String, Type)]| {
-            tys.iter()
-                .map(|(key, val)| (key.clone(), val.to_shape()))
-                .collect()
-        };
-
         match self {
             Type::Int => SyntaxShape::Int,
             Type::Float => SyntaxShape::Float,
@@ -437,8 +396,8 @@ impl Type {
             Type::Number => SyntaxShape::Number,
             Type::OneOf(types) => SyntaxShape::OneOf(types.iter().map(Type::to_shape).collect()),
             Type::Nothing => SyntaxShape::Nothing,
-            Type::Record(entries) => SyntaxShape::Record(mk_shape(entries)),
-            Type::Table(columns) => SyntaxShape::Table(mk_shape(columns)),
+            Type::Record(entries) => SyntaxShape::Record(entries.map(Type::to_shape)),
+            Type::Table(columns) => SyntaxShape::Table(columns.map(Type::to_shape)),
             Type::Any => SyntaxShape::Any,
             Type::Error => SyntaxShape::Any,
             Type::Binary => SyntaxShape::Binary,
@@ -494,36 +453,8 @@ impl Display for Type {
             Type::Float => write!(f, "float"),
             Type::Int => write!(f, "int"),
             Type::Range => write!(f, "range"),
-            Type::Record(fields) => {
-                if fields.is_empty() {
-                    write!(f, "record")
-                } else {
-                    write!(
-                        f,
-                        "record<{}>",
-                        fields
-                            .iter()
-                            .map(|(x, y)| format!("{x}: {y}"))
-                            .collect::<Vec<String>>()
-                            .join(", "),
-                    )
-                }
-            }
-            Type::Table(columns) => {
-                if columns.is_empty() {
-                    write!(f, "table")
-                } else {
-                    write!(
-                        f,
-                        "table<{}>",
-                        columns
-                            .iter()
-                            .map(|(x, y)| format!("{x}: {y}"))
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                }
-            }
+            Type::Record(columns) => write!(f, "record{columns}"),
+            Type::Table(columns) => write!(f, "table{columns}"),
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),

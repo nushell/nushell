@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Path handling library for Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-path"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu-path"
-version = "0.111.1"
+version.workspace = true
 exclude = ["/fuzz"]
 
 [lib]

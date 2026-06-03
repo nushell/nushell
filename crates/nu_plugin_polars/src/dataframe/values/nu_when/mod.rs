@@ -1,7 +1,8 @@
 mod custom_value;
 
 use core::fmt;
-use nu_protocol::{ShellError, Span, Value};
+use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::{ShellError, Value};
 use polars::prelude::{ChainedThen, Then};
 use serde::{Serialize, Serializer};
 use uuid::Uuid;
@@ -91,13 +92,10 @@ impl Cacheable for NuWhen {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuWhen(when) => Ok(when),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a dataframe".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a dataframe",
+                "",
+            ))),
         }
     }
 }
@@ -116,13 +114,13 @@ impl CustomValueSupport for NuWhen {
         PolarsPluginType::NuWhen
     }
 
-    fn base_value(self, _span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
+    fn base_value(self, span: nu_protocol::Span) -> Result<nu_protocol::Value, ShellError> {
         let val: String = match self.when_type {
             NuWhenType::Then(_) => "whenthen".into(),
             NuWhenType::ChainedThen(_) => "whenthenthen".into(),
         };
 
-        let value = Value::string(val, Span::unknown());
+        let value = Value::string(val, span);
         Ok(value)
     }
 }

@@ -1,7 +1,6 @@
-use std::{
-    io::Result,
-    time::{Duration, Instant},
-};
+use std::{io::Result, time::Duration};
+
+use nu_utils::time::Instant;
 
 use crossterm::event::{Event, KeyEvent, KeyEventKind, poll, read};
 

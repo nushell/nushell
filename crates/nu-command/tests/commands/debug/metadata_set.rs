@@ -3,28 +3,6 @@ use std::collections::HashMap;
 use nu_test_support::prelude::*;
 
 #[test]
-fn errors_on_conflicting_metadata_flags() -> Result {
-    let code = r#"
-        echo "foo" 
-        | metadata set --datasource-filepath foo.txt --datasource-ls
-    "#;
-
-    let err = test().run(code).expect_error()?;
-    match err {
-        ShellError::IncompatibleParameters {
-            left_message,
-            right_message,
-            ..
-        } => {
-            assert_eq!(left_message, "cannot use `--datasource-filepath`");
-            assert_eq!(right_message, "with `--datasource-ls`");
-            Ok(())
-        }
-        _ => Err(err.into()),
-    }
-}
-
-#[test]
 fn works_with_datasource_filepath() -> Result {
     let code = r#"
     echo "foo"
@@ -38,19 +16,6 @@ fn works_with_datasource_filepath() -> Result {
 }
 
 #[test]
-fn works_with_datasource_ls() -> Result {
-    let code = r#"
-        echo "foo"
-        | metadata set --datasource-ls
-        | metadata
-    "#;
-
-    let outcome: HashMap<String, Value> = test().run(code)?;
-    assert_eq!(outcome["source"].as_str()?, "ls");
-    Ok(())
-}
-
-#[test]
 fn works_with_path_columns_single() -> Result {
     let code = "[] | metadata set --path-columns [test] | metadata | get path_columns.0";
     test().run(code).expect_value_eq("test")
@@ -60,6 +25,12 @@ fn works_with_path_columns_single() -> Result {
 fn works_with_path_columns_multiple() -> Result {
     let code = r#"[] | metadata set --path-columns [name path] | metadata | get path_columns | str join " ""#;
     test().run(code).expect_value_eq("name path")
+}
+
+#[test]
+fn works_with_table_width_priority_columns() -> Result {
+    let code = r#"[] | metadata set --table-width-priority-columns [command virtual] | metadata | get table_width_priority_columns | str join " ""#;
+    test().run(code).expect_value_eq("command virtual")
 }
 
 #[test]

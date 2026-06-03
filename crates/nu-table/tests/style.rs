@@ -194,6 +194,41 @@ fn test_compact() {
 }
 
 #[test]
+fn test_frameless() {
+    assert_eq!(
+        create_table(vec![row(4); 3], true, theme::frameless()),
+        concat!(
+            " 0 │ 1 │ 2 │ 3 \n",
+            "───┼───┼───┼───\n",
+            " 0 │ 1 │ 2 │ 3 \n",
+            " 0 │ 1 │ 2 │ 3 ",
+        )
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], true, theme::frameless()),
+        concat!(" 0 │ 1 │ 2 │ 3 \n", "───┼───┼───┼───\n", " 0 │ 1 │ 2 │ 3 ",)
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], true, theme::frameless()),
+        " 0 │ 1 │ 2 │ 3 "
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 1], false, theme::frameless()),
+        " 0 │ 1 │ 2 │ 3 "
+    );
+
+    assert_eq!(
+        create_table(vec![row(4); 2], false, theme::frameless()),
+        concat!(" 0 │ 1 │ 2 │ 3 \n", " 0 │ 1 │ 2 │ 3 ",)
+    );
+
+    assert_eq!(create_table_with_size(vec![], true, theme::frameless()), "");
+}
+
+#[test]
 fn test_compact_double() {
     assert_eq!(
         create_table(vec![row(4); 3], true, theme::compact_double()),

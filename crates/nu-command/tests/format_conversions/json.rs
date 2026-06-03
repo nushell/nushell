@@ -1,4 +1,6 @@
+use nu_protocol::test_record;
 use nu_test_support::{fs::Stub::FileWithContentToBeTrimmed, prelude::*};
+use rstest::rstest;
 
 #[test]
 fn table_to_json_text_and_from_json_text_back_into_table() -> Result {
@@ -118,13 +120,14 @@ fn from_json_text_objects_is_stream() -> Result {
             "#,
         )]);
 
-        let code = "
-            open katz.txt
-            | from json -o
-            | describe -n
-        ";
+        let code = "open katz.txt | from json -o";
+        let nu_protocol::PipelineData::ListStream(_, _) =
+            test().cwd(dirs.test()).run_raw(code)?.body
+        else {
+            panic!("Output must be a stream");
+        };
 
-        test().cwd(dirs.test()).run(code).expect_value_eq("stream")
+        Ok(())
     })
 }
 
@@ -210,28 +213,27 @@ fn table_to_json_text_strict() -> Result {
     })
 }
 
-#[test]
-fn top_level_values_from_json() -> Result {
-    for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let code = format!(r#""{value}" | from json | to json"#);
-        test().run(&code).expect_value_eq(value)?;
-
-        let code = format!(r#""{value}" | from json | describe"#);
-        test().run(&code).expect_value_eq(type_name)?;
-    }
-    Ok(())
+#[rstest]
+#[case("null", ())]
+#[case("true", true)]
+#[case("false", false)]
+fn top_level_values_from_json(#[case] json: &str, #[case] expected: impl IntoValue) -> Result {
+    test()
+        .run_with_data("from json", json)
+        .expect_value_eq(expected)
 }
 
-#[test]
-fn top_level_values_from_json_strict() -> Result {
-    for (value, type_name) in [("null", "nothing"), ("true", "bool"), ("false", "bool")] {
-        let code = format!(r#""{value}" | from json -s | to json"#);
-        test().run(&code).expect_value_eq(value)?;
-
-        let code = format!(r#""{value}" | from json -s | describe"#);
-        test().run(&code).expect_value_eq(type_name)?;
-    }
-    Ok(())
+#[rstest]
+#[case("null", ())]
+#[case("true", true)]
+#[case("false", false)]
+fn top_level_values_from_json_strict(
+    #[case] json: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
+    test()
+        .run_with_data("from json --strict", json)
+        .expect_value_eq(expected)
 }
 
 #[test]
@@ -240,8 +242,8 @@ fn strict_parsing_fails_on_comment() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { msg, .. } => {
-            assert_contains("error parsing JSON text", msg);
+        ShellError::Generic(err) => {
+            assert_contains("error parsing JSON text", err.msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -254,8 +256,8 @@ fn strict_parsing_fails_on_trailing_comma() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { msg, .. } => {
-            assert_contains("error parsing JSON text", msg);
+        ShellError::Generic(err) => {
+            assert_contains("error parsing JSON text", err.msg);
             Ok(())
         }
         other => Err(other.into()),
@@ -274,8 +276,8 @@ fn unbounded_from_in_range_fails() -> Result {
 
     let err = test().run(code).expect_shell_error()?;
     match err {
-        ShellError::GenericError { error, .. } => {
-            assert_contains("Cannot create range", error);
+        ShellError::Generic(err) => {
+            assert_contains("Cannot create range", err.error);
             Ok(())
         }
         other => Err(other.into()),
@@ -290,11 +292,11 @@ fn inf_in_range_fails() -> Result {
 
     let code = "5..inf | to json";
     let err = test().run(code).expect_shell_error()?;
-    let ShellError::GenericError { msg, .. } = err else {
+    let ShellError::Generic(err) = err else {
         panic!("unexpected err, {err:?}")
     };
     assert_eq!(
-        msg,
+        err.msg,
         "Unbounded ranges are not allowed when converting to this format"
     );
 
@@ -333,4 +335,31 @@ fn test_tabs_indent_flag() -> Result {
         .cwd("tests/fixtures/formats")
         .run(code)
         .expect_value_eq(expected_output)
+}
+
+#[test]
+fn test_from_json_content_type_metadata() -> Result {
+    let code = r#"
+        '{"a": 1, "b": 2}'
+        | metadata set --content-type 'application/json' --path-columns [name]
+        | from json
+        | metadata
+        | reject span
+    "#;
+
+    test().run(code).expect_value_eq(test_record! {
+        "path_columns" => vec![Value::test_string("name")]
+    })
+}
+
+#[test]
+fn test_to_json_content_type_metadata() -> Result {
+    let code = "
+        {a: 1 b: 2}
+        | to json
+        | metadata
+        | get content_type
+    ";
+
+    test().run(code).expect_value_eq("application/json")
 }

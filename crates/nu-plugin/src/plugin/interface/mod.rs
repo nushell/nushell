@@ -10,6 +10,8 @@ use nu_plugin_protocol::{
     GetCompletionInfo, Ordering, PluginCall, PluginCallId, PluginCallResponse, PluginCustomValue,
     PluginInput, PluginOption, PluginOutput, ProtocolInfo,
 };
+#[cfg(unix)]
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     BlockId, Config, DeclId, DynamicSuggestion, Handler, HandlerGuard, Handlers, PipelineData,
     PluginMetadata, PluginSignature, ShellError, SignalAction, Signals, Span, Spanned, Value,
@@ -674,7 +676,7 @@ impl EngineInterface {
     /// Get all environment variables from the engine.
     ///
     /// Since this is quite a large map that has to be sent, prefer to use
-    /// [`.get_env_var()`] (Self::get_env_var) if the variables needed are known ahead of time
+    /// [`.get_env_var()`](Self::get_env_var) if the variables needed are known ahead of time
     /// and there are only a small number needed.
     ///
     /// # Example
@@ -1138,12 +1140,11 @@ impl Drop for ForegroundGuard {
 fn set_pgrp_from_enter_foreground(pgrp: i64) -> Result<(), ShellError> {
     use nix::unistd::{Pid, setpgid};
     if let Ok(pgrp) = pgrp.try_into() {
-        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| ShellError::GenericError {
-            error: "Failed to set process group for foreground".into(),
-            msg: "".into(),
-            span: None,
-            help: Some(err.to_string()),
-            inner: vec![],
+        setpgid(Pid::from_raw(0), Pid::from_raw(pgrp)).map_err(|err| {
+            ShellError::Generic(
+                GenericError::new_internal("Failed to set process group for foreground", "")
+                    .with_help(err.to_string()),
+            )
         })
     } else {
         Err(ShellError::NushellFailed {

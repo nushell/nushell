@@ -1,6 +1,7 @@
 use crate::formats::nu_xml_format::{COLUMN_ATTRS_NAME, COLUMN_CONTENT_NAME, COLUMN_TAG_NAME};
 use indexmap::IndexMap;
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 
 use roxmltree::{NodeType, ParsingOptions, TextPos};
 
@@ -327,6 +328,11 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
         roxmltree::Error::InvalidExternalID(pos) => {
             make_xml_error_spanned("Invalid ExternalID in the DTD.", source, pos)
         }
+        roxmltree::Error::EntityResolver(pos, msg) => make_xml_error_spanned(
+            format!("Resolving the given entity yielded an error: {}.", msg),
+            source,
+            pos,
+        ),
         roxmltree::Error::InvalidComment(pos) => make_xml_error_spanned(
             "A comment cannot contain `--` or end with `-`.",
             source,
@@ -347,13 +353,7 @@ fn process_xml_parse_error(source: String, err: roxmltree::Error, span: Span) ->
 }
 
 fn make_xml_error(msg: impl Into<String>, span: Span) -> ShellError {
-    ShellError::GenericError {
-        error: "Failed to parse XML".into(),
-        msg: msg.into(),
-        help: None,
-        span: Some(span),
-        inner: vec![],
-    }
+    ShellError::Generic(GenericError::new("Failed to parse XML", msg.into(), span))
 }
 
 fn make_xml_error_spanned(msg: impl Into<String>, src: String, pos: TextPos) -> ShellError {

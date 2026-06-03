@@ -84,7 +84,7 @@ impl NuProcess {
             Err(_) => panic!("Couldn't join paths for PATH var."),
         };
 
-        command.env(crate::NATIVE_PATH_ENV_VAR, paths_joined);
+        command.env(nu_utils::consts::NATIVE_PATH_ENV_VAR, paths_joined);
 
         for env_var in &self.environment_vars {
             command.env(&env_var.name, &env_var.value);

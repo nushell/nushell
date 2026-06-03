@@ -1,5 +1,5 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::NuGlob;
+use nu_protocol::{NuGlob, shell_error::generic::GenericError};
 use uu_mkdir::mkdir;
 use uucore::{localized_help_template, translate};
 
@@ -41,7 +41,23 @@ impl Command for UMkdir {
 
     fn signature(&self) -> Signature {
         Signature::build("mkdir")
-            .input_output_types(vec![(Type::Nothing, Type::Nothing)])
+            .input_output_types(vec![
+                (Type::Nothing, Type::Nothing),
+                (
+                    Type::Nothing,
+                    Type::Table(
+                        vec![
+                            ("path".to_string(), Type::String),
+                            ("created".to_string(), Type::Bool),
+                            (
+                                "error".to_string(),
+                                Type::OneOf([Type::Nothing, Type::String].into()),
+                            ),
+                        ]
+                        .into(),
+                    ),
+                ),
+            ])
             .rest(
                 "rest",
                 SyntaxShape::OneOf(vec![SyntaxShape::GlobPattern, SyntaxShape::Directory]),
@@ -69,7 +85,12 @@ impl Command for UMkdir {
         let mut directories = call
             .rest::<Spanned<NuGlob>>(engine_state, stack, 0)?
             .into_iter()
-            .map(|dir| nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()))
+            .map(|dir| {
+                (
+                    nu_path::expand_path_with(dir.item.as_ref(), &cwd, dir.item.is_expand()),
+                    dir.span,
+                )
+            })
             .peekable();
 
         let is_verbose = call.has_flag(engine_state, stack, "verbose")?;
@@ -83,42 +104,53 @@ impl Command for UMkdir {
 
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
-            mode: get_mode(),
-            verbose: is_verbose,
+            mode: Some(get_mode()),
+            verbose: false,
             set_security_context: false,
             context: None,
         };
 
-        let mut verbose_out = String::new();
-        for dir in directories {
+        let mut verbose_out = Vec::new();
+        let mut err = None;
+        for (dir, dir_span) in directories {
             if let Err(error) = mkdir(&dir, &config) {
-                return Err(ShellError::GenericError {
-                    error: format!("{error}"),
-                    msg: translate!(&error.to_string()),
-                    span: None,
-                    help: None,
-                    inner: vec![],
-                });
-            }
-            if is_verbose {
-                verbose_out.push_str(
-                    format!(
-                        "{} ",
-                        &dir.as_path()
-                            .file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
+                let shell_error = ShellError::Generic(GenericError::new(
+                    format!("{error}"),
+                    translate!(&error.to_string()),
+                    dir_span,
+                ));
+
+                if is_verbose {
+                    verbose_out.push(
+                        record! {
+                            "path" => Value::string(dir.display().to_string(), call.head),
+                            "created" => Value::bool(false, call.head),
+                            "error" => Value::string(format!("{error}"), call.head),
+                        }
+                        .into_value(call.head),
                     )
-                    .as_str(),
+                } else {
+                    err = Some(shell_error);
+                }
+            } else if is_verbose {
+                verbose_out.push(
+                    record! {
+                        "path" => Value::string(dir.display().to_string(), call.head),
+                        "created" => Value::bool(true, call.head),
+                        "error" => Value::nothing(call.head),
+                    }
+                    .into_value(call.head),
                 );
             }
         }
 
         if is_verbose {
             Ok(PipelineData::value(
-                Value::string(verbose_out.trim(), call.head),
+                Value::list(verbose_out, call.head),
                 None,
             ))
+        } else if let Some(err) = err {
+            Err(err)
         } else {
             Ok(PipelineData::empty())
         }
@@ -134,7 +166,24 @@ impl Command for UMkdir {
             Example {
                 description: "Make multiple directories and show the paths created.",
                 example: "mkdir -v foo/bar foo2",
-                result: None,
+                result: Some(Value::test_list(vec![
+                    Value::record(
+                        record! {
+                            "path" => Value::string("foo/bar".to_string(), Span::test_data()),
+                            "created" => Value::bool(true, Span::test_data()),
+                            "error" => Value::nothing(Span::test_data()),
+                        },
+                        Span::test_data(),
+                    ),
+                    Value::record(
+                        record! {
+                            "path" => Value::string("foo2".to_string(), Span::test_data()),
+                            "created" => Value::bool(true, Span::test_data()),
+                            "error" => Value::nothing(Span::test_data()),
+                        },
+                        Span::test_data(),
+                    ),
+                ])),
             },
         ]
     }

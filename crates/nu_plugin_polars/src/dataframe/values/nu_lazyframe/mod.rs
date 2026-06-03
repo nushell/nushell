@@ -7,6 +7,7 @@ use super::{
     cant_convert_err,
 };
 use core::fmt;
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{PipelineData, ShellError, Span, Value, record};
 use polars::prelude::{Expr, IntoLazy, LazyFrame};
 use std::sync::Arc;
@@ -59,12 +60,12 @@ impl NuLazyFrame {
             || {
                 self.to_polars()
                     .collect()
-                    .map_err(|e| ShellError::GenericError {
-                        error: "Error collecting lazy frame".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
+                    .map_err(|e| {
+                        ShellError::Generic(GenericError::new(
+                            "Error collecting lazy frame",
+                            e.to_string(),
+                            span,
+                        ))
                     })
                     .map(|df| NuDataFrame::new(true, df))
             },
@@ -85,12 +86,11 @@ impl NuLazyFrame {
     pub fn schema(&mut self) -> Result<NuSchema, ShellError> {
         let internal_schema = Arc::make_mut(&mut self.lazy)
             .collect_schema()
-            .map_err(|e| ShellError::GenericError {
-                error: "Error getting schema from lazy frame".into(),
-                msg: e.to_string(),
-                span: None,
-                help: None,
-                inner: vec![],
+            .map_err(|e| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Error getting schema from lazy frame",
+                    e.to_string(),
+                ))
             })?;
         Ok(internal_schema.into())
     }
@@ -135,13 +135,10 @@ impl Cacheable for NuLazyFrame {
     fn from_cache_value(cv: PolarsPluginObject) -> Result<Self, ShellError> {
         match cv {
             PolarsPluginObject::NuLazyFrame(df) => Ok(df),
-            _ => Err(ShellError::GenericError {
-                error: "Cache value is not a lazyframe".into(),
-                msg: "".into(),
-                span: None,
-                help: None,
-                inner: vec![],
-            }),
+            _ => Err(ShellError::Generic(GenericError::new_internal(
+                "Cache value is not a lazyframe",
+                "",
+            ))),
         }
     }
 }
@@ -168,12 +165,12 @@ impl CustomValueSupport for NuLazyFrame {
         Ok(Value::record(
             record! {
                 "plan" => Value::string(
-                    self.lazy.describe_plan().map_err(|e| ShellError::GenericError {
-                        error: "Error getting plan".into(),
-                        msg: e.to_string(),
-                        span: Some(span),
-                        help: None,
-                        inner: vec![],
+                    self.lazy.describe_plan().map_err(|e| {
+                        ShellError::Generic(GenericError::new(
+                            "Error getting plan",
+                            e.to_string(),
+                            span,
+                        ))
                     })?,
                     span),
                 "optimized_plan" => Value::string(optimized_plan, span),

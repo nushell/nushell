@@ -6,6 +6,7 @@ use crate::{
 use super::super::super::values::{Column, NuDataFrame};
 
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, Value,
 };
@@ -55,6 +56,7 @@ impl PluginCommand for ArgUnique {
                         vec![Value::test_int(0), Value::test_int(1), Value::test_int(3)],
                     )],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -84,12 +86,12 @@ fn command(
     let mut res = df
         .as_series(call.head)?
         .arg_unique()
-        .map_err(|e| ShellError::GenericError {
-            error: "Error extracting unique values".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
+        .map_err(|e| {
+            ShellError::Generic(GenericError::new(
+                "Error extracting unique values",
+                e.to_string(),
+                call.head,
+            ))
         })?
         .into_series();
     res.rename("arg_unique".into());

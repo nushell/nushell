@@ -49,8 +49,9 @@ impl PolarsPluginCustomValue for NuLazyGroupByCustomValue {
         &self,
         plugin: &crate::PolarsPlugin,
         _engine: &nu_plugin::EngineInterface,
+        span: Span,
     ) -> Result<Value, ShellError> {
-        NuLazyGroupBy::try_from_custom_value(plugin, self)?.base_value(Span::unknown())
+        NuLazyGroupBy::try_from_custom_value(plugin, self)?.base_value(span)
     }
 
     fn id(&self) -> &Uuid {

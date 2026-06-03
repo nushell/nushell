@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::FileWithContent;
-use nu_test_support::nu;
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use pretty_assertions::assert_eq;
 
 // Note: These tests might slightly overlap with crates/nu-command/tests/commands/help.rs
@@ -181,6 +181,33 @@ fn correct_scope_modules_fields() {
         let actual = nu!(cwd: dirs.test(), &inp.join("; "));
         assert_eq!(actual.out, "sausage");
     })
+}
+
+#[test]
+fn scope_modules_ignores_leading_shebang_in_module_description() -> Result {
+    Playground::setup(
+        "scope_modules_ignores_leading_shebang_in_module_description",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContent(
+                "spam.nu",
+                "\
+#!/usr/bin/env nu
+
+# module_line1
+#
+# module_line2
+
+export def foo [] {}
+",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            let description: String = tester
+                .run("use spam.nu *; scope modules | where name == spam | get 0.description")?;
+            assert_eq!(description, "module_line1");
+            Ok(())
+        },
+    )
 }
 
 #[test]

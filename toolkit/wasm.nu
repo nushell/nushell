@@ -47,8 +47,6 @@ export def "build wasm" [] {
 export def "clippy wasm" [] {
     prep wasm
 
-    $env.CLIPPY_CONF_DIR = $nushell_dir | path join clippy wasm
-
     for crate in $wasm_compatible_crates {
         print $'(char nl)Checking ($crate) for wasm'
         print '----------------------------'

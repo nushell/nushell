@@ -1,6 +1,7 @@
 use crate::database::{MEMORY_DB, SQLiteDatabase};
 use nu_engine::command_prelude::*;
 use nu_protocol::Signals;
+use nu_protocol::shell_error::generic::GenericError;
 use std::fmt::Write;
 
 #[derive(Clone)]
@@ -110,15 +111,12 @@ impl Command for StorDelete {
             };
 
             // dbg!(&sql_stmt);
-            conn.execute(&sql_stmt, [])
-                .map_err(|err| ShellError::GenericError {
-                    error: "Failed to delete using the SQLite connection in memory from delete.rs."
-                        .into(),
-                    msg: err.to_string(),
-                    span: Some(Span::test_data()),
-                    help: None,
-                    inner: vec![],
-                })?;
+            conn.execute(&sql_stmt, []).map_err(|err| {
+                ShellError::Generic(GenericError::new_internal(
+                    "Failed to delete using the SQLite connection in memory from delete.rs.",
+                    err.to_string(),
+                ))
+            })?;
         }
         // dbg!(db.clone());
         Ok(Value::custom(db, span).into_pipeline_data())

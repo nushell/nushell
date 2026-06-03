@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -894,6 +894,209 @@ pub fn parse_if_in_const_expression() {
     assert!(error.contains(")"));
 }
 
+#[test]
+fn parse_percent_prefixed_internal_call() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%('echo') hello", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            // Check that the call has the percent_forced_builtin marker
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_bare_var() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%$cmd hello", true);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::VariableNotFound(..)))
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_with_spaced_head() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"% ('echo') hello", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_dynamic_dispatch_with_spread_arg() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"%('echo') ...$args", true);
+
+    assert!(
+        working_set
+            .parse_errors
+            .iter()
+            .any(|err| matches!(err, ParseError::VariableNotFound(..)))
+    );
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            assert!(call.parser_info.contains_key("percent_forced_builtin"));
+            assert!(matches!(call.arguments.first(), Some(Argument::Spread(_))));
+        }
+        other => {
+            panic!("Expected internal call with percent marker, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_caret_prefixed_call_forces_external_parse() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"^ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
+#[test]
+fn parse_percent_prefixed_prefers_builtin_when_custom_shadows_name() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(LsTest));
+    working_set.add_decl(Box::new(LsCustom));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%ls", true);
+
+    assert!(working_set.parse_errors.is_empty());
+
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+
+    match &element.expr.expr {
+        Expr::Call(call) => {
+            let decl = working_set.get_decl(call.decl_id);
+            assert_eq!(decl.name(), "ls");
+            assert_eq!(
+                decl.command_type(),
+                nu_protocol::engine::CommandType::Builtin
+            );
+        }
+        other => {
+            panic!("Expected internal call, got: {other:?}");
+        }
+    }
+}
+
+#[test]
+fn parse_percent_prefixed_unknown_command_does_not_fallback_to_external() {
+    let engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+    let block = parse(&mut working_set, None, b"%nu --version", true);
+
+    assert!(!working_set.parse_errors.is_empty());
+    assert!(
+        working_set.parse_errors.iter().any(|err| {
+            matches!(
+                err,
+                ParseError::LabeledErrorWithHelp { error, .. }
+                if error.contains("percent sigil requires a built-in command")
+            )
+        }),
+        "Unexpected parse errors: {:?}",
+        working_set.parse_errors
+    );
+
+    // Keep expression shape for completion while retaining parse-time failure semantics.
+    let pipeline = &block.pipelines[0];
+    let element = &pipeline.elements[0];
+    assert!(matches!(element.expr.expr, Expr::ExternalCall(..)));
+}
+
 fn test_external_call(input: &str, tag: &str, f: impl FnOnce(&Expression, &[ExternalArgument])) {
     let engine_state = EngineState::new();
     let mut working_set = StateWorkingSet::new(&engine_state);
@@ -1412,7 +1615,7 @@ fn test_redirection_with_letmut(#[case] phase: &[u8]) {
     assert!(element.redirection.is_none()); // it should be in the let block, not here
 
     if let Expr::Call(call) = &element.expr.expr {
-        let arg = call.positional_nth(1).expect("no positional args");
+        let arg = call.positional_iter().nth(1).expect("no positional args");
         let block_id = arg.as_block().expect("arg 1 is not a block");
         let block = working_set.get_block(block_id);
         let inner_element = &block.pipelines[0].elements[0];
@@ -1815,11 +2018,26 @@ mod string {
             let engine_state = EngineState::new();
             let mut working_set = StateWorkingSet::new(&engine_state);
 
-            let _ = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            let block = parse(&mut working_set, None, b"$\"foo (2 + 3\"", true);
+            assert_eq!(block.len(), 1);
+
+            let pipeline = &block.pipelines[0];
+            assert_eq!(pipeline.len(), 1);
+            let element = &pipeline.elements[0];
+            assert!(element.redirection.is_none());
+
+            let subexprs: Vec<&Expr> = match &element.expr.expr {
+                Expr::StringInterpolation(expressions) => {
+                    expressions.iter().map(|e| &e.expr).collect()
+                }
+                _ => panic!("Expected an `Expr::StringInterpolation`"),
+            };
+
+            assert_eq!(subexprs.len(), 2);
 
             assert!(
                 working_set.parse_errors.iter().any(
-                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if delimiter == ")")
+                    |err| matches!(err, ParseError::Unclosed(delimiter, _) if *delimiter == ")")
                 )
             );
         }
@@ -2199,7 +2417,8 @@ mod mock {
     use super::*;
     use nu_engine::CallExt;
     use nu_protocol::{
-        Category, IntoPipelineData, PipelineData, ShellError, Type, Value, engine::Call,
+        Category, IntoPipelineData, PipelineData, ShellError, Type, Value,
+        engine::{Call, CommandType},
     };
 
     #[derive(Clone)]
@@ -2326,6 +2545,37 @@ mod mock {
 
         fn signature(&self) -> nu_protocol::Signature {
             Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct LsCustom;
+
+    impl Command for LsCustom {
+        fn name(&self) -> &str {
+            "ls"
+        }
+
+        fn description(&self) -> &str {
+            "Mock custom ls command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build(self.name()).category(Category::Default)
+        }
+
+        fn command_type(&self) -> CommandType {
+            CommandType::Custom
         }
 
         fn run(
@@ -3027,6 +3277,16 @@ mod input_types {
         b"def q []: nothing -> record<c: record<a: int b: int> e: int> {{c: {a: 1 b: 2} e: 1}}",
         false
     )]
+    #[case::input_output_pass_through(b"def q []: int -> int {}", false)]
+    #[case::input_output_pass_through(b"def q []: string -> string {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> int, string -> string] {}", false)]
+    #[case::input_output_pass_through(b"def q []: [int -> string, string -> int] {}", true)]
+    #[case::input_output_pass_through(
+        b"def q []: record<a: int, b: string> -> record<a: int, b: string> {}",
+        false
+    )]
+    #[case::input_output_pass_through_incorrect(b"def q []: int -> nothing {}", true)]
+    #[case::input_output_pass_through_incorrect(b"def q []: nothing -> int {}", true)]
     #[case::input_output(b"def q []: nothing -> list<string {[]}", true)]
     #[case::input_output(b"def q []: nothing -> record<c: int e: int {{c: 1 e: 1}}", true)]
     #[case::input_output(b"def q []: record<c: int e: int -> record<a: int> {{a: 1}}", true)]

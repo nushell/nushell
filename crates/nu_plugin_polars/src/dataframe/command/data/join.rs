@@ -119,6 +119,7 @@ impl PluginCommand for LazyJoin {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -179,6 +180,7 @@ impl PluginCommand for LazyJoin {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -234,6 +236,7 @@ impl PluginCommand for LazyJoin {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -302,6 +305,7 @@ impl PluginCommand for LazyJoin {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -343,6 +347,7 @@ impl PluginCommand for LazyJoin {
                             ),
                         ],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -356,9 +361,8 @@ impl PluginCommand for LazyJoin {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
         let left = call.has_flag("left")?;
         let full = call.has_flag("full")?;
         let cross = call.has_flag("cross")?;
@@ -420,6 +424,7 @@ impl PluginCommand for LazyJoin {
         let suffix: Option<String> = call.get_flag("suffix")?;
         let suffix = suffix.unwrap_or_else(|| "_x".into());
 
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         let lazy = NuLazyFrame::try_from_value_coerce(plugin, &value)?;
         let from_eager = lazy.from_eager;

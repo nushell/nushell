@@ -80,6 +80,7 @@ pub fn help_aliases(
             &f.item,
             &["name", "description"],
             true,
+            head,
         );
     }
 
@@ -109,7 +110,7 @@ pub fn help_aliases(
             });
         };
 
-        let help = get_full_help(alias, engine_state, stack);
+        let help = get_full_help(alias, engine_state, stack, call.head);
 
         Ok(Value::string(help, call.head).into_pipeline_data())
     }

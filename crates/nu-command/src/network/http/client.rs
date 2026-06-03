@@ -21,14 +21,16 @@ use nu_path::expand_path_with;
 use nu_protocol::{
     ByteStream, LabeledError, PipelineMetadata, Signals,
     shell_error::{
+        generic::GenericError,
         io::IoError,
         network::{DnsError, DnsErrorKind, NetworkError},
     },
 };
 use serde_json::Value as JsonValue;
+use std::convert::TryInto;
 use std::{
     collections::HashMap,
-    io::{self, Cursor},
+    io::{self, Cursor, Read},
     path::{Path, PathBuf},
     str::FromStr,
     sync::mpsc::{self, RecvTimeoutError},
@@ -36,7 +38,7 @@ use std::{
     time::Duration,
 };
 use ureq::{
-    Agent, Body, Error, RequestBuilder, ResponseExt, SendBody,
+    Agent, Body, Error, Proxy, ProxyBuilder, ProxyProtocol, RequestBuilder, ResponseExt, SendBody,
     typestate::{WithBody, WithoutBody},
     unversioned::transport::{ConnectProxyConnector, Connector, SocksConnector},
 };
@@ -207,7 +209,8 @@ pub fn http_client(
     }
 
     if let Some(http_proxy) = retrieve_http_proxy_from_env(engine_state, stack)
-        && let Ok(proxy) = ureq::Proxy::new(&http_proxy)
+        && let Some(proxy) = proxy_builder_from_env(http_proxy, engine_state, stack)
+            .and_then(|builder| builder.build().ok())
     {
         config_builder = config_builder.proxy(Some(proxy));
     };
@@ -314,7 +317,8 @@ pub fn response_to_buffer(
     };
 
     // Extract response metadata before consuming the body
-    let metadata = extract_response_metadata(&response, span);
+    let metadata =
+        extract_response_metadata(&response, span).with_content_type(content_type_lowercase);
 
     let reader = UreqTimeoutExtractorReader {
         r: response.into_body().into_reader(),
@@ -323,6 +327,22 @@ pub fn response_to_buffer(
     let byte_stream = ByteStream::read(reader, span, engine_state.signals().clone(), response_type);
 
     PipelineData::byte_stream(byte_stream.with_known_size(buffer_size), Some(metadata))
+}
+
+/// Read and discard the response body so the HTTP exchange completes (timeouts, keep-alive).
+/// Used when only response headers are shown but the server may still send a body.
+pub(crate) fn discard_response_body(response: Response, span: Span) -> Result<(), ShellError> {
+    let mut reader = UreqTimeoutExtractorReader {
+        r: response.into_body().into_reader(),
+    };
+    let mut buf = [0u8; 8192];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => return Ok(()),
+            Ok(_) => {}
+            Err(e) => return Err(ShellError::Io(IoError::new(e, span, None))),
+        }
+    }
 }
 
 fn extract_response_metadata(response: &Response, span: Span) -> PipelineMetadata {
@@ -518,7 +538,7 @@ fn send_json_request(
 ) -> Result<Response, ShellErrorOrRequestError> {
     match body {
         Value::Int { .. } | Value::Float { .. } | Value::List { .. } | Value::Record { .. } => {
-            let data = value_to_json_value(engine_state, &body, span, serialize_types)?;
+            let data = value_to_json_value(engine_state, body, span, serialize_types)?;
             send_cancellable_request(request_url, Box::new(|| req.send_json(data)), span, signals)
         }
         // If the body type is string, assume it is string json content.
@@ -741,13 +761,9 @@ fn send_cancellable_request_bytes(
             let ret = byte_stream
                 .reader()
                 .ok_or_else(|| {
-                    ShellErrorOrRequestError::ShellError(ShellError::GenericError {
-                        error: "Could not read byte stream".to_string(),
-                        msg: "".into(),
-                        span: None,
-                        help: None,
-                        inner: vec![],
-                    })
+                    ShellErrorOrRequestError::ShellError(ShellError::Generic(
+                        GenericError::new_internal("Could not read byte stream", ""),
+                    ))
                 })
                 .and_then(|reader| {
                     request
@@ -989,10 +1005,7 @@ fn transform_response_using_content_type(
             .map_err(|err| {
                 LabeledError::new(err.to_string())
                     .with_help("cannot parse")
-                    .with_label(
-                        format!("Cannot parse URL: {requested_url}"),
-                        Span::unknown(),
-                    )
+                    .with_label(format!("Cannot parse URL: {requested_url}"), span)
             })?
             .path_segments()
             .and_then(|mut segments| segments.next_back())
@@ -1002,7 +1015,10 @@ fn transform_response_using_content_type(
                     .extension()
                     .map(|name| name.to_string_lossy().to_string())
             }),
-        _ => Some(content_type.subtype().to_string()),
+        _ => {
+            let subtype = content_type.subtype().as_str();
+            Some(subtype.strip_prefix("x-").unwrap_or(subtype).to_string())
+        }
     };
 
     let output = response_to_buffer(resp, engine_state, span);
@@ -1242,19 +1258,97 @@ pub(crate) fn request_error_to_shell_error(span: Span, e: ShellErrorOrRequestErr
 }
 
 fn retrieve_http_proxy_from_env(engine_state: &EngineState, stack: &mut Stack) -> Option<String> {
-    stack
-        .get_env_var(engine_state, "http_proxy")
-        .or(stack.get_env_var(engine_state, "HTTP_PROXY"))
-        .or(stack.get_env_var(engine_state, "https_proxy"))
-        .or(stack.get_env_var(engine_state, "HTTPS_PROXY"))
-        .or(stack.get_env_var(engine_state, "ALL_PROXY"))
-        .cloned()
-        .and_then(|proxy| proxy.coerce_into_string().ok())
+    [
+        "http_proxy",
+        "HTTP_PROXY",
+        "https_proxy",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+    ]
+    .iter()
+    .find_map(|name| stack.get_env_var(engine_state, name))?
+    .coerce_str()
+    .map(|s| s.into_owned())
+    .ok()
+}
+
+fn proxy_builder_from_env(
+    http_proxy: String,
+    engine_state: &EngineState,
+    stack: &mut Stack,
+) -> Option<ProxyBuilder> {
+    let uri = http_proxy.parse::<http::Uri>().ok()?;
+    let authority = uri.authority()?;
+    let scheme = uri.scheme_str().unwrap_or("http");
+    let proto: ProxyProtocol = scheme.try_into().ok()?;
+
+    let mut builder = Proxy::builder(proto).host(authority.host());
+
+    if let Some(port) = uri.port() {
+        builder = builder.port(port.as_u16());
+    }
+
+    let (username, password) = retrieve_credential_from_authority(authority);
+    if let Some(username) = username {
+        builder = builder.username(username);
+        if let Some(password) = password {
+            builder = builder.password(password);
+        }
+    }
+
+    if let Some(val) = stack
+        .get_env_var(engine_state, "no_proxy")
+        .or(stack.get_env_var(engine_state, "NO_PROXY"))
+        && let Ok(no_proxy) = val.as_str()
+    {
+        for proxy in no_proxy.split(',') {
+            builder = builder.no_proxy(proxy.trim());
+        }
+    }
+
+    Some(builder)
+}
+
+fn retrieve_credential_from_authority(
+    authority: &http::uri::Authority,
+) -> (Option<&str>, Option<&str>) {
+    let s = authority.as_str();
+    let user_info = s.rfind('@').map(|i| &s[..i]);
+    let username = user_info.map(|a| a.rfind(':').map(|i| &a[..i]).unwrap_or(a));
+    let password = user_info.and_then(|a| a.rfind(':').map(|i| &a[i + 1..]));
+    (username, password)
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
+
+    #[test]
+    fn test_retrieving_credentials_from_authority() {
+        // user and password
+        let uri = "http://user:pass@host/path".parse::<http::Uri>().unwrap();
+        let authority = uri.authority().unwrap();
+        let (user, pass) = retrieve_credential_from_authority(authority);
+        assert_eq!((user, pass), (Some("user"), Some("pass")));
+
+        // user and empty password
+        let uri = "http://user:@host/path".parse::<http::Uri>().unwrap();
+        let authority = uri.authority().unwrap();
+        let (user, pass) = retrieve_credential_from_authority(authority);
+        assert_eq!((user, pass), (Some("user"), Some("")));
+
+        // user only, no password
+        let uri = "http://user@host/path".parse::<http::Uri>().unwrap();
+        let authority = uri.authority().unwrap();
+        let (user, pass) = retrieve_credential_from_authority(authority);
+        assert_eq!((user, pass), (Some("user"), None));
+
+        // no user, no password
+        let uri = "http://host/path".parse::<http::Uri>().unwrap();
+        let authority = uri.authority().unwrap();
+        let (user, pass) = retrieve_credential_from_authority(authority);
+        assert_eq!((user, pass), (None, None));
+    }
 
     #[test]
     fn test_body_type_from_content_type() {

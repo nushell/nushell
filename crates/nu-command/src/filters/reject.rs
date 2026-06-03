@@ -1,5 +1,9 @@
 use nu_engine::command_prelude::*;
-use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing};
+use nu_protocol::{
+    DeprecationEntry, DeprecationType, ReportMode, ast::PathMember, casing::Casing,
+    shell_error::generic::GenericError,
+};
+use nu_utils::IgnoreCaseExt;
 use std::{cmp::Reverse, collections::HashSet};
 
 #[derive(Clone)]
@@ -79,6 +83,14 @@ impl Command for Reject {
                     new_columns.push(cv.clone());
                 }
                 Value::Int { val, .. } => {
+                    if val < 0 {
+                        return Err(ShellError::CantConvert {
+                            to_type: "cell path".into(),
+                            from_type: "negative number".into(),
+                            span: *col_span,
+                            help: None,
+                        });
+                    }
                     let cv = CellPath {
                         members: vec![PathMember::Int {
                             val: val as usize,
@@ -209,9 +221,9 @@ fn reject(
     input: PipelineData,
     cell_paths: Vec<CellPath>,
 ) -> Result<PipelineData, ShellError> {
-    let input = input.into_stream_or_original(engine_state);
+    let mut input = input.into_stream_or_original(engine_state);
     let mut unique_rows: HashSet<usize> = HashSet::new();
-    let metadata = input.metadata();
+    let mut metadata = input.take_metadata();
     let mut new_columns = vec![];
     let mut new_rows = vec![];
     for column in cell_paths {
@@ -219,13 +231,11 @@ fn reject(
         match members.first() {
             Some(PathMember::Int { val, span, .. }) => {
                 if members.len() > 1 {
-                    return Err(ShellError::GenericError {
-                        error: "Reject only allows row numbers for rows".into(),
-                        msg: "extra after row number".into(),
-                        span: Some(*span),
-                        help: None,
-                        inner: vec![],
-                    });
+                    return Err(ShellError::Generic(GenericError::new(
+                        "Reject only allows row numbers for rows",
+                        "extra after row number",
+                        *span,
+                    )));
                 }
                 if !unique_rows.contains(val) {
                     unique_rows.insert(*val);
@@ -239,6 +249,22 @@ fn reject(
             }
         };
     }
+
+    // remove path_columns that are available in new_columns
+    if let Some(metadata) = &mut metadata {
+        metadata.path_columns.retain(|column| {
+            !new_columns
+                .iter()
+                .any(|cell_path| match cell_path.members.as_slice() {
+                    [PathMember::String { val, casing, .. }] => match casing {
+                        Casing::Sensitive => val == column,
+                        Casing::Insensitive => val.eq_ignore_case(column),
+                    },
+                    _ => false,
+                })
+        });
+    }
+
     new_rows.sort_unstable_by_key(|k| {
         Reverse({
             match k.members[0] {
@@ -261,8 +287,11 @@ fn reject(
             let result = stream
                 .into_iter()
                 .map(move |mut value| {
-                    let span = value.span();
+                    if let Value::Error { .. } = value {
+                        return value;
+                    }
 
+                    let span = value.span();
                     for cell_path in new_columns.iter() {
                         if let Err(error) = value.remove_data_at_cell_path(&cell_path.members) {
                             return Value::error(error, span);

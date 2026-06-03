@@ -179,8 +179,6 @@ impl Playground<'_> {
     }
 
     pub fn with_files(&mut self, files: &[Stub]) -> &mut Self {
-        let endl = fs::line_ending();
-
         files
             .iter()
             .map(|f| {
@@ -196,7 +194,7 @@ impl Playground<'_> {
                             .skip(1)
                             .map(|line| line.trim())
                             .collect::<Vec<&str>>()
-                            .join(&endl),
+                            .join(nu_utils::consts::LINE_SEPARATOR_STR),
                     ),
                     Stub::FileWithPermission(name, is_write_able) => {
                         permission_set = true;

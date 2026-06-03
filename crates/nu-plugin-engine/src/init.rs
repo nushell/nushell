@@ -17,6 +17,7 @@ use nu_plugin_core::{
 use nu_protocol::{
     PluginIdentity, PluginRegistryFile, PluginRegistryItem, PluginRegistryItemData,
     RegisteredPlugin, ShellError, Span, engine::StateWorkingSet, report_shell_error,
+    shell_error::generic::GenericError,
 };
 
 use crate::{
@@ -243,17 +244,26 @@ pub fn load_plugin_registry_item(
 ) -> Result<Arc<PersistentPlugin>, ShellError> {
     let identity =
         PluginIdentity::new(plugin.filename.clone(), plugin.shell.clone()).map_err(|_| {
-            ShellError::GenericError {
-                error: "Invalid plugin filename in plugin registry file".into(),
-                msg: "loaded from here".into(),
-                span,
-                help: Some(format!(
-                    "the filename for `{}` is not a valid nushell plugin: {}",
-                    plugin.name,
-                    plugin.filename.display()
-                )),
-                inner: vec![],
-            }
+            let help = format!(
+                "the filename for `{}` is not a valid nushell plugin: {}",
+                plugin.name,
+                plugin.filename.display()
+            );
+            let error = if let Some(span) = span {
+                GenericError::new(
+                    "Invalid plugin filename in plugin registry file",
+                    "loaded from here",
+                    span,
+                )
+                .with_help(help)
+            } else {
+                GenericError::new_internal(
+                    "Invalid plugin filename in plugin registry file",
+                    "loaded from here",
+                )
+                .with_help(help)
+            };
+            ShellError::Generic(error)
         })?;
 
     match &plugin.data {

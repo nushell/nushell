@@ -119,9 +119,9 @@ impl PluginCommand for SelectorEndsWith {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let suffixes: Result<Vec<String>, ShellError> =
             call.positional.iter().try_fold(Vec::new(), |mut acc, arg| {
                 let s = arg.as_str()?;

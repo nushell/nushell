@@ -80,10 +80,9 @@ pub fn web_examples() -> Vec<Example<'static>> {
             result: None,
         },
         Example {
-            example: "http get https://en.wikipedia.org/wiki/List_of_cities_in_India_by_population |
-        query web --as-table [City 'Population(2011)[3]' 'Population(2001)[3][a]' 'State or unionterritory' 'Reference']",
+            example: "http get https://en.wikipedia.org/wiki/List_of_terminal_emulators | query web --as-table ['Name', 'Type', 'Connectivity', 'User Interface', 'Operating System']",
             description: "Retrieve a html table from Wikipedia and parse it into a nushell table using table headers as guides",
-            result: None
+            result: None,
         },
         Example {
             example: "http get https://www.nushell.sh | query web --query 'h2, h2 + p' | each {str join} | chunks 2 | each {rotate --ccw tagline description} | flatten",
@@ -104,7 +103,7 @@ pub fn web_examples() -> Vec<Example<'static>> {
             example: r#"http get https://www.rust-lang.org | query web --query 'meta[property^="og:"]' --attribute [ property content ]"#,
             description: r#"Retrieve the OpenGraph properties (`<meta property="og:...">`) from a web page"#,
             result: None,
-        }
+        },
     ]
 }
 
@@ -476,7 +475,7 @@ mod tests {
     fn null_spanned<T: ToOwned + ?Sized>(input: &T) -> Spanned<T::Owned> {
         Spanned {
             item: input.to_owned(),
-            span: Span::unknown(),
+            span: Span::test_data(),
         }
     }
 
@@ -585,10 +584,10 @@ mod tests {
             null_spanned("a"),
             &Value::list(
                 vec![
-                    Value::string("href".to_string(), Span::unknown()),
-                    Value::string("target".to_string(), Span::unknown()),
+                    Value::string("href".to_string(), Span::test_data()),
+                    Value::string("target".to_string(), Span::test_data()),
                 ],
-                Span::unknown(),
+                Span::test_data(),
             ),
             null_spanned(&false),
             /* document = */ false,

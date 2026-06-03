@@ -4,7 +4,7 @@ use std::{
 };
 
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::io::IoError;
+use nu_protocol::shell_error::{generic::GenericError, io::IoError};
 
 const CTRL_C: u8 = 3;
 
@@ -132,13 +132,10 @@ The `prefix` is not included in the output."
                 .read_exact(&mut b)
                 .map_err(|err| IoError::new(err, call.head, None))?;
             if b[0] != bc {
-                return Err(ShellError::GenericError {
-                    error: "Input did not begin with expected sequence".into(),
-                    msg: "".into(),
-                    span: None,
-                    help: Some("Try running without `--prefix` and inspecting the output.".into()),
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(
+                    GenericError::new_internal("Input did not begin with expected sequence", "")
+                        .with_help("Try running without `--prefix` and inspecting the output."),
+                ));
             }
             if keep {
                 buf.push(b[0]);

@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::shell_error::generic::GenericError;
 use uucore::{localized_help_template, translate};
 
 #[derive(Clone)]
@@ -37,13 +38,11 @@ impl Command for Whoami {
         let output = match uu_whoami::whoami() {
             Ok(username) => username.to_string_lossy().to_string(),
             Err(e) => {
-                return Err(ShellError::GenericError {
-                    error: format!("{e}"),
-                    msg: translate!(&e.to_string()),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
-                });
+                return Err(ShellError::Generic(GenericError::new(
+                    format!("{e}"),
+                    translate!(&e.to_string()),
+                    call.head,
+                )));
             }
         };
 

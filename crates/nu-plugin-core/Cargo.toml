@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Shared internal functionality to support Nushell plugins"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-plugin-core"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu-plugin-core"
-version = "0.111.1"
+version.workspace = true
 
 [lib]
 bench = false
@@ -14,8 +15,9 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.111.1" }
-nu-plugin-protocol = { path = "../nu-plugin-protocol", version = "0.111.1", default-features = false }
+nu-plugin-protocol.workspace = true
+nu-protocol.workspace = true
+nu-utils.workspace = true
 
 rmp-serde = { workspace = true }
 serde = { workspace = true }

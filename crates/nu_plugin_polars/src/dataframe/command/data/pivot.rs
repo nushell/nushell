@@ -1,4 +1,5 @@
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
+use nu_protocol::shell_error::generic::GenericError;
 use nu_protocol::{
     Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
 };
@@ -39,7 +40,7 @@ impl PluginCommand for PivotDF {
                 "Column names for pivoting.",
                 Some('o'),
             )
-            .required_named(
+            .named(
                 "on-cols",
                 SyntaxShape::Any,
                 "column names used as value columns",
@@ -129,6 +130,30 @@ impl PluginCommand for PivotDF {
         "subject": ["maths", "physics", "maths", "physics"],
         "test_1": [98, 99, 61, 58],
         "test_2": [100, 100, 60, 60],
+    } | 
+    polars into-df --as-columns | 
+    polars pivot --on subject --index name --values test_1 |
+    polars sort-by name maths physics |
+    polars collect"#,
+                description: "Given a set of test scores, reshape so we have one row per student, with different subjects as columns, and their `test_1` scores as values, without specifying --on-cols",
+                result: Some(
+                    NuDataFrame::from(
+                        df!(
+                            "name" => ["Cady", "Karen"],
+                            "maths" => [98, 61],
+                            "physics" => [99, 58],
+                        )
+                        .expect("Could not create test datafarme"),
+                    )
+                    .into_value(Span::test_data()),
+                ),
+            },
+            Example {
+                example: r#"{
+        "name": ["Cady", "Cady", "Karen", "Karen"],
+        "subject": ["maths", "physics", "maths", "physics"],
+        "test_1": [98, 99, 61, 58],
+        "test_2": [100, 100, 60, 60],
     } |
     polars into-df --as-columns |
     polars pivot --on subject --on-cols [maths physics] --index name --values (polars selector starts-with test) |
@@ -183,9 +208,9 @@ impl PluginCommand for PivotDF {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let lazy = NuLazyFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
         command_lazy(plugin, engine, call, lazy)
             .map_err(LabeledError::from)
@@ -210,8 +235,19 @@ fn command_lazy(
         .get_flag::<Value>("on-cols")?
         .map(|ref v| NuDataFrame::try_from_value(plugin, v))
         .transpose()?
-        .ok_or(required_flag("on-cols", call.head))?
-        .to_polars();
+        .map(|df| df.to_polars())
+        .or_else(|| {
+            lazy.to_polars()
+                .select([on.clone().as_expr()])
+                .unique_stable(None, polars::frame::UniqueKeepStrategy::Any)
+                .collect()
+                .ok()
+        })
+        .ok_or(ShellError::Generic(GenericError::new(
+            "Pivot columns cannot be deduced, `--on-cols` must be specified",
+            "",
+            call.head,
+        )))?;
 
     let index: Option<Selector> = call
         .get_flag::<Value>("index")?
@@ -239,13 +275,11 @@ fn command_lazy(
         .unwrap_or_else(|| PlSmallStr::from("_"));
 
     if index.is_none() && values.is_none() {
-        return Err(ShellError::GenericError {
-            error: "`pivot` needs either `--index or `--values` needs to be specified".into(),
-            msg: "".into(),
-            span: Some(call.head),
-            help: None,
-            inner: vec![],
-        });
+        return Err(ShellError::Generic(GenericError::new(
+            "`pivot` needs either `--index or `--values` needs to be specified",
+            "",
+            call.head,
+        )));
     }
 
     let index_selector = if let Some(index) = index.clone() {
@@ -288,28 +322,26 @@ fn pivot_agg_for_value(plugin: &PolarsPlugin, agg: Value) -> Result<Expr, ShellE
             "length" | "len" | "count" => Ok(element().len()),
             "last" => Ok(element().last()),
             "element" | "item" => Ok(element().item(true)),
-            s => Err(ShellError::GenericError {
-                error: format!("{s} is not a valid aggregation"),
-                msg: "".into(),
-                span: None,
-                help: Some(
-                    "Use one of the following: first, sum, min, max, mean, median, count, last"
-                        .into(),
+            s => Err(ShellError::Generic(
+                GenericError::new(
+                    format!("{s} is not a valid aggregation"),
+                    "",
+                    Span::unknown(),
+                )
+                .with_help(
+                    "Use one of the following: first, sum, min, max, mean, median, count, last",
                 ),
-                inner: vec![],
-            }),
+            )),
         },
         Value::Custom { .. } => {
             let expr = NuExpression::try_from_value(plugin, &agg)?;
             Ok(expr.into_polars())
         }
-        _ => Err(ShellError::GenericError {
-            error: "Aggregation must be a string or expression".into(),
-            msg: "".into(),
-            span: Some(agg.span()),
-            help: None,
-            inner: vec![],
-        }),
+        _ => Err(ShellError::Generic(GenericError::new(
+            "Aggregation must be a string or expression",
+            "",
+            agg.span(),
+        ))),
     }
 }
 

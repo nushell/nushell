@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell dataframe plugin commands based on polars."
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.111.1"
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,10 +18,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.111.1" }
-nu-plugin = { path = "../nu-plugin", version = "0.111.1" }
-nu-path = { path = "../nu-path", version = "0.111.1" }
-nu-utils = { path = "../nu-utils", version = "0.111.1" }
+nu-protocol.workspace = true
+nu-plugin.workspace = true
+nu-path.workspace = true
+nu-utils.workspace = true
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = [
@@ -43,10 +44,10 @@ planus = { version = "~1.1.1" } # Temporarily here to convince cargo not to upgr
 typetag = "0.2"
 env_logger = "0.11.8"
 log.workspace = true
-uuid = { version = "1.21", features = ["v4", "serde"] }
+uuid = { version = "1.23", features = ["v4", "serde"] }
 
 # Do to a compile error with polars, this included to force the raw dependency
-hashbrown = { version = "0.16", features = ["rayon", "serde"] }
+hashbrown = { version = "0.17", features = ["rayon", "serde"] }
 
 # Cloud support
 aws-config = { version = "1.8", features = ["sso"] }
@@ -105,9 +106,10 @@ optional = false
 version = "=0.53.0"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.111.1" }
-nu-engine = { path = "../nu-engine", version = "0.111.1" }
-nu-parser = { path = "../nu-parser", version = "0.111.1" }
-nu-command = { path = "../nu-command", version = "0.111.1" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support", version = "0.111.1" }
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-parser = { workspace = true, features = ["plugin"] }
+nu-command = { workspace = true, features = ["plugin"] }
+nu-plugin-test-support.workspace = true
+
 tempfile.workspace = true

@@ -159,14 +159,14 @@ fn default(
     columns: Vec<String>,
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
-    let input = if !columns.is_empty() {
+    let mut input = if !columns.is_empty() {
         input.into_stream_or_original(engine_state)
     } else {
         input
     };
 
     let input_span = input.span().unwrap_or(call.head);
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
 
     // If user supplies columns, check if input is a record or list of records
     // and set the default value for the specified record columns
@@ -223,7 +223,7 @@ fn default(
     {
         default_value.single_run_pipeline_data()
     } else if default_when_empty && matches!(input, PipelineData::ListStream(..)) {
-        let PipelineData::ListStream(ls, metadata) = input else {
+        let PipelineData::ListStream(ls, _) = input else {
             unreachable!()
         };
         let span = ls.span();
@@ -238,7 +238,7 @@ fn default(
         Ok(PipelineData::list_stream(ls, metadata))
     // Otherwise, return the input as is
     } else {
-        Ok(input)
+        Ok(input.set_metadata(metadata))
     }
 }
 

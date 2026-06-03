@@ -40,7 +40,7 @@ let target = $env.TARGET
 # Repo source dir like `/home/runner/work/nushell/nushell`
 let src = $env.GITHUB_WORKSPACE
 let dist = $'($env.GITHUB_WORKSPACE)/output'
-let version = (open Cargo.toml | get package.version)
+let version = (open Cargo.toml | get workspace.package.version)
 
 print $'Debugging info:'
 print { version: $version, bin: $bin, os: $os, target: $target, src: $src, dist: $dist }; hr-line -b

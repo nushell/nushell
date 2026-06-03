@@ -10,7 +10,7 @@ use thiserror::Error;
 ///
 /// If it's constructed nestedly using [`ChainedError::new_chained`], it will treat all underlying errors as related.
 ///
-/// For a usage example, please check [`ShellError::into_chainned`].
+/// For a usage example, please check [`ShellError::into_chained`].
 #[derive(Debug, Clone, PartialEq, Error)]
 pub struct ChainedError {
     first: bool,

@@ -9,7 +9,7 @@ use crate::explore_config::tree::print_json_tree;
 use crate::explore_config::tui::run_config_tui;
 use crate::explore_config::types::NuValueType;
 use nu_engine::command_prelude::*;
-use nu_protocol::{PipelineData, report_shell_warning};
+use nu_protocol::{PipelineData, report_shell_warning, shell_error::generic::GenericError};
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -17,7 +17,6 @@ use std::sync::Arc;
 /// Type alias for the tuple returned when determining data source and mode
 type ConfigDataResult = (
     Value,
-    bool,
     Option<HashMap<String, NuValueType>>,
     Option<HashMap<String, nu_protocol::Value>>,
     Option<HashMap<String, String>>,
@@ -95,57 +94,66 @@ TUI Keybindings:
         let cli_mode = call.has_flag(engine_state, stack, "tree")?;
         let output_file: Option<String> = call.get_flag(engine_state, stack, "output")?;
 
+        let config_mode = !use_example && string_input.trim().is_empty();
+        if config_mode && output_file.is_some() {
+            return Err(ShellError::Generic(GenericError::new(
+                "Invalid flag combination",
+                "Config changes can be applied on exit with Ctrl+S but cannot be saved to file at this time.",
+                call.head,
+            )));
+        }
+
         // Determine the data source and mode
         // nu_type_map is used in config mode to track original nushell types
         // original_values is used to preserve values that can't be roundtripped (closures, dates, etc.)
         // doc_map is used in config mode to show documentation for config options
-        let (json_data, config_mode, nu_type_map, original_values, doc_map): ConfigDataResult =
-            if use_example {
-                // Use example data
-                (get_example_json(), false, None, None, None)
-            } else if !string_input.trim().is_empty() {
-                // Use piped input data
-                let data =
-                    serde_json::from_str(&string_input).map_err(|e| ShellError::GenericError {
-                        error: "Could not parse JSON from input".into(),
-                        msg: format!("JSON parse error: {e}"),
-                        span: Some(call.head),
-                        help: Some("Make sure the input is valid JSON".into()),
-                        inner: vec![],
-                    })?;
-                (data, false, None, None, None)
-            } else {
-                // Default: use nushell configuration
-                // Get the raw $env.config Value directly to preserve key ordering
-                // (using Config::into_value would lose order because HashMap iteration is unordered)
-                let nu_value = stack
-                    .get_env_var(engine_state, "config")
-                    .cloned()
-                    .unwrap_or_else(|| {
-                        // Fallback to Config struct if $env.config is not set
-                        let config = stack.get_config(engine_state);
-                        config.as_ref().clone().into_value(call.head)
-                    });
-                let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
-
-                // Build nu_type_map to track original nushell types
-                let mut nu_type_map = HashMap::new();
-                build_nu_type_map(&nu_value, Vec::new(), &mut nu_type_map);
-
-                // Build original_values map for types that can't be roundtripped (closures, dates, etc.)
-                let mut original_values = HashMap::new();
-                build_original_value_map(&nu_value, Vec::new(), &mut original_values);
-
-                // Parse documentation from doc_config.nu
-                let doc_map = parse_config_documentation();
-                (
-                    json_data,
-                    true,
-                    Some(nu_type_map),
-                    Some(original_values),
-                    Some(doc_map),
+        let (json_data, nu_type_map, original_values, doc_map): ConfigDataResult = if use_example {
+            // Use example data
+            (get_example_json(), None, None, None)
+        } else if !string_input.trim().is_empty() {
+            // Use piped input data
+            let data = serde_json::from_str(&string_input).map_err(|e| {
+                ShellError::Generic(
+                    GenericError::new(
+                        "Could not parse JSON from input",
+                        format!("JSON parse error: {e}"),
+                        call.head,
+                    )
+                    .with_help("Make sure the input is valid JSON"),
                 )
-            };
+            })?;
+            (data, None, None, None)
+        } else {
+            // Default: use nushell configuration
+            // Get the raw $env.config Value directly to preserve key ordering
+            // (using Config::into_value would lose order because HashMap iteration is unordered)
+            let nu_value = stack
+                .get_env_var(engine_state, "config")
+                .cloned()
+                .unwrap_or_else(|| {
+                    // Fallback to Config struct if $env.config is not set
+                    let config = stack.get_config(engine_state);
+                    config.as_ref().clone().into_value(call.head)
+                });
+            let json_data = nu_value_to_json(engine_state, &nu_value, call.head)?;
+
+            // Build nu_type_map to track original nushell types
+            let mut nu_type_map = HashMap::new();
+            build_nu_type_map(&nu_value, Vec::new(), &mut nu_type_map);
+
+            // Build original_values map for types that can't be roundtripped (closures, dates, etc.)
+            let mut original_values = HashMap::new();
+            build_original_value_map(&nu_value, Vec::new(), &mut original_values);
+
+            // Parse documentation from doc_config.nu
+            let doc_map = parse_config_documentation();
+            (
+                json_data,
+                Some(nu_type_map),
+                Some(original_values),
+                Some(doc_map),
+            )
+        };
 
         if cli_mode {
             // Original CLI behavior
@@ -176,12 +184,12 @@ TUI Keybindings:
                     &original_values_for_conversion,
                     Vec::new(),
                 )
-                .map_err(|e| ShellError::GenericError {
-                    error: "Could not convert JSON to nu Value".into(),
-                    msg: format!("conversion error: {e}"),
-                    span: Some(call.head),
-                    help: None,
-                    inner: vec![],
+                .map_err(|e| {
+                    ShellError::Generic(GenericError::new(
+                        "Could not convert JSON to nu Value",
+                        format!("conversion error: {e}"),
+                        call.head,
+                    ))
                 })?;
 
                 // Update $env.config with the new value

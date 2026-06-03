@@ -97,10 +97,10 @@ impl Command for DropNth {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         let args: Vec<Value> = call.rest(engine_state, stack, 0)?;
         if args.is_empty() {
@@ -113,11 +113,7 @@ impl Command for DropNth {
             input
                 .into_iter()
                 .take(cutoff)
-                .into_pipeline_data_with_metadata(
-                    head,
-                    engine_state.signals().clone(),
-                    metadata.clone(),
-                )
+                .into_pipeline_data(head, engine_state.signals().clone())
         } else {
             input
         };

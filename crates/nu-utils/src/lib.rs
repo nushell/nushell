@@ -9,6 +9,9 @@ pub mod filesystem;
 pub mod flatten_json;
 pub mod float;
 pub mod locale;
+pub mod location;
+#[doc(hidden)]
+pub mod module_path;
 mod multilife;
 pub mod net;
 mod nu_cow;
@@ -17,9 +20,10 @@ mod shared_cow;
 mod split_read;
 pub mod strings;
 pub mod sync;
+pub mod time;
 pub mod utils;
 
-pub use locale::get_system_locale;
+pub use locale::{get_locale_from_env_vars, get_system_locale};
 pub use utils::{
     ConfigFileKind, enable_vt_processing, get_ls_colors, stderr_write_all_and_flush,
     stdout_write_all_and_flush, terminal_size,

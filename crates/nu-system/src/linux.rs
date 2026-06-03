@@ -1,9 +1,10 @@
 use log::info;
+use nu_utils::time::Instant;
 use procfs::process::{FDInfo, Io, Process, Stat, Status};
 use procfs::{ProcError, ProcessCGroups, WithCurrentSystemInfo};
 use std::path::PathBuf;
 use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub enum ProcessTask {
     Process(Process),
@@ -226,6 +227,20 @@ impl ProcessInfo {
             Ok(p) => p.rss_bytes().get(),
             Err(_) => 0,
         }
+    }
+
+    /// Working set size in bytes
+    pub fn working_size(&self) -> u64 {
+        self.mem_size()
+    }
+
+    /// Paged memory size in bytes
+    pub fn paged_size(&self) -> u64 {
+        self.curr_status
+            .as_ref()
+            .and_then(|status| status.vmswap)
+            .map(|swap_kib| swap_kib.saturating_mul(1024))
+            .unwrap_or_default()
     }
 
     /// Virtual memory size in bytes
