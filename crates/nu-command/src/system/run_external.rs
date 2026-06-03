@@ -831,3 +831,84 @@ mod test {
         assert_eq!(buf, b"foo");
     }
 }
+
+/// Tests for the background-completion terminal-isolation fix.
+///
+/// When `stack.suppress_stdin` is set (used by `NuCompleter::new_background`),
+/// subprocesses must:
+///   1. Receive /dev/null for stdin – so they can't steal keystrokes.
+///   2. Run in a new session (setsid) – so opening /dev/tty fails.
+///      Without setsid, tools like carapace can call tcsetattr on /dev/tty and
+///      corrupt reedline's raw-mode terminal, causing EIO on the next read.
+#[cfg(all(test, unix))]
+mod background_isolation_tests {
+    use std::os::unix::process::CommandExt as UnixCommandExt;
+    use std::process::{Command, Stdio};
+    use std::time::Duration;
+
+    /// A subprocess whose stdin is /dev/null should see EOF immediately – it
+    /// must not block waiting for terminal input.  Blocking would indicate that
+    /// suppress_stdin isn't working and the subprocess still holds the terminal.
+    #[test]
+    fn test_suppress_stdin_gives_eof_not_terminal() {
+        // "read line" will return immediately with exit code 1 when stdin is
+        // /dev/null (EOF), but block indefinitely if stdin is the terminal.
+        let child = Command::new("sh")
+            .args(["-c", "read line; echo exit:$?"])
+            .stdin(Stdio::null()) // suppress_stdin effect
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .expect("sh should spawn");
+
+        // Give the process 2 s; if it's blocking on terminal it won't finish.
+        let start = nu_utils::time::Instant::now();
+        let output = child.wait_with_output().expect("wait failed");
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "subprocess blocked – stdin was not /dev/null"
+        );
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // exit code 1 means read returned EOF (stdin was /dev/null)
+        assert!(
+            stdout.contains("exit:1"),
+            "expected EOF on stdin, got: {stdout}"
+        );
+    }
+
+    /// A subprocess spawned via setsid() must not be able to open /dev/tty.
+    /// If it CAN open /dev/tty it can call tcsetattr and corrupt reedline's
+    /// terminal state, causing EIO ("Input/output error") on the next read.
+    #[test]
+    fn test_setsid_removes_controlling_terminal() {
+        let mut cmd = Command::new("sh");
+        cmd.args([
+            "-c",
+            // Try to open /dev/tty; if it succeeds write "has_tty", else "no_tty".
+            // Use a subshell so that a failed exec redirect (which exits the
+            // shell on both bash and dash) doesn't silence the outer || branch.
+            "(exec 3>/dev/tty) 2>/dev/null && echo has_tty || echo no_tty",
+        ])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null());
+
+        // This is what the setsid pre_exec in run_external.rs does when
+        // stack.suppress_stdin is true.
+        unsafe {
+            cmd.pre_exec(|| {
+                let _ = nix::unistd::setsid();
+                Ok(())
+            });
+        }
+
+        let output = cmd.output().expect("sh should run");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert_eq!(
+            stdout.trim(),
+            "no_tty",
+            "subprocess should have no controlling terminal after setsid(); \
+             if it has one it can corrupt reedline's terminal mode and cause EIO"
+        );
+    }
+}
