@@ -10,9 +10,9 @@ const MODULE_SETUP: &str = "
             export const E = 'e'
             export module bacon {
                 export const viking = 'eats'
-                export module none {}
-            }
-        }
+                export module none {}; export use none
+            }; export use bacon
+        }; export use eggs
     }
 ";
 

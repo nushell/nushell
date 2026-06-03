@@ -1,6 +1,6 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
-use nu_test_support::prelude::{Result, TestResultExt, test};
+use nu_test_support::prelude::*;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
 use rstest::rstest;
@@ -624,8 +624,8 @@ fn deep_import_patterns() {
                 export module beans {
                     export def foo [] { 'foo' };
                     export def bar [] { 'bar' }
-                };
-            };
+                }; export use beans
+            }; export use eggs
         }
     ";
 
@@ -661,62 +661,29 @@ fn deep_import_aliased_external_args(
             export module eggs {
                 export module beans {
                     export alias foo = ^echo
-                }
-            }
+                }; export use beans
+            }; export use eggs
         }
     ";
     let actual = nu!(format!("{module_decl}; {input}"));
     assert_eq!(actual.out, "bar");
 }
 
-#[test]
-fn module_dir() {
-    let import = "use samples/spam";
-
-    let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spam");
-
-    let inp = &[import, "spam foo"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foo");
-
-    let inp = &[import, "spam bar"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "bar");
-
-    let inp = &[import, "spam foo baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foobaz");
-
-    let inp = &[import, "spam bar baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "barbaz");
-
-    let inp = &[import, "spam baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spambaz");
-}
-
-#[test]
-fn module_dir_deep() {
-    let import = "use samples/spam";
-
-    let inp = &[import, "spam bacon"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "bacon");
-
-    let inp = &[import, "spam bacon foo"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "bacon foo");
-
-    let inp = &[import, "spam bacon beans"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "beans");
-
-    let inp = &[import, "spam bacon beans foo"];
-    let actual_repl = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual_repl.out, "beans foo");
+#[rstest]
+#[case("spam", "spam")]
+#[case("spam foo", "foo")]
+#[case("spam bar", "bar")]
+#[case("spam foo baz", "foobaz")]
+#[case("spam bar baz", "barbaz")]
+#[case("spam baz", "spambaz")]
+#[case::deep("spam bacon", "bacon")]
+#[case::deep("spam bacon foo", "bacon foo")]
+#[case::deep("spam bacon beans", "beans")]
+#[case::deep("spam bacon beans foo", "beans foo")]
+fn module_dir(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
+    let mut tester = test().cwd("tests/modules");
+    let () = tester.run("use samples/spam")?;
+    tester.run(code).expect_value_eq(expected)
 }
 
 #[test]
@@ -818,47 +785,52 @@ fn nested_list_export_works() {
     assert_eq!(actual.out, "bacon");
 }
 
-#[test]
-fn reload_submodules() {
+#[rstest]
+#[case(
+    &[
+        "use voice.nu",
+        r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+        "use voice.nu",
+    ],
+    "voice animals cat",
+    "woem"
+)]
+#[case(
+    &[
+        "use voice.nu",
+        r#""export def cat [] {'meow'}" | save -f animals.nu"#,
+        // should also verify something unchanged if `use voice`.
+        "use voice",
+    ],
+    "voice animals cat",
+    "meow"
+)]
+#[case(
+    &[
+        "use voice.nu animals cat",
+        r#""export def cat [] {'woem'}" | save -f animals.nu"#,
+        "use voice.nu animals cat",
+    ],
+    "cat",
+    "woem"
+)]
+fn reload_submodules(
+    #[case] setup: &[&str],
+    #[case] code: &str,
+    #[case] expected: impl IntoValue,
+) -> Result {
     Playground::setup("reload_submodule_changed_file", |dirs, sandbox| {
         sandbox.with_files(&[
-            FileWithContent("voice.nu", "export module animals.nu"),
+            FileWithContent("voice.nu", "export module animals.nu; export use animals"),
             FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
         ]);
 
-        let inp = [
-            "use voice.nu",
-            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
-            "use voice.nu",
-            "(voice animals cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual.out, "true");
-
-        // should also verify something unchanged if `use voice`.
-        let inp = [
-            "use voice.nu",
-            r#""export def cat [] {'meow'}" | save -f animals.nu"#,
-            "use voice",
-            "(voice animals cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual.out, "true");
-
-        // should also works if we use members directly.
-        sandbox.with_files(&[
-            FileWithContent("voice.nu", "export module animals.nu"),
-            FileWithContent("animals.nu", "export def cat [] { 'meow'}"),
-        ]);
-        let inp = [
-            "use voice.nu animals cat",
-            r#""export def cat [] {'woem'}" | save -f animals.nu"#,
-            "use voice.nu animals cat",
-            "(cat) == 'woem'",
-        ];
-        let actual = nu!(cwd: dirs.test(), nu_repl_code(&inp));
-        assert_eq!(actual.out, "true");
-    });
+        let mut tester = test().cwd(dirs.test());
+        for line in setup {
+            let () = tester.run(line)?;
+        }
+        tester.run(code).expect_value_eq(expected)
+    })
 }
 
 #[test]
