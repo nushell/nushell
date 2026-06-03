@@ -437,6 +437,7 @@ pub fn init_runtime(
     watch: bool,
     wait: bool,
     follow_symlinks: bool,
+    enable_content_indexing: bool,
     span: Span,
 ) -> Result<IdxStatus, ShellError> {
     let shared_picker = SharedFilePicker::default();
@@ -447,12 +448,14 @@ pub fn init_runtime(
         shared_frecency,
         FilePickerOptions {
             base_path: path.display().to_string(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch,
+            enable_content_indexing,
+            enable_fs_root_scanning: false, // this will error out if executed at /
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks,
+            mode: FFFMode::Ai,
+            watch,
         },
     )
     .map_err(|err| fff_error(err, span))?;
@@ -1576,7 +1579,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
 /// The restored runtime is immediately queryable by `idx files`, `idx dirs`,
 /// `idx find`, and `idx status` without a filesystem scan.
 #[cfg(feature = "sqlite")]
-pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
+pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
     let conn = Connection::open(path).map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1774,12 +1777,14 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
         shared_frecency,
         FilePickerOptions {
             base_path: base_path_str.clone(),
-            enable_mmap_cache: false,
-            enable_content_indexing: false,
-            mode: FFFMode::Ai,
             cache_budget: None,
-            watch: false,
+            enable_content_indexing: false,
+            enable_fs_root_scanning: false,
+            enable_home_dir_scanning: true,
+            enable_mmap_cache: false,
             follow_symlinks: false,
+            mode: FFFMode::Ai,
+            watch: !no_watch,
         },
     );
 

@@ -16,6 +16,11 @@ impl Command for IdxImport {
                 SyntaxShape::Filepath,
                 "Path to a stored idx snapshot.",
             )
+            .switch(
+                "no-watch",
+                "Disable filesystem watching after import (watching is enabled by default).",
+                None,
+            )
             .input_output_types(vec![(Type::Nothing, Type::record())])
             .category(Category::FileSystem)
     }
@@ -46,8 +51,10 @@ impl Command for IdxImport {
         let path: Spanned<String> = call.req(engine_state, stack, 0)?;
         let cwd = engine_state.cwd(Some(stack))?;
         let abs = nu_path::expand_path_with(path.item, cwd, true);
+        let no_watch = call.has_flag(engine_state, stack, "no-watch")?;
+
         Ok(PipelineData::value(
-            restore_snapshot(abs.as_ref(), call.head)?,
+            restore_snapshot(abs.as_ref(), no_watch, call.head)?,
             None,
         ))
     }
