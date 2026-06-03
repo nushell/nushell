@@ -1579,7 +1579,7 @@ pub fn store_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
 /// The restored runtime is immediately queryable by `idx files`, `idx dirs`,
 /// `idx find`, and `idx status` without a filesystem scan.
 #[cfg(feature = "sqlite")]
-pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
+pub fn restore_snapshot(path: &Path, no_watch: bool, span: Span) -> Result<Value, ShellError> {
     // Open SQLite database
     let conn = Connection::open(path).map_err(|err| {
         ShellError::Generic(GenericError::new(
@@ -1784,7 +1784,7 @@ pub fn restore_snapshot(path: &Path, span: Span) -> Result<Value, ShellError> {
             enable_mmap_cache: false,
             follow_symlinks: false,
             mode: FFFMode::Ai,
-            watch: false,
+            watch: !no_watch,
         },
     );
 
