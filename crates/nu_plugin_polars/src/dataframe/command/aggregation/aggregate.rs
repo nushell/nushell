@@ -181,7 +181,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::First(e)
             | polars::prelude::AggExpr::Last(e)
             | polars::prelude::AggExpr::Mean(e)
-            | polars::prelude::AggExpr::Implode(e)
+            | polars::prelude::AggExpr::Implode { input: e, .. }
             | polars::prelude::AggExpr::Count { input: e, .. }
             | polars::prelude::AggExpr::Sum(e)
             | polars::prelude::AggExpr::AggGroups(e)
@@ -189,8 +189,7 @@ fn get_col_name(expr: &Expr) -> Option<String> {
             | polars::prelude::AggExpr::Var(e, _)
             | polars::prelude::AggExpr::Item { input: e, .. }
             | polars::prelude::AggExpr::FirstNonNull(e)
-            | polars::prelude::AggExpr::LastNonNull(e)
-            | polars::prelude::AggExpr::Quantile { expr: e, .. } => get_col_name(e.as_ref()),
+            | polars::prelude::AggExpr::LastNonNull(e) => get_col_name(e.as_ref()),
         },
         Expr::Filter { input: expr, .. }
         | Expr::Slice { input: expr, .. }
