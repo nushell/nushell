@@ -894,6 +894,106 @@ mod completer_tests {
     use super::*;
 
     #[test]
+    fn test_non_blocking_completion_cache() {
+        let mut engine_state =
+            nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
+
+        let delta = {
+            let working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
+            working_set.render()
+        };
+
+        let result = engine_state.merge_delta(delta);
+        assert!(
+            result.is_ok(),
+            "Error merging delta: {:?}",
+            result.err().unwrap()
+        );
+
+        let mut completer = NuCompleter::new(engine_state.into(), Arc::new(Stack::new()));
+
+        // Get expected results via the direct (non-cached) path.
+        let expected: Vec<Suggestion> = completer
+            .fetch_completions_at("ls | c", 6)
+            .into_iter()
+            .map(|s| s.suggestion)
+            .collect();
+        assert!(!expected.is_empty(), "expected non-empty results");
+        assert!(
+            expected.iter().any(|s| s.value == "cd"),
+            "should contain cd"
+        );
+
+        let first = completer.complete("ls | c", 6);
+        assert!(
+            first.is_empty(),
+            "first call should return empty (cache miss)"
+        );
+        assert!(completer.has_pending(), "should have pending completion");
+
+        // Simulate reedline's polling loop: call check_pending() until results arrive,
+        // then call complete() to retrieve them from the cache.
+        let second = loop {
+            if completer.check_pending() {
+                break completer.complete("ls | c", 6);
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        };
+
+        assert_eq!(
+            expected.len(),
+            second.len(),
+            "cached result should match direct result"
+        );
+        for s in &expected {
+            assert!(
+                second.iter().any(|x| x.value == s.value),
+                "cached result should contain '{}'",
+                s.value
+            );
+        }
+    }
+
+    /// Verifies that the background completion stack NEVER inherits the live terminal's
+    /// stdout/stderr.
+    #[test]
+    fn test_background_completer_suppresses_output() {
+        use nu_protocol::OutDest;
+
+        let engine_state = Arc::new(nu_command::add_shell_command_context(
+            nu_cmd_lang::create_default_context(),
+        ));
+        let stack = Arc::new(Stack::new());
+        let bg = NuCompleter::new_background(engine_state, stack);
+
+        assert!(
+            matches!(bg.stack.stdout(), OutDest::Value),
+            "background completer stdout should be collected"
+        );
+        assert!(
+            matches!(bg.stack.stderr(), OutDest::Null),
+            "background completer stderr should be Null"
+        );
+
+        assert!(
+            bg.stack.suppress_stdin,
+            "background completer must suppress child-process stdin"
+        );
+
+        // foreground completer is chill with stdin
+        let fg = NuCompleter::new(
+            Arc::new(nu_command::add_shell_command_context(
+                nu_cmd_lang::create_default_context(),
+            )),
+            Arc::new(Stack::new()),
+        );
+        assert!(
+            !fg.stack.suppress_stdin,
+            "foreground completer must not suppress stdin"
+        );
+    }
+
+    #[test]
     fn test_completion_helper() {
         let mut engine_state =
             nu_command::add_shell_command_context(nu_cmd_lang::create_default_context());
