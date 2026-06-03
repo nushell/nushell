@@ -181,7 +181,7 @@ fn from_xlsx(
                 .headers()
                 .unwrap_or_else(|| vec!["".to_string(); sheet_width])
                 .into_iter()
-                .zip(default_headers.into_iter())
+                .zip(default_headers)
                 .map(
                     |(name, default)| {
                         if name.is_empty() { default } else { name }
