@@ -25,6 +25,31 @@ use support::{
     file, folder, match_suggestions, match_suggestions_by_string, new_engine,
 };
 
+/// Extension trait for test completions.
+///
+/// Since the background completion kicks off a thread and immediately returns an empty vector
+/// on a cache miss, integration tests that don't spin the `reedline` event loop will fail.
+/// This helper simulates the loop synchronously so the legacy integration tests require minimal modification
+pub trait CompleterExt {
+    fn complete_and_wait(&mut self, line: &str, pos: usize) -> Vec<Suggestion>;
+}
+
+impl CompleterExt for NuCompleter {
+    fn complete_and_wait(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
+        let mut suggestions = self.complete(line, pos);
+        if suggestions.is_empty() && self.has_pending() {
+            loop {
+                if self.check_pending() {
+                    suggestions = self.complete(line, pos);
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(10));
+            }
+        }
+        suggestions
+    }
+}
+
 // Match a list of suggestions with the content of a directory.
 // This helper is for DotNutCompletion, so actually it only retrieves
 // *.nu files and subdirectories.
