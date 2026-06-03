@@ -32,7 +32,7 @@ impl Command for All {
         vec![
             Example {
                 description: "Check if a list contains only true values.",
-                example: "[false true true false] | all {}",
+                example: "[false true true false] | all {||}",
                 result: Some(Value::test_bool(false)),
             },
             Example {

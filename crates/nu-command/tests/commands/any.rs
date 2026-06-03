@@ -121,7 +121,7 @@ fn row_condition_subshell() -> Result {
 }
 
 #[test]
-fn aany_invalid_type_error() -> Result {
+fn any_invalid_type_error() -> Result {
     let err = test()
         .run("[nushell bash fish] | any 1wk")
         .expect_parse_error()?;

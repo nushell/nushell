@@ -32,7 +32,7 @@ impl Command for Any {
         vec![
             Example {
                 description: "Check if a list contains any true values.",
-                example: "[false true true false] | any {}",
+                example: "[false true true false] | any {||}",
                 result: Some(Value::test_bool(true)),
             },
             Example {
