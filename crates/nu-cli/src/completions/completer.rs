@@ -849,8 +849,8 @@ impl ReedlineCompleter for NuCompleter {
             let _ = tx.send(());
         });
 
-        fn get_from_cache(completor: &NuCompleter, key: &str) -> Option<Vec<Suggestion>> {
-            let cache = completor.cache.lock().ok()?;
+        fn get_from_cache(completer: &NuCompleter, key: &str) -> Option<Vec<Suggestion>> {
+            let cache = completer.cache.lock().ok()?;
             let entry = cache.get(key)?;
 
             if entry.timestamp.elapsed() < CACHE_TTL {
