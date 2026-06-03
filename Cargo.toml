@@ -159,7 +159,7 @@ encoding_rs = "0.8"
 fancy-regex = "0.18"
 filesize = "0.2"
 filetime = "0.2.27"
-fff-search = { version = "=0.8.4", default-features = false }
+fff-search = { version = "=0.9.0", default-features = false }
 fluent = "0.17.0"
 fuzzy-matcher = { version = "^0.3.7" }
 gatekeeper = "3.0.0"
