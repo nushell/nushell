@@ -1,7 +1,7 @@
 [workspace.package]
 authors = ["The Nushell Project Developers"]
 edition = "2024"
-rust-version = "1.93.1"
+rust-version = "1.94.1"
 license = "MIT"
 version = "0.113.2"
 
