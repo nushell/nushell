@@ -439,17 +439,17 @@ impl NuCompleter {
                             });
                             // Prioritize custom completion results over everything else
                             if let Some(custom_completer) = flag.and_then(|f| f.completion) {
-                                suggestions.splice(
-                                    0..0,
-                                    self.custom_completion_helper(
+                                let (need_fallback, new_suggestions) = self
+                                    .custom_completion_helper(
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
-                                    ),
-                                );
-                                // Fallback completion is already handled in `CustomCompletion`
-                                return suggestions;
+                                    );
+                                suggestions.splice(0..0, new_suggestions);
+                                if !need_fallback {
+                                    return suggestions;
+                                }
                             }
 
                             // Try command-wide completion if specified by attributes
@@ -525,17 +525,17 @@ impl NuCompleter {
                                 .get_positional(positional_arg_index)
                                 .and_then(|pos_arg| pos_arg.completion.clone())
                             {
-                                suggestions.splice(
-                                    0..0,
-                                    self.custom_completion_helper(
+                                let (need_fallback, new_suggestions) = self
+                                    .custom_completion_helper(
                                         custom_completer,
                                         prefix_str,
                                         &ctx,
                                         if strip { pos } else { pos + 1 },
-                                    ),
-                                );
-                                // Fallback completion is already handled in `CustomCompletion`
-                                return suggestions;
+                                    );
+                                suggestions.splice(0..0, new_suggestions);
+                                if !need_fallback {
+                                    return suggestions;
+                                }
                             }
 
                             // Try command-wide completion if specified by attributes
@@ -693,16 +693,17 @@ impl NuCompleter {
         input: &str,
         ctx: &Context,
         pos: usize,
-    ) -> Vec<SemanticSuggestion> {
+    ) -> (bool, Vec<SemanticSuggestion>) {
         match custom_completion {
             Completion::Command(decl_id) => {
                 let mut completer =
-                    CustomCompletion::new(decl_id, input.into(), pos - ctx.offset, FileCompletion);
-                self.process_completion(&mut completer, ctx)
+                    CustomCompletion::new(decl_id, input.into(), pos - ctx.offset, false);
+                let suggestions = self.process_completion(&mut completer, ctx);
+                (completer.need_fallback, suggestions)
             }
             Completion::List(list) => {
                 let mut completer = StaticCompletion::new(list);
-                self.process_completion(&mut completer, ctx)
+                (false, self.process_completion(&mut completer, ctx))
             }
         }
     }
