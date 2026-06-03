@@ -488,7 +488,7 @@ fn custom_completions_wraps_builtin_commandline_complete() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "my-ls test";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     match_suggestions(
         &vec![
             "test",
@@ -518,7 +518,7 @@ fn custom_completions_wraps_builtin_commandline_complete_path() {
 
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     let completion_str = "my-ls te";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     match_suggestions(
         &vec![
             "`te st.txt`",
@@ -890,12 +890,12 @@ fn which_command_quoted_completions() {
     let mut completer = NuCompleter::new(Arc::new(engine), Arc::new(stack));
     // Commands with spaces
     let completion_str = "which \"detect";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     let expected: Vec<_> = vec!["detect", "\"detect columns\"", "\"detect type\""];
     match_suggestions(&expected, &suggestions);
     // Commands with quotes
     let completion_str = "which foo";
-    let suggestions = completer.complete(completion_str, completion_str.len());
+    let suggestions = completer.complete_and_wait(completion_str, completion_str.len());
     let expected: Vec<_> = vec![
         r#""foo's""#,
         r#""foo\"b\"a'r""#,
