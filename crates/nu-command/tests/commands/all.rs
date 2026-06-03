@@ -127,3 +127,22 @@ fn row_condition_subshell() -> Result {
         .run("[1sec 1min 1hr] | all ($it | describe) == 'duration'")
         .expect_value_eq(true)
 }
+
+#[test]
+fn all_invalid_type_error() -> Result {
+    let err = test()
+        .run("[nushell bash fish] | all 10")
+        .expect_parse_error()?;
+    match err {
+        ParseError::TypeMismatch {
+            0: expected,
+            1: found,
+            ..
+        } => {
+            assert_eq!(expected, nu_protocol::Type::Bool);
+            assert_eq!(found, nu_protocol::Type::Int);
+            Ok(())
+        }
+        err => Err(err.into()),
+    }
+}
