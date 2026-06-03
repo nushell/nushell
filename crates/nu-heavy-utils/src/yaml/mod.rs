@@ -9,5 +9,5 @@ pub use serialize::*;
 pub enum Spec {
     V1_1,
     #[default]
-    V1_2
+    V1_2,
 }
