@@ -9,9 +9,15 @@ use nu_protocol::{
     ast::{Argument, Block, Expr, Expression, PipelineRedirection, RedirectionTarget, Traverse},
     engine::{ArgType, EngineState, Stack, StateWorkingSet},
 };
+use nu_utils::time::Instant;
 use reedline::{Completer as ReedlineCompleter, Suggestion};
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
+use std::time::Duration;
 use std::{borrow::Cow, ops::ControlFlow};
+
+const CACHE_TTL: Duration = Duration::from_secs(5);
 
 use super::{StaticCompletion, custom_completions::CommandWideCompletion};
 
@@ -138,10 +144,22 @@ fn strip_placeholder_if_any<'a>(
     (new_span, prefix)
 }
 
+struct CachedCompletion {
+    suggestions: Vec<Suggestion>,
+    timestamp: Instant,
+}
+
+type CompletionCache = Arc<Mutex<HashMap<String, CachedCompletion>>>;
+/// Shared slot for the background-thread signal channel receiver.
+/// Wrapped in Arc<Mutex<>> so NuCompleter stays Clone.
+type PendingRx = Arc<Mutex<Option<mpsc::Receiver<()>>>>;
+
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
     stack: Stack,
+    cache: CompletionCache,
+    pending_rx: PendingRx,
 }
 
 /// Common arguments required for Completer
@@ -173,6 +191,23 @@ impl NuCompleter {
         Self {
             engine_state,
             stack: Stack::with_parent(stack).reset_out_dest().collect_value(),
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            pending_rx: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    fn new_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+        Self {
+            engine_state,
+            stack: Stack::with_parent(stack)
+                .reset_out_dest()
+                // We never want to write to the terminal
+                .suppress_output()
+                // We don't want races with reedlines own
+                .suppress_stdin()
+                .collect_value(),
+            cache: Arc::new(Mutex::new(HashMap::new())),
+            pending_rx: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -603,6 +638,7 @@ impl NuCompleter {
                             }
                         }
 
+                        // resort to external completer set in config
                         // resort to external completer set in config
                         let completion = self
                             .engine_state
