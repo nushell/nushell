@@ -809,10 +809,83 @@ struct CommandCompletionOptions {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        self.fetch_completions_at(line, pos)
-            .into_iter()
-            .map(|s| s.suggestion)
-            .collect()
+        let key = format!("{line}|{pos}");
+
+        // Return immediately if the cache has a fresh result for this query.
+        if let Some(suggestions) = get_from_cache(self, &key) {
+            return suggestions;
+        }
+
+        // If the cache misses: alert the background thread and instantly return empty.
+        // Reedline will call `check_pending` / `complete` again to pick up the
+        // results and repaint.
+        let (tx, rx) = mpsc::channel();
+        self.pending_rx.lock().expect("Lock poisoned").replace(rx);
+
+        let engine_state = self.engine_state.clone();
+        let stack = Arc::new(self.stack.clone());
+        let cache = self.cache.clone();
+        let line_owned = line.to_string();
+
+        thread::spawn(move || {
+            let completer = NuCompleter::new_background(engine_state, stack);
+            let suggestions: Vec<Suggestion> = completer
+                .fetch_completions_at(&line_owned, pos)
+                .into_iter()
+                .map(|s| s.suggestion)
+                .collect();
+
+            if let Ok(mut guard) = cache.lock() {
+                guard.insert(
+                    key,
+                    CachedCompletion {
+                        suggestions,
+                        timestamp: Instant::now(),
+                    },
+                );
+            }
+
+            // Results are in the cache!
+            let _ = tx.send(());
+        });
+
+        fn get_from_cache(completor: &NuCompleter, key: &str) -> Option<Vec<Suggestion>> {
+            let cache = completor.cache.lock().ok()?;
+            let entry = cache.get(key)?;
+
+            if entry.timestamp.elapsed() < CACHE_TTL {
+                Some(entry.suggestions.clone())
+            } else {
+                None
+            }
+        }
+
+        vec![]
+    }
+
+    fn has_pending(&mut self) -> bool {
+        self.pending_rx.lock().is_ok_and(|g| g.is_some())
+    }
+
+    fn check_pending(&mut self) -> bool {
+        let Ok(mut guard) = self.pending_rx.lock() else {
+            return false;
+        };
+        let Some(rx) = guard.as_ref() else {
+            return false;
+        };
+
+        match rx.try_recv() {
+            Ok(()) => {
+                *guard = None;
+                true
+            }
+            Err(mpsc::TryRecvError::Empty) => false,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                *guard = None;
+                false
+            }
+        }
     }
 }
 
