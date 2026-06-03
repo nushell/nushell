@@ -9,6 +9,8 @@ use nu_protocol::{
 use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
+#[cfg(unix)]
+use std::os::unix::process::CommandExt as UnixCommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::{
@@ -255,13 +257,26 @@ If you create a custom command with this name, that will be used instead."
                 }
             },
             PipelineData::Empty => {
-                // MCP servers run non-interactively - use null stdin to prevent commands
-                // from hanging when they prompt for passwords or other input.
-                // In the future, this may become a more general option (e.g., no_stdin)
-                // but needs more testing first. See:
-                // https://github.com/nushell/nushell/pull/17161#discussion_r2761243143
-                if engine_state.is_mcp {
+                // Use null stdin when running non-interactively (MCP) or when the
+                // caller explicitly requests it (mainly background completion threads,
+                // where inheriting the terminal could race with reedline's reads
+                // and cause bad EIO).
+                if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
+
+                    // Without the new session, the subprocess can still open
+                    // /dev/tty directly, change terminal settings (tcsetattr), and
+                    // corrupt the pty state.
+                    #[cfg(unix)]
+                    unsafe {
+                        command.pre_exec(|| {
+                            // setsid() initiates a new session without a
+                            // controlling terminal, so /dev/tty will fail to open.
+                            // Skip EPERM: we may already be a session leader.
+                            let _ = nix::unistd::setsid();
+                            Ok(())
+                        });
+                    }
                 } else {
                     command.stdin(Stdio::inherit());
                 }
