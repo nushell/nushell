@@ -7,11 +7,11 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
+#[cfg(unix)]
+use nu_system::prepare_background_command;
 use nu_system::{ForegroundChild, kill_by_pid};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
-#[cfg(unix)]
-use std::os::unix::process::CommandExt as UnixCommandExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::{
@@ -264,20 +264,8 @@ If you create a custom command with this name, that will be used instead."
                 // and cause bad EIO).
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
-
-                    // Without the new session, the subprocess can still open
-                    // /dev/tty directly, change terminal settings (tcsetattr), and
-                    // corrupt the pty state.
                     #[cfg(unix)]
-                    unsafe {
-                        command.pre_exec(|| {
-                            // setsid() initiates a new session without a
-                            // controlling terminal, so /dev/tty will fail to open.
-                            // Skip EPERM: we may already be a session leader.
-                            let _ = nix::unistd::setsid();
-                            Ok(())
-                        });
-                    }
+                    prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
                 }
@@ -849,7 +837,7 @@ mod test {
 ///      corrupt reedline's raw-mode terminal, causing EIO on the next read.
 #[cfg(all(test, unix))]
 mod background_isolation_tests {
-    use std::os::unix::process::CommandExt as UnixCommandExt;
+    use nu_system::prepare_background_command;
     use std::process::{Command, Stdio};
     use std::time::Duration;
 
@@ -900,14 +888,7 @@ mod background_isolation_tests {
         .stdout(Stdio::piped())
         .stderr(Stdio::null());
 
-        // This is what the setsid pre_exec in run_external.rs does when
-        // stack.suppress_stdin is true.
-        unsafe {
-            cmd.pre_exec(|| {
-                let _ = nix::unistd::setsid();
-                Ok(())
-            });
-        }
+        prepare_background_command(&mut cmd);
 
         let output = cmd.output().expect("sh should run");
         let stdout = String::from_utf8_lossy(&output.stdout);
