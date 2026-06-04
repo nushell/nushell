@@ -1044,7 +1044,7 @@ fn module_name_completions() {
 
     assert_eq!(
         suggestions[0].description,
-        Some("# module comment\n# another comment".into())
+        Some("module comment\nanother comment".into())
     );
 }
 
