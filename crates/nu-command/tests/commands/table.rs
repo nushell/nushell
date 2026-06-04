@@ -1,3 +1,4 @@
+use itertools::Itertools;
 use nu_test_support::fs::Stub::FileWithContent;
 use nu_test_support::playground::Playground;
 use nu_test_support::prelude::*;
@@ -4104,19 +4105,76 @@ fn table_expand_big_header() {
     );
 }
 
-#[test]
-fn table_missing_value() {
-    let actual = nu!("[{foo: null} {} {}] | table");
-    assert_eq!(
-        actual.out,
-        "╭───┬─────╮\
-         │ # │ foo │\
-         ├───┼─────┤\
-         │ 0 │     │\
-         │ 1 │  ❎ │\
-         │ 2 │  ❎ │\
-         ╰───┴─────╯",
-    )
+#[rstest]
+fn table_missing_value(#[values(false, true)] expand: bool) -> Result {
+    let mut tester = test();
+    let data: Value = tester.run("[{foo: '____________________'} {} {}]")?;
+    let () = tester.run_with_data("let expand = $in", expand)?;
+    let rendered: String = tester.run_with_data("table --expand=$expand | ansi strip", data)?;
+    pretty_assertions::assert_str_eq!(
+        rendered,
+        "╭───┬──────────────────────╮\n\
+         │ # │         foo          │\n\
+         ├───┼──────────────────────┤\n\
+         │ 0 │ ____________________ │\n\
+         │ 1 │          ❎          │\n\
+         │ 2 │          ❎          │\n\
+         ╰───┴──────────────────────╯\n",
+    );
+    Ok(())
+}
+
+#[rstest]
+#[case::off(false, 3)]
+#[case::on(true, 1)]
+fn horizontal_alignment_with_header_on_separator(
+    #[case] header_on_separator: bool,
+    #[case] skip: usize,
+    #[values(false, true)] expand: bool,
+) -> Result {
+    let mut tester = test();
+
+    let () = tester.run("$env.config.footer_mode = 'never'")?;
+    let () = tester.run_with_data(
+        "$env.config.table.header_on_separator = $in",
+        header_on_separator,
+    )?;
+    let () = tester.run_with_data("let expand = $in", expand)?;
+
+    let data: Value = {
+        let code = r#"[
+            { align:      "_", val: "__________" }
+            { align:   "left", val:         "a"  }
+            { align:  "right", val:           0  }
+            { align:   "left", val:         "a"  }
+            { align: "center",                   }
+            { align:   "left", val:         "a"  }
+            { align: "center",                   }
+            { align:  "right", val:           0  }
+        ]"#;
+        tester.run(code)?
+    };
+
+    let rendered: String = tester.run_with_data("table --expand=$expand | ansi strip", data)?;
+    let trimmed = {
+        let mut positions = rendered.as_bytes().iter().positions(|b| *b == b'\n');
+        let start = positions.nth(skip - 1).unwrap() + 1;
+        let end = positions.nth_back(1).unwrap() + 1;
+        &rendered[start..end]
+    };
+
+    let expected = "\
+        │ 0 │ _      │ __________ │\n\
+        │ 1 │ left   │ a          │\n\
+        │ 2 │ right  │          0 │\n\
+        │ 3 │ left   │ a          │\n\
+        │ 4 │ center │     ❎     │\n\
+        │ 5 │ left   │ a          │\n\
+        │ 6 │ center │     ❎     │\n\
+        │ 7 │ right  │          0 │\n";
+
+    pretty_assertions::assert_str_eq!(trimmed, expected);
+    Ok(())
 }
 
 #[test]
