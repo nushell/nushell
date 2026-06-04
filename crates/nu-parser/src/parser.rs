@@ -468,7 +468,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
 
 fn parse_regular_external_arg(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     match working_set.get_span_contents(span) {
-        [b'$', ..] => parse_dollar_expr(working_set, span),
+        [b'$', ..] => parse_dollar_expr(working_set, span, &SyntaxShape::Any),
         [b'(', ..] => parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => parse_list_expression(working_set, span, &SyntaxShape::Any),
         _ => parse_external_string(working_set, span),
@@ -514,7 +514,7 @@ fn ensure_flag_arg_type(
     arg_shape: &SyntaxShape,
     long_name_span: Span,
 ) -> (Spanned<String>, Expression) {
-    if !type_compatible(&arg.ty, &arg_shape.to_type()) {
+    if !type_compatible(&arg_shape.to_type(), &arg.ty) {
         working_set.error(ParseError::TypeMismatch(
             arg_shape.to_type(),
             arg.ty,
@@ -2249,12 +2249,20 @@ pub fn parse_range(working_set: &mut StateWorkingSet, span: Span) -> Option<Expr
     ))
 }
 
-pub(crate) fn parse_dollar_expr(working_set: &mut StateWorkingSet, span: Span) -> Expression {
+pub(crate) fn parse_dollar_expr(
+    working_set: &mut StateWorkingSet,
+    span: Span,
+    shape: &SyntaxShape,
+) -> Expression {
     trace!("parsing: dollar expression");
     let contents = working_set.get_span_contents(span);
 
     if contents.starts_with(b"$\"") || contents.starts_with(b"$'") {
-        parse_string_interpolation(working_set, span)
+        if matches!(shape, SyntaxShape::GlobPattern) && is_bare_string_interpolation(contents) {
+            parse_glob_pattern(working_set, span)
+        } else {
+            parse_string_interpolation(working_set, span)
+        }
     } else if contents.starts_with(b"$.") {
         parse_simple_cell_path(working_set, Span::new(span.start + 2, span.end))
     } else {
@@ -2353,7 +2361,11 @@ pub fn parse_paren_expr(
             });
         if malformed_subexpr {
             working_set.parse_errors.truncate(starting_error_count);
-            parse_string_interpolation(working_set, span)
+            if matches!(shape, SyntaxShape::GlobPattern) {
+                parse_glob_pattern(working_set, span)
+            } else {
+                parse_string_interpolation(working_set, span)
+            }
         } else {
             fcp_expr
         }
@@ -5793,7 +5805,7 @@ pub fn parse_value(
     }
 
     match bytes[0] {
-        b'$' => return parse_dollar_expr(working_set, span),
+        b'$' => return parse_dollar_expr(working_set, span, shape),
         b'(' => return parse_paren_expr(working_set, span, shape),
         b'{' => return parse_brace_expr(working_set, span, shape),
         b'[' => match shape {
@@ -6443,7 +6455,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
         let rhs = if spans[pos].start + point < spans[pos].end {
             let rhs_span = Span::new(spans[pos].start + point, spans[pos].end);
             if split[1].starts_with(b"$") {
-                parse_dollar_expr(working_set, rhs_span)
+                parse_dollar_expr(working_set, rhs_span, &SyntaxShape::Any)
             } else {
                 parse_string_strict(working_set, rhs_span)
             }
