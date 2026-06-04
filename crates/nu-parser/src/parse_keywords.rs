@@ -3805,6 +3805,15 @@ pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     Pipeline::from_vec(vec![expr])
 }
 
+fn find_keyword_decl_by_name(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
+    (0..working_set.num_decls())
+        .map(DeclId::new)
+        .find(|decl_id| {
+            let decl = working_set.get_decl(*decl_id);
+            decl.name().as_bytes() == name && decl.is_keyword()
+        })
+}
+
 /// Core parser for a `run` expression.
 ///
 /// Resolves the script filename at parse time, reads and compiles the script into a [`Block`],
@@ -3813,6 +3822,7 @@ pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
 /// - `"block_id"` — the compiled script block
 /// - `"block_id_name"` — the resolved file path (for `CURRENT_FILE` / `FILE_PWD`)
 /// - `"main_block_id"` — the `def main` block inside the script, if one exists
+/// - `"full_reparse"` — present when `run --full-reparse` is set (runtime reparses script each call)
 /// - `"noop"` — present when the filename argument is `null` (pipeline pass-through)
 fn parse_run_expr_internal(
     working_set: &mut StateWorkingSet,
@@ -3828,7 +3838,9 @@ fn parse_run_expr_internal(
             return garbage(working_set, Span::concat(spans));
         }
 
-        if let Some(decl_id) = working_set.find_decl(name) {
+        if let Some(decl_id) =
+            find_keyword_decl_by_name(working_set, name).or_else(|| working_set.find_decl(name))
+        {
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
@@ -3847,6 +3859,18 @@ fn parse_run_expr_internal(
             if call_kind == CallKind::Help {
                 return Expression::new(working_set, Expr::Call(call), Span::concat(spans), output);
             }
+
+            let do_full_reparse = match has_flag_const(working_set, &call, "full-reparse") {
+                Ok(value) => value,
+                Err(()) => {
+                    return Expression::new(
+                        working_set,
+                        Expr::Call(call),
+                        Span::concat(spans),
+                        output,
+                    );
+                }
+            };
 
             // Get the script filename (first positional argument)
             let first_expr = call.positional_iter().next();
@@ -3892,6 +3916,29 @@ fn parse_run_expr_internal(
                 };
 
                 if let Some(path) = find_in_dirs(&filename, working_set, &cwd, Some(LIB_DIRS_VAR)) {
+                    if do_full_reparse {
+                        let mut call_with_block = call;
+                        call_with_block.set_parser_info(
+                            "block_id_name".to_string(),
+                            Expression::new(
+                                working_set,
+                                Expr::Filepath(path.path_buf().display().to_string(), false),
+                                spans[1],
+                                Type::String,
+                            ),
+                        );
+                        call_with_block.set_parser_info(
+                            "full_reparse".to_string(),
+                            Expression::new(working_set, Expr::Bool(true), spans[1], Type::Bool),
+                        );
+                        return Expression::new(
+                            working_set,
+                            Expr::Call(call_with_block),
+                            Span::concat(spans),
+                            Type::Any,
+                        );
+                    }
+
                     if let Some(contents) = path.read(working_set) {
                         // Add the file to the stack of files being processed.
                         if let Err(e) = working_set.files.push(path.clone().path_buf(), spans[1]) {
@@ -3899,7 +3946,7 @@ fn parse_run_expr_internal(
                             return garbage(working_set, Span::concat(spans));
                         }
 
-                        // Parse the script as a non-scoped block
+                        // Parse the script as a non-scoped block.
                         let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),
@@ -3985,7 +4032,7 @@ fn parse_run_expr_internal(
 ///
 /// Returns `None` if the script contains no such definition, which causes `run` to execute the
 /// script block directly instead of dispatching through the `main` entrypoint.
-fn find_main_block_id_in_script(
+pub fn find_main_block_id_in_script(
     working_set: &StateWorkingSet<'_>,
     script_block: &Block,
 ) -> Option<BlockId> {

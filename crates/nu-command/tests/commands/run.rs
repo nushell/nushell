@@ -433,3 +433,174 @@ fn run_main_script_tracks_file_edits_in_repl_session() -> Result {
         },
     )
 }
+
+#[test]
+fn run_main_script_in_reused_closure_keeps_cached_parse_by_default() -> Result {
+    Playground::setup(
+        "run_main_script_in_reused_closure_keeps_cached_parse_by_default",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "run-edit.nu",
+                "
+                def main [] {
+                    'hello'
+                }
+            ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester.run::<()>("let runner = { run run-edit.nu }")?;
+            tester.run("do $runner").expect_value_eq("hello")?;
+            tester.run::<()>(r#"'def main [] { "hello world" }' | save --force run-edit.nu"#)?;
+            tester.run("do $runner").expect_value_eq("hello")
+        },
+    )
+}
+
+#[test]
+fn run_main_script_in_reused_closure_reloads_with_full_reparse() -> Result {
+    Playground::setup(
+        "run_main_script_in_reused_closure_reloads_with_full_reparse",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "run-edit.nu",
+                "
+                def main [] {
+                    'hello'
+                }
+            ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester.run::<()>("let runner = { run --full-reparse run-edit.nu }")?;
+            tester.run("do $runner").expect_value_eq("hello")?;
+            tester.run::<()>(r#"'def main [] { "hello world" }' | save --force run-edit.nu"#)?;
+            tester.run("do $runner").expect_value_eq("hello world")?;
+            tester.run::<()>(r#"'def main [] { "hello again" }' | save --force run-edit.nu"#)?;
+            tester.run("do $runner").expect_value_eq("hello again")
+        },
+    )
+}
+
+#[test]
+fn run_script_without_main_tracks_file_edits_with_full_reparse() -> Result {
+    Playground::setup(
+        "run_script_without_main_tracks_file_edits_with_full_reparse",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "run-no-main.nu",
+                "
+                str upcase
+            ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run(r#""hello" | run --full-reparse run-no-main.nu"#)
+                .expect_value_eq("HELLO")?;
+            tester.run::<()>("'str downcase' | save --force run-no-main.nu")?;
+            tester
+                .run(r#""HELLO" | run --full-reparse run-no-main.nu"#)
+                .expect_value_eq("hello")
+        },
+    )
+}
+
+#[test]
+fn run_full_reparse_recovers_after_script_parse_error() -> Result {
+    Playground::setup(
+        "run_full_reparse_recovers_after_script_parse_error",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "run-edit.nu",
+                "
+                def main [] {
+                    'ok'
+                }
+            ",
+            )]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester
+                .run("run --full-reparse run-edit.nu")
+                .expect_value_eq("ok")?;
+            tester.run::<()>("'def main [ {' | save --force run-edit.nu")?;
+            let _ = tester
+                .run("run --full-reparse run-edit.nu")
+                .expect_shell_error()?;
+            tester.run::<()>(r#"'def main [] { "ok again" }' | save --force run-edit.nu"#)?;
+            tester
+                .run("run --full-reparse run-edit.nu")
+                .expect_value_eq("ok again")
+        },
+    )
+}
+
+#[test]
+fn run_full_reparse_forwards_main_arguments_and_flags() {
+    Playground::setup(
+        "run_full_reparse_forwards_main_arguments_and_flags",
+        |dirs, sandbox| {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "format.nu",
+                "
+                def main [value: string, --char(-c): string] {
+                    $\"($in) ($value) ($char)\"
+                }
+            ",
+            )]);
+
+            let actual = nu!(
+                cwd: dirs.test(),
+                r#""hello" | run --full-reparse format.nu "arg" -c "!" "#
+            );
+            assert_eq!(actual.out, "hello arg !");
+            assert!(actual.err.is_empty());
+        },
+    );
+}
+
+#[test]
+fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> Result {
+    Playground::setup(
+        "run_script_exporting_run_does_not_override_builtin_run_in_repl_session",
+        |dirs, sandbox| {
+            sandbox.mkdir("toolkit");
+            sandbox.with_files(&[
+                FileWithContentToBeTrimmed(
+                    "toolkit/wrappers.nu",
+                    "
+                    export def run [--experimental-options: string] {
+                        'toolkit run'
+                    }
+                ",
+                ),
+                FileWithContentToBeTrimmed(
+                    "toolkit/mod.nu",
+                    "
+                    export use wrappers.nu *
+
+                    export def main [] {
+                        'toolkit main'
+                    }
+                ",
+                ),
+                FileWithContentToBeTrimmed(
+                    "toolkit.nu",
+                    "
+                    export use toolkit *
+
+                    export def main [] {
+                        help toolkit
+                        'ok'
+                    }
+                ",
+                ),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester.run("run toolkit.nu").expect_value_eq("ok")?;
+            tester.run("run toolkit.nu").expect_value_eq("ok")
+        },
+    )
+}
