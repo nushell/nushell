@@ -24,6 +24,7 @@ harness = false
 workspace = true
 
 [dependencies]
+ansi-str = { workspace = true }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
 nu-color-config.workspace = true
