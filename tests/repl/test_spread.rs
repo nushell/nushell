@@ -124,6 +124,13 @@ fn spread_internal_args() -> TestResult {
     .unwrap();
     run_test(
         "
+        def f [a b c? d? ...x] { {a: $a, b: $b, c: $c, d: $d, x: $x} | to nuon }
+        f 1 ...[5 6]",
+        "{a: 1, b: 5, c: null, d: null, x: [6]}",
+    )
+    .unwrap();
+    run_test(
+        "
         def f [--flag: int ...x] { [$flag $x] | to nuon }
         f 2 ...[foo] 4 --flag 5 6 ...[7 8]",
         "[5, [2, foo, 4, 6, 7, 8]]",
@@ -141,9 +148,9 @@ fn spread_internal_args() -> TestResult {
 fn bad_spread_internal_args() -> TestResult {
     fail_test(
         "
-        def f [a b c? d? ...x] { echo $a $b $c $d $x }
-        f 1 ...[5 6]",
-        "Missing required positional argument",
+        def f [a b c ...x] { echo $a $b $c $x }
+        f 1 ...[]",
+        "Missing parameter: b",
     )
     .unwrap();
     fail_test(

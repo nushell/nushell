@@ -1378,7 +1378,8 @@ fn gather_arguments(
                 .optional_positional
                 .iter()
                 .map(|p| (p, false)),
-        );
+        )
+        .peekable();
 
     // Arguments that didn't get consumed by required/optional
     let mut rest = vec![];
@@ -1392,31 +1393,25 @@ fn gather_arguments(
     // produces `Value::String`, not `Value::Glob`, so those are unaffected).
     let expand_glob_args = block.signature.allows_unknown_args;
 
-    // If we encounter a spread, all further positionals should go to rest
-    let mut always_spread = false;
+    // If we encounter a spread, all further explicit positionals should go to rest. Spread
+    // elements still distribute into any unfilled required positionals before rest.
+    let mut seen_spread = false;
 
     for arg in caller_stack.arguments.drain_args(args_base, args_len) {
         match arg {
             Argument::Positional { span, val, .. } => {
-                // Don't check next positional arg if we encountered a spread previously
-                let next = (!always_spread).then(|| positional_iter.next()).flatten();
-                if let Some((positional_arg, required)) = next {
-                    let var_id = expect_positional_var_id(positional_arg, span)?;
-                    if required {
-                        // By checking the type of the bound variable rather than converting the
-                        // SyntaxShape here, we might be able to save some allocations and effort
-                        let variable = engine_state.get_var(var_id);
-                        check_type(&val, &variable.ty)?;
-                    }
-                    callee_stack.add_var(var_id, val);
+                // Don't bind an explicit positional after spread to a named positional.
+                let next = (!seen_spread).then(|| positional_iter.next()).flatten();
+                if let Some((positional_arg, _required)) = next {
+                    bind_positional_arg(engine_state, callee_stack, positional_arg, val, span)?;
                 } else {
-                    rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
-                    let val = if expand_glob_args {
-                        expand_external_glob_arg(val)
-                    } else {
-                        val
-                    };
-                    rest.push(val);
+                    push_rest_arg(
+                        &block.signature,
+                        &mut rest,
+                        &mut rest_span,
+                        val,
+                        expand_glob_args,
+                    )?;
                 }
             }
             Argument::Spread {
@@ -1425,13 +1420,38 @@ fn gather_arguments(
                 ..
             } => match vals {
                 Value::List { vals, .. } => {
-                    rest.extend(vals);
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
-                    always_spread = true;
+                    for val in vals {
+                        let next_is_required = positional_iter
+                            .peek()
+                            .map(|(_, required)| *required)
+                            .unwrap_or(false);
+
+                        if next_is_required {
+                            let (positional_arg, _) = positional_iter
+                                .next()
+                                .expect("peeked positional argument disappeared");
+                            bind_positional_arg(
+                                engine_state,
+                                callee_stack,
+                                positional_arg,
+                                val,
+                                spread_span,
+                            )?;
+                        } else {
+                            push_rest_arg_without_span(
+                                &block.signature,
+                                &mut rest,
+                                val,
+                                expand_glob_args,
+                            )?;
+                        }
+                    }
+                    seen_spread = true;
                 }
                 Value::Nothing { .. } => {
                     rest_span = Some(rest_span.map_or(spread_span, |s| s.append(spread_span)));
-                    always_spread = true;
+                    seen_spread = true;
                 }
                 Value::Error { error, .. } => return Err(*error),
                 _ => return Err(ShellError::CannotSpreadAsList { span: vals.span() }),
@@ -1460,7 +1480,7 @@ fn gather_arguments(
         }
     }
 
-    // Add the collected rest of the arguments if a spread argument exists
+    // Add the collected rest arguments.
     if let Some(rest_arg) = &block.signature.rest_positional {
         let rest_span = rest_span.unwrap_or(call_head);
         let var_id = expect_positional_var_id(rest_arg, rest_span)?;
@@ -1468,15 +1488,21 @@ fn gather_arguments(
     }
 
     // Check for arguments that haven't yet been set and set them to their defaults
-    for (positional_arg, _) in positional_iter {
+    for (positional_arg, required) in positional_iter {
         let var_id = expect_positional_var_id(positional_arg, call_head)?;
-        callee_stack.add_var(
-            var_id,
-            positional_arg
-                .default_value
-                .clone()
-                .unwrap_or(Value::nothing(call_head)),
-        );
+        let maybe_value = positional_arg
+            .default_value
+            .clone()
+            .or((!required).then_some(Value::nothing(call_head)));
+
+        if let Some(value) = maybe_value {
+            callee_stack.add_var(var_id, value);
+        } else {
+            return Err(ShellError::MissingParameter {
+                param_name: positional_arg.name.to_string(),
+                span: call_head,
+            });
+        }
     }
 
     for named_arg in &block.signature.named {
@@ -1497,6 +1523,53 @@ fn gather_arguments(
         }
     }
 
+    Ok(())
+}
+
+fn bind_positional_arg(
+    engine_state: &EngineState,
+    callee_stack: &mut Stack,
+    positional_arg: &PositionalArg,
+    val: Value,
+    span: Span,
+) -> Result<(), ShellError> {
+    let var_id = expect_positional_var_id(positional_arg, span)?;
+    // By checking the type of the bound variable rather than converting the SyntaxShape here, we
+    // might be able to save some allocations and effort.
+    let variable = engine_state.get_var(var_id);
+    check_type(&val, &variable.ty)?;
+    callee_stack.add_var(var_id, val);
+    Ok(())
+}
+
+fn push_rest_arg(
+    signature: &Signature,
+    rest: &mut Vec<Value>,
+    rest_span: &mut Option<Span>,
+    val: Value,
+    expand_glob_args: bool,
+) -> Result<(), ShellError> {
+    *rest_span = Some(rest_span.map_or(val.span(), |s| s.append(val.span())));
+    push_rest_arg_without_span(signature, rest, val, expand_glob_args)
+}
+
+fn push_rest_arg_without_span(
+    signature: &Signature,
+    rest: &mut Vec<Value>,
+    val: Value,
+    expand_glob_args: bool,
+) -> Result<(), ShellError> {
+    if let Some(rest_positional) = &signature.rest_positional {
+        let param_type = rest_positional.shape.to_type();
+        check_type(&val, &param_type)?;
+    }
+
+    let val = if expand_glob_args {
+        expand_external_glob_arg(val)
+    } else {
+        val
+    };
+    rest.push(val);
     Ok(())
 }
 
