@@ -4525,6 +4525,7 @@ name = "nu-command"
 version = "0.113.2"
 dependencies = [
  "alphanumeric-sort",
+ "ansi-str",
  "arboard",
  "base64",
  "bracoxide",

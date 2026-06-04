@@ -1,3 +1,4 @@
+use ansi_str::AnsiStr;
 use crossterm::{
     cursor::{Hide, MoveDown, MoveToColumn, MoveUp, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -16,6 +17,7 @@ use nu_protocol::engine::Closure;
 use nu_protocol::{Config, ListStream, TableMode, shell_error::io::IoError};
 use nu_table::common::nu_value_to_string;
 use std::{
+    borrow::Cow,
     collections::HashSet,
     io::{self, Stderr, Write},
 };
@@ -63,6 +65,42 @@ const DEFAULT_TABLE_COLUMN_SEPARATOR: char = '│';
 const INITIAL_STREAM_ITEMS: usize = 80;
 const STREAM_LOAD_BATCH: usize = 50;
 const STREAM_PREFETCH_MARGIN: usize = 2;
+
+fn visible_text_width(text: &str) -> usize {
+    nu_utils::strip_ansi_unlikely(text).width()
+}
+
+fn visible_prefix_byte_len(text: &str, target_width: usize) -> usize {
+    let mut current_width = 0;
+    let mut end_pos = 0;
+
+    for (byte_pos, c) in text.char_indices() {
+        let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
+        if current_width + char_width > target_width {
+            break;
+        }
+        end_pos = byte_pos + c.len_utf8();
+        current_width += char_width;
+    }
+
+    end_pos
+}
+
+fn truncate_ansi_aware_text(text: &str, available_width: usize) -> Cow<'_, str> {
+    let stripped = nu_utils::strip_ansi_unlikely(text);
+
+    if stripped.width() <= available_width {
+        Cow::Borrowed(text)
+    } else if available_width <= 1 {
+        Cow::Borrowed("…")
+    } else {
+        let target_width = available_width - 1;
+        let end_pos = visible_prefix_byte_len(stripped.as_ref(), target_width);
+        let mut truncated = text.ansi_cut(..end_pos).into_owned();
+        truncated.push('…');
+        Cow::Owned(truncated)
+    }
+}
 
 /// Maps TableMode to the appropriate vertical separator character
 fn table_mode_to_separator(mode: TableMode) -> char {
@@ -3263,31 +3301,8 @@ impl<'a> SelectWidget<'a> {
         prefix_width: usize,
     ) -> io::Result<()> {
         let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text_width = UnicodeWidthStr::width(text);
-
-        if text_width <= available_width {
-            // Text fits, render as-is
-            execute!(stderr, Print(text))?;
-        } else if available_width <= 1 {
-            // Only room for ellipsis
-            execute!(stderr, Print("…"))?;
-        } else {
-            // Find the substring that fits in available_width - 1 (reserve 1 for ellipsis)
-            let target_width = available_width - 1;
-            let mut current_width = 0;
-            let mut end_pos = 0;
-
-            for (byte_pos, c) in text.char_indices() {
-                let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
-                if current_width + char_width > target_width {
-                    break;
-                }
-                end_pos = byte_pos + c.len_utf8();
-                current_width += char_width;
-            }
-            execute!(stderr, Print(&text[..end_pos]))?;
-            execute!(stderr, Print("…"))?;
-        }
+        let text = truncate_ansi_aware_text(text, available_width);
+        execute!(stderr, Print(text.as_ref()))?;
         Ok(())
     }
 
@@ -3301,7 +3316,7 @@ impl<'a> SelectWidget<'a> {
         prefix_width: usize,
     ) -> io::Result<()> {
         let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text_width = UnicodeWidthStr::width(text);
+        let text_width = visible_text_width(text);
 
         // Reusable single-char buffer for styled output (avoids allocation per char)
         let mut char_buf = [0u8; 4];
@@ -3980,6 +3995,31 @@ mod test {
         assert_eq!(w.cursor, 1);
 
         Ok(())
+    }
+
+    #[test]
+    fn ansi_styled_text_that_visibly_fits_is_not_truncated() {
+        let text = "\u{1b}[1;37mabcdef\u{1b}[0m";
+
+        let rendered = truncate_ansi_aware_text(text, 6);
+
+        assert_eq!(
+            nu_utils::strip_ansi_unlikely(rendered.as_ref()).as_ref(),
+            "abcdef"
+        );
+        assert!(!rendered.contains('…'));
+    }
+
+    #[test]
+    fn ansi_styled_text_truncates_by_visible_width() {
+        let text = "\u{1b}[1;37mabcdef\u{1b}[0m";
+
+        let rendered = truncate_ansi_aware_text(text, 4);
+
+        assert_eq!(
+            nu_utils::strip_ansi_unlikely(rendered.as_ref()).as_ref(),
+            "abc…"
+        );
     }
 
     #[test]
