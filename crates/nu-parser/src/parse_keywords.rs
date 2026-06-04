@@ -3805,6 +3805,15 @@ pub fn parse_run(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) 
     Pipeline::from_vec(vec![expr])
 }
 
+fn find_keyword_decl_by_name(working_set: &StateWorkingSet, name: &[u8]) -> Option<DeclId> {
+    (0..working_set.num_decls())
+        .map(DeclId::new)
+        .find(|decl_id| {
+            let decl = working_set.get_decl(*decl_id);
+            decl.name().as_bytes() == name && decl.is_keyword()
+        })
+}
+
 /// Core parser for a `run` expression.
 ///
 /// Resolves the script filename at parse time, reads and compiles the script into a [`Block`],
@@ -3829,7 +3838,9 @@ fn parse_run_expr_internal(
             return garbage(working_set, Span::concat(spans));
         }
 
-        if let Some(decl_id) = working_set.find_decl(name) {
+        if let Some(decl_id) =
+            find_keyword_decl_by_name(working_set, name).or_else(|| working_set.find_decl(name))
+        {
             #[allow(deprecated)]
             let cwd = working_set.get_cwd();
 
@@ -3935,7 +3946,7 @@ fn parse_run_expr_internal(
                             return garbage(working_set, Span::concat(spans));
                         }
 
-                        // Parse the script as a non-scoped block
+                        // Parse the script as a non-scoped block.
                         let mut block = parse(
                             working_set,
                             Some(&path.path().to_string_lossy()),

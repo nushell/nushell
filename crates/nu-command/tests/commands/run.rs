@@ -559,3 +559,48 @@ fn run_full_reparse_forwards_main_arguments_and_flags() {
         },
     );
 }
+
+#[test]
+fn run_script_exporting_run_does_not_override_builtin_run_in_repl_session() -> Result {
+    Playground::setup(
+        "run_script_exporting_run_does_not_override_builtin_run_in_repl_session",
+        |dirs, sandbox| {
+            sandbox.mkdir("toolkit");
+            sandbox.with_files(&[
+                FileWithContentToBeTrimmed(
+                    "toolkit/wrappers.nu",
+                    "
+                    export def run [--experimental-options: string] {
+                        'toolkit run'
+                    }
+                ",
+                ),
+                FileWithContentToBeTrimmed(
+                    "toolkit/mod.nu",
+                    "
+                    export use wrappers.nu *
+
+                    export def main [] {
+                        'toolkit main'
+                    }
+                ",
+                ),
+                FileWithContentToBeTrimmed(
+                    "toolkit.nu",
+                    "
+                    export use toolkit *
+
+                    export def main [] {
+                        help toolkit
+                        'ok'
+                    }
+                ",
+                ),
+            ]);
+
+            let mut tester = test().cwd(dirs.test());
+            tester.run("run toolkit.nu").expect_value_eq("ok")?;
+            tester.run("run toolkit.nu").expect_value_eq("ok")
+        },
+    )
+}
