@@ -6,7 +6,7 @@ use crate::{
     NuRecordsValue, NuTable, StringResult, TableOpts, TableOutput, TableResult, clean_charset,
     colorize_space,
     common::{
-        INDEX_COLUMN_NAME, NuText, check_value, configure_table, get_empty_style, get_header_style,
+        INDEX_COLUMN_NAME, NuText, check_value, configure_table, error_sign, get_header_style,
         get_index_style, get_value_style, nu_value_to_string_colored,
     },
     types::has_index,
@@ -208,7 +208,7 @@ fn get_string_value_with_header(item: &Value, header: &str, opts: &TableOpts) ->
     match item {
         Value::Record { val, .. } => match val.get(header) {
             Some(value) => get_string_value(value, opts),
-            None => get_empty_style(
+            None => error_sign(
                 opts.config.table.missing_value_symbol.clone(),
                 &opts.style_computer,
             ),
