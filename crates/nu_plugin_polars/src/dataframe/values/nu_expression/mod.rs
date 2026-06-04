@@ -228,7 +228,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
                 | AggExpr::Item { input: expr, .. }
                 | AggExpr::FirstNonNull(expr)
                 | AggExpr::LastNonNull(expr)
-                | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span)
+                | AggExpr::Var(expr, _) => expr_to_value(expr.as_ref(), span),
             };
 
             Ok(Value::record(

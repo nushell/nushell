@@ -1164,8 +1164,8 @@ fn series_to_values(
                     .map(|ca| {
                         let sublist: Vec<Value> = if let Some(arr) = ca {
                             let dt = DataType::from_arrow_dtype(arr.dtype());
-                            let s = Series::from_chunk_and_dtype("".into(), arr, &dt).map_err(
-                                |e| {
+                            let s =
+                                Series::from_chunk_and_dtype("".into(), arr, &dt).map_err(|e| {
                                     ShellError::Generic(
                                         GenericError::new_internal(
                                             "Error creating series from list values",
@@ -1173,8 +1173,7 @@ fn series_to_values(
                                         )
                                         .with_help(e.to_string()),
                                     )
-                                },
-                            )?;
+                                })?;
                             series_to_values(&s, None, None, span)?
                         } else {
                             // empty item
