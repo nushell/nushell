@@ -213,7 +213,7 @@ impl Command for Run {
             },
             Example {
                 description: "Always reload and reparse a script before each invocation.",
-                example: "watch . -g *.nu | each -f { run --full-reparse test.nu }",
+                example: "watch . -g *.nu | each -f { run --full-reparse ./test.nu }",
                 result: None,
             },
         ]
