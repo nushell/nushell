@@ -1402,8 +1402,15 @@ fn gather_arguments(
             Argument::Positional { span, val, .. } => {
                 // Don't bind an explicit positional after spread to a named positional.
                 let next = (!seen_spread).then(|| positional_iter.next()).flatten();
-                if let Some((positional_arg, _required)) = next {
-                    bind_positional_arg(engine_state, callee_stack, positional_arg, val, span)?;
+                if let Some((positional_arg, required)) = next {
+                    bind_positional_arg(
+                        engine_state,
+                        callee_stack,
+                        positional_arg,
+                        required,
+                        val,
+                        span,
+                    )?;
                 } else {
                     push_rest_arg(
                         &block.signature,
@@ -1428,13 +1435,14 @@ fn gather_arguments(
                             .unwrap_or(false);
 
                         if next_is_required {
-                            let (positional_arg, _) = positional_iter
+                            let (positional_arg, required) = positional_iter
                                 .next()
                                 .expect("peeked positional argument disappeared");
                             bind_positional_arg(
                                 engine_state,
                                 callee_stack,
                                 positional_arg,
+                                required,
                                 val,
                                 spread_span,
                             )?;
@@ -1530,14 +1538,17 @@ fn bind_positional_arg(
     engine_state: &EngineState,
     callee_stack: &mut Stack,
     positional_arg: &PositionalArg,
+    required: bool,
     val: Value,
     span: Span,
 ) -> Result<(), ShellError> {
     let var_id = expect_positional_var_id(positional_arg, span)?;
-    // By checking the type of the bound variable rather than converting the SyntaxShape here, we
-    // might be able to save some allocations and effort.
-    let variable = engine_state.get_var(var_id);
-    check_type(&val, &variable.ty)?;
+    if required {
+        // By checking the type of the bound variable rather than converting the SyntaxShape here, we
+        // might be able to save some allocations and effort.
+        let variable = engine_state.get_var(var_id);
+        check_type(&val, &variable.ty)?;
+    }
     callee_stack.add_var(var_id, val);
     Ok(())
 }
