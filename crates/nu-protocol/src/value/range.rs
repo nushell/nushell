@@ -374,10 +374,20 @@ mod float_range {
                 }
                 (Some(next), None) => next - start,
                 (None, Some(end)) => {
-                    if end < start {
-                        -1.0
-                    } else {
+                    let diff = end - start;
+                    if diff == 0.0 {
+                        return Err(ShellError::CannotCreateRange { span });
+                    }
+                    if diff.abs() < 1.0 {
+                        // For float ranges with small differences, compute a natural
+                        // step based on the order of magnitude of the difference,
+                        // so that `0.1..0.3` yields 0.1, 0.2, 0.3.
+                        let magnitude = 10.0_f64.powf(diff.abs().log10().floor());
+                        diff.signum() * magnitude
+                    } else if diff > 0.0 {
                         1.0
+                    } else {
+                        -1.0
                     }
                 }
                 (None, None) => 1.0,
@@ -441,11 +451,21 @@ mod float_range {
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
+            let round_factor = if self.step == 0.0 {
+                1.0
+            } else {
+                // Determine rounding factor from the step's decimal precision.
+                // This ensures that `0.1..0.3` yields clean values like 0.1, 0.2, 0.3
+                // rather than floating-point artifacts like 0.30000000000000004.
+                let precision = (-self.step.log10()).max(0.0).ceil() as i32;
+                10.0_f64.powi(precision)
+            };
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
+                round_factor,
                 signals,
             }
         }
@@ -550,6 +570,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
+        round_factor: f64,
         signals: Signals,
     }
 
@@ -560,17 +581,26 @@ mod float_range {
             if let Some(iter) = self.iter {
                 let current = self.start + self.step * iter as f64;
 
+                // Snap to nearest step multiple to correct floating-point drift,
+                // then round to the step's decimal precision to avoid displaying
+                // artifacts like 0.30000000000000004.
+                let snapped = (current / self.step).round() * self.step;
+                let rounded = (snapped * self.round_factor).round() / self.round_factor;
+
+                // Use an epsilon tolerance to handle floating-point precision
+                // issues in the end-bound comparison.
+                const EPS: f64 = f64::EPSILON * 100.0;
                 let not_end = match (self.step < 0.0, self.end) {
-                    (true, Bound::Included(end)) => current >= end,
-                    (true, Bound::Excluded(end)) => current > end,
-                    (false, Bound::Included(end)) => current <= end,
-                    (false, Bound::Excluded(end)) => current < end,
-                    (_, Bound::Unbounded) => current.is_finite(),
+                    (true, Bound::Included(end)) => rounded + EPS >= end,
+                    (true, Bound::Excluded(end)) => rounded - EPS > end,
+                    (false, Bound::Included(end)) => rounded <= end + EPS,
+                    (false, Bound::Excluded(end)) => rounded < end - EPS,
+                    (_, Bound::Unbounded) => rounded.is_finite(),
                 };
 
                 if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
-                    Some(current)
+                    Some(rounded)
                 } else {
                     self.iter = None;
                     None
