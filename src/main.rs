@@ -111,18 +111,6 @@ fn main() -> Result<()> {
     // Get the current working directory from the environment.
     let init_cwd = current_dir_from_environment();
 
-    // Custom additions
-    let delta = {
-        let mut working_set = nu_protocol::engine::StateWorkingSet::new(&engine_state);
-        working_set.add_decl(Box::new(nu_cli::NuHighlight));
-        working_set.add_decl(Box::new(nu_cli::Print));
-        working_set.render()
-    };
-
-    if let Err(err) = engine_state.merge_delta(delta) {
-        report_shell_error(None, &engine_state, &err);
-    }
-
     #[cfg(feature = "mcp")]
     let handle_ctrlc = !parsed_nu_cli_args.mcp;
     #[cfg(not(feature = "mcp"))]

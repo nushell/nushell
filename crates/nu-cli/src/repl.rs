@@ -9,9 +9,9 @@ use crate::{
     NuHighlighter, NuValidator, NushellPrompt,
     completions::NuCompleter,
     hints::ExternalHinter,
-    nu_highlight::NoOpHighlighter,
     prompt_update,
     reedline_config::{KeybindingsMode, add_menus, create_keybindings},
+    syntax_highlight::NoOpHighlighter,
     util::eval_source,
 };
 use crossterm::cursor::SetCursorStyle;

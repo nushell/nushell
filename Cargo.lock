@@ -5018,6 +5018,7 @@ dependencies = [
  "lexopt",
  "linkme",
  "nu-ansi-term",
+ "nu-cli",
  "nu-cmd-extra",
  "nu-cmd-lang",
  "nu-command",

@@ -30,6 +30,7 @@ rustls-tls = ["nu-command/rustls-tls"]
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
 nu-command.workspace = true
+nu-cli.workspace = true
 nu-engine.workspace = true
 nu-experimental.workspace = true
 nu-glob.workspace = true

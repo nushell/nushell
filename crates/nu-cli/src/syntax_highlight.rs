@@ -11,6 +11,19 @@ use nu_protocol::{
 use reedline::{Highlighter, StyledText};
 use std::sync::{Arc, Mutex};
 
+/// A highlighter that does nothing
+///
+/// Used to remove highlighting from a reedline instance
+/// (letting NuHighlighter structs be dropped)
+#[derive(Default)]
+pub struct NoOpHighlighter {}
+
+impl Highlighter for NoOpHighlighter {
+    fn highlight(&self, _line: &str, _cursor: usize) -> reedline::StyledText {
+        StyledText::new()
+    }
+}
+
 struct HighlightCache {
     line: String,
     global_span_offset: usize,
