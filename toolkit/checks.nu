@@ -1,4 +1,8 @@
-# check standard code formatting and apply the changes
+# Check standard code formatting and apply the changes.
+@category "toolkit"
+@search-terms fmt format cargo fmt rustfmt formatting
+@example "Format all code" { toolkit fmt }
+@example "Check formatting without applying changes" { toolkit fmt --check }
 export def fmt [
     --check # do not apply the format changes, only check the syntax
     --verbose  # print extra information about the command's progress
@@ -20,9 +24,13 @@ export def fmt [
     }
 }
 
-# check that you're using the standard code style
+# Check that you're using the standard code style.
 #
 # > it is important to make `clippy` happy :relieved:
+@category "toolkit"
+@search-terms clippy lint clippy::unwrap_used linting warnings
+@example "Run clippy on the workspace" { toolkit clippy }
+@example "Run clippy with specific features" { toolkit clippy --features extra,stable }
 export def clippy [
     --verbose # print extra information about the command's progress
     --features: list<string> # the list of features to run *Clippy* on
@@ -76,7 +84,12 @@ export def clippy [
     }
 }
 
-# check that all the tests pass
+# Check that all the tests pass.
+@category "toolkit"
+@search-terms test cargo test nextest testing tests
+@example "Run all tests" { toolkit test }
+@example "Run tests with nextest for faster execution" { toolkit test --fast }
+@example "Run tests for specific features" { toolkit test --features extra,stable }
 export def test [
     --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to run the tests on
@@ -97,7 +110,11 @@ export def test [
     }
 }
 
-# run the tests for the standard library
+# Run the tests for the standard library.
+@category "toolkit"
+@search-terms stdlib std library test standard-library
+@example "Run standard library tests" { toolkit test stdlib }
+@example "Run stdlib tests with extra arguments" { toolkit test stdlib --extra-args "--fail-fast" }
 export def "test stdlib" [
     --extra-args: string = ''
 ] {
@@ -107,7 +124,7 @@ export def "test stdlib" [
     "
 }
 
-# run all the necessary checks and tests to submit a perfect PR
+# Run all the necessary checks and tests to submit a perfect PR.
 #
 # # Example
 # let us say we apply a change that
@@ -197,6 +214,11 @@ export def "test stdlib" [
 # - finally let's fix the tests by removing the `x`, essentially removing the whole diff we applied at the top!
 #
 # now the whole `toolkit check pr` passes! :tada:
+@category "toolkit"
+@search-terms check pr pull request fmt clippy test stdlib ci
+@example "Run the full PR check suite" { toolkit check pr }
+@example "Run checks with nextest for faster tests" { toolkit check pr --fast }
+@example "Run checks with specific features" { toolkit check pr --features extra,stable }
 export def "check pr" [
     --fast # use the "nextext" `cargo` subcommand to speed up the tests (see [`cargo-nextest`](https://nexte.st/) and [`nextest-rs/nextest`](https://github.com/nextest-rs/nextest))
     --features: list<string> # the list of features to check the current PR on
@@ -251,7 +273,7 @@ def pretty-format-command [] {
     $"`(ansi default_dimmed)(ansi default_italic)($in)(ansi reset)`"
 }
 
-# return a report about the check stage
+# Return a report about the check stage.
 #
 # - fmt comes first
 # - then clippy
