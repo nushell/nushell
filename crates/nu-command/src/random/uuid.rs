@@ -1,4 +1,5 @@
 use nu_engine::command_prelude::*;
+use nu_protocol::FromValue;
 use uuid::{Timestamp, Uuid};
 
 #[derive(Clone)]
@@ -18,8 +19,8 @@ impl Command for RandomUuid {
                     .short('v')
                     .arg(SyntaxShape::Int)
                     .desc(
-                        "The UUID version to generate (1, 3, 4, 5, 7). Defaults to 4 if not \
-                         specified.",
+                        "The UUID version to generate (1, 3, 4, 5, 7). \
+                            Defaults to 4 if not specified.",
                     )
                     .completion(Completion::new_list(&["1", "3", "4", "5", "7"])),
             )
@@ -28,8 +29,8 @@ impl Command for RandomUuid {
                     .short('n')
                     .arg(SyntaxShape::String)
                     .desc(
-                        "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). Required for v3 \
-                         and v5.",
+                        "The namespace for v3 and v5 UUIDs (dns, url, oid, x500). \
+                            Required for v3 and v5.",
                     )
                     .completion(Completion::new_list(&["dns", "url", "oid", "x500"])),
             )
@@ -63,7 +64,15 @@ impl Command for RandomUuid {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        uuid(engine_state, stack, call)
+        let fix_call_span = |err: ShellError| match err {
+            ShellError::IncorrectValue { msg, val_span, .. } => ShellError::IncorrectValue {
+                msg,
+                val_span,
+                call_span: call.head,
+            },
+            _ => err,
+        };
+        uuid(engine_state, stack, call).map_err(fix_call_span)
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -117,7 +126,12 @@ fn uuid(
     let uuid_str = match version {
         1 => {
             let ts = Timestamp::now(uuid::timestamp::context::NoContext);
-            let node_id = get_mac_address(engine_state, stack, call, span)?;
+            let MacAddr(node_id) = call
+                .get_flag::<MacAddr>(engine_state, stack, "mac")?
+                .ok_or_else(|| ShellError::MissingParameter {
+                    param_name: "mac".to_string(),
+                    span,
+                })?;
             let uuid = Uuid::new_v1(ts, &node_id);
             uuid.hyphenated().to_string()
         }
@@ -235,50 +249,64 @@ fn validate_flags(
     Ok(())
 }
 
-fn get_mac_address(
-    engine_state: &EngineState,
-    stack: &mut Stack,
-    call: &Call,
-    span: Span,
-) -> Result<[u8; 6], ShellError> {
-    let mac_str: Option<String> = call.get_flag(engine_state, stack, "mac")?;
+struct MacAddr([u8; 6]);
 
-    let mac_str = match mac_str {
-        Some(mac) => mac,
-        None => {
-            return Err(ShellError::MissingParameter {
-                param_name: "mac".to_string(),
-                span,
-            });
-        }
-    };
+impl FromValue for MacAddr {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        let s = v.into_string()?;
 
-    let mac_parts = mac_str.split(':').collect::<Vec<&str>>();
-    if mac_parts.len() != 6 {
-        return Err(ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
-            val_span: span,
-            call_span: span,
+        let mut buf = [0_u8; 6];
+        let mut mac_parts = s.split(':').map(|x| u8::from_str_radix(x, 0x10));
+
+        let has_6_hexadecimal_parts = buf.iter_mut().all(|ele| match mac_parts.next() {
+            Some(Ok(n)) => {
+                *ele = n;
+                true
+            }
+            _ => false,
         });
+
+        if has_6_hexadecimal_parts && mac_parts.next().is_none() {
+            Ok(Self(buf))
+        } else {
+            Err(ShellError::IncorrectValue {
+                msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
+                val_span: span,
+                call_span: span,
+            })
+        }
     }
+}
 
-    let mac: [u8; 6] = mac_parts
-        .iter()
-        .map(|x| u8::from_str_radix(x, 16))
-        .collect::<Result<Vec<u8>, _>>()
-        .map_err(|_| ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
-            val_span: span,
-            call_span: span,
-        })?
-        .try_into()
-        .map_err(|_| ShellError::IncorrectValue {
-            msg: "MAC address must be in the format XX:XX:XX:XX:XX:XX".to_string(),
-            val_span: span,
-            call_span: span,
-        })?;
+struct NameSpace(Uuid);
 
-    Ok(mac)
+impl FromValue for NameSpace {
+    fn from_value(v: Value) -> Result<Self, ShellError> {
+        let span = v.span();
+        let s = v.into_string()?;
+
+        let namespace = match s.to_lowercase().as_str() {
+            "dns" => Uuid::NAMESPACE_DNS,
+            "url" => Uuid::NAMESPACE_URL,
+            "oid" => Uuid::NAMESPACE_OID,
+            "x500" => Uuid::NAMESPACE_X500,
+            _ => match Uuid::parse_str(&s) {
+                Ok(uuid) => uuid,
+                Err(_) => {
+                    return Err(ShellError::IncorrectValue {
+                        msg:
+                            "Namespace must be one of: dns, url, oid, x500, or a valid UUID string"
+                                .to_string(),
+                        val_span: span,
+                        call_span: span,
+                    });
+                }
+            },
+        };
+
+        Ok(Self(namespace))
+    }
 }
 
 fn get_namespace_and_name(
@@ -287,46 +315,19 @@ fn get_namespace_and_name(
     call: &Call,
     span: Span,
 ) -> Result<(Uuid, String), ShellError> {
-    let namespace_str: Option<String> = call.get_flag(engine_state, stack, "namespace")?;
-    let name: Option<String> = call.get_flag(engine_state, stack, "name")?;
+    let NameSpace(namespace) = call
+        .get_flag::<NameSpace>(engine_state, stack, "namespace")?
+        .ok_or_else(|| ShellError::MissingParameter {
+            param_name: "namespace".to_string(),
+            span,
+        })?;
 
-    let namespace_str = match namespace_str {
-        Some(ns) => ns,
-        None => {
-            return Err(ShellError::MissingParameter {
-                param_name: "namespace".to_string(),
-                span,
-            });
-        }
-    };
-
-    let name = match name {
-        Some(n) => n,
-        None => {
-            return Err(ShellError::MissingParameter {
-                param_name: "name".to_string(),
-                span,
-            });
-        }
-    };
-
-    let namespace = match namespace_str.to_lowercase().as_str() {
-        "dns" => Uuid::NAMESPACE_DNS,
-        "url" => Uuid::NAMESPACE_URL,
-        "oid" => Uuid::NAMESPACE_OID,
-        "x500" => Uuid::NAMESPACE_X500,
-        _ => match Uuid::parse_str(&namespace_str) {
-            Ok(uuid) => uuid,
-            Err(_) => {
-                return Err(ShellError::IncorrectValue {
-                    msg: "Namespace must be one of: dns, url, oid, x500, or a valid UUID string"
-                        .to_string(),
-                    val_span: span,
-                    call_span: span,
-                });
-            }
-        },
-    };
+    let name = call
+        .get_flag::<String>(engine_state, stack, "name")?
+        .ok_or_else(|| ShellError::MissingParameter {
+            param_name: "name".to_string(),
+            span,
+        })?;
 
     Ok((namespace, name))
 }

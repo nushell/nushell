@@ -14,6 +14,7 @@ use nu_protocol::{
 };
 #[cfg(windows)]
 use nu_utils::enable_vt_processing;
+use nu_utils::time::Instant;
 use nu_utils::{escape_quote_string, perf};
 use std::path::Path;
 
@@ -217,6 +218,8 @@ pub fn print_pipeline(
     pipeline: PipelineData,
     no_newline: bool,
 ) -> Result<(), ShellError> {
+    let to_stderr = engine_state.is_mcp || engine_state.is_lsp;
+
     if let Some(hook) = stack.get_config(engine_state).hooks.display_output.clone() {
         let pipeline = eval_hook(
             engine_state,
@@ -226,10 +229,10 @@ pub fn print_pipeline(
             &hook,
             "display_output",
         )?;
-        pipeline.print_raw(engine_state, no_newline, false)
+        pipeline.print_raw(engine_state, no_newline, to_stderr)
     } else {
         // if display_output isn't set, we should still prefer to print with some formatting
-        pipeline.print_table(engine_state, stack, no_newline, false)
+        pipeline.print_table(engine_state, stack, no_newline, to_stderr)
     }
 }
 
@@ -241,7 +244,7 @@ pub fn eval_source(
     input: PipelineData,
     allow_return: bool,
 ) -> i32 {
-    let start_time = std::time::Instant::now();
+    let start_time = Instant::now();
 
     let exit_code = match evaluate_source(engine_state, stack, source, fname, input, allow_return) {
         Ok(failed) => {

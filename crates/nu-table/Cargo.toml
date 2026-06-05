@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell table printing"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-table"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu-table"
-version = "0.111.1"
+version.workspace = true
 
 [lib]
 bench = false
@@ -14,13 +15,10 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.111.1", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.111.1", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.111.1", default-features = false }
-nu-color-config = { path = "../nu-color-config", version = "0.111.1" }
+nu-protocol.workspace = true
+nu-utils.workspace = true
+nu-engine.workspace = true
+nu-color-config.workspace = true
 nu-ansi-term = { workspace = true }
 fancy-regex = { workspace = true }
 tabled = { workspace = true, features = ["ansi"], default-features = false }
-
-[dev-dependencies]
-# nu-test-support = { path="../nu-test-support", version = "0.111.1"  }

@@ -341,3 +341,21 @@ fn update_optional_in_list_stream_with_closure() -> Result {
         .run("[{a: 1}, {b: 2}, {a: 3}] | every 1 | update a? { $in * 10 } | to nuon")
         .expect_value_eq("[{a: 10}, {b: 2}, {a: 30}]")
 }
+
+#[test]
+fn update_nested_table_column_closure_updates_each_nested_row() -> Result {
+    test()
+        .run(
+            "{ rss_item: [[pubDate]; [1], [2], [3]] } | update rss_item.pubDate { $in + 10 } | get rss_item | to nuon",
+        )
+        .expect_value_eq("[[pubDate]; [11], [12], [13]]")
+}
+
+#[test]
+fn update_nested_table_column_closure_with_in_place_transform() -> Result {
+    test()
+        .run(
+            "{ rss_item: [[pubDate]; [1773429600], [1774325700], [1775448000]] } | update rss_item.pubDate { into datetime -f '%s' } | get rss_item.0.pubDate | describe",
+        )
+        .expect_value_eq("datetime")
+}

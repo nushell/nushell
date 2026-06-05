@@ -1,7 +1,3 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::Duration;
-
 use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::conn::auto::Builder,
@@ -19,8 +15,9 @@ use rmcp::{
     },
 };
 use server::NushellMcpServer;
+use std::sync::Arc;
+use std::time::Duration;
 use tokio::runtime::Runtime;
-use tokio::sync::RwLock;
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -45,11 +42,14 @@ pub fn initialize_mcp_server(
     mut engine_state: EngineState,
     transport: McpTransport,
 ) -> Result<(), ShellError> {
-    tracing_subscriber::fmt()
+    if let Err(err) = tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env().add_directive(tracing::Level::DEBUG.into()))
         .with_writer(std::io::stderr)
         .with_ansi(false)
-        .init();
+        .try_init()
+    {
+        tracing::debug!("tracing subscriber already initialized: {err}");
+    }
 
     // Detach from controlling terminal to prevent child processes from prompting for input.
     //
@@ -116,13 +116,13 @@ async fn run_http_server(
     // Create cancellation token to propagate shutdown to all sessions/streams
     let cancellation_token = CancellationToken::new();
 
-    let session_manager = Arc::new(LocalSessionManager {
-        sessions: RwLock::new(HashMap::new()),
-        session_config: SessionConfig {
-            channel_capacity: SESSION_CHANNEL_CAPACITY,
-            keep_alive: Some(SESSION_KEEP_ALIVE),
-        },
-    });
+    let mut session_config = SessionConfig::default();
+    session_config.channel_capacity = SESSION_CHANNEL_CAPACITY;
+    session_config.keep_alive = Some(SESSION_KEEP_ALIVE);
+
+    let mut session_manager = LocalSessionManager::default();
+    session_manager.session_config = session_config;
+    let session_manager = Arc::new(session_manager);
 
     let service = TowerToHyperService::new(StreamableHttpService::new(
         {

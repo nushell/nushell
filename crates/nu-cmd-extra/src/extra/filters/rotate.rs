@@ -142,9 +142,9 @@ pub fn rotate(
     engine_state: &EngineState,
     stack: &mut Stack,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
 ) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
     let col_given_names: Vec<String> = call.rest(engine_state, stack, 0)?;
     let input_span = input.span().unwrap_or(call.head);
     let mut values = input.into_iter().collect::<Vec<_>>();

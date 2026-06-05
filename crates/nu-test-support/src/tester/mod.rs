@@ -373,14 +373,9 @@ pub struct TestError {
     kind: TestErrorKind,
 }
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, derive_more::Debug)]
+#[debug("{_0}")]
 pub struct TestLocation(&'static Location<'static>);
-
-impl Debug for TestLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
 
 /// Errors emitted by `NuTester` when parsing, compiling, or evaluating code.
 ///

@@ -13,9 +13,10 @@ use nu_protocol::{
 };
 use reedline::{
     ColumnarMenu, DescriptionMenu, DescriptionMode, EditCommand, EditCommandDiscriminants, IdeMenu,
-    Keybindings, ListMenu, MenuBuilder, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
-    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection,
-    default_emacs_keybindings, default_vi_insert_keybindings, default_vi_normal_keybindings,
+    Keybindings, ListMenu, MenuBuilder, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
+    ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope, TextObjectType,
+    TraversalDirection, default_emacs_keybindings, default_vi_insert_keybindings,
+    default_vi_normal_keybindings,
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -757,21 +758,17 @@ fn add_keybinding(
     insert_keybindings: &mut Keybindings,
     normal_keybindings: &mut Keybindings,
 ) -> Result<(), ShellError> {
+    use PromptEditModeDiscriminants as PEMD;
     let span = mode.span();
     match &mode {
-        Value::String { val, .. } => match val.as_str() {
-            str if str.eq_ignore_ascii_case("emacs") => {
-                add_parsed_keybinding(emacs_keybindings, keybinding, config)
-            }
-            str if str.eq_ignore_ascii_case("vi_insert") => {
-                add_parsed_keybinding(insert_keybindings, keybinding, config)
-            }
-            str if str.eq_ignore_ascii_case("vi_normal") => {
-                add_parsed_keybinding(normal_keybindings, keybinding, config)
-            }
-            str => Err(ShellError::InvalidValue {
+        // When updating this implementation, also update `display_edit_mode` function
+        Value::String { val, .. } => match PEMD::from_str(val) {
+            Ok(PEMD::Emacs) => add_parsed_keybinding(emacs_keybindings, keybinding, config),
+            Ok(PEMD::ViInsert) => add_parsed_keybinding(insert_keybindings, keybinding, config),
+            Ok(PEMD::ViNormal) => add_parsed_keybinding(normal_keybindings, keybinding, config),
+            Ok(PEMD::Default | PEMD::Custom) | Err(_) => Err(ShellError::InvalidValue {
                 valid: "'emacs', 'vi_insert', or 'vi_normal'".into(),
-                actual: format!("'{str}'"),
+                actual: format!("'{val}'"),
                 span,
             }),
         },
@@ -794,6 +791,16 @@ fn add_keybinding(
             actual: v.get_type(),
             span: v.span(),
         }),
+    }
+}
+
+// This is displayed in `keybindings list` command
+pub(crate) fn display_edit_mode(mode: PromptEditModeDiscriminants) -> Option<String> {
+    match mode {
+        PromptEditModeDiscriminants::Emacs => Some("emacs".into()),
+        PromptEditModeDiscriminants::ViNormal => Some("vi_normal".into()),
+        PromptEditModeDiscriminants::ViInsert => Some("vi_insert".into()),
+        PromptEditModeDiscriminants::Default | PromptEditModeDiscriminants::Custom => None,
     }
 }
 
@@ -1232,6 +1239,8 @@ fn edit_from_record(
             EditCommand::InsertString(value.to_expanded_string("", config))
         }
         Ok(ECD::InsertNewline) => EditCommand::InsertNewline,
+        Ok(ECD::InsertNewlineAbove) => EditCommand::InsertNewlineAbove,
+        Ok(ECD::InsertNewlineBelow) => EditCommand::InsertNewlineBelow,
         Ok(ECD::ReplaceChar) => {
             let value = extract_value("value", record, span)?;
             let char = extract_char(value)?;
@@ -1449,6 +1458,8 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::InsertChar => "InsertChar value: <char>",
         ECD::InsertString => "InsertString value: <string>",
         ECD::InsertNewline => "InsertNewline",
+        ECD::InsertNewlineAbove => "InsertNewlineAbove",
+        ECD::InsertNewlineBelow => "InsertNewlineBelow",
         ECD::ReplaceChar => "ReplaceChar value: <char>",
         ECD::Backspace => "Backspace",
         ECD::Delete => "Delete",

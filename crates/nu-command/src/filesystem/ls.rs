@@ -4,7 +4,7 @@ use nu_engine::{command_prelude::*, glob_from};
 use nu_glob::MatchOptions;
 use nu_path::{expand_path_with, expand_to_real_path};
 use nu_protocol::{
-    DataSource, NuGlob, PipelineMetadata, Signals,
+    NuGlob, PipelineMetadata, Signals,
     shell_error::{self, generic::GenericError, io::IoError},
 };
 use pathdiff::diff_paths;
@@ -230,12 +230,7 @@ impl Command for Ls {
                     .into_pipeline_data_with_metadata(
                         call_span,
                         engine_state.signals().clone(),
-                        PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
-                            path_columns: vec!["name".to_string()],
-                            ..Default::default()
-                        },
+                        ls_pipeline_metadata(call_span, long),
                     ),
             ),
             Some(pattern) => {
@@ -257,12 +252,7 @@ impl Command for Ls {
                     .into_pipeline_data_with_metadata(
                         call_span,
                         engine_state.signals().clone(),
-                        PipelineMetadata {
-                            #[allow(deprecated)]
-                            data_source: DataSource::Ls,
-                            path_columns: vec!["name".to_string()],
-                            ..Default::default()
-                        },
+                        ls_pipeline_metadata(call_span, long),
                     ))
             }
         }
@@ -324,6 +314,21 @@ impl Command for Ls {
     }
 }
 
+/// Builds `ls` output metadata, including width-priority hints for compact views.
+fn ls_pipeline_metadata(span: Span, long: bool) -> PipelineMetadata {
+    let mut metadata = PipelineMetadata {
+        path_columns: vec!["name".to_string()],
+        ..Default::default()
+    };
+
+    // Keep long listings close to legacy layout; priority hints are most useful in compact views.
+    if !long {
+        metadata.set_table_width_priority_columns(span, ["name"]);
+    }
+
+    metadata
+}
+
 fn ls_for_one_pattern(
     pattern_arg: Option<Spanned<NuGlob>>,
     args: Args,
@@ -370,16 +375,7 @@ fn ls_for_one_pattern(
                     "empty string('') directory or file does not exist",
                 )));
             }
-            match path.item {
-                NuGlob::DoNotExpand(p) => Some(Spanned {
-                    item: NuGlob::DoNotExpand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-                NuGlob::Expand(p) => Some(Spanned {
-                    item: NuGlob::Expand(nu_utils::strip_ansi_string_unlikely(p)),
-                    span: path.span,
-                }),
-            }
+            Some(path.map(NuGlob::strip_ansi_string_unlikely))
         } else {
             pattern_arg
         }

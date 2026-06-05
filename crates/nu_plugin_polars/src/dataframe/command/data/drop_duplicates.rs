@@ -31,7 +31,7 @@ impl PluginCommand for DropDuplicates {
         Signature::build(self.name())
             .optional(
                 "subset",
-                SyntaxShape::Table(vec![]),
+                SyntaxShape::table(),
                 "Subset of columns to drop duplicates.",
             )
             .switch("maintain", "Maintain order.", Some('m'))
@@ -77,9 +77,9 @@ impl PluginCommand for DropDuplicates {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         command(plugin, engine, call, input)
             .map_err(LabeledError::from)
             .map(|pd| pd.set_metadata(metadata))

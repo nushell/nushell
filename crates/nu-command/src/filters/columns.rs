@@ -73,10 +73,9 @@ impl Command for Columns {
 }
 
 fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
-    let metadata = input.metadata();
     match input {
         PipelineData::Empty => Ok(PipelineData::empty()),
-        PipelineData::Value(v, ..) => {
+        PipelineData::Value(v, metadata) => {
             let span = v.span();
             let cols = match v {
                 Value::List {
@@ -115,7 +114,7 @@ fn getcol(head: Span, input: PipelineData) -> Result<PipelineData, ShellError> {
                 .into_pipeline_data()
                 .set_metadata(metadata))
         }
-        PipelineData::ListStream(stream, ..) => {
+        PipelineData::ListStream(stream, metadata) => {
             let values = stream.into_iter().collect::<Vec<_>>();
             let cols = get_columns(&values)
                 .into_iter()

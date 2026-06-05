@@ -6,6 +6,7 @@ use crate::{
 };
 use log::debug;
 use nu_utils::perf;
+use nu_utils::time::Instant;
 
 use nu_plugin::{EvaluatedCall, PluginCommand};
 use nu_protocol::{
@@ -447,7 +448,7 @@ fn from_ndjson(
         );
     let maybe_schema = get_schema(plugin, call)?;
     if !is_eager {
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df = LazyJsonLineReader::new(resource.path)
             .with_infer_schema_length(Some(infer_schema))
@@ -486,7 +487,7 @@ fn from_ndjson(
             None => reader,
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
 
         let df: NuDataFrame = reader
             .finish()
@@ -564,7 +565,7 @@ fn from_csv(
             Some(r) => csv_reader.with_skip_rows(r),
         };
 
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df: NuLazyFrame = csv_reader
             .finish()
             .map_err(|e| {
@@ -581,7 +582,7 @@ fn from_csv(
         df.cache_and_to_value(plugin, engine, call.head)
     } else {
         let file_span = resource.span;
-        let start_time = std::time::Instant::now();
+        let start_time = Instant::now();
         let df = CsvReadOptions::default()
             .with_has_header(!no_header)
             .with_infer_schema_length(Some(infer_schema))

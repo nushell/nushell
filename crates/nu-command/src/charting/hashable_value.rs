@@ -235,7 +235,7 @@ mod test {
         ];
         for (val, expect_hashable_val) in values.into_iter() {
             assert_eq!(
-                HashableValue::from_value(val, Span::unknown()).unwrap(),
+                HashableValue::from_value(val, Span::test_data()).unwrap(),
                 expect_hashable_val
             );
         }
@@ -273,7 +273,7 @@ mod test {
             ),
         ];
         for v in values {
-            assert!(HashableValue::from_value(v, Span::unknown()).is_err())
+            assert!(HashableValue::from_value(v, Span::test_data()).is_err())
         }
     }
 
@@ -291,7 +291,7 @@ mod test {
         for val in values.into_iter() {
             let expected_val = val.clone();
             assert_eq!(
-                HashableValue::from_value(val, Span::unknown())
+                HashableValue::from_value(val, Span::test_data())
                     .unwrap()
                     .into_value(),
                 expected_val

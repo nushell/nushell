@@ -181,7 +181,7 @@ fn parse_module(
 ) -> Result<PipelineData, ShellError> {
     let filename = filename.unwrap_or_else(|| "empty".to_string());
 
-    let file_id = working_set.add_file(filename.clone(), contents);
+    let file_id = working_set.add_file(&filename, contents);
     let new_span = working_set.get_span_for_file(file_id);
 
     let starting_error_count = working_set.parse_errors.len();

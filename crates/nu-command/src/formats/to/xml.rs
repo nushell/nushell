@@ -127,9 +127,9 @@ impl Job {
         }
     }
 
-    fn run(mut self, input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
+    fn run(mut self, mut input: PipelineData, head: Span) -> Result<PipelineData, ShellError> {
         let metadata = input
-            .metadata()
+            .take_metadata()
             .unwrap_or_default()
             .with_content_type(Some("application/xml".into()));
         let value = input.into_value(head)?;

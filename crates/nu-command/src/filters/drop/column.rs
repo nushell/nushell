@@ -42,18 +42,8 @@ impl Command for DropColumn {
     ) -> Result<PipelineData, ShellError> {
         let input = input.into_stream_or_original(engine_state);
         // the number of columns to drop
-        let columns: Option<Spanned<i64>> = call.opt(engine_state, stack, 0)?;
+        let columns = call.opt::<usize>(engine_state, stack, 0)?.unwrap_or(1);
         let from_left = call.has_flag(engine_state, stack, "left")?;
-
-        let columns = if let Some(columns) = columns {
-            if columns.item < 0 {
-                return Err(ShellError::NeedsPositiveValue { span: columns.span });
-            } else {
-                columns.item as usize
-            }
-        } else {
-            1
-        };
 
         drop_cols(engine_state, input, call.head, columns, from_left)
     }
@@ -107,9 +97,8 @@ fn drop_cols(
     // `[{a: 1}, {b: 2}] | drop column`
     // This will drop the column "a" instead of "b" even though column "b"
     // is displayed farther to the right.
-    let metadata = input.metadata();
     match input {
-        PipelineData::ListStream(stream, ..) => {
+        PipelineData::ListStream(stream, metadata) => {
             let mut stream = stream.into_iter();
             if let Some(mut first) = stream.next() {
                 let drop_cols = drop_cols_set(&mut first, head, columns, from_left)?;
@@ -130,7 +119,7 @@ fn drop_cols(
                 Ok(PipelineData::empty())
             }
         }
-        PipelineData::Value(mut v, ..) => {
+        PipelineData::Value(mut v, metadata) => {
             let span = v.span();
             match v {
                 Value::List { mut vals, .. } => {

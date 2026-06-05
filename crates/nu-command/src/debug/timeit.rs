@@ -1,6 +1,6 @@
 use nu_engine::{ClosureEvalOnce, command_prelude::*};
 use nu_protocol::engine::Closure;
-use web_time::Instant;
+use nu_utils::time::Instant;
 
 #[derive(Clone)]
 pub struct TimeIt;
@@ -29,17 +29,23 @@ This command will bubble up any errors encountered when running the closure. The
                 (Type::Nothing, Type::Duration),
                 (
                     Type::Any,
-                    Type::Record(Box::new([
-                        ("time".into(), Type::Duration),
-                        ("output".into(), Type::Any),
-                    ])),
+                    Type::Record(
+                        vec![
+                            ("time".into(), Type::Duration),
+                            ("output".into(), Type::Any),
+                        ]
+                        .into(),
+                    ),
                 ),
                 (
                     Type::Nothing,
-                    Type::Record(Box::new([
-                        ("time".into(), Type::Duration),
-                        ("output".into(), Type::Any),
-                    ])),
+                    Type::Record(
+                        vec![
+                            ("time".into(), Type::Duration),
+                            ("output".into(), Type::Any),
+                        ]
+                        .into(),
+                    ),
                 ),
             ])
             .allow_variants_without_examples(true)

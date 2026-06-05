@@ -1,5 +1,6 @@
-use nu_test_support::nu;
-use nu_test_support::playground::Playground;
+use nu_test_support::fs::Stub;
+use nu_test_support::prelude::*;
+use rstest::rstest;
 use std::fs;
 
 #[test]
@@ -127,17 +128,15 @@ fn def_errors_with_multiple_commas() {
     assert!(actual.err.contains("expected parameter"));
 }
 
-#[test]
-fn def_fails_with_invalid_name() {
-    let err_msg = "command name can't be a number, a filesize, or contain a hash # or caret ^";
-    let actual = nu!(r#"def 1234 = echo "test""#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!(r#"def 5gib = echo "test""#);
-    assert!(actual.err.contains(err_msg));
-
-    let actual = nu!("def ^foo [] {}");
-    assert!(actual.err.contains(err_msg));
+#[rstest]
+#[case::numeric("1234")]
+#[case::filesize_like("5gib")]
+#[case::caret("^foo")]
+fn def_fails_with_invalid_name(#[case] alias: &str) -> Result {
+    let code = format!("def {alias} = echo 'test'");
+    let err = test().run(code).expect_parse_error()?;
+    assert!(matches!(err, ParseError::CommandDefNotValid(_)));
+    Ok(())
 }
 
 #[test]
@@ -320,6 +319,61 @@ fn def_env_wrapped() {
 fn def_env_wrapped_no_help() {
     let actual = nu!("def --wrapped foo [...rest] { echo $rest }; foo -h | to json --raw");
     assert_eq!(actual.out, r#"["-h"]"#);
+}
+
+#[test]
+fn def_wrapped_untyped_rest_strips_double_quoted_equals_value() {
+    let actual = nu!(r#"def --wrapped foo [...rest] { $rest.0 }; foo expression="releases/4.x.x""#);
+    assert_eq!(actual.out, "expression=releases/4.x.x");
+}
+
+#[test]
+fn def_wrapped_untyped_rest_strips_single_quoted_equals_value() {
+    let actual = nu!("def --wrapped foo [...rest] { $rest.0 }; foo expression='releases/4.x.x'");
+    assert_eq!(actual.out, "expression=releases/4.x.x");
+}
+
+#[test]
+fn def_wrapped_untyped_rest_expands_tilde() {
+    // When accessing $args directly (e.g. `$rest | get 0`), tilde should be expanded to the
+    // home dir. This is the core case from issue #17410.
+    let expected = nu!("'~' | path expand");
+    let actual = nu!("def --wrapped foo [...rest] { $rest | get 0 }; foo ~");
+    assert_eq!(actual.out, expected.out);
+
+    // Also works when forwarding to an external command
+    let expected_ext = nu!("^echo ~");
+    let actual_ext = nu!("def --wrapped foo [...rest] { ^echo ...$rest }; foo ~");
+    assert_eq!(actual_ext.out, expected_ext.out);
+}
+
+#[test]
+fn def_wrapped_explicit_string_rest_keeps_double_quoted_equals_value() {
+    let actual =
+        nu!(r#"def --wrapped foo [...rest: string] { $rest.0 }; foo --base="releases/4.x.x""#);
+    assert_eq!(actual.out, r#"--base="releases/4.x.x""#);
+}
+
+#[test]
+fn def_wrapped_explicit_string_rest_keeps_tilde_literal() {
+    let actual = nu!("def --wrapped foo [...rest: string] { $rest.0 }; foo ~");
+    assert_eq!(actual.out, "~");
+}
+
+#[test]
+fn def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults() {
+    Playground::setup(
+        "def_wrapped_dynamic_percent_builtin_preserves_no_arg_defaults",
+        |dirs, play| {
+            play.with_files(&[Stub::EmptyFile("probe.txt")]);
+            let actual = nu!(
+                cwd: dirs.test(),
+                "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; let direct = (ls | where name =~ 'probe.txt' | length); let wrapped = (builtin ls | where name =~ 'probe.txt' | length); [$direct $wrapped] | to nuon"
+            );
+
+            assert_eq!(actual.out, "[1, 1]");
+        },
+    );
 }
 
 #[test]

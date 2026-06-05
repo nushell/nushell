@@ -1,6 +1,6 @@
 use super::clipboard::provider::{Clipboard, create_clipboard};
 use crate::{
-    convert_json_string_to_value, platform::clip::get_config::get_clip_config_with_plugin_fallback,
+    platform::clip::get_config::get_clip_config_with_plugin_fallback, try_json_str_to_value,
 };
 use nu_engine::command_prelude::*;
 use nu_protocol::{Config, shell_error::generic::GenericError};
@@ -53,7 +53,7 @@ impl Command for ClipPaste {
 
         let trimmed = text.trim_start();
         if trimmed.starts_with('{') || trimmed.starts_with('[') || trimmed.starts_with('"') {
-            return match convert_json_string_to_value(trimmed, call.head) {
+            return match try_json_str_to_value(trimmed, call.head, false) {
                 Ok(value) => Ok(value.into_pipeline_data()),
                 Err(_) => Ok(Value::string(text, call.head).into_pipeline_data()),
             };

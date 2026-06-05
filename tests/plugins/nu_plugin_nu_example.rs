@@ -5,7 +5,7 @@ fn call() {
     // Add the `nu` binaries to the path env
     let path_env = std::env::join_paths(
         std::iter::once(nu_test_support::fs::binaries().into()).chain(
-            std::env::var_os(nu_test_support::NATIVE_PATH_ENV_VAR)
+            std::env::var_os(nu_utils::consts::NATIVE_PATH_ENV_VAR)
                 .as_deref()
                 .map(std::env::split_paths)
                 .into_iter()
@@ -15,7 +15,7 @@ fn call() {
     .expect("failed to make path var");
 
     let assert = Command::new(nu_test_support::fs::executable_path())
-        .env(nu_test_support::NATIVE_PATH_ENV_VAR, path_env)
+        .env(nu_utils::consts::NATIVE_PATH_ENV_VAR, path_env)
         .args([
             "--no-config-file",
             "--no-std-lib",

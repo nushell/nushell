@@ -1,4 +1,4 @@
-export module foo.nu
+export module foo.nu; export use foo
 
 export def test [] { 'test' }
 

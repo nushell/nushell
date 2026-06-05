@@ -1144,7 +1144,7 @@ fn series_to_values(
                     }
                     .map(|ca| {
                         let sublist: Vec<Value> = if let Some(ref s) = ca {
-                            series_to_values(s, None, None, Span::unknown())?
+                            series_to_values(s, None, None, span)?
                         } else {
                             // empty item
                             vec![]
@@ -1301,12 +1301,14 @@ fn series_to_values(
             })?;
             series_to_values(&casted, maybe_from_row, maybe_size, span)
         }
-        DataType::Categorical(categories, _categorical_ordering) => {
-            Ok(utf8_view_array_to_value(categories.freeze().categories()))
-        }
-        DataType::Enum(frozen_categories, _categorical_ordering) => {
-            Ok(utf8_view_array_to_value(frozen_categories.categories()))
-        }
+        DataType::Categorical(categories, _categorical_ordering) => Ok(utf8_view_array_to_value(
+            categories.freeze().categories(),
+            span,
+        )),
+        DataType::Enum(frozen_categories, _categorical_ordering) => Ok(utf8_view_array_to_value(
+            frozen_categories.categories(),
+            span,
+        )),
         e => Err(ShellError::Generic(
             GenericError::new_internal("Error creating Dataframe", "")
                 .with_help(format!("Value not supported in nushell: {e:?}")),
@@ -1509,12 +1511,12 @@ where
     }
 }
 
-fn utf8_view_array_to_value(array: &Utf8ViewArray) -> Vec<Value> {
+fn utf8_view_array_to_value(array: &Utf8ViewArray, span: Span) -> Vec<Value> {
     array
         .iter()
         .map(|x| match x {
-            Some(s) => Value::string(s.to_string(), Span::unknown()),
-            None => Value::nothing(Span::unknown()),
+            Some(s) => Value::string(s.to_string(), span),
+            None => Value::nothing(span),
         })
         .collect::<Vec<Value>>()
 }

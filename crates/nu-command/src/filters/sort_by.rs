@@ -126,7 +126,7 @@ impl Command for SortBy {
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let head = call.head;
         let comparator_vals: Vec<Value> = call.rest(engine_state, stack, 0)?;
@@ -134,7 +134,7 @@ impl Command for SortBy {
         let insensitive = call.has_flag(engine_state, stack, "ignore-case")?;
         let natural = call.has_flag(engine_state, stack, "natural")?;
         let custom = call.has_flag(engine_state, stack, "custom")?;
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let mut vec: Vec<_> = input.into_iter_strict(head)?.collect();
 
         if comparator_vals.is_empty() {

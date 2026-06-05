@@ -421,7 +421,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type SubPlan are not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: span,
         }),
         Expr::Selector(selector) => {
             // Convert Selector to NuSelector and then to Value
@@ -432,7 +432,7 @@ pub fn expr_to_value(expr: &Expr, span: Span) -> Result<Value, ShellError> {
             msg: "Expressions of type Eval to Nu Value is not yet supported".to_string(),
             input: format!("Expression is {expr:?}"),
             msg_span: span,
-            input_span: Span::unknown(),
+            input_span: span,
         }),
         Expr::Field(column_name) => {
             let fields: Vec<Value> = column_name
@@ -587,10 +587,11 @@ impl CustomValueSupport for NuExpression {
                 ))
                 .into()),
             Value::List { vals, .. } => {
-                NuDataFrame::try_from_iter(plugin, vals.iter().cloned(), None).and_then(|ndf| {
-                    let series = ndf.as_series(value.span())?;
-                    Ok(series.lit().into())
-                })
+                NuDataFrame::try_from_iter(plugin, vals.iter().cloned(), None, value.span())
+                    .and_then(|ndf| {
+                        let series = ndf.as_series(value.span())?;
+                        Ok(series.lit().into())
+                    })
             }
             x => Err(ShellError::CantConvert {
                 to_type: "lazy expression".into(),
@@ -613,7 +614,7 @@ impl CustomValueSupport for NuExpression {
         }
     }
 
-    fn base_value(self, _span: Span) -> Result<Value, ShellError> {
-        self.to_value(Span::unknown())
+    fn base_value(self, span: Span) -> Result<Value, ShellError> {
+        self.to_value(span)
     }
 }

@@ -13,6 +13,10 @@ use std::{
 };
 
 pub const ENV_CONVERSIONS: &str = "ENV_CONVERSIONS";
+pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
+// Parser info key used when `<cmd> --help` is rewritten to `help <name>` so `help`
+// can render documentation for the already-resolved declaration.
+pub const HELP_DECL_ID_PARSER_INFO: &str = "help_decl_id";
 
 enum ConversionError {
     ShellError(ShellError),
@@ -211,7 +215,6 @@ pub fn path_str(
     env_to_string(pathname, pathval, engine_state, stack)
 }
 
-pub const DIR_VAR_PARSER_INFO: &str = "dirs_var";
 pub fn get_dirs_var_from_call(stack: &Stack, call: &Call) -> Option<VarId> {
     call.get_parser_info(stack, DIR_VAR_PARSER_INFO)
         .and_then(|x| {

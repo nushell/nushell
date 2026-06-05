@@ -74,11 +74,19 @@ pub(crate) fn read_config_file(
                     if let Ok(mut output) = File::create(&config_path) {
                         if write!(output, "{scaffold_config_file}").is_ok() {
                             let config_name = config_kind.name();
-                            println!(
-                                "{} file created at: {}",
-                                config_name,
-                                config_path.to_string_lossy()
-                            );
+                            if engine_state.is_mcp {
+                                eprintln!(
+                                    "{} file created at: {}",
+                                    config_name,
+                                    config_path.to_string_lossy()
+                                );
+                            } else {
+                                println!(
+                                    "{} file created at: {}",
+                                    config_name,
+                                    config_path.to_string_lossy()
+                                );
+                            }
                         } else {
                             eprintln!(
                                 "Unable to write to {}, sourcing default file instead",

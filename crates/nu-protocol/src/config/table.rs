@@ -9,6 +9,7 @@ pub enum TableMode {
     Thin,
     Light,
     Compact,
+    Frameless,
     WithLove,
     CompactDouble,
     #[default]
@@ -35,6 +36,7 @@ impl FromStr for TableMode {
             "thin" => Ok(Self::Thin),
             "light" => Ok(Self::Light),
             "compact" => Ok(Self::Compact),
+            "frameless" => Ok(Self::Frameless),
             "with_love" => Ok(Self::WithLove),
             "compact_double" => Ok(Self::CompactDouble),
             "default" => Ok(TableMode::default()),
@@ -51,7 +53,7 @@ impl FromStr for TableMode {
             "single" => Ok(Self::Single),
             "double" => Ok(Self::Double),
             _ => Err(
-                "'basic', 'thin', 'light', 'compact', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact', 'single', or 'double'",
+                "'basic', 'thin', 'light', 'compact', 'frameless', 'with_love', 'compact_double', 'rounded', 'reinforced', 'heavy', 'none', 'psql', 'markdown', 'dots', 'restructured', 'ascii_rounded', 'basic_compact', 'single', or 'double'",
             ),
         }
     }

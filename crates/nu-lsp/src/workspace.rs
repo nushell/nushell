@@ -15,6 +15,7 @@ use nu_protocol::{
     Span,
     engine::{EngineState, StateWorkingSet},
 };
+use nu_utils::time::Instant;
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
@@ -225,7 +226,7 @@ impl LanguageServer {
             .ok();
         // TODO: WorkDoneProgress -> PartialResults for quicker response
         // currently not enabled by `lsp_types` but hackable in `server_capabilities` json
-        let time_start = std::time::Instant::now();
+        let time_start = Instant::now();
         loop {
             if self.handle_internal_messages().ok()? {
                 break;

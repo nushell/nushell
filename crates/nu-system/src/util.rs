@@ -52,8 +52,36 @@ pub fn build_kill_command(
             cmd.arg("-9");
         }
 
-        cmd.args(pids.map(move |id| id.to_string()));
+        cmd.arg("--");
+        cmd.args(pids.map(|id| id.to_string()));
 
         cmd
+    }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_kill_command_separates_options_from_negative_pids() {
+        let cmd = build_kill_command(false, std::iter::once(-9), None);
+        let args = cmd
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(args, ["--", "-9"]);
+    }
+
+    #[test]
+    fn build_kill_command_keeps_signal_and_pid_separator() {
+        let cmd = build_kill_command(false, std::iter::once(123), Some(9));
+        let args = cmd
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+
+        assert_eq!(args, ["-9", "--", "123"]);
     }
 }

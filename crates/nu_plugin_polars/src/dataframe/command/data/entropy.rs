@@ -59,7 +59,7 @@ impl PluginCommand for Entropy {
                         )
                         .expect("should be able to create a dataframe"),
                     )
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
             Example {
@@ -73,7 +73,7 @@ impl PluginCommand for Entropy {
                         )
                         .expect("should be able to create a dataframe"),
                     )
-                    .into_value(Span::unknown()),
+                    .into_value(Span::test_data()),
                 ),
             },
         ]
@@ -84,9 +84,9 @@ impl PluginCommand for Entropy {
         plugin: &Self::Plugin,
         engine: &nu_plugin::EngineInterface,
         call: &nu_plugin::EvaluatedCall,
-        input: nu_protocol::PipelineData,
+        mut input: nu_protocol::PipelineData,
     ) -> Result<nu_protocol::PipelineData, nu_protocol::LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let value = input.into_value(call.head)?;
         match PolarsPluginObject::try_from_value(plugin, &value)? {
             PolarsPluginObject::NuExpression(expr) => command_expr(plugin, engine, call, expr),

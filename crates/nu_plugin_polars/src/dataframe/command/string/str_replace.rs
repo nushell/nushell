@@ -71,6 +71,7 @@ impl PluginCommand for StrReplace {
                             vec![Value::test_string("ABc"), Value::test_string("ABcabc")],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),
@@ -90,6 +91,7 @@ impl PluginCommand for StrReplace {
                             ],
                         )],
                         None,
+                        Span::test_data(),
                     )
                     .expect("simple df for test should not fail")
                     .into_value(Span::test_data()),

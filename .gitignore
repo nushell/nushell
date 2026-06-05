@@ -63,3 +63,6 @@ tarpaulin-report.html
 
 # skills
 .github/skills/*
+
+# Claude settings
+.claude

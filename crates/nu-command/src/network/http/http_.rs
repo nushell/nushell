@@ -146,10 +146,11 @@ impl Command for Http {
             (None, Some(_)) => Err(ShellError::NushellFailed {
                 msg: (String::from("Default verb is get with a payload. Impossible state")),
             }),
-            (None, None) => Ok(
-                Value::string(get_full_help(self, engine_state, stack), call.head)
-                    .into_pipeline_data(),
-            ),
+            (None, None) => Ok(Value::string(
+                get_full_help(self, engine_state, stack, call.head),
+                call.head,
+            )
+            .into_pipeline_data()),
         }
     }
 

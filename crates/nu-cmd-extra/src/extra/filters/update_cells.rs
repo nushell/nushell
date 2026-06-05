@@ -112,8 +112,6 @@ impl Command for UpdateCells {
             None => None,
         };
 
-        let metadata = input.metadata();
-
         let span = input.span();
         match input {
             PipelineData::Value(Value::Record { ref mut val, .. }, ..) => {
@@ -128,14 +126,17 @@ impl Command for UpdateCells {
                 );
                 Ok(input)
             }
-            _ => Ok(UpdateCellIterator {
-                iter: input.into_iter(),
-                closure: ClosureEval::new(engine_state, stack, closure),
-                columns,
-                span: head,
+            _ => {
+                let metadata = input.take_metadata();
+                Ok(UpdateCellIterator {
+                    iter: input.into_iter(),
+                    closure: ClosureEval::new(engine_state, stack, closure),
+                    columns,
+                    span: head,
+                }
+                .into_pipeline_data(head, engine_state.signals().clone())
+                .set_metadata(metadata))
             }
-            .into_pipeline_data(head, engine_state.signals().clone())
-            .set_metadata(metadata)),
         }
     }
 }

@@ -191,7 +191,7 @@ fn quoted_column_access() {
 fn get_does_not_delve_too_deep_in_nested_lists() {
     let actual = nu!("[[{foo: bar}]] | get foo");
 
-    assert!(actual.err.contains("cannot find column"));
+    assert!(actual.err.contains("column 'foo' is missing"));
 }
 
 #[test]
@@ -212,6 +212,17 @@ fn ignore_multiple() {
 fn test_const() {
     let actual = nu!("const x = [1 2 3] | get 1; $x");
     assert_eq!(actual.out, "2");
+}
+
+#[test]
+fn get_with_negative_number_reports_clear_error() {
+    let actual = nu!("[1 2 3] | get (-2)");
+
+    assert!(
+        actual
+            .err
+            .contains("can't convert negative number to cell path")
+    );
 }
 
 enum Metadata {

@@ -10,5 +10,5 @@ fuzz_target!(|data: &[u8]| {
     let engine_state = create_default_context();
     let mut working_set = StateWorkingSet::new(&engine_state);
 
-    let _block = parse(&mut working_set, None, &data, true);
+    let _block = parse(&mut working_set, None, data, true);
 });

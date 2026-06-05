@@ -1,11 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Color configuration code used by Nushell"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-color-config"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+license.workspace = true
 name = "nu-color-config"
-version = "0.111.1"
+rust-version.workspace = true
+version.workspace = true
 
 [lib]
 bench = false
@@ -15,12 +16,12 @@ harness = false
 workspace = true
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.111.1", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.111.1", default-features = false }
-nu-json = { path = "../nu-json", version = "0.111.1" }
-nu-ansi-term = { workspace = true }
+nu-protocol.workspace = true
+nu-engine.workspace = true
+nu-json.workspace = true
+nu-ansi-term.workspace = true
 
 serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
-nu-test-support = { path = "../nu-test-support", version = "0.111.1" }
+nu-test-support = { path = "../nu-test-support" }

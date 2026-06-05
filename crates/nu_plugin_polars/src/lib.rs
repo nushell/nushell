@@ -112,7 +112,7 @@ impl Plugin for PolarsPlugin {
     ) -> Result<(), LabeledError> {
         debug!("custom_value_dropped called {custom_value:?}");
         if !self.disable_cache_drop {
-            let id = CustomValueType::try_from_custom_value(custom_value)?.id();
+            let id = CustomValueType::try_from_custom_value(custom_value, Span::unknown())?.id();
             let _ = self.cache.remove(engine, &id, false);
         }
         Ok(())
@@ -123,15 +123,16 @@ impl Plugin for PolarsPlugin {
         engine: &EngineInterface,
         custom_value: Spanned<Box<dyn CustomValue>>,
     ) -> Result<Value, LabeledError> {
-        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
-            CustomValueType::NuDataFrame(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuLazyFrame(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuExpression(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuLazyGroupBy(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuWhen(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuDataType(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuSchema(cv) => cv.custom_value_to_base_value(self, engine),
-            CustomValueType::NuSelector(cv) => cv.custom_value_to_base_value(self, engine),
+        let span = custom_value.span;
+        let result = match CustomValueType::try_from_custom_value(custom_value.item, span)? {
+            CustomValueType::NuDataFrame(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuLazyFrame(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuExpression(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuLazyGroupBy(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuWhen(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuDataType(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuSchema(cv) => cv.custom_value_to_base_value(self, engine, span),
+            CustomValueType::NuSelector(cv) => cv.custom_value_to_base_value(self, engine, span),
         };
         Ok(result?)
     }
@@ -143,30 +144,31 @@ impl Plugin for PolarsPlugin {
         operator: Spanned<Operator>,
         right: Value,
     ) -> Result<Value, LabeledError> {
-        let result = match CustomValueType::try_from_custom_value(left.item)? {
+        let left_span = left.span;
+        let result = match CustomValueType::try_from_custom_value(left.item, left_span)? {
             CustomValueType::NuDataFrame(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuLazyFrame(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuExpression(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuLazyGroupBy(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuWhen(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuDataType(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuSchema(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
             CustomValueType::NuSelector(cv) => {
-                cv.custom_value_operation(self, engine, left.span, operator, right)
+                cv.custom_value_operation(self, engine, left_span, operator, right)
             }
         };
         Ok(result?)
@@ -180,30 +182,31 @@ impl Plugin for PolarsPlugin {
         // TODO: check if we should respect these
         _optional: bool,
     ) -> Result<Value, LabeledError> {
-        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
+        let cv_span = custom_value.span;
+        let result = match CustomValueType::try_from_custom_value(custom_value.item, cv_span)? {
             CustomValueType::NuDataFrame(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuLazyFrame(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuExpression(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuLazyGroupBy(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuWhen(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuDataType(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuSchema(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
             CustomValueType::NuSelector(cv) => {
-                cv.custom_value_follow_path_int(self, engine, custom_value.span, index)
+                cv.custom_value_follow_path_int(self, engine, cv_span, index)
             }
         };
         Ok(result?)
@@ -218,30 +221,31 @@ impl Plugin for PolarsPlugin {
         _optional: bool,
         _casing: Casing,
     ) -> Result<Value, LabeledError> {
-        let result = match CustomValueType::try_from_custom_value(custom_value.item)? {
+        let cv_span = custom_value.span;
+        let result = match CustomValueType::try_from_custom_value(custom_value.item, cv_span)? {
             CustomValueType::NuDataFrame(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuLazyFrame(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuExpression(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuLazyGroupBy(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuWhen(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuDataType(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuSchema(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
             CustomValueType::NuSelector(cv) => {
-                cv.custom_value_follow_path_string(self, engine, custom_value.span, column_name)
+                cv.custom_value_follow_path_string(self, engine, cv_span, column_name)
             }
         };
         Ok(result?)
@@ -253,7 +257,8 @@ impl Plugin for PolarsPlugin {
         custom_value: Box<dyn CustomValue>,
         other_value: Value,
     ) -> Result<Option<Ordering>, LabeledError> {
-        let result = match CustomValueType::try_from_custom_value(custom_value)? {
+        let result = match CustomValueType::try_from_custom_value(custom_value, other_value.span())?
+        {
             CustomValueType::NuDataFrame(cv) => {
                 cv.custom_value_partial_cmp(self, engine, other_value)
             }

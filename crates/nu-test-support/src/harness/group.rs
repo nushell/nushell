@@ -55,6 +55,7 @@ impl From<&Extra> for GroupKey {
     }
 }
 
+#[derive(Debug)]
 pub struct GroupCtx {
     pub run_in_serial: bool,
     pub experimental_options: BTreeMap<&'static ExperimentalOption, bool>,
@@ -99,7 +100,7 @@ impl Display for GroupCtx {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Grouper(HashMap<GroupKey, GroupCtx>);
 
 impl TestGrouper<Extra, GroupKey, GroupCtx> for Grouper {
@@ -128,7 +129,7 @@ impl TestGrouper<Extra, GroupKey, GroupCtx> for Grouper {
     }
 }
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct GroupRunner(SimpleGroupRunner);
 
 impl<'t> TestGroupRunner<'t, Extra, GroupKey, GroupCtx> for GroupRunner {

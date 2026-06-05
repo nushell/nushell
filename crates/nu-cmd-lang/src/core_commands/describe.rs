@@ -220,11 +220,11 @@ struct Options {
 fn run(
     engine_state: Option<&EngineState>,
     call: &Call,
-    input: PipelineData,
+    mut input: PipelineData,
     options: Options,
 ) -> Result<PipelineData, ShellError> {
     let head = call.head;
-    let metadata = input.metadata();
+    let metadata = input.take_metadata();
 
     let description = match input {
         PipelineData::ByteStream(stream, ..) => {

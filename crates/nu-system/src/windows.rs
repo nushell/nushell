@@ -8,6 +8,7 @@ use libc::c_void;
 use ntapi::ntrtl::RTL_USER_PROCESS_PARAMETERS;
 use ntapi::ntwow64::{PEB32, RTL_USER_PROCESS_PARAMETERS32};
 
+use nu_utils::time::Instant;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -19,7 +20,6 @@ use std::ptr::null_mut;
 use std::sync::LazyLock;
 use std::thread;
 use std::time::Duration;
-use web_time::Instant;
 
 use windows::core::{PCWSTR, PWSTR};
 
@@ -1058,6 +1058,16 @@ impl ProcessInfo {
     /// Memory size in number of bytes
     pub fn mem_size(&self) -> u64 {
         self.memory_info.working_set_size
+    }
+
+    /// Working set size in bytes
+    pub fn working_size(&self) -> u64 {
+        self.memory_info.working_set_size
+    }
+
+    /// Paged memory size in bytes
+    pub fn paged_size(&self) -> u64 {
+        self.memory_info.page_file_usage
     }
 
     /// Virtual memory size in bytes

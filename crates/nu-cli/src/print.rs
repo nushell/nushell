@@ -39,7 +39,8 @@ impl Command for Print {
         r#"Unlike `echo`, this command does not return any value (`print | describe` will return "nothing").
 Since this command has no output, there is no point in piping it with other commands.
 
-`print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline."#
+`print` may be used inside blocks of code (e.g.: hooks) to display text during execution without interfering with the pipeline.
+In protocol modes (`--lsp`, `--mcp`), `print` always writes to stderr to keep stdout reserved for protocol messages."#
     }
 
     fn search_terms(&self) -> Vec<&str> {
@@ -57,8 +58,8 @@ Since this command has no output, there is no point in piping it with other comm
         let no_newline = call.has_flag(engine_state, stack, "no-newline")?;
         let raw = call.has_flag(engine_state, stack, "raw")?;
 
-        // if we're in the LSP *always* print to stderr
-        let to_stderr = if engine_state.is_lsp {
+        // In protocol modes (LSP, MCP), reserve stdout for protocol messages.
+        let to_stderr = if engine_state.is_lsp || engine_state.is_mcp {
             true
         } else {
             call.has_flag(engine_state, stack, "stderr")?

@@ -42,6 +42,11 @@ pub struct Stack {
     pub env_vars: Vec<Arc<EnvVars>>,
     /// Tells which environment variables from engine state are hidden, per overlay.
     pub env_hidden: Arc<HashMap<String, HashSet<EnvName>>>,
+    /// Tracks env vars hidden in this stack context to report repeated `hide-env` calls.
+    ///
+    /// This is separate from `env_hidden`: `env_hidden` controls runtime visibility for engine
+    /// state values, while `env_hide_history` preserves command semantics for repeated hides.
+    pub env_hide_history: Arc<HashMap<String, HashSet<EnvName>>>,
     /// List of active overlays
     pub active_overlays: Vec<String>,
     /// Argument stack for IR evaluation
@@ -80,6 +85,7 @@ impl Stack {
             vars: Vec::new(),
             env_vars: Vec::new(),
             env_hidden: Arc::new(HashMap::new()),
+            env_hide_history: Arc::new(HashMap::new()),
             active_overlays: vec![DEFAULT_OVERLAY_NAME.to_string()],
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
@@ -102,6 +108,7 @@ impl Stack {
             // here we are still cloning environment variable-related information
             env_vars: parent.env_vars.clone(),
             env_hidden: parent.env_hidden.clone(),
+            env_hide_history: parent.env_hide_history.clone(),
             active_overlays: parent.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
@@ -136,6 +143,7 @@ impl Stack {
         }
         unique_stack.env_vars = child.env_vars;
         unique_stack.env_hidden = child.env_hidden;
+        unique_stack.env_hide_history = child.env_hide_history;
         unique_stack.active_overlays = child.active_overlays;
         unique_stack.config = child.config;
         unique_stack
@@ -219,7 +227,11 @@ impl Stack {
         if let Some(value) = self.get_env_var(engine_state, "config") {
             let old = self.get_config(engine_state);
             let mut config = (*old).clone();
-            let result = config.update_from_value(&old, value);
+            let result = config.update_from_value_with_options(
+                &old,
+                value,
+                engine_state.history_locked_after_startup,
+            );
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());
@@ -259,36 +271,38 @@ impl Stack {
     }
 
     pub fn add_env_var(&mut self, var: String, value: Value) {
-        if let Some(last_overlay) = self.active_overlays.last() {
+        if let Some(last_overlay) = self.active_overlays.last().cloned() {
             let env_name = EnvName::from(var);
-            if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(last_overlay) {
-                // if the env var was hidden, let's activate it again
-                env_hidden.remove(&env_name);
-            }
+            self.clear_env_var_marks_in_active_overlay(&last_overlay, &env_name);
 
             if let Some(scope) = self.env_vars.last_mut() {
                 let scope = Arc::make_mut(scope);
-                if let Some(env_vars) = scope.get_mut(last_overlay) {
+                if let Some(env_vars) = scope.get_mut(&last_overlay) {
                     env_vars.insert(env_name, value);
                 } else {
-                    scope.insert(
-                        last_overlay.into(),
-                        [(env_name, value)].into_iter().collect(),
-                    );
+                    scope.insert(last_overlay, [(env_name, value)].into_iter().collect());
                 }
             } else {
                 self.env_vars.push(Arc::new(
-                    [(
-                        last_overlay.into(),
-                        [(env_name, value)].into_iter().collect(),
-                    )]
-                    .into_iter()
-                    .collect(),
+                    [(last_overlay, [(env_name, value)].into_iter().collect())]
+                        .into_iter()
+                        .collect(),
                 ));
             }
         } else {
             // TODO: Remove panic
             panic!("internal error: no active overlay");
+        }
+    }
+
+    fn clear_env_var_marks_in_active_overlay(&mut self, overlay: &str, env_name: &EnvName) {
+        if let Some(env_hidden) = Arc::make_mut(&mut self.env_hidden).get_mut(overlay) {
+            // Re-assigning re-activates a previously hidden env var in this overlay.
+            env_hidden.remove(env_name);
+        }
+
+        if let Some(hide_history) = Arc::make_mut(&mut self.env_hide_history).get_mut(overlay) {
+            hide_history.remove(env_name);
         }
     }
 
@@ -313,11 +327,13 @@ impl Stack {
             })
     }
 
+    /// Like [`captures_to_stack_preserve_out_dest`], but sets the new scope up to collect output into a Value.
     pub fn captures_to_stack(&self, captures: Vec<(VarId, Value)>) -> Stack {
         self.captures_to_stack_preserve_out_dest(captures)
             .collect_value()
     }
 
+    /// Creates a derived stack for a new scope, with the given captures.
     pub fn captures_to_stack_preserve_out_dest(&self, captures: Vec<(VarId, Value)>) -> Stack {
         let mut env_vars = self.env_vars.clone();
         env_vars.push(Arc::new(HashMap::new()));
@@ -326,6 +342,7 @@ impl Stack {
             vars: captures,
             env_vars,
             env_hidden: self.env_hidden.clone(),
+            env_hide_history: self.env_hide_history.clone(),
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
@@ -361,6 +378,7 @@ impl Stack {
             vars,
             env_vars,
             env_hidden: self.env_hidden.clone(),
+            env_hide_history: self.env_hide_history.clone(),
             active_overlays: self.active_overlays.clone(),
             arguments: ArgumentStack::new(),
             error_handlers: ErrorHandlerStack::new(),
@@ -515,10 +533,12 @@ impl Stack {
         engine_state: &'a EngineState,
         name: &str,
     ) -> Option<&'a Value> {
+        let env_name = EnvName::from(name);
+
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay)
-                    && let Some(v) = env_vars.get(&EnvName::from(name))
+                    && let Some(v) = env_vars.get(&env_name)
                 {
                     return Some(v);
                 }
@@ -526,15 +546,9 @@ impl Stack {
         }
 
         for active_overlay in self.active_overlays.iter().rev() {
-            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(&EnvName::from(name))
-            } else {
-                false
-            };
-
-            if !is_hidden
+            if !self.is_env_hidden_in_overlay(active_overlay, &env_name)
                 && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && let Some(v) = env_vars.get(&EnvName::from(name))
+                && let Some(v) = env_vars.get(&env_name)
             {
                 return Some(v);
             }
@@ -543,10 +557,12 @@ impl Stack {
     }
 
     pub fn has_env_var(&self, engine_state: &EngineState, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
         for scope in self.env_vars.iter().rev() {
             for active_overlay in self.active_overlays.iter().rev() {
                 if let Some(env_vars) = scope.get(active_overlay)
-                    && env_vars.contains_key(&EnvName::from(name))
+                    && env_vars.contains_key(&env_name)
                 {
                     return true;
                 }
@@ -554,15 +570,9 @@ impl Stack {
         }
 
         for active_overlay in self.active_overlays.iter().rev() {
-            let is_hidden = if let Some(env_hidden) = self.env_hidden.get(active_overlay) {
-                env_hidden.contains(&EnvName::from(name))
-            } else {
-                false
-            };
-
-            if !is_hidden
+            if !self.is_env_hidden_in_overlay(active_overlay, &env_name)
                 && let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.contains_key(&EnvName::from(name))
+                && env_vars.contains_key(&env_name)
             {
                 return true;
             }
@@ -571,37 +581,140 @@ impl Stack {
         false
     }
 
+    /// Removes `name` from the stack. If it was not on the stack and lives in `engine_state`,
+    /// marks it hidden in `env_hidden`. Returns `true` if the variable was found and removed.
+    ///
+    /// Use this for temporary bookkeeping removals (e.g. `FILE_PWD`, canary variables) where
+    /// the goal is to clean up a stack-level value without necessarily hiding the engine-state
+    /// baseline. Use [`Self::hide_env_var`] when the intent is to make the variable invisible
+    /// to subsequent lookups (e.g. `hide-env`).
     pub fn remove_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
-        for scope in self.env_vars.iter_mut().rev() {
-            let scope = Arc::make_mut(scope);
-            for active_overlay in self.active_overlays.iter().rev() {
-                if let Some(env_vars) = scope.get_mut(active_overlay)
-                    && env_vars.remove(&EnvName::from(name)).is_some()
-                {
-                    return true;
-                }
-            }
+        let env_name = EnvName::from(name);
+
+        self.remove_env_var_from_stack(&env_name)
+            || self.hide_engine_state_env_var(engine_state, &env_name)
+    }
+
+    /// Removes `env_name` from all stack scopes and returns `true` if it was found.
+    /// Does not affect `env_hidden`; use [`Self::hide_env_var`] for full hiding semantics.
+    fn remove_env_var_from_stack(&mut self, env_name: &EnvName) -> bool {
+        self.env_vars
+            .iter_mut()
+            .rev()
+            .map(Arc::make_mut)
+            .find_map(|scope| {
+                self.active_overlays
+                    .iter()
+                    .rev()
+                    .find_map(|active_overlay| scope.get_mut(active_overlay)?.remove(env_name))
+            })
+            .is_some()
+    }
+
+    /// Marks `env_name` as hidden in `env_hidden` for the active overlay where it exists in
+    /// `engine_state`.
+    ///
+    /// Returns `true` only when the baseline variable exists and was newly hidden.
+    fn hide_engine_state_env_var(
+        &mut self,
+        engine_state: &EngineState,
+        env_name: &EnvName,
+    ) -> bool {
+        let overlay_containing_env_var = self.active_overlays.iter().rev().find(|active_overlay| {
+            engine_state
+                .env_vars
+                .get(active_overlay.as_str())
+                .is_some_and(|env_vars| env_vars.contains_key(env_name))
+        });
+
+        let Some(overlay_containing_env_var) = overlay_containing_env_var else {
+            return false;
+        };
+
+        let env_hidden = Arc::make_mut(&mut self.env_hidden);
+
+        if env_hidden
+            .get(overlay_containing_env_var.as_str())
+            .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
+        {
+            return false;
         }
 
-        for active_overlay in self.active_overlays.iter().rev() {
-            if let Some(env_vars) = engine_state.env_vars.get(active_overlay)
-                && env_vars.get(&EnvName::from(name)).is_some()
-            {
-                let env_hidden = Arc::make_mut(&mut self.env_hidden);
-                if let Some(env_hidden_in_overlay) = env_hidden.get_mut(active_overlay) {
-                    env_hidden_in_overlay.insert(EnvName::from(name));
-                } else {
-                    env_hidden.insert(
-                        active_overlay.into(),
-                        [EnvName::from(name)].into_iter().collect(),
-                    );
-                }
+        env_hidden
+            .entry(overlay_containing_env_var.clone())
+            .or_default()
+            .insert(env_name.clone());
+        true
+    }
 
-                return true;
+    /// Records that `env_name` has been hidden in the active overlay and returns `false` if it
+    /// was already recorded as hidden there.
+    fn record_env_var_hide_in_active_overlay(&mut self, env_name: &EnvName) -> bool {
+        let Some(active_overlay) = self.active_overlays.last().cloned() else {
+            return false;
+        };
+
+        Arc::make_mut(&mut self.env_hide_history)
+            .entry(active_overlay)
+            .or_default()
+            .insert(env_name.clone())
+    }
+
+    fn is_env_var_hide_recorded(&self, env_name: &EnvName) -> bool {
+        self.active_overlays
+            .iter()
+            .rev()
+            .filter_map(|overlay| self.env_hide_history.get(overlay))
+            .any(|hidden_vars| hidden_vars.contains(env_name))
+    }
+
+    fn is_env_hidden_in_overlay(&self, overlay: &str, env_name: &EnvName) -> bool {
+        self.env_hidden
+            .get(overlay)
+            .is_some_and(|hidden_vars| hidden_vars.contains(env_name))
+    }
+
+    /// Hides `name` so it is no longer visible to subsequent lookups. Removes it from the stack
+    /// and, if no stack shadowing remains, also marks the `engine_state` baseline as hidden in
+    /// `env_hidden`. Returns `true` if the variable was found.
+    ///
+    /// This is the correct method for `hide-env` and `redirect_env`; it ensures that a variable
+    /// set in engine_state (from a previous REPL merge) cannot be seen after hiding even when a
+    /// stack-level override (e.g. an empty-string assignment) was present at hide time.
+    pub fn hide_env_var(&mut self, engine_state: &EngineState, name: &str) -> bool {
+        let env_name = EnvName::from(name);
+
+        // Re-hiding the same env var in the same scope should report not found.
+        if self.is_env_var_hide_recorded(&env_name) {
+            return false;
+        }
+
+        if self.remove_env_var_from_stack(&env_name) {
+            self.record_env_var_hide_in_active_overlay(&env_name);
+
+            if !self.has_env_var_in_stack(&env_name) {
+                self.hide_engine_state_env_var(engine_state, &env_name);
             }
+            return true;
+        }
+
+        if self.hide_engine_state_env_var(engine_state, &env_name) {
+            self.record_env_var_hide_in_active_overlay(&env_name);
+            return true;
         }
 
         false
+    }
+
+    /// Returns `true` if `name` exists in any stack scope (without consulting `engine_state`).
+    fn has_env_var_in_stack(&self, name: &EnvName) -> bool {
+        self.env_vars.iter().rev().any(|scope| {
+            self.active_overlays
+                .iter()
+                .rev()
+                .filter_map(|active_overlay| scope.get(active_overlay))
+                .any(|env_vars| env_vars.contains_key(name))
+        })
     }
 
     pub fn has_env_overlay(&self, name: &str, engine_state: &EngineState) -> bool {
@@ -733,7 +846,7 @@ impl Stack {
     ///
     /// For use in third-party applications pipes might be very useful as they allow using the
     /// stdout of external commands for different uses.
-    /// For example the [`os_pipe`](https://docs.rs/os_pipe) crate provides a elegant way to to
+    /// For example the [`os_pipe`](https://docs.rs/os_pipe) crate provides an elegant way to
     /// access the stdout.
     ///
     /// ```

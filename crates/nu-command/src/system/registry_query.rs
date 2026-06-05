@@ -277,29 +277,6 @@ fn reg_value_to_nu_string(
     }
 }
 
-#[test]
-fn no_expand_does_not_expand() {
-    let unexpanded = "%AppData%";
-    let reg_val = || winreg::RegValue {
-        bytes: unexpanded
-            .encode_utf16()
-            .chain([0])
-            .flat_map(u16::to_ne_bytes)
-            .collect(),
-        vtype: REG_EXPAND_SZ,
-    };
-
-    // normally we do expand
-    let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
-    assert!(nu_val_expanded.coerce_string().is_ok());
-    assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
-
-    // unless we skip expansion
-    let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
-    assert!(nu_val_skip_expand.coerce_string().is_ok());
-    assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
-}
-
 fn reg_value_to_nu_list_string(reg_value: winreg::RegValue, call_span: Span) -> nu_protocol::Value {
     let values = <Vec<String>>::from_reg_value(&reg_value)
         .expect("registry value type should be REG_MULTI_SZ")
@@ -328,4 +305,32 @@ fn reg_value_to_nu_int(reg_value: winreg::RegValue, call_span: Span) -> nu_proto
             ),
         };
     Value::int(value, call_span)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn no_expand_does_not_expand() {
+        let unexpanded = "%AppData%";
+        let reg_val = || winreg::RegValue {
+            bytes: unexpanded
+                .encode_utf16()
+                .chain([0])
+                .flat_map(u16::to_ne_bytes)
+                .collect(),
+            vtype: REG_EXPAND_SZ,
+        };
+
+        // normally we do expand
+        let nu_val_expanded = reg_value_to_nu_string(reg_val(), Span::unknown(), false);
+        assert!(nu_val_expanded.coerce_string().is_ok());
+        assert_ne!(nu_val_expanded.coerce_string().unwrap(), unexpanded);
+
+        // unless we skip expansion
+        let nu_val_skip_expand = reg_value_to_nu_string(reg_val(), Span::unknown(), true);
+        assert!(nu_val_skip_expand.coerce_string().is_ok());
+        assert_eq!(nu_val_skip_expand.coerce_string().unwrap(), unexpanded);
+    }
 }

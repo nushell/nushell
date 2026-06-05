@@ -450,13 +450,15 @@ pub fn value_to_sql(
         Value::Binary { val, .. } => Ok(Box::new(val)),
         Value::Nothing { .. } => Ok(Box::new(rusqlite::types::Null)),
         val => {
-            let json_value = crate::value_to_json_value(engine_state, &val, call_span, false)?;
+            let span = val.span();
+            let ty = val.get_type();
+            let json_value = crate::value_to_json_value(engine_state, val, call_span, false)?;
             match nu_json::to_string_raw(&json_value) {
                 Ok(s) => Ok(Box::new(s)),
                 Err(err) => Err(ShellError::CantConvert {
                     to_type: "JSON".into(),
-                    from_type: val.get_type().to_string(),
-                    span: val.span(),
+                    from_type: ty.to_string(),
+                    span,
                     help: Some(err.to_string()),
                 }),
             }
@@ -759,7 +761,7 @@ pub fn convert_sqlite_value_to_nu_value(
         ValueRef::Real(f) => Value::float(f, span),
         ValueRef::Text(buf) => match (std::str::from_utf8(buf), decl_type) {
             (Ok(txt), Some(DeclType::Json | DeclType::Jsonb)) => {
-                match crate::convert_json_string_to_value(txt, span) {
+                match crate::try_json_str_to_value(txt, span, false) {
                     Ok(val) => val,
                     Err(err) => Value::error(err, span),
                 }

@@ -7,7 +7,12 @@ use crate::{
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
 };
-use std::{borrow::Cow, io::Write, ops::Deref, panic::Location};
+use std::{
+    borrow::Cow,
+    io::Write,
+    ops::{Deref, DerefMut},
+    panic::Location,
+};
 
 const LINE_ENDING_PATTERN: &[char] = &['\r', '\n'];
 
@@ -70,6 +75,10 @@ impl PipelineData {
     /// Note: This performs a deep clone of heap-allocated structures.
     /// Use [`.metadata_ref()`](Self::metadata_ref), [`.metadata_mut()`](Self::metadata_mut)
     /// or [`.take_metadata()`](Self::take_metadata) to avoid unnecessary allocations.
+    #[deprecated(
+        since = "0.111.1",
+        note = "Use .metadata_ref(), .metadata_mut() or .take_metadata() instead"
+    )]
     pub fn metadata(&self) -> Option<PipelineMetadata> {
         self.metadata_ref().cloned()
     }
@@ -332,7 +341,7 @@ impl PipelineData {
     /// [`OutDest::Print`], the [`PipelineData`] is drained and printed. Otherwise, the
     /// [`PipelineData`] is drained, but only printed if it is the output of an external command.
     pub fn drain_to_out_dests(
-        self,
+        mut self,
         engine_state: &EngineState,
         stack: &mut Stack,
     ) -> Result<Self, ShellError> {
@@ -343,7 +352,7 @@ impl PipelineData {
             }
             OutDest::Pipe | OutDest::PipeSeparate => Ok(self),
             OutDest::Value => {
-                let metadata = self.metadata();
+                let metadata = self.take_metadata();
                 let span = self.span().unwrap_or(Span::unknown());
                 self.into_value(span).map(|val| Self::Value(val, metadata))
             }
@@ -398,6 +407,7 @@ impl PipelineData {
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
+                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(val_span) {
                             Ok(Value::List { vals, .. }) => PipelineIteratorInner::ListStream(
@@ -523,6 +533,7 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -577,6 +588,7 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .flat_map(f)
                         .into_pipeline_data(span, signals.clone()),
+                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -639,6 +651,7 @@ impl PipelineData {
                         .into_range_iter(span, Signals::empty())
                         .filter(f)
                         .into_pipeline_data(span, signals.clone()),
+                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span)? {
                             Value::List { vals, .. } => vals
@@ -983,6 +996,7 @@ impl IntoIterator for PipelineData {
                         .into_iter(),
                     ),
                     // Handle iterable custom values by converting to base value first
+                    #[expect(deprecated)]
                     Value::Custom { ref val, .. } if val.is_iterable() => {
                         match val.to_base_value(span) {
                             Ok(Value::List { vals, signals, .. }) => {
@@ -1127,6 +1141,12 @@ impl Deref for PipelineExecutionData {
 
     fn deref(&self) -> &Self::Target {
         &self.body
+    }
+}
+
+impl DerefMut for PipelineExecutionData {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
     }
 }
 

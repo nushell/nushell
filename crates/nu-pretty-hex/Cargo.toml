@@ -2,10 +2,11 @@
 authors = ["Andrei Volnin <wolandr@gmail.com>", "The Nushell Project Developers"]
 description = "Pretty hex dump of bytes slice in the common style."
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-pretty-hex"
-edition = "2024"
-license = "MIT"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 name = "nu-pretty-hex"
-version = "0.111.1"
+version.workspace = true
 
 [lib]
 doctest = false
@@ -17,8 +18,8 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-ansi-term = { workspace = true }
+nu-ansi-term.workspace = true
 
 [dev-dependencies]
 heapless = { version = "0.9", default-features = false }
-rand = "0.8"
+rand = { workspace = true }

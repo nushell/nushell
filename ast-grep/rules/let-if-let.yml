@@ -4,7 +4,7 @@ id: let-if-let-some
 language: rust
 severity: hint
 message: "This pattern can be confusing due to the repetition of `let` and `=`"
-note: "It can be rewritten using `.map()` and `unwrap_or`/`unwrap_or_else` methods"
+note: "It can be rewritten as a match expression or with `.map()` and `unwrap_or`/`unwrap_or_else` methods."
 
 rule:
   kind: let_declaration
@@ -17,7 +17,13 @@ rule:
 
 # Multiple fix suggestions are supported after ast-grep 38.4
 fix:
-  - title: Lazy
+  - title: Rewrite as a match expression
+    template: |
+      let $$$PAT = match $$$EXPR {
+          Some($VAR) => { $$$THEN }
+          None => { $$$ELSE }
+      };
+  - title: Rewrite with .map & .unwrap_or_else
     template: |
       let $$$PAT = $$$EXPR.map(|$VAR| {
           $$$THEN
@@ -25,5 +31,5 @@ fix:
       .unwrap_or_else(|| {
           $$$ELSE
       });
-  - title: Simple
+  - title: Rewrite with .map & .unwrap_or
     template: "let $$$PAT = $$$EXPR.map(|$VAR| { $$$THEN }).unwrap_or($$$ELSE);"

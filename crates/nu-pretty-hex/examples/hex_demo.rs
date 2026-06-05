@@ -12,6 +12,7 @@ fn main() {
         // length: Some(5),
         // length: None,
         length: Some(50),
+        styles: HexStyles::default(),
     };
 
     let my_string = "Darren Schroeder 😉";

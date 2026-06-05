@@ -57,6 +57,7 @@ impl PluginCommand for NotSeries {
                         ],
                     )],
                     None,
+                    Span::test_data(),
                 )
                 .expect("simple df for test should not fail")
                 .into_value(Span::test_data()),
@@ -69,9 +70,9 @@ impl PluginCommand for NotSeries {
         plugin: &Self::Plugin,
         engine: &EngineInterface,
         call: &EvaluatedCall,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, LabeledError> {
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
         let df = NuDataFrame::try_from_pipeline_coerce(plugin, input, call.head)?;
         command(plugin, engine, call, df)
             .map_err(LabeledError::from)

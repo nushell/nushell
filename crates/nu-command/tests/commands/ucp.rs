@@ -618,6 +618,62 @@ fn copy_file_with_read_permission_impl(progress: bool) {
     });
 }
 
+#[test]
+fn copies_file_symlink_without_dereferencing() {
+    copies_file_symlink_without_dereferencing_impl(false);
+    copies_file_symlink_without_dereferencing_impl(true);
+}
+
+fn copies_file_symlink_without_dereferencing_impl(progress: bool) {
+    Playground::setup("ucp_file_symlink_no_dereference", |_dirs, sandbox| {
+        sandbox
+            .with_files(&[EmptyFile("file")])
+            .symlink("file", "link_to_file");
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        nu!(
+            cwd: sandbox.cwd(),
+            format!(
+                "cp {progress_flag} --no-dereference link_to_file second_link_to_file"
+            )
+        );
+
+        let second_link = sandbox.cwd().join("second_link_to_file");
+        assert!(second_link.is_symlink());
+        assert_eq!(
+            std::fs::read_link(second_link).unwrap(),
+            sandbox.cwd().join("file")
+        );
+    });
+}
+
+#[test]
+fn copies_directory_symlink_without_dereferencing() {
+    copies_directory_symlink_without_dereferencing_impl(false);
+    copies_directory_symlink_without_dereferencing_impl(true);
+}
+
+fn copies_directory_symlink_without_dereferencing_impl(progress: bool) {
+    Playground::setup("ucp_dir_symlink_no_dereference", |_dirs, sandbox| {
+        sandbox.mkdir("dir").symlink("dir", "link_to_dir");
+
+        let progress_flag = if progress { "-p" } else { "" };
+
+        nu!(
+            cwd: sandbox.cwd(),
+            format!("cp {progress_flag} -P link_to_dir second_link_to_dir")
+        );
+
+        let second_link = sandbox.cwd().join("second_link_to_dir");
+        assert!(second_link.is_symlink());
+        assert_eq!(
+            std::fs::read_link(second_link).unwrap(),
+            sandbox.cwd().join("dir")
+        );
+    });
+}
+
 // uutils/coreutils copy tests
 static TEST_EXISTING_FILE: &str = "existing_file.txt";
 static TEST_HELLO_WORLD_SOURCE: &str = "hello_world.txt";

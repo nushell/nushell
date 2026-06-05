@@ -12,11 +12,11 @@ use crate::{
     record,
     shell_error::generic::GenericError,
 };
+use nu_utils::time::Instant;
 use std::{
     borrow::{Borrow, Cow},
     io::BufRead,
 };
-use web_time::Instant;
 
 #[derive(Debug, Clone, Copy)]
 struct ElementId(usize);

@@ -79,10 +79,10 @@ MessagePack: https://msgpack.org/
         engine_state: &EngineState,
         stack: &mut Stack,
         call: &Call,
-        input: PipelineData,
+        mut input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let metadata = input
-            .metadata()
+            .take_metadata()
             .unwrap_or_default()
             .with_content_type(Some("application/x-msgpack".into()));
 

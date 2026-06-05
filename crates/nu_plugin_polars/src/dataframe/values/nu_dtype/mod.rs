@@ -294,7 +294,7 @@ pub(crate) fn fields_to_value(fields: impl Iterator<Item = Field>, span: Span) -
         })
         .collect();
 
-    Value::record(record, Span::unknown())
+    Value::record(record, span)
 }
 
 pub fn str_to_time_unit(ts_string: &str, span: Span) -> Result<TimeUnit, ShellError> {

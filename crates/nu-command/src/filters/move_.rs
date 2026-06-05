@@ -110,7 +110,7 @@ impl Command for Move {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let input = input.into_stream_or_original(engine_state);
+        let mut input = input.into_stream_or_original(engine_state);
         let head = call.head;
         let columns: Vec<Value> = call.rest(engine_state, stack, 0)?;
         let after: Option<Value> = call.get_flag(engine_state, stack, "after")?;
@@ -145,7 +145,7 @@ impl Command for Move {
             }
         };
 
-        let metadata = input.metadata();
+        let metadata = input.take_metadata();
 
         match input {
             PipelineData::Value(Value::List { .. }, ..) | PipelineData::ListStream { .. } => {
@@ -164,7 +164,8 @@ impl Command for Move {
                 ))
             }
             PipelineData::Value(Value::Record { val, .. }, ..) => {
-                Ok(move_record_columns(&val, &columns, &location, head)?.into_pipeline_data())
+                Ok(move_record_columns(&val, &columns, &location, head)?
+                    .into_pipeline_data_with_metadata(metadata))
             }
             other => Err(ShellError::OnlySupportsThisInputType {
                 exp_input_type: "record or table".to_string(),

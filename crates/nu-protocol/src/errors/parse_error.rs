@@ -41,11 +41,15 @@ pub enum ParseError {
 
     #[error("Unclosed delimiter.")]
     #[diagnostic(code(nu::parser::unclosed_delimiter))]
-    Unclosed(String, #[label("unclosed {0}")] Span),
+    Unclosed(&'static str, #[label("unclosed {0}")] Span),
 
     #[error("Unbalanced delimiter.")]
     #[diagnostic(code(nu::parser::unbalanced_delimiter))]
-    Unbalanced(String, String, #[label("unbalanced {0} and {1}")] Span),
+    Unbalanced(
+        &'static str,
+        &'static str,
+        #[label("unbalanced {0} and {1}")] Span,
+    ),
 
     #[error("Parse mismatch during operation.")]
     #[diagnostic(code(nu::parser::parse_mismatch))]
@@ -237,14 +241,13 @@ pub enum ParseError {
     #[error("Alias name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     AliasNotValid(
-        #[label = "alias name can't be a number, a filesize, or contain a hash # or caret ^"] Span,
+        #[label = "alias name can't be a number, a filesize, or contain #, ^, or %"] Span,
     ),
 
     #[error("Command name not supported.")]
     #[diagnostic(code(nu::parser::variable_not_valid))]
     CommandDefNotValid(
-        #[label = "command name can't be a number, a filesize, or contain a hash # or caret ^"]
-        Span,
+        #[label = "command name can't be a number, a filesize, or contain #, ^, or %"] Span,
     ),
 
     #[error("Module not found.")]

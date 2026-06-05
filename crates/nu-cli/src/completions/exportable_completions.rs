@@ -15,13 +15,10 @@ pub struct ExportableCompletion<'a> {
 
 /// If name contains space, wrap it in quotes
 fn wrapped_name(name: String) -> String {
-    if !name.contains(' ') {
-        return name;
-    }
-    if name.contains('\'') {
-        format!("\"{}\"", name.replace('"', r#"\""#))
+    if nu_utils::needs_quoting(&name) {
+        nu_utils::escape_quote_string(&name)
     } else {
-        format!("'{name}'")
+        name
     }
 }
 

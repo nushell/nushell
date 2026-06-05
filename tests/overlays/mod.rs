@@ -1,7 +1,9 @@
 use nu_test_support::fs::Stub::{FileWithContent, FileWithContentToBeTrimmed};
 use nu_test_support::playground::Playground;
+use nu_test_support::prelude::*;
 use nu_test_support::{nu, nu_repl_code};
 use pretty_assertions::assert_eq;
+use rstest::rstest;
 
 #[test]
 fn add_overlay() {
@@ -228,6 +230,32 @@ fn add_overlay_from_const_module_name_decl() {
     let actual = nu!(&inp.join("; "));
 
     assert_eq!(actual.out, "foo");
+}
+
+#[test]
+fn add_overlay_from_file_with_stored_where_condition() -> Result {
+    Playground::setup(
+        "add_overlay_from_file_with_stored_where_condition",
+        |dirs, sandbox| -> Result {
+            sandbox.with_files(&[FileWithContentToBeTrimmed(
+                "mod.nu",
+                r#"
+                export def helper [] {
+                    let cond = {|x| true }
+                    [{a: 1}] | where $cond
+                }
+
+                export def main [] { "ok" }
+            "#,
+            )]);
+
+            let inp = &["overlay use mod.nu", "helper | to nuon --raw"];
+
+            let mut tester = test().cwd(dirs.test()).add_nu_to_path();
+            tester.run(inp.join("; ")).expect_value_eq("[[a];[1]]")?;
+            tester.run(nu_repl_code(inp)).expect_value_eq("[[a];[1]]")
+        },
+    )
 }
 
 #[test]
@@ -1558,33 +1586,17 @@ fn overlay_use_module_dir() {
     assert_eq!(actual.out, "spambaz");
 }
 
-#[test]
-fn overlay_use_module_dir_prefix() {
-    let import = "overlay use samples/spam --prefix";
-
-    let inp = &[import, "spam"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spam");
-
-    let inp = &[import, "spam foo"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foo");
-
-    let inp = &[import, "spam bar"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "bar");
-
-    let inp = &[import, "spam foo baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "foobaz");
-
-    let inp = &[import, "spam bar baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "barbaz");
-
-    let inp = &[import, "spam baz"];
-    let actual = nu!(cwd: "tests/modules", &inp.join("; "));
-    assert_eq!(actual.out, "spambaz");
+#[rstest]
+#[case("spam", "spam")]
+#[case("spam foo", "foo")]
+#[case("spam bar", "bar")]
+#[case("spam foo baz", "foobaz")]
+#[case("spam bar baz", "barbaz")]
+#[case("spam baz", "spambaz")]
+fn overlay_use_module_dir_prefix(#[case] code: &str, #[case] expected: impl IntoValue) -> Result {
+    let mut tester = test().cwd("tests/modules");
+    let () = tester.run("overlay use samples/spam --prefix")?;
+    tester.run(code).expect_value_eq(expected)
 }
 
 #[test]

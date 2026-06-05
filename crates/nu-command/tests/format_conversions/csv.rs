@@ -474,3 +474,73 @@ fn from_csv_test_flexible_missing_vals() -> Result {
 
     test().run(code).expect_value_eq("[1]")
 }
+
+#[test]
+fn streaming_heterogeneous_table_fails_with_explicit_error() -> Result {
+    // Heterogeneous tables streamed without explicit columns should fail with a clear error
+    // instead of silently dropping columns
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | to csv
+    ";
+
+    let outcome = test().run(code).expect_shell_error()?;
+    assert!(
+        outcome.to_string().contains("streamed csv schema changed"),
+        "Expected schema drift error, got: {}",
+        outcome
+    );
+    Ok(())
+}
+
+#[test]
+fn streaming_heterogeneous_table_with_explicit_columns_works() -> Result {
+    // Heterogeneous tables with explicit columns should work correctly (fill missing with empty)
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | to csv --columns [a b]
+    ";
+
+    test().run(code).expect_value_eq("a,b\n1,\n2,20\n3,30\n")
+}
+
+#[test]
+fn materialized_heterogeneous_table_preserved() -> Result {
+    // Materialized (collected) heterogeneous tables should still use old merge_descriptors semantics
+    // which computes union of all columns
+    let code = "
+        1..3 | each {|i|
+            if $i == 1 {
+                {a: $i}
+            } else {
+                {a: $i b: ($i * 10)}
+            }
+        } | collect | to csv
+    ";
+
+    test().run(code).expect_value_eq("a,b\n1,\n2,20\n3,30\n")
+}
+
+#[test]
+fn empty_stream_with_explicit_columns_still_writes_header() -> Result {
+    let code = "
+        1..3
+        | where {|i| $i > 10 }
+        | wrap a
+        | to csv --columns [a]
+        | lines
+        | to nuon
+    ";
+
+    test().run(code).expect_value_eq("[a]")
+}

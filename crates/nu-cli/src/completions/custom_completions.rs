@@ -123,25 +123,25 @@ fn read_span_field(span: &SharedCow<Record>, field: &str) -> Option<usize> {
     Some(val)
 }
 
-pub struct CustomCompletion<T: Completer> {
+pub struct CustomCompletion {
     decl_id: DeclId,
     line: String,
     line_pos: usize,
-    fallback: T,
+    pub need_fallback: bool,
 }
 
-impl<T: Completer> CustomCompletion<T> {
-    pub fn new(decl_id: DeclId, line: String, line_pos: usize, fallback: T) -> Self {
+impl CustomCompletion {
+    pub fn new(decl_id: DeclId, line: String, line_pos: usize, need_fallback: bool) -> Self {
         Self {
             decl_id,
             line,
             line_pos,
-            fallback,
+            need_fallback,
         }
     }
 }
 
-impl<T: Completer> Completer for CustomCompletion<T> {
+impl Completer for CustomCompletion {
     fn fetch(
         &mut self,
         working_set: &StateWorkingSet,
@@ -230,6 +230,13 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                             completion_options.case_sensitive = case_sensitive;
                         }
 
+                        if let Some(md) = options
+                            .get("match_description")
+                            .and_then(|val| val.as_bool().ok())
+                        {
+                            completion_options.match_description = md;
+                        }
+
                         let positional =
                             options.get("positional").and_then(|val| val.as_bool().ok());
                         if positional.is_some() {
@@ -260,14 +267,8 @@ impl<T: Completer> Completer for CustomCompletion<T> {
                     offset,
                 ),
                 Value::Nothing { .. } => {
-                    return self.fallback.fetch(
-                        working_set,
-                        stack,
-                        prefix,
-                        span,
-                        offset,
-                        orig_options,
-                    );
+                    self.need_fallback = true;
+                    vec![]
                 }
                 _ => {
                     log::error!(
@@ -290,10 +291,16 @@ impl<T: Completer> Completer for CustomCompletion<T> {
         let mut matcher = NuMatcher::new(prefix.as_ref(), &completion_options, should_sort);
 
         for sugg in suggestions {
-            matcher.add(
-                strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string()),
-                sugg,
-            );
+            let value = strip_ansi_string_unlikely(sugg.suggestion.display_value().to_string());
+            if matcher.check_match(&value).is_some() {
+                matcher.add(value, sugg);
+            } else if completion_options.match_description
+                && let Some(description) = sugg.suggestion.description.as_deref()
+                && matcher.check_match(description).is_some()
+            {
+                let description = description.to_string();
+                matcher.add(description, sugg);
+            }
         }
         matcher.suggestion_results()
     }
@@ -369,14 +376,17 @@ impl<'a> Completer for CommandWideCompletion<'a> {
             span: args_span,
         } = get_command_arguments(working_set, self.expression);
 
-        let mut new_span = span;
         // strip the placeholder
-        if self.strip
+        let new_span = if self.strip
             && let Some(last) = args.last_mut()
         {
-            last.item.pop();
-            new_span = Span::new(span.start, span.end.saturating_sub(1));
-        }
+            if let Some(popped) = last.item.pop() {
+                last.span.end = last.span.end.saturating_sub(popped.len_utf8())
+            }
+            last.span
+        } else {
+            span
+        };
 
         let mut block = working_set.get_block(self.block_id).clone();
 
@@ -407,7 +417,7 @@ impl<'a> Completer for CommandWideCompletion<'a> {
         let mut engine_state = working_set.permanent_state.clone();
         let _ = engine_state.merge_delta(working_set.delta.clone());
 
-        let result = nu_engine::eval_block::<WithoutDebug>(
+        let result = nu_engine::eval_block_with_early_return::<WithoutDebug>(
             &engine_state,
             &mut callee_stack,
             &block,

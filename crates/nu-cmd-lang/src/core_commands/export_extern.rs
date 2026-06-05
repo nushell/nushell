@@ -23,7 +23,7 @@ impl Command for ExportExtern {
             )
             .required(
                 "params",
-                SyntaxShape::Signature,
+                SyntaxShape::ExternalSignature,
                 "The parameters for the external command signature.",
             )
             .category(Category::Core)

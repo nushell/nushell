@@ -1,3 +1,4 @@
+use ansi_str::AnsiStr;
 use crossterm::{
     cursor::{Hide, MoveDown, MoveToColumn, MoveUp, Show},
     event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -13,9 +14,10 @@ use nu_ansi_term::{Style, ansi::RESET};
 use nu_color_config::{Alignment, StyleComputer, TextStyle};
 use nu_engine::{ClosureEval, command_prelude::*, get_columns};
 use nu_protocol::engine::Closure;
-use nu_protocol::{TableMode, shell_error::io::IoError};
+use nu_protocol::{Config, ListStream, TableMode, shell_error::io::IoError};
 use nu_table::common::nu_value_to_string;
 use std::{
+    borrow::Cow,
     collections::HashSet,
     io::{self, Stderr, Write},
 };
@@ -54,6 +56,52 @@ const DEFAULT_SELECTED_MARKER: char = '>';
 
 const DEFAULT_TABLE_COLUMN_SEPARATOR: char = '│';
 
+// Streaming behavior tuning knobs.
+//
+// Keeping these as constants makes behavior easy to tweak and avoids hidden magic numbers.
+// - INITIAL_STREAM_ITEMS: eager rows to load before first render.
+// - STREAM_LOAD_BATCH: rows to fetch for each incremental refill.
+// - STREAM_PREFETCH_MARGIN: how far from the end we begin prefetching.
+const INITIAL_STREAM_ITEMS: usize = 80;
+const STREAM_LOAD_BATCH: usize = 50;
+const STREAM_PREFETCH_MARGIN: usize = 2;
+
+fn visible_text_width(text: &str) -> usize {
+    nu_utils::strip_ansi_unlikely(text).width()
+}
+
+fn visible_prefix_byte_len(text: &str, target_width: usize) -> usize {
+    let mut current_width = 0;
+    let mut end_pos = 0;
+
+    for (byte_pos, c) in text.char_indices() {
+        let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
+        if current_width + char_width > target_width {
+            break;
+        }
+        end_pos = byte_pos + c.len_utf8();
+        current_width += char_width;
+    }
+
+    end_pos
+}
+
+fn truncate_ansi_aware_text(text: &str, available_width: usize) -> Cow<'_, str> {
+    let stripped = nu_utils::strip_ansi_unlikely(text);
+
+    if stripped.width() <= available_width {
+        Cow::Borrowed(text)
+    } else if available_width <= 1 {
+        Cow::Borrowed("…")
+    } else {
+        let target_width = available_width - 1;
+        let end_pos = visible_prefix_byte_len(stripped.as_ref(), target_width);
+        let mut truncated = text.ansi_cut(..end_pos).into_owned();
+        truncated.push('…');
+        Cow::Owned(truncated)
+    }
+}
+
 /// Maps TableMode to the appropriate vertical separator character
 fn table_mode_to_separator(mode: TableMode) -> char {
     match mode {
@@ -61,7 +109,11 @@ fn table_mode_to_separator(mode: TableMode) -> char {
         TableMode::Basic | TableMode::BasicCompact | TableMode::Psql | TableMode::Markdown => '|',
         TableMode::AsciiRounded => '|',
         // Modern unicode (single line)
-        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => '│',
+        TableMode::Thin
+        | TableMode::Rounded
+        | TableMode::Single
+        | TableMode::Compact
+        | TableMode::Frameless => '│',
         TableMode::Reinforced | TableMode::Light => '│',
         // Heavy borders
         TableMode::Heavy => '┃',
@@ -83,7 +135,11 @@ fn table_mode_to_header_separator(mode: TableMode) -> (char, char) {
         TableMode::AsciiRounded => ('-', '+'),
         TableMode::Markdown => ('-', '|'),
         // Modern unicode (single line)
-        TableMode::Thin | TableMode::Rounded | TableMode::Single | TableMode::Compact => ('─', '┼'),
+        TableMode::Thin
+        | TableMode::Rounded
+        | TableMode::Single
+        | TableMode::Compact
+        | TableMode::Frameless => ('─', '┼'),
         TableMode::Reinforced => ('─', '┼'),
         TableMode::Light => ('─', '─'), // Light has no vertical lines, so no intersection
         // Heavy borders
@@ -164,6 +220,14 @@ struct SelectItem {
     name: String, // Search text (concatenated cells in table mode)
     cells: Option<Vec<(String, TextStyle)>>, // Cell values with TextStyle for type-based styling (None = single-line mode)
     value: Value,                            // Original value to return
+}
+
+/// Display mode for key-based conversion in streaming mode
+#[derive(Clone)]
+enum DisplayMode {
+    Default,
+    CellPath(Vec<nu_protocol::ast::PathMember>),
+    Closure(Closure),
 }
 
 /// Layout information for table rendering
@@ -355,11 +419,13 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             };
         }
 
-        // Collect all values first for table detection
-        let values: Vec<Value> = match input {
-            PipelineData::Value(Value::Range { .. }, ..)
-            | PipelineData::Value(Value::List { .. }, ..)
-            | PipelineData::ListStream { .. } => input.into_iter().collect(),
+        // Convert input to a ListStream and lazily load initial values
+        let mut input_stream: ListStream = match input {
+            PipelineData::ListStream(stream, ..) => stream,
+            PipelineData::Value(Value::List { .. }, ..)
+            | PipelineData::Value(Value::Range { .. }, ..) => {
+                ListStream::new(input.into_iter(), head, engine_state.signals().clone())
+            }
             _ => {
                 return Err(ShellError::TypeMismatch {
                     err_message: "expected a list, a table, or a range".to_string(),
@@ -368,109 +434,54 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             }
         };
 
-        // Detect table mode: enable if we have columns AND --display is not provided AND --no-table is not set
-        let columns = if display_flag.is_none() && !no_table {
-            get_columns(&values)
+        // Prime the widget with a bounded sample so first render is responsive even for
+        // large or infinite streams. Remaining values stay in `input_stream` and are consumed
+        // lazily during navigation and rendering.
+        let (initial_values, has_more_values) =
+            Self::read_initial_stream_chunk(&mut input_stream, INITIAL_STREAM_ITEMS);
+
+        // Map display_mode from display_flag
+        let display_mode = match &display_flag {
+            Some(Value::CellPath { val: cellpath, .. }) => {
+                DisplayMode::CellPath(cellpath.members.clone())
+            }
+            Some(Value::Closure { val: closure, .. }) => {
+                DisplayMode::Closure(Closure::clone(closure))
+            }
+            _ => DisplayMode::Default,
+        };
+
+        // Detect table mode
+        let columns = if matches!(display_mode, DisplayMode::Default) && !no_table {
+            get_columns(&initial_values)
         } else {
             vec![]
         };
         let is_table_mode = !columns.is_empty();
 
-        // Create SelectItems, with cells for table mode
-        // Use nu_value_to_string to get consistent formatting and styling with regular tables
-        let options: Vec<SelectItem> = if is_table_mode {
-            values
-                .into_iter()
-                .map(|val| {
-                    let cells: Vec<(String, TextStyle)> = columns
-                        .iter()
-                        .map(|col| {
-                            if let Value::Record { val: record, .. } = &val {
-                                record
-                                    .get(col)
-                                    .map(|v| nu_value_to_string(v, &config, &style_computer))
-                                    .unwrap_or_else(|| (String::new(), TextStyle::default()))
-                            } else {
-                                (String::new(), TextStyle::default())
-                            }
-                        })
-                        .collect();
-                    // Search text is space-separated concatenation of all cell strings
-                    let name = cells
-                        .iter()
-                        .map(|(s, _)| s.as_str())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    SelectItem {
-                        name,
-                        cells: Some(cells),
-                        value: val,
-                    }
-                })
-                .collect()
-        } else {
-            // Handle --display flag: can be CellPath or Closure
-            match &display_flag {
-                Some(Value::CellPath { val: cellpath, .. }) => values
-                    .into_iter()
-                    .map(|val| {
-                        let display_value = val
-                            .follow_cell_path(&cellpath.members)
-                            .map(|v| v.to_expanded_string(", ", &config))
-                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
-                        SelectItem {
-                            name: display_value,
-                            cells: None,
-                            value: val,
-                        }
-                    })
-                    .collect(),
-                Some(Value::Closure { val: closure, .. }) => {
-                    let mut closure_eval =
-                        ClosureEval::new(engine_state, stack, Closure::clone(closure));
-                    let mut options = Vec::with_capacity(values.len());
-                    for val in values {
-                        let display_value = closure_eval
-                            .run_with_value(val.clone())
-                            .and_then(|data| data.into_value(head))
-                            .map(|v| v.to_expanded_string(", ", &config))
-                            .unwrap_or_else(|_| val.to_expanded_string(", ", &config));
-                        options.push(SelectItem {
-                            name: display_value,
-                            cells: None,
-                            value: val,
-                        });
-                    }
-                    options
-                }
-                None => values
-                    .into_iter()
-                    .map(|val| {
-                        let display_value = val.to_expanded_string(", ", &config);
-                        SelectItem {
-                            name: display_value,
-                            cells: None,
-                            value: val,
-                        }
-                    })
-                    .collect(),
-                _ => {
-                    return Err(ShellError::TypeMismatch {
-                        err_message: "expected a cell path or closure for --display".to_string(),
-                        span: display_flag.as_ref().map(|v| v.span()).unwrap_or(head),
-                    });
-                }
-            }
-        };
+        // Build initial SelectItem list
+        let options: Vec<SelectItem> = initial_values
+            .into_iter()
+            .map(|val| {
+                InputList::make_select_item(
+                    val,
+                    &columns,
+                    &display_mode,
+                    &config,
+                    engine_state,
+                    stack,
+                    head,
+                )
+            })
+            .collect();
 
-        // Calculate table layout if in table mode
         let table_layout = if is_table_mode {
             Some(Self::calculate_table_layout(&columns, &options))
         } else {
             None
         };
 
-        if options.is_empty() {
+        if options.is_empty() && !has_more_values {
             return Err(ShellError::TypeMismatch {
                 err_message: "expected a list or table, it can also be a problem with the inner type of your list.".to_string(),
                 span: head,
@@ -487,13 +498,41 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
             SelectMode::Single
         };
 
+        let config_clone = config.clone();
+        let columns_clone = columns.clone();
+        let display_mode_clone = display_mode.clone();
+
+        // Build conversion logic once and reuse it for all lazily-loaded rows.
+        // This guarantees that rows loaded later follow the exact same display rules as rows
+        // loaded during initial priming.
+        let item_generator: Box<dyn FnMut(Value) -> SelectItem + '_> =
+            Box::new(move |val: Value| {
+                InputList::make_select_item(
+                    val,
+                    &columns_clone,
+                    &display_mode_clone,
+                    &config_clone,
+                    engine_state,
+                    stack,
+                    head,
+                )
+            });
+
         let mut widget = SelectWidget::new(
             mode,
             prompt.as_deref(),
-            &options,
+            options,
             input_list_config,
             table_layout,
             per_column,
+            StreamState {
+                pending_stream: if has_more_values {
+                    Some(input_stream)
+                } else {
+                    None
+                },
+                item_generator: Some(item_generator),
+            },
         );
         let answer = widget.run().map_err(|err| {
             IoError::new_with_additional_context(err, call.head, None, INTERACT_ERROR)
@@ -514,7 +553,9 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                 } else {
                     match res {
                         Some(opts) => Value::list(
-                            opts.iter().map(|s| options[*s].value.clone()).collect(),
+                            opts.iter()
+                                .map(|s| widget.items[*s].value.clone())
+                                .collect(),
                             head,
                         ),
                         None => Value::nothing(head),
@@ -529,7 +570,7 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
                     }
                 } else {
                     match res {
-                        Some(opt) => options[opt].value.clone(),
+                        Some(opt) => widget.items[opt].value.clone(),
                         None => Value::nothing(head),
                     }
                 }
@@ -615,6 +656,92 @@ Use --no-footer and --no-separator to hide the footer and separator line."#
 }
 
 impl InputList {
+    /// Read an initial chunk from the upstream stream.
+    ///
+    /// Returns `(values, stream_may_have_more)` where the boolean is `false` only when
+    /// exhaustion is observed during the initial read. If we fill exactly `chunk_size` rows,
+    /// we intentionally assume there may be more and keep lazy probing in the widget.
+    fn read_initial_stream_chunk(stream: &mut ListStream, chunk_size: usize) -> (Vec<Value>, bool) {
+        let mut values = Vec::with_capacity(chunk_size);
+        let mut stream_may_have_more = true;
+
+        for _ in 0..chunk_size {
+            match stream.next_value() {
+                Some(value) => values.push(value),
+                None => {
+                    stream_may_have_more = false;
+                    break;
+                }
+            }
+        }
+
+        (values, stream_may_have_more)
+    }
+
+    /// Convert a raw input `Value` into a `SelectItem`, used for streaming growth
+    fn make_select_item(
+        value: Value,
+        columns: &[String],
+        display_mode: &DisplayMode,
+        config: &Config,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        span: Span,
+    ) -> SelectItem {
+        if !columns.is_empty() {
+            // Build style computer on demand so streamed rows preserve the same type-aware
+            // formatting behavior as eagerly materialized rows.
+            let style_computer = StyleComputer::from_config(engine_state, stack);
+
+            let cells: Vec<(String, TextStyle)> = columns
+                .iter()
+                .map(|col| {
+                    if let Value::Record { val: record, .. } = &value {
+                        record
+                            .get(col)
+                            .map(|v| nu_value_to_string(v, config, &style_computer))
+                            .unwrap_or_else(|| (String::new(), TextStyle::default()))
+                    } else {
+                        (String::new(), TextStyle::default())
+                    }
+                })
+                .collect();
+
+            let name = cells
+                .iter()
+                .map(|(s, _)| s.as_str())
+                .collect::<Vec<_>>()
+                .join(" ");
+            SelectItem {
+                name,
+                cells: Some(cells),
+                value,
+            }
+        } else {
+            let display_value = match display_mode {
+                DisplayMode::CellPath(cellpath) => value
+                    .follow_cell_path(cellpath)
+                    .map(|v| v.to_expanded_string(", ", config))
+                    .unwrap_or_else(|_| value.to_expanded_string(", ", config)),
+                DisplayMode::Closure(closure) => {
+                    let mut closure_eval =
+                        ClosureEval::new(engine_state, stack, Closure::clone(closure));
+                    closure_eval
+                        .run_with_value(value.clone())
+                        .and_then(|data| data.into_value(span))
+                        .map(|v| v.to_expanded_string(", ", config))
+                        .unwrap_or_else(|_| value.to_expanded_string(", ", config))
+                }
+                DisplayMode::Default => value.to_expanded_string(", ", config),
+            };
+            SelectItem {
+                name: display_value,
+                cells: None,
+                value,
+            }
+        }
+    }
+
     /// Calculate column widths for table rendering
     fn calculate_table_layout(columns: &[String], options: &[SelectItem]) -> TableLayout {
         let mut col_widths: Vec<usize> = columns.iter().map(|c| c.width()).collect();
@@ -646,15 +773,26 @@ enum SelectMode {
     FuzzyMulti,
 }
 
+/// Streaming-specific state injected into `SelectWidget`.
+///
+/// Keeping stream concerns grouped in one struct reduces constructor parameter noise and
+/// keeps the non-streaming widget state easier to reason about.
+struct StreamState<'a> {
+    pending_stream: Option<ListStream>,
+    item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
+}
+
 struct SelectWidget<'a> {
     mode: SelectMode,
     prompt: Option<&'a str>,
-    items: &'a [SelectItem],
+    items: Vec<SelectItem>,
     cursor: usize,
     selected: HashSet<usize>,
     filter_text: String,
     filtered_indices: Vec<usize>,
     scroll_offset: usize,
+    pending_stream: Option<ListStream>,
+    item_generator: Option<Box<dyn FnMut(Value) -> SelectItem + 'a>>,
     visible_height: u16,
     matcher: SkimMatcherV2,
     rendered_lines: usize,
@@ -709,10 +847,11 @@ impl<'a> SelectWidget<'a> {
     fn new(
         mode: SelectMode,
         prompt: Option<&'a str>,
-        items: &'a [SelectItem],
+        items: Vec<SelectItem>,
         config: InputListConfig,
         table_layout: Option<TableLayout>,
         per_column: bool,
+        stream_state: StreamState<'a>,
     ) -> Self {
         let filtered_indices: Vec<usize> = (0..items.len()).collect();
         let matcher = match config.case_sensitivity {
@@ -760,6 +899,8 @@ impl<'a> SelectWidget<'a> {
             per_column,
             settings_changed: false,
             selected_marker_cached,
+            pending_stream: stream_state.pending_stream,
+            item_generator: stream_state.item_generator,
             visible_columns_cache: None,
         }
     }
@@ -767,11 +908,9 @@ impl<'a> SelectWidget<'a> {
     /// Generate the separator line based on current terminal width
     fn generate_separator_line(&mut self) {
         let sep_width = self.config.separator_char.width();
-        let repeat_count = if sep_width > 0 {
-            self.term_width as usize / sep_width
-        } else {
-            self.term_width as usize
-        };
+        let repeat_count = (self.term_width as usize)
+            .checked_div(sep_width)
+            .unwrap_or(self.term_width as usize);
         self.separator_line = self.config.separator_char.repeat(repeat_count);
     }
 
@@ -813,6 +952,94 @@ impl<'a> SelectWidget<'a> {
     /// Check if we're in a fuzzy mode
     fn is_fuzzy_mode(&self) -> bool {
         self.mode == SelectMode::Fuzzy || self.mode == SelectMode::FuzzyMulti
+    }
+
+    /// Try to convert a value into a SelectItem via the configured generator
+    fn make_select_item(&mut self, value: Value) -> SelectItem {
+        if let Some(r#gen) = self.item_generator.as_mut() {
+            r#gen(value)
+        } else {
+            // Defensive fallback for test-only widget construction paths.
+            // In normal command execution the generator is always present whenever streaming is
+            // active, so this branch should remain cold.
+            SelectItem {
+                name: value.to_expanded_string(", ", &Config::default()),
+                cells: None,
+                value,
+            }
+        }
+    }
+
+    /// Load more items from upstream stream when near the end of the loaded list.
+    fn load_more_items(&mut self, count: usize) {
+        if self.pending_stream.is_none() {
+            return;
+        }
+
+        let mut loaded = 0;
+        while loaded < count {
+            let next = self
+                .pending_stream
+                .as_mut()
+                .and_then(|stream| stream.next_value());
+            if let Some(val) = next {
+                let item = self.make_select_item(val);
+                self.items.push(item);
+                loaded += 1;
+            } else {
+                self.pending_stream = None;
+                break;
+            }
+        }
+
+        if loaded > 0 {
+            // Table widths may have expanded as more rows are loaded
+            if self.is_table_mode()
+                && let Some(layout) = &mut self.table_layout
+            {
+                *layout = InputList::calculate_table_layout(&layout.columns, &self.items);
+            }
+
+            let start_len = self.filtered_indices.len();
+            if self.filter_text.is_empty() && !self.refined {
+                self.filtered_indices.extend(start_len..self.items.len());
+            } else {
+                self.update_filter();
+            }
+        }
+    }
+
+    /// Drain the remaining pending stream into `self.items` without running `update_filter`.
+    ///
+    /// Used by `update_filter` so that fuzzy searches always operate on the complete dataset,
+    /// even when items were not yet loaded by the scroll-based prefetch heuristic.
+    fn drain_pending_stream(&mut self) {
+        if self.pending_stream.is_none() {
+            return;
+        }
+        while let Some(val) = self.pending_stream.as_mut().and_then(|s| s.next_value()) {
+            let item = self.make_select_item(val);
+            self.items.push(item);
+        }
+        self.pending_stream = None;
+        if self.is_table_mode()
+            && let Some(layout) = &mut self.table_layout
+        {
+            *layout = InputList::calculate_table_layout(&layout.columns, &self.items);
+        }
+    }
+
+    /// Ensure we have enough items to show around the cursor; stream if needed.
+    fn maybe_load_more(&mut self) {
+        if self.pending_stream.is_none() {
+            return;
+        }
+
+        // Prefetch a little before hitting the end of loaded rows to avoid visible refill latency.
+        let threshold = self.scroll_offset + self.visible_height as usize + STREAM_PREFETCH_MARGIN;
+        if threshold >= self.items.len() {
+            self.load_more_items(STREAM_LOAD_BATCH);
+        }
     }
 
     /// Cycle case sensitivity: Smart -> CaseSensitive -> CaseInsensitive -> Smart
@@ -1270,6 +1497,14 @@ impl<'a> SelectWidget<'a> {
                 self.navigate_page_down();
                 KeyAction::Continue
             }
+            KeyCode::Tab => {
+                self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::BackTab => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
             _ => KeyAction::Continue,
         }
     }
@@ -1333,6 +1568,16 @@ impl<'a> SelectWidget<'a> {
                 self.navigate_page_down();
                 KeyAction::Continue
             }
+            KeyCode::Tab => {
+                self.toggle_current();
+                self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::BackTab => {
+                self.navigate_up();
+                self.toggle_current();
+                KeyAction::Continue
+            }
             _ => KeyAction::Continue,
         }
     }
@@ -1345,6 +1590,16 @@ impl<'a> SelectWidget<'a> {
         match key.code {
             KeyCode::Esc => KeyAction::Cancel,
             KeyCode::Enter => KeyAction::Confirm,
+
+            // Tab: navigate down (mirrors single/multi mode behavior)
+            KeyCode::Tab | KeyCode::Char('\t') => {
+                self.navigate_down();
+                KeyAction::Continue
+            }
+            KeyCode::BackTab => {
+                self.navigate_up();
+                KeyAction::Continue
+            }
 
             // List navigation
             KeyCode::Up | KeyCode::Char('p' | 'P') if ctrl => {
@@ -1378,31 +1633,37 @@ impl<'a> SelectWidget<'a> {
             KeyCode::Char('a' | 'A') if ctrl => {
                 // Ctrl-A: Move to beginning of line
                 self.filter_cursor = 0;
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('e' | 'E') if ctrl => {
                 // Ctrl-E: Move to end of line
                 self.filter_cursor = self.filter_text.len();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('b' | 'B') if ctrl => {
                 // Ctrl-B: Move back one character
                 self.move_filter_cursor_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('f' | 'F') if ctrl => {
                 // Ctrl-F: Move forward one character
                 self.move_filter_cursor_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('b' | 'B') if alt => {
                 // Alt-B: Move back one word
                 self.move_filter_cursor_word_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('f' | 'F') if alt => {
                 // Alt-F: Move forward one word
                 self.move_filter_cursor_word_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             // Settings toggles
@@ -1419,19 +1680,23 @@ impl<'a> SelectWidget<'a> {
             KeyCode::Left if ctrl || alt => {
                 // Ctrl/Alt-Left: Move back one word
                 self.move_filter_cursor_word_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Right if ctrl || alt => {
                 // Ctrl/Alt-Right: Move forward one word
                 self.move_filter_cursor_word_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Left => {
                 self.move_filter_cursor_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Right => {
                 self.move_filter_cursor_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
 
@@ -1561,8 +1826,8 @@ impl<'a> SelectWidget<'a> {
 
             // Shift-Tab: Toggle selection and move up
             KeyCode::BackTab => {
-                self.toggle_current_fuzzy();
                 self.navigate_up();
+                self.toggle_current_fuzzy();
                 KeyAction::Continue
             }
 
@@ -1597,26 +1862,32 @@ impl<'a> SelectWidget<'a> {
             // Readline: Cursor movement
             KeyCode::Char('a' | 'A') if ctrl => {
                 self.filter_cursor = 0;
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('e' | 'E') if ctrl => {
                 self.filter_cursor = self.filter_text.len();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('b' | 'B') if ctrl => {
                 self.move_filter_cursor_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('f' | 'F') if ctrl => {
                 self.move_filter_cursor_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('b' | 'B') if alt => {
                 self.move_filter_cursor_word_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Char('f' | 'F') if alt => {
                 self.move_filter_cursor_word_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             // Settings toggles
@@ -1632,18 +1903,22 @@ impl<'a> SelectWidget<'a> {
             }
             KeyCode::Left if ctrl || alt => {
                 self.move_filter_cursor_word_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Right if ctrl || alt => {
                 self.move_filter_cursor_word_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Left => {
                 self.move_filter_cursor_left();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
             KeyCode::Right => {
                 self.move_filter_cursor_right();
+                self.filter_text_changed = true;
                 KeyAction::Continue
             }
 
@@ -1751,19 +2026,41 @@ impl<'a> SelectWidget<'a> {
             self.cursor -= 1;
             self.adjust_scroll_up();
         } else if list_len > 0 {
-            // Wrap to bottom
-            self.cursor = list_len - 1;
+            // Wrap to bottom: drain the full stream first so we land on the true last item.
+            if self.pending_stream.is_some() {
+                self.drain_pending_stream();
+                if !self.filter_text.is_empty() {
+                    self.update_filter();
+                } else if !self.refined {
+                    self.filtered_indices = (0..self.items.len()).collect();
+                }
+            }
+            let list_len = self.current_list_len();
+            self.cursor = list_len.saturating_sub(1);
             self.adjust_scroll_down();
         }
     }
 
     /// Move cursor down with wrapping
     fn navigate_down(&mut self) {
+        self.maybe_load_more();
+
         let list_len = self.current_list_len();
         if self.cursor + 1 < list_len {
             self.cursor += 1;
             self.adjust_scroll_down();
         } else {
+            // If we still have a pending stream, attempt to load more and stay in place
+            if self.pending_stream.is_some() {
+                self.maybe_load_more();
+                let list_len = self.current_list_len();
+                if self.cursor + 1 < list_len {
+                    self.cursor += 1;
+                    self.adjust_scroll_down();
+                    return;
+                }
+            }
+
             // Wrap to top
             self.cursor = 0;
             self.scroll_offset = 0;
@@ -1800,6 +2097,15 @@ impl<'a> SelectWidget<'a> {
 
     /// Navigate to the end of the list
     fn navigate_end(&mut self) {
+        // Drain the full stream so End lands on the true last item.
+        if self.pending_stream.is_some() {
+            self.drain_pending_stream();
+            if !self.filter_text.is_empty() {
+                self.update_filter();
+            } else if !self.refined {
+                self.filtered_indices = (0..self.items.len()).collect();
+            }
+        }
         self.cursor = self.current_list_len().saturating_sub(1);
         self.adjust_scroll_down();
     }
@@ -1819,6 +2125,8 @@ impl<'a> SelectWidget<'a> {
 
     /// Navigate page down: go to bottom of current page, or next page if already at bottom
     fn navigate_page_down(&mut self) {
+        self.maybe_load_more();
+
         let list_len = self.current_list_len();
         let page_bottom =
             (self.scroll_offset + self.visible_height as usize - 1).min(list_len.saturating_sub(1));
@@ -1831,6 +2139,8 @@ impl<'a> SelectWidget<'a> {
             // Go to bottom of current page
             self.cursor = page_bottom;
         }
+
+        self.maybe_load_more();
     }
 
     /// Scroll table columns left (show earlier columns)
@@ -2154,6 +2464,12 @@ impl<'a> SelectWidget<'a> {
     }
 
     fn update_filter(&mut self) {
+        // When a filter is active, eagerly drain any remaining stream items so searches
+        // operate on the complete dataset, not just the initial prefetch window.
+        if self.pending_stream.is_some() && !self.filter_text.is_empty() {
+            self.drain_pending_stream();
+        }
+
         let old_indices = std::mem::take(&mut self.filtered_indices);
 
         // Determine whether to filter from refined subset or all items
@@ -2179,7 +2495,7 @@ impl<'a> SelectWidget<'a> {
                     .collect()
             };
             // Sort by score descending
-            scored.sort_by(|a, b| b.1.cmp(&a.1));
+            scored.sort_by_key(|entry| std::cmp::Reverse(entry.1));
             self.filtered_indices = scored.into_iter().map(|(i, _)| i).collect();
         }
 
@@ -2303,6 +2619,11 @@ impl<'a> SelectWidget<'a> {
     /// (just toggled a single visible item, no cursor movement)
     fn can_do_multi_toggle_only_update(&self) -> bool {
         if self.first_render || self.width_changed || self.mode != SelectMode::Multi {
+            return false;
+        }
+        // If the cursor also moved (e.g. Tab toggles and navigates), a full redraw
+        // is needed so the ">" indicator follows the cursor.
+        if self.cursor != self.prev_cursor {
             return false;
         }
         if let Some(toggled) = self.toggled_item {
@@ -2614,6 +2935,8 @@ impl<'a> SelectWidget<'a> {
 
     #[allow(clippy::collapsible_if)]
     fn render(&mut self, stderr: &mut Stderr) -> io::Result<()> {
+        self.maybe_load_more();
+
         // Check for fuzzy multi mode toggle-all optimization
         if self.can_do_fuzzy_multi_toggle_all_update() {
             return self.render_fuzzy_multi_toggle_all_update(stderr);
@@ -2978,31 +3301,8 @@ impl<'a> SelectWidget<'a> {
         prefix_width: usize,
     ) -> io::Result<()> {
         let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text_width = UnicodeWidthStr::width(text);
-
-        if text_width <= available_width {
-            // Text fits, render as-is
-            execute!(stderr, Print(text))?;
-        } else if available_width <= 1 {
-            // Only room for ellipsis
-            execute!(stderr, Print("…"))?;
-        } else {
-            // Find the substring that fits in available_width - 1 (reserve 1 for ellipsis)
-            let target_width = available_width - 1;
-            let mut current_width = 0;
-            let mut end_pos = 0;
-
-            for (byte_pos, c) in text.char_indices() {
-                let char_width = UnicodeWidthChar::width(c).unwrap_or(0);
-                if current_width + char_width > target_width {
-                    break;
-                }
-                end_pos = byte_pos + c.len_utf8();
-                current_width += char_width;
-            }
-            execute!(stderr, Print(&text[..end_pos]))?;
-            execute!(stderr, Print("…"))?;
-        }
+        let text = truncate_ansi_aware_text(text, available_width);
+        execute!(stderr, Print(text.as_ref()))?;
         Ok(())
     }
 
@@ -3016,7 +3316,7 @@ impl<'a> SelectWidget<'a> {
         prefix_width: usize,
     ) -> io::Result<()> {
         let available_width = (self.term_width as usize).saturating_sub(prefix_width);
-        let text_width = UnicodeWidthStr::width(text);
+        let text_width = visible_text_width(text);
 
         // Reusable single-char buffer for styled output (avoids allocation per char)
         let mut char_buf = [0u8; 4];
@@ -3614,18 +3914,21 @@ mod test {
             .map(|s| SelectItem {
                 name: s.to_string(),
                 cells: None,
-                value: nu_protocol::Value::nothing(nu_protocol::Span::unknown()),
+                value: nu_protocol::Value::nothing(nu_protocol::Span::test_data()),
             })
             .collect();
-        let leaked: &'static [SelectItem] = Box::leak(options.into_boxed_slice());
 
         SelectWidget::new(
             SelectMode::Single,
             None,
-            leaked,
+            options,
             InputListConfig::default(),
             None,
             false,
+            StreamState {
+                pending_stream: None,
+                item_generator: None,
+            },
         )
     }
 
@@ -3692,6 +3995,31 @@ mod test {
         assert_eq!(w.cursor, 1);
 
         Ok(())
+    }
+
+    #[test]
+    fn ansi_styled_text_that_visibly_fits_is_not_truncated() {
+        let text = "\u{1b}[1;37mabcdef\u{1b}[0m";
+
+        let rendered = truncate_ansi_aware_text(text, 6);
+
+        assert_eq!(
+            nu_utils::strip_ansi_unlikely(rendered.as_ref()).as_ref(),
+            "abcdef"
+        );
+        assert!(!rendered.contains('…'));
+    }
+
+    #[test]
+    fn ansi_styled_text_truncates_by_visible_width() {
+        let text = "\u{1b}[1;37mabcdef\u{1b}[0m";
+
+        let rendered = truncate_ansi_aware_text(text, 4);
+
+        assert_eq!(
+            nu_utils::strip_ansi_unlikely(rendered.as_ref()).as_ref(),
+            "abc…"
+        );
     }
 
     #[test]

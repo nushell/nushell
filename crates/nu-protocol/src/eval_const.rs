@@ -283,15 +283,32 @@ pub(crate) fn create_nu_constant(engine_state: &EngineState, span: Span) -> Valu
     Value::record(record, span)
 }
 
+/// Generates the list of vendor autoload dirs
+///
+/// - *macOS only*: `/Library/Application Support/nushell/vendor/autoload`
+/// - *non-Windows*:
+///   ```nu
+///   if $env.XDG_DATA_DIRS? != null {
+///       $env.XDG_DATA_DIRS
+///       | split row ":"
+///       | reverse
+///   } else if $PREFIX ends-with "local" {
+///       [
+///           $'($PREFIX)/share'
+///       ]
+///   } else {
+///       [
+///           $'($PREFIX)/local/share'
+///           $'($PREFIX)/share'
+///       ]
+///   }
+///   | each {|dir| $'($dir)/nushell/vendor' }
+///   ```
+/// - *Windows only*: `%ProgramData%\nushell\vendor\autoload`
+/// - *compile time*: `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set
+/// - `($nu.data_dir)/vendor/autoload`
+/// - `$env.NU_VENDOR_AUTOLOAD_DIR` if it is set _before_ `nu` is run
 pub fn get_vendor_autoload_dirs(_engine_state: &EngineState) -> Vec<PathBuf> {
-    // load order for autoload dirs
-    // /Library/Application Support/nushell/vendor/autoload on macOS
-    // <dir>/nushell/vendor/autoload for every dir in XDG_DATA_DIRS in reverse order on platforms other than windows. If XDG_DATA_DIRS is not set, it falls back to <PREFIX>/share if PREFIX ends in local, or <PREFIX>/local/share:<PREFIX>/share otherwise. If PREFIX is not set, fall back to /usr/local/share:/usr/share.
-    // %ProgramData%\nushell\vendor\autoload on windows
-    // NU_VENDOR_AUTOLOAD_DIR from compile time, if env var is set at compile time
-    // <$nu.data_dir>/vendor/autoload
-    // NU_VENDOR_AUTOLOAD_DIR at runtime, if env var is set
-
     let into_autoload_path_fn = |mut path: PathBuf| {
         path.push("nushell");
         path.push("vendor");

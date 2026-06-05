@@ -159,6 +159,7 @@ impl NuDataFrame {
         plugin: &PolarsPlugin,
         iter: T,
         maybe_schema: Option<NuSchema>,
+        span: Span,
     ) -> Result<Self, ShellError>
     where
         T: Iterator<Item = Value>,
@@ -195,7 +196,7 @@ impl NuDataFrame {
         }
 
         let df = conversion::from_parsed_columns(column_values)?;
-        add_missing_columns(df, &maybe_schema, Span::unknown())
+        add_missing_columns(df, &maybe_schema, span)
     }
 
     pub fn try_from_series_vec(columns: Vec<Series>, span: Span) -> Result<Self, ShellError> {
@@ -215,6 +216,7 @@ impl NuDataFrame {
     pub fn try_from_columns(
         columns: Vec<Column>,
         maybe_schema: Option<NuSchema>,
+        span: Span,
     ) -> Result<Self, ShellError> {
         let mut column_values: ColumnMap = IndexMap::new();
 
@@ -226,7 +228,7 @@ impl NuDataFrame {
         }
 
         let df = conversion::from_parsed_columns(column_values)?;
-        add_missing_columns(df, &maybe_schema, Span::unknown())
+        add_missing_columns(df, &maybe_schema, span)
     }
 
     pub fn fill_list_nan(list: Vec<Value>, list_span: Span, fill: Value) -> Value {
@@ -324,8 +326,8 @@ impl NuDataFrame {
         }
     }
 
-    pub fn has_index(&self) -> bool {
-        self.columns(Span::unknown())
+    pub fn has_index(&self, span: Span) -> bool {
+        self.columns(span)
             .unwrap_or_default() // just assume there isn't an index
             .iter()
             .any(|col| col.name() == "index")
@@ -339,7 +341,7 @@ impl NuDataFrame {
         if df.height() > size {
             let sample_size = size / 2;
             let mut values = self.head(Some(sample_size), include_index, span)?;
-            conversion::add_separator(&mut values, df, self.has_index(), span);
+            conversion::add_separator(&mut values, df, self.has_index(span), span);
             let remaining = df.height() - sample_size;
             let tail_size = remaining.min(sample_size);
             let mut tail_values = self.tail(Some(tail_size), include_index, span)?;
@@ -413,7 +415,7 @@ impl NuDataFrame {
             .map(|col| (col.name().to_string(), col.into_iter()))
             .collect::<Vec<(String, std::vec::IntoIter<Value>)>>();
 
-        let has_index = self.has_index();
+        let has_index = self.has_index(span);
         let values = (0..size)
             .map(|i| {
                 let mut record = Record::new();
