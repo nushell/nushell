@@ -168,6 +168,7 @@ impl Command for Sort {
                 let mut vec = value.into_list().expect("matched list above");
                 if let Type::Table(cols) = r#type {
                     let columns: Vec<Comparator> = cols
+                        .fields
                         .iter()
                         .map(|col| {
                             vec![PathMember::string(

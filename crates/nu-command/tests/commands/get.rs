@@ -214,6 +214,17 @@ fn test_const() {
     assert_eq!(actual.out, "2");
 }
 
+#[test]
+fn get_with_negative_number_reports_clear_error() {
+    let actual = nu!("[1 2 3] | get (-2)");
+
+    assert!(
+        actual
+            .err
+            .contains("can't convert negative number to cell path")
+    );
+}
+
 enum Metadata {
     Keep,
     Drop,

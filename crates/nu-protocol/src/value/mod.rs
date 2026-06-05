@@ -20,7 +20,7 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    BlockId, Config, ShellError, Signals, Span, Type,
+    BlockId, CollectionColumns, Config, ShellError, Signals, Span, Type,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
@@ -28,10 +28,7 @@ use crate::{
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::{
-    ObviousFloat, SharedCow, contains_emoji,
-    locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
-};
+use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -841,6 +838,30 @@ impl Value {
         }
     }
 
+    /// Get the type of the current Value, without inner type specification of lists, tables and
+    /// records
+    pub fn get_type_shallow(&self) -> Type {
+        match self {
+            Value::Bool { .. } => Type::Bool,
+            Value::Int { .. } => Type::Int,
+            Value::Float { .. } => Type::Float,
+            Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
+            Value::Date { .. } => Type::Date,
+            Value::Range { .. } => Type::Range,
+            Value::String { .. } => Type::String,
+            Value::Glob { .. } => Type::Glob,
+            Value::Record { .. } => Type::record(),
+            Value::List { .. } => Type::list(Type::Any),
+            Value::Nothing { .. } => Type::Nothing,
+            Value::Closure { .. } => Type::Closure,
+            Value::Error { .. } => Type::Error,
+            Value::Binary { .. } => Type::Binary,
+            Value::CellPath { .. } => Type::CellPath,
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
+        }
+    }
+
     /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
     ///
     /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
@@ -856,8 +877,9 @@ impl Value {
     /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // records are structurally typed
-        let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
+        let record_compatible = |val: &Value, other: &CollectionColumns<Type>| match val {
             Value::Record { val, .. } => other
+                .fields
                 .iter()
                 .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
             _ => false,
@@ -932,20 +954,9 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale = if let Ok(l) =
-            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
-        {
-            let locale_str = l.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            // LC_ALL > LC_CTYPE > LANG else en_US
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale_from_env_vars(Some("LC_TIME"), |name| std::env::var(name).ok())
+            .and_then(|s| s.as_ref().try_into().ok())
+            .unwrap_or(Locale::en_US);
         let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
@@ -4827,11 +4838,16 @@ mod tests {
             assert_subtype_equivalent(&list, &ty_list_list_int);
 
             // The type of an empty lists is a subtype of any list or table type
-            let ty_table = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
+            let ty_table = {
+                Type::Table(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
             let empty = Value::test_list(vec![]);
 
             assert_subtype_equivalent(&empty, &ty_any_list);
@@ -4841,13 +4857,18 @@ mod tests {
 
         #[test]
         fn test_record() {
-            let ty_abc = Type::Record(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Record(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
-            let ty_inner = Type::Record(Box::new([("inner".into(), ty_abc.clone())]));
+            let ty_abc = {
+                Type::Record(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
+            let ty_ab = Type::Record(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
+            let ty_inner = Type::Record(vec![("inner".into(), ty_abc.clone())].into());
 
             let record_abc = Value::test_record(record! {
                 "a" => Value::test_int(1),
@@ -4872,12 +4893,15 @@ mod tests {
 
         #[test]
         fn test_table() {
-            let ty_abc = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_abc = Type::Table(
+                vec![
+                    ("a".into(), Type::Int),
+                    ("b".into(), Type::Int),
+                    ("c".into(), Type::Int),
+                ]
+                .into(),
+            );
+            let ty_ab = Type::Table(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
             let ty_list_any = Type::list(Type::Any);
 
             let record_abc = Value::test_record(record! {
@@ -4903,7 +4927,7 @@ mod tests {
             assert_subtype_equivalent(&table_mixed, &ty_abc);
             assert!(table_mixed.is_subtype_of(&ty_ab));
 
-            let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
+            let ty_a = Type::Table(vec![("a".into(), Type::Any)].into());
             let table_mixed_types = Value::test_list(vec![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),

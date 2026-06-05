@@ -1,5 +1,5 @@
-export module foo.nu
-export module beans
+export module foo.nu; export use foo
+export module beans; export use beans
 
 export def test [] { 'test' }
 

@@ -38,7 +38,7 @@ impl Command for Rm {
                 (
                     Type::Nothing,
                     Type::Table(
-                        [
+                        vec![
                             ("path".to_string(), Type::String),
                             ("deleted".to_string(), Type::Bool),
                             (

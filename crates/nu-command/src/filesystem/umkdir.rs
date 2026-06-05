@@ -46,7 +46,7 @@ impl Command for UMkdir {
                 (
                     Type::Nothing,
                     Type::Table(
-                        [
+                        vec![
                             ("path".to_string(), Type::String),
                             ("created".to_string(), Type::Bool),
                             (
@@ -104,7 +104,7 @@ impl Command for UMkdir {
 
         let config = uu_mkdir::Config {
             recursive: IS_RECURSIVE,
-            mode: get_mode(),
+            mode: Some(get_mode()),
             verbose: false,
             set_security_context: false,
             context: None,

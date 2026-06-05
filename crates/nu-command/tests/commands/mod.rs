@@ -96,6 +96,7 @@ mod reverse;
 mod rm;
 mod roll;
 mod rotate;
+mod run;
 mod run_external;
 mod save;
 mod select;

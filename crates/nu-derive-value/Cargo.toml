@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Macros implementation of #[derive(FromValue, IntoValue)]"
 edition.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-derive-value"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-derive-value"
 rust-version.workspace = true
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 proc-macro = true

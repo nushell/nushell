@@ -18,7 +18,7 @@ impl Command for IdxFind {
             .named(
                 "limit",
                 SyntaxShape::Int,
-                "Maximum number of rows to return.",
+                "Maximum number of rows to return (default 100).",
                 Some('l'),
             )
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::record())))])

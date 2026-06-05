@@ -24,6 +24,7 @@ mod join_where;
 mod last;
 mod len;
 mod lit;
+mod map_batches;
 mod pivot;
 mod qcut;
 mod query_df;
@@ -68,6 +69,7 @@ use join::LazyJoin;
 use join_where::LazyJoinWhere;
 pub use last::LastDF;
 pub use lit::ExprLit;
+pub use map_batches::MapBatches;
 use query_df::QueryDf;
 pub use rename::RenameDF;
 pub use replace::Replace;
@@ -114,6 +116,7 @@ pub(crate) fn data_commands() -> Vec<Box<dyn PluginCommand<Plugin = PolarsPlugin
         Box::new(LazyFlatten),
         Box::new(LazyJoin),
         Box::new(LazyJoinWhere),
+        Box::new(MapBatches),
         Box::new(reverse::LazyReverse),
         Box::new(select::LazySelect),
         Box::new(LazySortBy),

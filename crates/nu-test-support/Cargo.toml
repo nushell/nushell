@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Support for writing Nushell tests"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-test-support"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-test-support"
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 doctest = false
@@ -27,18 +27,19 @@ network = ["nu-command/network"]
 rustls-tls = ["nu-command/rustls-tls"]
 
 [dependencies]
-nu-cmd-extra = { path = "../nu-cmd-extra", version = "0.112.3", default-features = false }
-nu-cmd-lang = { path = "../nu-cmd-lang", version = "0.112.3", default-features = false }
-nu-command = { path = "../nu-command", version = "0.112.3", default-features = false }
-nu-engine = { path = "../nu-engine", version = "0.112.3", default-features = false }
-nu-experimental = { path = "../nu-experimental", version = "0.112.3", default-features = false }
-nu-glob = { path = "../nu-glob", version = "0.112.3", default-features = false }
-nu-parser = { path = "../nu-parser", version = "0.112.3", default-features = false }
-nu-path = { path = "../nu-path", version = "0.112.3", default-features = false }
-nu-protocol = { path = "../nu-protocol", version = "0.112.3", default-features = false }
-nu-std = { path = "../nu-std", version = "0.112.3", default-features = false }
-nu-test-support-macros = { path = "../nu-test-support-macros", version = "0.112.3", default-features = false }
-nu-utils = { path = "../nu-utils", version = "0.112.3", default-features = false }
+nu-cmd-extra.workspace = true
+nu-cmd-lang.workspace = true
+nu-command.workspace = true
+nu-cli.workspace = true
+nu-engine.workspace = true
+nu-experimental.workspace = true
+nu-glob.workspace = true
+nu-parser.workspace = true
+nu-path.workspace = true
+nu-protocol.workspace = true
+nu-std.workspace = true
+nu-test-support-macros.workspace = true
+nu-utils.workspace = true
 
 derive_more = { workspace = true }
 itertools = { workspace = true }
@@ -54,8 +55,8 @@ which = { workspace = true }
 
 [dev-dependencies]
 # doc tests use the "os" feature of `nu-command`
-nu-cmd-lang = { path = "../nu-cmd-lang", features = ["default"] }
-nu-command = { path = "../nu-command", features = ["default"] }
+nu-cmd-lang = { workspace = true, features = ["default"] }
+nu-command = { workspace = true, features = ["default"] }
 
 bytes = { workspace = true }
 rstest = { workspace = true }
