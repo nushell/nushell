@@ -760,11 +760,7 @@ mod tests {
         } else {
             Bound::Excluded(end)
         };
-        let range = FloatRange {
-            start,
-            step,
-            end,
-        };
+        let range = FloatRange { start, step, end };
         range
             .into_range_iter(Signals::empty())
             .collect::<Vec<f64>>()
