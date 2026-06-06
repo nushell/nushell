@@ -12,10 +12,7 @@ impl Command for StorOpen {
 
     fn signature(&self) -> Signature {
         Signature::build("stor open")
-            .input_output_types(vec![(
-                Type::Nothing,
-                Type::Custom("sqlite-in-memory".into()),
-            )])
+            .input_output_types(vec![(Type::Nothing, Type::Custom("SQLiteDatabase".into()))])
             .allow_variants_without_examples(true)
             .category(Category::Database)
     }
