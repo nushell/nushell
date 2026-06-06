@@ -23,6 +23,11 @@ impl PluginCommand for ExprImplode {
 
     fn signature(&self) -> Signature {
         Signature::build(self.name())
+            .switch(
+                "maintain-order",
+                "Maintains the order of the original values in the list",
+                Some('o'),
+            )
             .input_output_type(
                 PolarsPluginType::NuExpression.into(),
                 PolarsPluginType::NuExpression.into(),
@@ -71,7 +76,8 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    let res: NuExpression = expr.into_polars().implode().into();
+    let maintain_order = call.has_flag("maintain-order")?;
+    let res: NuExpression = expr.into_polars().implode(maintain_order).into();
     res.to_pipeline_data(plugin, engine, call.head)
 }
 

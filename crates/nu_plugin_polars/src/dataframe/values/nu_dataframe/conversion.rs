@@ -817,7 +817,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -839,7 +839,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -861,7 +861,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -883,7 +883,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -905,7 +905,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -927,7 +927,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -949,7 +949,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -971,7 +971,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -993,7 +993,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1015,7 +1015,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1037,7 +1037,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1059,7 +1059,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1073,7 +1073,7 @@ fn series_to_values(
 
             Ok(values)
         }
-        t @ (DataType::Binary | DataType::BinaryOffset) => {
+        DataType::Binary => {
             let make_err = |e: PolarsError| {
                 ShellError::Generic(
                     GenericError::new_internal("Error casting column to binary", "")
@@ -1081,11 +1081,30 @@ fn series_to_values(
                 )
             };
 
-            let it = match t {
-                DataType::Binary => series.binary().map_err(make_err)?.into_iter(),
-                DataType::BinaryOffset => series.binary_offset().map_err(make_err)?.into_iter(),
-                _ => unreachable!(),
+            let it = series.binary().map_err(make_err)?.iter();
+
+            let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
+                Either::Left(it.skip(from_row).take(size))
+            } else {
+                Either::Right(it)
+            }
+            .map(|v| match v {
+                Some(b) => Value::binary(b, span),
+                None => Value::nothing(span),
+            })
+            .collect::<Vec<Value>>();
+
+            Ok(values)
+        }
+        DataType::BinaryOffset => {
+            let make_err = |e: PolarsError| {
+                ShellError::Generic(
+                    GenericError::new_internal("Error casting column to binary offset", "")
+                        .with_help(e.to_string()),
+                )
             };
+
+            let it = series.binary_offset().map_err(make_err)?.iter();
 
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
@@ -1111,7 +1130,7 @@ fn series_to_values(
                         .with_help(format!("Object not supported for conversion: {x}")),
                 )),
                 Some(ca) => {
-                    let it = ca.into_iter();
+                    let it = ca.iter();
                     let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row)
                     {
                         Either::Left(it.skip(from_row).take(size))
@@ -1136,15 +1155,26 @@ fn series_to_values(
                         .with_help(format!("List not supported for conversion: {x}")),
                 )),
                 Some(ca) => {
-                    let it = ca.into_iter();
+                    let it = ca.iter();
                     if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                         Either::Left(it.skip(from_row).take(size))
                     } else {
                         Either::Right(it)
                     }
                     .map(|ca| {
-                        let sublist: Vec<Value> = if let Some(ref s) = ca {
-                            series_to_values(s, None, None, span)?
+                        let sublist: Vec<Value> = if let Some(arr) = ca {
+                            let dt = DataType::from_arrow_dtype(arr.dtype());
+                            let s =
+                                Series::from_chunk_and_dtype("".into(), arr, &dt).map_err(|e| {
+                                    ShellError::Generic(
+                                        GenericError::new_internal(
+                                            "Error creating series from list values",
+                                            "",
+                                        )
+                                        .with_help(e.to_string()),
+                                    )
+                                })?;
+                            series_to_values(&s, None, None, span)?
                         } else {
                             // empty item
                             vec![]
@@ -1167,7 +1197,7 @@ fn series_to_values(
                 .clone()
                 .into_physical();
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1196,7 +1226,7 @@ fn series_to_values(
                 .clone()
                 .into_physical();
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1226,7 +1256,7 @@ fn series_to_values(
                 .clone()
                 .into_physical();
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
@@ -1278,7 +1308,7 @@ fn series_to_values(
                 )
             })?;
 
-            let it = casted.into_iter();
+            let it = casted.iter();
             let values = if let (Some(size), Some(from_row)) = (maybe_size, maybe_from_row) {
                 Either::Left(it.skip(from_row).take(size))
             } else {
