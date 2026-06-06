@@ -65,9 +65,18 @@ impl Command for StorOpen {
 #[cfg(test)]
 mod test {
     use super::*;
+    use nu_test_support::Result;
+    use nu_test_support::prelude::*;
 
     #[test]
-    fn test_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(StorOpen)
+    fn test_examples() -> Result {
+        test().examples(StorOpen)
+    }
+
+    #[test]
+    #[exp(nu_experimental::ENFORCE_RUNTIME_ANNOTATIONS)]
+    fn correct_return_ty() -> Result {
+        let () = test().run("let db = stor open")?;
+        Ok(())
     }
 }
