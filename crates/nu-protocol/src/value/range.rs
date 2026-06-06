@@ -374,10 +374,20 @@ mod float_range {
                 }
                 (Some(next), None) => next - start,
                 (None, Some(end)) => {
-                    if end < start {
-                        -1.0
-                    } else {
+                    let diff = end - start;
+                    if diff == 0.0 {
+                        return Err(ShellError::CannotCreateRange { span });
+                    }
+                    if diff.abs() < 1.0 {
+                        // For float ranges with small differences, compute a natural
+                        // step based on the order of magnitude of the difference,
+                        // so that `0.1..0.3` yields 0.1, 0.2, 0.3.
+                        let magnitude = 10.0_f64.powf(diff.abs().log10().floor());
+                        diff.signum() * magnitude
+                    } else if diff > 0.0 {
                         1.0
+                    } else {
+                        -1.0
                     }
                 }
                 (None, None) => 1.0,
@@ -441,11 +451,21 @@ mod float_range {
         }
 
         pub fn into_range_iter(self, signals: Signals) -> Iter {
+            // Determine rounding factor from the step's decimal precision.
+            // Only applies when step < 1.0 (fractional steps) to clean up
+            // floating-point artifacts like 0.30000000000000004.
+            let round_factor = if self.step.abs() >= 1.0 || self.step == 0.0 {
+                0.0 // sentinel: no rounding
+            } else {
+                let precision = (-self.step.abs().log10()).max(0.0).ceil() as i32;
+                10.0_f64.powi(precision)
+            };
             Iter {
                 start: self.start,
                 step: self.step,
                 end: self.end,
                 iter: Some(0),
+                round_factor,
                 signals,
             }
         }
@@ -550,6 +570,7 @@ mod float_range {
         step: f64,
         end: Bound<f64>,
         iter: Option<u64>,
+        round_factor: f64,
         signals: Signals,
     }
 
@@ -560,17 +581,36 @@ mod float_range {
             if let Some(iter) = self.iter {
                 let current = self.start + self.step * iter as f64;
 
+                // Snap only tiny floating-point drift (quotient very close to integer).
+                let quotient = current / self.step;
+                let value = if (quotient - quotient.round()).abs() < 1e-10 {
+                    quotient.round() * self.step
+                } else {
+                    current
+                };
+
+                // Round to step's decimal precision if applicable, to avoid
+                // displaying artifacts like 0.30000000000000004.
+                let value = if self.round_factor > 0.0 {
+                    (value * self.round_factor).round() / self.round_factor
+                } else {
+                    value
+                };
+
+                // Use an epsilon tolerance to handle floating-point precision
+                // issues in the end-bound comparison.
+                const EPS: f64 = f64::EPSILON * 100.0;
                 let not_end = match (self.step < 0.0, self.end) {
-                    (true, Bound::Included(end)) => current >= end,
-                    (true, Bound::Excluded(end)) => current > end,
-                    (false, Bound::Included(end)) => current <= end,
-                    (false, Bound::Excluded(end)) => current < end,
-                    (_, Bound::Unbounded) => current.is_finite(),
+                    (true, Bound::Included(end)) => value + EPS >= end,
+                    (true, Bound::Excluded(end)) => value - EPS > end,
+                    (false, Bound::Included(end)) => value <= end + EPS,
+                    (false, Bound::Excluded(end)) => value < end - EPS,
+                    (_, Bound::Unbounded) => value.is_finite(),
                 };
 
                 if not_end && !self.signals.interrupted() {
                     self.iter = iter.checked_add(1);
-                    Some(current)
+                    Some(value)
                 } else {
                     self.iter = None;
                     None
@@ -705,6 +745,91 @@ impl Iterator for Iter {
         match self {
             Iter::IntIter(iter, span) => iter.next().map(|val| Value::int(val, *span)),
             Iter::FloatIter(iter, span) => iter.next().map(|val| Value::float(val, *span)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Signals;
+
+    fn collect_float_range(start: f64, step: f64, end: f64, inclusive: bool) -> Vec<f64> {
+        let end = if inclusive {
+            Bound::Included(end)
+        } else {
+            Bound::Excluded(end)
+        };
+        let range = FloatRange { start, step, end };
+        range
+            .into_range_iter(Signals::empty())
+            .collect::<Vec<f64>>()
+    }
+
+    #[test]
+    fn float_range_small_step_inclusive() {
+        let result = collect_float_range(0.1, 0.1, 0.3, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 0.1).abs() < 1e-15);
+        assert!((result[1] - 0.2).abs() < 1e-15);
+        assert!((result[2] - 0.3).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_tiny_step_inclusive() {
+        let result = collect_float_range(0.001, 0.001, 0.005, true);
+        assert_eq!(result.len(), 5);
+        assert!((result[0] - 0.001).abs() < 1e-15);
+        assert!((result[1] - 0.002).abs() < 1e-15);
+        assert!((result[2] - 0.003).abs() < 1e-15);
+        assert!((result[3] - 0.004).abs() < 1e-15);
+        assert!((result[4] - 0.005).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_integer_step_noninteger_start() {
+        let result = collect_float_range(1.8, 1.0, 3.8, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 1.8).abs() < 1e-15);
+        assert!((result[1] - 2.8).abs() < 1e-15);
+        assert!((result[2] - 3.8).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_decreasing() {
+        let result = collect_float_range(0.3, -0.1, 0.1, true);
+        assert_eq!(result.len(), 3);
+        assert!((result[0] - 0.3).abs() < 1e-15);
+        assert!((result[1] - 0.2).abs() < 1e-15);
+        assert!((result[2] - 0.1).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_explicit_step_clean_values() {
+        let result = collect_float_range(0.1, 0.2, 0.3, false);
+        assert_eq!(result.len(), 1);
+        assert!((result[0] - 0.1).abs() < 1e-15);
+    }
+
+    #[test]
+    fn float_range_rounds_last_value() {
+        // 0.1 + 0.1*2 = 0.30000000000000004 without rounding;
+        // verify rounding produces exactly 0.3
+        let result = collect_float_range(0.1, 0.1, 0.3, true);
+        assert_eq!(result[2], 0.3);
+    }
+
+    #[test]
+    fn float_range_clean_serialization() {
+        // Verify all values in a small-step range are clean (no floating-point artifacts)
+        let result = collect_float_range(0.0, 0.1, 0.5, true);
+        assert_eq!(result.len(), 6);
+        for (i, &val) in result.iter().enumerate() {
+            let expected = i as f64 * 0.1;
+            assert!(
+                (val - expected).abs() < 1e-15,
+                "at index {i}: expected {expected}, got {val}"
+            );
         }
     }
 }
