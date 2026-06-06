@@ -143,7 +143,7 @@ fn apply_window_spec(expr: Expr, window_type: Option<&WindowType>) -> Result<Exp
                     .iter()
                     .map(parse_sql_expr)
                     .collect::<Result<Vec<_>>>()?;
-                expr.over(partition_by)
+                expr.over(partition_by)?
                 // Order by and Row range may not be supported at the moment
             }
             // TODO: make NamedWindow work

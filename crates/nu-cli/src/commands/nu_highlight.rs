@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use nu_engine::command_prelude::*;
-use reedline::{Highlighter, StyledText};
 
 use crate::syntax_highlight::highlight_syntax;
 
@@ -47,31 +46,38 @@ impl Command for NuHighlight {
         let engine_state = Arc::new(engine_state.clone());
         let stack = Arc::new(stack.clone());
 
-        input.map(
-            move |x| match x.coerce_into_string() {
-                Ok(line) => {
-                    let result = highlight_syntax(&engine_state, &stack, &line, line.len());
+        input
+            .map(
+                move |x| match x.coerce_into_string() {
+                    Ok(line) => {
+                        let result = highlight_syntax(&engine_state, &stack, &line, line.len());
 
-                    let highlights = match (reject_garbage, result.found_garbage) {
-                        (false, _) => result.text,
-                        (true, None) => result.text,
-                        (true, Some(span)) => {
-                            let error = ShellError::OutsideSpannedLabeledError {
-                                src: line,
-                                error: "encountered invalid syntax while highlighting".into(),
-                                msg: "invalid syntax".into(),
-                                span,
-                            };
-                            return Value::error(error, head);
-                        }
-                    };
+                        let highlights = match (reject_garbage, result.found_garbage) {
+                            (false, _) => result.text,
+                            (true, None) => result.text,
+                            (true, Some(span)) => {
+                                let error = ShellError::OutsideSpannedLabeledError {
+                                    src: line,
+                                    error: "encountered invalid syntax while highlighting".into(),
+                                    msg: "invalid syntax".into(),
+                                    span,
+                                };
+                                return Value::error(error, head);
+                            }
+                        };
 
-                    Value::string(highlights.render_simple(), head)
+                        Value::string(highlights.render_simple(), head)
+                    }
+                    Err(err) => Value::error(err, head),
+                },
+                signals,
+            )
+            .map(|mut pipeline| {
+                if let Some(meta) = pipeline.metadata_mut() {
+                    meta.content_type = None;
                 }
-                Err(err) => Value::error(err, head),
-            },
-            signals,
-        )
+                pipeline
+            })
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -80,18 +86,5 @@ impl Command for NuHighlight {
             example: "'let x = 3' | nu-highlight",
             result: None,
         }]
-    }
-}
-
-/// A highlighter that does nothing
-///
-/// Used to remove highlighting from a reedline instance
-/// (letting NuHighlighter structs be dropped)
-#[derive(Default)]
-pub struct NoOpHighlighter {}
-
-impl Highlighter for NoOpHighlighter {
-    fn highlight(&self, _line: &str, _cursor: usize) -> reedline::StyledText {
-        StyledText::new()
     }
 }

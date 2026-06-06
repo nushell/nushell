@@ -335,9 +335,7 @@ fn struct_expected_type(
                     <#ty as nu_protocol::FromValue>::expected_type(),
                 )});
             }
-            quote!(nu_protocol::Type::Record(
-                std::vec![#(#fields_ts),*].into_boxed_slice()
-            ))
+            quote!(nu_protocol::Type::Record(std::vec![#(#fields_ts),*].into()))
         }
         (f @ Fields::Unnamed(fields), _) => {
             attributes::deny_fields(f)?;

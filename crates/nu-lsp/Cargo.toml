@@ -32,7 +32,7 @@ nu-cmd-lang = { workspace = true, features = ["os"] }
 nu-command = { workspace = true, features = ["os"] }
 nu-engine.workspace = true
 nu-std.workspace = true
-nu-test-support.workspace = true
+nu-test-support = { path = "../nu-test-support" }
 
 assert-json-diff = "2.0"
 rstest = { workspace = true, default-features = false }

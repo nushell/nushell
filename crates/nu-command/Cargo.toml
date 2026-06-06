@@ -24,6 +24,7 @@ harness = false
 workspace = true
 
 [dependencies]
+ansi-str = { workspace = true }
 nu-ansi-term.workspace = true
 nu-cmd-base.workspace = true
 nu-color-config.workspace = true
@@ -254,7 +255,7 @@ trash-support = ["trash"]
 
 [dev-dependencies]
 nu-cmd-lang.workspace = true
-nu-test-support.workspace = true
+nu-test-support = { path = "../nu-test-support" }
 
 dirs = { workspace = true }
 mockito = { workspace = true, default-features = false }

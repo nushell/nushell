@@ -235,3 +235,14 @@ fn forwards_error_properly() -> Result {
 
     Ok(())
 }
+
+#[test]
+fn reject_with_negative_index_reports_clear_error() {
+    let actual = nu!("[1 2 3] | reject (-2)");
+
+    assert!(
+        actual
+            .err
+            .contains("can't convert negative number to cell path")
+    );
+}

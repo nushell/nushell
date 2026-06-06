@@ -46,7 +46,7 @@ jobs:
         uses: hustcer/setup-nu@v3
         if: github.repository == 'nushell/nightly'
         with:
-          version: 0.109.1
+          version: 0.112.2
 
       # Synchronize the main branch of nightly repo with the main branch of Nushell official repo
       - name: Prepare for Nightly Release
@@ -71,7 +71,7 @@ jobs:
         shell: nu {0}
         run: |
           let date = date now | format date %m%d
-          let version = open Cargo.toml | get package.version
+          let version = open Cargo.toml | get workspace.package.version
           let sha_short = (git rev-parse --short origin/main | str trim | str substring 0..6)
           let latest_meta = http get https://api.github.com/repos/nushell/nightly/releases
                             | sort-by -r created_at
@@ -188,7 +188,7 @@ jobs:
     - name: Setup Nushell
       uses: hustcer/setup-nu@v3
       with:
-        version: 0.109.1
+        version: 0.112.2
 
     - name: Release Nu Binary
       id: nu
@@ -263,7 +263,7 @@ jobs:
       - name: Setup Nushell
         uses: hustcer/setup-nu@v3
         with:
-          version: 0.109.1
+          version: 0.112.2
 
       # Keep the last a few releases
       - name: Delete Older Releases
