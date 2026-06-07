@@ -36,8 +36,12 @@ static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLo
     // let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
     let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
-    let mut engine_state = nu_cli::add_cli_context(engine_state);
+    #[cfg(feature = "os")]
+    let engine_state = nu_cli::add_cli_context(engine_state);
     // let engine_state = nu_explore::add_explore_context(engine_state);
+
+    // Make `engine_state` mutable without fiddling with features
+    let mut engine_state = engine_state;
 
     engine_state.generate_nu_constant();
     [
