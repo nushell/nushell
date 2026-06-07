@@ -8,7 +8,9 @@ use std::{borrow::Cow, collections::HashMap, num::NonZeroUsize};
 
 use crate::yaml::Spec;
 use derive_setters::Setters;
-use granit_parser::{Event, Parser, ScalarStyle, ScanError, StrInput, StructureStyle, Tag};
+use granit_parser::{
+    Event, Parser, ParserTrait, ScalarStyle, ScanError, StrInput, StructureStyle, Tag,
+};
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 
 #[non_exhaustive]
@@ -28,9 +30,14 @@ pub enum ParseMultiple {
 }
 
 pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<Value, ShellError> {
-    let yaml_str = yaml.item;
-    let yaml_span = yaml.span;
-    let mut parser = Parser::new_from_str(yaml_str);
+    let parser = Parser::new_from_str(yaml.item);
+    let ctx = ParseCtx {
+        parser,
+        parser_span: span,
+        yaml_span: yaml.span,
+        anchors: HashMap::new(),
+        options,
+    };
     todo!()
 }
 
@@ -39,16 +46,52 @@ struct ParseCtx<'i> {
     parser_span: Span,
     yaml_span: Span,
     anchors: HashMap<NonZeroUsize, Value>,
-    options: ParseOptions,
+    options: &'i ParseOptions,
 }
 
 impl<'i> ParseCtx<'i> {
     fn next_event(&mut self) -> Result<Event<'i>, ShellError> {
-        todo!()
+        match self.parser.next_event() {
+            None => Err(ShellError::Generic(
+                GenericError::new(
+                    "Unexpected end of YAML events",
+                    "Unexpectedly the event stream of the YAML parser ended",
+                    self.parser_span,
+                )
+                .with_code("shell::yaml::parser::end_of_events")
+                .with_help("This is most likely a bug. Please report it."),
+            )),
+            Some(Err(err)) => Err(ShellError::Generic(
+                GenericError::new(
+                    "Scanning YAML failed",
+                    "Scanning the YAML input failed",
+                    self.yaml_span,
+                )
+                .with_code("shell::yaml::parser::scan_error")
+                .with_source(err),
+            )),
+            Some(Ok((event, _))) => Ok(event),
+        }
     }
 
+    #[track_caller]
     fn unexpected_event(&self, event: Event<'i>) -> ShellError {
-        todo!()
+        ShellError::Generic(
+            GenericError::new(
+                "Internal YAML Parser Error",
+                "The YAML parser got into an unexpected state",
+                self.parser_span,
+            )
+            .with_code("shell::yaml::parser::internal")
+            .with_help("This is most likely a bug. Please report it.")
+            .with_inner([ShellError::Generic(
+                GenericError::new_internal(
+                    "Unexpected YAML event",
+                    "Unexpected YAML event during parsing",
+                )
+                .with_code("shell::yaml::parser::unexpected_event"),
+            )]),
+        )
     }
 
     fn unexpected_key_anchor(&self) -> ShellError {
@@ -91,6 +134,10 @@ impl<'i> ParseCtx<'i> {
         self.anchors.insert(anchor_id, value);
     }
 
+    fn maybe_set_anchor(&mut self, anchor_id: usize, value: &Value) {
+        NonZeroUsize::new(anchor_id).map(|anchor_id| self.set_anchor(anchor_id, value.clone()));
+    }
+
     fn get_anchor(&self, anchor_id: NonZeroUsize) -> Result<Value, ShellError> {
         match self.anchors.get(&anchor_id) {
             Some(value) => Ok(value.clone()),
@@ -128,14 +175,12 @@ fn parse_sequence<'i>(
             Event::Alias(anchor_id) => values.push(ctx.get_anchor(ctx.alias(anchor_id)?)?),
             Event::Scalar(value, scalar_style, anchor_id, tag) => {
                 let value = parse_scalar(ctx, value, scalar_style, tag)?;
-                NonZeroUsize::new(anchor_id)
-                    .map(|anchor_id| ctx.set_anchor(anchor_id, value.clone()));
+                ctx.maybe_set_anchor(anchor_id, &value);
                 values.push(value);
             }
             Event::SequenceStart(structure_style, anchor_id, tag) => {
                 let value = parse_sequence(ctx, structure_style, tag)?;
-                NonZeroUsize::new(anchor_id)
-                    .map(|anchor_id| ctx.set_anchor(anchor_id, value.clone()));
+                ctx.maybe_set_anchor(anchor_id, &value);
                 values.push(value);
             }
             Event::SequenceEnd => return Ok(Value::list(values, ctx.parser_span)),
@@ -182,20 +227,17 @@ fn parse_mapping<'i>(
                 Event::Alias(anchor_id) => break 'value ctx.get_anchor(ctx.alias(anchor_id)?)?,
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_scalar(ctx, value, scalar_style, tag)?;
-                    NonZeroUsize::new(anchor_id)
-                        .map(|anchor_id| ctx.set_anchor(anchor_id, value.clone()));
+                    ctx.maybe_set_anchor(anchor_id, &value);
                     break 'value value;
                 }
                 Event::SequenceStart(structure_style, anchor_id, tag) => {
                     let value = parse_sequence(ctx, structure_style, tag)?;
-                    NonZeroUsize::new(anchor_id)
-                        .map(|anchor_id| ctx.set_anchor(anchor_id, value.clone()));
+                    ctx.maybe_set_anchor(anchor_id, &value);
                     break 'value value;
                 }
                 Event::MappingStart(structure_style, anchor_id, tag) => {
                     let value = parse_mapping(ctx, structure_style, tag)?;
-                    NonZeroUsize::new(anchor_id)
-                        .map(|anchor_id| ctx.set_anchor(anchor_id, value.clone()));
+                    ctx.maybe_set_anchor(anchor_id, &value);
                     break 'value value;
                 }
                 event => return Err(ctx.unexpected_event(event)),
@@ -215,4 +257,22 @@ fn parse_key<'i>(
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<String, ShellError> {
     todo!()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use nu_protocol::IntoSpanned;
+    use nu_test_support::prelude::*;
+
+    const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/sample.yaml");
+
+    #[test]
+    fn parse_fixture_properly() -> Result {
+        let yaml = FIXTURE.into_spanned(Span::test_data());
+        let span = Span::test_data();
+        let options = ParseOptions::default();
+        parse(yaml, span, &options)?;
+        Ok(())
+    }
 }
