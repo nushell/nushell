@@ -4836,10 +4836,12 @@ version = "0.113.2"
 dependencies = [
  "derive_setters",
  "granit-parser",
+ "nu-json",
  "nu-protocol",
  "nu-test-support",
  "regex",
  "serde-saphyr",
+ "serde_json",
 ]
 
 [[package]]
