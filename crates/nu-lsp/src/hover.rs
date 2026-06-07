@@ -186,13 +186,12 @@ impl LanguageServer {
                 false,
             )),
             Id::Module(module_id, _) => {
-                let description = working_set
-                    .get_module_comments(module_id)?
-                    .iter()
-                    .map(|sp| String::from_utf8_lossy(working_set.get_span_contents(*sp)).into())
-                    .collect::<Vec<String>>()
-                    .join("\n");
-                markdown_hover(description)
+                let (mut desc, extra) = working_set
+                    .get_module_comments(module_id)
+                    .map(|spans| working_set.build_desc(spans))?;
+                desc.push_str("\n\n");
+                desc.push_str(&extra);
+                markdown_hover(desc)
             }
             Id::Value(t) => markdown_hover(format!("`{t}`")),
             Id::External(cmd) => {
@@ -306,9 +305,9 @@ mod hover_tests {
     #[case::use_record("hover/use.nu", (0, 19), "```\nrecord<foo: list<oneof<int, record<bar: int>>>>\n``` \n---\nimmutable", true)]
     #[case::use_function("hover/use.nu", (0, 22), "\n---\n### Usage \n```nu\n  foo {flags}\n```\n\n### Flags", true)]
     #[case::cell_path("workspace/baz.nu", (8, 42), "```\nstring\n```\n---\nconst value", false)]
-    #[case::module_first("workspace/foo.nu", (15, 15), "# cmt", false)]
-    #[case::module_second("workspace/foo.nu", (17, 27), "# sub cmt", false)]
-    #[case::module_third("workspace/foo.nu", (19, 33), "# sub sub cmt", false)]
+    #[case::module_first("workspace/foo.nu", (15, 15), "cmt", false)]
+    #[case::module_second("workspace/foo.nu", (17, 27), "sub cmt", false)]
+    #[case::module_third("workspace/foo.nu", (21, 33), "sub sub cmt\n\nextra", false)]
     fn hover_on_exportable(
         #[case] filename: &str,
         #[case] cursor: (u32, u32),
