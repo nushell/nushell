@@ -9,7 +9,7 @@ use derive_setters::Setters;
 use granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 use regex::Regex;
-use std::{borrow::Cow, collections::HashMap, num::NonZeroUsize, sync::LazyLock};
+use std::{borrow::Cow, collections::{HashMap, HashSet}, num::NonZeroUsize, str::FromStr, sync::LazyLock};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
@@ -202,6 +202,75 @@ fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
     }
 }
 
+static BASE10: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^[-+]?[0-9]+$").expect("valid base 10 regex"));
+fn parse_base10(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
+    i64::from_str_radix(s, 10).map_err(|err| {
+        ShellError::Generic(
+            GenericError::new(
+                "Parsing Base 10 failed",
+                format!("Parsing {s:?} failed, {err}"),
+                ctx.yaml_span,
+            )
+            .with_code("shell::yaml::parser::num::base10"),
+        )
+    })
+}
+
+static BASE8: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^0o[0-7]+$").expect("valid base 8 regex"));
+fn parse_base8(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
+    let (_, digits) = s.split_at(b"0o".len());
+    i64::from_str_radix(digits, 8).map_err(|err| {
+        ShellError::Generic(
+            GenericError::new(
+                "Parsing Base 8 failed",
+                format!("Parsing {s:?} failed, {err}"),
+                ctx.yaml_span,
+            )
+            .with_code("shell::yaml::parser::num::base8"),
+        )
+    })
+}
+
+static BASE16: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new("^0x[0-9a-fA-F]+$").expect("valid base 16 regex"));
+fn parse_base16(ctx: &mut ParseCtx<'_>, s: &str) -> Result<i64, ShellError> {
+    let (_, digits) = s.split_at(b"0x".len());
+    i64::from_str_radix(digits, 16).map_err(|err| {
+        ShellError::Generic(
+            GenericError::new(
+                "Parsing Base 16 failed",
+                format!("Parsing {s:?} failed, {err}"),
+                ctx.yaml_span,
+            )
+            .with_code("shell::yaml::parser::num::base16"),
+        )
+    })
+}
+
+static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?$").expect("valid float regex")
+});
+fn parse_float(ctx: &mut ParseCtx<'_>, s: &str) -> Result<f64, ShellError> {
+    f64::from_str(s).map_err(|err| {
+        ShellError::Generic(
+            GenericError::new(
+                "Parsing Float failed",
+                format!("Parsing {s:?} failed, {err}"),
+                ctx.yaml_span,
+            )
+            .with_code("shell::yaml::parser::num::float"),
+        )
+    })
+}
+
+static INFINITY: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[-+]?(\.inf|\.Inf|\.INF)$").expect("valid infinity regex"));
+
+static NAN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^(\.nan|\.NaN|\.NAN)$").expect("valid NaN regex"));
+
 // parse the scalar, this one has to figure out how what type the value might be
 fn parse_scalar<'i>(
     ctx: &mut ParseCtx<'i>,
@@ -223,38 +292,18 @@ fn parse_scalar<'i>(
         | ScalarStyle::Folded => return Ok(Value::string(value, span)),
     }
 
-    static BASE10: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("[-+]?[0-9]+").expect("valid base 10 regex"));
-
-    static BASE8: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("0o[0-7]+").expect("valid base 8 regex"));
-
-    static BASE16: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new("0x[0-9a-fA-F]+").expect("valid base 16 regex"));
-
-    static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
-        Regex::new(r"[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?")
-            .expect("valid float regex")
-    });
-
-    static INFINITY: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"[-+]?(\.inf|\.Inf|\.INF)").expect("valid infinity regex"));
-
-    static NAN: LazyLock<Regex> =
-        LazyLock::new(|| Regex::new(r"\.nan|\.NaN|\.NAN").expect("valid NaN regex"));
-
     // We resolve values according to the core schema
     // https://yaml.org/spec/1.2.2/#1032-tag-resolution
     Ok(match value.as_ref() {
         "null" | "Null" | "NULL" | "~" | "" => Value::nothing(span),
         "true" | "True" | "TRUE" => Value::bool(true, span),
         "false" | "False" | "FALSE" => Value::bool(false, span),
-        s if BASE10.is_match(s) => todo!(),
-        s if BASE8.is_match(s) => todo!(),
-        s if BASE16.is_match(s) => todo!(),
-        s if FLOAT.is_match(s) => todo!(),
-        s if INFINITY.is_match(s) => todo!(),
-        s if NAN.is_match(s) => todo!(),
+        s if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
+        s if BASE8.is_match(s) => Value::int(parse_base8(ctx, s)?, span),
+        s if BASE16.is_match(s) => Value::int(parse_base16(ctx, s)?, span),
+        s if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
+        s if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
+        s if NAN.is_match(s) => Value::float(f64::NAN, span),
         s => Value::string(s, span),
     })
 }
@@ -303,7 +352,9 @@ fn parse_mapping<'i>(
 ) -> Result<Value, ShellError> {
     ctx.unhandled_tags(tag)?;
 
-    let mut values = HashMap::<String, Value>::new();
+    let mut values = Vec::new();
+    let mut keys = HashSet::new();
+
     loop {
         let key = 'key: loop {
             // expect a key or end
@@ -347,7 +398,7 @@ fn parse_mapping<'i>(
             }
         };
 
-        if values.insert(key.clone(), value).is_some() {
+        if !keys.insert(key.clone()) {
             return Err(ShellError::Generic(
                 GenericError::new(
                     "Duplicate YAML Key",
@@ -357,6 +408,8 @@ fn parse_mapping<'i>(
                 .with_code("shell::yaml::parse::duplicate_key"),
             ));
         }
+
+        values.push((key, value))
     }
 }
 
