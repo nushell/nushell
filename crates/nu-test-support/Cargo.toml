@@ -17,6 +17,7 @@ workspace = true
 
 [features]
 os = [
+  "nu-cli",
   "nu-cmd-lang/os",
   "nu-command/os",
   "nu-engine/os",
@@ -30,7 +31,7 @@ rustls-tls = ["nu-command/rustls-tls"]
 nu-cmd-extra.workspace = true
 nu-cmd-lang.workspace = true
 nu-command.workspace = true
-nu-cli.workspace = true
+nu-cli = { workspace = true, optional = true }
 nu-engine.workspace = true
 nu-experimental.workspace = true
 nu-glob.workspace = true
