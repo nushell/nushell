@@ -4,14 +4,12 @@
 // to the parser_span, all errors that are caused by the value as it is an incorrect yaml, should
 // use the yaml_span.
 
-use std::{borrow::Cow, collections::HashMap, num::NonZeroUsize};
-
 use crate::yaml::Spec;
 use derive_setters::Setters;
-use granit_parser::{
-    Event, Parser, ParserTrait, ScalarStyle, ScanError, StrInput, StructureStyle, Tag,
-};
+use granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
+use regex::Regex;
+use std::{borrow::Cow, collections::HashMap, num::NonZeroUsize, sync::LazyLock};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
@@ -21,7 +19,7 @@ pub struct ParseOptions {
     spec: Spec,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Copy, Default)]
 pub enum ParseMultiple {
     #[default]
     Auto,
@@ -31,14 +29,39 @@ pub enum ParseMultiple {
 
 pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<Value, ShellError> {
     let parser = Parser::new_from_str(yaml.item);
-    let ctx = ParseCtx {
+    let ctx = &mut ParseCtx {
         parser,
         parser_span: span,
         yaml_span: yaml.span,
         anchors: HashMap::new(),
         options,
     };
-    todo!()
+
+    let start = ctx.next_event()?;
+    match start {
+        Event::StreamStart => (),
+        event => return Err(ctx.unexpected_event(event)),
+    }
+
+    let mut documents = Vec::new();
+    loop {
+        match ctx.next_event()? {
+            Event::DocumentStart(_) => documents.push(parse_document(ctx)?),
+            Event::StreamEnd => break,
+            Event::Nothing | Event::Comment(..) => continue,
+            event => return Err(ctx.unexpected_event(event)),
+        }
+    }
+
+    use ParseMultiple as PM;
+    let value = match (ctx.options.multiple, documents.len()) {
+        (PM::Auto | PM::ForceSingle, 0) => todo!("handle no document"),
+        (PM::Auto | PM::ForceSingle, 1) => documents.into_iter().next().expect("non-empty"),
+        (PM::Auto | PM::ForceList, _) => Value::list(documents, ctx.parser_span),
+        (PM::ForceSingle, n) => todo!("handle force single when more than 1 document"),
+    };
+
+    Ok(value)
 }
 
 struct ParseCtx<'i> {
@@ -87,7 +110,7 @@ impl<'i> ParseCtx<'i> {
             .with_inner([ShellError::Generic(
                 GenericError::new_internal(
                     "Unexpected YAML event",
-                    "Unexpected YAML event during parsing",
+                    format!("Unexpected YAML event during parsing: {event:?}"),
                 )
                 .with_code("shell::yaml::parser::unexpected_event"),
             )]),
@@ -146,6 +169,39 @@ impl<'i> ParseCtx<'i> {
     }
 }
 
+fn parse_document<'i>(ctx: &mut ParseCtx<'i>) -> Result<Value, ShellError> {
+    let value = loop {
+        match ctx.next_event()? {
+            Event::Nothing | Event::Comment(..) => continue,
+            Event::Alias(anchor_id) => break ctx.get_anchor(ctx.alias(anchor_id)?)?,
+            Event::Scalar(value, scalar_style, anchor_id, tag) => {
+                let value = parse_scalar(ctx, value, scalar_style, tag)?;
+                ctx.maybe_set_anchor(anchor_id, &value);
+                break value;
+            }
+            Event::SequenceStart(structure_style, anchor_id, tag) => {
+                let value = parse_sequence(ctx, structure_style, tag)?;
+                ctx.maybe_set_anchor(anchor_id, &value);
+                break value;
+            }
+            Event::MappingStart(structure_style, anchor_id, tag) => {
+                let value = parse_mapping(ctx, structure_style, tag)?;
+                ctx.maybe_set_anchor(anchor_id, &value);
+                break value;
+            }
+            event => return Err(ctx.unexpected_event(event)),
+        }
+    };
+
+    loop {
+        match ctx.next_event()? {
+            Event::Nothing | Event::Comment(..) => continue,
+            Event::DocumentEnd => return Ok(value),
+            event => return Err(ctx.unexpected_event(event)),
+        }
+    }
+}
+
 // parse the scalar, this one has to figure out how what type the value might be
 fn parse_scalar<'i>(
     ctx: &mut ParseCtx<'i>,
@@ -155,22 +211,66 @@ fn parse_scalar<'i>(
 ) -> Result<Value, ShellError> {
     ctx.unhandled_tags(tag)?;
 
-    todo!()
+    let span = ctx.parser_span;
+
+    match scalar_style {
+        ScalarStyle::Plain => (),
+
+        // Without tags, these can only be strings.
+        ScalarStyle::SingleQuoted
+        | ScalarStyle::DoubleQuoted
+        | ScalarStyle::Literal
+        | ScalarStyle::Folded => return Ok(Value::string(value, span)),
+    }
+
+    static BASE10: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("[-+]?[0-9]+").expect("valid base 10 regex"));
+
+    static BASE8: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("0o[0-7]+").expect("valid base 8 regex"));
+
+    static BASE16: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new("0x[0-9a-fA-F]+").expect("valid base 16 regex"));
+
+    static FLOAT: LazyLock<Regex> = LazyLock::new(|| {
+        Regex::new(r"[-+]?(\.[0-9]+|[0-9]+(\.[0-9]*)?)([eE][-+]?[0-9]+)?")
+            .expect("valid float regex")
+    });
+
+    static INFINITY: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"[-+]?(\.inf|\.Inf|\.INF)").expect("valid infinity regex"));
+
+    static NAN: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"\.nan|\.NaN|\.NAN").expect("valid NaN regex"));
+
+    // We resolve values according to the core schema
+    // https://yaml.org/spec/1.2.2/#1032-tag-resolution
+    Ok(match value.as_ref() {
+        "null" | "Null" | "NULL" | "~" | "" => Value::nothing(span),
+        "true" | "True" | "TRUE" => Value::bool(true, span),
+        "false" | "False" | "FALSE" => Value::bool(false, span),
+        s if BASE10.is_match(s) => todo!(),
+        s if BASE8.is_match(s) => todo!(),
+        s if BASE16.is_match(s) => todo!(),
+        s if FLOAT.is_match(s) => todo!(),
+        s if INFINITY.is_match(s) => todo!(),
+        s if NAN.is_match(s) => todo!(),
+        s => Value::string(s, span),
+    })
 }
 
 // gets called on Event::SequenceStart, returns on Event::SequenceEnd
 // returns Value::List
 fn parse_sequence<'i>(
     ctx: &mut ParseCtx<'i>,
-    structure_style: StructureStyle,
+    _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
     ctx.unhandled_tags(tag)?;
 
     let mut values = Vec::new();
     loop {
-        let event = ctx.next_event()?;
-        match event {
+        match ctx.next_event()? {
             Event::Nothing | Event::Comment(..) => continue,
             Event::Alias(anchor_id) => values.push(ctx.get_anchor(ctx.alias(anchor_id)?)?),
             Event::Scalar(value, scalar_style, anchor_id, tag) => {
@@ -180,6 +280,11 @@ fn parse_sequence<'i>(
             }
             Event::SequenceStart(structure_style, anchor_id, tag) => {
                 let value = parse_sequence(ctx, structure_style, tag)?;
+                ctx.maybe_set_anchor(anchor_id, &value);
+                values.push(value);
+            }
+            Event::MappingStart(structure_style, anchor_id, tag) => {
+                let value = parse_mapping(ctx, structure_style, tag)?;
                 ctx.maybe_set_anchor(anchor_id, &value);
                 values.push(value);
             }
@@ -193,7 +298,7 @@ fn parse_sequence<'i>(
 // returns Value::Record
 fn parse_mapping<'i>(
     ctx: &mut ParseCtx<'i>,
-    structure_style: StructureStyle,
+    _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
     ctx.unhandled_tags(tag)?;
@@ -202,8 +307,7 @@ fn parse_mapping<'i>(
     loop {
         let key = 'key: loop {
             // expect a key or end
-            let event = ctx.next_event()?;
-            match event {
+            match ctx.next_event()? {
                 Event::Nothing | Event::Comment(..) => continue,
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
                     let value = parse_key(ctx, value, scalar_style, tag)?;
@@ -221,8 +325,7 @@ fn parse_mapping<'i>(
 
         let value = 'value: loop {
             // expect a value
-            let event = ctx.next_event()?;
-            match event {
+            match ctx.next_event()? {
                 Event::Nothing | Event::Comment(..) => continue,
                 Event::Alias(anchor_id) => break 'value ctx.get_anchor(ctx.alias(anchor_id)?)?,
                 Event::Scalar(value, scalar_style, anchor_id, tag) => {
@@ -244,8 +347,15 @@ fn parse_mapping<'i>(
             }
         };
 
-        if let Some(duplicate) = values.insert(key, value) {
-            todo!("throw duplicate error")
+        if values.insert(key.clone(), value).is_some() {
+            return Err(ShellError::Generic(
+                GenericError::new(
+                    "Duplicate YAML Key",
+                    format!("The key {key:?} already appeared in the mapping"),
+                    ctx.yaml_span,
+                )
+                .with_code("shell::yaml::parse::duplicate_key"),
+            ));
         }
     }
 }
@@ -253,10 +363,17 @@ fn parse_mapping<'i>(
 fn parse_key<'i>(
     ctx: &mut ParseCtx<'i>,
     value: Cow<'i, str>,
-    scalar_style: ScalarStyle,
+    _: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<String, ShellError> {
-    todo!()
+    ctx.unhandled_tags(tag)?;
+
+    // According to spec a key node may be just about everything:
+    // https://yaml.org/spec/1.2.2/#mapping
+    // However nushell is only able to represent mappings via `Record`,
+    // therefore we enforce keys as strings.
+
+    Ok(value.to_string())
 }
 
 #[cfg(test)]
@@ -266,13 +383,21 @@ mod tests {
     use nu_test_support::prelude::*;
 
     const FIXTURE: &str = include_str!("../../../../tests/fixtures/formats/sample.yaml");
+    const SPAN: Span = Span::test_data();
 
     #[test]
     fn parse_fixture_properly() -> Result {
-        let yaml = FIXTURE.into_spanned(Span::test_data());
-        let span = Span::test_data();
+        let yaml = FIXTURE.into_spanned(SPAN);
         let options = ParseOptions::default();
-        parse(yaml, span, &options)?;
+        parse(yaml, SPAN, &options)?;
+        Ok(())
+    }
+
+    #[test]
+    fn parse_string() -> Result {
+        let yaml = "🐘".into_spanned(SPAN);
+        let options = ParseOptions::default();
+        parse(yaml, SPAN, &options)?;
         Ok(())
     }
 }

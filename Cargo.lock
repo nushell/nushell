@@ -4838,6 +4838,7 @@ dependencies = [
  "granit-parser",
  "nu-protocol",
  "nu-test-support",
+ "regex",
  "serde-saphyr",
 ]
 

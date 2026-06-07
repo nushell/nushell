@@ -24,9 +24,11 @@ merge = []
 
 [dependencies]
 nu-protocol.workspace = true
-serde-saphyr.workspace = true
-granit-parser.workspace = true
+
 derive_setters.workspace = true
+granit-parser.workspace = true
+regex.workspace = true
+serde-saphyr.workspace = true
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }
