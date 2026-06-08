@@ -4756,7 +4756,6 @@ dependencies = [
  "nu-cmd-lang",
  "nu-command",
  "nu-engine",
- "nu-experimental",
  "nu-glob",
  "nu-parser",
  "nu-protocol",

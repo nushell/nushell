@@ -17,7 +17,7 @@ bench = false
 [dependencies]
 anyhow = { workspace = true }
 log = { workspace = true }
-nu-experimental = { path = "../nu-experimental", version = "0.112.3" }
+nu-experimental = { workspace = true }
 rayon = { workspace = true }
 
 [dev-dependencies]
