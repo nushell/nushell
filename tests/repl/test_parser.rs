@@ -340,6 +340,11 @@ fn list_quotes_with_equals() -> TestResult {
 }
 
 #[test]
+fn list_raw_string_unit_value_like() -> TestResult {
+    run_test("[.foons] | get 0", ".foons")
+}
+
+#[test]
 fn record_quotes_with_equals() -> TestResult {
     run_test(r#"{"a=":b} | get a="#, "b")?;
     run_test(r#"{"=a":b} | get =a"#, "b")?;
