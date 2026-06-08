@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{Debug, Display, Write},
+    fmt::{Debug, Display, Write, from_fn},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -45,7 +45,7 @@ use std::{
 // from being constructed (outside of this crate) with the struct
 // expression syntax. This makes using the constructor methods the
 // only way to construct `Value`'s
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum Value {
     #[non_exhaustive]
     Bool {
@@ -188,6 +188,201 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.sign_minus() {
+            return match self {
+                Value::Bool { val, .. } => {
+                    write!(f, "Bool(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Int { val, .. } => {
+                    write!(f, "Int(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Float { val, .. } => {
+                    write!(f, "Float(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::String { val, .. } => {
+                    write!(f, "String(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Glob { val, no_expand, .. } => {
+                    write!(f, "Glob(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Filesize { val, .. } => {
+                    write!(f, "Filesize(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Duration { val, .. } => {
+                    write!(f, "Duration(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Date { val, .. } => {
+                    write!(f, "Date(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Range { val, signals, .. } => {
+                    write!(f, "Range(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Record { val, .. } => {
+                    write!(f, "Record(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::List { vals, signals, .. } => {
+                    write!(f, "List(")?;
+                    Debug::fmt(vals, f)?;
+                    write!(f, ")")
+                }
+                Value::Closure { val, .. } => {
+                    write!(f, "Closure(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Error { error, .. } => {
+                    write!(f, "Error(")?;
+                    Debug::fmt(error, f)?;
+                    write!(f, ")")
+                }
+                Value::Binary { val, .. } => {
+                    write!(f, "Binary(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::CellPath { val, .. } => {
+                    write!(f, "CellPath(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Custom { val, .. } => {
+                    write!(f, "Custom(")?;
+                    Debug::fmt(val, f)?;
+                    write!(f, ")")
+                }
+                Value::Nothing { .. } => write!(f, "Nothing"),
+            };
+        }
+
+        match self {
+            Self::Bool { val, internal_span } => f
+                .debug_struct("Bool")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Int { val, internal_span } => f
+                .debug_struct("Int")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Float { val, internal_span } => f
+                .debug_struct("Float")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::String { val, internal_span } => f
+                .debug_struct("String")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Glob {
+                val,
+                no_expand,
+                internal_span,
+            } => f
+                .debug_struct("Glob")
+                .field("val", val)
+                .field("no_expand", no_expand)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Filesize { val, internal_span } => f
+                .debug_struct("Filesize")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Duration { val, internal_span } => f
+                .debug_struct("Duration")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Date { val, internal_span } => f
+                .debug_struct("Date")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Range {
+                val,
+                signals,
+                internal_span,
+            } => f
+                .debug_struct("Range")
+                .field("val", val)
+                .field("signals", signals)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Record { val, internal_span } => f
+                .debug_struct("Record")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::List {
+                vals,
+                signals,
+                internal_span,
+            } => f
+                .debug_struct("List")
+                .field("vals", vals)
+                .field("signals", signals)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Closure { val, internal_span } => f
+                .debug_struct("Closure")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Error {
+                error,
+                internal_span,
+            } => f
+                .debug_struct("Error")
+                .field("error", error)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Binary { val, internal_span } => f
+                .debug_struct("Binary")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::CellPath { val, internal_span } => f
+                .debug_struct("CellPath")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Custom { val, internal_span } => f
+                .debug_struct("Custom")
+                .field("val", val)
+                .field("internal_span", internal_span)
+                .finish(),
+            Self::Nothing { internal_span } => f
+                .debug_struct("Nothing")
+                .field("internal_span", internal_span)
+                .finish(),
+        }
+    }
 }
 
 // This is to document/enforce the size of `Value` in bytes.
@@ -4195,9 +4390,17 @@ mod tests {
         }
 
         #[track_caller]
-        fn assert_debug(value: Value, compact: &str, alternate: &str) {
-            assert_eq!(format!("{value:?}"), compact);
+        fn assert_debug(
+            value: Value,
+            regular: &str,
+            alternate: &str,
+            compact: &str,
+            compact_alternate: &str,
+        ) {
+            assert_eq!(format!("{value:?}"), regular);
             assert_eq!(format!("{value:#?}"), alternate);
+            assert_eq!(format!("{value:-?}"), compact);
+            assert_eq!(format!("{value:-#?}"), compact_alternate);
         }
 
         #[test]
@@ -4212,6 +4415,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4227,6 +4432,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4242,6 +4449,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4259,6 +4468,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4274,6 +4485,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4289,6 +4502,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4317,6 +4532,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4332,6 +4549,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4348,6 +4567,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4373,6 +4594,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4398,6 +4621,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4427,6 +4652,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4447,6 +4674,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4466,6 +4695,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4500,6 +4731,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
+                "",
+                "",
             );
         }
 
@@ -4514,6 +4747,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
 
@@ -4529,6 +4764,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
+                "",
+                "",
             );
         }
     }
