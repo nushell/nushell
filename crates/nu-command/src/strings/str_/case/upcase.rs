@@ -2,18 +2,15 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 #[derive(Clone)]
-pub struct StrUpcaseLike(pub &'static str, pub bool);
+pub struct StrUpcase;
 
-pub const STR_UPCASE: StrUpcaseLike = StrUpcaseLike("str upcase", true);
-pub const STR_UPPERCASE: StrUpcaseLike = StrUpcaseLike("str uppercase", false);
-
-impl Command for StrUpcaseLike {
+impl Command for StrUpcase {
     fn name(&self) -> &str {
-        self.0
+        "str upcase"
     }
 
     fn signature(&self) -> Signature {
-        Signature::build(self.name())
+        Signature::build("str upcase")
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (
@@ -37,10 +34,7 @@ impl Command for StrUpcaseLike {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        match self.0 {
-            "str upcase" => vec!["uppercase", "upper case", "upper-case"],
-            _ => vec!["upcase", "upper case", "upper-case"],
-        }
+        vec!["uppercase", "upper case", "upper-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -69,29 +63,91 @@ impl Command for StrUpcaseLike {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        let example = match self.0 {
-            "str upcase" => "'nu' | str upcase",
-            _ => "'nu' | str uppercase",
-        };
         vec![Example {
-            description: "Uppercase contents.",
-            example,
+            description: "Upcase contents.",
+            example: "'nu' | str upcase",
             result: Some(Value::test_string("NU")),
         }]
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        if self.1 {
-            vec![DeprecationEntry {
-                ty: DeprecationType::Command,
-                report_mode: ReportMode::FirstUse,
-                since: Some("0.105.0".into()),
-                expected_removal: None,
-                help: Some("Use `str uppercase` instead.".into()),
-            }]
-        } else {
-            vec![]
-        }
+        vec![DeprecationEntry {
+            ty: DeprecationType::Command,
+            report_mode: ReportMode::FirstUse,
+            since: Some("0.105.0".into()),
+            expected_removal: None,
+            help: Some("Use `str uppercase` instead.".into()),
+        }]
+    }
+}
+
+#[derive(Clone)]
+pub struct StrUppercase;
+
+impl Command for StrUppercase {
+    fn name(&self) -> &str {
+        "str uppercase"
+    }
+
+    fn signature(&self) -> Signature {
+        Signature::build("str uppercase")
+            .input_output_types(vec![
+                (Type::String, Type::String),
+                (
+                    Type::List(Box::new(Type::String)),
+                    Type::List(Box::new(Type::String)),
+                ),
+                (Type::table(), Type::table()),
+                (Type::record(), Type::record()),
+            ])
+            .allow_variants_without_examples(true)
+            .rest(
+                "rest",
+                SyntaxShape::CellPath,
+                "For a data structure input, convert strings at the given cell paths.",
+            )
+            .category(Category::Strings)
+    }
+
+    fn description(&self) -> &str {
+        "Convert text to uppercase."
+    }
+
+    fn search_terms(&self) -> Vec<&str> {
+        vec!["upcase", "upper case", "upper-case"]
+    }
+
+    fn is_const(&self) -> bool {
+        true
+    }
+
+    fn run(
+        &self,
+        engine_state: &EngineState,
+        stack: &mut Stack,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
+        operate(engine_state, call, input, column_paths)
+    }
+
+    fn run_const(
+        &self,
+        working_set: &StateWorkingSet,
+        call: &Call,
+        input: PipelineData,
+    ) -> Result<PipelineData, ShellError> {
+        let column_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
+        operate(working_set.permanent(), call, input, column_paths)
+    }
+
+    fn examples(&self) -> Vec<Example<'_>> {
+        vec![Example {
+            description: "Uppercase contents.",
+            example: "'nu' | str uppercase",
+            result: Some(Value::test_string("NU")),
+        }]
     }
 }
 
@@ -144,12 +200,12 @@ mod tests {
 
     #[test]
     fn test_upcase_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(STR_UPCASE)
+        nu_test_support::test().examples(StrUpcase)
     }
 
     #[test]
     fn test_uppercase_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(STR_UPPERCASE)
+        nu_test_support::test().examples(StrUppercase)
     }
 
     #[test]
