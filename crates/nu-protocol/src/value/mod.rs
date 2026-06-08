@@ -4157,58 +4157,306 @@ mod tests {
 
     mod debug {
         use super::*;
+        use crate::{
+            IntRange, Range, ShellError, Span,
+            ast::{CellPath, PathMember},
+            casing::Casing,
+        };
+        use chrono::DateTime;
+        use pretty_assertions::assert_eq;
+        use std::ops::Bound;
+
+        #[track_caller]
+        fn assert_debug(value: Value, compact: &str, alternate: &str) {
+            assert_eq!(format!("{value:?}"), compact);
+            assert_eq!(format!("{value:#?}"), alternate);
+        }
 
         #[test]
         fn bool() {
             let value = Value::test_bool(true);
-            assert_eq!(
-                format!("{value:?}"),
-                "Bool { val: true, internal_span: Span(TEST) }"
-            );
-            assert_eq!(
-                format!("{value:#?}"),
+            assert_debug(
+                value,
+                "Bool { val: true, internal_span: Span(TEST) }",
                 indoc! {"
                     Bool {
                         val: true,
                         internal_span: Span(TEST),
                     }"
-                }
+                },
             );
         }
 
         #[test]
         fn int() {
             let value = Value::test_int(42);
-            assert_eq!(
-                format!("{value:?}"),
-                "Int { val: 42, internal_span: Span(TEST) }"
-            );
-            assert_eq!(
-                format!("{value:#?}"),
+            assert_debug(
+                value,
+                "Int { val: 42, internal_span: Span(TEST) }",
                 indoc! {"
                     Int {
                         val: 42,
                         internal_span: Span(TEST),
                     }"
-                }
+                },
+            );
+        }
+
+        #[test]
+        fn float() {
+            let value = Value::test_float(4.2);
+            assert_debug(
+                value,
+                "Float { val: 4.2, internal_span: Span(TEST) }",
+                indoc! {"
+                    Float {
+                        val: 4.2,
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn filesize() {
+            let value = Value::test_filesize(42);
+            assert_debug(
+                value,
+                "Filesize { val: Filesize(42), internal_span: Span(TEST) }",
+                indoc! {"
+                    Filesize {
+                        val: Filesize(
+                            42,
+                        ),
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn duration() {
+            let value = Value::test_duration(42);
+            assert_debug(
+                value,
+                "Duration { val: 42, internal_span: Span(TEST) }",
+                indoc! {"
+                    Duration {
+                        val: 42,
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn date() {
+            let value = Value::test_date(DateTime::UNIX_EPOCH.into());
+            assert_debug(
+                value,
+                "Date { val: 1970-01-01T00:00:00+00:00, internal_span: Span(TEST) }",
+                indoc! {"
+                    Date {
+                        val: 1970-01-01T00:00:00+00:00,
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn range() {
+            let value = Value::test_range(Range::IntRange(IntRange {
+                start: 1,
+                step: 2,
+                end: Bound::Excluded(5),
+            }));
+            assert_debug(
+                value,
+                "Range { val: IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }), signals: None, internal_span: Span(TEST) }",
+                indoc! {"
+                    Range {
+                        val: IntRange(
+                            IntRange {
+                                start: 1,
+                                step: 2,
+                                end: Excluded(
+                                    5,
+                                ),
+                            },
+                        ),
+                        signals: None,
+                        internal_span: Span(TEST),
+                    }"
+                },
             );
         }
 
         #[test]
         fn string() {
             let value = Value::test_string("Ellie");
-            assert_eq!(
-                format!("{value:?}"),
-                r#"String { val: "Ellie", internal_span: Span(TEST) }"#
-            );
-            assert_eq!(
-                format!("{value:#?}"),
+            assert_debug(
+                value,
+                r#"String { val: "Ellie", internal_span: Span(TEST) }"#,
                 indoc! {r#"
                     String {
                         val: "Ellie",
                         internal_span: Span(TEST),
                     }"#
-                }
+                },
+            );
+        }
+
+        #[test]
+        fn glob() {
+            let value = Value::test_glob("*.nu");
+            assert_debug(
+                value,
+                r#"Glob { val: "*.nu", no_expand: false, internal_span: Span(TEST) }"#,
+                indoc! {r#"
+                    Glob {
+                        val: "*.nu",
+                        no_expand: false,
+                        internal_span: Span(TEST),
+                    }"#
+                },
+            );
+        }
+
+        #[test]
+        fn record() {
+            let value = Value::test_record(record!("name" => Value::test_string("Ellie")));
+            assert_debug(
+                value,
+                r#"Record { val: Record { inner: [("name", String { val: "Ellie", internal_span: Span(TEST) })] }, internal_span: Span(TEST) }"#,
+                indoc! {r#"
+                    Record {
+                        val: Record {
+                            inner: [
+                                (
+                                    "name",
+                                    String {
+                                        val: "Ellie",
+                                        internal_span: Span(TEST),
+                                    },
+                                ),
+                            ],
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+            );
+        }
+
+        #[test]
+        fn list() {
+            let value = Value::test_list(vec![Value::test_int(42), Value::test_string("Ellie")]);
+            assert_debug(
+                value,
+                r#"List { vals: [Int { val: 42, internal_span: Span(TEST) }, String { val: "Ellie", internal_span: Span(TEST) }], signals: None, internal_span: Span(TEST) }"#,
+                indoc! {r#"
+                    List {
+                        vals: [
+                            Int {
+                                val: 42,
+                                internal_span: Span(TEST),
+                            },
+                            String {
+                                val: "Ellie",
+                                internal_span: Span(TEST),
+                            },
+                        ],
+                        signals: None,
+                        internal_span: Span(TEST),
+                    }"#
+                },
+            );
+        }
+
+        #[test]
+        fn error() {
+            let value = Value::error(
+                ShellError::NushellFailed { msg: "oops".into() },
+                Span::test_data(),
+            );
+            assert_debug(
+                value,
+                r#"Error { error: NushellFailed { msg: "oops" }, internal_span: Span(TEST) }"#,
+                indoc! {r#"
+                    Error {
+                        error: NushellFailed {
+                            msg: "oops",
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+            );
+        }
+
+        #[test]
+        fn binary() {
+            let value = Value::test_binary([1, 2, 3]);
+            assert_debug(
+                value,
+                "Binary { val: [1, 2, 3], internal_span: Span(TEST) }",
+                indoc! {"
+                    Binary {
+                        val: [
+                            1,
+                            2,
+                            3,
+                        ],
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn cell_path() {
+            let value = Value::test_cell_path(CellPath {
+                members: vec![
+                    PathMember::test_string("name".into(), false, Casing::Sensitive),
+                    PathMember::test_int(1, true),
+                ],
+            });
+            assert_debug(
+                value,
+                r#"CellPath { val: CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] }, internal_span: Span(TEST) }"#,
+                indoc! {r#"
+                    CellPath {
+                        val: CellPath {
+                            members: [
+                                String {
+                                    val: "name",
+                                    span: Span(TEST),
+                                    optional: false,
+                                    casing: Sensitive,
+                                },
+                                Int {
+                                    val: 1,
+                                    span: Span(TEST),
+                                    optional: true,
+                                },
+                            ],
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+            );
+        }
+
+        #[test]
+        fn nothing() {
+            let value = Value::test_nothing();
+            assert_debug(
+                value,
+                "Nothing { internal_span: Span(TEST) }",
+                indoc! {"
+                    Nothing {
+                        internal_span: Span(TEST),
+                    }"
+                },
             );
         }
     }
