@@ -7,7 +7,7 @@ use std::{
 };
 
 use crate::{
-    ShellError, Span, Value,
+    CollectionColumns, CompareTypes, ShellError, Span, Type, TypeRelation, Value,
     casing::{CaseInsensitive, CaseSensitive, CaseSensitivity, Casing, WrapCased},
 };
 
@@ -545,6 +545,32 @@ impl Record {
     /// ```
     pub fn sort_cols(&mut self) {
         self.inner.sort_by(|(k1, _), (k2, _)| k1.cmp(k2))
+    }
+}
+
+impl CompareTypes<CollectionColumns<Type>> for Record {
+    fn compare_types(&self, other: &CollectionColumns<Type>) -> Option<TypeRelation> {
+        let values = self.inner.as_slice();
+        let tys = other.fields.as_ref();
+
+        // Handle the simplest cases
+        match (values, tys) {
+            ([], []) => return Some(TypeRelation::Equal),
+            ([], _) => return Some(TypeRelation::Supertype),
+            (_, []) => return Some(TypeRelation::Subtype),
+            _ => (),
+        }
+
+        tys.iter()
+            .map(|(ty_name, ty)| {
+                match values.iter().find(|(val_name, _)| val_name == ty_name) {
+                    Some((_, val)) => val.compare_types(ty),
+                    // If the record value does not have a column specified in the type, then the
+                    // record's type might be a supertype of `other`
+                    None => Some(TypeRelation::Supertype),
+                }
+            })
+            .try_fold(TypeRelation::Equal, |acc, e| acc.combine(e?))
     }
 }
 
