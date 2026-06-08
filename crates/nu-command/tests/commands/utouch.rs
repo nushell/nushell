@@ -3,6 +3,8 @@ use filetime::FileTime;
 use nu_test_support::fs::{Stub, files_exist_at};
 use nu_test_support::nu;
 use nu_test_support::playground::{Dirs, Playground};
+use nu_test_support::prelude::*;
+use rstest::rstest;
 use std::path::Path;
 
 // Use 1 instead of 0 because 0 has a special meaning in Windows
@@ -109,6 +111,41 @@ fn fails_when_glob_has_no_matches() {
 
         assert!(actual.err.contains("No matches found for glob *.txt"));
     })
+}
+
+#[rstest]
+#[case(false)]
+#[case(true)]
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn touch_glob_matches_when_dc_glob_enabled(#[case] with_preexisting_files: bool) -> Result {
+    let sandbox_name = if with_preexisting_files {
+        "touch_glob_dc_glob_preexisting"
+    } else {
+        "touch_glob_dc_glob_create_first"
+    };
+
+    Playground::setup(sandbox_name, |dirs, sandbox| {
+        if with_preexisting_files {
+            sandbox.with_files(&[Stub::EmptyFile("one.txt"), Stub::EmptyFile("two.txt")]);
+        } else {
+            let _: () = test()
+                .cwd(dirs.test())
+                .run("touch one.txt two.txt")
+                .expect("touch should create initial files for glob expansion");
+        }
+
+        let _: () = test()
+            .cwd(dirs.test())
+            .run("touch *.txt")
+            .expect("touch should accept matching globs with dc-glob enabled");
+
+        assert!(dirs.test().join("one.txt").exists());
+        assert!(dirs.test().join("two.txt").exists());
+        assert!(!dirs.test().join("*.txt").exists());
+    });
+
+    Ok(())
 }
 
 #[test]
