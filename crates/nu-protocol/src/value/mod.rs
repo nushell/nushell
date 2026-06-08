@@ -4155,9 +4155,69 @@ mod tests {
     use crate::record;
     use indoc::formatdoc;
 
-    mod default {
+    mod debug {
         use super::*;
         use crate::Span;
+
+        #[test]
+        fn bool() {
+            let bool = true;
+            let value = Value::test_bool(true);
+            let span = Span::test_data();
+            assert_eq!(
+                format!("{value:+?}"),
+                format!("Bool {{ val: {bool:+?}, internal_span: {span:+?} }}")
+            );
+            assert_eq!(
+                format!("{value:+#?}"),
+                formatdoc! {"
+                    Bool {{
+                        val: {bool:+#?},
+                        internal_span: {span:+#?},
+                    }}"
+                }
+            );
+        }
+
+        #[test]
+        fn int() {
+            let int = 42;
+            let value = Value::test_int(42);
+            let span = Span::test_data();
+            assert_eq!(
+                format!("{value:+?}"),
+                format!("Int {{ val: {int:+?}, internal_span: {span:+?} }}")
+            );
+            assert_eq!(
+                format!("{value:+#?}"),
+                formatdoc! {"
+                    Int {{
+                        val: {int:+#?},
+                        internal_span: {span:+#?},
+                    }}"
+                }
+            );
+        }
+
+        #[test]
+        fn float() {
+            let float = 42.5;
+            let value = Value::test_float(42.5);
+            let span = Span::test_data();
+            assert_eq!(
+                format!("{value:+?}"),
+                format!("Float {{ val: {float:+?}, internal_span: {span:+?} }}")
+            );
+            assert_eq!(
+                format!("{value:+#?}"),
+                formatdoc! {"
+                    Float {{
+                        val: {float:+#?},
+                        internal_span: {span:+#?},
+                    }}"
+                }
+            );
+        }
 
         #[test]
         fn string() {
