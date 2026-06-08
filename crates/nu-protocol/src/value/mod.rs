@@ -4153,88 +4153,61 @@ pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
 mod tests {
     use super::{Record, Value};
     use crate::record;
-    use indoc::formatdoc;
+    use indoc::indoc;
 
     mod debug {
         use super::*;
-        use crate::Span;
 
         #[test]
         fn bool() {
-            let bool = true;
             let value = Value::test_bool(true);
-            let span = Span::test_data();
             assert_eq!(
-                format!("{value:+?}"),
-                format!("Bool {{ val: {bool:+?}, internal_span: {span:+?} }}")
+                format!("{value:?}"),
+                "Bool { val: true, internal_span: Span(TEST) }"
             );
             assert_eq!(
-                format!("{value:+#?}"),
-                formatdoc! {"
-                    Bool {{
-                        val: {bool:+#?},
-                        internal_span: {span:+#?},
-                    }}"
+                format!("{value:#?}"),
+                indoc! {"
+                    Bool {
+                        val: true,
+                        internal_span: Span(TEST),
+                    }"
                 }
             );
         }
 
         #[test]
         fn int() {
-            let int = 42;
             let value = Value::test_int(42);
-            let span = Span::test_data();
             assert_eq!(
-                format!("{value:+?}"),
-                format!("Int {{ val: {int:+?}, internal_span: {span:+?} }}")
+                format!("{value:?}"),
+                "Int { val: 42, internal_span: Span(TEST) }"
             );
             assert_eq!(
-                format!("{value:+#?}"),
-                formatdoc! {"
-                    Int {{
-                        val: {int:+#?},
-                        internal_span: {span:+#?},
-                    }}"
-                }
-            );
-        }
-
-        #[test]
-        fn float() {
-            let float = 42.5;
-            let value = Value::test_float(42.5);
-            let span = Span::test_data();
-            assert_eq!(
-                format!("{value:+?}"),
-                format!("Float {{ val: {float:+?}, internal_span: {span:+?} }}")
-            );
-            assert_eq!(
-                format!("{value:+#?}"),
-                formatdoc! {"
-                    Float {{
-                        val: {float:+#?},
-                        internal_span: {span:+#?},
-                    }}"
+                format!("{value:#?}"),
+                indoc! {"
+                    Int {
+                        val: 42,
+                        internal_span: Span(TEST),
+                    }"
                 }
             );
         }
 
         #[test]
         fn string() {
-            let string = "Ellie";
             let value = Value::test_string("Ellie");
-            let span = Span::test_data();
             assert_eq!(
-                format!("{value:+?}"),
-                format!("String {{ val: {string:+?}, internal_span: {span:+?} }}")
+                format!("{value:?}"),
+                r#"String { val: "Ellie", internal_span: Span(TEST) }"#
             );
             assert_eq!(
-                format!("{value:+#?}"),
-                formatdoc! {"
-                    String {{
-                        val: {string:+#?},
-                        internal_span: {span:+#?},
-                    }}"
+                format!("{value:#?}"),
+                indoc! {r#"
+                    String {
+                        val: "Ellie",
+                        internal_span: Span(TEST),
+                    }"#
                 }
             );
         }
