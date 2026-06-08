@@ -4,11 +4,9 @@ mod str_;
 mod upcase;
 
 pub use capitalize::StrCapitalize;
-pub use downcase::StrDowncase;
-pub use downcase::StrLowercase;
+pub use downcase::{STR_DOWNCASE, STR_LOWERCASE, StrDowncaseLike};
 pub use str_::Str;
-pub use upcase::StrUpcase;
-pub use upcase::StrUppercase;
+pub use upcase::{STR_UPCASE, STR_UPPERCASE, StrUpcaseLike};
 
 use nu_cmd_base::input_handler::{CmdArgument, operate as general_operate};
 use nu_engine::command_prelude::*;

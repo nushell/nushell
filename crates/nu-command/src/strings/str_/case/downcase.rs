@@ -2,15 +2,18 @@ use nu_engine::command_prelude::*;
 use nu_protocol::{DeprecationEntry, DeprecationType, ReportMode};
 
 #[derive(Clone)]
-pub struct StrDowncase;
+pub struct StrDowncaseLike(pub &'static str, pub bool);
 
-impl Command for StrDowncase {
+pub const STR_DOWNCASE: StrDowncaseLike = StrDowncaseLike("str downcase", true);
+pub const STR_LOWERCASE: StrDowncaseLike = StrDowncaseLike("str lowercase", false);
+
+impl Command for StrDowncaseLike {
     fn name(&self) -> &str {
-        "str downcase"
+        self.0
     }
 
     fn signature(&self) -> Signature {
-        Signature::build("str downcase")
+        Signature::build(self.name())
             .input_output_types(vec![
                 (Type::String, Type::String),
                 (
@@ -34,7 +37,10 @@ impl Command for StrDowncase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["lower case", "lowercase", "lower-case"]
+        match self.0 {
+            "str downcase" => vec!["lowercase", "lower case", "lower-case"],
+            _ => vec!["downcase", "lower case", "lower-case"],
+        }
     }
 
     fn is_const(&self) -> bool {
@@ -63,137 +69,78 @@ impl Command for StrDowncase {
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "Downcase contents.",
-                example: "'NU' | str downcase",
-                result: Some(Value::test_string("nu")),
-            },
-            Example {
-                description: "Downcase contents.",
-                example: "'TESTa' | str downcase",
-                result: Some(Value::test_string("testa")),
-            },
-            Example {
-                description: "Downcase contents.",
-                example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_string("test"),
-                    "ColB" => Value::test_string("ABC"),
-                })])),
-            },
-            Example {
-                description: "Downcase contents.",
-                example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_string("test"),
-                    "ColB" => Value::test_string("abc"),
-                })])),
-            },
-        ]
+        match self.0 {
+            "str downcase" => vec![
+                Example {
+                    description: "Downcase contents.",
+                    example: "'NU' | str downcase",
+                    result: Some(Value::test_string("nu")),
+                },
+                Example {
+                    description: "Downcase contents.",
+                    example: "'TESTa' | str downcase",
+                    result: Some(Value::test_string("testa")),
+                },
+                Example {
+                    description: "Downcase contents.",
+                    example: "[[ColA ColB]; [Test ABC]] | str downcase ColA",
+                    result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "ColA" => Value::test_string("test"),
+                        "ColB" => Value::test_string("ABC"),
+                    })])),
+                },
+                Example {
+                    description: "Downcase contents.",
+                    example: "[[ColA ColB]; [Test ABC]] | str downcase ColA ColB",
+                    result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "ColA" => Value::test_string("test"),
+                        "ColB" => Value::test_string("abc"),
+                    })])),
+                },
+            ],
+            _ => vec![
+                Example {
+                    description: "Lowercase contents.",
+                    example: "'NU' | str lowercase",
+                    result: Some(Value::test_string("nu")),
+                },
+                Example {
+                    description: "Lowercase contents.",
+                    example: "'TESTa' | str lowercase",
+                    result: Some(Value::test_string("testa")),
+                },
+                Example {
+                    description: "Lowercase contents.",
+                    example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA",
+                    result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "ColA" => Value::test_string("test"),
+                        "ColB" => Value::test_string("ABC"),
+                    })])),
+                },
+                Example {
+                    description: "Lowercase contents.",
+                    example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA ColB",
+                    result: Some(Value::test_list(vec![Value::test_record(record! {
+                        "ColA" => Value::test_string("test"),
+                        "ColB" => Value::test_string("abc"),
+                    })])),
+                },
+            ],
+        }
     }
 
     fn deprecation_info(&self) -> Vec<DeprecationEntry> {
-        vec![DeprecationEntry {
-            ty: DeprecationType::Command,
-            report_mode: ReportMode::FirstUse,
-            since: Some("0.105.0".into()),
-            expected_removal: None,
-            help: Some("Use `str lowercase` instead.".into()),
-        }]
-    }
-}
-
-#[derive(Clone)]
-pub struct StrLowercase;
-
-impl Command for StrLowercase {
-    fn name(&self) -> &str {
-        "str lowercase"
-    }
-
-    fn signature(&self) -> Signature {
-        Signature::build("str lowercase")
-            .input_output_types(vec![
-                (Type::String, Type::String),
-                (
-                    Type::List(Box::new(Type::String)),
-                    Type::List(Box::new(Type::String)),
-                ),
-                (Type::table(), Type::table()),
-                (Type::record(), Type::record()),
-            ])
-            .allow_variants_without_examples(true)
-            .rest(
-                "rest",
-                SyntaxShape::CellPath,
-                "For a data structure input, convert strings at the given cell paths.",
-            )
-            .category(Category::Strings)
-    }
-
-    fn description(&self) -> &str {
-        "Convert text to lowercase."
-    }
-
-    fn search_terms(&self) -> Vec<&str> {
-        vec!["downcase", "lower case", "lower-case"]
-    }
-
-    fn is_const(&self) -> bool {
-        true
-    }
-
-    fn run(
-        &self,
-        engine_state: &EngineState,
-        stack: &mut Stack,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest(engine_state, stack, 0)?;
-        operate(engine_state, call, input, column_paths)
-    }
-
-    fn run_const(
-        &self,
-        working_set: &StateWorkingSet,
-        call: &Call,
-        input: PipelineData,
-    ) -> Result<PipelineData, ShellError> {
-        let column_paths: Vec<CellPath> = call.rest_const(working_set, 0)?;
-        operate(working_set.permanent(), call, input, column_paths)
-    }
-
-    fn examples(&self) -> Vec<Example<'_>> {
-        vec![
-            Example {
-                description: "Lowercase contents.",
-                example: "'NU' | str lowercase",
-                result: Some(Value::test_string("nu")),
-            },
-            Example {
-                description: "Lowercase contents.",
-                example: "'TESTa' | str lowercase",
-                result: Some(Value::test_string("testa")),
-            },
-            Example {
-                description: "Lowercase contents.",
-                example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_string("test"),
-                    "ColB" => Value::test_string("ABC"),
-                })])),
-            },
-            Example {
-                description: "Lowercase contents.",
-                example: "[[ColA ColB]; [Test ABC]] | str lowercase ColA ColB",
-                result: Some(Value::test_list(vec![Value::test_record(record! {
-                    "ColA" => Value::test_string("test"),
-                    "ColB" => Value::test_string("abc"),
-                })])),
-            },
-        ]
+        if self.1 {
+            vec![DeprecationEntry {
+                ty: DeprecationType::Command,
+                report_mode: ReportMode::FirstUse,
+                since: Some("0.105.0".into()),
+                expected_removal: None,
+                help: Some("Use `str lowercase` instead.".into()),
+            }]
+        } else {
+            vec![]
+        }
     }
 }
 
@@ -245,11 +192,11 @@ mod test {
     use super::*;
     #[test]
     fn test_downcase_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(StrDowncase)
+        nu_test_support::test().examples(STR_DOWNCASE)
     }
 
     #[test]
     fn test_lowercase_examples() -> nu_test_support::Result {
-        nu_test_support::test().examples(StrLowercase)
+        nu_test_support::test().examples(STR_LOWERCASE)
     }
 }
