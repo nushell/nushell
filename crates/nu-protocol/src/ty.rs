@@ -471,8 +471,8 @@ mod tests {
                 Type::one_of([Type::Int, Type::Float]),
                 Type::Bool,
             ]);
-            if let Type::OneOf(types) = nested {
-                let types_vec = types.to_vec();
+            if let Type::OneOf(oneof) = nested {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
                 assert_eq!(types_vec.len(), 4);
                 assert!(types_vec.contains(&Type::String));
                 assert!(types_vec.contains(&Type::Int));
@@ -488,8 +488,8 @@ mod tests {
             let a = Type::one_of([Type::String, Type::Int]);
             let b = Type::one_of([Type::Float, Type::Bool]);
             let widened = a.union(b);
-            if let Type::OneOf(types) = widened {
-                let types_vec = types.to_vec();
+            if let Type::OneOf(oneof) = widened {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
                 assert_eq!(types_vec.len(), 3);
                 assert!(types_vec.contains(&Type::String));
                 assert!(types_vec.contains(&Type::Number)); // Int + Float -> Number
@@ -504,8 +504,8 @@ mod tests {
             let record_type =
                 Type::Record(vec![("content".to_string(), Type::list(Type::String))].into());
             let oneof = Type::one_of([Type::String, record_type.clone(), record_type.clone()]);
-            if let Type::OneOf(types) = oneof {
-                let types_vec = types.to_vec();
+            if let Type::OneOf(oneof) = oneof {
+                let types_vec: Vec<Type> = oneof.into_iter().collect();
                 assert_eq!(types_vec.len(), 2);
                 assert!(types_vec.contains(&Type::String));
                 assert!(types_vec.contains(&record_type));

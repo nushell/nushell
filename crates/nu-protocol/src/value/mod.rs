@@ -5422,9 +5422,7 @@ mod tests {
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
                 list_of_ints_and_floats_and_bools.get_type(),
-                Type::List(Box::new(Type::OneOf(
-                    vec![Type::Number, Type::Bool].into_boxed_slice()
-                )))
+                Type::List(Box::new(Type::one_of([Type::Number, Type::Bool])))
             );
             assert_eq!(
                 list_of_ints_and_floats.get_type(),
