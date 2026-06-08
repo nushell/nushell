@@ -34,7 +34,7 @@ impl Command for StrUpcase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["uppercase", "upper case", "upper-case"]
+        vec!["upper case", "upper-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -74,7 +74,7 @@ impl Command for StrUpcase {
         vec![DeprecationEntry {
             ty: DeprecationType::Command,
             report_mode: ReportMode::FirstUse,
-            since: Some("0.105.0".into()),
+            since: Some("0.114.0".into()),
             expected_removal: None,
             help: Some("Use `str uppercase` instead.".into()),
         }]

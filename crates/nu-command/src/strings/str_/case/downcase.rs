@@ -34,7 +34,7 @@ impl Command for StrDowncase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["lowercase", "lower case", "lower-case"]
+        vec!["lower case", "lower-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -97,7 +97,7 @@ impl Command for StrDowncase {
         vec![DeprecationEntry {
             ty: DeprecationType::Command,
             report_mode: ReportMode::FirstUse,
-            since: Some("0.105.0".into()),
+            since: Some("0.114.0".into()),
             expected_removal: None,
             help: Some("Use `str lowercase` instead.".into()),
         }]
