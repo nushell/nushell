@@ -1,6 +1,8 @@
 use super::state::stream_grep;
 use fff_search::GrepMode;
 use nu_engine::command_prelude::*;
+use nu_protocol::Range;
+use std::ops::Bound;
 
 #[derive(Clone)]
 pub struct IdxSearch;
@@ -25,6 +27,12 @@ impl Command for IdxSearch {
                 "Maximum number of matches to collect.",
                 Some('l'),
             )
+            .named(
+                "context",
+                SyntaxShape::Range,
+                "Number of lines of context to include before and after each match. Negative value for before-context, positive value for after-context in range format -3..5.",
+                Some('c'),
+            )
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::record())))])
             .category(Category::FileSystem)
     }
@@ -40,18 +48,23 @@ impl Command for IdxSearch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Search indexed file contents for a plain text pattern",
+                description: "Search indexed file contents for a plain text pattern.",
                 example: "idx search hello",
                 result: None,
             },
             Example {
-                description: "Search using a regular expression",
+                description: "Search using a regular expression.",
                 example: "idx search --regex 'fn \\w+'",
                 result: None,
             },
             Example {
-                description: "Search with multiple patterns simultaneously",
+                description: "Search with multiple patterns simultaneously.",
                 example: "idx search TODO FIXME HACK",
+                result: None,
+            },
+            Example {
+                description: "Include 2 lines of context before and 5 lines after each match.",
+                example: "idx search error -2..5",
                 result: None,
             },
         ]
@@ -97,7 +110,74 @@ impl Command for IdxSearch {
             GrepMode::PlainText
         };
 
+        let context_range: Option<Range> = call.get_flag(engine_state, stack, "context")?;
+        let (before_context, after_context) = match context_range {
+            Some(Range::IntRange(r)) => {
+                // Reject three-part ranges like -3..1..5 (explicit step != 1)
+                if r.step() != 1 {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "Context range must not have an explicit step (e.g. use -3..5, not -3..1..5)".into(),
+                        input: "value originates from here".into(),
+                        msg_span: call.head,
+                        input_span: call.head,
+                    });
+                }
+
+                let start = r.start();
+                if start > 0 {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "Context range start must be <= 0 (use a negative value for before-context, e.g. -3..5)".into(),
+                        input: "value originates from here".into(),
+                        msg_span: call.head,
+                        input_span: call.head,
+                    });
+                }
+
+                let end_val = match r.end() {
+                    Bound::Included(e) | Bound::Excluded(e) => e,
+                    Bound::Unbounded => {
+                        return Err(ShellError::UnsupportedInput {
+                            msg: "Context range must have a bounded end (use a positive value for after-context, e.g. -3..5)".into(),
+                            input: "value originates from here".into(),
+                            msg_span: call.head,
+                            input_span: call.head,
+                        });
+                    }
+                };
+
+                if end_val < 0 {
+                    return Err(ShellError::UnsupportedInput {
+                        msg: "Context range end must be >= 0 (use a positive value for after-context, e.g. -3..5)".into(),
+                        input: "value originates from here".into(),
+                        msg_span: call.head,
+                        input_span: call.head,
+                    });
+                }
+
+                let before = start.unsigned_abs() as usize;
+                let after = end_val as usize;
+                (before, after)
+            }
+            Some(Range::FloatRange(_)) => {
+                return Err(ShellError::UnsupportedInput {
+                    msg: "Float ranges are not supported for context".into(),
+                    input: "value originates from here".into(),
+                    msg_span: call.head,
+                    input_span: call.head,
+                });
+            }
+            None => (0, 0),
+        };
+
         let signals = engine_state.signals();
-        stream_grep(&patterns, mode, limit, call.head, signals)
+        stream_grep(
+            &patterns,
+            mode,
+            limit,
+            call.head,
+            before_context,
+            after_context,
+            signals,
+        )
     }
 }

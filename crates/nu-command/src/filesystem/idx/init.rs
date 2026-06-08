@@ -47,17 +47,17 @@ impl Command for IdxInit {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Initialize idx for the current directory",
+                description: "Initialize idx for the current directory.",
                 example: "idx init .",
                 result: None,
             },
             Example {
-                description: "Initialize idx and wait for the initial scan to complete",
+                description: "Initialize idx and wait for the initial scan to complete.",
                 example: "idx init . --wait",
                 result: None,
             },
             Example {
-                description: "Initialize idx without filesystem watching",
+                description: "Initialize idx without filesystem watching.",
                 example: "idx init . --no-watch",
                 result: None,
             },

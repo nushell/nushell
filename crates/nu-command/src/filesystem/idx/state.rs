@@ -1856,6 +1856,8 @@ pub fn stream_grep(
     mode: GrepMode,
     page_limit: usize,
     span: Span,
+    before_context: usize,
+    after_context: usize,
     signals: &Signals,
 ) -> Result<PipelineData, ShellError> {
     let snapshot = require_runtime(span)?;
@@ -1866,6 +1868,8 @@ pub fn stream_grep(
     let options = GrepSearchOptions {
         mode,
         page_limit,
+        before_context,
+        after_context,
         ..Default::default()
     };
 
@@ -1922,31 +1926,46 @@ pub fn stream_grep(
             })
             .collect::<Vec<_>>();
 
-        Value::record(
-            [
-                ("path".to_string(), Value::string(path, span)),
-                (
-                    "line_number".to_string(),
-                    Value::int(i64::try_from(item.line_number).unwrap_or(i64::MAX), span),
-                ),
-                (
-                    "column".to_string(),
-                    Value::int(usize_to_i64(item.col), span),
-                ),
-                (
-                    "byte_offset".to_string(),
-                    Value::int(i64::try_from(item.byte_offset).unwrap_or(i64::MAX), span),
-                ),
-                (
-                    "line".to_string(),
-                    Value::string(item.line_content.clone(), span),
-                ),
-                ("matches".to_string(), Value::list(offsets, span)),
-            ]
-            .into_iter()
-            .collect(),
-            span,
-        )
+        let mut cols: Vec<(String, Value)> = vec![
+            ("path".to_string(), Value::string(path, span)),
+            (
+                "line_number".to_string(),
+                Value::int(i64::try_from(item.line_number).unwrap_or(i64::MAX), span),
+            ),
+            (
+                "column".to_string(),
+                Value::int(usize_to_i64(item.col), span),
+            ),
+            (
+                "byte_offset".to_string(),
+                Value::int(i64::try_from(item.byte_offset).unwrap_or(i64::MAX), span),
+            ),
+            (
+                "line".to_string(),
+                Value::string(item.line_content.clone(), span),
+            ),
+            ("matches".to_string(), Value::list(offsets, span)),
+        ];
+
+        if !item.context_before.is_empty() || !item.context_after.is_empty() {
+            let context = item
+                .context_before
+                .iter()
+                .map(|l| Value::string(l.clone(), span))
+                .chain(std::iter::once(Value::string(
+                    item.line_content.clone(),
+                    span,
+                )))
+                .chain(
+                    item.context_after
+                        .iter()
+                        .map(|l| Value::string(l.clone(), span)),
+                )
+                .collect::<Vec<_>>();
+            cols.push(("with_context".to_string(), Value::list(context, span)));
+        }
+
+        Value::record(cols.into_iter().collect(), span)
     });
 
     Ok(PipelineData::ListStream(

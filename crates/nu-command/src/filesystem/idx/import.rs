@@ -35,7 +35,7 @@ impl Command for IdxImport {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Restore an idx index from a snapshot on disk",
+            description: "Restore an idx index from a snapshot on disk.",
             example: "idx import ~/my-index.db",
             result: None,
         }]
