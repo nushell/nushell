@@ -4153,6 +4153,28 @@ pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
 mod tests {
     use super::{Record, Value};
     use crate::record;
+    use indoc::indoc;
+
+    mod default {
+        use super::*;
+
+        #[test]
+        fn string() {
+            let string = Value::test_string("Ellie");
+            assert_eq!(
+                format!("{string:+?}"),
+                r#"String { val: "Ellie", internal_span: Span(TEST) }"#
+            );
+            assert_eq!(
+                format!("{string:+#?}"),
+                indoc! {r#"
+                    String {
+                        val: "Ellie",
+                        internal_span: Span(TEST),
+                    }"#}
+            );
+        }
+    }
 
     mod at_cell_path {
         use crate::casing::Casing;

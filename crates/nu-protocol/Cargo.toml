@@ -82,11 +82,12 @@ sqlite = []
 nu-test-support = { path = "../nu-test-support", features = ["os"] }
 nu-utils.workspace = true
 
-serde_json = { workspace = true }
+indoc = { workspace = true }
+os_pipe = { workspace = true }
 pretty_assertions = { workspace = true }
 rstest = { workspace = true }
+serde_json = { workspace = true }
 tempfile = { workspace = true }
-os_pipe = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

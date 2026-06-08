@@ -4936,6 +4936,7 @@ dependencies = [
  "fancy-regex",
  "heck",
  "indexmap 2.14.0",
+ "indoc",
  "log",
  "lru 0.18.0",
  "memchr",
