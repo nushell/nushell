@@ -48,22 +48,22 @@ impl Command for IdxSearch {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "Search indexed file contents for a plain text pattern",
+                description: "Search indexed file contents for a plain text pattern.",
                 example: "idx search hello",
                 result: None,
             },
             Example {
-                description: "Search using a regular expression",
+                description: "Search using a regular expression.",
                 example: "idx search --regex 'fn \\w+'",
                 result: None,
             },
             Example {
-                description: "Search with multiple patterns simultaneously",
+                description: "Search with multiple patterns simultaneously.",
                 example: "idx search TODO FIXME HACK",
                 result: None,
             },
             Example {
-                description: "Include 2 lines of context before and 5 lines after each match",
+                description: "Include 2 lines of context before and 5 lines after each match.",
                 example: "idx search error -2..5",
                 result: None,
             },
