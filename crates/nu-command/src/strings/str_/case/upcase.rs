@@ -34,7 +34,7 @@ impl Command for StrUpcase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["upper case", "upper-case"]
+        vec!["uppercase", "upper case", "upper-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -114,7 +114,7 @@ impl Command for StrUppercase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["upcase", "upper case", "upper-case"]
+        vec!["upcase"]
     }
 
     fn is_const(&self) -> bool {

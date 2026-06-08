@@ -34,7 +34,7 @@ impl Command for StrDowncase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["lower case", "lower-case"]
+        vec!["lowercase", "lower case", "lower-case"]
     }
 
     fn is_const(&self) -> bool {
@@ -137,7 +137,7 @@ impl Command for StrLowercase {
     }
 
     fn search_terms(&self) -> Vec<&str> {
-        vec!["downcase", "lower case", "lower-case"]
+        vec!["downcase"]
     }
 
     fn is_const(&self) -> bool {
