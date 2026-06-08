@@ -91,6 +91,17 @@ diagnostic code: nu::shell::error
 }
 
 #[test]
+fn abbreviations() -> Result {
+    let mut tester = test();
+    let () = tester.run(r#"$env.config = { abbreviations: { g: "git --no-pager" } }"#)?;
+    tester
+        .run("$env.config.abbreviations")
+        .expect_value_eq(test_record! {
+            "g" => "git --no-pager"
+        })
+}
+
+#[test]
 fn plugins() -> Result {
     let mut tester = test();
     let () = tester.run("$env.config = { plugins: { nu_plugin_config: { key: value } } }")?;

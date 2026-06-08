@@ -227,7 +227,11 @@ impl Stack {
         if let Some(value) = self.get_env_var(engine_state, "config") {
             let old = self.get_config(engine_state);
             let mut config = (*old).clone();
-            let result = config.update_from_value(&old, value);
+            let result = config.update_from_value_with_options(
+                &old,
+                value,
+                engine_state.history_locked_after_startup,
+            );
             // The config value is modified by the update, so we should add it again
             self.add_env_var("config".into(), config.clone().into_value(value.span()));
             self.config = Some(config.into());

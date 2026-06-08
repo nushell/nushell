@@ -86,6 +86,7 @@ fn help_alias_description_3() -> Result {
 }
 
 #[test]
+#[ignore = "`help aliases` produces different results for aliases, see #18351"]
 fn help_alias_name() -> Result {
     Playground::setup("help_alias_name", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -130,6 +131,7 @@ fn help_alias_name_f() -> Result {
 }
 
 #[test]
+#[ignore = "`help aliases` produces different results for aliases, see #18351"]
 fn help_export_alias_name_single_word() -> Result {
     Playground::setup("help_export_alias_name_single_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
@@ -153,6 +155,7 @@ fn help_export_alias_name_single_word() -> Result {
 }
 
 #[test]
+#[ignore = "`help aliases` produces different results for aliases, see #18351"]
 fn help_export_alias_name_multi_word() -> Result {
     Playground::setup("help_export_alias_name_multi_word", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(

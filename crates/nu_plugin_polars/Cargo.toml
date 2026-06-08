@@ -1,12 +1,12 @@
 [package]
-authors = ["The Nushell Project Developers"]
+authors.workspace = true
 description = "Nushell dataframe plugin commands based on polars."
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu_plugin_polars"
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu_plugin_polars"
-version = "0.112.3"
+version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,10 +18,10 @@ bench = false
 bench = false
 
 [dependencies]
-nu-protocol = { path = "../nu-protocol", version = "0.112.3" }
-nu-plugin = { path = "../nu-plugin", version = "0.112.3" }
-nu-path = { path = "../nu-path", version = "0.112.3" }
-nu-utils = { path = "../nu-utils", version = "0.112.3" }
+nu-protocol.workspace = true
+nu-plugin.workspace = true
+nu-path.workspace = true
+nu-utils.workspace = true
 
 # Potential dependencies for extras
 chrono = { workspace = true, features = [
@@ -33,13 +33,13 @@ indexmap = { version = "2.13" }
 num = { version = "0.4" }
 serde = { version = "1.0", features = ["derive"] }
 sqlparser = { version = "~0.61.0" }
-polars-io = { version = "~0.53.0", features = ["avro", "cloud", "aws", "azure", "gcp"] }
-polars-arrow = { version = "~0.53.0" }
-polars-ops = { version = "~0.53.0", features = ["pivot", "cutqcut"] }
-polars-plan = { version = "~0.53.0", features = ["regex"] }
-polars-utils = { version = "~0.53.0" }
-polars-lazy = { version = "~0.53.0" }
-polars-compute = { version = "~0.53.0" }
+polars-io = { version = "~0.54.4", features = ["avro", "cloud", "aws", "azure", "gcp"] }
+polars-arrow = { version = "~0.54.4" }
+polars-ops = { version = "~0.54.4", features = ["pivot", "cutqcut"] }
+polars-plan = { version = "~0.54.4", features = ["regex"] }
+polars-utils = { version = "~0.54.4" }
+polars-lazy = { version = "~0.54.4" }
+polars-compute = { version = "~0.54.4" }
 planus = { version = "~1.1.1" } # Temporarily here to convince cargo not to upgrade planus to 1.2.0
 typetag = "0.2"
 env_logger = "0.11.8"
@@ -103,13 +103,13 @@ features = [
   "trigonometry",
 ]
 optional = false
-version = "=0.53.0"
+version = "=0.54.4"
 
 [dev-dependencies]
-nu-cmd-lang = { path = "../nu-cmd-lang" }
-nu-engine = { path = "../nu-engine" }
-nu-parser = { path = "../nu-parser" }
-nu-command = { path = "../nu-command" }
-nu-plugin-test-support = { path = "../nu-plugin-test-support" }
+nu-cmd-lang = { workspace = true, features = ["plugin"] }
+nu-engine = { workspace = true, features = ["plugin"] }
+nu-parser = { workspace = true, features = ["plugin"] }
+nu-command = { workspace = true, features = ["plugin"] }
+nu-plugin-test-support.workspace = true
 
 tempfile.workspace = true

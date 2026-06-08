@@ -21,6 +21,7 @@ pub fn run_test_with_env(input: &str, expected: &str, env: &HashMap<&str, &str>)
 }
 
 #[cfg(test)]
+#[track_caller]
 pub fn run_test(input: &str, expected: &str) -> TestResult {
     let mut file = NamedTempFile::new()?;
     let name = file.path();
@@ -58,6 +59,7 @@ pub fn run_test_std(input: &str, expected: &str) -> TestResult {
 }
 
 #[cfg(test)]
+#[track_caller]
 fn run_cmd_and_assert(mut cmd: Command, expected: &str) -> TestResult {
     let output = cmd.output()?;
 

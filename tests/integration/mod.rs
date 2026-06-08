@@ -2,6 +2,7 @@ use nu_test_support::nu;
 use pretty_assertions::assert_str_eq;
 
 mod cli;
+mod posix_end_of_options;
 mod shell_integration;
 
 #[test]

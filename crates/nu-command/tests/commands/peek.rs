@@ -40,6 +40,58 @@ fn peek_works_with_list_stream() -> Result {
         .expect_value_eq([1, 2, 3, 4, 5])
 }
 
+#[test]
+fn peek_works_with_list_value() -> Result {
+    let code = "[1 2 3 4 5] | peek 2";
+    let outcome = test().run_raw_with_data(code, PipelineData::Empty)?;
+
+    let PipelineData::Value(value, Some(metadata)) = outcome.body else {
+        panic!("Output must be a value with metadata")
+    };
+
+    let peek_record = PeekRecord::from_value(metadata.custom.get("peek").unwrap().clone())?;
+    assert_eq!(
+        peek_record,
+        PeekRecord {
+            r#type: "list".into(),
+            stream: false,
+            value: Some(
+                [1, 2]
+                    .into_iter()
+                    .map(|x| x.into_value(Span::test_data()))
+                    .collect::<Vec<_>>()
+            ),
+        },
+    );
+
+    Ok(value).expect_value_eq([1, 2, 3, 4, 5])
+}
+
+#[rstest]
+#[case::string("'hello' | peek 2", "string")]
+#[case::binary("0x[de ad be ef] | peek 2", "binary")]
+#[case::int("42 | peek 2", "int")]
+fn peek_with_value(#[case] code: &str, #[case] expected_type: &str) -> Result {
+    let outcome = test().run_raw(code)?;
+
+    let PipelineData::Value(_, Some(metadata)) = outcome.body else {
+        panic!("Output must be a value with metadata")
+    };
+
+    let peek_record = PeekRecord::from_value(metadata.custom.get("peek").unwrap().clone())?;
+
+    assert_eq!(
+        peek_record,
+        PeekRecord {
+            r#type: expected_type.into(),
+            stream: false,
+            value: None,
+        },
+    );
+
+    Ok(())
+}
+
 #[rstest]
 #[case::binary("random binary 16b | peek 2", ByteStreamType::Binary, PeekRecord {r#type: "binary".into(), stream: true, value: None})]
 #[case::string("random chars --length 16 | peek 2", ByteStreamType::String, PeekRecord {r#type: "string".into(), stream: true, value: None})]

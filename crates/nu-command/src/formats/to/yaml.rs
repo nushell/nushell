@@ -1,17 +1,7 @@
 use nu_engine::command_prelude::*;
 use nu_protocol::ast::PathMember;
+use std::borrow::Cow;
 use std::fmt::Write as _;
-
-/// YAML 1.1 boolean-like strings that need quoting when used as record keys.
-const YAML_11_BOOLEANS: &[&str] = &[
-    "y", "Y", "yes", "Yes", "YES", "n", "N", "no", "No", "NO", "on", "On", "ON", "off", "Off",
-    "OFF",
-];
-
-/// YAML special float and numeric strings that need quoting to preserve them as strings.
-const YAML_SPECIAL_NUMERICS: &[&str] = &[
-    ".inf", ".Inf", ".INF", "-.inf", "-.Inf", "-.INF", ".nan", ".NaN", ".NAN",
-];
 
 #[derive(Clone)]
 pub struct ToYamlLike(&'static str);
@@ -169,56 +159,70 @@ fn render_yaml_string(value: &str) -> String {
     }
 }
 
-fn should_quote_yaml_key(key: &str) -> bool {
-    if key.is_empty() {
-        return true;
+/// Returns true when a plain scalar would be resolved to a non-string type.
+///
+/// We quote these values to preserve string semantics across Core-schema loaders
+/// and to keep compatibility with YAML 1.1 boolean spellings.
+fn has_yaml_non_string_semantics(string: &str) -> bool {
+    [
+        // Canonical forms of the boolean values in the Core schema.
+        "true", "false", "True", "False", "TRUE", "FALSE",
+        // Canonical forms of the null value in the Core schema.
+        "null", "Null", "NULL", "~",
+        // Quote YAML 1.1 booleans for compatibility with 1.1 parsers.
+        "y", "Y", "n", "N", "yes", "Yes", "YES", "no", "No", "NO", "on", "On", "ON", "off", "Off",
+        "OFF", // YAML special float spellings.
+        ".inf", ".Inf", ".INF", "-.inf", "-.Inf", "-.INF", ".nan", ".NaN", ".NAN",
+    ]
+    .contains(&string)
+        || string.starts_with('.')
+        || string.starts_with("0x")
+        || string.starts_with("0X")
+        || string.starts_with("0o")
+        || string.starts_with("0O")
+        || string.parse::<i64>().is_ok()
+        || string.parse::<u64>().is_ok()
+        || string.parse::<f64>().is_ok()
+}
+
+/// Returns true when a scalar must be quoted to remain valid and unambiguous.
+///
+/// This helper applies YAML plain-scalar restrictions shared by keys and values.
+fn should_quote_yaml_scalar(string: &str) -> bool {
+    fn needs_quotes_due_to_start(string: &str) -> bool {
+        let mut chars = string.chars();
+        let Some(first) = chars.next() else {
+            return true;
+        };
+
+        match first {
+            // These may start a plain scalar only when followed by a non-space character.
+            '-' | '?' | ':' => chars.next().is_none_or(char::is_whitespace),
+            // These cannot start a plain scalar.
+            '[' | ']' | '{' | '}' | ',' | '#' | '&' | '*' | '!' | '|' | '>' | '\'' | '"' | '%'
+            | '@' | '`' => true,
+            _ => false,
+        }
     }
-    if key.chars().any(char::is_control) {
-        return true;
-    }
-    if key.starts_with(char::is_whitespace) || key.ends_with(char::is_whitespace) {
-        return true;
-    }
-    if YAML_11_BOOLEANS.contains(&key) {
-        return true;
-    }
-    if matches!(
-        key,
-        "~" | "null" | "Null" | "NULL" | "true" | "True" | "TRUE" | "false" | "False" | "FALSE"
-    ) {
-        return true;
-    }
-    // Check for YAML special numeric values (.inf, .nan) and hex/octal notation
-    if YAML_SPECIAL_NUMERICS.contains(&key) {
-        return true;
-    }
-    if key.starts_with("0x") || key.starts_with("0X") {
-        return true;
-    }
-    if key.starts_with("0o") || key.starts_with("0O") {
-        return true;
-    }
-    if key.parse::<i64>().is_ok() {
-        return true;
-    }
-    if key.parse::<u64>().is_ok() {
-        return true;
-    }
-    if key.parse::<f64>().is_ok() {
-        return true;
-    }
-    if !key
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | '/'))
+
+    if string.is_empty()
+        || string.starts_with(char::is_whitespace)
+        || string.ends_with(char::is_whitespace)
+        || string.chars().any(char::is_control)
+        || has_yaml_non_string_semantics(string)
     {
         return true;
     }
-    false
+
+    // Plain scalars cannot contain these combinations.
+    let has_plain_ambiguity = string.contains(": ") || string.contains(" #");
+
+    needs_quotes_due_to_start(string) || has_plain_ambiguity
 }
 
 fn render_yaml_key(key: &serde_yaml::Value) -> String {
     match key {
-        serde_yaml::Value::String(key) if should_quote_yaml_key(key) => render_yaml_string(key),
+        serde_yaml::Value::String(key) if should_quote_yaml_scalar(key) => render_yaml_string(key),
         serde_yaml::Value::String(key) => key.clone(),
         _ => render_inline_yaml_value(key),
     }
@@ -229,7 +233,10 @@ fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
         serde_yaml::Value::Null => "null".to_string(),
         serde_yaml::Value::Bool(value) => value.to_string(),
         serde_yaml::Value::Number(value) => value.to_string(),
-        serde_yaml::Value::String(value) => render_yaml_string(value),
+        serde_yaml::Value::String(value) if should_quote_yaml_scalar(value) => {
+            render_yaml_string(value)
+        }
+        serde_yaml::Value::String(value) => value.clone(),
         serde_yaml::Value::Sequence(values) => {
             let values = values
                 .iter()
@@ -258,11 +265,74 @@ fn render_inline_yaml_value(value: &serde_yaml::Value) -> String {
     }
 }
 
+fn is_yaml_block_scalar_candidate(value: &str) -> bool {
+    (value.contains('\n') || value.contains('\r'))
+        && !value
+            .chars()
+            .any(|c| c.is_control() && !matches!(c, '\n' | '\r' | '\t'))
+}
+
+fn normalize_yaml_line_breaks(value: &str) -> Cow<'_, str> {
+    if !value.contains('\r') {
+        return Cow::Borrowed(value);
+    }
+
+    let mut normalized = String::with_capacity(value.len());
+    let mut chars = value.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch == '\r' {
+            if chars.peek() == Some(&'\n') {
+                chars.next();
+            }
+
+            normalized.push('\n');
+        } else {
+            normalized.push(ch);
+        }
+    }
+
+    Cow::Owned(normalized)
+}
+
+fn yaml_block_chomping_indicator(value: &str) -> &'static str {
+    let trailing_newlines = value.chars().rev().take_while(|&c| c == '\n').count();
+
+    match trailing_newlines {
+        0 => "-",
+        1 => "",
+        _ => "+",
+    }
+}
+
+fn write_yaml_block_scalar(output: &mut String, value: &str, body_indent: usize) {
+    let normalized = normalize_yaml_line_breaks(value);
+    let normalized = normalized.as_ref();
+    let chomping = yaml_block_chomping_indicator(normalized);
+
+    output.push('|');
+    output.push_str(chomping);
+    output.push('\n');
+
+    let body = if chomping == "-" {
+        Cow::Owned(format!("{normalized}\n"))
+    } else {
+        Cow::Borrowed(normalized)
+    };
+
+    for line in body.split_terminator('\n') {
+        write_yaml_indent(output, body_indent);
+        output.push_str(line);
+        output.push('\n');
+    }
+}
+
 fn is_inline_yaml_value(value: &serde_yaml::Value) -> bool {
     match value {
         serde_yaml::Value::Sequence(values) => values.is_empty(),
         serde_yaml::Value::Mapping(entries) => entries.is_empty(),
         serde_yaml::Value::Tagged(tagged) => is_inline_yaml_value(&tagged.value),
+        serde_yaml::Value::String(value) => !is_yaml_block_scalar_candidate(value),
         _ => true,
     }
 }
@@ -281,6 +351,10 @@ fn write_yaml_value(output: &mut String, value: &serde_yaml::Value, indent: usiz
         serde_yaml::Value::Mapping(entries) if !entries.is_empty() => {
             write_yaml_mapping(output, entries, indent, "");
         }
+        serde_yaml::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
+            write_yaml_indent(output, indent);
+            write_yaml_block_scalar(output, value, indent + 2);
+        }
         serde_yaml::Value::Tagged(tagged) => write_yaml_value(output, &tagged.value, indent),
         _ => {
             write_yaml_indent(output, indent);
@@ -293,6 +367,11 @@ fn write_yaml_value(output: &mut String, value: &serde_yaml::Value, indent: usiz
 fn write_yaml_sequence(output: &mut String, values: &[serde_yaml::Value], indent: usize) {
     for value in values {
         match value {
+            serde_yaml::Value::String(value) if is_yaml_block_scalar_candidate(value) => {
+                write_yaml_indent(output, indent);
+                output.push_str("- ");
+                write_yaml_block_scalar(output, value, indent + 2);
+            }
             serde_yaml::Value::Mapping(entries) if !entries.is_empty() => {
                 write_yaml_mapping(output, entries, indent, "- ");
             }
@@ -336,7 +415,12 @@ fn write_yaml_mapping(
 
         output.push_str(&render_yaml_key(key));
 
-        if is_inline_yaml_value(value) {
+        if let serde_yaml::Value::String(value) = value
+            && is_yaml_block_scalar_candidate(value)
+        {
+            output.push_str(": ");
+            write_yaml_block_scalar(output, value, key_indent + 2);
+        } else if is_inline_yaml_value(value) {
             output.push_str(": ");
             output.push_str(&render_inline_yaml_value(value));
             output.push('\n');

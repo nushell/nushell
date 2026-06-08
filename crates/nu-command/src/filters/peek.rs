@@ -61,7 +61,8 @@ impl Command for Peek {
                     Ok(PipelineData::value(val, metadata))
                 }
                 _ => {
-                    let metadata = add_peek_metadata(metadata, "value", false, None, call.head);
+                    let r#type = val.get_type_shallow().get_non_specified_string();
+                    let metadata = add_peek_metadata(metadata, r#type, false, None, call.head);
                     Ok(PipelineData::value(val, metadata))
                 }
             },
@@ -127,7 +128,7 @@ impl Command for Peek {
                 description: "Peeking non-list values won't return any values.",
                 example: "'hello' | peek 1 | metadata | $in.peek",
                 result: Some(test_record! {
-                    "type" => "value",
+                    "type" => "string",
                     "stream" => false,
                 }),
             },
@@ -145,7 +146,7 @@ impl Command for Peek {
 
 fn add_peek_metadata(
     mut metadata: Option<PipelineMetadata>,
-    r#type: &str,
+    r#type: impl Into<String>,
     stream: bool,
     value: Option<Value>,
     span: Span,
@@ -153,7 +154,7 @@ fn add_peek_metadata(
     let mut record = Record::new();
     let record_handle = record.as_mut().case_sensitive();
 
-    record_handle.insert("type", r#type.into_value(span));
+    record_handle.insert("type", r#type.into().into_value(span));
     record_handle.insert("stream", stream.into_value(span));
     if let Some(value) = value {
         record_handle.insert("value", value);

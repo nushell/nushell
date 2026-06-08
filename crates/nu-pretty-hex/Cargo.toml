@@ -4,9 +4,9 @@ description = "Pretty hex dump of bytes slice in the common style."
 repository = "https://github.com/nushell/nushell/tree/main/crates/nu-pretty-hex"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT"
+license.workspace = true
 name = "nu-pretty-hex"
-version = "0.112.3"
+version.workspace = true
 
 [lib]
 doctest = false
@@ -18,7 +18,7 @@ bench = false
 workspace = true
 
 [dependencies]
-nu-ansi-term = { workspace = true }
+nu-ansi-term.workspace = true
 
 [dev-dependencies]
 heapless = { version = "0.9", default-features = false }

@@ -76,7 +76,7 @@ impl Command for Watch {
                                 Type::OneOf([Type::String, Type::Nothing].into()),
                             ),
                         ]
-                        .into_boxed_slice(),
+                        .into(),
                     ),
                 ),
             ])

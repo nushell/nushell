@@ -12,16 +12,16 @@ impl Command for IdxFiles {
     fn signature(&self) -> Signature {
         Signature::build(self.name())
             .optional(
-                "path",
+                "query",
                 SyntaxShape::String,
-                "Optional path to lookup in index.",
+                "Optional fuzzy query to filter indexed files.",
             )
             .input_output_types(vec![(Type::Nothing, Type::List(Box::new(Type::record())))])
             .category(Category::FileSystem)
     }
 
     fn description(&self) -> &str {
-        "List indexed files, or lookup a specific indexed path."
+        "List indexed files, or fuzzy-match files by query."
     }
 
     fn examples(&self) -> Vec<Example<'_>> {
@@ -32,8 +32,8 @@ impl Command for IdxFiles {
                 result: None,
             },
             Example {
-                description: "Lookup a specific file path in the index",
-                example: "idx files src/main.rs",
+                description: "Fuzzy-match indexed files by query",
+                example: "idx files main",
                 result: None,
             },
         ]
@@ -46,8 +46,8 @@ impl Command for IdxFiles {
         call: &Call,
         _input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let path = call.opt::<String>(engine_state, stack, 0)?;
+        let query = call.opt::<String>(engine_state, stack, 0)?;
         let signals = engine_state.signals();
-        stream_files(path, call.head, signals)
+        stream_files(query, call.head, signals)
     }
 }

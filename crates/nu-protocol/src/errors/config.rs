@@ -51,6 +51,18 @@ pub enum ConfigError {
         #[label("deprecated")]
         span: Span,
     },
+    #[error("{path} cannot be changed after Nushell has started")]
+    #[diagnostic(
+        code(nu::shell::config_option_locked_after_startup),
+        help(
+            "set {path} in your config.nu (or via --config / the relevant env var) and restart Nushell"
+        )
+    )]
+    LockedAfterStartup {
+        path: String,
+        #[label("cannot be changed at runtime")]
+        span: Span,
+    },
     // TODO: remove this
     #[error(transparent)]
     #[diagnostic(transparent)]

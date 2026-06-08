@@ -65,9 +65,10 @@ impl InputNumType {
 fn get_number_bytes(
     number_bytes: Option<Spanned<usize>>,
     head: Span,
+    default: NumberBytes,
 ) -> Result<NumberBytes, ShellError> {
     match number_bytes {
-        None => Ok(NumberBytes::Auto),
+        None => Ok(default),
         Some(Spanned { item: 1, .. }) => Ok(NumberBytes::One),
         Some(Spanned { item: 2, .. }) => Ok(NumberBytes::Two),
         Some(Spanned { item: 4, .. }) => Ok(NumberBytes::Four),

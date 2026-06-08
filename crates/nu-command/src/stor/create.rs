@@ -22,7 +22,7 @@ impl Command for StorCreate {
             )
             .required_named(
                 "columns",
-                SyntaxShape::Record(vec![]),
+                SyntaxShape::record(),
                 "A record of column names and datatypes.",
                 Some('c'),
             )
