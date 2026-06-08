@@ -2,7 +2,7 @@ use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
     OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
-    ast::{Block, Expr, ListItem, RecordItem},
+    ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
@@ -409,7 +409,7 @@ impl EngineState {
         let mut alias_var_ids = HashSet::new();
         for decl in self.decls.iter() {
             if let Some(alias) = decl.as_alias() {
-                collect_alias_var_ids(&alias.wrapped_call, self, &mut alias_var_ids);
+                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
             }
         }
 
@@ -1138,7 +1138,6 @@ impl EngineState {
 /// variables that are still referenced by alias definitions.
 fn collect_alias_var_ids(
     expr: &crate::ast::Expression,
-    engine_state: &EngineState,
     var_ids: &mut std::collections::HashSet<VarId>,
 ) {
     match &expr.expr {
@@ -1148,74 +1147,17 @@ fn collect_alias_var_ids(
         Expr::Call(call) => {
             for arg in &call.arguments {
                 if let Some(sub_expr) = arg.expr() {
-                    collect_alias_var_ids(sub_expr, engine_state, var_ids);
+                    collect_alias_var_ids(sub_expr, var_ids);
                 }
             }
         }
         Expr::ExternalCall(head, args) => {
-            collect_alias_var_ids(head, engine_state, var_ids);
+            collect_alias_var_ids(head, var_ids);
             for arg in args.iter() {
-                collect_alias_var_ids(arg.expr(), engine_state, var_ids);
+                collect_alias_var_ids(arg.expr(), var_ids);
             }
         }
-        Expr::RowCondition(block_id)
-        | Expr::Subexpression(block_id)
-        | Expr::Block(block_id)
-        | Expr::Closure(block_id) => {
-            let block = engine_state.get_block(*block_id);
-            for pipeline in &block.pipelines {
-                for element in &pipeline.elements {
-                    collect_alias_var_ids(&element.expr, engine_state, var_ids);
-                }
-            }
-        }
-        Expr::Range(range) => {
-            for e in [&range.from, &range.next, &range.to].into_iter().flatten() {
-                collect_alias_var_ids(e, engine_state, var_ids);
-            }
-        }
-        Expr::List(items) => {
-            for item in items {
-                let (ListItem::Item(e) | ListItem::Spread(_, e)) = item;
-                collect_alias_var_ids(e, engine_state, var_ids);
-            }
-        }
-        Expr::Record(items) => {
-            for item in items {
-                match item {
-                    RecordItem::Spread(_, e) => collect_alias_var_ids(e, engine_state, var_ids),
-                    RecordItem::Pair(k, v) => {
-                        collect_alias_var_ids(k, engine_state, var_ids);
-                        collect_alias_var_ids(v, engine_state, var_ids);
-                    }
-                }
-            }
-        }
-        Expr::Table(table) => {
-            for col in table.columns.iter() {
-                collect_alias_var_ids(col, engine_state, var_ids);
-            }
-            for row in table.rows.iter() {
-                for e in row.iter() {
-                    collect_alias_var_ids(e, engine_state, var_ids);
-                }
-            }
-        }
-        Expr::FullCellPath(fcp) => collect_alias_var_ids(&fcp.head, engine_state, var_ids),
-        Expr::Keyword(kw) => collect_alias_var_ids(&kw.expr, engine_state, var_ids),
-        Expr::StringInterpolation(items) | Expr::GlobInterpolation(items, _) => {
-            for e in items {
-                collect_alias_var_ids(e, engine_state, var_ids);
-            }
-        }
-        Expr::AttributeBlock(ab) => collect_alias_var_ids(&ab.item, engine_state, var_ids),
-        Expr::UnaryNot(e) | Expr::Collect(_, e) => collect_alias_var_ids(e, engine_state, var_ids),
-        Expr::BinaryOp(lhs, op, rhs) => {
-            collect_alias_var_ids(lhs, engine_state, var_ids);
-            collect_alias_var_ids(op, engine_state, var_ids);
-            collect_alias_var_ids(rhs, engine_state, var_ids);
-        }
-        Expr::ValueWithUnit(vu) => collect_alias_var_ids(&vu.expr, engine_state, var_ids),
+        Expr::FullCellPath(fcp) => collect_alias_var_ids(&fcp.head, var_ids),
         _ => {}
     }
 }
@@ -1345,12 +1287,6 @@ mod test_cwd {
     //! PWD should NOT point to a file or a symlink to file.
     //! PWD should NOT point to non-existent entities in the filesystem.
 
-    use super::*;
-    use crate::{
-        Alias, Type,
-        ast::{Argument, Call, Expr, Expression},
-        engine::StateWorkingSet,
-    };
     use crate::{
         Value,
         engine::{EngineState, Stack},
@@ -1559,5 +1495,4 @@ mod test_cwd {
         let cwd = engine_state.cwd(Some(&stack)).unwrap();
         assert_path_eq!(cwd, foo);
     }
-
 }
