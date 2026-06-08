@@ -1,7 +1,11 @@
-# Benchmark a target revision (default: current branch) against a reference revision (default: main branch)
+# Benchmark a target revision (default: current branch) against a reference revision (default: main branch).
 #
 # Results are saved in a `./tango` directory
 # Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
+@category "toolkit"
+@search-terms benchmark compare perf performance cargo-export tango
+@example "Compare current branch against main" { toolkit benchmark-compare }
+@example "Compare a feature branch against main" { toolkit benchmark-compare feature-branch main }
 export def benchmark-compare [
     target?: string     # which branch to compare (default: current branch)
     reference?: string  # the reference to compare against (default: main branch)
@@ -36,10 +40,14 @@ export def benchmark-compare [
     ^$target_bin compare $reference_bin -o -s 50 --dump ($export_dir | path join samples)
 }
 
-# Benchmark the current branch and logs the result in `./tango/samples`
+# Benchmark the current branch and logs the result in `./tango/samples`.
 #
 # Results are saved in a `./tango` directory
 # Ensure you have `cargo-export` installed to generate separate artifacts for each branch.
+@category "toolkit"
+@search-terms benchmark log perf performance cargo-export tango samples
+@example "Benchmark the current branch" { toolkit benchmark-log }
+@example "Benchmark a specific branch" { toolkit benchmark-log my-feature }
 export def benchmark-log [
     target?: string     # which branch to compare (default: current branch)
 ] {

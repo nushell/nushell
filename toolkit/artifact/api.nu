@@ -1,7 +1,10 @@
 use std-rfc/iter only
 use std/util null_device
 
-# Get the workflow of the most recent commit with artifacts
+# Get the workflow of the most recent commit with artifacts.
+@category "toolkit"
+@search-terms workflow run ci artifact commit check
+@example "Get the workflow run ID for the most recent commit" { toolkit get-workflow-run ["abc123def456"] {start: 0, end: 10} }
 export def get-workflow-run [commits: list<string>, span: record]: nothing -> int {
   mut latest = true
   for commit in ($commits | reverse) {
@@ -45,9 +48,12 @@ export def get-workflow-run [commits: list<string>, span: record]: nothing -> in
   echo
 }
 
-# Get artifacts associated with a PR
+# Get artifacts associated with a PR.
 #
 # Uses the latest commit if not specified
+@category "toolkit"
+@search-terms get artifacts pr download ci gh api
+@example "Get artifact metadata for PR #1234" { toolkit get-artifacts {item: 1234, span: {start: 0, end: 10}} "macos-latest" {start: 0, end: 10} }
 export def get-artifacts [
   number: record<item: int, span: record>
   platform: string
