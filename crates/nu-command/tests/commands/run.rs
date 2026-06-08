@@ -140,9 +140,9 @@ fn run_script_with_exported_main_uses_main_entrypoint() {
                     $in | str uppercase
                 }
             ",
-        )]);
+            )]);
 
-        let actual = nu!(cwd: dirs.test(), r#""hello" | run exported_main.nu"#);
+            let actual = nu!(cwd: dirs.test(), r#""hello" | run exported_main.nu"#);
             assert_eq!(actual.out, "HELLO");
             assert!(actual.err.is_empty());
         },
