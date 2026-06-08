@@ -1,4 +1,6 @@
-use crate::{CollectionColumns, CompareTypes, SyntaxShape, TypeRelation, TypeSet, ast::PathMember};
+use crate::{
+    CollectionColumns, CompareTypes, OneOf, SyntaxShape, TypeRelation, TypeSet, ast::PathMember,
+};
 use serde::{Deserialize, Serialize};
 use std::{borrow::Cow, fmt::Display};
 #[cfg(test)]
@@ -27,7 +29,7 @@ pub enum Type {
     /// Supertype of Int and Float. Equivalent to `oneof<int, float>`
     Number,
     /// Supertype of all types it contains.
-    OneOf(Box<[Type]>),
+    OneOf(OneOf),
     Range,
     Record(CollectionColumns<Type>),
     String,
@@ -113,11 +115,7 @@ impl Type {
     /// Creates a OneOf type from an iterator of types.
     /// Flattens any nested OneOf types and removes duplicates.
     pub fn one_of(types: impl IntoIterator<Item = Type>) -> Self {
-        let mut flattened = Vec::new();
-        for t in types {
-            Self::oneof_add(&mut flattened, t);
-        }
-        Self::OneOf(flattened.into())
+        Self::OneOf(OneOf::from_iter(types))
     }
 
     pub fn record() -> Self {
@@ -142,7 +140,7 @@ impl Type {
     }
 
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
-    fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
+    pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
         // handle special cases and hot paths
         let (lhs, rhs) = match (lhs, rhs) {
             // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
@@ -193,51 +191,6 @@ impl Type {
     /// prefer `TypeSet::union`
     pub fn widen(self, other: Type) -> Type {
         <Self as TypeSet>::union(self, other)
-    }
-
-    /// Adds a type to a OneOf union, flattening nested OneOfs, deduplicating, and attempting to widen existing types.
-    fn oneof_add_widen(oneof: &mut Vec<Type>, mut t: Type) {
-        // handle nested unions first
-        if let Type::OneOf(inner) = t {
-            for sub_t in inner.into_vec() {
-                Self::oneof_add_widen(oneof, sub_t);
-            }
-            return;
-        }
-
-        let mut i = 0;
-        while i < oneof.len() {
-            let one = std::mem::replace(&mut oneof[i], Type::Any);
-            match Self::flat_widen(one, t) {
-                Ok(one_t) => {
-                    oneof[i] = one_t;
-                    return;
-                }
-                Err((one_old, t_old)) => {
-                    oneof[i] = one_old;
-                    t = t_old; // `t` is mutable here
-                    i += 1;
-                }
-            }
-        }
-
-        oneof.push(t);
-    }
-
-    /// Adds a type to a OneOf union, flattening nested OneOfs and deduplicating.
-    fn oneof_add(oneof: &mut Vec<Type>, t: Type) {
-        match t {
-            Type::OneOf(inner) => {
-                for sub_t in inner.into_vec() {
-                    Self::oneof_add(oneof, sub_t);
-                }
-            }
-            t => {
-                if !oneof.contains(&t) {
-                    oneof.push(t);
-                }
-            }
-        }
     }
 
     /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
@@ -350,7 +303,7 @@ impl CompareTypes for Type {
             (Type::String, Type::Glob) => Some(TypeRelation::Subtype),
 
             // List is covariant
-            (Type::List(t), Type::List(u)) => t.compare_types(u),
+            (Type::List(t), Type::List(u)) => t.compare_types(u.as_ref()),
 
             (Type::Record(this), Type::Record(that)) | (Type::Table(this), Type::Table(that)) => {
                 this.compare_types(that)
@@ -381,47 +334,9 @@ impl CompareTypes for Type {
                     )
                 })
                 .then_some(TypeRelation::Subtype),
-            (Type::OneOf(lhs_list), Type::OneOf(rhs_list)) => {
-                // iterate the shorter list to reduce quadratic behaviour
-                let ((small, big), flipped) = if lhs_list.len() <= rhs_list.len() {
-                    ((lhs_list, rhs_list), false)
-                } else {
-                    ((rhs_list, lhs_list), true)
-                };
-
-                for s_ty in small {
-                    let _ = big.iter().find(|b_ty| {
-                        matches!(
-                            s_ty.compare_types(b_ty),
-                            Some(TypeRelation::Subtype | TypeRelation::Equal)
-                        )
-                    })?;
-                }
-
-                Some(match flipped {
-                    false => TypeRelation::Subtype,
-                    true => TypeRelation::Supertype,
-                })
-            }
-
-            (Type::OneOf(lhs_tys), rhs) => lhs_tys
-                .iter()
-                .any(|lhs_ty| {
-                    matches!(
-                        lhs_ty.compare_types(rhs),
-                        Some(TypeRelation::Supertype | TypeRelation::Equal)
-                    )
-                })
-                .then_some(TypeRelation::Supertype),
-            (lhs, Type::OneOf(rhs_tys)) => rhs_tys
-                .iter()
-                .any(|rhs_ty| {
-                    matches!(
-                        lhs.compare_types(rhs_ty),
-                        Some(TypeRelation::Subtype | TypeRelation::Equal)
-                    )
-                })
-                .then_some(TypeRelation::Subtype),
+            (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => lhs_oneof.compare_types(rhs_oneof),
+            (Type::OneOf(lhs_oneof), rhs) => lhs_oneof.compare_types(rhs),
+            (lhs, Type::OneOf(rhs_oneof)) => lhs.compare_types(rhs_oneof),
 
             _ => None,
         }
@@ -440,22 +355,8 @@ impl TypeSet for Type {
         };
 
         match (lhs, rhs) {
-            (Type::OneOf(ts), Type::OneOf(us)) => {
-                let (big, small) = match ts.len() >= us.len() {
-                    true => (ts, us),
-                    false => (us, ts),
-                };
-                let mut out = big.into_vec();
-                for t in small.into_iter() {
-                    Self::oneof_add_widen(&mut out, t);
-                }
-                Type::one_of(out)
-            }
-            (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => {
-                let mut out = oneof.into_vec();
-                Self::oneof_add_widen(&mut out, t);
-                Type::one_of(out)
-            }
+            (Type::OneOf(ts), Type::OneOf(us)) => Type::OneOf(ts.union(us)),
+            (Type::OneOf(oneof), t) | (t, Type::OneOf(oneof)) => Type::OneOf(oneof.add_ty(t)),
             (this, other) => Type::one_of([this, other]),
         }
     }
@@ -479,17 +380,7 @@ impl Display for Type {
             Type::List(l) => write!(f, "list<{l}>"),
             Type::Nothing => write!(f, "nothing"),
             Type::Number => write!(f, "number"),
-            Type::OneOf(types) => {
-                write!(f, "oneof")?;
-                let [first, rest @ ..] = &**types else {
-                    return Ok(());
-                };
-                write!(f, "<{first}")?;
-                for t in rest {
-                    write!(f, ", {t}")?;
-                }
-                f.write_str(">")
-            }
+            Type::OneOf(oneof) => write!(f, "{oneof}"),
             Type::String => write!(f, "string"),
             Type::Any => write!(f, "any"),
             Type::Error => write!(f, "error"),

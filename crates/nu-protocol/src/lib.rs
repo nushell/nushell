@@ -26,6 +26,7 @@ mod id;
 pub mod ir;
 mod lev_distance;
 mod module;
+mod one_of;
 pub mod parser_path;
 mod pipeline;
 #[cfg(feature = "plugin")]
@@ -52,6 +53,7 @@ pub use example::*;
 pub use id::*;
 pub use lev_distance::levenshtein_distance;
 pub use module::*;
+pub use one_of::*;
 pub use pipeline::*;
 #[cfg(feature = "plugin")]
 pub use plugin::*;
