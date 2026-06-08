@@ -268,10 +268,6 @@ impl Command for Glob {
             });
         }
 
-        // paths starting with drive letters must be escaped on Windows
-        #[cfg(windows)]
-        let glob_pattern = patch_windows_glob_pattern(glob_pattern, glob_span)?;
-
         if glob_pattern.is_empty() {
             return Err(ShellError::Generic(
                 GenericError::new(
@@ -297,20 +293,26 @@ impl Command for Glob {
                 no_symlinks,
                 span,
             ),
-            false => run_legacy_glob(
-                engine_state,
-                stack,
-                &glob_pattern,
-                depth,
-                follow_symlinks,
-                not_patterns,
-                glob_span,
-                not_pattern_span,
-                no_dirs,
-                no_files,
-                no_symlinks,
-                span,
-            ),
+            false => {
+                // paths starting with drive letters must be escaped for wax on Windows
+                #[cfg(windows)]
+                let glob_pattern = patch_windows_glob_pattern(glob_pattern, glob_span)?;
+
+                run_legacy_glob(
+                    engine_state,
+                    stack,
+                    &glob_pattern,
+                    depth,
+                    follow_symlinks,
+                    not_patterns,
+                    glob_span,
+                    not_pattern_span,
+                    no_dirs,
+                    no_files,
+                    no_symlinks,
+                    span,
+                )
+            }
         }
     }
 }
