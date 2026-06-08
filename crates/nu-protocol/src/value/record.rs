@@ -1,5 +1,6 @@
 //! Our insertion ordered map-type [`Record`]
 use std::{
+    fmt::Debug,
     iter::FusedIterator,
     marker::PhantomData,
     ops::{Deref, DerefMut, RangeBounds},
@@ -12,9 +13,17 @@ use crate::{
 
 use serde::{Deserialize, Serialize, de::Visitor, ser::SerializeMap};
 
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct Record {
     inner: Vec<(String, Value)>,
+}
+
+impl Debug for Record {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map()
+            .entries(self.inner.iter().map(|(k, v)| (k, v)))
+            .finish()
+    }
 }
 
 /// A wrapper around [`Record`] that handles lookups. Whether the keys are compared case sensitively

@@ -33,7 +33,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{Debug, Display, Write, from_fn},
+    fmt::{Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -214,7 +214,7 @@ impl Debug for Value {
                     Debug::fmt(val, f)?;
                     write!(f, ")")
                 }
-                Value::Glob { val, no_expand, .. } => {
+                Value::Glob { val, .. } => {
                     write!(f, "Glob(")?;
                     Debug::fmt(val, f)?;
                     write!(f, ")")
@@ -234,7 +234,7 @@ impl Debug for Value {
                     Debug::fmt(val, f)?;
                     write!(f, ")")
                 }
-                Value::Range { val, signals, .. } => {
+                Value::Range { val, .. } => {
                     write!(f, "Range(")?;
                     Debug::fmt(val, f)?;
                     write!(f, ")")
@@ -244,10 +244,9 @@ impl Debug for Value {
                     Debug::fmt(val, f)?;
                     write!(f, ")")
                 }
-                Value::List { vals, signals, .. } => {
-                    write!(f, "List(")?;
-                    Debug::fmt(vals, f)?;
-                    write!(f, ")")
+                Value::List { vals, .. } => {
+                    write!(f, "List")?;
+                    Debug::fmt(vals, f)
                 }
                 Value::Closure { val, .. } => {
                     write!(f, "Closure(")?;
@@ -4415,8 +4414,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Bool(true)",
+                "Bool(true)",
             );
         }
 
@@ -4432,8 +4431,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Int(42)",
+                "Int(42)",
             );
         }
 
@@ -4449,8 +4448,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Float(4.2)",
+                "Float(4.2)",
             );
         }
 
@@ -4468,8 +4467,12 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Filesize(Filesize(42))",
+                indoc! {"
+                    Filesize(Filesize(
+                        42,
+                    ))"
+                },
             );
         }
 
@@ -4485,8 +4488,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Duration(42)",
+                "Duration(42)",
             );
         }
 
@@ -4502,8 +4505,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Date(1970-01-01T00:00:00+00:00)",
+                "Date(1970-01-01T00:00:00+00:00)",
             );
         }
 
@@ -4532,8 +4535,18 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Range(IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }))",
+                indoc! {"
+                    Range(IntRange(
+                        IntRange {
+                            start: 1,
+                            step: 2,
+                            end: Excluded(
+                                5,
+                            ),
+                        },
+                    ))"
+                },
             );
         }
 
@@ -4549,8 +4562,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"String("Ellie")"#,
+                r#"String("Ellie")"#,
             );
         }
 
@@ -4567,8 +4580,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"Glob("*.nu")"#,
+                r#"Glob("*.nu")"#,
             );
         }
 
@@ -4577,25 +4590,24 @@ mod tests {
             let value = Value::test_record(record!("name" => Value::test_string("Ellie")));
             assert_debug(
                 value,
-                r#"Record { val: Record { inner: [("name", String { val: "Ellie", internal_span: Span(TEST) })] }, internal_span: Span(TEST) }"#,
+                r#"Record { val: {"name": String { val: "Ellie", internal_span: Span(TEST) }}, internal_span: Span(TEST) }"#,
                 indoc! {r#"
                     Record {
-                        val: Record {
-                            inner: [
-                                (
-                                    "name",
-                                    String {
-                                        val: "Ellie",
-                                        internal_span: Span(TEST),
-                                    },
-                                ),
-                            ],
+                        val: {
+                            "name": String {
+                                val: "Ellie",
+                                internal_span: Span(TEST),
+                            },
                         },
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"Record({"name": String("Ellie")})"#,
+                indoc! {r#"
+                    Record({
+                        "name": String("Ellie"),
+                    })"#
+                },
             );
         }
 
@@ -4621,8 +4633,13 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"List[Int(42), String("Ellie")]"#,
+                indoc! {r#"
+                    List[
+                        Int(42),
+                        String("Ellie"),
+                    ]"#
+                },
             );
         }
 
@@ -4652,8 +4669,18 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Closure(Closure { block_id: BlockId(42), captures: [(VarId(7), Int(1))] })",
+                indoc! {"
+                    Closure(Closure {
+                        block_id: BlockId(42),
+                        captures: [
+                            (
+                                VarId(7),
+                                Int(1),
+                            ),
+                        ],
+                    })"
+                },
             );
         }
 
@@ -4674,8 +4701,12 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"Error(NushellFailed { msg: "oops" })"#,
+                indoc! {r#"
+                    Error(NushellFailed {
+                        msg: "oops",
+                    })"#
+                },
             );
         }
 
@@ -4695,8 +4726,14 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Binary([1, 2, 3])",
+                indoc! {"
+                    Binary([
+                        1,
+                        2,
+                        3,
+                    ])"
+                },
             );
         }
 
@@ -4731,8 +4768,24 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                "",
-                "",
+                r#"CellPath(CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] })"#,
+                indoc! {r#"
+                    CellPath(CellPath {
+                        members: [
+                            String {
+                                val: "name",
+                                span: Span(TEST),
+                                optional: false,
+                                casing: Sensitive,
+                            },
+                            Int {
+                                val: 1,
+                                span: Span(TEST),
+                                optional: true,
+                            },
+                        ],
+                    })"#
+                },
             );
         }
 
@@ -4747,8 +4800,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Nothing",
+                "Nothing",
             );
         }
 
@@ -4764,8 +4817,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "",
-                "",
+                "Custom(TinyCustomValue)",
+                "Custom(TinyCustomValue)",
             );
         }
     }
