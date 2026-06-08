@@ -1133,32 +1133,33 @@ impl EngineState {
     }
 }
 
-/// Recursively collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
+/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
 /// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
 /// variables that are still referenced by alias definitions.
-fn collect_alias_var_ids(
-    expr: &crate::ast::Expression,
-    var_ids: &mut std::collections::HashSet<VarId>,
-) {
-    match &expr.expr {
-        Expr::Var(id) => {
-            var_ids.insert(*id);
-        }
-        Expr::Call(call) => {
-            for arg in &call.arguments {
-                if let Some(sub_expr) = arg.expr() {
-                    collect_alias_var_ids(sub_expr, var_ids);
+fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
+    let mut queue = vec![expr];
+
+    while let Some(e) = queue.pop() {
+        match &e.expr {
+            Expr::Var(id) => {
+                var_ids.insert(*id);
+            }
+            Expr::Call(call) => {
+                for arg in &call.arguments {
+                    if let Some(sub_expr) = arg.expr() {
+                        queue.push(sub_expr);
+                    }
                 }
             }
-        }
-        Expr::ExternalCall(head, args) => {
-            collect_alias_var_ids(head, var_ids);
-            for arg in args.iter() {
-                collect_alias_var_ids(arg.expr(), var_ids);
+            Expr::ExternalCall(head, args) => {
+                queue.push(head);
+                for arg in args.iter() {
+                    queue.push(arg.expr());
+                }
             }
+            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
+            _ => {}
         }
-        Expr::FullCellPath(fcp) => collect_alias_var_ids(&fcp.head, var_ids),
-        _ => {}
     }
 }
 
