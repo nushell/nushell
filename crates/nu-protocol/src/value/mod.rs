@@ -4153,25 +4153,27 @@ pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
 mod tests {
     use super::{Record, Value};
     use crate::record;
-    use indoc::{indoc, formatdoc};
+    use indoc::formatdoc;
 
     mod default {
         use super::*;
+        use crate::Span;
 
         #[test]
         fn string() {
             let string = "Ellie";
             let value = Value::test_string("Ellie");
+            let span = Span::test_data();
             assert_eq!(
                 format!("{value:+?}"),
-                format!("String {{ val: {string:?}, internal_span: Span(TEST) }}")
+                format!("String {{ val: {string:+?}, internal_span: {span:+?} }}")
             );
             assert_eq!(
                 format!("{value:+#?}"),
                 formatdoc! {"
                     String {{
-                        val: {string:?},
-                        internal_span: Span(TEST),
+                        val: {string:+#?},
+                        internal_span: {span:+#?},
                     }}"
                 }
             );
