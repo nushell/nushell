@@ -21,6 +21,15 @@ enum FunctionType {
     Sign,
     Sin,
     Sqrt,
+    BitwiseCountOnes,
+    BitwiseCountZeros,
+    BitwiseLeadingZeros,
+    BitwiseLeadingOnes,
+    BitwiseTrailingZeros,
+    BitwiseTrailingOnes,
+    BitwiseOr,
+    BitwiseXor,
+    BitwiseAnd,
 }
 
 impl FunctionType {
@@ -35,6 +44,15 @@ impl FunctionType {
             "sign" => Ok(Self::Sign),
             "sin" => Ok(Self::Sin),
             "sqrt" => Ok(Self::Sqrt),
+            "bitwise-count-ones" => Ok(Self::BitwiseCountOnes),
+            "bitwise-count-zeros" => Ok(Self::BitwiseCountZeros),
+            "bitwise-leading-zeros" => Ok(Self::BitwiseLeadingZeros),
+            "bitwise-leading-ones" => Ok(Self::BitwiseLeadingOnes),
+            "bitwise-trailing-zeros" => Ok(Self::BitwiseTrailingZeros),
+            "bitwise-trailing-ones" => Ok(Self::BitwiseTrailingOnes),
+            "bitwise-or" => Ok(Self::BitwiseOr),
+            "bitwise-xor" => Ok(Self::BitwiseXor),
+            "bitwise-and" => Ok(Self::BitwiseAnd),
             _ => Err(ShellError::Generic(
                 GenericError::new("Invalid function name", "", span)
                     .with_help("See description for accepted functions"),
@@ -54,6 +72,15 @@ impl FunctionType {
             FunctionType::Sign => "sign",
             FunctionType::Sin => "sin",
             FunctionType::Sqrt => "sqrt",
+            FunctionType::BitwiseCountOnes => "bitwise-count-ones",
+            FunctionType::BitwiseCountZeros => "bitwise-count-zeros",
+            FunctionType::BitwiseLeadingZeros => "bitwise-leading-zeros",
+            FunctionType::BitwiseLeadingOnes => "bitwise-leading-ones",
+            FunctionType::BitwiseTrailingZeros => "bitwise-trailing-zeros",
+            FunctionType::BitwiseTrailingOnes => "bitwise-trailing-ones",
+            FunctionType::BitwiseOr => "bitwise-or",
+            FunctionType::BitwiseXor => "bitwise-xor",
+            FunctionType::BitwiseAnd => "bitwise-and",
         }
     }
 }
@@ -85,6 +112,15 @@ impl PluginCommand for ExprMath {
         - sign
         - sin
         - sqrt
+        - bitwise-count-ones
+        - bitwise-count-zeros
+        - bitwise-leading-zeros
+        - bitwise-leading-ones
+        - bitwise-trailing-zeros
+        - bitwise-trailing-ones
+        - bitwise-or
+        - bitwise-xor
+        - bitwise-and
         "#
     }
 
@@ -241,6 +277,15 @@ fn command_expr(
         FunctionType::Sign => res.sign(),
         FunctionType::Sin => res.sin(),
         FunctionType::Sqrt => res.sqrt(),
+        FunctionType::BitwiseCountOnes => res.bitwise_count_ones(),
+        FunctionType::BitwiseCountZeros => res.bitwise_count_zeros(),
+        FunctionType::BitwiseLeadingZeros => res.bitwise_leading_zeros(),
+        FunctionType::BitwiseLeadingOnes => res.bitwise_leading_ones(),
+        FunctionType::BitwiseTrailingZeros => res.bitwise_trailing_zeros(),
+        FunctionType::BitwiseTrailingOnes => res.bitwise_trailing_ones(),
+        FunctionType::BitwiseOr => res.bitwise_or(),
+        FunctionType::BitwiseAnd => res.bitwise_and(),
+        FunctionType::BitwiseXor => res.bitwise_xor(),
     }
     .into();
 
