@@ -365,6 +365,12 @@ impl NuTester {
 
         Ok(())
     }
+
+    /// Necessary in order to test variable cleanup bugs
+    #[track_caller]
+    pub fn cleanup_stack_variables(&mut self) {
+        self.engine_state.cleanup_stack_variables(&mut self.stack);
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
