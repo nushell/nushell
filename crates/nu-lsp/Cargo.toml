@@ -14,6 +14,7 @@ nu-glob.workspace = true
 nu-parser.workspace = true
 nu-protocol.workspace = true
 nu-utils.workspace = true
+nu-experimental.workspace = true 
 
 crossbeam-channel = { workspace = true }
 fancy-regex = { workspace = true }
