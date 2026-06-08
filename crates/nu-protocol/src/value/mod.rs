@@ -4158,13 +4158,41 @@ mod tests {
     mod debug {
         use super::*;
         use crate::{
-            IntRange, Range, ShellError, Span,
+            BlockId, CustomValue, IntRange, Range, ShellError, Span, VarId,
             ast::{CellPath, PathMember},
             casing::Casing,
+            engine::Closure,
         };
         use chrono::DateTime;
         use pretty_assertions::assert_eq;
+        use serde::{Deserialize, Serialize};
         use std::ops::Bound;
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct TinyCustomValue;
+
+        #[typetag::serde]
+        impl CustomValue for TinyCustomValue {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "TinyCustomValue".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::nothing(span))
+            }
+
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+        }
 
         #[track_caller]
         fn assert_debug(value: Value, compact: &str, alternate: &str) {
@@ -4374,6 +4402,35 @@ mod tests {
         }
 
         #[test]
+        fn closure() {
+            let value = Value::test_closure(Closure {
+                block_id: BlockId::new(42),
+                captures: vec![(VarId::new(7), Value::test_int(1))],
+            });
+            assert_debug(
+                value,
+                "Closure { val: Closure { block_id: BlockId(42), captures: [(VarId(7), Int { val: 1, internal_span: Span(TEST) })] }, internal_span: Span(TEST) }",
+                indoc! {"
+                    Closure {
+                        val: Closure {
+                            block_id: BlockId(42),
+                            captures: [
+                                (
+                                    VarId(7),
+                                    Int {
+                                        val: 1,
+                                        internal_span: Span(TEST),
+                                    },
+                                ),
+                            ],
+                        },
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
         fn error() {
             let value = Value::error(
                 ShellError::NushellFailed { msg: "oops".into() },
@@ -4454,6 +4511,21 @@ mod tests {
                 "Nothing { internal_span: Span(TEST) }",
                 indoc! {"
                     Nothing {
+                        internal_span: Span(TEST),
+                    }"
+                },
+            );
+        }
+
+        #[test]
+        fn custom() {
+            let value = Value::test_custom_value(Box::new(TinyCustomValue));
+            assert_debug(
+                value,
+                "Custom { val: TinyCustomValue, internal_span: Span(TEST) }",
+                indoc! {"
+                    Custom {
+                        val: TinyCustomValue,
                         internal_span: Span(TEST),
                     }"
                 },
