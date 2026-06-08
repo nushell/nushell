@@ -46,7 +46,7 @@ impl Command for BitsShr {
             .named(
                 "number-bytes",
                 SyntaxShape::Int,
-                "The word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to the smallest of those that fits the input number).",
+                "The word size in number of bytes. Must be `1`, `2`, `4`, or `8` (defaults to `8`).",
                 Some('n'),
             )
             .category(Category::Bits)
@@ -74,7 +74,7 @@ impl Command for BitsShr {
         let signed = call.has_flag(engine_state, stack, "signed")?;
         let number_bytes: Option<Spanned<usize>> =
             call.get_flag(engine_state, stack, "number-bytes")?;
-        let number_size = get_number_bytes(number_bytes, head)?;
+        let number_size = get_number_bytes(number_bytes, head, NumberBytes::Eight)?;
 
         // This doesn't match explicit nulls
         if let PipelineData::Empty = input {
