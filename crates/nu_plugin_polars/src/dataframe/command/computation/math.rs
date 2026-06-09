@@ -235,6 +235,21 @@ impl PluginCommand for ExprMath {
                 .into_value(Span::test_data()),
             )
          },
+        Example {
+            description: "Perform an aggregation of bitwise XORs.",
+            example: "[[n]; [-1] [-0] [-1]] | polars into-df
+                    | polars select (polars col n | polars math bitwise-xor | polars as n)
+                    | polars collect",
+            result: Some(
+                NuDataFrame::from(
+                    df!(
+                        "n" => [-2],
+                    )
+                    .expect("simple df for test should not fail"),
+                )
+                .into_value(Span::test_data()),
+            )
+         },
         ]
     }
 
