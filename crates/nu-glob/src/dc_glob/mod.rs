@@ -826,4 +826,114 @@ mod tests {
         assert!(!matches_complete("<a:3>", "aa"));
         assert!(!matches_complete("<a:3>", "aaaa"));
     }
+
+    // ── traversal start dir tests ──────────────────────────────────────────────
+    //
+    // These test that traversal_start_dir correctly excludes filename-pattern
+    // literals from the starting directory (Bug #1 in the dc-glob regression report).
+
+    #[test]
+    fn glob_with_dir_prefix_literal_then_wildcard() {
+        // Pattern `dir/nu*` — "dir" is a directory literal, "nu*" is a filename
+        // pattern. The traversal must start from `root/dir`, NOT `root/dir/nu`.
+        let root = unique_test_dir("literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/nu_test2"));
+        write_file(&root.join("dir/other"));
+
+        let result = glob_with(root.as_path(), "dir/nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_dir_prefix_wildcard_then_literal() {
+        // Pattern `dir/*nu*` — wildcard comes first in the filename pattern.
+        // This must continue to work correctly (regression guard).
+        let root = unique_test_dir("wildcard_literal");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/nu_test2"));
+        write_file(&root.join("dir/other"));
+
+        let result = glob_with(root.as_path(), "dir/*nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_nested_dir_prefix_literal_then_wildcard() {
+        // Pattern `a/b/nu*` — multiple directory components before the filename
+        // pattern. Traversal must start from `root/a/b`, not `root/a/b/nu`.
+        let root = unique_test_dir("nested_literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("a/b/nu_test1"));
+        write_file(&root.join("a/b/nu_test2"));
+        write_file(&root.join("a/b/other"));
+
+        let result = glob_with(root.as_path(), "a/b/nu*", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["a", "b", "nu_test1"])));
+        assert!(paths.contains(&expected_path(&["a", "b", "nu_test2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_dir_prefix_literal_then_any_char() {
+        // Pattern `dir/nu?` — "?" is a single-character wildcard. The "nu"
+        // literal before it must not be included in the traversal start dir.
+        let root = unique_test_dir("literal_any_char");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu1"));
+        write_file(&root.join("dir/nu2"));
+        write_file(&root.join("dir/not"));
+
+        let result = glob_with(root.as_path(), "dir/nu?", &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 2);
+        assert!(paths.contains(&expected_path(&["dir", "nu1"])));
+        assert!(paths.contains(&expected_path(&["dir", "nu2"])));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn glob_with_absolute_pattern_literal_then_wildcard() {
+        // Absolute pattern like `<root>/dir/nu*` — same as relative but with
+        // an absolute prefix. Regression guard for Bug #1 with absolute paths.
+        // Results are emitted relative to the traversal start dir.
+        let root = unique_test_dir("absolute_literal_wildcard");
+        fs::create_dir_all(&root).expect("failed to create root");
+        write_file(&root.join("dir/nu_test1"));
+        write_file(&root.join("dir/other"));
+
+        let pattern = format!("{}/dir/nu*", root.to_string_lossy());
+        let result = glob_with(root.as_path(), &pattern, &GlobWalkOptions::default())
+            .expect("glob_with should succeed");
+        let paths = collect_ok_paths(result).expect("failed to collect paths");
+
+        assert_eq!(paths.len(), 1);
+        assert_eq!(paths[0], "nu_test1");
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }
