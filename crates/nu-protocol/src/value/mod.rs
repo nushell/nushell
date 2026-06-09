@@ -4407,78 +4407,67 @@ mod tests {
             }
         }
 
-        #[track_caller]
-        fn assert_debug(
-            value: Value,
-            expanded: &str,
-            expanded_alternate: &str,
-            compact: &str,
-            compact_alternate: &str,
-        ) {
-            assert_eq!(format!("{value:?}"), expanded);
-            assert_eq!(format!("{value:#?}"), expanded_alternate);
-            assert_eq!(format!("{value:-?}"), compact);
-            assert_eq!(format!("{value:-#?}"), compact_alternate);
-        }
-
         #[test]
         fn bool() {
             let value = Value::test_bool(true);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Bool { val: true, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Bool { val: true, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Bool {
                         val: true,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Bool(true)",
-                "Bool(true)",
-            );
+                compact: "Bool(true)",
+                compact_alternate: "Bool(true)",
+            }
+            .assert();
         }
 
         #[test]
         fn int() {
             let value = Value::test_int(42);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Int { val: 42, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Int { val: 42, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Int {
                         val: 42,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Int(42)",
-                "Int(42)",
-            );
+                compact: "Int(42)",
+                compact_alternate: "Int(42)",
+            }
+            .assert();
         }
 
         #[test]
         fn float() {
             let value = Value::test_float(4.2);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Float { val: 4.2, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Float { val: 4.2, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Float {
                         val: 4.2,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Float(4.2)",
-                "Float(4.2)",
-            );
+                compact: "Float(4.2)",
+                compact_alternate: "Float(4.2)",
+            }
+            .assert();
         }
 
         #[test]
         fn filesize() {
             let value = Value::test_filesize(42);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Filesize { val: Filesize(42), internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Filesize { val: Filesize(42), internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Filesize {
                         val: Filesize(
                             42,
@@ -4486,47 +4475,50 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "Filesize(Filesize(42))",
-                indoc! {"
+                compact: "Filesize(Filesize(42))",
+                compact_alternate: indoc! {"
                     Filesize(Filesize(
                         42,
                     ))"
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
         fn duration() {
             let value = Value::test_duration(42);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Duration { val: 42, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Duration { val: 42, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Duration {
                         val: 42,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Duration(42)",
-                "Duration(42)",
-            );
+                compact: "Duration(42)",
+                compact_alternate: "Duration(42)",
+            }
+            .assert();
         }
 
         #[test]
         fn date() {
             let value = Value::test_date(DateTime::UNIX_EPOCH.into());
-            assert_debug(
+            DebugFormats {
                 value,
-                "Date { val: 1970-01-01T00:00:00+00:00, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Date { val: 1970-01-01T00:00:00+00:00, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Date {
                         val: 1970-01-01T00:00:00+00:00,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Date(1970-01-01T00:00:00+00:00)",
-                "Date(1970-01-01T00:00:00+00:00)",
-            );
+                compact: "Date(1970-01-01T00:00:00+00:00)",
+                compact_alternate: "Date(1970-01-01T00:00:00+00:00)",
+            }
+            .assert();
         }
 
         #[test]
@@ -4536,10 +4528,10 @@ mod tests {
                 step: 2,
                 end: Bound::Excluded(5),
             }));
-            assert_debug(
+            DebugFormats {
                 value,
-                "Range { val: IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }), signals: None, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Range { val: IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }), signals: None, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Range {
                         val: IntRange(
                             IntRange {
@@ -4554,8 +4546,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "Range(IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }))",
-                indoc! {"
+                compact: "Range(IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }))",
+                compact_alternate: indoc! {"
                     Range(IntRange(
                         IntRange {
                             start: 1,
@@ -4566,51 +4558,54 @@ mod tests {
                         },
                     ))"
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
         fn string() {
             let value = Value::test_string("Ellie");
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"String { val: "Ellie", internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"String { val: "Ellie", internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     String {
                         val: "Ellie",
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"String("Ellie")"#,
-                r#"String("Ellie")"#,
-            );
+                compact: r#"String("Ellie")"#,
+                compact_alternate: r#"String("Ellie")"#,
+            }
+            .assert();
         }
 
         #[test]
         fn glob() {
             let value = Value::test_glob("*.nu");
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"Glob { val: "*.nu", no_expand: false, internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"Glob { val: "*.nu", no_expand: false, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     Glob {
                         val: "*.nu",
                         no_expand: false,
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"Glob("*.nu")"#,
-                r#"Glob("*.nu")"#,
-            );
+                compact: r#"Glob("*.nu")"#,
+                compact_alternate: r#"Glob("*.nu")"#,
+            }
+            .assert();
         }
 
         #[test]
         fn record() {
             let value = Value::test_record(record!("name" => Value::test_string("Ellie")));
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"Record { val: {"name": String { val: "Ellie", internal_span: Span(TEST) }}, internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"Record { val: {"name": String { val: "Ellie", internal_span: Span(TEST) }}, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     Record {
                         val: {
                             "name": String {
@@ -4621,22 +4616,23 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"Record({"name": String("Ellie")})"#,
-                indoc! {r#"
+                compact: r#"Record({"name": String("Ellie")})"#,
+                compact_alternate: indoc! {r#"
                     Record({
                         "name": String("Ellie"),
                     })"#
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
         fn list() {
             let value = Value::test_list(vec![Value::test_int(42), Value::test_string("Ellie")]);
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"List { vals: [Int { val: 42, internal_span: Span(TEST) }, String { val: "Ellie", internal_span: Span(TEST) }], signals: None, internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"List { vals: [Int { val: 42, internal_span: Span(TEST) }, String { val: "Ellie", internal_span: Span(TEST) }], signals: None, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     List {
                         vals: [
                             Int {
@@ -4652,14 +4648,15 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"List[Int(42), String("Ellie")]"#,
-                indoc! {r#"
+                compact: r#"List[Int(42), String("Ellie")]"#,
+                compact_alternate: indoc! {r#"
                     List[
                         Int(42),
                         String("Ellie"),
                     ]"#
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
@@ -4668,10 +4665,10 @@ mod tests {
                 block_id: BlockId::new(42),
                 captures: vec![(VarId::new(7), Value::test_int(1))],
             });
-            assert_debug(
+            DebugFormats {
                 value,
-                "Closure { val: Closure { block_id: BlockId(42), captures: [(VarId(7), Int { val: 1, internal_span: Span(TEST) })] }, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Closure { val: Closure { block_id: BlockId(42), captures: [(VarId(7), Int { val: 1, internal_span: Span(TEST) })] }, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Closure {
                         val: Closure {
                             block_id: BlockId(42),
@@ -4688,8 +4685,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "Closure(Closure { block_id: BlockId(42), captures: [(VarId(7), Int(1))] })",
-                indoc! {"
+                compact: "Closure(Closure { block_id: BlockId(42), captures: [(VarId(7), Int(1))] })",
+                compact_alternate: indoc! {"
                     Closure(Closure {
                         block_id: BlockId(42),
                         captures: [
@@ -4700,7 +4697,8 @@ mod tests {
                         ],
                     })"
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
@@ -4709,10 +4707,10 @@ mod tests {
                 ShellError::NushellFailed { msg: "oops".into() },
                 Span::test_data(),
             );
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"Error { error: NushellFailed { msg: "oops" }, internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"Error { error: NushellFailed { msg: "oops" }, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     Error {
                         error: NushellFailed {
                             msg: "oops",
@@ -4720,22 +4718,23 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"Error(NushellFailed { msg: "oops" })"#,
-                indoc! {r#"
+                compact: r#"Error(NushellFailed { msg: "oops" })"#,
+                compact_alternate: indoc! {r#"
                     Error(NushellFailed {
                         msg: "oops",
                     })"#
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
         fn binary() {
             let value = Value::test_binary([1, 2, 3]);
-            assert_debug(
+            DebugFormats {
                 value,
-                "Binary { val: [1, 2, 3], internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Binary { val: [1, 2, 3], internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Binary {
                         val: [
                             1,
@@ -4745,15 +4744,16 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                "Binary([1, 2, 3])",
-                indoc! {"
+                compact: "Binary([1, 2, 3])",
+                compact_alternate: indoc! {"
                     Binary([
                         1,
                         2,
                         3,
                     ])"
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
@@ -4764,10 +4764,10 @@ mod tests {
                     PathMember::test_int(1, true),
                 ],
             });
-            assert_debug(
+            DebugFormats {
                 value,
-                r#"CellPath { val: CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] }, internal_span: Span(TEST) }"#,
-                indoc! {r#"
+                expanded: r#"CellPath { val: CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] }, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
                     CellPath {
                         val: CellPath {
                             members: [
@@ -4787,8 +4787,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                r#"CellPath(CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] })"#,
-                indoc! {r#"
+                compact: r#"CellPath(CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] })"#,
+                compact_alternate: indoc! {r#"
                     CellPath(CellPath {
                         members: [
                             String {
@@ -4805,40 +4805,43 @@ mod tests {
                         ],
                     })"#
                 },
-            );
+            }
+            .assert();
         }
 
         #[test]
         fn nothing() {
             let value = Value::test_nothing();
-            assert_debug(
+            DebugFormats {
                 value,
-                "Nothing { internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Nothing { internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Nothing {
                         internal_span: Span(TEST),
                     }"
                 },
-                "Nothing",
-                "Nothing",
-            );
+                compact: "Nothing",
+                compact_alternate: "Nothing",
+            }
+            .assert();
         }
 
         #[test]
         fn custom() {
             let value = Value::test_custom_value(Box::new(TinyCustomValue));
-            assert_debug(
+            DebugFormats {
                 value,
-                "Custom { val: TinyCustomValue, internal_span: Span(TEST) }",
-                indoc! {"
+                expanded: "Custom { val: TinyCustomValue, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
                     Custom {
                         val: TinyCustomValue,
                         internal_span: Span(TEST),
                     }"
                 },
-                "Custom(TinyCustomValue)",
-                "Custom(TinyCustomValue)",
-            );
+                compact: "Custom(TinyCustomValue)",
+                compact_alternate: "Custom(TinyCustomValue)",
+            }
+            .assert();
         }
     }
 
