@@ -1338,10 +1338,10 @@ impl Value {
                         Value::string(val.escape_unicode().to_string(), self.span())
                     )
                 } else {
-                    format!("{self:#?}")
+                    format!("{self:-#?}")
                 }
             }
-            _ => format!("{self:#?}"),
+            _ => format!("{self:-#?}"),
         }
     }
 
