@@ -351,7 +351,13 @@ fn handle_path_candidate<'a>(
     let program = state.program;
     let fast_path = state.fast_path;
 
-    let output_path_candidate = path.strip_prefix(output_relative_to).unwrap_or(path);
+    let output_path_candidate = if program.absolute_prefix.is_some() {
+        path.to_path_buf()
+    } else {
+        path.strip_prefix(output_relative_to)
+            .unwrap_or(path)
+            .to_path_buf()
+    };
     let match_path_candidate = path.strip_prefix(match_relative_to).unwrap_or(path);
     let candidate_depth = if is_parent {
         depth.saturating_sub(1)
