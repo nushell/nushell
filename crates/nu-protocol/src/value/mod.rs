@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{self, Debug, Display, Write},
+    fmt::{Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -193,117 +193,112 @@ pub enum Value {
 
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let derived_like = fmt::from_fn(|f| match self {
-            Self::Bool { val, internal_span } => f
-                .debug_struct("Bool")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Int { val, internal_span } => f
-                .debug_struct("Int")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Float { val, internal_span } => f
-                .debug_struct("Float")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::String { val, internal_span } => f
-                .debug_struct("String")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Glob {
-                val,
-                no_expand,
-                internal_span,
-            } => f
-                .debug_struct("Glob")
-                .field("val", val)
-                .field("no_expand", no_expand)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Filesize { val, internal_span } => f
-                .debug_struct("Filesize")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Duration { val, internal_span } => f
-                .debug_struct("Duration")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Date { val, internal_span } => f
-                .debug_struct("Date")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Range {
-                val,
-                signals,
-                internal_span,
-            } => f
-                .debug_struct("Range")
-                .field("val", val)
-                .field("signals", signals)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Record { val, internal_span } => f
-                .debug_struct("Record")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::List {
-                vals,
-                signals,
-                internal_span,
-            } => f
-                .debug_struct("List")
-                .field("vals", vals)
-                .field("signals", signals)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Closure { val, internal_span } => f
-                .debug_struct("Closure")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Error {
-                error,
-                internal_span,
-            } => f
-                .debug_struct("Error")
-                .field("error", error)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Binary { val, internal_span } => f
-                .debug_struct("Binary")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::CellPath { val, internal_span } => f
-                .debug_struct("CellPath")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Custom { val, internal_span } => f
-                .debug_struct("Custom")
-                .field("val", val)
-                .field("internal_span", internal_span)
-                .finish(),
-            Self::Nothing { internal_span } => f
-                .debug_struct("Nothing")
-                .field("internal_span", internal_span)
-                .finish(),
-        });
-
-        if f.sign_plus() {
-            return match f.alternate() {
-                true => write!(f, "{derived_like:#?}"),
-                false => write!(f, "{derived_like:?}"),
+        if f.sign_minus() {
+            return match self {
+                Self::Bool { val, internal_span } => f
+                    .debug_struct("Bool")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Int { val, internal_span } => f
+                    .debug_struct("Int")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Float { val, internal_span } => f
+                    .debug_struct("Float")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::String { val, internal_span } => f
+                    .debug_struct("String")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Glob {
+                    val,
+                    no_expand,
+                    internal_span,
+                } => f
+                    .debug_struct("Glob")
+                    .field("val", val)
+                    .field("no_expand", no_expand)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Filesize { val, internal_span } => f
+                    .debug_struct("Filesize")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Duration { val, internal_span } => f
+                    .debug_struct("Duration")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Date { val, internal_span } => f
+                    .debug_struct("Date")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Range {
+                    val,
+                    signals,
+                    internal_span,
+                } => f
+                    .debug_struct("Range")
+                    .field("val", val)
+                    .field("signals", signals)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Record { val, internal_span } => f
+                    .debug_struct("Record")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::List {
+                    vals,
+                    signals,
+                    internal_span,
+                } => f
+                    .debug_struct("List")
+                    .field("vals", vals)
+                    .field("signals", signals)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Closure { val, internal_span } => f
+                    .debug_struct("Closure")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Error {
+                    error,
+                    internal_span,
+                } => f
+                    .debug_struct("Error")
+                    .field("error", error)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Binary { val, internal_span } => f
+                    .debug_struct("Binary")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::CellPath { val, internal_span } => f
+                    .debug_struct("CellPath")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Custom { val, internal_span } => f
+                    .debug_struct("Custom")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Nothing { internal_span } => f
+                    .debug_struct("Nothing")
+                    .field("internal_span", internal_span)
+                    .finish(),
             };
-        }
+        };
 
         match self {
             Value::Bool { val, .. } => {
@@ -4415,8 +4410,8 @@ mod tests {
             #[track_caller]
             fn assert(&self) {
                 let value = &self.value;
-                assert_eq!(format!("{value:+?}"), self.expanded);
-                assert_eq!(format!("{value:+#?}"), self.expanded_alternate);
+                assert_eq!(format!("{value:-?}"), self.expanded);
+                assert_eq!(format!("{value:-#?}"), self.expanded_alternate);
                 assert_eq!(format!("{value:?}"), self.compact);
                 assert_eq!(format!("{value:#?}"), self.compact_alternate);
             }
