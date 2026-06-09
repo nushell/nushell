@@ -4936,6 +4936,7 @@ dependencies = [
  "dirs-sys 0.5.0",
  "fancy-regex",
  "heck",
+ "humantime",
  "indexmap 2.14.0",
  "indoc",
  "log",

@@ -40,6 +40,7 @@ dirs = { workspace = true }
 derive_more = { workspace = true, features = ["debug"] }
 fancy-regex = { workspace = true }
 heck = { workspace = true }
+humantime = { workspace = true }
 indexmap = { workspace = true }
 lru = { workspace = true }
 miette = { workspace = true, features = ["fancy-no-backtrace"] }

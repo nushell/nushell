@@ -226,9 +226,11 @@ impl Debug for Value {
                     write!(f, ")")
                 }
                 Value::Duration { val, .. } => {
-                    write!(f, "Duration(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
+                    write!(
+                        f,
+                        "Duration({})",
+                        humantime::Duration::from(std::time::Duration::from_nanos(*val as u64))
+                    )
                 }
                 Value::Date { val, .. } => {
                     write!(f, "Date(")?;
@@ -4498,8 +4500,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                compact: "Duration(42)",
-                compact_alternate: "Duration(42)",
+                compact: "Duration(42ns)",
+                compact_alternate: "Duration(42ns)",
             }
             .assert();
         }
