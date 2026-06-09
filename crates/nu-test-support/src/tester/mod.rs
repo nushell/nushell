@@ -115,9 +115,10 @@ pub fn test() -> NuTester {
 /// `NuTester` owns an [`EngineState`] and [`Stack`] that are reused across invocations.
 /// Configuration methods update the engine state before execution.
 #[derive(Clone)]
+#[non_exhaustive] // Ensure this type is only generated using `test()`, `new()` or `default()`.
 pub struct NuTester {
-    engine_state: EngineState,
-    stack: Stack,
+    pub engine_state: EngineState,
+    pub stack: Stack,
 }
 
 impl Default for NuTester {
