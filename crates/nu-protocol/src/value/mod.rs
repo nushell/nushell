@@ -222,7 +222,7 @@ impl Debug for Value {
                 }
                 Value::Filesize { val, .. } => {
                     write!(f, "Filesize(")?;
-                    Debug::fmt(val, f)?;
+                    Display::fmt(val, f)?;
                     write!(f, ")")
                 }
                 Value::Duration { val, .. } => {
@@ -4480,12 +4480,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                compact: "Filesize(Filesize(42))",
-                compact_alternate: indoc! {"
-                    Filesize(Filesize(
-                        42,
-                    ))"
-                },
+                compact: "Filesize(42 B)",
+                compact_alternate: "Filesize(42 B)",
             }
             .assert();
         }
@@ -4653,12 +4649,12 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                compact: r#"List[Int(42), String("Ellie")]"#,
+                compact: r#"List([Int(42), String("Ellie")])"#,
                 compact_alternate: indoc! {r#"
-                    List[
+                    List([
                         Int(42),
                         String("Ellie"),
-                    ]"#
+                    ])"#
                 },
             }
             .assert();
