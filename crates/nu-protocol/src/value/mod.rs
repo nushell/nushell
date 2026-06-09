@@ -5,6 +5,7 @@ mod from_value;
 mod glob;
 mod into_value;
 mod range;
+mod serde_impl;
 #[cfg(test)]
 mod test_derive;
 
@@ -29,7 +30,7 @@ use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone}
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
 use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
-use serde::{Deserialize, Serialize};
+
 use std::{
     borrow::Cow,
     cmp::Ordering,
@@ -45,14 +46,13 @@ use std::{
 // from being constructed (outside of this crate) with the struct
 // expression syntax. This makes using the constructor methods the
 // only way to construct `Value`'s
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub enum Value {
     #[non_exhaustive]
     Bool {
         val: bool,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -60,7 +60,6 @@ pub enum Value {
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -68,7 +67,6 @@ pub enum Value {
         val: f64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -76,7 +74,6 @@ pub enum Value {
         val: String,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -85,7 +82,6 @@ pub enum Value {
         no_expand: bool,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -93,7 +89,6 @@ pub enum Value {
         val: Filesize,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -102,7 +97,6 @@ pub enum Value {
         val: i64,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -110,17 +104,14 @@ pub enum Value {
         val: DateTime<FixedOffset>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     Range {
         val: Box<Range>,
-        #[serde(skip)]
         signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -128,17 +119,14 @@ pub enum Value {
         val: SharedCow<Record>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     List {
         vals: Vec<Value>,
-        #[serde(skip)]
         signals: Option<Signals>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -146,7 +134,6 @@ pub enum Value {
         val: Box<Closure>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -154,7 +141,6 @@ pub enum Value {
         error: Box<ShellError>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -162,7 +148,6 @@ pub enum Value {
         val: Vec<u8>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -170,7 +155,6 @@ pub enum Value {
         val: CellPath,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
@@ -178,14 +162,12 @@ pub enum Value {
         val: Box<dyn CustomValue>,
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
     #[non_exhaustive]
     Nothing {
         /// note: spans are being refactored out of Value
         /// please use .span() instead of matching this span value
-        #[serde(rename = "span")]
         internal_span: Span,
     },
 }
