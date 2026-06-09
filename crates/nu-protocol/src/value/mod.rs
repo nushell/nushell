@@ -40,6 +40,33 @@ use std::{
 };
 
 /// Core structured values that pass through the pipeline in Nushell.
+///
+/// # Debug Format
+///
+/// By default, [`Value`]'s [`Debug`] implementation uses a compact format.
+/// This makes values easier to inspect by leaving out spans and avoiding heavy
+/// use of newlines and indentation.
+///
+/// Use the `-` formatting flag to show the expanded format, including spans.
+///
+/// The `-` flag is used because it is not used by [`std::fmt`], unlike `+`.
+///
+/// ```
+/// # use nu_protocol::Value;
+/// let value = Value::test_string("Ellie 🐘");
+///
+/// // compact format
+/// assert_eq!(
+///     format!("{value:?}"),
+///     r#"String("Ellie 🐘")"#,
+/// );
+///
+/// // expanded format
+/// assert_eq!(
+///     format!("{value:-?}"),
+///     r#"String { val: "Ellie 🐘", internal_span: Span(TEST) }"#,
+/// );
+/// ```
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
 // NOTE: All variants are marked as `non_exhaustive` to prevent them
