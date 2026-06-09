@@ -24,10 +24,11 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
-/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
-/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
-/// paths instead of the raw `~` / `...` tokens.
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
+/// non-glob `Value::Glob` values to `Value::String`, expanding tilde and ndots in the process.
+/// This mirrors what `run-external` does in `eval_external_arguments`, so that `$args | to nuon`
+/// returns expanded paths instead of the raw `~` / `...` tokens, while also ensuring that plain
+/// bare-word strings (e.g. `test`) are reported as strings rather than globs.
 fn expand_external_glob_arg(val: Value) -> Value {
     if let Value::Glob {
         val: ref s,
@@ -39,10 +40,7 @@ fn expand_external_glob_arg(val: Value) -> Value {
         && !nu_glob::is_glob(s)
     {
         let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
-        let expanded_str = expanded.to_string_lossy().into_owned();
-        if expanded_str != *s {
-            return Value::string(expanded_str, internal_span);
-        }
+        return Value::string(expanded.to_string_lossy().into_owned(), internal_span);
     }
     val
 }
