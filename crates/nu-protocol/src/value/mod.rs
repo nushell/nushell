@@ -239,7 +239,7 @@ impl Debug for Value {
                 }
                 Value::Range { val, .. } => {
                     write!(f, "Range(")?;
-                    Debug::fmt(val, f)?;
+                    Display::fmt(val, f)?;
                     write!(f, ")")
                 }
                 Value::Record { val, .. } => {
@@ -4549,18 +4549,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"
                 },
-                compact: "Range(IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }))",
-                compact_alternate: indoc! {"
-                    Range(IntRange(
-                        IntRange {
-                            start: 1,
-                            step: 2,
-                            end: Excluded(
-                                5,
-                            ),
-                        },
-                    ))"
-                },
+                compact: "Range(1..3..<5)",
+                compact_alternate: "Range(1..3..<5)",
             }
             .assert();
         }
