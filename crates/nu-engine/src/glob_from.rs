@@ -125,8 +125,18 @@ pub fn glob_from(
                     ))
                 })?;
 
+        // dc-glob returns paths relative to the traversal start directory.
+        // Join them with `prefix` to produce absolute paths, matching the
+        // legacy backend's behaviour.
+        let prefix_for_map = prefix.clone();
         let mapped = iter.map(move |x| match x {
-            Ok(v) => Ok(v),
+            Ok(v) => {
+                let v = match &prefix_for_map {
+                    Some(p) if v.is_relative() => p.join(&v),
+                    _ => v,
+                };
+                Ok(v)
+            }
             Err(e) => Err(ShellError::Generic(GenericError::new(
                 "Error extracting glob pattern",
                 e.to_string(),

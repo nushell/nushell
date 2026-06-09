@@ -130,8 +130,14 @@ fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
             super::compiler::Instruction::Separator => {
                 i += 1;
             }
-            // Collect literal path components until the first dynamic token.
+            // Collect literal path components until the first pattern component.
             super::compiler::Instruction::LiteralString(bytes) => {
+                // If this LiteralString is part of a pattern component (contains
+                // dynamic instructions before the next Separator or end), stop
+                // here rather than including it in the traversal start directory.
+                if !component_is_purely_literal(&program.instructions, i) {
+                    break;
+                }
                 let component = String::from_utf8_lossy(bytes);
                 if component.is_empty() {
                     break;
@@ -151,6 +157,34 @@ fn traversal_start_dir(program: &Program, base: &Path) -> PathBuf {
     }
 
     out
+}
+
+/// Check whether the instruction at `start` is part of a purely literal path
+/// component (i.e., contains no dynamic pattern instructions before the next
+/// `Separator` or `Complete`). Returns `false` if any non-literal instruction
+/// is found within the same component, indicating we have entered a file-name
+/// pattern component and should not include its literals in the start directory.
+fn component_is_purely_literal(
+    instructions: &[super::compiler::Instruction],
+    start: usize,
+) -> bool {
+    let mut j = start;
+    while j < instructions.len() {
+        match &instructions[j] {
+            super::compiler::Instruction::LiteralString(_) => {
+                j += 1;
+            }
+            // End of this component; all instructions so far were literal.
+            super::compiler::Instruction::Separator | super::compiler::Instruction::Complete => {
+                return true;
+            }
+            // Any other instruction (Alternative, Jump, AnyCharacter, AnyString,
+            // Characters, Increment, BranchIfLessThan) is dynamic — this is a
+            // pattern component.
+            _ => return false,
+        }
+    }
+    true
 }
 
 fn glob_to(target: &Path, depth: usize, state: WalkState<'_>) {

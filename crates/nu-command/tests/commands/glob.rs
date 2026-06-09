@@ -373,3 +373,65 @@ fn glob_debug_subcommands_require_pattern_argument() -> Result {
 
     Ok(())
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_literal_prefix_wildcard() -> Result {
+    Playground::setup("glob_dc_literal_prefix_wildcard", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("nu_test1"),
+            EmptyFile("nu_test2"),
+            EmptyFile("other"),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob 'subdir/nu*' | length")
+            .expect_value_eq(2)
+            .expect("glob 'subdir/nu*' should match both nu_test files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_wildcard_then_literal() -> Result {
+    Playground::setup("glob_dc_wildcard_literal", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox.within("subdir").with_files(&[
+            EmptyFile("nu_test1"),
+            EmptyFile("nu_test2"),
+            EmptyFile("other"),
+        ]);
+
+        test()
+            .cwd(dirs.test())
+            .run("glob 'subdir/*nu*' | length")
+            .expect_value_eq(2)
+            .expect("glob 'subdir/*nu*' should match both nu_test files with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn glob_dc_glob_literal_prefix_wildcard_absolute() -> Result {
+    Playground::setup("glob_dc_literal_prefix_abs", |dirs, sandbox| {
+        sandbox.mkdir("subdir");
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("nu_test.txt")]);
+
+        let pattern = format!("{}/subdir/nu*", dirs.test().to_string_lossy());
+        test()
+            .cwd(dirs.test())
+            .run(format!("glob '{pattern}' | length"))
+            .expect_value_eq(1)
+            .expect("absolute glob pattern with literal-then-wildcard should work with dc-glob");
+    });
+
+    Ok(())
+}
