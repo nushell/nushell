@@ -4388,6 +4388,25 @@ mod tests {
             }
         }
 
+        struct DebugFormats {
+            value: Value,
+            expanded: &'static str,
+            expanded_alternate: &'static str,
+            compact: &'static str,
+            compact_alternate: &'static str,
+        }
+
+        impl DebugFormats {
+            #[track_caller]
+            fn assert(&self) {
+                let value = &self.value;
+                assert_eq!(format!("{value:?}"), self.expanded);
+                assert_eq!(format!("{value:#?}"), self.expanded_alternate);
+                assert_eq!(format!("{value:-?}"), self.compact);
+                assert_eq!(format!("{value:-#?}"), self.compact_alternate);
+            }
+        }
+
         #[track_caller]
         fn assert_debug(
             value: Value,
