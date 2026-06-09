@@ -63,11 +63,28 @@ fn length_of_first_char(string: &[u8]) -> Option<usize> {
     })
 }
 
-fn char_matches_classes(ch: char, classes: &[CharacterClass]) -> bool {
-    classes.iter().any(|class| match class {
+fn char_matches_classes(ch: char, classes: &[CharacterClass], case_insensitive: bool) -> bool {
+    if classes.iter().any(|class| match class {
         CharacterClass::Single(single) => *single == ch,
         CharacterClass::Range(start, end) => *start <= ch && ch <= *end,
-    })
+    }) {
+        return true;
+    }
+    if case_insensitive {
+        let swapped = if ch.is_ascii_lowercase() {
+            ch.to_ascii_uppercase()
+        } else if ch.is_ascii_uppercase() {
+            ch.to_ascii_lowercase()
+        } else {
+            return false;
+        };
+        classes.iter().any(|class| match class {
+            CharacterClass::Single(single) => *single == swapped,
+            CharacterClass::Range(start, end) => *start <= swapped && swapped <= *end,
+        })
+    } else {
+        false
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -114,7 +131,12 @@ impl<'a> Matcher<'a> {
             Instruction::Prefix(string) if !self.has_string() => {
                 match self.state.path_components.next() {
                     Some(Component::Prefix(prefix_component))
-                        if prefix_component.as_os_str() == &string[..] =>
+                        if prefix_component.as_os_str() == &string[..]
+                            || (program.case_insensitive
+                                && prefix_component
+                                    .as_os_str()
+                                    .as_encoded_bytes()
+                                    .eq_ignore_ascii_case(string.as_bytes())) =>
                     {
                         self.next()
                     }
@@ -143,7 +165,12 @@ impl<'a> Matcher<'a> {
                 &mut self.state.current_string,
                 &mut self.state.fresh_string,
             ) {
-                NextString::Normal(current_string) if current_string.starts_with(&bytes[..]) => {
+                NextString::Normal(current_string)
+                    if current_string.starts_with(&bytes[..])
+                        || (program.case_insensitive
+                            && current_string.len() >= bytes.len()
+                            && current_string[..bytes.len()].eq_ignore_ascii_case(&bytes[..])) =>
+                {
                     *current_string = &current_string[bytes.len()..];
                     self.state.fresh_string = false;
                     self.next()
@@ -204,7 +231,7 @@ impl<'a> Matcher<'a> {
                             return self.try_alternative();
                         };
 
-                        if char_matches_classes(ch, classes) {
+                        if char_matches_classes(ch, classes, program.case_insensitive) {
                             *current_string = &current_string[ch.len_utf8()..];
                             self.state.fresh_string = false;
                             self.next()

@@ -25,6 +25,8 @@ pub struct GlobWalkOptions {
     /// Optional interrupt flag. When set to `true` the traversal stops as soon
     /// as possible and the iterator ends.
     pub interrupt: Option<Arc<AtomicBool>>,
+    /// When `true`, match path components case-insensitively (ASCII only).
+    pub ignore_case: bool,
 }
 
 /// Return true if the given pattern contains glob metacharacters.
@@ -82,7 +84,7 @@ pub fn glob_with(
     let pattern = pattern.as_ref().to_owned();
     let parsed = parser::parse(&pattern);
     let fast_path = detect_recursive_suffix_fast_path(&parsed);
-    let include_program = compiler::compile(&parsed)?;
+    let include_program = compiler::compile_with_options(&parsed, options.ignore_case)?;
 
     let exclude_programs = options
         .excludes
@@ -211,6 +213,16 @@ impl DcPattern {
     pub fn new(pattern: &str) -> anyhow::Result<Self> {
         let parsed = parser::parse(pattern);
         let compiled = compiler::compile(&parsed)?;
+        Ok(DcPattern {
+            pattern: pattern.to_owned(),
+            compiled: std::sync::Arc::new(compiled),
+        })
+    }
+
+    /// Compile a glob pattern with case-insensitive matching (ASCII only).
+    pub fn with_ignore_case(pattern: &str) -> anyhow::Result<Self> {
+        let parsed = parser::parse(pattern);
+        let compiled = compiler::compile_with_options(&parsed, true)?;
         Ok(DcPattern {
             pattern: pattern.to_owned(),
             compiled: std::sync::Arc::new(compiled),
