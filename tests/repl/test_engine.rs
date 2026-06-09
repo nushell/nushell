@@ -518,7 +518,9 @@ fn shadowed_variables_in_aliases() -> TestResult {
         .run("let x = 10; alias foo = echo $x; foo")
         .expect_value_eq(10)?;
     tester.run::<()>("let x = 20")?;
-    tester.cleanup_stack_variables();
+    tester
+        .engine_state
+        .cleanup_stack_variables(&mut tester.stack);
     tester.run("foo").expect_value_eq(10)?;
     Ok(())
 }
