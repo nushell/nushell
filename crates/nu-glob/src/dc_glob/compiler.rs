@@ -97,6 +97,7 @@ pub struct Program {
     pub instructions: Vec<Instruction>,
     pub counters: u16,
     pub absolute_prefix: Option<PathBuf>,
+    pub case_insensitive: bool,
 }
 
 impl Program {
@@ -261,5 +262,11 @@ pub fn compile(pattern: &Pattern) -> anyhow::Result<Program> {
         append_program(&mut program, node)?;
     }
     program.instructions.push(Instruction::Complete);
+    Ok(program)
+}
+
+pub fn compile_with_options(pattern: &Pattern, case_insensitive: bool) -> anyhow::Result<Program> {
+    let mut program = compile(pattern)?;
+    program.case_insensitive = case_insensitive;
     Ok(program)
 }

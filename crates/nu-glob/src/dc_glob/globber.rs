@@ -359,7 +359,9 @@ fn handle_path_candidate<'a>(
         depth + 1
     };
 
-    let result = if let Some(fast_path) = fast_path {
+    let result = if program.case_insensitive {
+        path_matches(match_path_candidate, program)
+    } else if let Some(fast_path) = fast_path {
         recursive_fast_path_match(match_path_candidate, fast_path, is_parent)
     } else {
         path_matches(match_path_candidate, program)

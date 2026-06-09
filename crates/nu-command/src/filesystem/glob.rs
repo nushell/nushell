@@ -60,6 +60,11 @@ impl Command for Glob {
         }
 
         signature
+            .switch(
+                "ignore-case",
+                "Whether to ignore case when matching the glob pattern.",
+                Some('i'),
+            )
             .rest(
                 "debug-args",
                 SyntaxShape::String,
@@ -119,7 +124,11 @@ impl Command for Glob {
             },
             Example {
                 description: "A case-insensitive search for files and folders that begin with c.",
-                example: r#"glob "(?i)c*""#,
+                example: if nu_experimental::DC_GLOB.get() {
+                    "glob c* --ignore-case"
+                } else {
+                    r#"glob "(?i)c*""#
+                },
                 result: None,
             },
             Example {
@@ -280,19 +289,23 @@ impl Command for Glob {
         }
 
         match nu_experimental::DC_GLOB.get() {
-            true => run_dc_glob(
-                engine_state,
-                stack,
-                &glob_pattern,
-                depth,
-                follow_symlinks,
-                not_patterns,
-                glob_span,
-                no_dirs,
-                no_files,
-                no_symlinks,
-                span,
-            ),
+            true => {
+                let ignore_case = call.has_flag(engine_state, stack, "ignore-case")?;
+                run_dc_glob(
+                    engine_state,
+                    stack,
+                    &glob_pattern,
+                    depth,
+                    follow_symlinks,
+                    not_patterns,
+                    glob_span,
+                    no_dirs,
+                    no_files,
+                    no_symlinks,
+                    ignore_case,
+                    span,
+                )
+            }
             false => {
                 // paths starting with drive letters must be escaped for wax on Windows
                 #[cfg(windows)]
@@ -341,6 +354,7 @@ fn run_dc_glob(
     no_dirs: bool,
     no_files: bool,
     no_symlinks: bool,
+    ignore_case: bool,
     span: Span,
 ) -> Result<PipelineData, ShellError> {
     let folder_depth = infer_folder_depth(glob_pattern, depth);
@@ -350,6 +364,7 @@ fn run_dc_glob(
         follow_symlinks,
         excludes: not_patterns,
         interrupt: engine_state.signals().interrupt_flag(),
+        ignore_case,
     };
     let cwd_for_matches = cwd.as_std_path().to_path_buf();
     let glob_pattern = nu_path::expand_tilde(glob_pattern)
@@ -781,7 +796,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn signature_mentions_dbg_subcommands() {
+    fn signature_mentions_dbg_subcommands_and_ignore_case() {
         let signature = Glob.signature();
         let rendered = format!("{signature:#?}");
 
@@ -790,10 +805,18 @@ mod tests {
                 rendered.contains("dbg-parse") && rendered.contains("dbg-glob"),
                 "glob signature should mention dbg-* subcommands when dc-glob is enabled"
             );
+            assert!(
+                rendered.contains("ignore-case"),
+                "glob signature should mention --ignore-case when dc-glob is enabled"
+            );
         } else {
             assert!(
                 !rendered.contains("dbg-parse") && !rendered.contains("dbg-glob"),
                 "glob signature should hide dbg-* subcommands when dc-glob is disabled"
+            );
+            assert!(
+                !rendered.contains("ignore-case"),
+                "glob signature should hide --ignore-case when dc-glob is disabled"
             );
         }
     }
