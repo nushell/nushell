@@ -246,12 +246,16 @@ impl Debug for Value {
                     write!(f, ")")
                 }
                 Value::List { vals, .. } => {
-                    write!(f, "List")?;
-                    Debug::fmt(vals, f)
+                    write!(f, "List(")?;
+                    Debug::fmt(vals, f)?;
+                    write!(f, ")")
                 }
                 Value::Closure { val, .. } => {
                     write!(f, "Closure(")?;
-                    Debug::fmt(val, f)?;
+                    write!(f, "{:?}: ", val.block_id)?;
+                    f.debug_map()
+                        .entries(val.captures.iter().map(|(k, v)| (k, v)))
+                        .finish()?;
                     write!(f, ")")
                 }
                 Value::Error { error, .. } => {
@@ -4668,34 +4672,25 @@ mod tests {
             });
             DebugFormats {
                 value,
-                expanded: "Closure { val: Closure { block_id: BlockId(42), captures: [(VarId(7), Int { val: 1, internal_span: Span(TEST) })] }, internal_span: Span(TEST) }",
+                expanded: "Closure { val: Closure { block_id: BlockId(42), captures: {VarId(7): Int { val: 1, internal_span: Span(TEST) }} }, internal_span: Span(TEST) }",
                 expanded_alternate: indoc! {"
                     Closure {
                         val: Closure {
                             block_id: BlockId(42),
-                            captures: [
-                                (
-                                    VarId(7),
-                                    Int {
-                                        val: 1,
-                                        internal_span: Span(TEST),
-                                    },
-                                ),
-                            ],
+                            captures: {
+                                VarId(7): Int {
+                                    val: 1,
+                                    internal_span: Span(TEST),
+                                },
+                            },
                         },
                         internal_span: Span(TEST),
                     }"
                 },
-                compact: "Closure(Closure { block_id: BlockId(42), captures: [(VarId(7), Int(1))] })",
+                compact: "Closure(BlockId(42): {VarId(7): Int(1)})",
                 compact_alternate: indoc! {"
-                    Closure(Closure {
-                        block_id: BlockId(42),
-                        captures: [
-                            (
-                                VarId(7),
-                                Int(1),
-                            ),
-                        ],
+                    Closure(BlockId(42): {
+                        VarId(7): Int(1),
                     })"
                 },
             }

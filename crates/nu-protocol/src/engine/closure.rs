@@ -1,13 +1,32 @@
-use std::borrow::Cow;
+use std::{
+    borrow::Cow,
+    fmt::{self, Debug},
+};
 
 use crate::{BlockId, ShellError, Span, Value, VarId, engine::EngineState};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Closure {
     pub block_id: BlockId,
     pub captures: Vec<(VarId, Value)>,
+}
+
+impl Debug for Closure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Closure")
+            .field("block_id", &self.block_id)
+            .field(
+                "captures",
+                &fmt::from_fn(|f| {
+                    f.debug_map()
+                        .entries(self.captures.iter().map(|(k, v)| (k, v)))
+                        .finish()
+                }),
+            )
+            .finish()
+    }
 }
 
 impl Closure {
