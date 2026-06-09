@@ -7,7 +7,7 @@ fn run_script_without_main_in_pipeline() {
         sandbox.with_files(&[FileWithContentToBeTrimmed(
             "up.nu",
             "
-                str upcase
+                str uppercase
             ",
         )]);
 
@@ -24,7 +24,7 @@ fn run_script_with_main_implicit_in() {
             "main_up.nu",
             "
                 def main [] {
-                    $in | str upcase
+                    $in | str uppercase
                 }
             ",
         )]);
@@ -137,7 +137,7 @@ fn run_script_with_exported_main_uses_main_entrypoint() {
                 "exported_main.nu",
                 "
                 export def main [] {
-                    $in | str upcase
+                    $in | str uppercase
                 }
             ",
             )]);
@@ -159,7 +159,7 @@ fn run_script_with_exported_env_main_uses_main_entrypoint_without_leaking_env() 
                 "
                     export def --env main [] {
                         $env.RUN_LOCAL = 'secret'
-                        $in | str upcase
+                        $in | str uppercase
                     }
                 ",
             )]);
@@ -296,7 +296,7 @@ fn run_multiple_scripts_in_pipeline() {
             FileWithContentToBeTrimmed(
                 "up.nu",
                 "
-                    str upcase
+                    str uppercase
                 ",
             ),
             FileWithContentToBeTrimmed(
@@ -322,7 +322,7 @@ fn run_nested_pipeline_with_each() {
             FileWithContentToBeTrimmed(
                 "up.nu",
                 "
-                    str upcase
+                    str uppercase
                 ",
             ),
             FileWithContentToBeTrimmed(
@@ -353,7 +353,7 @@ fn run_does_not_cross_script_main_between_invocations() -> Result {
                 FileWithContentToBeTrimmed(
                     "run-test1.nu",
                     "
-                        str upcase
+                        str uppercase
                     ",
                 ),
                 FileWithContentToBeTrimmed(
@@ -490,7 +490,7 @@ fn run_script_without_main_tracks_file_edits_with_full_reparse() -> Result {
             sandbox.with_files(&[FileWithContentToBeTrimmed(
                 "run-no-main.nu",
                 "
-                str upcase
+                str uppercase
             ",
             )]);
 
