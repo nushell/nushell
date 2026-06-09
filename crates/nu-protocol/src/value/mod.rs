@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{Debug, Display, Write},
+    fmt::{self, Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -193,101 +193,7 @@ pub enum Value {
 
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if f.sign_minus() {
-            return match self {
-                Value::Bool { val, .. } => {
-                    write!(f, "Bool(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Int { val, .. } => {
-                    write!(f, "Int(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Float { val, .. } => {
-                    write!(f, "Float(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::String { val, .. } => {
-                    write!(f, "String(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Glob { val, no_expand, .. } => {
-                    write!(f, "Glob(")?;
-                    Debug::fmt(val, f)?;
-                    if *no_expand {
-                        write!(f, "!")?;
-                    }
-                    write!(f, ")")
-                }
-                Value::Filesize { val, .. } => {
-                    write!(f, "Filesize(")?;
-                    Display::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Duration { val, .. } => {
-                    write!(
-                        f,
-                        "Duration({})",
-                        humantime::Duration::from(std::time::Duration::from_nanos(*val as u64))
-                    )
-                }
-                Value::Date { val, .. } => {
-                    write!(f, "Date(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Range { val, .. } => {
-                    write!(f, "Range(")?;
-                    Display::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Record { val, .. } => {
-                    write!(f, "Record(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::List { vals, .. } => {
-                    write!(f, "List(")?;
-                    Debug::fmt(vals, f)?;
-                    write!(f, ")")
-                }
-                Value::Closure { val, .. } => {
-                    write!(f, "Closure(")?;
-                    write!(f, "{:?}: ", val.block_id)?;
-                    f.debug_map()
-                        .entries(val.captures.iter().map(|(k, v)| (k, v)))
-                        .finish()?;
-                    write!(f, ")")
-                }
-                Value::Error { error, .. } => {
-                    write!(f, "Error(")?;
-                    Debug::fmt(error, f)?;
-                    write!(f, ")")
-                }
-                Value::Binary { val, .. } => {
-                    write!(f, "Binary(")?;
-                    Debug::fmt(BStr::new(val), f)?;
-                    write!(f, ")")
-                }
-                Value::CellPath { val, .. } => {
-                    write!(f, "CellPath(")?;
-                    Display::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Custom { val, .. } => {
-                    write!(f, "Custom(")?;
-                    Debug::fmt(val, f)?;
-                    write!(f, ")")
-                }
-                Value::Nothing { .. } => write!(f, "Nothing"),
-            };
-        }
-
-        match self {
+        let derived_like = fmt::from_fn(|f| match self {
             Self::Bool { val, internal_span } => f
                 .debug_struct("Bool")
                 .field("val", val)
@@ -390,6 +296,105 @@ impl Debug for Value {
                 .debug_struct("Nothing")
                 .field("internal_span", internal_span)
                 .finish(),
+        });
+
+        if f.sign_plus() {
+            return match f.alternate() {
+                true => write!(f, "{derived_like:#?}"),
+                false => write!(f, "{derived_like:?}"),
+            };
+        }
+
+        match self {
+            Value::Bool { val, .. } => {
+                write!(f, "Bool(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Int { val, .. } => {
+                write!(f, "Int(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Float { val, .. } => {
+                write!(f, "Float(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::String { val, .. } => {
+                write!(f, "String(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Glob { val, no_expand, .. } => {
+                write!(f, "Glob(")?;
+                Debug::fmt(val, f)?;
+                if *no_expand {
+                    write!(f, "!")?;
+                }
+                write!(f, ")")
+            }
+            Value::Filesize { val, .. } => {
+                write!(f, "Filesize(")?;
+                Display::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Duration { val, .. } => {
+                write!(
+                    f,
+                    "Duration({})",
+                    humantime::Duration::from(std::time::Duration::from_nanos(*val as u64))
+                )
+            }
+            Value::Date { val, .. } => {
+                write!(f, "Date(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Range { val, .. } => {
+                write!(f, "Range(")?;
+                Display::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Record { val, .. } => {
+                write!(f, "Record(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::List { vals, .. } => {
+                write!(f, "List(")?;
+                Debug::fmt(vals, f)?;
+                write!(f, ")")
+            }
+            Value::Closure { val, .. } => {
+                write!(f, "Closure(")?;
+                write!(f, "{:?}: ", val.block_id)?;
+                f.debug_map()
+                    .entries(val.captures.iter().map(|(k, v)| (k, v)))
+                    .finish()?;
+                write!(f, ")")
+            }
+            Value::Error { error, .. } => {
+                write!(f, "Error(")?;
+                Debug::fmt(error, f)?;
+                write!(f, ")")
+            }
+            Value::Binary { val, .. } => {
+                write!(f, "Binary(")?;
+                Debug::fmt(BStr::new(val), f)?;
+                write!(f, ")")
+            }
+            Value::CellPath { val, .. } => {
+                write!(f, "CellPath(")?;
+                Display::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Custom { val, .. } => {
+                write!(f, "Custom(")?;
+                Debug::fmt(val, f)?;
+                write!(f, ")")
+            }
+            Value::Nothing { .. } => write!(f, "Nothing"),
         }
     }
 }
@@ -4410,10 +4415,10 @@ mod tests {
             #[track_caller]
             fn assert(&self) {
                 let value = &self.value;
-                assert_eq!(format!("{value:?}"), self.expanded);
-                assert_eq!(format!("{value:#?}"), self.expanded_alternate);
-                assert_eq!(format!("{value:-?}"), self.compact);
-                assert_eq!(format!("{value:-#?}"), self.compact_alternate);
+                assert_eq!(format!("{value:+?}"), self.expanded);
+                assert_eq!(format!("{value:+#?}"), self.expanded_alternate);
+                assert_eq!(format!("{value:?}"), self.compact);
+                assert_eq!(format!("{value:#?}"), self.compact_alternate);
             }
         }
 
