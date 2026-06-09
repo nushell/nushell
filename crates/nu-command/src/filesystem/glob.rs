@@ -352,9 +352,12 @@ fn run_dc_glob(
         interrupt: engine_state.signals().interrupt_flag(),
     };
     let cwd_for_matches = cwd.as_std_path().to_path_buf();
+    let glob_pattern = nu_path::expand_tilde(glob_pattern)
+        .to_string_lossy()
+        .to_string();
 
     let matches =
-        nu_glob::dc_glob::glob_with(cwd.as_std_path(), glob_pattern, &options).map_err(|err| {
+        nu_glob::dc_glob::glob_with(cwd.as_std_path(), &glob_pattern, &options).map_err(|err| {
             ShellError::Generic(GenericError::new(
                 "error with glob pattern",
                 err.to_string(),
@@ -678,9 +681,12 @@ fn run_debug_subcommand(
                         span,
                     ))
                 })?;
+            let expanded_pattern = nu_path::expand_tilde(&pattern.item)
+                .to_string_lossy()
+                .to_string();
             let out = nu_glob::dc_glob::glob_with(
                 relative_to,
-                &pattern.item,
+                &expanded_pattern,
                 &nu_glob::dc_glob::GlobWalkOptions::default(),
             )
             .map_err(|err| {
