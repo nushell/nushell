@@ -4391,13 +4391,13 @@ mod tests {
         #[track_caller]
         fn assert_debug(
             value: Value,
-            regular: &str,
-            alternate: &str,
+            expanded: &str,
+            expanded_alternate: &str,
             compact: &str,
             compact_alternate: &str,
         ) {
-            assert_eq!(format!("{value:?}"), regular);
-            assert_eq!(format!("{value:#?}"), alternate);
+            assert_eq!(format!("{value:?}"), expanded);
+            assert_eq!(format!("{value:#?}"), expanded_alternate);
             assert_eq!(format!("{value:-?}"), compact);
             assert_eq!(format!("{value:-#?}"), compact_alternate);
         }
