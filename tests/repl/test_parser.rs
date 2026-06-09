@@ -592,7 +592,7 @@ fn percent_dynamic_dispatch_with_mixed_positional_and_spread_args() -> Result {
 #[test]
 fn percent_dynamic_dispatch_in_wrapped_command_forwards_rest_args() -> Result {
     let code = "export def --wrapped builtin [arg1, ...args] { %($arg1) ...$args }; builtin echo hello world | to nuon";
-    test().run(code).expect_value_eq(r#"["hello", "world"]"#)
+    test().run(code).expect_value_eq("[hello, world]")
 }
 
 #[test]
