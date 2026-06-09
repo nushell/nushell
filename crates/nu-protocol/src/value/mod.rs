@@ -215,9 +215,12 @@ impl Debug for Value {
                     Debug::fmt(val, f)?;
                     write!(f, ")")
                 }
-                Value::Glob { val, .. } => {
+                Value::Glob { val, no_expand, .. } => {
                     write!(f, "Glob(")?;
                     Debug::fmt(val, f)?;
+                    if *no_expand {
+                        write!(f, "!")?;
+                    }
                     write!(f, ")")
                 }
                 Value::Filesize { val, .. } => {
