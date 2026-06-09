@@ -9,6 +9,7 @@ mod range;
 mod test_derive;
 
 pub mod record;
+use bstr::BStr;
 pub use custom_value::CustomValue;
 pub use duration::*;
 pub use filesize::*;
@@ -260,12 +261,12 @@ impl Debug for Value {
                 }
                 Value::Binary { val, .. } => {
                     write!(f, "Binary(")?;
-                    Debug::fmt(val, f)?;
+                    Debug::fmt(BStr::new(val), f)?;
                     write!(f, ")")
                 }
                 Value::CellPath { val, .. } => {
                     write!(f, "CellPath(")?;
-                    Debug::fmt(val, f)?;
+                    Display::fmt(val, f)?;
                     write!(f, ")")
                 }
                 Value::Custom { val, .. } => {
@@ -4730,28 +4731,27 @@ mod tests {
 
         #[test]
         fn binary() {
-            let value = Value::test_binary([1, 2, 3]);
+            let mut bytes = b"Ellie".to_vec();
+            bytes.extend([0xFF]);
+            let value = Value::test_binary(bytes);
             DebugFormats {
                 value,
-                expanded: "Binary { val: [1, 2, 3], internal_span: Span(TEST) }",
+                expanded: "Binary { val: [69, 108, 108, 105, 101, 255], internal_span: Span(TEST) }",
                 expanded_alternate: indoc! {"
                     Binary {
                         val: [
-                            1,
-                            2,
-                            3,
+                            69,
+                            108,
+                            108,
+                            105,
+                            101,
+                            255,
                         ],
                         internal_span: Span(TEST),
                     }"
                 },
-                compact: "Binary([1, 2, 3])",
-                compact_alternate: indoc! {"
-                    Binary([
-                        1,
-                        2,
-                        3,
-                    ])"
-                },
+                compact: r#"Binary("Ellie\xff")"#,
+                compact_alternate: r#"Binary("Ellie\xff")"#,
             }
             .assert();
         }
@@ -4787,24 +4787,8 @@ mod tests {
                         internal_span: Span(TEST),
                     }"#
                 },
-                compact: r#"CellPath(CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] })"#,
-                compact_alternate: indoc! {r#"
-                    CellPath(CellPath {
-                        members: [
-                            String {
-                                val: "name",
-                                span: Span(TEST),
-                                optional: false,
-                                casing: Sensitive,
-                            },
-                            Int {
-                                val: 1,
-                                span: Span(TEST),
-                                optional: true,
-                            },
-                        ],
-                    })"#
-                },
+                compact: "CellPath($.name.1?)",
+                compact_alternate: "CellPath($.name.1?)",
             }
             .assert();
         }

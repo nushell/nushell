@@ -4927,6 +4927,7 @@ name = "nu-protocol"
 version = "0.113.2"
 dependencies = [
  "brotli",
+ "bstr",
  "bytes",
  "chrono",
  "chrono-humanize",

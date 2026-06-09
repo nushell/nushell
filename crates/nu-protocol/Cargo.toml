@@ -32,6 +32,7 @@ nu-utils.workspace = true
 nu-experimental.workspace = true
 
 brotli = { workspace = true, optional = true }
+bstr = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true, features = ["serde", "std", "unstable-locales"], default-features = false }
 chrono-humanize = { workspace = true }
