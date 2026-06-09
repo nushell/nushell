@@ -29,7 +29,7 @@ impl Command for IdxExport {
 
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
-            description: "Save the current idx index to disk",
+            description: "Save the current idx index to disk.",
             example: "idx export ~/my-index.db",
             result: None,
         }]

@@ -29,9 +29,19 @@ static ROOT: LazyLock<PathBuf> = LazyLock::new(|| {
 // By using different engine states depending on the group key, we can ensure that behavior from
 // experimental options or environment variables take proper effect in the setup of an engine state.
 static INITIAL_ENGINE_STATES: KeyedLazyLock<GroupKey, EngineState> = KeyedLazyLock::new(|_| {
+    // Some modules below are commented out because they don't depend on nu-test-support
+    // Copied from `nu::command_context::add_command_context`
     let engine_state = nu_cmd_lang::create_default_context();
+    // #[cfg(feature = "plugin")]
+    // let engine_state = nu_cmd_plugin::add_plugin_command_context(engine_state);
     let engine_state = nu_command::add_shell_command_context(engine_state);
-    let mut engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    let engine_state = nu_cmd_extra::add_extra_command_context(engine_state);
+    #[cfg(feature = "os")]
+    let engine_state = nu_cli::add_cli_context(engine_state);
+    // let engine_state = nu_explore::add_explore_context(engine_state);
+
+    // Make `engine_state` mutable without fiddling with features
+    let mut engine_state = engine_state;
 
     engine_state.generate_nu_constant();
     [
@@ -105,9 +115,10 @@ pub fn test() -> NuTester {
 /// `NuTester` owns an [`EngineState`] and [`Stack`] that are reused across invocations.
 /// Configuration methods update the engine state before execution.
 #[derive(Clone)]
+#[non_exhaustive] // Ensure this type is only generated using `test()`, `new()` or `default()`.
 pub struct NuTester {
-    engine_state: EngineState,
-    stack: Stack,
+    pub engine_state: EngineState,
+    pub stack: Stack,
 }
 
 impl Default for NuTester {

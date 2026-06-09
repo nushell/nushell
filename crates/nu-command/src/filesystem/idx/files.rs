@@ -27,12 +27,12 @@ impl Command for IdxFiles {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![
             Example {
-                description: "List all indexed files",
+                description: "List all indexed files.",
                 example: "idx files",
                 result: None,
             },
             Example {
-                description: "Fuzzy-match indexed files by query",
+                description: "Fuzzy-match indexed files by query.",
                 example: "idx files main",
                 result: None,
             },

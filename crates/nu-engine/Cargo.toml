@@ -6,10 +6,12 @@ edition.workspace = true
 license.workspace = true
 name = "nu-engine"
 rust-version.workspace = true
+autotests = false
 version.workspace = true
 
 [lib]
 bench = false
+harness = false
 
 [lints]
 workspace = true
@@ -27,9 +29,13 @@ log = { workspace = true }
 default = ["os"]
 os = [
   "nu-protocol/os",
+  "nu-test-support/os",
   "nu-utils/os",
 ]
 plugin = [
   "nu-protocol/plugin",
   "os",
 ]
+
+[dev-dependencies]
+nu-test-support = { path = "../nu-test-support" }

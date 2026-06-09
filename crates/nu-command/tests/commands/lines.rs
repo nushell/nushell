@@ -57,3 +57,24 @@ fn lines_on_error() {
 
     assert!(actual.err.contains("Is a directory"));
 }
+
+#[test]
+fn lines_handles_invalid_utf8() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open invalid_utf8.txt
+        | lines
+        | length
+    ");
+
+    assert_eq!(actual.out, "3");
+}
+
+#[test]
+fn lines_strict_fails_on_invalid_utf8() {
+    let actual = nu!(cwd: "tests/fixtures/formats", "
+        open invalid_utf8.txt
+        | lines --strict
+    ");
+
+    assert!(!actual.err.is_empty());
+}

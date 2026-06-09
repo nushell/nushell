@@ -7,7 +7,10 @@ def keep-plugin-executables [] {
     if (windows?) { where name ends-with '.exe' } else { where name !~ '\.d' }
 }
 
-# add all installed plugins
+# Add all installed plugins.
+@category "toolkit"
+@search-terms plugin add plugins nu_plugin register
+@example "Register all available plugins" { toolkit add plugins }
 export def "add plugins" [] {
     let plugin_path = (which nu | get path.0 | path dirname)
     let plugins = (ls $plugin_path | where name =~ nu_plugin | keep-plugin-executables | get name)

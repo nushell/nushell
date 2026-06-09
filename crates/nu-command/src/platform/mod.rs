@@ -16,7 +16,7 @@ mod whoami;
 pub use clear::Clear;
 #[cfg(not(target_arch = "wasm32"))]
 pub use clip::{ClipCommand, ClipCopy, ClipPaste};
-pub use dir_info::{DirBuilder, DirInfo, FileInfo};
+pub use dir_info::{DirBuilder, DirInfo, ExcludeGlob, FileInfo};
 pub use input::Input;
 pub use input::InputList;
 pub use input::InputListen;

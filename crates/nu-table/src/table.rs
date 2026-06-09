@@ -512,9 +512,7 @@ fn remove_header(t: &mut NuTable) -> HeadInfo {
             let to = Position::new(row - 1, col);
 
             let alignment = *t.styles.cfg.get_alignment_horizontal(from);
-            if alignment != t.styles.alignments.data {
-                t.styles.cfg.set_alignment_horizontal(to.into(), alignment);
-            }
+            t.styles.cfg.set_alignment_horizontal(to.into(), alignment);
 
             let color = t.styles.cfg.get_color(from);
             if let Some(color) = color

@@ -1,4 +1,5 @@
-use nu_test_support::nu;
+use nu_protocol::{IntoPipelineData, PipelineMetadata, Span};
+use nu_test_support::prelude::*;
 use rstest::rstest;
 
 /// checks that garbage is highlighted as error
@@ -69,4 +70,23 @@ fn nu_highlight_aliased_external_unresolved() {
         ('fff' | nu-highlight) has (ansi $env.config.color_config.shape_external)");
 
     assert_eq!(actual.out, "true");
+}
+
+#[test]
+fn nu_highlight_removes_content_type_metadata() -> Result {
+    let in_meta = Some(
+        PipelineMetadata::default()
+            .with_content_type(Some("application/x-nuscript".into()))
+            .with_data_source(nu_protocol::DataSource::FilePath("test.nu".into())),
+    );
+    let data = "nu-highlight"
+        .into_value(Span::unknown())
+        .into_pipeline_data_with_metadata(in_meta.clone());
+
+    let out_meta = test()
+        .run_raw_with_data("nu-highlight", data)?
+        .take_metadata();
+
+    assert_eq!(out_meta, in_meta.map(|m| m.with_content_type(None)));
+    Ok(())
 }
