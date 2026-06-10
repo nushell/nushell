@@ -383,10 +383,10 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect streamed paths");
 
         assert!(
-            paths
-                .iter()
-                .any(|p| p == &expected_path(&["src", "lib.rs"])),
-            "absolute recursive pattern should include nested files"
+            paths.iter().any(|p| {
+                Path::new(p).is_absolute() && p.ends_with(&expected_path(&["src", "lib.rs"]))
+            }),
+            "absolute recursive pattern should include nested absolute files"
         );
 
         let _ = fs::remove_dir_all(&root);
@@ -930,9 +930,8 @@ mod tests {
 
     #[test]
     fn glob_with_absolute_pattern_literal_then_wildcard() {
-        // Absolute pattern like `<root>/dir/nu*` — same as relative but with
-        // an absolute prefix. Regression guard for Bug #1 with absolute paths.
-        // Results are emitted relative to the traversal start dir.
+        // Absolute pattern like `<root>/dir/nu*` should emit absolute paths,
+        // not paths relative to the current working directory.
         let root = unique_test_dir("absolute_literal_wildcard");
         fs::create_dir_all(&root).expect("failed to create root");
         write_file(&root.join("dir/nu_test1"));
@@ -944,7 +943,22 @@ mod tests {
         let paths = collect_ok_paths(result).expect("failed to collect paths");
 
         assert_eq!(paths.len(), 1);
-        assert_eq!(paths[0], "nu_test1");
+        assert!(Path::new(&paths[0]).is_absolute());
+
+        #[cfg(windows)]
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .replace('/', "\\");
+        #[cfg(not(windows))]
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .into_owned();
+
+        assert_eq!(paths[0], expected);
 
         let _ = fs::remove_dir_all(&root);
     }
