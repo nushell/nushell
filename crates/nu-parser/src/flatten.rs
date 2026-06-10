@@ -131,6 +131,8 @@ fn flatten_pipeline_element_into(
     pipeline_element: &PipelineElement,
     output: &mut Vec<(Span, FlatShape)>,
 ) {
+    // HACK: `| ls` is considered as valid code,
+    // we should put the pipe in front of the element expression in that case
     if let Some(span) = pipeline_element.pipe
         && span.end <= pipeline_element.expr.span.start
     {
