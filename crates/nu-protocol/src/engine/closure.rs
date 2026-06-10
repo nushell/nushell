@@ -61,4 +61,13 @@ impl Closure {
                 .map(|(_, v)| v.memory_size())
                 .sum::<usize>()
     }
+
+    pub(crate) fn compact_debug(&self) -> impl Debug {
+        fmt::from_fn(|f| {
+            write!(f, "{:?}: ", self.block_id)?;
+            f.debug_map()
+                .entries(self.captures.iter().map(|(k, v)| (k, v)))
+                .finish()
+        })
+    }
 }

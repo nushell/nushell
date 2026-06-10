@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{Debug, Display, Write},
+    fmt::{self, Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
@@ -218,6 +218,18 @@ pub enum Value {
     },
 }
 
+fn wrap_tuple(name: &str, val: impl Debug) -> impl Debug {
+    fmt::from_fn(move |f| {
+        write!(f, "{name}(")?;
+        val.fmt(f)?;
+        write!(f, ")")
+    })
+}
+
+fn display_as_debug(val: impl Display) -> impl Debug {
+    fmt::from_fn(move |f| val.fmt(f))
+}
+
 impl Debug for Value {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if f.sign_minus() {
@@ -328,94 +340,38 @@ impl Debug for Value {
         };
 
         match self {
-            Value::Bool { val, .. } => {
-                write!(f, "Bool(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Int { val, .. } => {
-                write!(f, "Int(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Float { val, .. } => {
-                write!(f, "Float(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::String { val, .. } => {
-                write!(f, "String(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Glob { val, no_expand, .. } => {
-                write!(f, "Glob(")?;
-                Debug::fmt(val, f)?;
-                if *no_expand {
-                    write!(f, "!")?;
-                }
-                write!(f, ")")
-            }
-            Value::Filesize { val, .. } => {
-                write!(f, "Filesize(")?;
-                Display::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Duration { val, .. } => {
-                write!(
-                    f,
-                    "Duration({})",
-                    humantime::Duration::from(std::time::Duration::from_nanos(*val as u64))
-                )
-            }
-            Value::Date { val, .. } => {
-                write!(f, "Date(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Range { val, .. } => {
-                write!(f, "Range(")?;
-                Display::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Record { val, .. } => {
-                write!(f, "Record(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::List { vals, .. } => {
-                write!(f, "List(")?;
-                Debug::fmt(vals, f)?;
-                write!(f, ")")
-            }
-            Value::Closure { val, .. } => {
-                write!(f, "Closure(")?;
-                write!(f, "{:?}: ", val.block_id)?;
-                f.debug_map()
-                    .entries(val.captures.iter().map(|(k, v)| (k, v)))
-                    .finish()?;
-                write!(f, ")")
-            }
-            Value::Error { error, .. } => {
-                write!(f, "Error(")?;
-                Debug::fmt(error, f)?;
-                write!(f, ")")
-            }
-            Value::Binary { val, .. } => {
-                write!(f, "Binary(")?;
-                Debug::fmt(BStr::new(val), f)?;
-                write!(f, ")")
-            }
-            Value::CellPath { val, .. } => {
-                write!(f, "CellPath(")?;
-                Display::fmt(val, f)?;
-                write!(f, ")")
-            }
-            Value::Custom { val, .. } => {
-                write!(f, "Custom(")?;
-                Debug::fmt(val, f)?;
-                write!(f, ")")
-            }
+            Value::Bool { val, .. } => wrap_tuple("Bool", val).fmt(f),
+            Value::Int { val, .. } => wrap_tuple("Int", val).fmt(f),
+            Value::Float { val, .. } => wrap_tuple("Float", val).fmt(f),
+            Value::String { val, .. } => wrap_tuple("String", val).fmt(f),
+            Value::Glob { val, no_expand, .. } => wrap_tuple(
+                "Glob",
+                fmt::from_fn(|f| {
+                    Debug::fmt(val, f)?;
+                    if *no_expand {
+                        write!(f, "!")?;
+                    }
+                    Ok(())
+                }),
+            )
+            .fmt(f),
+            Value::Filesize { val, .. } => wrap_tuple("Filesize", display_as_debug(val)).fmt(f),
+            Value::Duration { val, .. } => wrap_tuple(
+                "Duration",
+                display_as_debug(humantime::Duration::from(std::time::Duration::from_nanos(
+                    *val as u64,
+                ))),
+            )
+            .fmt(f),
+            Value::Date { val, .. } => wrap_tuple("Date", val).fmt(f),
+            Value::Range { val, .. } => wrap_tuple("Range", display_as_debug(val)).fmt(f),
+            Value::Record { val, .. } => wrap_tuple("Record", val).fmt(f),
+            Value::List { vals, .. } => wrap_tuple("List", vals).fmt(f),
+            Value::Closure { val, .. } => wrap_tuple("Closure", val.compact_debug()).fmt(f),
+            Value::Error { error, .. } => wrap_tuple("Error", error).fmt(f),
+            Value::Binary { val, .. } => wrap_tuple("Binary", BStr::new(val)).fmt(f),
+            Value::CellPath { val, .. } => wrap_tuple("CellPath", display_as_debug(val)).fmt(f),
+            Value::Custom { val, .. } => wrap_tuple("Custom", val).fmt(f),
             Value::Nothing { .. } => write!(f, "Nothing"),
         }
     }
