@@ -1,9 +1,9 @@
 use crate::{
     exportable::Exportable,
     parse_block,
+    parse_pipelines::{parse_redirection, redirecting_builtin_error},
     parser::{
         ArgumentParsingLevel, CallKind, compile_block, compile_block_with_id, parse_attribute,
-        parse_redirection, redirecting_builtin_error,
     },
     type_check::{check_block_input_output, type_compatible},
 };
@@ -41,10 +41,10 @@ use crate::{
     known_external::KnownExternal,
     lex,
     lite_parser::{LiteCommand, lite_parse},
+    parse_helpers::{garbage, garbage_pipeline, trim_quotes},
     parser::{
-        ParsedInternalCall, garbage, garbage_pipeline, parse, parse_call, parse_expression,
-        parse_full_signature, parse_import_pattern, parse_internal_call, parse_string,
-        parse_var_with_opt_type, trim_quotes,
+        ParsedInternalCall, parse, parse_call, parse_expression, parse_full_signature,
+        parse_import_pattern, parse_internal_call, parse_string, parse_var_with_opt_type,
     },
     unescape_unquote_string,
 };
