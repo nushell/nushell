@@ -832,8 +832,8 @@ pub enum ShellError {
         code: u16,
         reason: &'static str,
         url: String,
-        response: String,
-        #[label("{response}")]
+        msg: String,
+        #[label("{msg}")]
         span: Span,
     },
 

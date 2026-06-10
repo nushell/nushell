@@ -879,7 +879,7 @@ pub fn request_add_custom_headers<B>(
 }
 
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
-    let response_body = if response.header("content-type") == Some("application/json") {
+    let msg = if response.header("content-type") == Some("application/json") {
         response
             .body_mut()
             .read_to_string()
@@ -895,7 +895,7 @@ fn handle_status_error(span: Span, requested_url: &str, response: &mut Response)
         code: response.status().as_u16(),
         reason: response.status().canonical_reason().unwrap_or(""),
         url: requested_url.to_string(),
-        response: response_body,
+        msg,
         span,
     }
 }
