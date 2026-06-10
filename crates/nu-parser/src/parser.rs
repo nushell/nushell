@@ -1,5 +1,3 @@
-#![allow(clippy::byte_char_slices)]
-
 // Re-exports from existing modules
 pub use crate::parse_pipelines::parse_block;
 

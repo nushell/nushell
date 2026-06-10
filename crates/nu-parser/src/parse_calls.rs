@@ -1,9 +1,7 @@
-#![allow(clippy::byte_char_slices)]
-
 use crate::{
     lite_parser::LiteCommand,
     parse_helpers::{PERCENT_FORCED_BUILTIN_PARSER_INFO, garbage},
-    parse_keywords::find_dirs_var,
+    parse_source::find_dirs_var,
     type_check::type_compatible,
 };
 use log::trace;
@@ -904,10 +902,10 @@ pub fn parse_internal_call(
     // storing the var ID for later due to borrowing issues
     let lib_dirs_var_id = match decl.name() {
         "use" | "overlay use" | "source-env" if decl.is_keyword() => {
-            find_dirs_var(working_set, crate::parse_keywords::LIB_DIRS_VAR)
+            find_dirs_var(working_set, crate::parse_source::LIB_DIRS_VAR)
         }
         "nu-check" if decl.is_builtin() => {
-            find_dirs_var(working_set, crate::parse_keywords::LIB_DIRS_VAR)
+            find_dirs_var(working_set, crate::parse_source::LIB_DIRS_VAR)
         }
         _ => None,
     };

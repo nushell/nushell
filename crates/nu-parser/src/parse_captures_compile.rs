@@ -1,5 +1,3 @@
-#![allow(clippy::byte_char_slices)]
-
 use crate::{
     lex::lex, parse_helpers::PERCENT_FORCED_BUILTIN_PARSER_INFO, parse_pipelines::parse_block,
 };
