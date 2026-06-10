@@ -1,5 +1,8 @@
-use crate::values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::df;
@@ -40,11 +43,16 @@ impl PluginCommand for ExprMathBitwiseAnd {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Perform an aggregation of bitwise ANDs",
-            example: "[[n]; [-1] [-0] [-1]] | polars into-df | polars select (polars col n | polars math bitwise-and | polars as n) | polars collect",
+            example: "[[n]; [-1] [-0] [-1]] | 
+    polars into-df | 
+    polars select (polars col n | polars math bitwise-and | polars as n) | 
+    polars collect",
             result: Some(
                 NuDataFrame::from(
-                    df!("n" => [0i64])
-                        .expect("simple df for test should not fail"),
+                    df!(
+                        "n" => [0i64]
+                    )
+                    .expect("simple df for test should not fail"),
                 )
                 .into_value(Span::test_data()),
             ),
@@ -82,8 +90,7 @@ fn command_expr(
     call: &EvaluatedCall,
     expr: NuExpression,
 ) -> Result<PipelineData, ShellError> {
-    NuExpression::from(expr.into_polars().bitwise_and())
-        .to_pipeline_data(plugin, engine, call.head)
+    NuExpression::from(expr.into_polars().bitwise_and()).to_pipeline_data(plugin, engine, call.head)
 }
 
 #[cfg(test)]

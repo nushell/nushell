@@ -1,7 +1,11 @@
-use crate::values::{CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature};
+use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
+use polars::df;
 
 #[derive(Clone)]
 pub struct ExprMathSqrt;
@@ -36,7 +40,13 @@ impl PluginCommand for ExprMathSqrt {
         vec![Example {
             description: "Compute the element-wise square root of a column",
             example: "[[a]; [0] [1] [4] [9] [16]] | polars into-df | polars select (polars col a | polars math sqrt) | polars collect",
-            result: None,
+            result: Some(
+                NuDataFrame::from(
+                    df!("a" => [0.0f64, 1.0f64, 2.0f64, 3.0f64, 4.0f64])
+                        .expect("simple df for test should not fail"),
+                )
+                .into_value(Span::test_data()),
+            ),
         }]
     }
 
@@ -78,7 +88,6 @@ fn command_expr(
 mod test {
     use super::*;
     use crate::test::test_polars_plugin_command;
-    use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {

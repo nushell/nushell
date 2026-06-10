@@ -1,5 +1,8 @@
-use crate::values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::df;
@@ -36,7 +39,10 @@ impl PluginCommand for ExprMathAbs {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the absolute value of an integer column",
-            example: "[[a]; [0] [-1] [2] [-3] [4]] | polars into-df | polars select (polars col a | polars math abs) | polars collect",
+            example: "[[a]; [0] [-1] [2] [-3] [4]] | 
+    polars into-df | 
+    polars select (polars col a | polars math abs) | 
+    polars collect",
             result: Some(
                 NuDataFrame::from(
                     df!("a" => [0i64, 1i64, 2i64, 3i64, 4i64])

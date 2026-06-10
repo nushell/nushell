@@ -1,5 +1,8 @@
-use crate::values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span};
 use polars::df;

@@ -1,9 +1,12 @@
-use crate::values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{
-    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape,
-    Value, shell_error::generic::GenericError,
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+    shell_error::generic::GenericError,
 };
 use polars::df;
 use polars::prelude::Expr;
@@ -45,11 +48,13 @@ impl PluginCommand for ExprMathDot {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the dot product of two integer columns",
-            example: "[[a b]; [0 0] [1 1] [2 2] [3 3] [4 4] [5 5]] | polars into-df | polars select (polars col a | polars math dot (polars col b) | polars as ab) | polars collect",
+            example: "[[a b]; [0 0] [1 1] [2 2] [3 3] [4 4] [5 5]] | 
+    polars into-df | 
+    polars select (polars col a | polars math dot (polars col b) | polars as ab) | 
+    polars collect",
             result: Some(
                 NuDataFrame::from(
-                    df!("ab" => [55.0f64])
-                        .expect("simple df for test should not fail"),
+                    df!("ab" => [55.0f64]).expect("simple df for test should not fail"),
                 )
                 .into_value(Span::test_data()),
             ),

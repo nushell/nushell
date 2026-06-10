@@ -1,5 +1,7 @@
-use crate::values::{CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
 use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature};
 
@@ -35,7 +37,10 @@ impl PluginCommand for ExprMathLog1p {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the element-wise natural log of 1 + x for a column",
-            example: "[[a]; [0] [1] [2]] | polars into-df | polars select (polars col a | polars math log1p) | polars collect",
+            example: "[[a]; [0] [1] [2]] | 
+    polars into-df | 
+    polars select (polars col a | polars math log1p) | 
+    polars collect",
             result: None,
         }]
     }
@@ -78,7 +83,6 @@ fn command_expr(
 mod test {
     use super::*;
     use crate::test::test_polars_plugin_command;
-    use nu_protocol::ShellError;
 
     #[test]
     fn test_examples() -> Result<(), ShellError> {

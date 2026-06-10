@@ -1,7 +1,12 @@
-use crate::values::{CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType, cant_convert_err};
 use crate::PolarsPlugin;
+use crate::values::{
+    CustomValueSupport, NuDataFrame, NuExpression, PolarsPluginObject, PolarsPluginType,
+    cant_convert_err,
+};
 use nu_plugin::{EngineInterface, EvaluatedCall, PluginCommand};
-use nu_protocol::{Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value};
+use nu_protocol::{
+    Category, Example, LabeledError, PipelineData, ShellError, Signature, Span, SyntaxShape, Value,
+};
 use polars::df;
 use polars::prelude::Literal;
 
@@ -42,7 +47,10 @@ impl PluginCommand for ExprMathLog {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Compute the base-2 logarithm of a column",
-            example: "[[a]; [0] [1] [2] [4] [8] [16]] | polars into-df | polars select (polars col a | polars math log 2 | polars as a_base2) | polars collect",
+            example: "[[a]; [0] [1] [2] [4] [8] [16]] | 
+    polars into-df | 
+    polars select (polars col a | polars math log 2 | polars as a_base2) | 
+    polars collect",
             result: Some(
                 NuDataFrame::from(
                     df!("a_base2" => [f64::NEG_INFINITY, 0.0, 1.0, 2.0, 3.0, 4.0])

@@ -43,10 +43,18 @@ impl PluginCommand for ExprMathBitwiseXor {
     fn examples(&self) -> Vec<Example<'_>> {
         vec![Example {
             description: "Perform an aggregation of bitwise XORs",
-            example: "[[n]; [7] [5]] | polars into-df | polars select (polars col n | polars math bitwise-xor | polars as n) | polars collect",
+            example: "[[n]; [7] [5]] | 
+    polars into-df | 
+    polars select (polars col n | polars math bitwise-xor | polars as n) | 
+    polars collect",
             result: Some(
-                NuDataFrame::from(df!("n" => [2i64]).expect("simple df for test should not fail"))
-                    .into_value(Span::test_data()),
+                NuDataFrame::from(
+                    df!(
+                        "n" => [2i64]
+                    )
+                    .expect("simple df for test should not fail"),
+                )
+                .into_value(Span::test_data()),
             ),
         }]
     }
