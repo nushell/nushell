@@ -946,9 +946,17 @@ mod tests {
         assert!(Path::new(&paths[0]).is_absolute());
 
         #[cfg(windows)]
-        let expected = root.join("dir").join("nu_test1").to_string_lossy().replace('/', "\\");
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .replace('/', "\\");
         #[cfg(not(windows))]
-        let expected = root.join("dir").join("nu_test1").to_string_lossy().into_owned();
+        let expected = root
+            .join("dir")
+            .join("nu_test1")
+            .to_string_lossy()
+            .into_owned();
 
         assert_eq!(paths[0], expected);
 
