@@ -4928,6 +4928,7 @@ name = "nu-protocol"
 version = "0.113.2"
 dependencies = [
  "brotli",
+ "bstr",
  "bytes",
  "chrono",
  "chrono-humanize",
@@ -4936,7 +4937,9 @@ dependencies = [
  "dirs-sys 0.5.0",
  "fancy-regex",
  "heck",
+ "humantime",
  "indexmap 2.14.0",
+ "indoc",
  "log",
  "lru 0.18.0",
  "memchr",
