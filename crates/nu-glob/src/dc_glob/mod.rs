@@ -944,7 +944,13 @@ mod tests {
 
         assert_eq!(paths.len(), 1);
         assert!(Path::new(&paths[0]).is_absolute());
-        assert_eq!(paths[0], format!("{}/dir/nu_test1", root.display()));
+
+        #[cfg(windows)]
+        let expected = root.join("dir").join("nu_test1").to_string_lossy().replace('/', "\\");
+        #[cfg(not(windows))]
+        let expected = root.join("dir").join("nu_test1").to_string_lossy().into_owned();
+
+        assert_eq!(paths[0], expected);
 
         let _ = fs::remove_dir_all(&root);
     }
