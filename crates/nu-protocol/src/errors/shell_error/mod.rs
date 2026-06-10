@@ -1170,7 +1170,7 @@ pub enum ShellError {
             "This shouldn't happen. Please file an issue: https://github.com/nushell/nushell/issues"
         )
     )]
-    Exit { code: i32 },
+    Exit { code: i32, abort: bool },
 
     /// The code being executed called itself too many times.
     ///

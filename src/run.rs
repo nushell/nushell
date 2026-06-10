@@ -7,7 +7,7 @@ use log::trace;
 use nu_cli::read_plugin_file;
 use nu_cli::{EvaluateCommandsOpts, evaluate_commands, evaluate_file, evaluate_repl};
 use nu_protocol::{
-    PipelineData, Spanned,
+    PipelineData, ShellError, Spanned,
     engine::{EngineState, Stack},
     report_shell_error,
 };
@@ -103,6 +103,9 @@ pub(crate) fn run_commands(
     perf!("evaluate_commands", start_time, use_color);
 
     if let Err(err) = result {
+        if let ShellError::Exit { code, .. } = &err {
+            std::process::exit(*code)
+        }
         report_shell_error(Some(&stack), engine_state, &err);
         std::process::exit(err.exit_code().unwrap_or(0));
     }
@@ -175,6 +178,9 @@ pub(crate) fn run_file(
     perf!("evaluate_file", start_time, use_color);
 
     if let Err(err) = result {
+        if let ShellError::Exit { code, .. } = &err {
+            std::process::exit(*code)
+        }
         report_shell_error(Some(&stack), engine_state, &err);
         std::process::exit(err.exit_code().unwrap_or(0));
     }

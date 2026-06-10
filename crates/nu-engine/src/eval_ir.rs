@@ -280,7 +280,7 @@ fn eval_ir_block_impl<D: DebugContext>(
             Err(err @ (ShellError::Continue { .. } | ShellError::Break { .. })) => {
                 return Err(err);
             }
-            Err(err @ (ShellError::Return { .. } | ShellError::Exit { .. })) => {
+            Err(err @ (ShellError::Return { .. } | ShellError::Exit { abort: false, .. })) => {
                 if let Some(always_run_handler) =
                     ctx.stack.finally_run_handlers.pop(ctx.finally_handler_base)
                 {
@@ -293,6 +293,9 @@ fn eval_ir_block_impl<D: DebugContext>(
                     // These block control related errors should be passed through
                     return Err(err);
                 }
+            }
+            Err(err @ ShellError::Exit { abort: true, .. }) => {
+                return Err(err);
             }
             Err(err) => {
                 #[cfg(unix)]
