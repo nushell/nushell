@@ -1573,7 +1573,7 @@ fn check_input_types(
     // Check if the input type is compatible with *any* of the command's possible input types
     if io_types
         .iter()
-        .any(|(command_type, _)| input.is_subtype_of(command_type))
+        .any(|(command_type, _)| input.is_assignable_to(command_type))
     {
         return Ok(());
     }

@@ -1,5 +1,5 @@
 use nu_protocol::{
-    CollectionColumns, CompareTypes, ParseError, Span, Type,
+    CompareTypes, ParseError, Span, Type,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -41,49 +41,8 @@ fn type_error(
     (Type::Any, Some(err))
 }
 
-pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-    fn is_columns_compatible(lhs: &CollectionColumns<Type>, rhs: &CollectionColumns<Type>) -> bool {
-        lhs.is_any() || rhs.is_any() || rhs.is_subtype_of(lhs)
-    }
-
-    match (lhs, rhs) {
-        (Type::Table(lhs_cols), Type::List(rhs_ty))
-            if let Type::Record(rhs_cols) = rhs_ty.as_ref() =>
-        {
-            is_columns_compatible(lhs_cols, rhs_cols)
-        }
-        (Type::List(lhs_ty), Type::Table(rhs_cols))
-            if let Type::Record(lhs_cols) = lhs_ty.as_ref() =>
-        {
-            is_columns_compatible(lhs_cols, rhs_cols)
-        }
-        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
-            is_columns_compatible(lhs, rhs)
-        }
-        // glob string compatibility is one way
-        (Type::Glob, Type::String) => true,
-        (Type::String, Type::Glob) => false,
-        (Type::OneOf(lhs_tys), Type::OneOf(rhs_tys)) => {
-            match (lhs_tys.is_empty(), rhs_tys.is_empty()) {
-                (_, true) => true,
-                (true, _) => false,
-                _ => rhs_tys
-                    .iter()
-                    .any(|rhs_ty| lhs_tys.iter().any(|lhs_ty| type_compatible(lhs_ty, rhs_ty))),
-            }
-        }
-        (Type::OneOf(lhs_tys), rhs_ty) => {
-            lhs_tys.iter().any(|lhs_ty| type_compatible(lhs_ty, rhs_ty))
-        }
-        (lhs_ty, Type::OneOf(rhs_tys)) => {
-            if rhs_tys.is_empty() {
-                true
-            } else {
-                rhs_tys.iter().any(|rhs_ty| type_compatible(lhs_ty, rhs_ty))
-            }
-        }
-        (lhs, rhs) => rhs.compare_types(lhs).is_some(),
-    }
+pub fn type_compatible(dst: &Type, src: &Type) -> bool {
+    src.is_assignable_to(dst)
 }
 
 // TODO: rework type checking for Custom values

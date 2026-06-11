@@ -182,6 +182,11 @@ where
     fn is_any(&self) -> bool {
         self.fields.is_empty()
     }
+
+    fn is_assignable_to(&self, dst: &Self) -> bool {
+        let src = self;
+        src.is_any() || dst.is_any() || src.is_subtype_of(dst)
+    }
 }
 
 impl<T> TypeSet for CollectionColumns<T>

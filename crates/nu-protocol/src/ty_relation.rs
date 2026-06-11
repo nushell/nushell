@@ -66,6 +66,14 @@ pub trait CompareTypes<Rhs = Self> {
         )
     }
 
+    /// Returns `true` if `self` is equal to or is a *strict* supertype of `other`
+    fn is_supertype_of(&self, other: &Rhs) -> bool {
+        matches!(
+            self.compare_types(other),
+            Some(TypeRelation::Supertype | TypeRelation::Equal)
+        )
+    }
+
     /// Allows having an "escape hatch".
     ///
     /// Due to not having separate top and bottom types, and treating `any` as both, we need to be
@@ -78,6 +86,13 @@ pub trait CompareTypes<Rhs = Self> {
     /// - `int <: list`???
     fn is_any(&self) -> bool {
         false
+    }
+
+    /// Equivalent to [`CompareTypes::is_subtype_of`] by default.
+    ///
+    /// Exists as a separate method to allow relaxing requirements when needed.
+    fn is_assignable_to(&self, dst: &Rhs) -> bool {
+        self.is_subtype_of(dst)
     }
 }
 

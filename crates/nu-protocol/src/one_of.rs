@@ -123,6 +123,18 @@ impl CompareTypes for OneOf {
             true => TypeRelation::Supertype,
         })
     }
+
+    fn is_assignable_to(&self, dst: &Self) -> bool {
+        let dst_tys = dst;
+        let src_tys = self;
+        match (dst_tys.is_empty(), src_tys.is_empty()) {
+            (_, true) => true,
+            (true, _) => false,
+            _ => src_tys
+                .iter()
+                .any(|src_ty| dst_tys.iter().any(|dst_ty| src_ty.is_assignable_to(dst_ty))),
+        }
+    }
 }
 
 impl CompareTypes<Type> for OneOf {
@@ -144,11 +156,26 @@ impl CompareTypes<Type> for OneOf {
                 .then_some(TypeRelation::Supertype),
         }
     }
+
+    fn is_assignable_to(&self, dst: &Type) -> bool {
+        let src = self;
+
+        if src.is_empty() {
+            true
+        } else {
+            src.iter().any(|src_ty| src_ty.is_assignable_to(dst))
+        }
+    }
 }
 
 impl CompareTypes<OneOf> for Type {
     fn compare_types(&self, other: &OneOf) -> Option<TypeRelation> {
         other.compare_types(self).map(TypeRelation::reverse)
+    }
+
+    fn is_assignable_to(&self, dst: &OneOf) -> bool {
+        let src = self;
+        dst.iter().any(|dst_ty| src.is_assignable_to(dst_ty))
     }
 }
 

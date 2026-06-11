@@ -345,6 +345,32 @@ impl CompareTypes for Type {
     fn is_any(&self) -> bool {
         matches!(self, Type::Any)
     }
+
+    fn is_assignable_to(&self, dst: &Self) -> bool {
+        let src = self;
+        match (dst, src) {
+            (Type::Table(dst_cols), Type::List(src_ty))
+                if let Type::Record(src_cols) = src_ty.as_ref() =>
+            {
+                src_cols.is_assignable_to(dst_cols)
+            }
+            (Type::List(dst_ty), Type::Table(src_cols))
+                if let Type::Record(dst_cols) = dst_ty.as_ref() =>
+            {
+                src_cols.is_assignable_to(dst_cols)
+            }
+            (Type::Record(dst_cols), Type::Record(src_cols))
+            | (Type::Table(dst_cols), Type::Table(src_cols)) => src_cols.is_assignable_to(dst_cols),
+            // strings can be coerced globs
+            (Type::Glob, Type::String) => true,
+            // but not the other way around
+            (Type::String, Type::Glob) => false,
+            (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
+            (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
+            (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),
+            (lhs, rhs) => rhs.compare_types(lhs).is_some(),
+        }
+    }
 }
 
 impl TypeSet for Type {
