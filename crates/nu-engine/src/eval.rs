@@ -96,27 +96,58 @@ impl CallEval {
             self.arg_index += 1;
             Ok(self)
         } else {
-            // assign arg to rest params
-            let Some(rest_positional) = &signature.rest_positional else {
-                // We do not consider it an error if more arguments
-                // are added than the closure takes. This makes it possible
-                // to omit any unused arguments in the closure definition.
-                return Ok(self);
-            };
-
-            let param_type = rest_positional.shape.to_type();
-            if !value.is_subtype_of(&param_type) {
-                return Err(ShellError::CantConvert {
-                    to_type: param_type.to_string(),
-                    from_type: value.get_type().to_string(),
-                    span: value.span(),
-                    help: None,
-                });
-            }
-
-            self.rest_args.push(value.into_owned());
-            Ok(self)
+            self.add_rest(signature, value)
         }
+    }
+
+    /// Add a rest argument to the call stack.
+    fn add_rest(
+        &mut self,
+        signature: &Signature,
+        value: Cow<Value>,
+    ) -> Result<&mut Self, ShellError> {
+        let Some(rest_positional) = &signature.rest_positional else {
+            // We do not consider it an error if more arguments
+            // are added than the closure takes. This makes it possible
+            // to omit any unused arguments in the closure definition.
+            return Ok(self);
+        };
+
+        let param_type = rest_positional.shape.to_type();
+        if !value.is_subtype_of(&param_type) {
+            return Err(ShellError::CantConvert {
+                to_type: param_type.to_string(),
+                from_type: value.get_type().to_string(),
+                span: value.span(),
+                help: None,
+            });
+        }
+
+        self.rest_args.push(value.into_owned());
+        Ok(self)
+    }
+
+    /// Add a spread argument to the call stack.
+    ///
+    /// Spread elements are distributed to unfilled required positional parameters before being
+    /// assigned to rest.
+    fn add_spread(&mut self, signature: &Signature, value: Value) -> Result<&mut Self, ShellError> {
+        match value {
+            Value::List { vals, .. } => {
+                for value in vals {
+                    if self.arg_index < signature.required_positional.len() {
+                        self.add_positional(signature, Cow::Owned(value))?;
+                    } else {
+                        self.add_rest(signature, Cow::Owned(value))?;
+                    }
+                }
+            }
+            Value::Nothing { .. } => (),
+            Value::Error { error, .. } => return Err(*error),
+            value => return Err(ShellError::CannotSpreadAsList { span: value.span() }),
+        }
+
+        Ok(self)
     }
 
     /// Add a named parameter to the call stack.
@@ -327,9 +358,26 @@ pub fn eval_call<D: DebugContext>(
             block.span.unwrap_or(Span::unknown()),
             eval_block_with_early_return::<D>,
         );
-        for arg in call.positional_iter() {
-            let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
-            call_eval.add_positional(&decl.signature(), Cow::Owned(result))?;
+        let signature = decl.signature();
+        let mut seen_spread = false;
+        for arg in &call.arguments {
+            match arg {
+                nu_protocol::ast::Argument::Positional(arg)
+                | nu_protocol::ast::Argument::Unknown(arg) => {
+                    let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
+                    if seen_spread {
+                        call_eval.add_rest(&signature, Cow::Owned(result))?;
+                    } else {
+                        call_eval.add_positional(&signature, Cow::Owned(result))?;
+                    }
+                }
+                nu_protocol::ast::Argument::Spread(arg) => {
+                    let result = eval_expression::<D>(engine_state, caller_stack, arg)?;
+                    call_eval.add_spread(&signature, result)?;
+                    seen_spread = true;
+                }
+                nu_protocol::ast::Argument::Named(_) => (),
+            }
         }
         for call_named in call.named_iter() {
             let result: Option<Cow<Value>> = if let Some(arg) = &call_named.2 {
@@ -342,7 +390,7 @@ pub fn eval_call<D: DebugContext>(
                 None
             };
             call_eval.add_named(
-                &decl.signature(),
+                &signature,
                 &call_named.0.item,
                 call_named.1.clone().map(|x| x.item),
                 result,

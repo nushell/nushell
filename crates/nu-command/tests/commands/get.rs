@@ -119,6 +119,20 @@ fn fetches_more_than_one_column_path() {
 }
 
 #[test]
+fn fetches_columns_with_literal_list_spread() {
+    let actual = nu!("[{a: 1, b: 2, c: 3}] | get ...[a c] | to nuon");
+
+    assert_eq!(actual.out, "[[1], [3]]");
+}
+
+#[test]
+fn fetches_columns_with_variable_list_spread() {
+    let actual = nu!("let cols = [a c]; [{a: 1, b: 2, c: 3}] | get ...$cols | to nuon");
+
+    assert_eq!(actual.out, "[[1], [3]]");
+}
+
+#[test]
 fn errors_fetching_by_column_not_present() {
     Playground::setup("get_test_6", |dirs, sandbox| {
         sandbox.with_files(&[FileWithContent(
