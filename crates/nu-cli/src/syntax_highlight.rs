@@ -75,10 +75,7 @@ impl Highlighter for NuHighlighter {
                             | FlatShape::StringInterpolation
                             | FlatShape::ExternalArg
                     ),
-                    AbbrExpandContext::BangExpansion => matches!(
-                        shape,
-                        FlatShape::String | FlatShape::RawString | FlatShape::StringInterpolation
-                    ),
+                    AbbrExpandContext::BangExpansion => false,
                 }
         })
     }
