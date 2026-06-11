@@ -40,6 +40,10 @@ impl PluginCommand for FirstDF {
                     PolarsPluginType::NuExpression.into(),
                 ),
                 (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
+                (
                     PolarsPluginType::NuDataFrame.into(),
                     PolarsPluginType::NuDataFrame.into(),
                 ),

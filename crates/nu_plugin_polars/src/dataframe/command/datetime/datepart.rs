@@ -39,10 +39,16 @@ impl PluginCommand for ExprDatePart {
                 SyntaxShape::String,
                 "Part of the date to capture.  Possible values are year, quarter, month, week, weekday, day, hour, minute, second, millisecond, microsecond, nanosecond.",
             )
-            .input_output_type(
-                PolarsPluginType::NuExpression.into(),
-                PolarsPluginType::NuExpression.into(),
-            )
+            .input_output_types(vec![
+                (
+                    PolarsPluginType::NuExpression.into(),
+                    PolarsPluginType::NuExpression.into()
+                ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into()
+                ),
+            ])
             .category(Category::Custom("expression".into()))
     }
 

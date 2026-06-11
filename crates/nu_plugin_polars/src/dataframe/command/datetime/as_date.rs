@@ -54,6 +54,10 @@ impl PluginCommand for AsDate {
                     PolarsPluginType::NuExpression.into(),
                     PolarsPluginType::NuExpression.into(),
                 ),
+                (
+                    PolarsPluginType::NuSelector.into(),
+                    PolarsPluginType::NuExpression.into(),
+                ),
             ])
             .category(Category::Custom("dataframe".into()))
     }
@@ -228,6 +232,7 @@ fn command(
                 PolarsPluginType::NuDataFrame,
                 PolarsPluginType::NuLazyFrame,
                 PolarsPluginType::NuExpression,
+                PolarsPluginType::NuSelector,
             ],
         )),
     }
