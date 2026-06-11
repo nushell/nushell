@@ -244,7 +244,7 @@ rusqlite = "0.40.1"
 # Patch updates are allowed though.
 rustls = { version = "~0.23.38", default-features = false, features = ["std", "tls12"] }
 rustls-native-certs = "0.8"
-serde-saphyr = { version = "0.0.27", default-features = false }
+serde-saphyr = "0.0.27"
 scopeguard = { version = "1.2.0" }
 semver = "1.0"
 serde = { version = "1.0" }

@@ -24,12 +24,13 @@ merge = []
 
 [dependencies]
 nu-protocol.workspace = true
+nu-utils.workspace = true
 
 chrono.workspace = true
 derive_setters.workspace = true
 regex.workspace = true
 serde = { workspace = true, features = ["derive"] }
-serde-saphyr = { workspace = true, features = ["serialize"] }
+serde-saphyr.workspace = true
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }
