@@ -108,10 +108,12 @@ pub fn glob_from(
 
     if nu_experimental::DC_GLOB.get() {
         let pattern_path = PathBuf::from(&pattern);
-        // If the resolved pattern is an existing non-directory (regular file or symlink to a file),
-        // return it directly. Passing a plain file path to glob_from_interruptible would make the
-        // traversal engine call read_dir() on it, which fails with "Not a directory (os error 20)".
-        if pattern_path.exists() && !pattern_path.is_dir() {
+        // If the resolved pattern is an existing path, return it directly.
+        // Passing a plain path to glob_from_interruptible makes the traversal engine
+        // call read_dir() on it, which either fails with "Not a directory" (for files)
+        // or iterates the directory's contents instead of matching the directory itself
+        // (for directories), both of which produce incorrect empty results.
+        if pattern_path.exists() {
             return Ok((prefix, Box::new(std::iter::once(Ok(pattern_path)))));
         }
 
@@ -173,7 +175,7 @@ mod tests {
     use super::glob_from;
     use nu_protocol::{NuGlob, Signals, Span, Spanned};
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -262,6 +264,62 @@ mod tests {
             remaining < 6000,
             "expected interrupt to stop iteration before full drain; remaining={remaining}"
         );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_matches_literal_file() {
+        let root = unique_test_dir("literal_file");
+        fs::create_dir_all(&root).expect("failed to create root");
+        let file = root.join("test.txt");
+        write_file(&file);
+
+        let ctrlc = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(ctrlc);
+        let pattern = Spanned {
+            item: NuGlob::Expand(file.to_string_lossy().to_string()),
+            span: Span::test_data(),
+        };
+
+        let result = glob_from(&pattern, Path::new("/"), Span::test_data(), None, signals);
+        assert!(result.is_ok(), "glob_from failed");
+
+        let (_, mut iter) = result.unwrap();
+        let first = iter.next();
+        assert!(
+            matches!(first, Some(Ok(ref p)) if *p == file),
+            "expected file path itself, got: {first:?}"
+        );
+        assert!(iter.next().is_none(), "expected exactly one result");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    #[exp(nu_experimental::DC_GLOB)]
+    fn glob_from_dc_glob_matches_literal_directory() {
+        let root = unique_test_dir("literal_dir");
+        fs::create_dir_all(&root).expect("failed to create root");
+
+        let ctrlc = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(ctrlc);
+        let pattern = Spanned {
+            item: NuGlob::Expand(root.to_string_lossy().to_string()),
+            span: Span::test_data(),
+        };
+
+        let result = glob_from(&pattern, Path::new("/"), Span::test_data(), None, signals);
+        assert!(result.is_ok(), "glob_from failed");
+
+        let (_, mut iter) = result.unwrap();
+        let first = iter.next();
+        assert!(
+            matches!(first, Some(Ok(ref p)) if *p == root),
+            "expected directory path itself, got: {first:?}"
+        );
+        assert!(iter.next().is_none(), "expected exactly one result");
 
         let _ = fs::remove_dir_all(&root);
     }

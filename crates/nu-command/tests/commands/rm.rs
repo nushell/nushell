@@ -660,3 +660,20 @@ fn rm_already_in_use() {
         assert!(!outcome.status.success())
     })
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn removes_literal_directory_with_recursive_flag() {
+    Playground::setup("rm_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+
+        nu!(
+            cwd: dirs.root(),
+            "rm rm_literal_dir_dc/subdir --recursive"
+        );
+
+        assert!(!dirs.test().join("subdir").exists());
+    })
+}

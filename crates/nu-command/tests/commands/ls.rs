@@ -903,3 +903,37 @@ fn ls_dc_glob_wildcard_then_literal_metadata_populated() -> Result {
 
     Ok(())
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_literal_directory() -> Result {
+    Playground::setup("ls_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+
+        test()
+            .cwd(dirs.root())
+            .run("ls ls_literal_dir_dc/subdir | length")
+            .expect_value_eq(1)
+            .expect("ls literal directory should list its contents with dc-glob");
+    });
+
+    Ok(())
+}
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn ls_literal_empty_directory() -> Result {
+    Playground::setup("ls_literal_empty_dir_dc", |dirs, sandbox| {
+        sandbox.mkdir("emptydir");
+
+        test()
+            .cwd(dirs.root())
+            .run("ls ls_literal_empty_dir_dc/emptydir | length")
+            .expect_value_eq(0)
+            .expect("ls literal empty directory should not error with dc-glob");
+    });
+
+    Ok(())
+}
