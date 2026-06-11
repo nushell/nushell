@@ -28,11 +28,8 @@ nu-protocol.workspace = true
 derive_setters.workspace = true
 granit-parser.workspace = true
 regex.workspace = true
-serde-saphyr.workspace = true
-
-# TODO: remove after testing yaml impl
-nu-json = { workspace = true, features = ["default", "nu-protocol"] }
-serde_json.workspace = true
+serde-saphyr = { workspace = true, features = ["serialize"] }
+serde = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }

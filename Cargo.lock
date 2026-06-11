@@ -102,17 +102,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "annotate-snippets"
-version = "0.12.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f211a51805bc641f3ad5b7664c77d2547af685cc33b4cd8d31964027a46f13f1"
-dependencies = [
- "anstyle",
- "memchr",
- "unicode-width 0.2.2",
-]
-
-[[package]]
 name = "ansi-str"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2060,15 +2049,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "75030f3c4f45dafd7586dd6780965a8c7e8e285a5ecb86713e63a79c5b2766f3"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "encoding_rs_io"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cc3c5651fb62ab8aa3103998dade57efdd028544bd300516baa31840c252a83"
-dependencies = [
- "encoding_rs",
 ]
 
 [[package]]
@@ -4836,12 +4816,11 @@ version = "0.113.2"
 dependencies = [
  "derive_setters",
  "granit-parser",
- "nu-json",
  "nu-protocol",
  "nu-test-support",
  "regex",
+ "serde",
  "serde-saphyr",
- "serde_json",
 ]
 
 [[package]]
@@ -8005,16 +7984,11 @@ version = "0.0.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5897b4c3faadadd35fdb6689f015641f3bc481d5adaaac56231ea15aeb243db3"
 dependencies = [
- "ahash",
- "annotate-snippets",
  "base64",
- "encoding_rs_io",
  "getrandom 0.3.4",
- "granit-parser",
  "nohash-hasher",
  "num-traits",
  "serde",
- "smallvec",
  "zmij",
 ]
 
