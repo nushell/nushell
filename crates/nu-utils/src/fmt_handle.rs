@@ -2,11 +2,11 @@ use std::{cell::RefCell, fmt, rc::Rc};
 
 /// A cloneable handle to a single-threaded [`fmt`] writer.
 ///  
-/// Clones of this handle write to the same underlying writer. 
-/// This type uses interior mutability and is not thread-safe, i.e. it is not [Send] nor [Sync]. 
-/// 
+/// Clones of this handle write to the same underlying writer.
+/// This type uses interior mutability and is not thread-safe, i.e. it is not [Send] nor [Sync].
+///
 /// # Example
-/// 
+///
 /// ```rust
 /// use std::fmt::Write;
 /// use nu_utils::FmtHandle;

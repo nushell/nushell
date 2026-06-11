@@ -1,17 +1,14 @@
-use std::{
-    cell::RefCell,
-    fmt::{self, Write},
-};
+use std::{cell::RefCell, fmt::Write};
 
 use crate::yaml::Spec;
 use chrono::{DateTime, FixedOffset};
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Range, ShellError, Span, Value, ast::CellPath, engine::Closure,
+    Range, ShellError, Span, Value, ast::CellPath, engine::Closure,
     shell_error::generic::GenericError,
 };
 use nu_utils::FmtHandle;
-use serde::{Serialize, Serializer as _, ser::SerializeMap};
+use serde::{Serialize, ser::SerializeMap};
 use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer};
 
 #[non_exhaustive]
@@ -25,6 +22,9 @@ pub fn serialize(
     span: Span,
     options: &SerializeOptions,
 ) -> Result<String, ShellError> {
+    // TODO: use them in the future
+    let _ = options;
+
     let value = YamlValue::try_from_value(value, span)?;
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
@@ -37,6 +37,10 @@ thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
 }
 
+#[expect(
+    unused,
+    reason = "in the future we may store styles of values, then these would allow restoring them"
+)]
 enum YamlValue<'v> {
     // untagged types
     Bool(bool),
@@ -104,7 +108,7 @@ impl Serialize for YamlValue<'_> {
             YamlValue::Duration(duration) => serialize_with_tag(serializer, tag, duration),
             YamlValue::Date(date_time) => serialize_with_tag(serializer, tag, date_time),
             YamlValue::Range(range) => serialize_with_tag(serializer, tag, range),
-            YamlValue::Closure(closure) => todo!(),
+            YamlValue::Closure(_closure) => todo!(),
             YamlValue::Error(shell_error) => serialize_with_tag(serializer, tag, shell_error),
             YamlValue::Binary(items) => serializer.serialize_bytes(items),
             YamlValue::CellPath(cell_path) => serialize_with_tag(serializer, tag, cell_path),
@@ -181,7 +185,7 @@ impl<'v> YamlValue<'v> {
             Value::Error { error, .. } => YamlValue::Error(&*error),
             Value::Binary { val, .. } => YamlValue::Binary(val.as_slice()),
             Value::CellPath { val, .. } => YamlValue::CellPath(val),
-            Value::Custom { val, .. } => {
+            Value::Custom { .. } => {
                 // TODO: when structure style values land, add them in here
                 return Err(ShellError::Generic(
                     GenericError::new(

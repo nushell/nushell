@@ -6,10 +6,16 @@
 
 use crate::yaml::Spec;
 use derive_setters::Setters;
-use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 use regex::Regex;
-use std::{borrow::Cow, collections::{HashMap, HashSet}, num::NonZeroUsize, str::FromStr, sync::LazyLock};
+use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    num::NonZeroUsize,
+    str::FromStr,
+    sync::LazyLock,
+};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
@@ -58,7 +64,7 @@ pub fn parse(yaml: Spanned<&str>, span: Span, options: &ParseOptions) -> Result<
         (PM::Auto | PM::ForceSingle, 0) => todo!("handle no document"),
         (PM::Auto | PM::ForceSingle, 1) => documents.into_iter().next().expect("non-empty"),
         (PM::Auto | PM::ForceList, _) => Value::list(documents, ctx.parser_span),
-        (PM::ForceSingle, n) => todo!("handle force single when more than 1 document"),
+        (PM::ForceSingle, _) => todo!("handle force single when more than 1 document"),
     };
 
     Ok(value)
