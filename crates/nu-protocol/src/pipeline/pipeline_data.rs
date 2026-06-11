@@ -1,8 +1,8 @@
 #[cfg(feature = "os")]
 use crate::process::ExitStatusGuard;
 use crate::{
-    ByteStream, ByteStreamSource, ByteStreamType, Config, ListStream, OutDest, PipelineMetadata,
-    Range, ShellError, Signals, Span, Type, Value,
+    ByteStream, ByteStreamSource, ByteStreamType, CompareTypes, Config, ListStream, OutDest,
+    PipelineMetadata, Range, ShellError, Signals, Span, Type, TypeRelation, Value,
     ast::{Call, PathMember},
     engine::{EngineState, Stack},
     shell_error::{generic::GenericError, io::IoError},
@@ -189,31 +189,8 @@ impl PipelineData {
     ///
     /// A `ByteStream` is a subtype of [`string`](Type::String) if it is coercible into a string.
     /// Likewise, a `ByteStream` is a subtype of [`binary`](Type::Binary) if it is coercible into a binary value.
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        match (self, other) {
-            (_, Type::Any) => true,
-            (data, Type::OneOf(oneof)) => oneof.iter().any(|t| data.is_subtype_of(t)),
-            (PipelineData::Empty, Type::Nothing) => true,
-            (PipelineData::Value(val, ..), ty) => val.is_subtype_of(ty),
-
-            // a list stream could be a list with any type, including a table
-            (PipelineData::ListStream(..), Type::List(..) | Type::Table(..)) => true,
-
-            (PipelineData::ByteStream(stream, ..), Type::String)
-                if stream.type_().is_string_coercible() =>
-            {
-                true
-            }
-            (PipelineData::ByteStream(stream, ..), Type::Binary)
-                if stream.type_().is_binary_coercible() =>
-            {
-                true
-            }
-
-            (PipelineData::Empty, _) => false,
-            (PipelineData::ListStream(..), _) => false,
-            (PipelineData::ByteStream(..), _) => false,
-        }
+    pub fn is_assignable_to(&self, dst: &Type) -> bool {
+        <Self as CompareTypes<Type>>::is_assignable_to(self, dst)
     }
 
     pub fn into_value(self, span: Span) -> Result<Value, ShellError> {
@@ -921,6 +898,16 @@ impl PipelineData {
                 }
             },
         }
+    }
+}
+
+impl CompareTypes<Type> for PipelineData {
+    fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
+        self.get_type().compare_types(other)
+    }
+
+    fn is_assignable_to(&self, dst: &Type) -> bool {
+        self.get_type().is_assignable_to(dst)
     }
 }
 
