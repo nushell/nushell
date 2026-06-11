@@ -8,7 +8,7 @@ use nu_protocol::{
     ast::{Block, Expr, Expression, PipelineRedirection, RecordItem},
     engine::{EngineState, Stack, StateWorkingSet},
 };
-use reedline::{Highlighter, StyledText};
+use reedline::{AbbrExpandContext, Highlighter, StyledText};
 use std::sync::{Arc, Mutex};
 
 /// A highlighter that does nothing
@@ -57,7 +57,7 @@ impl Highlighter for NuHighlighter {
         result.text
     }
 
-    fn is_inside_string_literal(&self, line: &str, cursor: usize) -> bool {
+    fn should_expand_abbr(&self, line: &str, cursor: usize, context: AbbrExpandContext) -> bool {
         let (global_span_offset, shapes) = match self
             .cache
             .lock()
@@ -78,15 +78,18 @@ impl Highlighter for NuHighlighter {
         };
 
         let global_cursor = cursor + global_span_offset;
-        shapes.iter().any(|(span, shape)| {
+        !shapes.iter().any(|(span, shape)| {
             span.contains(global_cursor)
-                && matches!(
-                    shape,
-                    FlatShape::String
-                        | FlatShape::RawString
-                        | FlatShape::StringInterpolation
-                        | FlatShape::ExternalArg
-                )
+                && match context {
+                    AbbrExpandContext::WordAbbreviation => matches!(
+                        shape,
+                        FlatShape::String
+                            | FlatShape::RawString
+                            | FlatShape::StringInterpolation
+                            | FlatShape::ExternalArg
+                    ),
+                    AbbrExpandContext::BangExpansion => false,
+                }
         })
     }
 }
@@ -599,7 +602,7 @@ fn get_char_length(c: char) -> usize {
 mod tests {
     use super::NuHighlighter;
     use nu_protocol::engine::{EngineState, Stack};
-    use reedline::Highlighter;
+    use reedline::{AbbrExpandContext, Highlighter};
     use rstest::rstest;
     use std::sync::Arc;
 
@@ -609,41 +612,74 @@ mod tests {
 
     #[rstest]
     // 4-byte emoji
-    #[case("\"hello 🎉\" hi", 7, true)] // first byte of 🎉
-    #[case("\"hello 🎉\" hi", 9, true)] // third byte of 🎉
-    #[case("\"hello 🎉\" hi", 13, false)] // after closing quote
+    #[case("\"hello 🎉\" hi", 7, false)] // first byte of 🎉
+    #[case("\"hello 🎉\" hi", 9, false)] // third byte of 🎉
+    #[case("\"hello 🎉\" hi", 13, true)] // after closing quote
     // 8-byte zwj emoji
-    #[case("\"hello 🤝🏿\" hi", 9, true)] // inside 🤝
-    #[case("\"hello 🤝🏿\" hi", 11, true)] // first byte of 🏿
-    #[case("\"hello 🤝🏿\" hi", 13, true)] // inside 🏿
-    #[case("\"hello 🤝🏿\" hi", 17, false)] // after closing quote
+    #[case("\"hello 🤝🏿\" hi", 9, false)] // inside 🤝
+    #[case("\"hello 🤝🏿\" hi", 11, false)] // first byte of 🏿
+    #[case("\"hello 🤝🏿\" hi", 13, false)] // inside 🏿
+    #[case("\"hello 🤝🏿\" hi", 17, true)] // after closing quote
     // 3-byte unicode
-    #[case("\"こんにちは\" hi", 2, true)] // inside こ
-    #[case("\"こんにちは\" hi", 5, true)] // inside ん
-    #[case("\"こんにちは\" hi", 13, true)] // start of は
-    #[case("\"こんにちは\" hi", 18, false)] // after closing quote
+    #[case("\"こんにちは\" hi", 2, false)] // inside こ
+    #[case("\"こんにちは\" hi", 5, false)] // inside ん
+    #[case("\"こんにちは\" hi", 13, false)] // start of は
+    #[case("\"こんにちは\" hi", 18, true)] // after closing quote
     // raw string
-    #[case("r#'hello'# hi", 4, true)] // inside 'e'
-    #[case("r#'hello'# hi", 11, false)] // after closing #
+    #[case("r#'hello'# hi", 4, false)] // inside 'e'
+    #[case("r#'hello'# hi", 11, true)] // after closing #
     // string interpolation
-    #[case("$\"hello\" hi", 0, true)] // $ — opening StringInterpolation span (0..2)
-    #[case("$\"hello\" hi", 4, true)] // inside literal 'hello'
-    #[case("$\"hello\" hi", 9, false)] // after closing quote
+    #[case("$\"hello\" hi", 0, false)] // $ — opening StringInterpolation span (0..2)
+    #[case("$\"hello\" hi", 4, false)] // inside literal 'hello'
+    #[case("$\"hello\" hi", 9, true)] // after closing quote
     // no string
-    #[case("1 + 2", 0, false)]
-    #[case("1 + 2", 2, false)]
-    // ExternalArg is treated as a string literal to suppress abbreviation expansion in external commands
-    #[case("ls -la", 0, false)] // on 'ls'  — FlatShape::External
-    #[case("ls -la", 3, true)] // on '-la' — FlatShape::ExternalArg
-    #[case("bash -c \"echo hello\"", 0, false)] // on 'bash'            — FlatShape::External
-    #[case("bash -c \"echo hello\"", 5, true)] // on '-c'              — FlatShape::ExternalArg
-    #[case("bash -c \"echo hello\"", 10, true)] // inside "echo hello"  — FlatShape::ExternalArg
-    fn test_is_inside_string_literal(
+    #[case("1 + 2", 0, true)]
+    #[case("1 + 2", 2, true)]
+    // suppress abbreviation expansion in external commands
+    #[case("ls -la", 0, true)] // on 'ls'  — FlatShape::External
+    #[case("ls -la", 3, false)] // on '-la' — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 0, true)] // on 'bash'            — FlatShape::External
+    #[case("bash -c \"echo hello\"", 5, false)] // on '-c'              — FlatShape::ExternalArg
+    #[case("bash -c \"echo hello\"", 10, false)] // inside "echo hello"  — FlatShape::ExternalArg
+    fn test_should_expand_word_abbr(
         #[case] line: &str,
         #[case] cursor: usize,
         #[case] expected: bool,
     ) {
         let h = make_highlighter();
-        assert_eq!(h.is_inside_string_literal(line, cursor), expected);
+        assert_eq!(
+            h.should_expand_abbr(line, cursor, AbbrExpandContext::WordAbbreviation),
+            expected
+        );
+    }
+
+    #[rstest]
+    // bare bang expressions allow expansion
+    #[case("!!", 0, true)]
+    #[case("!!", 1, true)]
+    #[case("!ls", 0, true)]
+    #[case("!ls", 2, true)]
+    #[case("!-1", 1, true)]
+    // bang inside string literals does not suppress expansion
+    #[case("\"!!\"", 1, true)]
+    #[case("\"!ls\"", 2, true)]
+    #[case("r#'!!'#", 3, true)]
+    #[case("$\"!!\"", 2, true)]
+    // bang as external arg does not suppress expansion
+    #[case("bash -c !!", 9, true)]
+    #[case("bash -c !ls", 9, true)]
+    // bang inside a string that is itself an external arg — shape is ExternalArg, not String.
+    // currently there is no way to avoid this
+    #[case("echo \"hi !!\"", 9, true)]
+    fn test_should_expand_abbr_bang(
+        #[case] line: &str,
+        #[case] cursor: usize,
+        #[case] expected: bool,
+    ) {
+        let h = make_highlighter();
+        assert_eq!(
+            h.should_expand_abbr(line, cursor, AbbrExpandContext::BangExpansion),
+            expected
+        );
     }
 }
