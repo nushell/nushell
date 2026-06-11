@@ -74,9 +74,10 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
     }
 }
 
+// Disable experimental options when not loading config files (for NU_EXPERIMENTAL_OPTIONS env).
 fn should_disable_experimental_options(has_script: bool, cli_args: &NushellCliArgs) -> bool {
-    has_script
-        || cli_args.no_config_file.is_some()
+    cli_args.no_config_file.is_some()
+        || (has_script && cli_args.config_file.is_none() && cli_args.env_file.is_none())
         || (cli_args.commands.is_some()
             && cli_args.login_shell.is_none()
             && cli_args.config_file.is_none()
