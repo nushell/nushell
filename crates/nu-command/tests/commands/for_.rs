@@ -1,4 +1,4 @@
-use nu_test_support::nu;
+use nu_test_support::prelude::*;
 
 #[test]
 fn for_doesnt_auto_print_in_each_iteration() {
@@ -50,4 +50,58 @@ fn for_loops_dont_collect_source() {
         }
     ");
     assert_eq!(actual.out, "1122334455");
+}
+
+#[test]
+fn for_loops_accept_pipeline_input() -> Result {
+    let code = r#"
+        mut out = []
+
+        seq 1 5 | if true {
+            for i in () {
+                $out ++= [$"item: ($i)"];
+            }
+        }
+
+        $out
+    "#;
+    test()
+        .run(code)
+        .expect_value_eq(["item: 1", "item: 2", "item: 3", "item: 4", "item: 5"])
+}
+
+#[test]
+fn for_loop_in_pipeline() -> Result {
+    let code = r#"
+        mut out = []
+
+        seq 1 5 | for i in () {
+            $out ++= [$"item: ($i)"];
+        }
+
+        $out
+    "#;
+    test()
+        .run(code)
+        .expect_value_eq(["item: 1", "item: 2", "item: 3", "item: 4", "item: 5"])
+}
+
+#[test]
+fn for_loop_input_piped_to_iter_source() -> Result {
+    let code = r#"
+        mut out = []
+
+        seq char a e | for e in (enumerate) {
+            $out ++= [$"index: ($e.index), item: ($e.item)"];
+        }
+
+        $out
+    "#;
+    test().run(code).expect_value_eq([
+        "index: 0, item: a",
+        "index: 1, item: b",
+        "index: 2, item: c",
+        "index: 3, item: d",
+        "index: 4, item: e",
+    ])
 }
