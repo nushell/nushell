@@ -1,7 +1,7 @@
 use std/testing *
 use std/assert
 
-def run [
+def run-command [
     system_level,
     message_level
     --short
@@ -18,7 +18,7 @@ def "assert no message" [
     system_level,
     message_level
 ] {
-    let output = (run $system_level $message_level)
+    let output = (run-command $system_level $message_level)
     assert equal "" $output
 }
 
@@ -27,7 +27,7 @@ def "assert message" [
     message_level,
     message_level_str
 ] {
-    let output = (run $system_level $message_level)
+    let output = (run-command $system_level $message_level)
     assert str contains $output $message_level_str
     assert str contains $output "test message"
 }
@@ -37,7 +37,7 @@ def "assert message short" [
     message_level,
     message_level_str
 ] {
-    let output = (run --short $system_level $message_level)
+    let output = (run-command --short $system_level $message_level)
     assert str contains $output $message_level_str
     assert str contains $output "test message"
 }

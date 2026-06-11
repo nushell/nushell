@@ -1,7 +1,11 @@
-use api.nu *
+export use api.nu *
 use unzip.nu
 
-# Download a Nushell binary from a pull request CI artifact
+# Download a Nushell binary from a pull request CI artifact.
+@category "toolkit"
+@search-terms download pr artifact binary ci gh
+@example "Download the binary from PR #1234" { toolkit download pr 1234 }
+@example "Download for a specific platform" { toolkit download pr 1234 --platform macos-latest }
 export def "download pr" [
   # The PR number to download the Nushell binary from
   number: int
@@ -21,7 +25,11 @@ export def "download pr" [
   ^gh api $artifacts.archive_download_url | unzip "nu" $span
 }
 
-# Run Nushell by downloading a CI artifact from a pull request
+# Run Nushell by downloading a CI artifact from a pull request.
+@category "toolkit"
+@search-terms run pr artifact binary ci gh try
+@example "Run the binary from PR #1234" { toolkit run pr 1234 }
+@example "Run a specific commit and pass arguments" { toolkit run pr 1234 --commit abcdef -- --version }
 export def --wrapped "run pr" [
   # The PR number to download the Nushell binary from
   number: int

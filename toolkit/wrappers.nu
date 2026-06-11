@@ -1,5 +1,9 @@
 
-# run Nushell from source with a right indicator
+# Run nushell from source with a right indicator.
+@category "toolkit"
+@search-terms run cargo run source development dev
+@example "Run Nushell from source" { toolkit run }
+@example "Run with experimental options enabled" { toolkit run --experimental-options "dataframe" }
 export def run [
     --experimental-options: oneof<list<string>, string> # enable or disable experimental options
 ] {
@@ -33,7 +37,12 @@ def build-plugin [] {
     ^cargo build
 }
 
-# build Nushell and plugins with some features
+# Build Nushell and plugins with some features.
+@category "toolkit"
+@search-terms build compile cargo build features plugins
+@example "Build Nushell with default features" { toolkit build }
+@example "Build Nushell and all plugins" { toolkit build --all }
+@example "Build with specific features" { toolkit build extra stable --all }
 export def build [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
     --all # build all plugins with Nushell
@@ -72,7 +81,12 @@ def install-plugin [] {
     ^cargo install --path $"crates/($plugin)"
 }
 
-# install Nushell and features you want
+# Install Nushell and features you want.
+@category "toolkit"
+@search-terms install cargo install features plugins
+@example "Install Nushell with default features" { toolkit install }
+@example "Install Nushell and all plugins" { toolkit install --all }
+@example "Install with specific features" { toolkit install extra stable --all }
 export def install [
     ...features: string@"nu-complete list features"  # a space-separated list of feature to install with Nushell
     --all # install all plugins with Nushell

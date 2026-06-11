@@ -620,6 +620,11 @@ fn eval_on_state(
         .unwrap_or(0);
     let timestamp_value = chrono::DateTime::from_timestamp_nanos(timestamp).fixed_offset();
 
+    let output_for_response = match &output_value {
+        Value::String { val, .. } | Value::Glob { val, .. } => val.clone(),
+        _ => output_nuon.clone(),
+    };
+
     // Store in history
     let history_index = history.push(output_value, engine_state, stack);
 
@@ -641,11 +646,12 @@ fn eval_on_state(
             ),
         );
     } else {
-        record.push("output", Value::string(&output_nuon, block_span));
+        record.push("output", Value::string(output_for_response, block_span));
     }
 
     let nuon_config = nuon::ToNuonConfig::default()
         .style(nuon::ToStyle::Raw)
+        .raw_strings(true)
         .span(Some(block_span));
 
     let response = nuon::to_nuon(
@@ -897,6 +903,28 @@ mod tests {
             result.contains("42"),
             "Output should contain the evaluated value, got: {result}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_string_output_is_not_double_escaped() -> Result<(), Box<dyn std::error::Error>> {
+        let engine_state = nu_cmd_lang::create_default_context();
+        let evaluator = Evaluator::new(engine_state);
+
+        let result_nuon = evaluator.eval("'hello world'")?;
+        let result = nuon::from_nuon(&result_nuon, None)?;
+
+        let output = result
+            .into_record()?
+            .remove("output")
+            .ok_or("missing output field in evaluate response")?
+            .into_string()?;
+
+        assert_eq!(
+            output, "hello world",
+            "string output should not include serialized quote wrappers, got: {result_nuon}"
+        );
+
         Ok(())
     }
 

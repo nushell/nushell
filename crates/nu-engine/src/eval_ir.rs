@@ -24,10 +24,11 @@ use crate::{
     ENV_CONVERSIONS, convert_env_vars, eval::is_automatic_env_var, eval_block_with_early_return,
 };
 
-/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), expand
-/// tilde and ndots in bare glob values that are not actual glob patterns. This mirrors what
-/// `run-external` does in `eval_external_arguments`, so that `$args | to nuon` returns expanded
-/// paths instead of the raw `~` / `...` tokens.
+/// For `def --wrapped` and `known extern` rest params (`SyntaxShape::ExternalArgument`), convert
+/// non-glob `Value::Glob` values to `Value::String`, expanding tilde and ndots in the process.
+/// This mirrors what `run-external` does in `eval_external_arguments`, so that `$args | to nuon`
+/// returns expanded paths instead of the raw `~` / `...` tokens, while also ensuring that plain
+/// bare-word strings (e.g. `test`) are reported as strings rather than globs.
 fn expand_external_glob_arg(val: Value) -> Value {
     if let Value::Glob {
         val: ref s,
@@ -39,10 +40,7 @@ fn expand_external_glob_arg(val: Value) -> Value {
         && !nu_glob::is_glob(s)
     {
         let expanded = expand_ndots_safe(expand_tilde(s.as_str()));
-        let expanded_str = expanded.to_string_lossy().into_owned();
-        if expanded_str != *s {
-            return Value::string(expanded_str, internal_span);
-        }
+        return Value::string(expanded.to_string_lossy().into_owned(), internal_span);
     }
     val
 }
@@ -1230,6 +1228,12 @@ fn eval_call<D: DebugContext>(
 
     let args_len = caller_stack.arguments.get_len(*args_base);
     let decl = engine_state.get_decl(decl_id);
+    // Commands such as `ignore --stderr` need errors as pipeline values so they can decide
+    // whether to suppress or rethrow.
+    let stderr_pipe_separate = matches!(
+        redirect_err.as_ref(),
+        Some(Redirection::Pipe(OutDest::PipeSeparate))
+    );
 
     // Set up redirect modes
     let mut caller_stack = caller_stack.push_redirection(redirect_out.take(), redirect_err.take());
@@ -1270,7 +1274,16 @@ fn eval_call<D: DebugContext>(
 
             result
         } else {
-            check_input_types(&input, &decl.signature(), head)?;
+            // `ignore` intentionally handles upstream error values at command level.
+            // Skip early input-error propagation for the built-in `ignore` command so
+            // `run()` can apply `--stderr`/`--show-errors` semantics.
+            let allow_error_input = matches!(input, PipelineData::Value(Value::Error { .. }, ..))
+                && engine_state
+                    .find_decl(b"ignore", &[])
+                    .is_some_and(|ignore_decl_id| ignore_decl_id == decl_id);
+            if !allow_error_input {
+                check_input_types(&input, &decl.signature(), head)?;
+            }
             // FIXME: precalculate this and save it somewhere
             let span = Span::merge_many(
                 std::iter::once(head).chain(
@@ -1307,7 +1320,10 @@ fn eval_call<D: DebugContext>(
     ctx.redirect_out = None;
     ctx.redirect_err = None;
 
-    result
+    match result {
+        Err(err) if stderr_pipe_separate => Ok(PipelineData::Value(Value::error(err, head), None)),
+        result => result,
+    }
 }
 
 fn find_named_var_id(

@@ -9,7 +9,14 @@ use reedline::Suggestion;
 
 use super::{SemanticSuggestion, completion_options::NuMatcher};
 
-// TODO: Add a toggle for quoting multi word commands. Useful for: `which` and `attr complete`
+fn formatted_name(name: &str, wrap: bool) -> String {
+    if wrap && nu_utils::needs_quoting(name) {
+        nu_utils::escape_quote_string(name)
+    } else {
+        name.to_string()
+    }
+}
+
 pub struct CommandCompletion {
     /// Whether to include internal commands
     pub internals: bool,
@@ -17,6 +24,8 @@ pub struct CommandCompletion {
     pub externals: bool,
     /// Whether internal completion should include only built-in commands
     pub builtins_only: bool,
+    /// Whether to quote space-separated internal commands
+    pub quote_internals: bool,
 }
 
 impl CommandCompletion {
@@ -196,7 +205,7 @@ impl Completer for CommandCompletion {
                 }
             } else {
                 working_set.traverse_commands(|name, decl_id| {
-                    let name = String::from_utf8_lossy(name);
+                    let name = formatted_name(&String::from_utf8_lossy(name), self.quote_internals);
                     let command = working_set.get_decl(decl_id);
                     if command.signature().category == Category::Removed {
                         return;
@@ -204,7 +213,7 @@ impl Completer for CommandCompletion {
 
                     let matched = matcher.add_semantic_suggestion(SemanticSuggestion {
                         suggestion: Suggestion {
-                            value: name.to_string(),
+                            value: name.clone(),
                             description: Some(command.description().to_string()),
                             span: sugg_span,
                             append_whitespace: true,
@@ -216,7 +225,7 @@ impl Completer for CommandCompletion {
                         )),
                     });
                     if matched {
-                        internal_suggs.insert(name.to_string());
+                        internal_suggs.insert(name);
                     }
                 });
             }

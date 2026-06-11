@@ -1,22 +1,28 @@
 #![allow(clippy::unwrap_used)]
 
 use nu_cli::{eval_source, evaluate_commands};
+use nu_experimental::DC_GLOB;
+use nu_parser::{lex, lite_parse, parse, parse_block};
 use nu_plugin_core::{Encoder, EncodingType};
 use nu_plugin_protocol::{PluginCallResponse, PluginOutput};
 use nu_protocol::{
     PipelineData, Signals, Span, Spanned, Type, Value,
-    engine::{EngineState, Stack},
+    engine::{EngineState, Stack, StateWorkingSet},
 };
 use nu_std::load_standard_library;
 use nu_table::{NuTable, TableTheme};
 use nu_utils::ConfigFileKind;
 use std::{
+    env,
     fmt::Write,
+    fs,
     hint::black_box,
+    path::{Path, PathBuf},
     rc::Rc,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{Arc, OnceLock, atomic::AtomicBool},
 };
 use tango_bench::{IntoBenchmarks, benchmark_fn, tango_benchmarks, tango_main};
+use tempfile::{Builder as TempDirBuilder, TempDir};
 
 fn load_bench_commands() -> EngineState {
     nu_command::add_shell_command_context(nu_cmd_lang::create_default_context())
@@ -87,6 +93,7 @@ fn bench_command(
         b.iter(move || {
             let mut stack = stack.clone();
             let mut engine = engine.clone();
+            engine.signals().reset();
             #[allow(clippy::unit_arg)]
             black_box(
                 evaluate_commands(
@@ -100,6 +107,199 @@ fn bench_command(
             );
         })
     })]
+}
+
+struct ExperimentalOptionGuard {
+    previous: bool,
+}
+
+impl ExperimentalOptionGuard {
+    fn set_dc_glob(value: bool) -> Self {
+        let previous = DC_GLOB.get();
+        // SAFETY: Benchmarks run in a controlled process and restore the previous value on drop.
+        unsafe { DC_GLOB.set(value) };
+        Self { previous }
+    }
+}
+
+impl Drop for ExperimentalOptionGuard {
+    fn drop(&mut self) {
+        // SAFETY: Restores the previous process-global benchmark state.
+        unsafe { DC_GLOB.set(self.previous) };
+    }
+}
+
+struct GlobBenchFixture {
+    _tempdir: TempDir,
+    root: PathBuf,
+}
+
+impl GlobBenchFixture {
+    fn from_repo_snapshot(prefix: &str, source_root: &Path) -> Self {
+        let tempdir = TempDirBuilder::new().prefix(prefix).tempdir().unwrap();
+        copy_repo_snapshot(source_root, tempdir.path());
+
+        Self {
+            root: tempdir.path().to_path_buf(),
+            _tempdir: tempdir,
+        }
+    }
+}
+
+fn should_skip_repo_entry(name: &str) -> bool {
+    matches!(name, ".git" | "target")
+}
+
+fn copy_repo_snapshot(source: &Path, destination: &Path) {
+    fs::create_dir_all(destination).unwrap();
+
+    for entry in fs::read_dir(source).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        let file_name = entry.file_name();
+        let file_name = file_name.to_string_lossy();
+
+        if should_skip_repo_entry(&file_name) {
+            continue;
+        }
+
+        let target = destination.join(file_name.as_ref());
+        let metadata = fs::symlink_metadata(&path).unwrap();
+        let file_type = metadata.file_type();
+
+        if file_type.is_symlink() {
+            continue;
+        }
+
+        if file_type.is_dir() {
+            copy_repo_snapshot(&path, &target);
+        } else if file_type.is_file() {
+            fs::copy(&path, &target).unwrap();
+        }
+    }
+}
+
+fn nu_string_literal(path: &Path) -> String {
+    format!("{:?}", path.to_string_lossy())
+}
+
+fn setup_stack_and_engine_in_dir(path: &Path) -> (Stack, EngineState) {
+    setup_stack_and_engine_from_command(&format!("cd {}", nu_string_literal(path)))
+}
+
+// Running benchmarks like this allow you to set the glob/ls benchmarks root folder
+// NU_GLOB_BENCH_ROOT=/Users/fdncred/src/nushell cargo bench --bench benchmarks -- solo --filter '*recursive*'
+fn glob_bench_source_root() -> PathBuf {
+    env::var_os("NU_GLOB_BENCH_ROOT")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| env::current_dir().unwrap())
+}
+
+fn shared_glob_bench_fixture() -> Arc<GlobBenchFixture> {
+    static FIXTURE: OnceLock<Arc<GlobBenchFixture>> = OnceLock::new();
+
+    FIXTURE
+        .get_or_init(|| {
+            let source_root = glob_bench_source_root();
+            Arc::new(GlobBenchFixture::from_repo_snapshot(
+                "nu_glob_repo_snapshot",
+                &source_root,
+            ))
+        })
+        .clone()
+}
+
+fn bench_command_with_dc_glob(
+    name: impl Into<String>,
+    command: impl Into<String> + Clone,
+    dc_glob_enabled: bool,
+    stack: Stack,
+    engine: EngineState,
+    fixture: Arc<GlobBenchFixture>,
+) -> impl IntoBenchmarks {
+    let commands = Spanned {
+        span: Span::test_data(),
+        item: command.into(),
+    };
+
+    [benchmark_fn(name, move |b| {
+        let commands = commands.clone();
+        let stack = stack.clone();
+        let engine = engine.clone();
+        let _fixture = &fixture;
+
+        b.iter(move || {
+            let _dc_glob_guard = ExperimentalOptionGuard::set_dc_glob(dc_glob_enabled);
+            let mut stack = stack.clone();
+            let mut engine = engine.clone();
+            engine.signals().reset();
+
+            #[allow(clippy::unit_arg)]
+            black_box(
+                evaluate_commands(
+                    &commands,
+                    &mut engine,
+                    &mut stack,
+                    PipelineData::empty(),
+                    Default::default(),
+                )
+                .unwrap(),
+            );
+        })
+    })]
+}
+
+fn bench_recursive_glob_command(
+    name: &str,
+    command: &str,
+    dc_glob_enabled: bool,
+) -> impl IntoBenchmarks {
+    let fixture = shared_glob_bench_fixture();
+    let (stack, engine) = setup_stack_and_engine_in_dir(&fixture.root);
+
+    bench_command_with_dc_glob(
+        name,
+        format!("{command} | length | ignore"),
+        dc_glob_enabled,
+        stack,
+        engine,
+        fixture,
+    )
+}
+
+fn ls_recursive_pattern(root: &Path) -> String {
+    let mut root = root.to_string_lossy().replace('\\', "/");
+    if root.ends_with('/') {
+        root.pop();
+    }
+    format!("{root}/**/*")
+}
+
+fn bench_ls_recursive_command(name: &str, dc_glob_enabled: bool) -> impl IntoBenchmarks {
+    let fixture = shared_glob_bench_fixture();
+    let (stack, engine) = setup_stack_and_engine_in_dir(&fixture.root);
+    let command = format!(
+        "ls {} | length | ignore",
+        ls_recursive_pattern(&fixture.root)
+    );
+
+    bench_command_with_dc_glob(name, command, dc_glob_enabled, stack, engine, fixture)
+}
+
+fn bench_ls_recursive_legacy() -> impl IntoBenchmarks {
+    bench_ls_recursive_command("ls_recursive_legacy", false)
+}
+
+fn bench_ls_recursive_dc() -> impl IntoBenchmarks {
+    bench_ls_recursive_command("ls_recursive_dc", true)
+}
+
+fn bench_glob_recursive_legacy_wax() -> impl IntoBenchmarks {
+    bench_recursive_glob_command("glob_recursive_legacy_wax", "glob '**/*'", false)
+}
+
+fn bench_glob_recursive_dc_glob() -> impl IntoBenchmarks {
+    bench_recursive_glob_command("glob_recursive_dc_glob", "glob '**/*'", true)
 }
 
 fn bench_eval_source(
@@ -477,18 +677,8 @@ fn bench_type_widen_simple() -> impl IntoBenchmarks {
 }
 
 fn bench_type_widen_large_records() -> impl IntoBenchmarks {
-    let rec1: Type = Type::Record(
-        (0..50)
-            .map(|i| (format!("f{i}"), Type::Int))
-            .collect::<Vec<_>>()
-            .into(),
-    );
-    let rec2: Type = Type::Record(
-        (0..50)
-            .map(|i| (format!("f{i}"), Type::Number))
-            .collect::<Vec<_>>()
-            .into(),
-    );
+    let rec1: Type = Type::Record((0..50).map(|i| (format!("f{i}"), Type::Int)).collect());
+    let rec2: Type = Type::Record((0..50).map(|i| (format!("f{i}"), Type::Number)).collect());
     [benchmark_fn("type_widen_large_records", move |bench| {
         let rec1 = rec1.clone();
         let rec2 = rec2.clone();
@@ -527,6 +717,214 @@ fn bench_type_widen_chain() -> impl IntoBenchmarks {
             black_box(tmp)
         })
     })]
+}
+
+// Parsing benchmarks (nu-parser)
+// These benchmark names intentionally include source byte/char sizes for throughput reporting.
+// Benchmarks are broken into stages (lex, lite, parse_block, full parse) with three corpus sizes:
+// - small: synthetic short pipeline (noise-resistant signal)
+// - medium: synthetic generated pipeline (scales predictably)
+// - large: entire nu-std/std directory (all real stdlib code)
+// - real_world: toolkit/mod.nu (representative Nushell scripts)
+//
+// Each benchmark name encodes byte/char counts: parser_<stage>_<dataset>_<size>b_<chars>c
+// This format enables automatic derivation of throughput metrics (chars/sec, bytes/sec)
+// for publication in PR descriptions and performance tracking.
+
+const PARSER_REAL_WORLD_TOOLKIT_MOD: &str = include_str!("../toolkit/mod.nu");
+
+/// Recursively discover all .nu files under a directory.
+fn collect_nu_files_recursive(root: &Path, files: &mut Vec<PathBuf>) {
+    let Ok(entries) = fs::read_dir(root) else {
+        return;
+    };
+
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.is_dir() {
+            collect_nu_files_recursive(&path, files);
+        } else if path.extension().is_some_and(|ext| ext == "nu") {
+            files.push(path);
+        }
+    }
+}
+
+/// Collect all .nu source files from crates/nu-std/std into a single concatenated string.
+/// Files are sorted by path for deterministic output across runs.
+/// Returns None if the directory cannot be read (will panic at benchmark time to fail loudly).
+fn collect_all_std_nu_sources() -> Option<String> {
+    let std_root = Path::new(env!("CARGO_MANIFEST_DIR")).join("crates/nu-std/std");
+    let mut files = Vec::new();
+    collect_nu_files_recursive(&std_root, &mut files);
+
+    files.sort();
+
+    let mut combined = String::new();
+    for path in files {
+        if let Ok(contents) = fs::read_to_string(path) {
+            combined.push_str(&contents);
+            combined.push('\n');
+        }
+    }
+
+    if combined.is_empty() {
+        None
+    } else {
+        Some(combined)
+    }
+}
+
+fn parser_bench_name(stage: &str, dataset: &str, source: &str) -> String {
+    // Encode the byte and character counts in the benchmark name for automatic throughput derivation.
+    // Example: parser_lex_small_127b_125c
+    format!(
+        "parser_{stage}_{dataset}_{}b_{}c",
+        source.len(),
+        source.chars().count()
+    )
+}
+
+/// Generate a synthetic medium-sized Nushell script with multiple pipelines.
+/// Scales predictably with `commands` parameter for A/B testing.
+fn create_parser_pipeline_script(commands: usize) -> String {
+    let mut script = String::new();
+
+    for i in 0..commands {
+        writeln!(
+            script,
+            "let row_{i} = ({i}..{} | each {{|x| $x + 1 }} | math sum)",
+            i + 20
+        )
+        .expect("writing to a String is infallible");
+    }
+
+    script.push_str("$row_0 | ignore");
+    script
+}
+
+/// Set up a minimal EngineState for parser benchmarks (required for StateWorkingSet).
+/// Sets PWD environment variable to allow parsing code that references it.
+fn parser_engine_state() -> EngineState {
+    let mut engine_state = EngineState::new();
+
+    if let Ok(cwd) = std::env::current_dir() {
+        engine_state.add_env_var(
+            "PWD".into(),
+            Value::string(cwd.to_string_lossy().to_string(), Span::test_data()),
+        );
+    }
+
+    engine_state
+}
+
+/// Benchmark lexer throughput: tokenize input without parsing or AST construction.
+/// Isolates lexer performance from parser/AST overhead.
+/// Benchmark name format: parser_lex_<dataset>_<size>b_<chars>c
+fn bench_parser_lex(dataset: &str, source: String) -> impl IntoBenchmarks {
+    let bench_name = parser_bench_name("lex", dataset, &source);
+    let input = source.into_bytes();
+
+    [benchmark_fn(bench_name, move |b| {
+        let input = input.clone();
+        b.iter(move || {
+            black_box(lex(&input, 0, &[], &[], false));
+        })
+    })]
+}
+
+/// Benchmark lite-parse stage: convert tokens to LiteBlock (pipeline structure, no AST).
+/// Isolates the pipeline/command grouping logic from full AST generation.
+/// Benchmark name format: parser_lite_<dataset>_<size>b_<chars>c
+fn bench_parser_lite(dataset: &str, source: String) -> impl IntoBenchmarks {
+    let bench_name = parser_bench_name("lite", dataset, &source);
+    let input = source.into_bytes();
+
+    [benchmark_fn(bench_name, move |b| {
+        let input = input.clone();
+        b.iter(move || {
+            let (tokens, lex_error) = lex(&input, 0, &[], &[], false);
+            assert!(
+                lex_error.is_none(),
+                "parser benchmark input must lex cleanly"
+            );
+            let engine_state = parser_engine_state();
+            let working_set = StateWorkingSet::new(&engine_state);
+            black_box(lite_parse(&tokens, &working_set));
+        })
+    })]
+}
+
+/// Benchmark parse_block stage: convert pre-lexed tokens to Block (AST without compilation).
+/// Isolates AST generation cost from lexing overhead.
+/// Each iteration re-lexes to keep ownership model clean.
+/// Benchmark name format: parser_parse_block_<dataset>_<size>b_<chars>c
+fn bench_parser_parse_block(dataset: &str, source: String) -> impl IntoBenchmarks {
+    let bench_name = parser_bench_name("parse_block", dataset, &source);
+    let input = source.into_bytes();
+
+    [benchmark_fn(bench_name, move |b| {
+        let input = input.clone();
+        b.iter(move || {
+            let (tokens, lex_error) = lex(&input, 0, &[], &[], false);
+            assert!(
+                lex_error.is_none(),
+                "parser benchmark input must lex cleanly"
+            );
+            let span = Span::new(0, input.len());
+            let engine_state = parser_engine_state();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            black_box(parse_block(&mut working_set, &tokens, span, true, false));
+        })
+    })]
+}
+
+/// Benchmark full parse pipeline: lex + lite-parse + AST + compilation.
+/// End-to-end measurement from source bytes to compiled Block.
+/// Includes eager IR compilation of top-level blocks.
+/// Benchmark name format: parser_parse_<dataset>_<size>b_<chars>c
+fn bench_parser_full_parse(dataset: &str, source: String) -> impl IntoBenchmarks {
+    let bench_name = parser_bench_name("parse", dataset, &source);
+    let input = source.into_bytes();
+
+    [benchmark_fn(bench_name, move |b| {
+        let input = input.clone();
+        b.iter(move || {
+            let engine_state = parser_engine_state();
+            let mut working_set = StateWorkingSet::new(&engine_state);
+            black_box(parse(
+                &mut working_set,
+                Some("parser_bench.nu"),
+                &input,
+                true,
+            ));
+        })
+    })]
+}
+
+/// Small parser benchmark input: synthetic short pipeline (~127 bytes).
+/// Measures lex/parse overhead with minimal variability for signal clarity.
+fn parser_input_small() -> String {
+    "let xs = [1 2 3 4 5]\n$xs | each {|x| $x + 1 } | where $it > 2 | math sum | ignore\n"
+        .to_string()
+}
+
+/// Medium parser benchmark input: synthetic 80-command pipeline (scales predictably).
+/// Measures throughput on moderately-sized real-world scripts.
+fn parser_input_medium() -> String {
+    create_parser_pipeline_script(80)
+}
+
+/// Large parser benchmark input: entire crates/nu-std/std directory as concatenated .nu files.
+/// Comprehensive real-world benchmark covering all stdlib modules.
+/// Panics if directory discovery or file reads fail to ensure reliable benchmarks.
+fn parser_input_large() -> String {
+    collect_all_std_nu_sources().expect("parser benchmark requires readable nu-std/std directory")
+}
+
+/// Real-world parser benchmark input: toolkit/mod.nu (Nushell dev scripts).
+/// Provides realistic parsing workload covering procedural and module code.
+fn parser_input_real_world() -> String {
+    PARSER_REAL_WORLD_TOOLKIT_MOD.to_string()
 }
 
 // Table rendering benchmarks (nu-table)
@@ -585,11 +983,28 @@ fn bench_table_render_wide(cols: usize) -> impl IntoBenchmarks {
 tango_benchmarks!(
     bench_load_standard_lib(),
     bench_load_use_standard_lib(),
+    bench_ls_recursive_legacy(),
+    bench_ls_recursive_dc(),
+    bench_glob_recursive_legacy_wax(),
+    bench_glob_recursive_dc_glob(),
     // type-widening microbenchmarks (run on both branch & main to compare)
     bench_type_widen_simple(),
     bench_type_widen_large_records(),
     bench_type_widen_large_oneof(),
     bench_type_widen_chain(),
+    // Parsing (nu-parser)
+    bench_parser_lex("small", parser_input_small()),
+    bench_parser_lex("medium", parser_input_medium()),
+    bench_parser_lex("large", parser_input_large()),
+    bench_parser_lite("small", parser_input_small()),
+    bench_parser_lite("medium", parser_input_medium()),
+    bench_parser_lite("real_world", parser_input_real_world()),
+    bench_parser_parse_block("small", parser_input_small()),
+    bench_parser_parse_block("medium", parser_input_medium()),
+    bench_parser_parse_block("real_world", parser_input_real_world()),
+    bench_parser_full_parse("small", parser_input_small()),
+    bench_parser_full_parse("medium", parser_input_medium()),
+    bench_parser_full_parse("large", parser_input_large()),
     // Data types
     // Record
     bench_record_create(1),

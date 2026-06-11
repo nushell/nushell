@@ -4,31 +4,20 @@
 export use std/util *
 
 # std submodules
-export module std/assert
-export module std/bench
-export module std/dt
-export module std/formats
-export module std/help
-export module std/input
-export module std/iter
-export module std/log
-export module std/math
-export module std/xml
-export module std/config
-export module std/testing
-export module std/random
-
-# Load main dirs command and all subcommands
-export use std/dirs main
-export module dirs {
-  export use std/dirs [
-    add
-    drop
-    next
-    prev
-    goto
-  ]
-}
+export use std/assert
+export use std/bench
+export use std/dt
+export use std/formats
+export use std/help
+export use std/input
+export use std/iter
+export use std/log
+export use std/math
+export use std/xml
+export use std/config
+export use std/testing
+export use std/random
+export use std/dirs
 
 # Workaround for #13403 to load export-env blocks from submodules
 export-env {

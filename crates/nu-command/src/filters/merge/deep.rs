@@ -35,8 +35,8 @@ The way lists and tables are merged is controlled by the `--strategy` flag:
             .required(
                 "value",
                 SyntaxShape::OneOf(vec![
-                    SyntaxShape::Record(vec![]),
-                    SyntaxShape::Table(vec![]),
+                    SyntaxShape::record(),
+                    SyntaxShape::table(),
                     SyntaxShape::List(SyntaxShape::Any.into()),
                 ]),
                 "The new value to merge with.",

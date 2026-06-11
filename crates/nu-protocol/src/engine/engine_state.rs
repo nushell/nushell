@@ -2,7 +2,7 @@ use crate::{
     BlockId, Config, DeclId, FileId, GetSpan, Handlers, HistoryConfig, JobId, Module, ModuleId,
     OverlayId, ShellError, SignalAction, Signals, Signature, Span, SpanId, Type, Value, VarId,
     VirtualPathId,
-    ast::Block,
+    ast::{Block, Expr},
     debugger::{Debugger, NoopDebugger},
     engine::{
         CachedFile, Command, DEFAULT_OVERLAY_NAME, EnvName, EnvVars, OverlayFrame, ScopeFrame,
@@ -17,7 +17,7 @@ use fancy_regex::Regex;
 use lru::LruCache;
 use nu_path::AbsolutePathBuf;
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     num::NonZeroUsize,
     path::PathBuf,
     sync::{
@@ -102,7 +102,7 @@ pub struct EngineState {
     signals: Signals,
     pub signal_handlers: Option<Handlers>,
     pub env_vars: Arc<EnvVars>,
-    pub previous_env_vars: Arc<HashMap<String, Value>>,
+    pub previous_env_vars: Arc<HashMap<EnvName, Value>>,
     pub config: Arc<Config>,
     pub pipeline_externals_state: Arc<(AtomicU32, AtomicU32)>,
     pub repl_state: Arc<Mutex<ReplState>>,
@@ -115,6 +115,14 @@ pub struct EngineState {
     config_path: HashMap<String, PathBuf>,
     pub history_enabled: bool,
     pub history_session_id: i64,
+    /// Whether the startup-only `$env.config.history.*` options are locked from further
+    /// changes (currently `path`, `max_size`, `file_format`, `isolation`).
+    ///
+    /// Set to `true` once the REPL has finished initializing reedline's history backend.
+    /// After that point, changing any of these options would have no effect on the live
+    /// history, so attempts to mutate them are rejected with an error instead of being
+    /// silently ignored.
+    pub history_locked_after_startup: bool,
     // Path to the file Nushell is currently evaluating, or None if we're in an interactive session.
     pub file: Option<PathBuf>,
     pub regex_cache: Arc<Mutex<LruCache<String, Regex>>>,
@@ -204,6 +212,7 @@ impl EngineState {
             config_path: HashMap::new(),
             history_enabled: true,
             history_session_id: 0,
+            history_locked_after_startup: false,
             file: None,
             regex_cache: Arc::new(Mutex::new(LruCache::new(
                 NonZeroUsize::new(REGEX_CACHE_SIZE).expect("tried to create cache of size zero"),
@@ -383,20 +392,31 @@ impl EngineState {
     }
 
     /// Clean up unused variables from a Stack to prevent memory leaks.
-    /// This removes variables that are no longer referenced by any overlay.
+    /// This removes variables that are no longer referenced by any overlay or alias.
     pub fn cleanup_stack_variables(&mut self, stack: &mut Stack) {
-        use std::collections::HashSet;
-
         let mut shadowed_vars = HashSet::new();
         for (_, frame) in self.scope.overlays.iter_mut() {
-            shadowed_vars.extend(frame.shadowed_vars.to_owned());
-            frame.shadowed_vars.clear();
+            shadowed_vars.extend(frame.shadowed_vars.drain(..));
         }
 
-        // Remove variables from stack that are no longer referenced
-        stack
-            .vars
-            .retain(|(var_id, _)| !shadowed_vars.contains(var_id));
+        if shadowed_vars.is_empty() {
+            return;
+        }
+
+        // Collect VarIds still referenced by alias definitions so we don't
+        // remove them — doing so would cause a VariableNotFoundAtRuntime error
+        // when the alias is invoked after the variable has been re-bound.
+        let mut alias_var_ids = HashSet::new();
+        for decl in self.decls.iter() {
+            if let Some(alias) = decl.as_alias() {
+                collect_alias_var_ids(&alias.wrapped_call, &mut alias_var_ids);
+            }
+        }
+
+        // Remove variables from stack that are shadowed and not referenced by any alias
+        stack.vars.retain(|(var_id, _)| {
+            !shadowed_vars.contains(var_id) || alias_var_ids.contains(var_id)
+        });
     }
 
     pub fn active_overlay_ids<'a, 'b>(
@@ -1110,6 +1130,36 @@ impl EngineState {
     // Gets the thread job entry
     pub fn current_thread_job(&self) -> Option<&ThreadJob> {
         self.current_job.background_thread_job.as_ref()
+    }
+}
+
+/// Collect all `VarId`s referenced by `Expr::Var` nodes in `expr`.
+/// This is used by [`EngineState::cleanup_stack_variables`] to avoid removing
+/// variables that are still referenced by alias definitions.
+fn collect_alias_var_ids(expr: &crate::ast::Expression, var_ids: &mut HashSet<VarId>) {
+    let mut queue = vec![expr];
+
+    while let Some(e) = queue.pop() {
+        match &e.expr {
+            Expr::Var(id) => {
+                var_ids.insert(*id);
+            }
+            Expr::Call(call) => {
+                for arg in &call.arguments {
+                    if let Some(sub_expr) = arg.expr() {
+                        queue.push(sub_expr);
+                    }
+                }
+            }
+            Expr::ExternalCall(head, args) => {
+                queue.push(head);
+                for arg in args.iter() {
+                    queue.push(arg.expr());
+                }
+            }
+            Expr::FullCellPath(fcp) => queue.push(&fcp.head),
+            _ => {}
+        }
     }
 }
 

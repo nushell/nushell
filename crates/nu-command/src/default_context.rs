@@ -100,6 +100,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
         bind_command! {
             DeleteVar,
             Panic,
+            Run,
             Source,
             Tutor,
         };
@@ -220,6 +221,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrContains,
             StrDistance,
             StrDowncase,
+            StrLowercase,
             StrEndswith,
             StrEscapeRegex,
             StrExpand,
@@ -233,6 +235,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             StrSubstring,
             StrTrim,
             StrUpcase,
+            StrUppercase,
             Format,
             FormatDate,
             FormatDuration,
@@ -265,7 +268,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             IdxFiles,
         };
 
-        #[cfg(feature = "sqlite")]
+        #[cfg(all(feature = "os", feature = "sqlite"))]
         bind_command! {
             IdxExport,
             IdxImport,
@@ -335,6 +338,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             FromXml,
             FROM_YAML,
             FROM_YML,
+            FromKdl,
             To,
             ToCsv,
             ToJson,
@@ -345,6 +349,7 @@ pub fn add_shell_command_context(mut engine_state: EngineState) -> EngineState {
             ToText,
             ToToml,
             ToTsv,
+            ToKdl,
             Upsert,
             Where,
             ToXml,

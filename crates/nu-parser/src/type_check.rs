@@ -1,5 +1,5 @@
 use nu_protocol::{
-    ParseError, Span, Type,
+    CollectionColumns, ParseError, Span, Type,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -43,16 +43,16 @@ fn type_error(
 
 pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
     // Structural subtyping
-    let is_compatible = |expected: &[(String, Type)], found: &[(String, Type)]| {
-        if expected.is_empty() || found.is_empty() {
+    let is_compatible = |expected: &CollectionColumns<Type>, found: &CollectionColumns<Type>| {
+        if expected.fields.is_empty() || found.fields.is_empty() {
             // We treat an incoming empty table/record type as compatible for typechecking purposes
             // It is the responsibility of the runtime to reject if necessary
             true
-        } else if expected.len() > found.len() {
+        } else if expected.fields.len() > found.fields.len() {
             false
         } else {
-            expected.iter().all(|(col_x, ty_x)| {
-                if let Some((_, ty_y)) = found.iter().find(|(col_y, _)| col_x == col_y) {
+            expected.fields.iter().all(|(col_x, ty_x)| {
+                if let Some((_, ty_y)) = found.fields.iter().find(|(col_y, _)| col_x == col_y) {
                     type_compatible(ty_x, ty_y)
                 } else {
                     false

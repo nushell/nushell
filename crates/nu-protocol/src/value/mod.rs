@@ -9,6 +9,7 @@ mod range;
 mod test_derive;
 
 pub mod record;
+use bstr::BStr;
 pub use custom_value::CustomValue;
 pub use duration::*;
 pub use filesize::*;
@@ -20,7 +21,7 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    BlockId, Config, ShellError, Signals, Span, Type,
+    BlockId, CollectionColumns, Config, ShellError, Signals, Span, Type,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
@@ -28,27 +29,51 @@ use crate::{
 use chrono::{DateTime, Datelike, Duration, FixedOffset, Local, Locale, TimeZone};
 use chrono_humanize::HumanTime;
 use fancy_regex::Regex;
-use nu_utils::{
-    ObviousFloat, SharedCow, contains_emoji,
-    locale::{LOCALE_OVERRIDE_ENV_VAR, get_system_locale_string},
-};
+use nu_utils::{ObviousFloat, SharedCow, contains_emoji, get_locale_from_env_vars};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
     cmp::Ordering,
-    fmt::{Debug, Display, Write},
+    fmt::{self, Debug, Display, Write},
     ops::{Bound, ControlFlow},
     path::PathBuf,
 };
 
 /// Core structured values that pass through the pipeline in Nushell.
+///
+/// # Debug Format
+///
+/// By default, [`Value`]'s [`Debug`] implementation uses a compact format.
+/// This makes values easier to inspect by leaving out spans and avoiding heavy
+/// use of newlines and indentation.
+///
+/// Use the `-` formatting flag to show the expanded format, including spans.
+///
+/// The `-` flag is used because it is not used by [`std::fmt`], unlike `+`.
+///
+/// ```
+/// # use nu_protocol::Value;
+/// let value = Value::test_string("Ellie 🐘");
+///
+/// // compact format
+/// assert_eq!(
+///     format!("{value:?}"),
+///     r#"String("Ellie 🐘")"#,
+/// );
+///
+/// // expanded format
+/// assert_eq!(
+///     format!("{value:-?}"),
+///     r#"String { val: "Ellie 🐘", internal_span: Span(TEST) }"#,
+/// );
+/// ```
 // NOTE: Please do not reorder these enum cases without thinking through the
 // impact on the PartialOrd implementation and the global sort order
 // NOTE: All variants are marked as `non_exhaustive` to prevent them
 // from being constructed (outside of this crate) with the struct
 // expression syntax. This makes using the constructor methods the
 // only way to construct `Value`'s
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub enum Value {
     #[non_exhaustive]
     Bool {
@@ -191,6 +216,165 @@ pub enum Value {
         #[serde(rename = "span")]
         internal_span: Span,
     },
+}
+
+fn wrap_tuple(name: &str, val: impl Debug) -> impl Debug {
+    fmt::from_fn(move |f| {
+        write!(f, "{name}(")?;
+        val.fmt(f)?;
+        write!(f, ")")
+    })
+}
+
+fn display_as_debug(val: impl Display) -> impl Debug {
+    fmt::from_fn(move |f| val.fmt(f))
+}
+
+impl Debug for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if f.sign_minus() {
+            return match self {
+                Self::Bool { val, internal_span } => f
+                    .debug_struct("Bool")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Int { val, internal_span } => f
+                    .debug_struct("Int")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Float { val, internal_span } => f
+                    .debug_struct("Float")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::String { val, internal_span } => f
+                    .debug_struct("String")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Glob {
+                    val,
+                    no_expand,
+                    internal_span,
+                } => f
+                    .debug_struct("Glob")
+                    .field("val", val)
+                    .field("no_expand", no_expand)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Filesize { val, internal_span } => f
+                    .debug_struct("Filesize")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Duration { val, internal_span } => f
+                    .debug_struct("Duration")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Date { val, internal_span } => f
+                    .debug_struct("Date")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Range {
+                    val,
+                    signals,
+                    internal_span,
+                } => f
+                    .debug_struct("Range")
+                    .field("val", val)
+                    .field("signals", signals)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Record { val, internal_span } => f
+                    .debug_struct("Record")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::List {
+                    vals,
+                    signals,
+                    internal_span,
+                } => f
+                    .debug_struct("List")
+                    .field("vals", vals)
+                    .field("signals", signals)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Closure { val, internal_span } => f
+                    .debug_struct("Closure")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Error {
+                    error,
+                    internal_span,
+                } => f
+                    .debug_struct("Error")
+                    .field("error", error)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Binary { val, internal_span } => f
+                    .debug_struct("Binary")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::CellPath { val, internal_span } => f
+                    .debug_struct("CellPath")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Custom { val, internal_span } => f
+                    .debug_struct("Custom")
+                    .field("val", val)
+                    .field("internal_span", internal_span)
+                    .finish(),
+                Self::Nothing { internal_span } => f
+                    .debug_struct("Nothing")
+                    .field("internal_span", internal_span)
+                    .finish(),
+            };
+        };
+
+        match self {
+            Value::Bool { val, .. } => wrap_tuple("Bool", val).fmt(f),
+            Value::Int { val, .. } => wrap_tuple("Int", val).fmt(f),
+            Value::Float { val, .. } => wrap_tuple("Float", val).fmt(f),
+            Value::String { val, .. } => wrap_tuple("String", val).fmt(f),
+            Value::Glob { val, no_expand, .. } => wrap_tuple(
+                "Glob",
+                fmt::from_fn(|f| {
+                    Debug::fmt(val, f)?;
+                    if *no_expand {
+                        write!(f, "!")?;
+                    }
+                    Ok(())
+                }),
+            )
+            .fmt(f),
+            Value::Filesize { val, .. } => wrap_tuple("Filesize", display_as_debug(val)).fmt(f),
+            Value::Duration { val, .. } => wrap_tuple(
+                "Duration",
+                display_as_debug(humantime::Duration::from(std::time::Duration::from_nanos(
+                    *val as u64,
+                ))),
+            )
+            .fmt(f),
+            Value::Date { val, .. } => wrap_tuple("Date", val).fmt(f),
+            Value::Range { val, .. } => wrap_tuple("Range", display_as_debug(val)).fmt(f),
+            Value::Record { val, .. } => wrap_tuple("Record", val).fmt(f),
+            Value::List { vals, .. } => wrap_tuple("List", vals).fmt(f),
+            Value::Closure { val, .. } => wrap_tuple("Closure", val.compact_debug()).fmt(f),
+            Value::Error { error, .. } => wrap_tuple("Error", error).fmt(f),
+            Value::Binary { val, .. } => wrap_tuple("Binary", BStr::new(val)).fmt(f),
+            Value::CellPath { val, .. } => wrap_tuple("CellPath", display_as_debug(val)).fmt(f),
+            Value::Custom { val, .. } => wrap_tuple("Custom", val).fmt(f),
+            Value::Nothing { .. } => write!(f, "Nothing"),
+        }
+    }
 }
 
 // This is to document/enforce the size of `Value` in bytes.
@@ -841,6 +1025,30 @@ impl Value {
         }
     }
 
+    /// Get the type of the current Value, without inner type specification of lists, tables and
+    /// records
+    pub fn get_type_shallow(&self) -> Type {
+        match self {
+            Value::Bool { .. } => Type::Bool,
+            Value::Int { .. } => Type::Int,
+            Value::Float { .. } => Type::Float,
+            Value::Filesize { .. } => Type::Filesize,
+            Value::Duration { .. } => Type::Duration,
+            Value::Date { .. } => Type::Date,
+            Value::Range { .. } => Type::Range,
+            Value::String { .. } => Type::String,
+            Value::Glob { .. } => Type::Glob,
+            Value::Record { .. } => Type::record(),
+            Value::List { .. } => Type::list(Type::Any),
+            Value::Nothing { .. } => Type::Nothing,
+            Value::Closure { .. } => Type::Closure,
+            Value::Error { .. } => Type::Error,
+            Value::Binary { .. } => Type::Binary,
+            Value::CellPath { .. } => Type::CellPath,
+            Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
+        }
+    }
+
     /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
     ///
     /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
@@ -856,8 +1064,9 @@ impl Value {
     /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
     pub fn is_subtype_of(&self, other: &Type) -> bool {
         // records are structurally typed
-        let record_compatible = |val: &Value, other: &[(String, Type)]| match val {
+        let record_compatible = |val: &Value, other: &CollectionColumns<Type>| match val {
             Value::Record { val, .. } => other
+                .fields
                 .iter()
                 .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
             _ => false,
@@ -932,20 +1141,9 @@ impl Value {
         Tz::Offset: Display,
     {
         let mut formatter_buf = String::new();
-        let locale = if let Ok(l) =
-            std::env::var(LOCALE_OVERRIDE_ENV_VAR).or_else(|_| std::env::var("LC_TIME"))
-        {
-            let locale_str = l.split('.').next().unwrap_or("en_US");
-            locale_str.try_into().unwrap_or(Locale::en_US)
-        } else {
-            // LC_ALL > LC_CTYPE > LANG else en_US
-            get_system_locale_string()
-                .map(|l| l.replace('-', "_")) // `chrono::Locale` needs something like `xx_xx`, rather than `xx-xx`
-                .unwrap_or_else(|| String::from("en_US"))
-                .as_str()
-                .try_into()
-                .unwrap_or(Locale::en_US)
-        };
+        let locale = get_locale_from_env_vars(Some("LC_TIME"), |name| std::env::var(name).ok())
+            .and_then(|s| s.as_ref().try_into().ok())
+            .unwrap_or(Locale::en_US);
         let format = date_time.format_localized(formatter, locale);
 
         match formatter_buf.write_fmt(format_args!("{format}")) {
@@ -1096,10 +1294,10 @@ impl Value {
                         Value::string(val.escape_unicode().to_string(), self.span())
                     )
                 } else {
-                    format!("{self:#?}")
+                    format!("{self:-#?}")
                 }
             }
-            _ => format!("{self:#?}"),
+            _ => format!("{self:-#?}"),
         }
     }
 
@@ -4142,6 +4340,463 @@ pub fn human_time_from_now(val: &DateTime<FixedOffset>) -> HumanTime {
 mod tests {
     use super::{Record, Value};
     use crate::record;
+    use indoc::indoc;
+
+    mod debug {
+        use super::*;
+        use crate::{
+            BlockId, CustomValue, IntRange, Range, ShellError, Span, VarId,
+            ast::{CellPath, PathMember},
+            casing::Casing,
+            engine::Closure,
+        };
+        use chrono::DateTime;
+        use pretty_assertions::assert_eq;
+        use serde::{Deserialize, Serialize};
+        use std::ops::Bound;
+
+        #[derive(Debug, Clone, Serialize, Deserialize)]
+        struct TinyCustomValue;
+
+        #[typetag::serde]
+        impl CustomValue for TinyCustomValue {
+            fn clone_value(&self, span: Span) -> Value {
+                Value::custom(Box::new(self.clone()), span)
+            }
+
+            fn type_name(&self) -> String {
+                "TinyCustomValue".into()
+            }
+
+            fn to_base_value(&self, span: Span) -> Result<Value, ShellError> {
+                Ok(Value::nothing(span))
+            }
+
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+
+            fn as_mut_any(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+        }
+
+        struct DebugFormats {
+            value: Value,
+            expanded: &'static str,
+            expanded_alternate: &'static str,
+            compact: &'static str,
+            compact_alternate: &'static str,
+        }
+
+        impl DebugFormats {
+            #[track_caller]
+            fn assert(&self) {
+                let value = &self.value;
+                assert_eq!(format!("{value:-?}"), self.expanded);
+                assert_eq!(format!("{value:-#?}"), self.expanded_alternate);
+                assert_eq!(format!("{value:?}"), self.compact);
+                assert_eq!(format!("{value:#?}"), self.compact_alternate);
+            }
+        }
+
+        #[test]
+        fn bool() {
+            let value = Value::test_bool(true);
+            DebugFormats {
+                value,
+                expanded: "Bool { val: true, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Bool {
+                        val: true,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Bool(true)",
+                compact_alternate: "Bool(true)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn int() {
+            let value = Value::test_int(42);
+            DebugFormats {
+                value,
+                expanded: "Int { val: 42, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Int {
+                        val: 42,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Int(42)",
+                compact_alternate: "Int(42)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn float() {
+            let value = Value::test_float(4.2);
+            DebugFormats {
+                value,
+                expanded: "Float { val: 4.2, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Float {
+                        val: 4.2,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Float(4.2)",
+                compact_alternate: "Float(4.2)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn filesize() {
+            let value = Value::test_filesize(42);
+            DebugFormats {
+                value,
+                expanded: "Filesize { val: Filesize(42), internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Filesize {
+                        val: Filesize(
+                            42,
+                        ),
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Filesize(42 B)",
+                compact_alternate: "Filesize(42 B)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn duration() {
+            let value = Value::test_duration(42);
+            DebugFormats {
+                value,
+                expanded: "Duration { val: 42, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Duration {
+                        val: 42,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Duration(42ns)",
+                compact_alternate: "Duration(42ns)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn date() {
+            let value = Value::test_date(DateTime::UNIX_EPOCH.into());
+            DebugFormats {
+                value,
+                expanded: "Date { val: 1970-01-01T00:00:00+00:00, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Date {
+                        val: 1970-01-01T00:00:00+00:00,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Date(1970-01-01T00:00:00+00:00)",
+                compact_alternate: "Date(1970-01-01T00:00:00+00:00)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn range() {
+            let value = Value::test_range(Range::IntRange(IntRange {
+                start: 1,
+                step: 2,
+                end: Bound::Excluded(5),
+            }));
+            DebugFormats {
+                value,
+                expanded: "Range { val: IntRange(IntRange { start: 1, step: 2, end: Excluded(5) }), signals: None, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Range {
+                        val: IntRange(
+                            IntRange {
+                                start: 1,
+                                step: 2,
+                                end: Excluded(
+                                    5,
+                                ),
+                            },
+                        ),
+                        signals: None,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Range(1..3..<5)",
+                compact_alternate: "Range(1..3..<5)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn string() {
+            let value = Value::test_string("Ellie");
+            DebugFormats {
+                value,
+                expanded: r#"String { val: "Ellie", internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    String {
+                        val: "Ellie",
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: r#"String("Ellie")"#,
+                compact_alternate: r#"String("Ellie")"#,
+            }
+            .assert();
+        }
+
+        #[test]
+        fn glob() {
+            let value = Value::test_glob("*.nu");
+            DebugFormats {
+                value,
+                expanded: r#"Glob { val: "*.nu", no_expand: false, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    Glob {
+                        val: "*.nu",
+                        no_expand: false,
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: r#"Glob("*.nu")"#,
+                compact_alternate: r#"Glob("*.nu")"#,
+            }
+            .assert();
+        }
+
+        #[test]
+        fn record() {
+            let value = Value::test_record(record!("name" => Value::test_string("Ellie")));
+            DebugFormats {
+                value,
+                expanded: r#"Record { val: {"name": String { val: "Ellie", internal_span: Span(TEST) }}, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    Record {
+                        val: {
+                            "name": String {
+                                val: "Ellie",
+                                internal_span: Span(TEST),
+                            },
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: r#"Record({"name": String("Ellie")})"#,
+                compact_alternate: indoc! {r#"
+                    Record({
+                        "name": String("Ellie"),
+                    })"#
+                },
+            }
+            .assert();
+        }
+
+        #[test]
+        fn list() {
+            let value = Value::test_list(vec![Value::test_int(42), Value::test_string("Ellie")]);
+            DebugFormats {
+                value,
+                expanded: r#"List { vals: [Int { val: 42, internal_span: Span(TEST) }, String { val: "Ellie", internal_span: Span(TEST) }], signals: None, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    List {
+                        vals: [
+                            Int {
+                                val: 42,
+                                internal_span: Span(TEST),
+                            },
+                            String {
+                                val: "Ellie",
+                                internal_span: Span(TEST),
+                            },
+                        ],
+                        signals: None,
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: r#"List([Int(42), String("Ellie")])"#,
+                compact_alternate: indoc! {r#"
+                    List([
+                        Int(42),
+                        String("Ellie"),
+                    ])"#
+                },
+            }
+            .assert();
+        }
+
+        #[test]
+        fn closure() {
+            let value = Value::test_closure(Closure {
+                block_id: BlockId::new(42),
+                captures: vec![(VarId::new(7), Value::test_int(1))],
+            });
+            DebugFormats {
+                value,
+                expanded: "Closure { val: Closure { block_id: BlockId(42), captures: {VarId(7): Int { val: 1, internal_span: Span(TEST) }} }, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Closure {
+                        val: Closure {
+                            block_id: BlockId(42),
+                            captures: {
+                                VarId(7): Int {
+                                    val: 1,
+                                    internal_span: Span(TEST),
+                                },
+                            },
+                        },
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Closure(BlockId(42): {VarId(7): Int(1)})",
+                compact_alternate: indoc! {"
+                    Closure(BlockId(42): {
+                        VarId(7): Int(1),
+                    })"
+                },
+            }
+            .assert();
+        }
+
+        #[test]
+        fn error() {
+            let value = Value::error(
+                ShellError::NushellFailed { msg: "oops".into() },
+                Span::test_data(),
+            );
+            DebugFormats {
+                value,
+                expanded: r#"Error { error: NushellFailed { msg: "oops" }, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    Error {
+                        error: NushellFailed {
+                            msg: "oops",
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: r#"Error(NushellFailed { msg: "oops" })"#,
+                compact_alternate: indoc! {r#"
+                    Error(NushellFailed {
+                        msg: "oops",
+                    })"#
+                },
+            }
+            .assert();
+        }
+
+        #[test]
+        fn binary() {
+            let mut bytes = b"Ellie".to_vec();
+            bytes.extend([0xFF]);
+            let value = Value::test_binary(bytes);
+            DebugFormats {
+                value,
+                expanded: "Binary { val: [69, 108, 108, 105, 101, 255], internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Binary {
+                        val: [
+                            69,
+                            108,
+                            108,
+                            105,
+                            101,
+                            255,
+                        ],
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: r#"Binary("Ellie\xff")"#,
+                compact_alternate: r#"Binary("Ellie\xff")"#,
+            }
+            .assert();
+        }
+
+        #[test]
+        fn cell_path() {
+            let value = Value::test_cell_path(CellPath {
+                members: vec![
+                    PathMember::test_string("name".into(), false, Casing::Sensitive),
+                    PathMember::test_int(1, true),
+                ],
+            });
+            DebugFormats {
+                value,
+                expanded: r#"CellPath { val: CellPath { members: [String { val: "name", span: Span(TEST), optional: false, casing: Sensitive }, Int { val: 1, span: Span(TEST), optional: true }] }, internal_span: Span(TEST) }"#,
+                expanded_alternate: indoc! {r#"
+                    CellPath {
+                        val: CellPath {
+                            members: [
+                                String {
+                                    val: "name",
+                                    span: Span(TEST),
+                                    optional: false,
+                                    casing: Sensitive,
+                                },
+                                Int {
+                                    val: 1,
+                                    span: Span(TEST),
+                                    optional: true,
+                                },
+                            ],
+                        },
+                        internal_span: Span(TEST),
+                    }"#
+                },
+                compact: "CellPath($.name.1?)",
+                compact_alternate: "CellPath($.name.1?)",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn nothing() {
+            let value = Value::test_nothing();
+            DebugFormats {
+                value,
+                expanded: "Nothing { internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Nothing {
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Nothing",
+                compact_alternate: "Nothing",
+            }
+            .assert();
+        }
+
+        #[test]
+        fn custom() {
+            let value = Value::test_custom_value(Box::new(TinyCustomValue));
+            DebugFormats {
+                value,
+                expanded: "Custom { val: TinyCustomValue, internal_span: Span(TEST) }",
+                expanded_alternate: indoc! {"
+                    Custom {
+                        val: TinyCustomValue,
+                        internal_span: Span(TEST),
+                    }"
+                },
+                compact: "Custom(TinyCustomValue)",
+                compact_alternate: "Custom(TinyCustomValue)",
+            }
+            .assert();
+        }
+    }
 
     mod at_cell_path {
         use crate::casing::Casing;
@@ -4827,11 +5482,16 @@ mod tests {
             assert_subtype_equivalent(&list, &ty_list_list_int);
 
             // The type of an empty lists is a subtype of any list or table type
-            let ty_table = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
+            let ty_table = {
+                Type::Table(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
             let empty = Value::test_list(vec![]);
 
             assert_subtype_equivalent(&empty, &ty_any_list);
@@ -4841,13 +5501,18 @@ mod tests {
 
         #[test]
         fn test_record() {
-            let ty_abc = Type::Record(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Record(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
-            let ty_inner = Type::Record(Box::new([("inner".into(), ty_abc.clone())]));
+            let ty_abc = {
+                Type::Record(
+                    vec![
+                        ("a".into(), Type::Int),
+                        ("b".into(), Type::Int),
+                        ("c".into(), Type::Int),
+                    ]
+                    .into(),
+                )
+            };
+            let ty_ab = Type::Record(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
+            let ty_inner = Type::Record(vec![("inner".into(), ty_abc.clone())].into());
 
             let record_abc = Value::test_record(record! {
                 "a" => Value::test_int(1),
@@ -4872,12 +5537,15 @@ mod tests {
 
         #[test]
         fn test_table() {
-            let ty_abc = Type::Table(Box::new([
-                ("a".into(), Type::Int),
-                ("b".into(), Type::Int),
-                ("c".into(), Type::Int),
-            ]));
-            let ty_ab = Type::Table(Box::new([("a".into(), Type::Int), ("b".into(), Type::Int)]));
+            let ty_abc = Type::Table(
+                vec![
+                    ("a".into(), Type::Int),
+                    ("b".into(), Type::Int),
+                    ("c".into(), Type::Int),
+                ]
+                .into(),
+            );
+            let ty_ab = Type::Table(vec![("a".into(), Type::Int), ("b".into(), Type::Int)].into());
             let ty_list_any = Type::list(Type::Any);
 
             let record_abc = Value::test_record(record! {
@@ -4903,7 +5571,7 @@ mod tests {
             assert_subtype_equivalent(&table_mixed, &ty_abc);
             assert!(table_mixed.is_subtype_of(&ty_ab));
 
-            let ty_a = Type::Table(Box::new([("a".into(), Type::Any)]));
+            let ty_a = Type::Table(vec![("a".into(), Type::Any)].into());
             let table_mixed_types = Value::test_list(vec![
                 Value::test_record(record! {
                     "a" => Value::test_int(1),
