@@ -14,7 +14,7 @@ impl Command for All {
             .input_output_types(vec![(Type::List(Box::new(Type::Any)), Type::Bool)])
             .required(
                 "predicate",
-                SyntaxShape::RowCondition,
+                SyntaxShape::OneOf(vec![SyntaxShape::RowCondition, SyntaxShape::Record(vec![])]), // FIXME: Remove OneOf after deprecation period
                 "Row condition or closure that evaluates to a boolean.",
             )
             .category(Category::Filters)
