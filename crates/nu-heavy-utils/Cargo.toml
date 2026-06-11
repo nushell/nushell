@@ -25,11 +25,11 @@ merge = []
 [dependencies]
 nu-protocol.workspace = true
 
+chrono.workspace = true
 derive_setters.workspace = true
-granit-parser.workspace = true
 regex.workspace = true
-serde-saphyr = { workspace = true, features = ["serialize"] }
 serde = { workspace = true, features = ["derive"] }
+serde-saphyr = { workspace = true, features = ["serialize"] }
 
 [dev-dependencies]
 nu-test-support = { path = "../nu-test-support" }

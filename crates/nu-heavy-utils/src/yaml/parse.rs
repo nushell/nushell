@@ -6,7 +6,7 @@
 
 use crate::yaml::Spec;
 use derive_setters::Setters;
-use granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
+use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 use regex::Regex;
 use std::{borrow::Cow, collections::{HashMap, HashSet}, num::NonZeroUsize, str::FromStr, sync::LazyLock};
