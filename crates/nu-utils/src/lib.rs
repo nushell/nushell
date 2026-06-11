@@ -45,3 +45,6 @@ pub use split_read::SplitRead;
 
 #[cfg(unix)]
 pub use filesystem::users;
+
+mod writer_handle;
+pub use writer_handle::*;
