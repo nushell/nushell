@@ -1391,3 +1391,21 @@ fn test_cp_wildcards() {
         assert!(files_exist_at(&[".a"], dirs.test()));
     });
 }
+
+#[test]
+#[exp(nu_experimental::DC_GLOB)]
+fn cp_literal_directory_with_recursive_flag() {
+    Playground::setup("cp_literal_dir_dc", |dirs, sandbox| {
+        sandbox
+            .within("subdir")
+            .with_files(&[EmptyFile("test.txt")]);
+        sandbox.mkdir("dest");
+
+        nu!(
+            cwd: dirs.root(),
+            "cp cp_literal_dir_dc/subdir cp_literal_dir_dc/dest --recursive"
+        );
+
+        assert!(dirs.test().join("dest/subdir/test.txt").exists());
+    })
+}
