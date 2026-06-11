@@ -356,6 +356,8 @@ fn parse_mapping<'i>(
     _structure_style: StructureStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
+    // TODO: handle merging
+
     ctx.unhandled_tags(tag)?;
 
     let mut values = Vec::new();
