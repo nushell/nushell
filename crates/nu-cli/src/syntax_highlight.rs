@@ -647,11 +647,11 @@ mod tests {
     #[case("!ls", 0, true)]
     #[case("!ls", 2, true)]
     #[case("!-1", 1, true)]
-    // bang inside string literals suppresses expansion
-    #[case("\"!!\"", 1, false)]
-    #[case("\"!ls\"", 2, false)]
-    #[case("r#'!!'#", 3, false)]
-    #[case("$\"!!\"", 2, false)]
+    // bang inside string literals does not suppress expansion
+    #[case("\"!!\"", 1, true)]
+    #[case("\"!ls\"", 2, true)]
+    #[case("r#'!!'#", 3, true)]
+    #[case("$\"!!\"", 2, true)]
     // bang as external arg does not suppress expansion
     #[case("bash -c !!", 9, true)]
     #[case("bash -c !ls", 9, true)]
