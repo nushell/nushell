@@ -47,11 +47,16 @@ impl Command for ToYamlLike {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
-        let input = input.try_expand_range()?;
+        let value = input.into_value(call.head)?;
+        let options = nu_heavy_utils::yaml::SerializeOptions::default();
+        nu_heavy_utils::yaml::serialize(&value, call.head, &options)
+            .map(|s| PipelineData::value(Value::string(s, call.head), None))
 
-        to_yaml(engine_state, input, head, serialize_types)
+        // let head = call.head;
+        // let serialize_types = call.has_flag(engine_state, stack, "serialize")?;
+        // let input = input.try_expand_range()?;
+
+        // to_yaml(engine_state, input, head, serialize_types)
     }
 }
 

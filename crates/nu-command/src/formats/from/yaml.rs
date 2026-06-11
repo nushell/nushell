@@ -1,6 +1,7 @@
 use indexmap::IndexMap;
 use itertools::Itertools;
 use nu_engine::command_prelude::*;
+use nu_protocol::PipelineMetadata;
 use serde::de::Deserialize;
 
 #[derive(Clone)]
@@ -34,8 +35,11 @@ impl Command for FromYamlLike {
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
-        let head = call.head;
-        from_yaml(input, head)
+        let (yaml, yaml_span, ..) = input.collect_string_strict(call.head)?;
+        let yaml = yaml.as_str().into_spanned(yaml_span);
+        let options = nu_heavy_utils::yaml::ParseOptions::default();
+        nu_heavy_utils::yaml::parse(yaml, call.head, &options)
+            .map(|val| PipelineData::value(val, None))
     }
 }
 
