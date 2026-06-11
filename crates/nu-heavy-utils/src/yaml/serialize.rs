@@ -9,7 +9,7 @@ use nu_protocol::{
 };
 use nu_utils::FmtHandle;
 use serde::{Serialize, ser::SerializeMap};
-use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer};
+use serde_saphyr::{FlowMap, FlowSeq, FoldStr, LitStr, Serializer, ser_options};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Setters)]
@@ -22,13 +22,26 @@ pub fn serialize(
     span: Span,
     options: &SerializeOptions,
 ) -> Result<String, ShellError> {
-    // TODO: use them in the future
-    let _ = options;
+    let mut options = ser_options! {
+        yaml_12: match options.spec {
+            Spec::V1_1 => false,
+            Spec::V1_2 => true,
+        },
+    };
 
     let value = YamlValue::try_from_value(value, span)?;
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
-    let mut serializer = Serializer::new(&mut writer);
+    let mut serializer = Serializer::with_options(&mut writer, &mut options);
+    
+    // Clear out any preambles by the serializer
+    ().serialize(&mut serializer).unwrap();
+    WRITER.with_borrow_mut(|writer| {
+        if let Some(writer) = writer {
+            writer.take();
+        }
+    });
+
     value.serialize(&mut serializer).unwrap();
     Ok(writer.take())
 }
@@ -82,8 +95,8 @@ impl Serialize for YamlValue<'_> {
                 let writer = writer
                     .as_mut()
                     .expect("writer set before calling any serialization");
-                writer.write_str(tag).map_err(|_| todo!())?;
                 writer.write_char(' ').map_err(|_| todo!())?;
+                writer.write_str(tag).map_err(|_| todo!())?;
                 value.serialize(serializer)
             })
         }
@@ -186,7 +199,7 @@ impl<'v> YamlValue<'v> {
             Value::Binary { val, .. } => YamlValue::Binary(val.as_slice()),
             Value::CellPath { val, .. } => YamlValue::CellPath(val),
             Value::Custom { .. } => {
-                // TODO: when structure style values land, add them in here
+                // TODO: implement structure style values here
                 return Err(ShellError::Generic(
                     GenericError::new(
                         "Unsupported custom values",

@@ -21,6 +21,12 @@ impl Command for ToYamlLike {
                 "Serialize nushell types that cannot be deserialized.",
                 Some('s'),
             )
+            .named(
+                "spec",
+                SyntaxShape::String,
+                "YAML spec version ('1.1' or '1.2')",
+                None,
+            )
             .category(Category::Formats)
     }
 
@@ -48,7 +54,10 @@ impl Command for ToYamlLike {
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let value = input.into_value(call.head)?;
-        let options = nu_heavy_utils::yaml::SerializeOptions::default();
+        let spec = call.get_flag(engine_state, stack, "spec")?;
+        let options =
+            nu_heavy_utils::yaml::SerializeOptions::default().spec(spec.unwrap_or_default());
+
         nu_heavy_utils::yaml::serialize(&value, call.head, &options)
             .map(|s| PipelineData::value(Value::string(s, call.head), None))
 
