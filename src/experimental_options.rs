@@ -76,8 +76,6 @@ pub fn load(engine_state: &EngineState, cli_args: &NushellCliArgs, has_script: b
 
 fn should_disable_experimental_options(has_script: bool, cli_args: &NushellCliArgs) -> bool {
     has_script
-        || cli_args.commands.is_some()
-        || cli_args.execute.is_some()
         || cli_args.no_config_file.is_some()
-        || cli_args.login_shell.is_some()
+        || (cli_args.commands.is_some() && cli_args.login_shell.is_none())
 }
