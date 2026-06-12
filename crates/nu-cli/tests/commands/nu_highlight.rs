@@ -19,6 +19,8 @@ use rstest::rstest;
     "^ls e> foo o>| ls",
     "redirection"
 )]
+// https://github.com/nushell/nushell/issues/18369
+#[case::leading_pipe("| ls", "garbage")]
 fn nu_highlight_color_detection(#[case] cmd: &str, #[case] shape: &str) {
     use std::fmt::Write;
 
