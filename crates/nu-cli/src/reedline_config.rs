@@ -307,17 +307,34 @@ fn parse_description_position(
     }
 }
 
-/// Apply the optional general menu modes from reedline #1071. Both default to
-/// unset, preserving existing behavior; `input_mode` supersedes
-/// `only_buffer_difference` when present.
-fn apply_buffer_modes<M: MenuBuilder>(
+/// Resolve the menu's effective reedline `InputMode` from the optional
+/// `input_mode` and legacy `only_buffer_difference` fields. The result drives
+/// both the reedline menu and `NuMenuCompleter`'s span math, so it must be
+/// resolved exactly once, here.
+fn resolve_input_mode(menu: &ParsedMenu, config: &Config) -> Result<InputMode, ShellError> {
+    match (&menu.input_mode, &menu.only_buffer_difference) {
+        (Some(input_mode), _) => parse_input_mode(input_mode, config),
+        (None, Some(only_buffer_difference)) => {
+            if only_buffer_difference.as_bool()? {
+                Ok(InputMode::Diff)
+            } else {
+                Ok(InputMode::CursorPrefix)
+            }
+        }
+        (None, None) => Err(ShellError::MissingRequiredColumn {
+            column: "input_mode (or only_buffer_difference)",
+            span: menu.name.span(),
+        }),
+    }
+}
+
+/// Apply the optional reedline #1071 `output_mode`. Unset preserves
+/// reedline's default (`suggested_span`).
+fn apply_output_mode<M: MenuBuilder>(
     mut menu: M,
     parsed: &ParsedMenu,
     config: &Config,
 ) -> Result<M, ShellError> {
-    if let Some(value) = &parsed.input_mode {
-        menu = menu.with_input_mode(parse_input_mode(value, config)?);
-    }
     if let Some(value) = &parsed.output_mode {
         menu = menu.with_output_mode(parse_output_mode(value, config)?);
     }
@@ -384,9 +401,9 @@ pub(crate) fn add_columnar_menu(
     let marker = menu.marker.to_expanded_string("", config);
     columnar_menu = columnar_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
-    columnar_menu = apply_buffer_modes(columnar_menu, menu, config)?;
+    let input_mode = resolve_input_mode(menu, config)?;
+    columnar_menu = columnar_menu.with_input_mode(input_mode);
+    columnar_menu = apply_output_mode(columnar_menu, menu, config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -394,7 +411,7 @@ pub(crate) fn add_columnar_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(columnar_menu),
@@ -441,9 +458,9 @@ pub(crate) fn add_list_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     list_menu = list_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
-    list_menu = apply_buffer_modes(list_menu, menu, &config)?;
+    let input_mode = resolve_input_mode(menu, &config)?;
+    list_menu = list_menu.with_input_mode(input_mode);
+    list_menu = apply_output_mode(list_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -451,7 +468,7 @@ pub(crate) fn add_list_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(list_menu),
@@ -616,9 +633,9 @@ pub(crate) fn add_ide_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     ide_menu = ide_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
-    ide_menu = apply_buffer_modes(ide_menu, menu, &config)?;
+    let input_mode = resolve_input_mode(menu, &config)?;
+    ide_menu = ide_menu.with_input_mode(input_mode);
+    ide_menu = apply_output_mode(ide_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -626,7 +643,7 @@ pub(crate) fn add_ide_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(ide_menu),
@@ -698,9 +715,9 @@ pub(crate) fn add_description_menu(
     let marker = menu.marker.to_expanded_string("", &config);
     description_menu = description_menu.with_marker(&marker);
 
-    let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
-    description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
-    description_menu = apply_buffer_modes(description_menu, menu, &config)?;
+    let input_mode = resolve_input_mode(menu, &config)?;
+    description_menu = description_menu.with_input_mode(input_mode);
+    description_menu = apply_output_mode(description_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -708,7 +725,7 @@ pub(crate) fn add_description_menu(
             span,
             stack.captures_to_stack(closure.captures.clone()),
             engine_state,
-            only_buffer_difference,
+            input_mode,
         );
         ReedlineMenu::WithCompleter {
             menu: Box::new(description_menu),
@@ -1969,6 +1986,61 @@ mod test {
             Ok(InputMode::Diff)
         ));
         assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
+    }
+
+    fn test_menu(input_mode: Option<Value>, only_buffer_difference: Option<Value>) -> ParsedMenu {
+        ParsedMenu {
+            name: Value::test_string("test_menu"),
+            marker: Value::test_string("| "),
+            only_buffer_difference,
+            input_mode,
+            output_mode: None,
+            style: Value::test_nothing(),
+            r#type: Value::test_nothing(),
+            source: None,
+        }
+    }
+
+    #[test]
+    fn test_resolve_input_mode() {
+        let config = Config::default();
+
+        // input_mode alone
+        assert!(matches!(
+            resolve_input_mode(
+                &test_menu(Some(Value::test_string("full_buffer")), None),
+                &config
+            ),
+            Ok(InputMode::FullBuffer)
+        ));
+
+        // input_mode supersedes a conflicting legacy flag
+        assert!(matches!(
+            resolve_input_mode(
+                &test_menu(
+                    Some(Value::test_string("diff")),
+                    Some(Value::test_bool(false))
+                ),
+                &config
+            ),
+            Ok(InputMode::Diff)
+        ));
+
+        // legacy flag alone maps to the equivalent mode
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, Some(Value::test_bool(true))), &config),
+            Ok(InputMode::Diff)
+        ));
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, Some(Value::test_bool(false))), &config),
+            Ok(InputMode::CursorPrefix)
+        ));
+
+        // neither field set is a config error
+        assert!(matches!(
+            resolve_input_mode(&test_menu(None, None), &config),
+            Err(ShellError::MissingRequiredColumn { .. })
+        ));
     }
 
     #[test]

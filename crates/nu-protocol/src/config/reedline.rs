@@ -17,7 +17,9 @@ pub struct ParsedKeybinding {
 pub struct ParsedMenu {
     pub name: Value,
     pub marker: Value,
-    pub only_buffer_difference: Value,
+    /// Legacy two-state input behavior. Required unless `input_mode` is set,
+    /// which supersedes it.
+    pub only_buffer_difference: Option<Value>,
     /// Optional reedline `InputMode` ("diff" / "cursor_prefix" / "full_buffer").
     /// Supersedes `only_buffer_difference` when set; absent keeps current behavior.
     pub input_mode: Option<Value>,
