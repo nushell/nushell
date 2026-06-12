@@ -2,7 +2,6 @@ use std::borrow::Cow;
 
 use nu_cmd_base::input_handler::{CmdArgument, operate};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
 
 use percent_encoding::percent_decode_str;
 
@@ -119,12 +118,14 @@ fn action(input: &Value, args: &Arguments, head: Span) -> Value {
                     let val = percent_decode_str.decode_utf8();
                     match val {
                         Ok(val) => Value::string(val, head),
-                        Err(e) => Value::error(
-                            ShellError::Generic(GenericError::new(
-                                "Failed to decode string",
-                                e.to_string(),
-                                input_span,
-                            )),
+                        Err(_) => Value::error(
+                            ShellError::NonUtf8Custom {
+                                msg: "\
+                                    Input is not UTF-8 encoded.\n\
+                                    Try using the `--binary` flag together with `decode`."
+                                    .into(),
+                                span: input_span,
+                            },
                             head,
                         ),
                     }
