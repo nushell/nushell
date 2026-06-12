@@ -1555,12 +1555,24 @@ pub(crate) fn display_edit_command(edit: EditCommandDiscriminants) -> Option<&'s
         ECD::CopyAroundPair => "CopyAroundPair left: <char>, right <char>",
         ECD::CutTextObject => "CutTextObject scope: <string>, object_type: <string>",
         ECD::CopyTextObject => "CopyTextObject scope: <string>, object_type: <string>",
-        ECD::Move => "Move motion: <string>, + motion fields",
-        ECD::Extend => "Extend motion: <string>, + motion fields",
-        ECD::Erase => "Erase motion: <string>, + motion fields",
-        ECD::Cut => "Cut motion: <string>, granularity?: <string>, + motion fields",
-        ECD::Copy => "Copy motion: <string>, granularity?: <string>, + motion fields",
-        ECD::Change => "Change motion: <string>, granularity?: <string>, + motion fields",
+        ECD::Move => {
+            "Move motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Extend => {
+            "Extend motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Erase => {
+            "Erase motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>"
+        }
+        ECD::Cut => {
+            "Cut motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
+        ECD::Copy => {
+            "Copy motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
+        ECD::Change => {
+            "Change motion: <string>, direction: <string>, word_kind?: <string>, edge?: <string>, char?: <char>, stop?: <string>, granularity?: <string>"
+        }
         ECD::ReplaceChars => return None,
     })
 }
@@ -1590,39 +1602,33 @@ fn parse_text_object(
     config: &Config,
     span: Span,
 ) -> Result<TextObject, ShellError> {
-    let scope_value = extract_value("scope", record, span)?;
-    let scope_str = scope_value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase();
-    let scope = match scope_str.as_str() {
-        "inner" => TextObjectScope::Inner,
-        "around" => TextObjectScope::Around,
-        str => {
-            return Err(ShellError::InvalidValue {
-                valid: "'inner' or 'around'".into(),
-                actual: format!("'{str}'"),
-                span: scope_value.span(),
-            });
-        }
-    };
+    let scope = extract_enum_field(
+        "scope",
+        record,
+        config,
+        span,
+        "'inner' or 'around'",
+        |name| match name {
+            "inner" => Some(TextObjectScope::Inner),
+            "around" => Some(TextObjectScope::Around),
+            _ => None,
+        },
+    )?;
 
-    let type_value = extract_value("object_type", record, span)?;
-    let type_str = type_value
-        .to_expanded_string("", config)
-        .to_ascii_lowercase();
-    let object_type = match type_str.as_str() {
-        "word" => TextObjectType::Word,
-        "bigword" => TextObjectType::BigWord,
-        "brackets" | "bracket" => TextObjectType::Brackets,
-        "quote" | "quotes" => TextObjectType::Quote,
-        str => {
-            return Err(ShellError::InvalidValue {
-                valid: "'word', 'bigword', 'brackets', or 'quote'".into(),
-                actual: format!("'{str}'"),
-                span: type_value.span(),
-            });
-        }
-    };
+    let object_type = extract_enum_field(
+        "object_type",
+        record,
+        config,
+        span,
+        "'word', 'bigword', 'brackets', or 'quote'",
+        |name| match name {
+            "word" => Some(TextObjectType::Word),
+            "bigword" => Some(TextObjectType::BigWord),
+            "brackets" | "bracket" => Some(TextObjectType::Brackets),
+            "quote" | "quotes" => Some(TextObjectType::Quote),
+            _ => None,
+        },
+    )?;
 
     Ok(TextObject { scope, object_type })
 }
@@ -1661,25 +1667,28 @@ fn parse_direction(record: &Record, config: &Config, span: Span) -> Result<Direc
     )
 }
 
-/// Operator span granularity; defaults to char-wise like `Granularity::default()`.
+/// Operator span granularity; an absent field falls back to
+/// `Granularity::default()` (char-wise).
 fn parse_granularity(
     record: &Record,
     config: &Config,
     span: Span,
 ) -> Result<Granularity, ShellError> {
-    let Ok(value) = extract_value("granularity", record, span) else {
-        return Ok(Granularity::CharWise);
-    };
-    let name = value.to_expanded_string("", config).to_ascii_lowercase();
-    match name.as_str() {
-        "charwise" => Ok(Granularity::CharWise),
-        "linewise" => Ok(Granularity::LineWise),
-        _ => Err(ShellError::InvalidValue {
-            valid: "'charwise' or 'linewise'".into(),
-            actual: format!("'{name}'"),
-            span: value.span(),
-        }),
+    if !record.contains("granularity") {
+        return Ok(Granularity::default());
     }
+    extract_enum_field(
+        "granularity",
+        record,
+        config,
+        span,
+        "'charwise' or 'linewise'",
+        |name| match name {
+            "charwise" => Some(Granularity::CharWise),
+            "linewise" => Some(Granularity::LineWise),
+            _ => None,
+        },
+    )
 }
 
 /// Parse a [`MotionTarget`] from the flat fields of an edit-command record.
@@ -1687,6 +1696,9 @@ fn parse_granularity(
 /// `motion` selects the variant; the remaining fields supply its data —
 /// `direction` (forward/backward), `word_kind` (small/big), `edge` (start/end),
 /// `char`, and `stop` (on/before).
+///
+/// `MotionTarget::Offset` is intentionally not exposed; `MoveToPosition`
+/// already covers absolute cursor positions.
 fn parse_motion_target(
     record: &Record,
     config: &Config,
