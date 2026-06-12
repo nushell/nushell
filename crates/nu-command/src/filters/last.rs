@@ -1,9 +1,8 @@
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 use nu_protocol::shell_error::io::IoError;
 use std::{collections::VecDeque, io::Read};
-
-#[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
 
 #[derive(Clone)]
 pub struct Last;
@@ -195,22 +194,18 @@ impl Command for Last {
                     // Propagate errors by explicitly matching them before the final case.
                     Value::Error { error, .. } => Err(*error),
                     #[cfg(feature = "sqlite")]
-                    // Pushdown optimization: handle 'last' on SQLiteQueryBuilder for lazy SQL execution
+                    // Pushdown optimization: handle 'last' via QueryPlan for lazy SQL execution
                     Value::Custom {
                         val: custom_val,
                         internal_span,
                         ..
                     } => {
-                        if let Some(table) =
-                            custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>()
-                        {
+                        if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
                             if return_single_element {
                                 // For single element, ORDER BY rowid DESC LIMIT 1
-                                let new_table = table
-                                    .clone()
-                                    .with_order_by("rowid DESC".to_string())
-                                    .with_limit(1);
-                                let result = new_table.execute(head)?;
+                                let plan =
+                                    plan.with_order_by("rowid DESC".to_string()).with_limit(1);
+                                let result = plan.execute(head)?;
                                 let value = result.into_value(head)?;
                                 if let Value::List { vals, .. } = value {
                                     if let Some(val) = vals.into_iter().next() {
@@ -225,16 +220,15 @@ impl Command for Last {
                                     }
                                 } else {
                                     Err(ShellError::NushellFailed {
-                                        msg: "Expected list from SQLiteQueryBuilder".into(),
+                                        msg: "Expected list from query plan".into(),
                                     })
                                 }
                             } else {
                                 // For multiple, ORDER BY rowid DESC LIMIT rows
-                                let new_table = table
-                                    .clone()
+                                let plan = plan
                                     .with_order_by("rowid DESC".to_string())
                                     .with_limit(rows as i64);
-                                let result = new_table.execute(head)?;
+                                let result = plan.execute(head)?;
                                 let value = result.into_value(head)?;
 
                                 if let Value::List { mut vals, .. } = value {

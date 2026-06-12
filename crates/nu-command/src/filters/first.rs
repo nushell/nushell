@@ -1,9 +1,8 @@
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 use nu_protocol::{Signals, shell_error::io::IoError};
 use std::io::Read;
-
-#[cfg(feature = "sqlite")]
-use crate::database::SQLiteQueryBuilder;
 
 #[derive(Clone)]
 pub struct First;
@@ -193,17 +192,17 @@ fn first_helper(
                 // Propagate errors by explicitly matching them before the final case.
                 Value::Error { error, .. } => Err(*error),
                 #[cfg(feature = "sqlite")]
-                // Pushdown optimization: handle 'first' on SQLiteQueryBuilder for lazy SQL execution
+                // Pushdown optimization: handle 'first' via QueryPlan for lazy SQL execution
                 Value::Custom {
                     val: custom_val,
                     internal_span,
                     ..
                 } => {
-                    if let Some(table) = custom_val.as_any().downcast_ref::<SQLiteQueryBuilder>() {
+                    if let Some(plan) = QueryPlan::try_from_any(custom_val.as_any()) {
                         if return_single_element {
                             // For single element, limit 1
-                            let new_table = table.clone().with_limit(1);
-                            let result = new_table.execute(head)?;
+                            let plan = plan.with_limit(1);
+                            let result = plan.execute(head)?;
                             let value = result.into_value(head)?;
                             if let Value::List { vals, .. } = value {
                                 if let Some(val) = vals.into_iter().next() {
@@ -218,15 +217,13 @@ fn first_helper(
                                 }
                             } else {
                                 Err(ShellError::NushellFailed {
-                                    msg: "Expected list from SQLiteQueryBuilder".into(),
+                                    msg: "Expected list from query plan".into(),
                                 })
                             }
                         } else {
                             // For multiple, limit rows
-                            let new_table = table.clone().with_limit(rows as i64);
-                            new_table
-                                .execute(head)
-                                .map(|data| data.set_metadata(input_meta))
+                            let plan = plan.with_limit(rows as i64);
+                            plan.execute(head).map(|data| data.set_metadata(input_meta))
                         }
                     } else {
                         Err(ShellError::OnlySupportsThisInputType {
