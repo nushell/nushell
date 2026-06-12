@@ -90,7 +90,7 @@ fn end_of_options_with_wrapped_command() -> Result {
         .run(
             "
             def --wrapped my_wrap [...args] { $args }
-            my_wrap -- -flag value
+            my_wrap -- -- -flag value
         ",
         )
         .expect_value_eq(["--", "-flag", "value"])

@@ -50,7 +50,7 @@ fn known_external_self_referential_alias() -> TestResult {
 #[test]
 fn known_external_complex_unknown_args() -> TestResult {
     run_test_contains(
-        "extern echo []; echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
+        "extern echo []; echo foo -b -as -9 --abc -- -- -Dxmy=AKOO - bar",
         "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
     )
 }
@@ -63,7 +63,7 @@ fn known_external_from_module() -> TestResult {
         }
 
         use spam echo
-        echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        echo foo -b -as -9 --abc -- -- -Dxmy=AKOO - bar
         ",
         "foo -b -as -9 --abc -- -Dxmy=AKOO - bar",
     )
