@@ -18,6 +18,11 @@ pub struct ParsedMenu {
     pub name: Value,
     pub marker: Value,
     pub only_buffer_difference: Value,
+    /// Optional reedline `InputMode` ("diff" / "cursor_prefix" / "full_buffer").
+    /// Supersedes `only_buffer_difference` when set; absent keeps current behavior.
+    pub input_mode: Option<Value>,
+    /// Optional reedline `OutputMode` ("suggested_span" / "full_buffer" / "extend_to_end").
+    pub output_mode: Option<Value>,
     pub style: Value,
     pub r#type: Value,
     pub source: Option<Closure>,

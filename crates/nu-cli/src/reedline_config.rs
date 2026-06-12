@@ -12,12 +12,12 @@ use nu_protocol::{
     extract_value,
 };
 use reedline::{
-    ColumnarMenu, DescriptionMenu, DescriptionMode, Direction, EditCommand,
-    EditCommandDiscriminants, FindStop, Granularity, IdeMenu, Keybindings, ListMenu, MenuBuilder,
-    MotionTarget, PromptEditModeDiscriminants, Reedline, ReedlineEvent, ReedlineEventDiscriminants,
-    ReedlineMenu, TextObject, TextObjectScope, TextObjectType, TraversalDirection, WordEdge,
-    WordKind, default_emacs_keybindings, default_vi_insert_keybindings,
-    default_vi_normal_keybindings,
+    ColumnarMenu, DescriptionMenu, DescriptionMode, DescriptionPosition, Direction, EditCommand,
+    EditCommandDiscriminants, FindStop, Granularity, IdeMenu, InputMode, Keybindings, ListMenu,
+    MenuBuilder, MotionTarget, OutputMode, PromptEditModeDiscriminants, Reedline, ReedlineEvent,
+    ReedlineEventDiscriminants, ReedlineMenu, TextObject, TextObjectScope, TextObjectType,
+    TraversalDirection, WordEdge, WordKind, default_emacs_keybindings,
+    default_vi_insert_keybindings, default_vi_normal_keybindings,
 };
 use std::{str::FromStr, sync::Arc};
 
@@ -254,6 +254,76 @@ fn set_menu_style<M: MenuBuilder>(mut menu: M, style: &Value) -> M {
     menu
 }
 
+fn parse_input_mode(value: &Value, config: &Config) -> Result<InputMode, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "diff" => Ok(InputMode::Diff),
+        "cursor_prefix" => Ok(InputMode::CursorPrefix),
+        "full_buffer" => Ok(InputMode::FullBuffer),
+        other => Err(ShellError::InvalidValue {
+            valid: "'diff', 'cursor_prefix', or 'full_buffer'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+fn parse_output_mode(value: &Value, config: &Config) -> Result<OutputMode, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "suggested_span" => Ok(OutputMode::SuggestedSpan),
+        "full_buffer" => Ok(OutputMode::FullBuffer),
+        "extend_to_end" => Ok(OutputMode::ExtendToEnd),
+        other => Err(ShellError::InvalidValue {
+            valid: "'suggested_span', 'full_buffer', or 'extend_to_end'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+fn parse_description_position(
+    value: &Value,
+    config: &Config,
+) -> Result<DescriptionPosition, ShellError> {
+    match value
+        .to_expanded_string("", config)
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "before" => Ok(DescriptionPosition::Before),
+        "after" => Ok(DescriptionPosition::After),
+        other => Err(ShellError::InvalidValue {
+            valid: "'before' or 'after'".into(),
+            actual: format!("'{other}'"),
+            span: value.span(),
+        }),
+    }
+}
+
+/// Apply the optional general menu modes from reedline #1071. Both default to
+/// unset, preserving existing behavior; `input_mode` supersedes
+/// `only_buffer_difference` when present.
+fn apply_buffer_modes<M: MenuBuilder>(
+    mut menu: M,
+    parsed: &ParsedMenu,
+    config: &Config,
+) -> Result<M, ShellError> {
+    if let Some(value) = &parsed.input_mode {
+        menu = menu.with_input_mode(parse_input_mode(value, config)?);
+    }
+    if let Some(value) = &parsed.output_mode {
+        menu = menu.with_output_mode(parse_output_mode(value, config)?);
+    }
+    Ok(menu)
+}
+
 // Adds a columnar menu to the editor engine
 pub(crate) fn add_columnar_menu(
     line_editor: Reedline,
@@ -316,6 +386,7 @@ pub(crate) fn add_columnar_menu(
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     columnar_menu = columnar_menu.with_only_buffer_difference(only_buffer_difference);
+    columnar_menu = apply_buffer_modes(columnar_menu, menu, config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -356,6 +427,13 @@ pub(crate) fn add_list_menu(
             }
             Err(_) => list_menu,
         };
+
+        list_menu = match extract_value("description_position", val, span) {
+            Ok(position) => {
+                list_menu.with_description_position(parse_description_position(position, &config)?)
+            }
+            Err(_) => list_menu,
+        };
     }
 
     list_menu = set_menu_style(list_menu, &menu.style);
@@ -365,6 +443,7 @@ pub(crate) fn add_list_menu(
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     list_menu = list_menu.with_only_buffer_difference(only_buffer_difference);
+    list_menu = apply_buffer_modes(list_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -539,6 +618,7 @@ pub(crate) fn add_ide_menu(
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     ide_menu = ide_menu.with_only_buffer_difference(only_buffer_difference);
+    ide_menu = apply_buffer_modes(ide_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -620,6 +700,7 @@ pub(crate) fn add_description_menu(
 
     let only_buffer_difference = menu.only_buffer_difference.as_bool()?;
     description_menu = description_menu.with_only_buffer_difference(only_buffer_difference);
+    description_menu = apply_buffer_modes(description_menu, menu, &config)?;
 
     let completer = if let Some(closure) = &menu.source {
         let menu_completer = NuMenuCompleter::new(
@@ -1874,6 +1955,48 @@ mod test {
                 }
             )]))
         );
+    }
+
+    #[test]
+    fn test_parse_input_mode() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_input_mode(&Value::test_string("full_buffer"), &config),
+            Ok(InputMode::FullBuffer)
+        ));
+        assert!(matches!(
+            parse_input_mode(&Value::test_string("diff"), &config),
+            Ok(InputMode::Diff)
+        ));
+        assert!(parse_input_mode(&Value::test_string("nope"), &config).is_err());
+    }
+
+    #[test]
+    fn test_parse_output_mode() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_output_mode(&Value::test_string("extend_to_end"), &config),
+            Ok(OutputMode::ExtendToEnd)
+        ));
+        assert!(matches!(
+            parse_output_mode(&Value::test_string("suggested_span"), &config),
+            Ok(OutputMode::SuggestedSpan)
+        ));
+        assert!(parse_output_mode(&Value::test_string("nope"), &config).is_err());
+    }
+
+    #[test]
+    fn test_parse_description_position() {
+        let config = Config::default();
+        assert!(matches!(
+            parse_description_position(&Value::test_string("after"), &config),
+            Ok(DescriptionPosition::After)
+        ));
+        assert!(matches!(
+            parse_description_position(&Value::test_string("before"), &config),
+            Ok(DescriptionPosition::Before)
+        ));
+        assert!(parse_description_position(&Value::test_string("nope"), &config).is_err());
     }
 
     #[test]
