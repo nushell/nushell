@@ -5,7 +5,7 @@
 /// collecting errors until the iterator is exhausted.
 ///
 /// ```
-/// # use nu_utils::iter::MultiResult;
+/// # use nu_utils::MultiResult;
 /// let outcome = [Ok(1), Err(2), Ok(3), Err(4), Ok(5), Err(6)]
 ///     .into_iter()
 ///     .collect::<MultiResult<Vec<_>, Vec<_>>>()
