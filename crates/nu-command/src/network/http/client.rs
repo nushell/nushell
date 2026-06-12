@@ -880,6 +880,8 @@ pub fn request_add_custom_headers<B>(
 
 fn handle_status_error(span: Span, requested_url: &str, response: &mut Response) -> ShellError {
     let msg = if response.header("content-type") == Some("application/json") {
+        // We use a json response as a heuristic to mean the body will contain a relevant error message.
+        // This can be widened if the assumption is wrong.
         response
             .body_mut()
             .read_to_string()
