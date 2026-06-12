@@ -11,7 +11,7 @@ pub enum Spec {
     #[default]
     #[nu_value(rename = "1.1")]
     V1_1,
-    
+
     #[nu_value(rename = "1.2")]
     V1_2,
 }

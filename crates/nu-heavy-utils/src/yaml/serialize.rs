@@ -33,7 +33,7 @@ pub fn serialize(
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
     let mut serializer = Serializer::with_options(&mut writer, &mut options);
-    
+
     // Clear out any preambles by the serializer
     ().serialize(&mut serializer).unwrap();
     WRITER.with_borrow_mut(|writer| {

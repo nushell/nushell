@@ -4,7 +4,10 @@
 // to the parser_span, all errors that are caused by the value as it is an incorrect yaml, should
 // use the yaml_span.
 
-use crate::yaml::Spec;
+use crate::{
+    merge::{Merge, MergeStrategy},
+    yaml::Spec,
+};
 use derive_setters::Setters;
 use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 use regex::Regex;
@@ -363,6 +366,9 @@ fn parse_mapping<'i>(
     let mut values = Vec::new();
     let mut keys = HashSet::new();
 
+    let mut merge = Record::new();
+    let merge_strategy = MergeStrategy::Shallow;
+
     loop {
         let key = 'key: loop {
             // expect a key or end
@@ -376,7 +382,9 @@ fn parse_mapping<'i>(
                     break 'key value;
                 }
                 Event::MappingEnd => {
-                    return Ok(Value::record(Record::from_iter(values), ctx.parser_span));
+                    let record = Record::from_iter(values);
+                    let merged = merge.merge(record, merge_strategy, ctx.parser_span)?;
+                    return Ok(Value::record(merged, ctx.parser_span));
                 }
                 event => return Err(ctx.unexpected_event(event)),
             }
@@ -406,27 +414,52 @@ fn parse_mapping<'i>(
             }
         };
 
-        if !keys.insert(key.clone()) {
-            return Err(ShellError::Generic(
-                GenericError::new(
-                    "Duplicate YAML Key",
-                    format!("The key {key:?} already appeared in the mapping"),
-                    ctx.yaml_span,
-                )
-                .with_code("shell::yaml::parse::duplicate_key"),
-            ));
-        }
+        match key {
+            MapKey::Merge => match value {
+                Value::Record { val, .. } => {
+                    merge = merge.merge(val.into_owned(), merge_strategy, ctx.parser_span)?;
+                }
+                Value::List { vals, .. } => {
+                    for val in vals.into_iter().rev() {
+                        let Value::Record { val, .. } = val else {
+                            todo!("throw error explaining merge is not a record")
+                        };
 
-        values.push((key, value))
+                        merge = merge.merge(val.into_owned(), merge_strategy, ctx.parser_span)?;
+                    }
+                }
+                _ => todo!("throw invalid merge objects"),
+            },
+
+            MapKey::Normal(key) => {
+                if !keys.insert(key.clone()) {
+                    return Err(ShellError::Generic(
+                        GenericError::new(
+                            "Duplicate YAML Key",
+                            format!("The key {key:?} already appeared in the mapping"),
+                            ctx.yaml_span,
+                        )
+                        .with_code("shell::yaml::parse::duplicate_key"),
+                    ));
+                }
+
+                values.push((key, value));
+            }
+        }
     }
+}
+
+enum MapKey {
+    Normal(String),
+    Merge,
 }
 
 fn parse_key<'i>(
     ctx: &mut ParseCtx<'i>,
     value: Cow<'i, str>,
-    _: ScalarStyle,
+    scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
-) -> Result<String, ShellError> {
+) -> Result<MapKey, ShellError> {
     ctx.unhandled_tags(tag)?;
 
     // According to spec a key node may be just about everything:
@@ -434,7 +467,10 @@ fn parse_key<'i>(
     // However nushell is only able to represent mappings via `Record`,
     // therefore we enforce keys as strings.
 
-    Ok(value.to_string())
+    Ok(match (value.as_ref(), scalar_style) {
+        ("<<", ScalarStyle::Plain) => MapKey::Merge,
+        _ => MapKey::Normal(value.to_string()),
+    })
 }
 
 #[cfg(test)]
