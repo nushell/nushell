@@ -1,3 +1,5 @@
+#[cfg(feature = "sqlite")]
+use crate::database::QueryPlan;
 use nu_engine::command_prelude::*;
 
 #[derive(Clone)]
@@ -90,6 +92,17 @@ impl Command for Skip {
         };
 
         let input_span = input.span().unwrap_or(call.head);
+
+        #[cfg(feature = "sqlite")]
+        if let PipelineData::Value(Value::Custom { val, .. }, metadata) = &input
+            && let Some(plan) = QueryPlan::try_from_any(val.as_any())
+        {
+            let plan = plan.with_offset(n as i64);
+            return plan
+                .execute(call.head)
+                .map(|data| data.set_metadata(metadata.clone()));
+        }
+
         match input {
             PipelineData::ByteStream(stream, metadata) => {
                 if stream.type_().is_binary_coercible() {

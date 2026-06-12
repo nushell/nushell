@@ -33,6 +33,20 @@ impl QueryPlan {
         }
     }
 
+    /// Apply an OFFSET to the query plan.
+    pub fn with_offset(self, offset: i64) -> Self {
+        match self {
+            Self::Sqlite(b) => Self::Sqlite(b.with_offset(offset)),
+        }
+    }
+
+    /// Apply a DISTINCT to the query plan.
+    pub fn with_distinct(self) -> Self {
+        match self {
+            Self::Sqlite(b) => Self::Sqlite(b.with_distinct()),
+        }
+    }
+
     /// Apply an ORDER BY to the query plan.
     pub fn with_order_by(self, order_by: String) -> Self {
         match self {
@@ -128,6 +142,32 @@ mod test {
         assert!(
             sql.contains("LIMIT 5"),
             "SQL should contain LIMIT 5, got: {sql}"
+        );
+    }
+
+    #[test]
+    fn with_offset_delegates() {
+        let plan = QueryPlan::Sqlite(sample_builder("t"));
+        let offset = plan.with_offset(10);
+        let sql = match &offset {
+            QueryPlan::Sqlite(b) => b.build_sql(),
+        };
+        assert!(
+            sql.contains("OFFSET 10"),
+            "SQL should contain OFFSET 10, got: {sql}"
+        );
+    }
+
+    #[test]
+    fn with_distinct_delegates() {
+        let plan = QueryPlan::Sqlite(sample_builder("t"));
+        let distinct = plan.with_distinct();
+        let sql = match &distinct {
+            QueryPlan::Sqlite(b) => b.build_sql(),
+        };
+        assert!(
+            sql.starts_with("SELECT DISTINCT"),
+            "SQL should start with SELECT DISTINCT, got: {sql}"
         );
     }
 
