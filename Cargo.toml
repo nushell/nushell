@@ -222,12 +222,12 @@ rand = "0.10"
 getrandom = "0.4.2" # pick same version that rand requires
 rand_chacha = "0.10"
 ratatui = { version = "0.30", default-features = false, features = [
-  "all-widgets",
   "crossterm",
   "layout-cache",
   "macros",
   #"underline-color" # leave out so we don't bring in termwiz
 ] }
+ratatui-widgets = "=0.3.0"
 rayon = "1.12.0"
 reedline = "0.48.0"
 rmp = "0.8.15"

@@ -4710,6 +4710,7 @@ dependencies = [
  "nu-table",
  "nu-utils",
  "ratatui",
+ "ratatui-widgets",
  "serde_json",
  "strip-ansi-escapes",
  "tui-tree-widget",
