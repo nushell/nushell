@@ -783,59 +783,60 @@ pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) ->
     let mut output_errors = vec![];
 
     for (input_type, output_type) in &block.signature.input_output_types {
-        let current_output_types = match block.pipelines.as_slice() {
-            [] => vec![input_type.clone()],
+        let current_output_type = match block.pipelines.as_slice() {
+            [] => input_type.clone(),
             pipelines => {
                 pipelines
                     .iter()
-                    .fold((input_type.clone(), vec![]), |(ct, _cots), pipeline| {
-                        let (checked_output_types, err) =
+                    .fold((input_type.clone(), Type::Nothing), |(ct, _), pipeline| {
+                        let (checked_output_type, err) =
                             check_pipeline_type(working_set, pipeline, ct);
                         if let Some(err) = err {
                             output_errors.extend(err);
                         }
-                        (Type::Nothing, checked_output_types)
+                        (Type::Nothing, checked_output_type)
                     })
                     .1
             }
         };
 
-        if output_type == &Type::Any || current_output_types.contains(&Type::Any) {
+        if current_output_type.is_assignable_to(output_type) {
             continue;
-        }
+        };
 
-        if !current_output_types
-            .iter()
-            .any(|ty| type_compatible(output_type, ty))
-        {
-            let span = match block.pipelines.as_slice() {
-                [] => match block.span {
-                    Some(span) => span,
-                    None => continue,
-                },
-                [.., last] => {
-                    last.elements
-                        .last()
-                        .expect("internal error: we should have elements")
-                        .expr
-                        .span
-                }
-            };
+        // Error handling
+        let span = match block.pipelines.as_slice() {
+            [] => match block.span {
+                Some(span) => span,
+                None => continue,
+            },
+            [.., last] => {
+                last.elements
+                    .last()
+                    .expect("internal error: we should have elements")
+                    .expr
+                    .span
+            }
+        };
 
-            let Some(current_ty_string) = combined_type_string(&current_output_types, "or") else {
-                output_errors.push(ParseError::InternalError(
-                    "Block has no type at this point".to_string(),
-                    span,
-                ));
-                continue;
-            };
+        let current_ty_string = match &current_output_type {
+            Type::OneOf(types) => combined_type_string(types.iter(), "or"),
+            ty => combined_type_string(std::slice::from_ref(ty).iter(), "or"),
+        };
 
-            output_errors.push(ParseError::OutputMismatch(
-                output_type.clone(),
-                current_ty_string,
+        let Some(current_ty_string) = current_ty_string else {
+            output_errors.push(ParseError::InternalError(
+                "Block has no type at this point".to_string(),
                 span,
-            ))
-        }
+            ));
+            continue;
+        };
+
+        output_errors.push(ParseError::OutputMismatch(
+            output_type.clone(),
+            current_ty_string,
+            span,
+        ))
     }
 
     if block.signature.input_output_types.is_empty() {
