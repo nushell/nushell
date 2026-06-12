@@ -715,66 +715,52 @@ pub fn check_pipeline_type(
     working_set: &StateWorkingSet,
     pipeline: &Pipeline,
     input_type: Type,
-) -> (Vec<Type>, Option<Vec<ParseError>>) {
-    let mut input_types = Vec::new();
-    let mut output_types = Vec::new();
-
+) -> (Type, Option<Vec<ParseError>>) {
+    let mut input_type = input_type;
     let mut output_errors: Option<Vec<ParseError>> = None;
 
-    output_types.push(input_type);
     for elem in &pipeline.elements {
-        std::mem::swap(&mut input_types, &mut output_types);
-        output_types.clear();
-        input_types.sort();
-        input_types.dedup();
-        // Should be immutable from this point forward
-        let input_types = input_types.as_slice();
-
         if elem.redirection.is_some() {
-            output_types.push(Type::Any);
+            input_type = Type::Any;
             continue;
         }
+        // Only handle pipeline type checking of calls here.
         let Expr::Call(call) = &elem.expr.expr else {
-            output_types.push(elem.expr.ty.clone());
+            // NOTE[1]: Calls with `$in` are wrapped in `Expr::Collect` so are handled in this
+            // branch.
+            // This allows `ls | sort-by { open -r $in.name | lines | length }` to type
+            // check, despite the fact `open` does not support `record` input.
+            // This is thanks to `parse_internal_call` adding `Type::Nothing` to possible input
+            // types.
+            //
+            // see NOTE[2]
+            input_type = elem.expr.ty.clone();
             continue;
         };
         // Dynamic percent dispatch uses a placeholder decl_id that is rewritten later in IR.
         // Defer type constraints for this call at parse/type-check time.
         if call.parser_info.contains_key("percent_forced_builtin") {
-            output_types.push(Type::Any);
+            input_type = Type::Any;
             continue;
         }
 
-        let io_types = working_set
+        let output_type = working_set
             .get_decl(call.decl_id)
             .signature()
-            .input_output_types;
+            // NOTE[2]: unlike `parse_internal_call`, `Type::Nothing` is not added to input types.
+            .get_output_type(Some(input_type.clone()));
 
-        if io_types.is_empty() {
-            output_types.push(Type::Any);
+        if let Some(output_type) = output_type {
+            input_type = output_type;
             continue;
         }
 
-        if input_types.contains(&Type::Any) {
-            // if input type is any, then output type could be any of the valid output types
-            output_types.extend(io_types.into_iter().map(|(_, out_type)| out_type));
-        } else {
-            // any current type which matches an input type is a possible output type
-            output_types.extend(
-                io_types
-                    .into_iter()
-                    .filter(|(in_type, _)| {
-                        input_types.iter().any(|ty| type_compatible(in_type, ty))
-                    })
-                    .map(|(_, out_type)| out_type),
-            );
-        }
+        let types_string = match &input_type {
+            Type::OneOf(types) => combined_type_string(types.iter(), "or"),
+            ty => combined_type_string(std::slice::from_ref(ty).iter(), "or"),
+        };
 
-        if !output_types.is_empty() {
-            continue;
-        }
-
-        let Some(types_string) = combined_type_string(input_types, "or") else {
+        let Some(types_string) = types_string else {
             output_errors
                 .get_or_insert_default()
                 .push(ParseError::InternalError(
@@ -789,7 +775,7 @@ pub fn check_pipeline_type(
             .push(ParseError::InputMismatch(types_string, call.head));
     }
 
-    (output_types, output_errors)
+    (input_type, output_errors)
 }
 
 pub fn check_block_input_output(working_set: &StateWorkingSet, block: &Block) -> Vec<ParseError> {
