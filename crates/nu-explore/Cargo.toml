@@ -35,6 +35,7 @@ lscolors = { workspace = true, default-features = false, features = [
     "nu-ansi-term",
 ] }
 ratatui = { workspace = true }
+ratatui-widgets = { workspace = true }
 serde_json = { workspace = true, features = ["preserve_order"] }
 strip-ansi-escapes = { workspace = true }
 edtui = { version = "0.11.2", default-features = false, features = [
