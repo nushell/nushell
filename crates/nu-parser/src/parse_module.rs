@@ -115,6 +115,7 @@ pub fn parse_export_in_block(
                     &parts[1..],
                     decl_id,
                     ArgumentParsingLevel::Full,
+                    None,
                 );
 
                 if call_kind != CallKind::Valid {
@@ -396,6 +397,7 @@ pub fn parse_export_env(
                 &[spans[1]],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             if call_kind != CallKind::Valid {
@@ -893,6 +895,7 @@ pub fn parse_module(
                 rest_spans,
                 decl_id,
                 ArgumentParsingLevel::FirstK { k: 1 },
+                None,
             );
 
             let call_span = Span::concat(spans);
@@ -1091,6 +1094,7 @@ pub fn parse_use(
                 rest_spans,
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             let call_span = Span::concat(spans);
@@ -1313,6 +1317,7 @@ pub fn parse_hide(working_set: &mut StateWorkingSet, lite_command: &LiteCommand)
                 &spans[1..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             if call_kind != CallKind::Valid {

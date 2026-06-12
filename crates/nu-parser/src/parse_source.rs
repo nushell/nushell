@@ -61,6 +61,7 @@ pub fn parse_source(working_set: &mut StateWorkingSet, lite_command: &LiteComman
                 &spans[1..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             if call_kind == CallKind::Help {
@@ -229,6 +230,7 @@ fn parse_run_expr_internal(
                 &spans[1..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             if call_kind == CallKind::Help {
@@ -467,6 +469,7 @@ pub fn parse_where_expr(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                 &spans[1..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             );
 
             if call_kind != CallKind::Valid {

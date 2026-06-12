@@ -16,6 +16,7 @@ use nu_protocol::{
 };
 use std::{collections::HashMap, sync::Arc};
 
+// TODO: handle pipeline input type based inference
 pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
     trace!("parsing: let");
 
@@ -98,6 +99,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             &spans[1..],
             decl_id,
             ArgumentParsingLevel::Full,
+            None,
         );
 
         return Pipeline::from_vec(vec![Expression::new(
@@ -240,6 +242,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
             &spans[1..],
             decl_id,
             ArgumentParsingLevel::Full,
+            None,
         );
 
         return (
@@ -349,6 +352,7 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             &spans[1..],
             decl_id,
             ArgumentParsingLevel::Full,
+            None,
         );
 
         return Pipeline::from_vec(vec![Expression::new(

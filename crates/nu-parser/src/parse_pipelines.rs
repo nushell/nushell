@@ -1,5 +1,5 @@
 use log::trace;
-use nu_protocol::{ParseError, Span, SyntaxShape, ast::*, engine::StateWorkingSet};
+use nu_protocol::{ParseError, Span, SyntaxShape, Type, ast::*, engine::StateWorkingSet};
 use std::sync::Arc;
 
 use crate::{
@@ -50,10 +50,11 @@ pub(crate) fn parse_redirection(
 pub(crate) fn parse_pipeline_element(
     working_set: &mut StateWorkingSet,
     command: &LiteCommand,
+    input: Type,
 ) -> PipelineElement {
     trace!("parsing: pipeline element");
 
-    let expr = parse_expression(working_set, &command.parts);
+    let expr = parse_expression(working_set, &command.parts, Some(input));
 
     let redirection = command
         .redirection
@@ -83,7 +84,13 @@ pub(crate) fn redirecting_builtin_error(
     }
 }
 
-pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline) -> Pipeline {
+pub fn parse_pipeline(
+    working_set: &mut StateWorkingSet,
+    pipeline: &LitePipeline,
+    input: Option<Type>,
+) -> Pipeline {
+    let mut input = input.unwrap_or(Type::Any);
+
     if pipeline.commands.len() > 1 {
         // Parse a normal multi command pipeline
         let elements: Vec<_> = pipeline
@@ -91,7 +98,9 @@ pub fn parse_pipeline(working_set: &mut StateWorkingSet, pipeline: &LitePipeline
             .iter()
             .enumerate()
             .map(|(index, element)| {
-                let element = parse_pipeline_element(working_set, element);
+                let element =
+                    parse_pipeline_element(working_set, element, std::mem::take(&mut input));
+                input = element.expr.ty.clone();
                 // Handle $in for pipeline elements beyond the first one
                 if index > 0 && element.has_in_variable(working_set) {
                     wrap_element_with_collect(working_set, element)
@@ -138,7 +147,7 @@ pub fn parse_block(
     block.span = Some(span);
 
     for lite_pipeline in &lite_block.block {
-        let pipeline = parse_pipeline(working_set, lite_pipeline);
+        let pipeline = parse_pipeline(working_set, lite_pipeline, None);
         block.pipelines.push(pipeline);
     }
 

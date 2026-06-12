@@ -408,7 +408,10 @@ impl Display for Type {
 /// Get a string nicely combining multiple types
 ///
 /// Helpful for listing types in errors
-pub fn combined_type_string(types: &[Type], join_word: &str) -> Option<String> {
+pub fn combined_type_string<'a, I>(types: I, join_word: &str) -> Option<String>
+where
+    I: IntoIterator<Item = &'a Type>,
+{
     use std::fmt::Write as _;
 
     // Deduplicate types to avoid confusing repeated entries like

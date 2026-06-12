@@ -993,7 +993,7 @@ pub fn parse_assignment_expression(
     }
 
     // Parse the lhs and operator as usual for a math expression
-    let mut lhs = parse_expression(working_set, lhs_spans);
+    let mut lhs = parse_expression(working_set, lhs_spans, None);
     // make sure that lhs is a mutable variable.
     match &lhs.expr {
         Expr::FullCellPath(p) => {
@@ -1235,7 +1235,7 @@ pub fn parse_math_expression(
     if first_span == b"if" || first_span == b"match" {
         // If expression
         if spans.len() > 1 {
-            return parse_call(working_set, spans, spans[0]);
+            return parse_call(working_set, spans, spans[0], None);
         } else {
             working_set.error(ParseError::Expected(
                 "expression",
@@ -1311,7 +1311,7 @@ pub fn parse_math_expression(
         // allow `if` to be a special value for assignment.
 
         if content == b"if" || content == b"match" {
-            let rhs = parse_call(working_set, &spans[idx..], spans[0]);
+            let rhs = parse_call(working_set, &spans[idx..], spans[0], None);
             expr_stack.push(op);
             expr_stack.push(rhs);
             break;
@@ -1435,7 +1435,11 @@ pub fn parse_math_expression(
         .expect("internal error: expression stack empty")
 }
 
-pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
+pub fn parse_expression(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    input: Option<Type>,
+) -> Expression {
     trace!("parsing: expression");
 
     let mut pos = 0;
@@ -1506,7 +1510,7 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                     spans[0],
                 ));
 
-                parse_call(working_set, &spans[pos..], spans[0])
+                parse_call(working_set, &spans[pos..], spans[0], input)
             }
             b"const" | b"mut" => {
                 working_set.error(ParseError::AssignInPipeline(
@@ -1524,19 +1528,19 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                     .to_string(),
                     spans[0],
                 ));
-                parse_call(working_set, &spans[pos..], spans[0])
+                parse_call(working_set, &spans[pos..], spans[0], input)
             }
             b"overlay" => {
                 if spans.len() > 1 && working_set.get_span_contents(spans[1]) == b"list" {
                     // whitelist 'overlay list'
-                    parse_call(working_set, &spans[pos..], spans[0])
+                    parse_call(working_set, &spans[pos..], spans[0], input)
                 } else {
                     working_set.error(ParseError::BuiltinCommandInPipeline(
                         "overlay".into(),
                         spans[0],
                     ));
 
-                    parse_call(working_set, &spans[pos..], spans[0])
+                    parse_call(working_set, &spans[pos..], spans[0], input)
                 }
             }
             b"where" => parse_where_expr(working_set, &spans[pos..]),
@@ -1551,10 +1555,10 @@ pub fn parse_expression(working_set: &mut StateWorkingSet, spans: &[Span]) -> Ex
                     ));
                 }
 
-                parse_call(working_set, &spans[pos..], spans[0])
+                parse_call(working_set, &spans[pos..], spans[0], input)
             }
 
-            _ => parse_call(working_set, &spans[pos..], spans[0]),
+            _ => parse_call(working_set, &spans[pos..], spans[0], input),
         }
     };
 
@@ -1621,7 +1625,12 @@ pub fn parse_builtin_commands(
             if cmd.is_alias() {
                 // Parse keywords that can be aliased. Note that we check for "unaliasable" keywords
                 // because alias can have any name, therefore, we can't check for "aliasable" keywords.
-                let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
+                let call_expr = parse_call(
+                    working_set,
+                    &lite_command.parts,
+                    lite_command.parts[0],
+                    None,
+                );
 
                 if let Expression {
                     expr: Expr::Call(call),
@@ -1706,7 +1715,7 @@ pub fn parse_builtin_commands(
             parse_keyword(working_set, lite_command)
         }
         _ => {
-            let element = parse_pipeline_element(working_set, lite_command);
+            let element = parse_pipeline_element(working_set, lite_command, Type::Any);
 
             // There is still a chance to make `parse_pipeline_element` parse into
             // some keyword that should apply side effects first, Example:

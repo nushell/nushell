@@ -70,7 +70,12 @@ pub fn is_unaliasable_parser_keyword(working_set: &StateWorkingSet, spans: &[Spa
 pub fn parse_keyword(working_set: &mut StateWorkingSet, lite_command: &LiteCommand) -> Pipeline {
     let orig_parse_errors_len = working_set.parse_errors.len();
 
-    let call_expr = parse_call(working_set, &lite_command.parts, lite_command.parts[0]);
+    let call_expr = parse_call(
+        working_set,
+        &lite_command.parts,
+        lite_command.parts[0],
+        None,
+    );
 
     // If an error occurred, don't invoke the keyword-specific functionality
     if working_set.parse_errors.len() > orig_parse_errors_len {

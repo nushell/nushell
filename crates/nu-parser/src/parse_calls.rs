@@ -357,7 +357,7 @@ pub fn parse_external_call(
 
     let head = if let [b'$' | b'(', ..] = head_contents {
         // the expression is inside external_call, so it's a subexpression
-        let arg = crate::parser::parse_expression(working_set, &[head_span]);
+        let arg = crate::parser::parse_expression(working_set, &[head_span], None);
         Box::new(arg)
     } else {
         Box::new(parse_external_string(working_set, head_span))
@@ -774,7 +774,7 @@ pub fn parse_multispan_value(
 
             // is it subexpression?
             // Not sure, but let's make it not, so the behavior is the same as previous version of nushell.
-            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..]);
+            let arg = crate::parser::parse_expression(working_set, &spans[*spans_idx..], None);
             *spans_idx = spans.len().saturating_sub(1);
 
             arg
@@ -1295,7 +1295,12 @@ pub fn parse_internal_call(
     }
 }
 
-pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span) -> Expression {
+pub fn parse_call(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    head: Span,
+    input: Option<Type>,
+) -> Expression {
     trace!("parsing: call");
     let call_span = Span::concat(spans);
 
@@ -1354,7 +1359,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
         if is_dynamic_head {
             trace!("parsing: dynamic percent builtin dispatch");
 
-            let head_expr = crate::parser::parse_expression(working_set, &[head_span]);
+            let head_expr = crate::parser::parse_expression(working_set, &[head_span], input);
 
             // Create a placeholder call; the IR compiler will rewrite this to `run-internal`.
             let mut call = Call::new(call_span);
@@ -1452,6 +1457,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                     &resolution_spans[pos..],
                     decl_id,
                     ArgumentParsingLevel::Full,
+                    input,
                 )
             }
         } else {
@@ -1462,6 +1468,7 @@ pub fn parse_call(working_set: &mut StateWorkingSet, spans: &[Span], head: Span)
                 &resolution_spans[pos..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                input,
             )
         };
 
@@ -1743,6 +1750,7 @@ pub fn parse_attribute(
                     &spans[cmd_end..],
                     decl_id,
                     ArgumentParsingLevel::Full,
+                    None,
                 )
             }
         },
@@ -1754,6 +1762,7 @@ pub fn parse_attribute(
                 &spans[cmd_end..],
                 decl_id,
                 ArgumentParsingLevel::Full,
+                None,
             )
         }
     };
