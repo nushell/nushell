@@ -139,11 +139,14 @@ impl Type {
             // short circuit on `any`
             (Type::Any, _) | (_, Type::Any) => Ok(Type::Any),
 
-            // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
-            tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => Err(tys),
-
             // primitive number hierarchy is extremely common
             (Type::Int, Type::Float) | (Type::Float, Type::Int) => Ok(Type::Number),
+
+            // despite their subtyping relation, these pairs should not combine into one or the other
+            tys @ ((Type::Glob, Type::String)
+            | (Type::String, Type::Glob)
+            | (Type::String | Type::Int, Type::CellPath)
+            | (Type::CellPath, Type::String | Type::Int)) => Err(tys),
 
             // widen structural collections without checking for subtyping
             (Type::Record(lhs), Type::Record(rhs)) => Ok(Type::Record(lhs.union(rhs))),
