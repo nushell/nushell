@@ -19,33 +19,33 @@ impl Command for RandomPass {
             .named(
                 "chars",
                 SyntaxShape::Int,
-                "Length of the generated password (default 12)",
+                "Length of the generated password (default 12).",
                 Some('c'),
             )
-            .switch("no-uppercase", "Exclude uppercase letters A-Z", Some('u'))
-            .switch("no-lowercase", "Exclude lowercase letters a-z", Some('l'))
-            .switch("no-numbers", "Exclude numbers 0-9", Some('n'))
-            .switch("no-symbols", "Exclude symbols like !@#$%", Some('s'))
+            .switch("no-uppercase", "Exclude uppercase letters A-Z.", Some('u'))
+            .switch("no-lowercase", "Exclude lowercase letters a-z.", Some('l'))
+            .switch("no-numbers", "Exclude numbers 0-9.", Some('n'))
+            .switch("no-symbols", "Exclude symbols like !@#$%.", Some('s'))
             .switch(
                 "include-ambiguous",
-                "Include ambiguous characters O, 0, l, 1",
+                "Include ambiguous characters O, 0, l, 1.",
                 None,
             )
             .switch(
                 "include-similar",
-                "Include similar characters i, l, 1",
+                "Include similar characters i, l, 1.",
                 None,
             )
             .switch(
                 "require-each-type",
-                "Guarantee at least one char from each enabled character type",
+                "Guarantee at least one char from each enabled character type.",
                 None,
             )
             .category(Category::Random)
     }
 
     fn description(&self) -> &str {
-        "Generate a cryptologically secure password"
+        "Generate a cryptologically secure password."
     }
 
     fn search_terms(&self) -> Vec<&str> {
