@@ -622,6 +622,10 @@ $env.config.abbreviations = {}
 # Menus may also set output_mode: "suggested_span", "full_buffer", or
 # "extend_to_end" -- how an accepted suggestion replaces the buffer.
 # Unset is equivalent to "suggested_span".
+#
+# List-layout menus accept description_position: "before" or "after" in their
+# `type` record, controlling whether an entry's description is shown before or
+# after its value. Unset keeps reedline's default.
 # Default: []
 $env.config.menus = []
 
@@ -654,6 +658,23 @@ $env.config.menus = []
 #         columns: 4
 #         col_width: 20
 #         col_padding: 2
+#     }
+#     style: {
+#         text: green
+#         selected_text: green_reverse
+#         description_text: yellow
+#     }
+# }]
+
+# Example: A list menu placing descriptions after each entry:
+# $env.config.menus ++= [{
+#     name: history_menu
+#     input_mode: diff
+#     marker: "? "
+#     type: {
+#         layout: list
+#         page_size: 10
+#         description_position: after
 #     }
 #     style: {
 #         text: green
