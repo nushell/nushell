@@ -201,7 +201,7 @@ fn def_default_value_should_restrict_implicit_type() {
 #[test]
 fn def_wrapped_with_block() {
     let actual = nu!(
-        "def --wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -q -u -x"
+        "def --wrapped foo [...rest] { print ($rest | str join ',' ) }; foo --bar baz -- -- -q -u -x"
     );
 
     assert_eq!(actual.out, "--bar,baz,--,-q,-u,-x");
@@ -214,7 +214,7 @@ fn def_wrapped_from_module() {
         }
 
         use spam
-        spam my-echo foo -b -as -9 --abc -- -Dxmy=AKOO - bar
+        spam my-echo foo -b -as -9 --abc -- -- -Dxmy=AKOO - bar
         ");
 
     assert!(

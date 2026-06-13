@@ -16,7 +16,7 @@ fn basic_exec() {
 fn exec_complex_args() {
     Playground::setup("test_exec_2", |dirs, _| {
         let actual = nu!(cwd: dirs.test(), "
-            nu -n -c 'exec nu --testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --'
+            nu -n -c 'exec nu --testbin cococo b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 -- --'
         ");
 
         assert_eq!(actual.out, "b --bar=2 -sab --arwr - -DTEEE=aasd-290 -90 --");
