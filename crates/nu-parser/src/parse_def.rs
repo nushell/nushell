@@ -113,7 +113,11 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     let mut allow_unknown_args = false;
 
     for span in spans {
-        if working_set.get_span_contents(*span) == b"--wrapped" && def_type_name == b"def" {
+        let contents = working_set.get_span_contents(*span);
+
+        if (contents == b"--wrapped" || contents == b"--coerce" || contents == b"-c")
+            && def_type_name == b"def"
+        {
             allow_unknown_args = true;
         }
     }
@@ -516,6 +520,12 @@ fn parse_def_inner(
         return garbage_result(working_set);
     };
 
+    let Ok(has_coerce) = has_flag_const(working_set, &call, "coerce") else {
+        return garbage_result(working_set);
+    };
+
+    let passthrough_mode = has_wrapped || has_coerce;
+
     let [name_expr, sig_expr, block_expr] = call
         .positional_iter()
         .next_array()
@@ -550,14 +560,24 @@ fn parse_def_inner(
 
     if let (Some(mut signature), Some(block_id)) = (sig_expr.as_signature(), block_expr.as_block())
     {
-        if has_wrapped {
+        if passthrough_mode {
             let Some(rest) = signature.rest_positional.as_mut() else {
+                let help = match (has_wrapped, has_coerce) {
+                    (_, true) => {
+                        "Usage: def --coerce (-c) must have a ...rest-like positional argument. Add '...rest' to the command's signature."
+                    }
+
+                    (true, false) => {
+                        "Usage: def --wrapped must have a ...rest-like positional argument. Add '...rest' to the command's signature."
+                    }
+
+                    _ => unreachable!(),
+                };
+
                 working_set.error(ParseError::MissingPositional(
                     "...rest-like positional argument".to_string(),
                     name_expr.span,
-                    "def --wrapped must have a ...rest-like positional argument. \
-                            Add '...rest: string' to the command's signature."
-                        .to_string(),
+                    help.into(),
                 ));
 
                 return (
@@ -598,12 +618,15 @@ fn parse_def_inner(
 
         if let Some(decl_id) = working_set.find_predecl(name.as_bytes()) {
             signature.name.clone_from(&name);
-            if !has_wrapped {
+
+            if !passthrough_mode {
                 *signature = signature.add_help();
             }
+
             signature.description = desc;
             signature.extra_description = extra_desc;
-            signature.allows_unknown_args = has_wrapped;
+            signature.allows_unknown_args = passthrough_mode;
+            signature.respects_end_of_options = has_coerce;
 
             let (attribute_vals, examples) =
                 handle_special_attributes(attributes, working_set, &mut signature);

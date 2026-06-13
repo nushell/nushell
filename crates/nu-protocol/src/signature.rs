@@ -326,6 +326,7 @@ pub struct Signature {
     pub is_filter: bool,
     pub creates_scope: bool,
     pub allows_unknown_args: bool,
+    pub respects_end_of_options: bool,
     pub complete: Option<CommandWideCompleter>,
     // Signature category used to classify commands stored in the list of declarations
     pub category: Category,
@@ -362,6 +363,7 @@ impl Signature {
             creates_scope: false,
             category: Category::Default,
             allows_unknown_args: false,
+            respects_end_of_options: false,
             complete: None,
         }
     }

@@ -967,12 +967,20 @@ pub fn parse_internal_call(
             match flag_parse_result {
                 LongFlagParseResult::EndOfOptions => {
                     if signature.allows_unknown_args {
-                        // For commands that pass through unknown args (extern, def --wrapped,
-                        // exec, etc.), -- must be forwarded to the underlying program.
-                        // Directly add -- as an unknown arg, then advance past it.
-                        let arg = parse_unknown_arg(working_set, arg_span, &signature);
-                        call.add_unknown(arg);
-                        spans_idx += 1;
+                        if signature.respects_end_of_options {
+                            // def --coerce:
+                            // consume '--' and switch to positional-only mode,
+                            // while still allowing unknown args afterwards.
+                            end_of_options = true;
+                            spans_idx += 1;
+                        } else {
+                            // Existing behaviour for extern/exec/def --wrapped:
+                            // forward '--' to the wrapped command.
+                            let arg = parse_unknown_arg(working_set, arg_span, &signature);
+                            call.add_unknown(arg);
+                            spans_idx += 1;
+                        }
+
                         continue;
                     } else {
                         // For regular commands, consume -- and switch to positional-only mode.
