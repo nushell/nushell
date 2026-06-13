@@ -137,30 +137,24 @@ impl Type {
     pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
         match (lhs, rhs) {
             // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
-            tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => return Err(tys),
+            tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => Err(tys),
             // primitive number hierarchy is extremely common
-            (Type::Int, Type::Float) | (Type::Float, Type::Int) => return Ok(Type::Number),
+            (Type::Int, Type::Float) | (Type::Float, Type::Int) => Ok(Type::Number),
 
             // widen structural collections without checking for subtyping
-            (Type::Record(lhs), Type::Record(rhs)) => {
-                return Ok(Type::Record(lhs.union(rhs)));
-            }
-            (Type::Table(lhs), Type::Table(rhs)) => {
-                return Ok(Type::Table(lhs.union(rhs)));
-            }
+            (Type::Record(lhs), Type::Record(rhs)) => Ok(Type::Record(lhs.union(rhs))),
+            (Type::Table(lhs), Type::Table(rhs)) => Ok(Type::Table(lhs.union(rhs))),
             // We're choosing to lose some information by preferring
             // - `list<oneof<T, record>>` over
             // - `oneof<list<T>, table>`
             (Type::List(list_elem), Type::Table(table_cols))
             | (Type::Table(table_cols), Type::List(list_elem)) => {
-                return Ok(Type::list(list_elem.union(Type::Record(table_cols))));
+                Ok(Type::list(list_elem.union(Type::Record(table_cols))))
             }
             // We're choosing to lose some information by preferring
             // - `list<oneof<T, U>>` over
             // - `oneof<list<T>, list<U>>`
-            (Type::List(lhs), Type::List(rhs)) => {
-                return Ok(Type::list(lhs.union(*rhs)));
-            }
+            (Type::List(lhs), Type::List(rhs)) => Ok(Type::list(lhs.union(*rhs))),
             // If one type is already a subtype of the other, we can skip all of the heavier logic below.
             (lhs, rhs) => match lhs.compare_types(&rhs) {
                 Some(rel) => Ok(match rel {
