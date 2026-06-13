@@ -966,20 +966,18 @@ pub fn parse_internal_call(
 
             match flag_parse_result {
                 LongFlagParseResult::EndOfOptions => {
+                    // Switch to positional-only mode so subsequent flags aren't parsed.
+                    end_of_options = true;
+
                     if signature.allows_unknown_args {
                         // For commands that pass through unknown args (extern, def --wrapped,
-                        // exec, etc.), -- must be forwarded to the underlying program.
-                        // Directly add -- as an unknown arg, then advance past it.
+                        // exec, etc.), -- itself must be forwarded to the underlying program.
                         let arg = parse_unknown_arg(working_set, arg_span, &signature);
                         call.add_unknown(arg);
-                        spans_idx += 1;
-                        continue;
-                    } else {
-                        // For regular commands, consume -- and switch to positional-only mode.
-                        end_of_options = true;
-                        spans_idx += 1;
-                        continue;
                     }
+
+                    spans_idx += 1;
+                    continue;
                 }
                 LongFlagParseResult::FoundFlag(long_name, arg) => {
                     // We found a long flag, like --bar
