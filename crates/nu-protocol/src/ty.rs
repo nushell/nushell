@@ -135,17 +135,13 @@ impl Type {
 
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
     pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
-        // handle special cases and hot paths
-        let (lhs, rhs) = match (lhs, rhs) {
+        match (lhs, rhs) {
             // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
             tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => return Err(tys),
             // primitive number hierarchy is extremely common
             (Type::Int, Type::Float) | (Type::Float, Type::Int) => return Ok(Type::Number),
-            tys => tys,
-        };
 
-        // widen structural collections without checking for subtyping
-        let (lhs, rhs) = match (lhs, rhs) {
+            // widen structural collections without checking for subtyping
             (Type::Record(lhs), Type::Record(rhs)) => {
                 return Ok(Type::Record(lhs.union(rhs)));
             }
@@ -165,18 +161,16 @@ impl Type {
             (Type::List(lhs), Type::List(rhs)) => {
                 return Ok(Type::list(lhs.union(*rhs)));
             }
-            tys => tys,
-        };
-
-        // If one type is already a subtype of the other, we can skip all of the heavier logic below.
-        match lhs.compare_types(&rhs) {
-            Some(rel) => Ok(match rel {
-                TypeRelation::Subtype => rhs,
-                TypeRelation::Equal => lhs,
-                TypeRelation::Supertype => lhs,
-            }),
-            // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
-            _ => Err((lhs, rhs)),
+            // If one type is already a subtype of the other, we can skip all of the heavier logic below.
+            (lhs, rhs) => match lhs.compare_types(&rhs) {
+                Some(rel) => Ok(match rel {
+                    TypeRelation::Subtype => rhs,
+                    TypeRelation::Equal => lhs,
+                    TypeRelation::Supertype => lhs,
+                }),
+                // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
+                _ => Err((lhs, rhs)),
+            },
         }
     }
 
