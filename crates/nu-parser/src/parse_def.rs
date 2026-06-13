@@ -115,9 +115,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     for span in spans {
         let contents = working_set.get_span_contents(*span);
 
-        if (contents == b"--wrapped" || contents == b"--coerce")
-            && def_type_name == b"def"
-        {
+        if (contents == b"--wrapped" || contents == b"--coerce") && def_type_name == b"def" {
             allow_unknown_args = true;
         }
     }
