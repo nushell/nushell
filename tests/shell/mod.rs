@@ -610,7 +610,6 @@ fn main_script_alias_persists() -> Result {
     })
 }
 
-// This test will have to change once clip copy is removed after deprecation time.
 #[test]
 #[exp(nu_experimental::NATIVE_CLIP)]
 fn builtin_commands_can_be_shadowed_and_extended() -> Result {
@@ -619,11 +618,6 @@ fn builtin_commands_can_be_shadowed_and_extended() -> Result {
     let outcome: String = test().run("use std/clip; clip")?;
     assert_contains("clip copy52", &outcome);
     assert_contains("clip prefix", &outcome);
-    assert_contains("clip copy ", &outcome);
-    assert_eq!(outcome.matches("clip copy ").count(), 1);
-
-    let outcome: String = test().run("use std/clip; clip copy --help")?;
-    assert_contains("deprecated", outcome);
 
     Ok(())
 }
