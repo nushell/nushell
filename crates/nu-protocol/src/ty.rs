@@ -151,17 +151,11 @@ impl Type {
             // widen structural collections without checking for subtyping
             (Type::Record(lhs), Type::Record(rhs)) => Ok(Type::Record(lhs.union(rhs))),
             (Type::Table(lhs), Type::Table(rhs)) => Ok(Type::Table(lhs.union(rhs))),
-            // We're choosing to lose some information by preferring
-            // - `list<oneof<T, record>>` over
-            // - `oneof<list<T>, table>`
-            (Type::List(list_elem), Type::Table(table_cols))
-            | (Type::Table(table_cols), Type::List(list_elem)) => {
-                Ok(Type::list(list_elem.union(Type::Record(table_cols))))
-            }
-            // We're choosing to lose some information by preferring
-            // - `list<oneof<T, U>>` over
-            // - `oneof<list<T>, list<U>>`
-            (Type::List(lhs), Type::List(rhs)) => Ok(Type::list(lhs.union(*rhs))),
+
+            // We want to have `oneof<list<T>, table>`, regardless whether one counts as a subtype
+            // of the other.
+            tys @ ((Type::List(_), Type::Table(_)) | (Type::Table(_), Type::List(_))) => Err(tys),
+
             // If one type is already a subtype of the other, we can skip all of the heavier logic below.
             (lhs, rhs) => match lhs.compare_types(&rhs) {
                 Some(rel) => Ok(match rel {
@@ -170,7 +164,7 @@ impl Type {
                     TypeRelation::Supertype => lhs,
                 }),
                 // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
-                _ => Err((lhs, rhs)),
+                None => Err((lhs, rhs)),
             },
         }
     }
