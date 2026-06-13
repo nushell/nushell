@@ -115,7 +115,7 @@ pub fn parse_def_predecl(working_set: &mut StateWorkingSet, spans: &[Span]) {
     for span in spans {
         let contents = working_set.get_span_contents(*span);
 
-        if (contents == b"--wrapped" || contents == b"--coerce" || contents == b"-c")
+        if (contents == b"--wrapped" || contents == b"--coerce")
             && def_type_name == b"def"
         {
             allow_unknown_args = true;
@@ -564,7 +564,7 @@ fn parse_def_inner(
             let Some(rest) = signature.rest_positional.as_mut() else {
                 let help = match (has_wrapped, has_coerce) {
                     (_, true) => {
-                        "Usage: def --coerce (-c) must have a ...rest-like positional argument. Add '...rest' to the command's signature."
+                        "Usage: def --coerce must have a ...rest-like positional argument. Add '...rest' to the command's signature."
                     }
 
                     (true, false) => {

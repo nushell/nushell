@@ -21,7 +21,7 @@ impl Command for Def {
             .required("block", SyntaxShape::Closure(None), "The body of the command, a list of instructions inside {}.")
             .switch("env", "Keep the environment defined inside the command.", None)
             .switch("wrapped", "Treat unknown flags and arguments as strings (requires ...rest-like parameter in signature).", None)
-            .switch("coerce", "Like --wrapped, but respects '--'.", Some('c'))
+            .switch("coerce", "Like --wrapped, but respects '--'.", None)
             .category(Category::Core)
     }
 
