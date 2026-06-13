@@ -199,7 +199,7 @@ fn helper(
     let (response, request_headers) =
         send_request_no_body(request, request_span, call.head, engine_state.signals());
 
-    let response = response?;
+    let mut response = response?;
     check_response_redirection(redirect_mode, span, &response)?;
 
     if args.full {
@@ -226,7 +226,7 @@ fn helper(
 
     let response_headers = extract_response_headers(&response);
     handle_response_status(
-        &response,
+        &mut response,
         redirect_mode,
         &requested_url,
         span,

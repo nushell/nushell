@@ -79,8 +79,8 @@ fn http_options_failed_due_to_server_error() -> Result {
         .expect_shell_error()?;
 
     match err {
-        ShellError::NetworkFailure { msg, .. } => {
-            assert_contains("Bad request (400)", msg);
+        ShellError::HttpError { msg, .. } => {
+            assert_contains("Bad Request", msg);
             Ok(())
         }
         err => Err(err.into()),
