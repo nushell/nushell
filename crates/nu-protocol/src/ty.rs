@@ -136,8 +136,12 @@ impl Type {
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
     pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
         match (lhs, rhs) {
+            // short circuit on `any`
+            (Type::Any, _) | (_, Type::Any) => Ok(Type::Any),
+
             // disjoint glob/string pair. We don't want to consume lhs/rhs here because subsequent code still needs them.
             tys @ (Type::Glob, Type::String) | tys @ (Type::String, Type::Glob) => Err(tys),
+
             // primitive number hierarchy is extremely common
             (Type::Int, Type::Float) | (Type::Float, Type::Int) => Ok(Type::Number),
 
