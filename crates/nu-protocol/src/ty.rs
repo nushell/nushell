@@ -307,15 +307,6 @@ impl CompareTypes for Type {
                 _ => None,
             },
 
-            (Type::OneOf(oneof), Type::CellPath) => oneof
-                .iter()
-                .all(|t| {
-                    matches!(
-                        t.compare_types(&Type::CellPath),
-                        Some(TypeRelation::Subtype | TypeRelation::Equal)
-                    )
-                })
-                .then_some(TypeRelation::Subtype),
             (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => lhs_oneof.compare_types(rhs_oneof),
             (Type::OneOf(lhs_oneof), rhs) => lhs_oneof.compare_types(rhs),
             (lhs, Type::OneOf(rhs_oneof)) => lhs.compare_types(rhs_oneof),
