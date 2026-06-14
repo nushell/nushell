@@ -268,8 +268,6 @@ impl Type {
 impl CompareTypes for Type {
     fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
         match (self, other) {
-            (t, u) if t == u => Some(TypeRelation::Equal),
-
             (_, Type::Any) => Some(TypeRelation::Subtype),
             (Type::Any, _) => Some(TypeRelation::Supertype),
 
@@ -310,6 +308,8 @@ impl CompareTypes for Type {
             (Type::OneOf(lhs_oneof), Type::OneOf(rhs_oneof)) => lhs_oneof.compare_types(rhs_oneof),
             (Type::OneOf(lhs_oneof), rhs) => lhs_oneof.compare_types(rhs),
             (lhs, Type::OneOf(rhs_oneof)) => lhs.compare_types(rhs_oneof),
+
+            (t, u) if t == u => Some(TypeRelation::Equal),
 
             _ => None,
         }
