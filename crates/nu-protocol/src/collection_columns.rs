@@ -64,6 +64,12 @@ impl<T> CollectionColumns<T> {
     pub fn new(fields: Box<[(String, T)]>) -> Self {
         Self { fields }
     }
+
+    pub fn get<'s>(&'s self, key: &'_ str) -> Option<&'s T> {
+        self.iter()
+            .find(|(name, _)| name == key)
+            .map(|(_, val)| val)
+    }
 }
 
 impl<T> IntoIterator for CollectionColumns<T> {
@@ -146,51 +152,54 @@ where
     T: CompareTypes,
 {
     fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
-        let self_fields = self.fields.as_ref();
-        let other_fields = other.fields.as_ref();
+        // for structural subtyping, each field in a type is a "requirement". less
+        // fields in the type => less requirements => is supertype of more types
+        // e.g.: `{a: any, b: any}` is a supertype of `{a: any, b: any, c: any}`
+        //
+        // for `self` to be a subtype of `other`:
+        // - `self` must have all fields required by `other`. extra fields in `self` are irrelevant
+        // - for field `a` in `other`, `self.a` must be a subtype of `other.a`
 
-        // Handle the simplest cases
-        match (self_fields, other_fields) {
-            ([], []) => return Some(TypeRelation::Equal),
-            ([], _) => return Some(TypeRelation::Supertype),
-            (_, []) => return Some(TypeRelation::Subtype),
-            _ => (),
+        match (self.is_empty(), other.is_empty()) {
+            (true, true) => return Some(TypeRelation::Equal),
+            (true, false) => return Some(TypeRelation::Supertype),
+            (false, true) => return Some(TypeRelation::Subtype),
+            (false, false) => (),
         }
 
-        let lhs_super = match self.fields.len().cmp(&other_fields.len()) {
-            std::cmp::Ordering::Less => true,
-            std::cmp::Ordering::Greater => false,
-            std::cmp::Ordering::Equal => {
-                // start neutral
-                let mut state = TypeRelation::Equal;
-                for (name, lhs_ty) in self_fields {
-                    let (_, rhs_ty) = other_fields.iter().find(|(o_name, _)| o_name == name)?;
+        // NOTE[1]: with regards to number of columns `lhs` <= `rhs`
+        let (flipped, eq, (lhs, rhs)) = match self.fields.len().cmp(&other.fields.len()) {
+            std::cmp::Ordering::Less => (false, false, (self, other)),
+            std::cmp::Ordering::Equal => (false, true, (self, other)),
+            std::cmp::Ordering::Greater => (true, false, (other, self)),
+        };
+
+        let start = match eq {
+            true => TypeRelation::Equal,
+            false => TypeRelation::Supertype,
+        };
+
+        let out = lhs
+            .iter()
+            .map(|(lhs_key, lhs_ty)| match rhs.get(lhs_key) {
+                Some(rhs_ty) => {
                     if lhs_ty.is_any() || rhs_ty.is_any() {
-                        continue;
+                        // Not really" equal", just used to continue without affecting the outcome.
+                        Some(TypeRelation::Equal)
+                    } else {
+                        lhs_ty.compare_types(rhs_ty)
                     }
-                    state = state.combine(lhs_ty.compare_types(rhs_ty)?)?;
                 }
+                // if `lhs` has a field `rhs` doesn't despite having at most the same number of
+                // columns as `rhs` (see NOTE[1]) then the sets of their keys are disjoint. they
+                // can't have a subtyping relation
+                None => None,
+            })
+            .try_fold(start, |acc, e| acc.combine(e?))?;
 
-                return Some(state);
-            }
-        };
-
-        let (super_ty, sub_ty) = match lhs_super {
-            true => (self_fields, other_fields),
-            false => (other_fields, self_fields),
-        };
-
-        for (name, super_elem_ty) in super_ty {
-            let (_, sub_elem_ty) = sub_ty.iter().find(|(o_name, _)| o_name == name)?;
-            match super_elem_ty.compare_types(sub_elem_ty)? {
-                TypeRelation::Equal | TypeRelation::Supertype => (),
-                TypeRelation::Subtype => return None,
-            }
-        }
-
-        Some(match lhs_super {
-            true => TypeRelation::Supertype,
-            false => TypeRelation::Subtype,
+        Some(match flipped {
+            true => out.reverse(),
+            false => out,
         })
     }
 
@@ -254,19 +263,40 @@ where
 #[cfg(test)]
 mod tests {
     use pretty_assertions::assert_eq;
+    use rstest::rstest;
 
     use super::*;
     use crate::Type;
 
-    #[test]
-    fn equal_size() {
-        let param_ty: CollectionColumns<Type> =
-            vec![("foo".into(), Type::one_of([Type::Int, Type::Nothing]))].into();
-        let arg_ty: CollectionColumns<Type> = vec![("foo".into(), Type::Int)].into();
+    #[rstest]
+    #[case(Some(TypeRelation::Equal), [], [])]
+    #[case(Some(TypeRelation::Equal),
+        [("a", Type::Int)],
+        [("a", Type::Int)],
+    )]
+    #[case(None,
+        [("a", Type::Int)],
+        [("b", Type::Int)],
+    )]
+    #[case(Some(TypeRelation::Supertype),
+        [("a", Type::Int), ("b", Type::Int)],
+        [("a", Type::Int), ("b", Type::Int), ("c", Type::Int)],
+    )]
+    fn relations(
+        #[case] expected: Option<TypeRelation>,
+        #[case] lhs: impl IntoIterator<Item = (&'static str, Type)>,
+        #[case] rhs: impl IntoIterator<Item = (&'static str, Type)>,
+    ) {
+        let lhs = lhs
+            .into_iter()
+            .map(|(k, ty)| (k.to_owned(), ty))
+            .collect::<CollectionColumns<Type>>();
+        let rhs = rhs
+            .into_iter()
+            .map(|(k, ty)| (k.to_owned(), ty))
+            .collect::<CollectionColumns<Type>>();
 
-        assert_eq!(
-            param_ty.compare_types(&arg_ty),
-            Some(TypeRelation::Supertype)
-        );
+        assert_eq!(lhs.compare_types(&rhs), expected);
+        assert_eq!(rhs.compare_types(&lhs), expected.map(TypeRelation::reverse));
     }
 }

@@ -560,9 +560,8 @@ impl CompareTypes<CollectionColumns<Type>> for Record {
         other
             .iter()
             .map(|(ty_name, ty)| {
-                let found = self.inner.iter().find(|(val_name, _)| val_name == ty_name);
-                match found {
-                    Some((_, val)) => val.compare_types(ty),
+                match self.get(ty_name) {
+                    Some(val) => val.compare_types(ty),
                     // If the record value does not have a column specified in the type, then the
                     // record's type might be a supertype of `other`
                     None => Some(TypeRelation::Supertype),
