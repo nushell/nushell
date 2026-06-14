@@ -43,7 +43,7 @@ impl Command for Rm {
                             ("deleted".to_string(), Type::Bool),
                             (
                                 "error".to_string(),
-                                Type::one_of(vec![Type::Nothing, Type::String]),
+                                Type::one_of([Type::Nothing, Type::String]),
                             ),
                         ]
                         .into(),
