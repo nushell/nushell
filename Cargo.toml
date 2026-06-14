@@ -129,6 +129,7 @@ nu_plugin_query = { path = "crates/nu_plugin_query", version = "0.113.2", defaul
 nu_plugin_stress_internals = { path = "crates/nu_plugin_stress_internals", version = "0.113.2", default-features = false }
 nuon = { path = "crates/nuon", version = "0.113.2", default-features = false }
 
+aegis-password-generator = "0.1.1"
 alphanumeric-sort = "1.5"
 ansi-str = "0.9"
 anyhow = "1.0.102"

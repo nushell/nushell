@@ -24,6 +24,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aae1277d39aeec15cb388266ecc24b11c80469deae6067e17a1a7aa9e5c1f234"
 
 [[package]]
+name = "aegis-password-generator"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9050b1a8122ca1728e5a21d8d310972979f8eb5cde4ba3b968d644f686043af8"
+dependencies = [
+ "rand 0.9.2",
+ "serde",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4529,6 +4540,7 @@ dependencies = [
 name = "nu-command"
 version = "0.113.2"
 dependencies = [
+ "aegis-password-generator",
  "alphanumeric-sort",
  "ansi-str",
  "arboard",
