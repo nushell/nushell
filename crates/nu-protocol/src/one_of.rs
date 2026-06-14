@@ -20,7 +20,7 @@ impl OneOf {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Type> {
-        self.items.iter()
+        self.into_iter()
     }
 
     fn add_ty_inner(this: &mut Vec<Type>, mut ty: Type) {
@@ -63,6 +63,15 @@ impl IntoIterator for OneOf {
     }
 }
 
+impl<'a> IntoIterator for &'a OneOf {
+    type Item = &'a Type;
+    type IntoIter = std::slice::Iter<'a, Type>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.items.iter()
+    }
+}
+
 impl FromIterator<Type> for OneOf {
     fn from_iter<I: IntoIterator<Item = Type>>(iter: I) -> Self {
         let mut vec = Vec::new();
@@ -91,37 +100,29 @@ impl TypeSet for OneOf {
 
 impl CompareTypes for OneOf {
     fn compare_types(&self, other: &Self) -> Option<TypeRelation> {
-        let self_items = self.items.as_ref();
-        let other_items = other.items.as_ref();
-
-        // Handle the simplest cases
-        match (self_items, other_items) {
-            ([], []) => return Some(TypeRelation::Equal),
-            ([], _) => return Some(TypeRelation::Subtype),
-            (_, []) => return Some(TypeRelation::Supertype),
-            _ => (),
-        }
-
-        // iterate the shorter list to reduce quadratic behaviour
-        let ((small, big), flipped) = if self_items.len() <= other_items.len() {
-            ((self_items, other_items), false)
-        } else {
-            ((other_items, self_items), true)
-        };
-
-        for s_ty in small {
-            let _ = big.iter().find(|b_ty| {
-                matches!(
-                    s_ty.compare_types(*b_ty),
-                    Some(TypeRelation::Subtype | TypeRelation::Equal)
-                )
-            })?;
-        }
-
-        Some(match flipped {
-            false => TypeRelation::Subtype,
-            true => TypeRelation::Supertype,
+        Some(match (self.is_empty(), other.is_empty()) {
+            (true, true) => TypeRelation::Equal,
+            (true, false) => TypeRelation::Subtype,
+            (false, true) => TypeRelation::Supertype,
+            (false, false) => match (self.is_subtype_of(other), self.is_supertype_of(other)) {
+                (true, true) => TypeRelation::Equal,
+                (true, false) => TypeRelation::Subtype,
+                (false, true) => TypeRelation::Supertype,
+                (false, false) => return None,
+            },
         })
+    }
+
+    fn is_subtype_of(&self, other: &Self) -> bool {
+        match (self.is_empty(), other.is_empty()) {
+            (true, _) => true,
+            (_, true) => false,
+            _ => self.iter().all(|ty| ty.is_subtype_of(other)),
+        }
+    }
+
+    fn is_supertype_of(&self, other: &Self) -> bool {
+        other.is_subtype_of(self)
     }
 
     fn is_assignable_to(&self, dst: &Self) -> bool {
@@ -139,22 +140,32 @@ impl CompareTypes for OneOf {
 
 impl CompareTypes<Type> for OneOf {
     fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
-        match other {
+        Some(match other {
+            Type::OneOf(other) => return self.compare_types(other),
+            Type::Any => TypeRelation::Subtype,
             // `oneof<>` is an uninhibited type, so it's kind of like our bottom type
-            _ if self.is_empty() => Some(TypeRelation::Subtype),
-            Type::Any => Some(TypeRelation::Subtype),
-            Type::OneOf(other) => self.compare_types(other),
-            _ => self
-                .items
-                .iter()
-                .any(|self_ty| {
-                    matches!(
-                        self_ty.compare_types(other),
-                        Some(TypeRelation::Supertype | TypeRelation::Equal)
-                    )
-                })
-                .then_some(TypeRelation::Supertype),
-        }
+            _ if self.is_empty() => TypeRelation::Subtype,
+            _ => match (self.is_subtype_of(other), self.is_supertype_of(other)) {
+                (true, true) => TypeRelation::Equal,
+                (true, false) => TypeRelation::Subtype,
+                (false, true) => TypeRelation::Supertype,
+                (false, false) => return None,
+            },
+        })
+    }
+
+    fn is_subtype_of(&self, other: &Type) -> bool {
+        let sub_tys = self;
+        let super_ty = other;
+        sub_tys.iter().all(|sub_ty| sub_ty.is_subtype_of(super_ty))
+    }
+
+    fn is_supertype_of(&self, other: &Type) -> bool {
+        let super_tys = self;
+        let sub_ty = other;
+        super_tys
+            .iter()
+            .any(|super_ty| super_ty.is_supertype_of(sub_ty))
     }
 
     fn is_assignable_to(&self, dst: &Type) -> bool {
@@ -170,7 +181,22 @@ impl CompareTypes<Type> for OneOf {
 
 impl CompareTypes<OneOf> for Type {
     fn compare_types(&self, other: &OneOf) -> Option<TypeRelation> {
-        other.compare_types(self).map(TypeRelation::reverse)
+        Some(
+            match (self.is_subtype_of(other), self.is_supertype_of(other)) {
+                (true, true) => TypeRelation::Equal,
+                (true, false) => TypeRelation::Subtype,
+                (false, true) => TypeRelation::Supertype,
+                (false, false) => return None,
+            },
+        )
+    }
+
+    fn is_subtype_of(&self, other: &OneOf) -> bool {
+        other.is_supertype_of(self)
+    }
+
+    fn is_supertype_of(&self, other: &OneOf) -> bool {
+        other.is_subtype_of(self)
     }
 
     fn is_assignable_to(&self, dst: &OneOf) -> bool {
