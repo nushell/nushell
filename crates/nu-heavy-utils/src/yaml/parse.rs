@@ -9,7 +9,7 @@ use crate::{
     yaml::Spec,
 };
 use derive_setters::Setters;
-use nu_protocol::{Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
+use nu_protocol::{FromValue, Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
 use regex::Regex;
 use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use std::{
@@ -28,11 +28,16 @@ pub struct ParseOptions {
     spec: Spec,
 }
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, FromValue)]
 pub enum ParseMultiple {
     #[default]
+    #[nu_value(rename = "auto")]
     Auto,
+
+    #[nu_value(rename = "list")]
     ForceList,
+    
+    #[nu_value(rename = "single")]
     ForceSingle,
 }
 
@@ -288,6 +293,8 @@ fn parse_scalar<'i>(
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
     ctx.unhandled_tags(tag)?;
+
+    // TODO: handle spec 1.1 and 1.2
 
     let span = ctx.parser_span;
 

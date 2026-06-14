@@ -18,6 +18,18 @@ impl Command for FromYamlLike {
         Signature::build(self.name())
             .input_output_types(vec![(Type::String, Type::Any)])
             .category(Category::Formats)
+            .named(
+                "spec",
+                SyntaxShape::String,
+                "YAML spec version ('1.1' or '1.2')",
+                None,
+            )
+            .named(
+                "multiple",
+                SyntaxShape::String,
+                "Handle multiple documents ('auto', 'list', 'single')",
+                None,
+            )
     }
 
     fn description(&self) -> &str {
@@ -30,14 +42,18 @@ impl Command for FromYamlLike {
 
     fn run(
         &self,
-        _engine_state: &EngineState,
-        _stack: &mut Stack,
+        engine_state: &EngineState,
+        stack: &mut Stack,
         call: &Call,
         input: PipelineData,
     ) -> Result<PipelineData, ShellError> {
         let (yaml, yaml_span, ..) = input.collect_string_strict(call.head)?;
         let yaml = yaml.as_str().into_spanned(yaml_span);
-        let options = nu_heavy_utils::yaml::ParseOptions::default();
+        let spec = call.get_flag(engine_state, stack, "spec")?;
+        let multiple = call.get_flag(engine_state, stack, "multiple")?;
+        let options = nu_heavy_utils::yaml::ParseOptions::default()
+            .spec(spec.unwrap_or_default())
+            .multiple(multiple.unwrap_or_default());
         nu_heavy_utils::yaml::parse(yaml, call.head, &options)
             .map(|val| PipelineData::value(val, None))
     }
