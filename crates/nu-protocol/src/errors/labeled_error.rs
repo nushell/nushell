@@ -578,7 +578,10 @@ mod tests {
         assert_eq!(src.len(), 10, "window should be 10 bytes");
         assert!(src.starts_with("aaa"), "window should start with aaa");
         assert!(src.ends_with("bb"), "window should end with bb");
-        assert!(src.contains("XXXXX"), "window should contain the error marker");
+        assert!(
+            src.contains("XXXXX"),
+            "window should contain the error marker"
+        );
         // Adjusted: byte_span.start - window_start = 10-7 = 3
         assert_eq!(
             span.start, 3,
