@@ -296,18 +296,13 @@ impl CompareTypes for Type {
                 this.compare_types(that)
             }
 
-            (Type::Table(_), Type::List(list_elem)) if matches!(**list_elem, Type::Any) => {
-                Some(TypeRelation::Subtype)
-            }
-            (Type::List(list_elem), Type::Table(_)) if matches!(**list_elem, Type::Any) => {
-                Some(TypeRelation::Supertype)
-            }
-
             (Type::Table(table_cols), Type::List(list_elem)) => match list_elem.as_ref() {
+                Type::Any => Some(TypeRelation::Subtype),
                 Type::Record(record_cols) => table_cols.compare_types(record_cols),
                 _ => None,
             },
             (Type::List(list_elem), Type::Table(table_cols)) => match list_elem.as_ref() {
+                Type::Any => Some(TypeRelation::Supertype),
                 Type::Record(record_cols) => record_cols.compare_types(table_cols),
                 _ => None,
             },
