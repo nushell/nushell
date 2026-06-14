@@ -130,15 +130,6 @@ impl Type {
         Self::Custom(name.into())
     }
 
-    /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
-    ///
-    /// This should only be used at parse-time.
-    /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
-    /// you should use their respective `is_subtype_of` methods instead.
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        <Self as CompareTypes>::is_subtype_of(self, other)
-    }
-
     /// Returns supertype of arguments without creating a `oneof`, or falling back to `any` (unless one or both of the arguments are `any`)
     pub(crate) fn flat_widen(lhs: Type, rhs: Type) -> Result<Type, (Type, Type)> {
         // handle special cases and hot paths
@@ -184,13 +175,6 @@ impl Type {
             // Fallback - the two types are unrelated. Move them out so that callers don't have to clone again.
             _ => Err((lhs, rhs)),
         }
-    }
-
-    /// Returns the supertype between `self` and `other`, or `Type::Any` if they're unrelated
-    ///
-    /// prefer `TypeSet::union`
-    pub fn widen(self, other: Type) -> Type {
-        <Self as TypeSet>::union(self, other)
     }
 
     /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
@@ -340,6 +324,19 @@ impl CompareTypes for Type {
 
             _ => None,
         }
+    }
+
+    /// Determine of the [`Type`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`.
+    ///
+    /// This should only be used at parse-time.
+    /// If you have a concrete [`Value`](crate::Value) or [`PipelineData`](crate::PipelineData),
+    /// you should use their respective `is_subtype_of` methods instead.
+    // This is identical to this method's default implementation. Written here to attach doccomment.
+    fn is_subtype_of(&self, other: &Self) -> bool {
+        matches!(
+            self.compare_types(other),
+            Some(TypeRelation::Subtype | TypeRelation::Equal)
+        )
     }
 
     fn is_any(&self) -> bool {

@@ -4,9 +4,9 @@ use nu_path::{dots::expand_ndots_safe, expand_path, expand_path_with, expand_til
 #[cfg(feature = "os")]
 use nu_protocol::process::check_exit_status_future;
 use nu_protocol::{
-    DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream, OutDest,
-    PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError, Signals,
-    Signature, Span, Spanned, Type, Value, VarId,
+    CompareTypes, DeclId, ENV_VARIABLE_ID, Flag, IntoPipelineData, IntoSpanned, ListStream,
+    OutDest, PipelineData, PipelineExecutionData, PositionalArg, Range, Record, RegId, ShellError,
+    Signals, Signature, Span, Spanned, Type, Value, VarId,
     ast::{Bits, Block, Boolean, CellPath, Comparison, Math, Operator},
     combined_type_string,
     debugger::DebugContext,
@@ -15,8 +15,7 @@ use nu_protocol::{
         StateWorkingSet,
     },
     ir::{Call, DataSlice, Instruction, IrAstRef, IrBlock, Literal, RedirectMode},
-    shell_error::generic::GenericError,
-    shell_error::io::IoError,
+    shell_error::{generic::GenericError, io::IoError},
 };
 use nu_utils::IgnoreCaseExt;
 

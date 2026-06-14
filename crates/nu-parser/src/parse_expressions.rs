@@ -27,8 +27,8 @@ use crate::{
 use itertools::Itertools;
 use log::trace;
 use nu_protocol::{
-    ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, VarId, ast::*,
-    engine::StateWorkingSet,
+    CompareTypes, ParseError, PositionalArg, Signature, Span, SyntaxShape, Type, TypeSet, VarId,
+    ast::*, engine::StateWorkingSet,
 };
 use std::{collections::HashMap, sync::Arc};
 
@@ -173,7 +173,7 @@ pub fn parse_list_expression(
                 };
 
                 contained_type = match contained_type {
-                    Some(ctype) => Some(ctype.widen(ty)),
+                    Some(ctype) => Some(ctype.union(ty)),
                     None => Some(ty),
                 };
 

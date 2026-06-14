@@ -22,7 +22,7 @@ use crate::SyntaxShape;
 ///
 /// Type widening (union) for [`Type`]:
 /// ```rust
-/// # use nu_protocol::{CollectionColumns, Type};
+/// # use nu_protocol::{CollectionColumns, Type, TypeSet};
 /// let foo = CollectionColumns::from(vec![
 ///     ("a".to_string(), Type::Int),
 ///     ("b".to_string(), Type::String),
@@ -33,7 +33,7 @@ use crate::SyntaxShape;
 ///     ("c".to_string(), Type::Date),
 /// ]);
 /// assert_eq!(
-///     foo.widen(bar),
+///     foo.union(bar),
 ///     CollectionColumns::from(vec![
 ///         ("a".to_string(), Type::Number),
 ///         ("b".to_string(), Type::OneOf([Type::String, Type::Int].into())),
@@ -87,11 +87,6 @@ impl<T> CollectionColumns<T>
 where
     T: TypeSet + Clone,
 {
-    /// prefer `TypeSet::union`
-    pub fn widen(self, other: Self) -> Self {
-        <Self as TypeSet>::union(self, other)
-    }
-
     fn widen_fields(lhs: Box<[(String, T)]>, rhs: Box<[(String, T)]>) -> Box<[(String, T)]> {
         if lhs.is_empty() || rhs.is_empty() {
             return [].into();

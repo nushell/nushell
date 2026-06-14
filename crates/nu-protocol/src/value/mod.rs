@@ -1049,23 +1049,6 @@ impl Value {
         }
     }
 
-    /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
-    ///
-    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
-    ///
-    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
-    /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
-    ///
-    /// Empty lists are considered subtypes of all `list<T>` types.
-    ///
-    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
-    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
-    ///
-    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        <Self as CompareTypes<Type>>::is_subtype_of(self, other)
-    }
-
     pub fn get_data_by_key(&self, name: &str) -> Option<Value> {
         let span = self.span();
         match self {
@@ -2200,6 +2183,27 @@ impl CompareTypes<Type> for Value {
             },
             val => val.get_type().compare_types(other),
         }
+    }
+
+    /// Determine if the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
+    ///
+    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`].
+    ///
+    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
+    /// type comparison than if one were to collect the type into [`Type`] value with [`Value::get_type`].
+    ///
+    /// Empty lists are considered subtypes of all `list<T>` types.
+    ///
+    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
+    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
+    ///
+    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
+    // This is identical to this method's default implementation. Written here to attach doccomment.
+    fn is_subtype_of(&self, other: &Type) -> bool {
+        matches!(
+            self.compare_types(other),
+            Some(TypeRelation::Subtype | TypeRelation::Equal)
+        )
     }
 }
 
@@ -5432,7 +5436,7 @@ mod tests {
     }
 
     mod is_subtype {
-        use crate::Type;
+        use crate::{CompareTypes, Type};
 
         use super::*;
 
