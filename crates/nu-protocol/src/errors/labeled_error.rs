@@ -567,13 +567,18 @@ mod tests {
 
     #[test]
     fn truncated_source_window_span_adjustment() {
-        let input = "aaaaaaaaaaERRORbbbbbbbbbb"; // 10 a's, 5 E's, 5 b's = 20 bytes
-        // Error from byte 10 to byte 15 -> "ERROR"
+        // Use XXXXX as the error marker to avoid typos-tool false
+        // positives on an error-word adjacent to other characters.
+        let input = "aaaaaaaaaaXXXXXbbbbbbbbbb"; // 10 a's, 5 X's, 10 b's = 25 bytes
+        // Error from byte 10 to byte 15 -> "XXXXX"
         let byte_span = Span::new(10, 15);
         let (src, span) = truncated_source_window(input, byte_span, 5);
         // Window: mid=12, window_start = 12-5 = 7, window_end = 12+5 = 17
-        // src = input[7..17] = "aaaERRORbb" (3 a's + 5 E's + 2 b's = 10 bytes)
-        assert_eq!(&src, "aaaERRORbb", "window should be 10 bytes");
+        // src = input[7..17] = "aaaXXXXXbb" (3 a's + 5 X's + 2 b's = 10 bytes)
+        assert_eq!(src.len(), 10, "window should be 10 bytes");
+        assert!(src.starts_with("aaa"), "window should start with aaa");
+        assert!(src.ends_with("bb"), "window should end with bb");
+        assert!(src.contains("XXXXX"), "window should contain the error marker");
         // Adjusted: byte_span.start - window_start = 10-7 = 3
         assert_eq!(
             span.start, 3,
@@ -585,8 +590,8 @@ mod tests {
         );
         assert_eq!(
             &src[3..8],
-            "ERROR",
-            "ERROR should be at the right adjusted position"
+            "XXXXX",
+            "error marker should be at the right adjusted position"
         );
     }
 
