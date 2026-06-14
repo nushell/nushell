@@ -43,21 +43,44 @@ use crate::SyntaxShape;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash, Ord, PartialOrd)]
 #[serde(transparent)]
 pub struct CollectionColumns<T> {
-    pub fields: Box<[(String, T)]>,
+    fields: Box<[(String, T)]>,
 }
 
 impl<T> CollectionColumns<T> {
     pub fn map<U>(&self, f: impl Fn(&T) -> U) -> CollectionColumns<U> {
-        let Self { fields } = self;
-        CollectionColumns {
-            fields: fields.into_iter().map(|(k, v)| (k.clone(), f(v))).collect(),
-        }
+        self.iter().map(|(k, v)| (k.clone(), f(v))).collect()
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &(String, T)> {
+        self.into_iter()
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.fields.is_empty()
     }
 }
 
 impl<T> CollectionColumns<T> {
     pub fn new(fields: Box<[(String, T)]>) -> Self {
         Self { fields }
+    }
+}
+
+impl<T> IntoIterator for CollectionColumns<T> {
+    type Item = (String, T);
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.into_iter()
+    }
+}
+
+impl<'a, T> IntoIterator for &'a CollectionColumns<T> {
+    type Item = &'a (String, T);
+    type IntoIter = std::slice::Iter<'a, (String, T)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.fields.iter()
     }
 }
 
@@ -71,9 +94,7 @@ impl<T> FromIterator<(String, T)> for CollectionColumns<T> {
 
 impl<T> From<Vec<(String, T)>> for CollectionColumns<T> {
     fn from(value: Vec<(String, T)>) -> Self {
-        Self {
-            fields: value.into_boxed_slice(),
-        }
+        value.into_boxed_slice().into()
     }
 }
 

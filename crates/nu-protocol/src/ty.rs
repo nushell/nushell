@@ -45,11 +45,14 @@ fn follow_cell_path_recursive<'a>(
         return Some(current);
     };
     match (current.as_ref(), first) {
-        (Type::Record(columns), PathMember::String { val, .. }) => {
-            let idx = columns.fields.iter().position(|(name, _)| name == val)?;
+        (Type::Record(_), PathMember::String { val, .. }) => {
             let next = match current {
-                Cow::Borrowed(Type::Record(f)) => Cow::Borrowed(&f.fields[idx].1),
-                Cow::Owned(Type::Record(f)) => Cow::Owned(f.fields[idx].1.to_owned()),
+                Cow::Borrowed(Type::Record(f)) => {
+                    Cow::Borrowed(&f.iter().find(|(name, _)| name == val)?.1)
+                }
+                Cow::Owned(Type::Record(f)) => {
+                    Cow::Owned(f.into_iter().find(|(name, _)| name == val)?.1)
+                }
                 _ => unreachable!(),
             };
             follow_cell_path_recursive(next, path_members)
@@ -62,7 +65,7 @@ fn follow_cell_path_recursive<'a>(
 
         // Table to List (String)
         (Type::Table(columns), PathMember::String { val, .. }) => {
-            let (_, sub_type) = columns.fields.iter().find(|(name, _)| name == val)?;
+            let (_, sub_type) = columns.iter().find(|(name, _)| name == val)?;
             let list_type = Type::List(Box::new(sub_type.clone()));
             follow_cell_path_recursive(Cow::Owned(list_type), path_members)
         }

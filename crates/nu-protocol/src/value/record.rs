@@ -550,20 +550,18 @@ impl Record {
 
 impl CompareTypes<CollectionColumns<Type>> for Record {
     fn compare_types(&self, other: &CollectionColumns<Type>) -> Option<TypeRelation> {
-        let values = self.inner.as_slice();
-        let tys = other.fields.as_ref();
-
-        // Handle the simplest cases
-        match (values, tys) {
-            ([], []) => return Some(TypeRelation::Equal),
-            ([], _) => return Some(TypeRelation::Supertype),
-            (_, []) => return Some(TypeRelation::Subtype),
-            _ => (),
+        match (self.is_empty(), other.is_empty()) {
+            (true, true) => return Some(TypeRelation::Equal),
+            (true, false) => return Some(TypeRelation::Supertype),
+            (false, true) => return Some(TypeRelation::Subtype),
+            (false, false) => {}
         }
 
-        tys.iter()
+        other
+            .iter()
             .map(|(ty_name, ty)| {
-                match values.iter().find(|(val_name, _)| val_name == ty_name) {
+                let found = self.inner.iter().find(|(val_name, _)| val_name == ty_name);
+                match found {
                     Some((_, val)) => val.compare_types(ty),
                     // If the record value does not have a column specified in the type, then the
                     // record's type might be a supertype of `other`

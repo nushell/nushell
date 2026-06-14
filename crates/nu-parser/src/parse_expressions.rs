@@ -1893,7 +1893,7 @@ pub fn parse_record(working_set: &mut StateWorkingSet, span: Span) -> Expression
             match &inner.ty {
                 Type::Record(inner_fields) => {
                     if let Some(fields) = &mut field_types {
-                        for (field, ty) in inner_fields.fields.as_ref() {
+                        for (field, ty) in inner_fields.iter() {
                             fields.push((field.clone(), ty.clone()));
                         }
                     }
