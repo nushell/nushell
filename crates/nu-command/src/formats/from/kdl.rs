@@ -1,7 +1,9 @@
 use crate::formats::{KDL_CANONICAL_METADATA_KEY, KDL_CANONICAL_METADATA_VALUE};
 use kdl::{KdlDocument, KdlError, KdlNode, KdlValue};
 use nu_engine::command_prelude::*;
-use nu_protocol::shell_error::generic::GenericError;
+use nu_protocol::{
+    DEFAULT_ERROR_CONTEXT, shell_error::generic::GenericError, truncated_source_window,
+};
 use num_traits::ToPrimitive;
 
 #[derive(Clone)]
@@ -129,8 +131,13 @@ fn parse_kdl_document_with_diagnostics(input: &str, span: Span) -> Result<KdlDoc
 
 fn kdl_error_to_shell_error(input: &str, span: Span, err: &KdlError) -> ShellError {
     if let Some(diagnostic) = err.diagnostics.first() {
-        let label_span = span_from_kdl_diagnostic(input, diagnostic);
         let diagnostic_message = kdl_diagnostics_message(&err.diagnostics);
+        let byte_offset = diagnostic.span.offset();
+        let (src, label_span) = truncated_source_window(
+            input,
+            Span::new(byte_offset, byte_offset),
+            DEFAULT_ERROR_CONTEXT,
+        );
 
         return ShellError::Generic(
             GenericError::new(
@@ -139,7 +146,7 @@ fn kdl_error_to_shell_error(input: &str, span: Span, err: &KdlError) -> ShellErr
                 span,
             )
             .with_inner([ShellError::OutsideSpannedLabeledError {
-                src: input.into(),
+                src,
                 error: "Error while parsing KDL text".into(),
                 msg: diagnostic_message,
                 span: label_span,
@@ -172,31 +179,6 @@ fn kdl_diagnostics_message(diagnostics: &[kdl::KdlDiagnostic]) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n\n")
-}
-
-fn span_from_kdl_diagnostic(input: &str, diagnostic: &kdl::KdlDiagnostic) -> Span {
-    let (row, col) = row_col_from_byte_offset(input, diagnostic.span.offset());
-    Span::from_row_column(row, col, input)
-}
-
-fn row_col_from_byte_offset(input: &str, offset: usize) -> (usize, usize) {
-    let mut row = 1;
-    let mut col = 1;
-
-    for (byte_index, ch) in input.char_indices() {
-        if byte_index >= offset {
-            break;
-        }
-
-        if ch == '\n' {
-            row += 1;
-            col = 1;
-        } else {
-            col += 1;
-        }
-    }
-
-    (row, col)
 }
 
 fn kdl_diagnostic_message(diagnostic: &kdl::KdlDiagnostic) -> String {
@@ -535,5 +517,44 @@ mod test {
                 .expect("missing message text"),
             Value::string("hello\nworld", span)
         );
+    }
+
+    #[test]
+    fn kdl_error_source_is_bounded() {
+        let mut input = String::with_capacity(50_000);
+        for _ in 0..2000 {
+            input.push_str("node1 key=1; ");
+        }
+        input.push_str("node2 \"unclosed"); // Syntax error: unclosed string
+
+        let result = parse_kdl_document_with_diagnostics(&input, Span::test_data());
+        assert!(result.is_err(), "should fail to parse");
+
+        let err = result.unwrap_err();
+        match &err {
+            ShellError::Generic(GenericError { inner, .. }) => {
+                let inner_err = inner.first().expect("should have inner error");
+                match inner_err {
+                    ShellError::OutsideSpannedLabeledError { src, .. } => {
+                        assert!(
+                            src.len() < 20_000,
+                            "error source should be bounded, got {} bytes",
+                            src.len()
+                        );
+                    }
+                    other => panic!("expected OutsideSpannedLabeledError, got {other:?}"),
+                }
+            }
+            other => panic!("expected Generic error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn kdl_parse_success_not_affected() {
+        let result = parse_kdl_document_with_diagnostics(
+            r#"node1 key=1; node2 key="val""#,
+            Span::test_data(),
+        );
+        assert!(result.is_ok(), "valid KDL should still parse");
     }
 }

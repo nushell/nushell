@@ -595,22 +595,39 @@ impl ByteStream {
     ///
     /// Any trailing new lines are kept in the returned [`Vec`].
     pub fn into_bytes(self) -> Result<Vec<u8>, ShellError> {
-        // todo!() ctrlc
-        let from_io_error = IoError::factory(self.span, None);
+        let span = self.span;
+        let signals = self.signals;
+        let from_io_error = IoError::factory(span, None);
         match self.stream {
             ByteStreamSource::Read(mut read) => {
                 let mut buf = Vec::new();
-                read.read_to_end(&mut buf).map_err(|err| {
-                    match ShellErrorBridge::try_from(err) {
-                        Ok(ShellErrorBridge(err)) => err,
-                        Err(err) => ShellError::Io(from_io_error(err)),
+                let mut chunk = [0; DEFAULT_BUF_SIZE];
+                loop {
+                    signals.check(&span)?;
+                    match read.read(&mut chunk) {
+                        Ok(0) => break,
+                        Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                        Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                        Err(e) => match ShellErrorBridge::try_from(e) {
+                            Ok(ShellErrorBridge(e)) => return Err(e),
+                            Err(e) => return Err(ShellError::Io(from_io_error(e))),
+                        },
                     }
-                })?;
+                }
                 Ok(buf)
             }
             ByteStreamSource::File(mut file) => {
                 let mut buf = Vec::new();
-                file.read_to_end(&mut buf).map_err(&from_io_error)?;
+                let mut chunk = [0; DEFAULT_BUF_SIZE];
+                loop {
+                    signals.check(&span)?;
+                    match file.read(&mut chunk) {
+                        Ok(0) => break,
+                        Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                        Err(e) if e.kind() == ErrorKind::Interrupted => continue,
+                        Err(e) => return Err(ShellError::Io(from_io_error(e))),
+                    }
+                }
                 Ok(buf)
             }
             #[cfg(feature = "os")]

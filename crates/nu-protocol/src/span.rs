@@ -1,6 +1,6 @@
 //! [`Span`] to point to sections of source code and the [`Spanned`] wrapper type
 use crate::shell_error::generic::GenericError;
-use crate::{FromValue, IntoValue, ShellError, SpanId, Value, record};
+use crate::{FromValue, IntoValue, ShellError, Signals, SpanId, Value, record};
 use miette::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::{fmt, ops::Deref};
@@ -264,6 +264,39 @@ impl Span {
         }
     }
 
+    /// Like [`from_row_column`] but checks for signal interruption during scanning.
+    ///
+    /// Signal check interval: every 16384 bytes.
+    /// Returns a span covering at least one byte so it is visible in error diagnostics.
+    pub fn try_from_row_column(
+        row: usize,
+        col: usize,
+        contents: &str,
+        span: &Span,
+        signals: &Signals,
+    ) -> Result<Span, ShellError> {
+        let mut cur_row = 1;
+        let mut cur_col = 1;
+
+        for (offset, curr_byte) in contents.bytes().enumerate() {
+            if offset > 0 && offset % 16384 == 0 {
+                signals.check(span)?;
+            }
+            if curr_byte == b'\n' {
+                cur_row += 1;
+                cur_col = 1;
+            } else if cur_row >= row && cur_col >= col {
+                // Return a span covering at least one byte for visible error highlighting
+                let end = contents.len().min(offset + 1);
+                return Ok(Span::new(offset, end));
+            } else {
+                cur_col += 1;
+            }
+        }
+
+        Ok(Span::new(contents.len(), contents.len()))
+    }
+
     /// Returns the minimal [`Span`] that encompasses both of the given spans.
     ///
     /// The two `Spans` can overlap in the middle,
@@ -404,5 +437,96 @@ impl<T, E> ErrSpan for Result<T, E> {
 
     fn err_span(self, span: Span) -> Self::Result {
         self.map_err(|err| err.into_spanned(span))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::Signals;
+    use std::sync::{Arc, atomic::AtomicBool};
+
+    /// Span from a matched position now covers at least one byte for visible error highlighting.
+    /// Both `start` and `end` indicate that `start == end - 1`.
+
+    #[test]
+    fn try_from_row_column_first_line() {
+        let input = "hello\nworld\nfoo";
+        let signals = Signals::empty();
+        let result = Span::try_from_row_column(1, 3, input, &Span::unknown(), &signals);
+        assert_eq!(result, Ok(Span::new(2, 3))); // 'l' in "hello" at index 2..3
+    }
+
+    #[test]
+    fn try_from_row_column_second_line() {
+        let input = "hello\nworld\nfoo";
+        let signals = Signals::empty();
+        let result = Span::try_from_row_column(2, 1, input, &Span::unknown(), &signals);
+        assert_eq!(result, Ok(Span::new(6, 7))); // 'w' in "world" at index 6..7
+    }
+
+    #[test]
+    fn try_from_row_column_last_char() {
+        let input = "hello\nworld\nfoo";
+        let signals = Signals::empty();
+        // "foo" starts at index 12, third char 'o' at index 14
+        let result = Span::try_from_row_column(3, 3, input, &Span::unknown(), &signals);
+        assert_eq!(result, Ok(Span::new(14, 15)));
+    }
+
+    #[test]
+    fn try_from_row_column_beyond_input() {
+        let input = "hi";
+        let signals = Signals::empty();
+        // Asking for a row beyond the input should return the end
+        let result = Span::try_from_row_column(10, 1, input, &Span::unknown(), &signals);
+        assert_eq!(result, Ok(Span::new(2, 2))); // end of input
+    }
+
+    #[test]
+    fn try_from_row_column_interrupted_triggers_error() {
+        // Input long enough to trigger the 16384-byte signal check
+        let flag = Arc::new(AtomicBool::new(true)); // pre-triggered
+        let signals = Signals::new(flag);
+        let input = "x".repeat(20_000);
+        let result = Span::try_from_row_column(1, 18_000, &input, &Span::unknown(), &signals);
+        assert!(result.is_err());
+        assert!(matches!(result, Err(ShellError::Interrupted { .. })));
+    }
+
+    #[test]
+    fn try_from_row_column_short_input_skips_signal_check() {
+        // Short input completes before hitting the 16384-byte check interval
+        let flag = Arc::new(AtomicBool::new(true)); // pre-triggered
+        let signals = Signals::new(flag);
+        let input = "hello\nworld";
+        let result = Span::try_from_row_column(1, 1, input, &Span::unknown(), &signals);
+        // Should complete successfully since the scan is too short to check signals
+        assert_eq!(result, Ok(Span::new(0, 1))); // covers first byte
+    }
+
+    #[test]
+    fn try_from_row_column_not_interrupted() {
+        let flag = Arc::new(AtomicBool::new(false));
+        let signals = Signals::new(flag);
+        let input = "a\nb\nc";
+        let result = Span::try_from_row_column(1, 1, input, &Span::unknown(), &signals);
+        assert_eq!(result, Ok(Span::new(0, 1))); // covers first byte
+    }
+
+    #[test]
+    fn try_from_row_column_start_matches_from_row_column() {
+        // try_from_row_column should have the same `start` as from_row_column
+        // but covers at least one byte (end > start) for visible error highlighting
+        let input = "line one\nline two\nline three";
+        let signals = Signals::empty();
+        let expected = Span::from_row_column(2, 6, input);
+        let result = Span::try_from_row_column(2, 6, input, &Span::unknown(), &signals)
+            .expect("should succeed");
+        assert_eq!(result.start, expected.start, "start should match");
+        assert!(
+            result.end > result.start,
+            "end should extend past start for visibility"
+        );
     }
 }
