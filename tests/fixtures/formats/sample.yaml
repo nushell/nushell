@@ -60,7 +60,7 @@ scalars:
     numeric_like: "007"
     bool_like: "off"
     null_like: "null"
-  # binary_data: !!binary SGVsbG8gV29ybGQh
+  binary_data: !!binary SGVsbG8gV29ybGQh
   timestamp_like: 2026-06-01T12:34:56Z
 
 collections:

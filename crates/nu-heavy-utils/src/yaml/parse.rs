@@ -6,10 +6,13 @@
 
 use crate::{
     merge::{Merge, MergeStrategy},
-    yaml::Spec,
+    yaml::{KnownTag, Spec, UnknownTagError},
 };
+use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use derive_setters::Setters;
-use nu_protocol::{FromValue, Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError};
+use nu_protocol::{
+    FromValue, Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError,
+};
 use regex::Regex;
 use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
 use std::{
@@ -36,7 +39,7 @@ pub enum ParseMultiple {
 
     #[nu_value(rename = "list")]
     ForceList,
-    
+
     #[nu_value(rename = "single")]
     ForceSingle,
 }
@@ -135,6 +138,17 @@ impl<'i> ParseCtx<'i> {
         todo!()
     }
 
+    fn unknown_tag_err(&self, err: UnknownTagError) -> ShellError {
+        ShellError::Generic(
+            GenericError::new(
+                "Unknown tag",
+                format!("The tag {:?} is unknown to nushell", err.0),
+                self.yaml_span,
+            )
+            .with_code("shell::yaml::parser::tag::unknown"),
+        )
+    }
+
     fn unhandled_tags(&self, tag: Option<Cow<'_, Tag>>) -> Result<(), ShellError> {
         match tag {
             None => Ok(()),
@@ -144,10 +158,10 @@ impl<'i> ParseCtx<'i> {
                     "The current implementation does not support tags yet",
                     self.parser_span,
                 )
-                .with_code("shell::yaml::parser::unsupported_tags")
+                .with_code("shell::yaml::parser::tag::unsupported")
                 .with_inner([GenericError::new(
                     "Unsupported tag",
-                    format!("The tag {tag:?} is not supported"),
+                    format!("The tag {tag} is not supported"),
                     self.yaml_span,
                 )
                 .into()]),
@@ -292,36 +306,87 @@ fn parse_scalar<'i>(
     scalar_style: ScalarStyle,
     tag: Option<Cow<'i, Tag>>,
 ) -> Result<Value, ShellError> {
-    ctx.unhandled_tags(tag)?;
+    let tag = tag
+        .map(|tag| KnownTag::from_str(tag.to_string().as_str()))
+        .transpose()
+        .map_err(|err| ctx.unknown_tag_err(err))?;
 
     // TODO: handle spec 1.1 and 1.2
 
     let span = ctx.parser_span;
+    let value = value.as_ref();
 
-    match scalar_style {
-        ScalarStyle::Plain => (),
+    match tag {
+        None => {
+            match scalar_style {
+                ScalarStyle::Plain => (),
 
-        // Without tags, these can only be strings.
-        ScalarStyle::SingleQuoted
-        | ScalarStyle::DoubleQuoted
-        | ScalarStyle::Literal
-        | ScalarStyle::Folded => return Ok(Value::string(value, span)),
+                // Without tags, these can only be strings.
+                ScalarStyle::SingleQuoted
+                | ScalarStyle::DoubleQuoted
+                | ScalarStyle::Literal
+                | ScalarStyle::Folded => return Ok(Value::string(value, span)),
+            }
+
+            // We resolve values according to the core schema
+            // https://yaml.org/spec/1.2.2/#1032-tag-resolution
+            Ok(match value {
+                "null" | "Null" | "NULL" | "~" | "" => Value::nothing(span),
+                "true" | "True" | "TRUE" => Value::bool(true, span),
+                "false" | "False" | "FALSE" => Value::bool(false, span),
+                s if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
+                s if BASE8.is_match(s) => Value::int(parse_base8(ctx, s)?, span),
+                s if BASE16.is_match(s) => Value::int(parse_base16(ctx, s)?, span),
+                s if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
+                s if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
+                s if NAN.is_match(s) => Value::float(f64::NAN, span),
+                s => Value::string(s, span),
+            })
+        }
+
+        Some(tag) => Ok(match tag {
+            KnownTag::Str => Value::string(value, span),
+            KnownTag::Null => Value::nothing(span),
+            KnownTag::Bool => match value.to_lowercase().as_ref() {
+                "true" => Value::bool(true, span),
+                "false" => Value::bool(false, span),
+                _ => todo!(),
+            },
+            KnownTag::Int if BASE8.is_match(value) => Value::int(parse_base8(ctx, value)?, span),
+            KnownTag::Int if BASE16.is_match(value) => Value::int(parse_base16(ctx, value)?, span),
+            KnownTag::Int => Value::int(parse_base10(ctx, value)?, span),
+            KnownTag::Float if INFINITY.is_match(value) => Value::float(f64::INFINITY, span),
+            KnownTag::Float if NAN.is_match(value) => Value::float(f64::NAN, span),
+            KnownTag::Float => Value::float(parse_float(ctx, value)?, span),
+            KnownTag::Binary => Value::binary(
+                BASE64_STANDARD
+                    .decode(value)
+                    .map_err(|err| ShellError::Generic(todo!()))?,
+                span,
+            ),
+            KnownTag::Glob => Value::glob(value, false, span),
+            KnownTag::Filesize => Value::filesize(parse_base10(ctx, value)?, span),
+            KnownTag::Duration => Value::duration(parse_base10(ctx, value)?, span),
+            KnownTag::Date => todo!(),
+            KnownTag::Range => todo!(),
+            KnownTag::Closure => todo!(),
+            KnownTag::CellPath => todo!(),
+
+            // incorrect tag
+            KnownTag::Map => todo!(),
+            KnownTag::Seq => todo!(),
+            KnownTag::OMap => todo!(),
+            KnownTag::Pairs => todo!(),
+            KnownTag::Set => todo!(),
+            KnownTag::Merge => todo!(),
+            KnownTag::Error => todo!(),
+
+            // unsupported tag
+            KnownTag::Timestamp => todo!(),
+            KnownTag::Value => todo!(),
+            KnownTag::Yaml => todo!(),
+        }),
     }
-
-    // We resolve values according to the core schema
-    // https://yaml.org/spec/1.2.2/#1032-tag-resolution
-    Ok(match value.as_ref() {
-        "null" | "Null" | "NULL" | "~" | "" => Value::nothing(span),
-        "true" | "True" | "TRUE" => Value::bool(true, span),
-        "false" | "False" | "FALSE" => Value::bool(false, span),
-        s if BASE10.is_match(s) => Value::int(parse_base10(ctx, s)?, span),
-        s if BASE8.is_match(s) => Value::int(parse_base8(ctx, s)?, span),
-        s if BASE16.is_match(s) => Value::int(parse_base16(ctx, s)?, span),
-        s if FLOAT.is_match(s) => Value::float(parse_float(ctx, s)?, span),
-        s if INFINITY.is_match(s) => Value::float(f64::INFINITY, span),
-        s if NAN.is_match(s) => Value::float(f64::NAN, span),
-        s => Value::string(s, span),
-    })
 }
 
 // gets called on Event::SequenceStart, returns on Event::SequenceEnd
@@ -446,7 +511,7 @@ fn parse_mapping<'i>(
                             format!("The key {key:?} already appeared in the mapping"),
                             ctx.yaml_span,
                         )
-                        .with_code("shell::yaml::parse::duplicate_key"),
+                        .with_code("shell::yaml::parser::duplicate_key"),
                     ));
                 }
 
