@@ -16,7 +16,7 @@ impl TypeRelation {
         }
     }
 
-    /// Badly named
+    /// Combines two partial relation results.
     ///
     /// While computing the relation of two types, sometimes it has to be done in multiple steps,
     /// e.g. `oneof`, `record`.
