@@ -10,9 +10,44 @@ use crate::ExitStatus;
 use std::{io::IsTerminal, sync::atomic::Ordering};
 
 #[cfg(unix)]
-pub use child_pgroup::prepare_background_command;
-#[cfg(unix)]
 pub use child_pgroup::stdin_fd;
+
+/// Prepare a command to run in background isolation: no controlling terminal,
+/// so tools like carapace cannot call `tcsetattr` on `/dev/tty` and corrupt
+/// reedline's terminal state. (bad)
+///
+/// Call this before spawning the command. This caller is responsible for also
+/// redirecting stdin to `/dev/null` so the subprocess cannot steal keystrokes.
+/// Will fall through to nothing on WASM and friends, which is O.K
+pub fn prepare_background_command(command: &mut Command) {
+    #[cfg(unix)]
+    {
+        use nix::unistd;
+        use std::os::unix::process::CommandExt;
+
+        // SAFETY: `setsid` is async-signal-safe per [POSIX signal-safety(7)](https://man7.org/linux/man-pages/man7/signal-safety.7.html), so
+        // it is legal to call from the `pre_exec` hook that runs after `fork`
+        // as long as it hits before `exec`.
+        unsafe {
+            command.pre_exec(|| {
+                // Creates a new session without a controlling terminal, so
+                // `/dev/tty` will fail to open.  Ignore EPERM as we may
+                // already be a session leader.
+                let _ = unistd::setsid();
+                Ok(())
+            });
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        // disables opening CONIN$/CONOUT$ the call-ability of SetConsoleMode
+        // basically setsid() from Unix.
+        const DETACHED_PROCESS: u32 = 0x0000_0008;
+        command.creation_flags(DETACHED_PROCESS);
+    }
+}
 
 #[cfg(unix)]
 use nix::{sys::signal, sys::wait, unistd::Pid};
@@ -422,27 +457,6 @@ mod child_pgroup {
 
         if !background {
             let _ = unistd::tcsetpgrp(unsafe { stdin_fd() }, pgrp);
-        }
-    }
-
-    /// Prepare a command to run in background isolation: no controlling terminal,
-    /// so tools like carapace cannot call `tcsetattr` on `/dev/tty` and corrupt
-    /// reedline's terminal state. (bad)
-    ///
-    /// Call this before spawning the command. This caller is responsible for also
-    /// redirecting stdin to `/dev/null` so the subprocess cannot steal keystrokes.
-    pub fn prepare_background_command(command: &mut Command) {
-        // // SAFETY: `setsid` is async-signal-safe per [POSIX signal-safety(7)](https://man7.org/linux/man-pages/man7/signal-safety.7.html), so
-        // it is legal to call from the `pre_exec` hook that runs after `fork`
-        // as long as it hits before `exec`.
-        unsafe {
-            command.pre_exec(|| {
-                // Creates a new session without a controlling terminal, so
-                // `/dev/tty` will fail to open.  Ignore EPERM as we may
-                // already be a session leader.
-                let _ = unistd::setsid();
-                Ok(())
-            });
         }
     }
 
