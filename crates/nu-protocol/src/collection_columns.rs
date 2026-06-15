@@ -55,8 +55,12 @@ impl<T> CollectionColumns<T> {
         self.into_iter()
     }
 
-    pub(crate) fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.fields.is_empty()
+    }
+
+    pub fn len(&self) -> usize {
+        self.fields.len()
     }
 }
 

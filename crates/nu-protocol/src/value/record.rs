@@ -557,17 +557,57 @@ impl CompareTypes<CollectionColumns<Type>> for Record {
             (false, false) => {}
         }
 
-        other
-            .iter()
-            .map(|(ty_name, ty)| {
-                match self.get(ty_name) {
-                    Some(val) => val.compare_types(ty),
-                    // If the record value does not have a column specified in the type, then the
-                    // record's type might be a supertype of `other`
-                    None => Some(TypeRelation::Supertype),
-                }
-            })
-            .try_fold(TypeRelation::Equal, |acc, e| acc.combine(e?))
+        let (flipped, eq) = match self.len().cmp(&other.len()) {
+            std::cmp::Ordering::Less => (false, false),
+            std::cmp::Ordering::Equal => (false, true),
+            std::cmp::Ordering::Greater => (true, false),
+        };
+
+        let start = match eq {
+            true => TypeRelation::Equal,
+            false => TypeRelation::Supertype,
+        };
+
+        if flipped {
+            let lhs = other;
+            let rhs = self;
+            lhs.iter()
+                .map(|(lhs_key, lhs_ty)| {
+                    match rhs.get(lhs_key) {
+                        Some(rhs_val) => {
+                            if CompareTypes::<Type>::is_any(lhs_ty) || rhs_val.is_any() {
+                                // Not really" equal", just used to continue without affecting the outcome.
+                                Some(TypeRelation::Equal)
+                            } else {
+                                // `CompareTypes<Value> for Type` is not implemented
+                                // lhs_ty.compare_types(rhs_val)
+                                rhs_val.compare_types(lhs_ty).map(TypeRelation::reverse)
+                            }
+                        }
+                        None => None,
+                    }
+                })
+                .try_fold(start, |acc, e| acc.combine(e?))
+                .map(TypeRelation::reverse)
+        } else {
+            let lhs = self;
+            let rhs = other;
+            lhs.iter()
+                .map(|(lhs_key, lhs_val)| {
+                    match rhs.get(lhs_key) {
+                        Some(rhs_ty) => {
+                            if lhs_val.is_any() || CompareTypes::<Type>::is_any(rhs_ty) {
+                                // Not really" equal", just used to continue without affecting the outcome.
+                                Some(TypeRelation::Equal)
+                            } else {
+                                lhs_val.compare_types(rhs_ty)
+                            }
+                        }
+                        None => None,
+                    }
+                })
+                .try_fold(start, |acc, e| acc.combine(e?))
+        }
     }
 }
 
