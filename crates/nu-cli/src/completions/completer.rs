@@ -157,7 +157,7 @@ type PendingRx = Arc<Mutex<Option<mpsc::Receiver<()>>>>;
 #[derive(Clone)]
 pub struct NuCompleter {
     engine_state: Arc<EngineState>,
-    stack: Stack,
+    stack: Arc<Stack>,
     cache: CompletionCache,
     pending_rx: PendingRx,
 }
@@ -190,7 +190,7 @@ impl NuCompleter {
     pub fn new(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: Stack::with_parent(stack).reset_out_dest().collect_value(),
+            stack,
             cache: Arc::new(Mutex::new(HashMap::new())),
             pending_rx: Arc::new(Mutex::new(None)),
         }
@@ -199,13 +199,15 @@ impl NuCompleter {
     fn new_for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
-            stack: Stack::with_parent(stack)
-                .reset_out_dest()
-                // We never want to write to the terminal
-                .suppress_output()
-                // We don't want races with reedlines own
-                .suppress_stdin()
-                .collect_value(),
+            stack: Arc::new(
+                Stack::with_parent(stack)
+                    .reset_out_dest()
+                    // We never want to write to the terminal
+                    .suppress_output()
+                    // We don't want races with reedlines own
+                    .suppress_stdin()
+                    .collect_value(),
+            ),
             cache: Arc::new(Mutex::new(HashMap::new())),
             pending_rx: Arc::new(Mutex::new(None)),
         }
@@ -639,7 +641,6 @@ impl NuCompleter {
                         }
 
                         // resort to external completer set in config
-                        // resort to external completer set in config
                         let completion = self
                             .engine_state
                             .get_config()
@@ -830,12 +831,12 @@ impl ReedlineCompleter for NuCompleter {
         }
 
         let engine_state = self.engine_state.clone();
-        let stack = Arc::new(self.stack.clone());
+        let stack = self.stack.clone();
         let cache = self.cache.clone();
         let line_owned = line.to_string();
 
         thread::spawn(move || {
-            let completer = NuCompleter::new_background(engine_state, stack);
+            let completer = NuCompleter::new_for_background(engine_state, stack);
             let suggestions: Vec<Suggestion> = completer
                 .fetch_completions_at(&line_owned, pos)
                 .into_iter()
@@ -971,7 +972,7 @@ mod completer_tests {
             nu_cmd_lang::create_default_context(),
         ));
         let stack = Arc::new(Stack::new());
-        let bg = NuCompleter::new_background(engine_state, stack);
+        let bg = NuCompleter::new_for_background(engine_state, stack);
 
         assert!(
             matches!(bg.stack.stdout(), OutDest::Value),
