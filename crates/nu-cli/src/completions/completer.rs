@@ -196,7 +196,7 @@ impl NuCompleter {
         }
     }
 
-    fn new_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
+    fn new_for_background(engine_state: Arc<EngineState>, stack: Arc<Stack>) -> Self {
         Self {
             engine_state,
             stack: Stack::with_parent(stack)
