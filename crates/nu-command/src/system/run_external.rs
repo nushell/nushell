@@ -6,9 +6,7 @@ use nu_protocol::{
     process::{ChildProcess, PostWaitCallback},
     shell_error::io::IoError,
 };
-#[cfg(unix)]
-use nu_system::prepare_background_command;
-use nu_system::{ForegroundChild, kill_by_pid};
+use nu_system::{ForegroundChild, kill_by_pid, prepare_background_command};
 use nu_utils::IgnoreCaseExt;
 use pathdiff::diff_paths;
 #[cfg(windows)]
@@ -263,7 +261,6 @@ If you create a custom command with this name, that will be used instead."
                 // and cause bad EIO).
                 if engine_state.is_mcp || stack.suppress_stdin {
                     command.stdin(Stdio::null());
-                    #[cfg(unix)]
                     prepare_background_command(&mut command);
                 } else {
                     command.stdin(Stdio::inherit());
