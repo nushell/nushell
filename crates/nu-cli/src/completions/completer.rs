@@ -820,7 +820,14 @@ impl ReedlineCompleter for NuCompleter {
         // Reedline will call `check_pending` / `complete` again to pick up the
         // results and repaint.
         let (tx, rx) = mpsc::channel();
-        self.pending_rx.lock().expect("Lock poisoned").replace(rx);
+        {
+            let Ok(mut pending_guard) = self.pending_rx.lock() else {
+                // If the mutex is poisoned,
+                // return empty results and pray the next call goes smoothly.
+                return vec![];
+            };
+            pending_guard.replace(rx);
+        }
 
         let engine_state = self.engine_state.clone();
         let stack = Arc::new(self.stack.clone());
