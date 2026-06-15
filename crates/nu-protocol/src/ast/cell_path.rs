@@ -305,10 +305,107 @@ pub struct FullCellPath {
     pub tail: Vec<PathMember>,
 }
 
+mod parse {
+    use super::*;
+    use winnow::{
+        Result, Str, combinator::*, error::{ContextError, ParserError}, prelude::*, stream::ContainsToken,
+        token::*,
+    };
+
+    pub fn cell_path(input: &mut &str) -> Result<CellPath> {
+        preceded(
+            opt("$."),
+            repeat(0.., terminated(path_member, opt('.'))),
+        )
+        .parse_next(input)
+        .map(|members| CellPath { members })
+    }
+
+    pub fn path_member(input: &mut &str) -> Result<PathMember> {
+        if input.is_empty() {
+            return Err(ParserError::from_input(input));
+        }
+        
+        let member = alt((int_path_member, string_path_member)).parse_next(input)?;
+
+        // ensure there's no more content after a member
+        peek(alt((".", eof))).parse_next(input)?;
+
+        Ok(member)
+    }
+
+    fn int_path_member(input: &mut &str) -> Result<PathMember> {
+        let int = digits.parse_next(input)?;
+        let optional = opt('?').parse_next(input)?.is_some();
+        Ok(PathMember::Int { val: int, span: Span::unknown(), optional })
+    }
+
+    fn digits(input: &mut &str) -> Result<usize> {
+        let start = input.checkpoint();
+        if let Ok(prefix) = digit_prefix.parse_next(input) {
+            return match prefix {
+                DigitPrefix::Bin => bin_digits.parse_next(input),
+                DigitPrefix::Oct => oct_digits.parse_next(input),
+                DigitPrefix::Hex => hex_digits.parse_next(input),
+            };
+        }
+
+        input.reset(&start);
+        dec_digits.parse_next(input)
+    }
+
+    enum DigitPrefix {
+        Bin,
+        Oct,
+        Hex,
+    }
+
+    fn digit_prefix(input: &mut &str) -> Result<DigitPrefix> {
+        let prefix = take(2usize).parse_next(input)?;
+        Ok(match prefix {
+            "0b" => DigitPrefix::Bin,
+            "0o" => DigitPrefix::Oct,
+            "Ox" => DigitPrefix::Hex,
+            _ => return fail(input),
+        })
+    }
+
+    fn bin_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(2, ('_', '0', '1')).parse_next(input)
+    }
+
+    fn oct_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(8, ('_', '0'..='7')).parse_next(input)
+    }
+
+    fn dec_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(10, ('_', '0'..='9')).parse_next(input)
+    }
+
+    fn hex_digits(input: &mut &str) -> Result<usize> {
+        any_radix_digits(16, ('_', '0'..='9', 'a'..='f', 'A'..='Z')).parse_next(input)
+    }
+
+    fn any_radix_digits<'i>(
+        radix: u32,
+        tokens: impl ContainsToken<char>,
+    ) -> impl Parser<Str<'i>, usize, ContextError> {
+        take_while(1.., tokens)
+            .map(|d: &str| d.replace('_', ""))
+            .verify(|d: &str| !d.is_empty())
+            .try_map(move |d| usize::from_str_radix(&d, radix))
+    }
+
+    fn string_path_member(input: &mut &str) -> Result<PathMember> {
+        todo!()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use std::cmp::Ordering::Greater;
+    use winnow::prelude::*;
 
     #[test]
     fn path_member_partial_ord() {
@@ -344,5 +441,12 @@ mod test {
                 &PathMember::test_string("e".into(), true, Casing::Sensitive)
             )
         );
+    }
+
+    #[test]
+    fn parse() {
+        let input = "$.2!.3";
+        let cell_path = super::parse::cell_path.parse(input).unwrap();
+        panic!("{cell_path:#?}");
     }
 }
