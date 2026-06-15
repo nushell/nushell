@@ -43,9 +43,18 @@ impl TypeRelation {
 
 /// Trait for comparisons corresponding to subtyping relations.
 ///
+/// `<:` and `:>` are used to mean "is subtype of" and "is supertype of" respectively.
+/// `<<:` and `:>>` are used as their "strict" counterparts (no equality).
+///
 /// Implementations must be:
 /// - *Transitive*: if `a <: b` and `b <: c`, then `a <: c`
-/// - *Antisymmetric*: if `a <: b`, then `b :> a`
+/// - *Dual*: if `a <: b`, then `b :> a`
+/// - *Antisymmetric*:
+///   - if `a <<: b`, then `b <<: a` can't be true
+///   - if `a <: b` and `b <: a`, then `a == b`
+///
+/// Output of [`Self::is_subtype_of`] and [`Self::is_supertype_of`] must be consistent with
+/// [`Self::compare_types`]
 ///
 /// The `Rhs` type parameter is to allow comparing the runtime type of a value with static types,
 /// without going through intermediate steps.
@@ -59,6 +68,8 @@ pub trait CompareTypes<Rhs = Self> {
     fn compare_types(&self, other: &Rhs) -> Option<TypeRelation>;
 
     /// Returns `true` if `self` is equal to or is a *strict* subtype of `other`
+    ///
+    /// Converse of [`Self::is_supertype_of`]
     fn is_subtype_of(&self, other: &Rhs) -> bool {
         matches!(
             self.compare_types(other),
@@ -67,6 +78,8 @@ pub trait CompareTypes<Rhs = Self> {
     }
 
     /// Returns `true` if `self` is equal to or is a *strict* supertype of `other`
+    ///
+    /// Converse of [`Self::is_subtype_of`]
     fn is_supertype_of(&self, other: &Rhs) -> bool {
         matches!(
             self.compare_types(other),

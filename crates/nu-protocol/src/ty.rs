@@ -180,7 +180,8 @@ impl Type {
         }
     }
 
-    /// Returns the supertype of all types within `it`. Short-circuits on, and falls back to, `Type::Any`.
+    /// Returns a supertype of all types within `it` *that is not `Any`*.
+    /// If `it` contains `Type::Any`, short circuits and returns `None`.
     pub fn supertype_of(it: impl IntoIterator<Item = Type>) -> Option<Self> {
         let mut it = it.into_iter();
         it.next().and_then(|head| {
