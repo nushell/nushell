@@ -822,7 +822,7 @@ mod test {
 
 /// Tests for the background-completion terminal-isolation fix.
 ///
-/// When `stack.suppress_stdin` is set (used by `NuCompleter::new_background`),
+/// When `stack.suppress_stdin` is set (used by `NuCompleter::new_for_background`),
 /// subprocesses must:
 ///   1. Receive /dev/null for stdin – so they can't steal keystrokes.
 ///   2. Run in a new session (setsid) – so opening /dev/tty fails.
