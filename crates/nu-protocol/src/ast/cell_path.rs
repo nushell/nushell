@@ -308,12 +308,7 @@ pub struct FullCellPath {
 mod parse {
     use super::*;
     use winnow::{
-        Result, Str,
-        combinator::*,
-        error::{ContextError, ParserError, StrContext, StrContextValue},
-        prelude::*,
-        stream::ContainsToken,
-        token::*,
+        Result, Str, combinator::*, error::*, prelude::*, stream::ContainsToken, token::*,
     };
 
     pub fn cell_path(input: &mut &str) -> Result<CellPath> {
@@ -405,7 +400,7 @@ mod parse {
         let string = alt((
             single_quoted_string,
             bare_word_string,
-            // double_quoted_string,
+            double_quoted_string,
             unquoted_string,
         ))
         .parse_next(input)?;
@@ -454,14 +449,38 @@ mod parse {
             .map(|s| s.to_owned())
     }
 
-    fn double_quoted_string(input: &mut &str) -> Result<String> {
-        todo!()
-    }
-
     fn bare_word_string(input: &mut &str) -> Result<String> {
         delimited("`", take_while(0.., |c| c != '`'), "`")
             .parse_next(input)
             .map(|s| s.to_owned())
+    }
+
+    fn double_quoted_string(input: &mut &str) -> Result<String> {
+        fn escaped(input: &mut &str) -> Result<char> {
+            preceded(
+                '\\',
+                alt((
+                    'n'.value('\n'),
+                    'r'.value('\r'),
+                    't'.value('\t'),
+                    '\\'.value('\\'),
+                    '/'.value('/'),
+                    '"'.value('"'),
+                )),
+            )
+            .parse_next(input)
+        }
+
+        fn char(input: &mut &str) -> Result<char> {
+            any.verify(|c| *c != '"').parse_next(input)
+        }
+
+        let content = repeat(0.., alt((escaped, char))).fold(String::new, |mut string, char| {
+            string.push(char);
+            string
+        });
+
+        delimited('"', content, '"').parse_next(input)
     }
 
     #[derive(Default)]
@@ -546,7 +565,7 @@ mod test {
 
     #[test]
     fn parse() {
-        let input = "$.2!.3?.abc?.'def'!";
+        let input = r#"$.2!.3?.abc?.'def'!."gh\"lol""#;
         let cell_path = super::parse::cell_path.parse(input).unwrap();
         panic!("{cell_path:#?}");
     }
