@@ -151,6 +151,25 @@ where
     }
 }
 
+fn element_comparison_helper<T, F, O>(
+    lhs: &CollectionColumns<T>,
+    rhs: &CollectionColumns<T>,
+    f: F,
+) -> impl Iterator<Item = Option<O>>
+where
+    T: CompareTypes,
+    F: Fn(&T, &T) -> Option<O>,
+{
+    lhs.iter()
+        .map(move |(lhs_key, lhs_ty)| match rhs.get(lhs_key) {
+            Some(rhs_ty) => f(lhs_ty, rhs_ty),
+            // if `lhs` has a field `rhs` doesn't despite having at most the same number of
+            // columns as `rhs` (see NOTE[1]) then the sets of their keys are disjoint. they
+            // can't have a subtyping relation
+            None => None,
+        })
+}
+
 impl<T> CompareTypes for CollectionColumns<T>
 where
     T: CompareTypes,
@@ -183,23 +202,15 @@ where
             false => TypeRelation::Supertype,
         };
 
-        let out = lhs
-            .iter()
-            .map(|(lhs_key, lhs_ty)| match rhs.get(lhs_key) {
-                Some(rhs_ty) => {
-                    if lhs_ty.is_any() || rhs_ty.is_any() {
-                        // Not really" equal", just used to continue without affecting the outcome.
-                        Some(TypeRelation::Equal)
-                    } else {
-                        lhs_ty.compare_types(rhs_ty)
-                    }
-                }
-                // if `lhs` has a field `rhs` doesn't despite having at most the same number of
-                // columns as `rhs` (see NOTE[1]) then the sets of their keys are disjoint. they
-                // can't have a subtyping relation
-                None => None,
-            })
-            .try_fold(start, |acc, e| acc.combine(e?))?;
+        let out = element_comparison_helper(lhs, rhs, |lhs_ty, rhs_ty| {
+            if lhs_ty.is_any() || rhs_ty.is_any() {
+                // Not really" equal", just used to continue without affecting the outcome.
+                Some(TypeRelation::Equal)
+            } else {
+                lhs_ty.compare_types(rhs_ty)
+            }
+        })
+        .try_fold(start, |acc, e| acc.combine(e?))?;
 
         Some(match flipped {
             true => out.reverse(),
@@ -214,7 +225,13 @@ where
 
     fn is_assignable_to(&self, dst: &Self) -> bool {
         let src = self;
-        src.is_any() || dst.is_any() || src.is_subtype_of(dst)
+
+        (src.is_any() || dst.is_any())
+            || element_comparison_helper(dst, src, |dst_ty, src_ty| {
+                Some(src_ty.is_assignable_to(dst_ty))
+            })
+            .try_fold(true, |acc, e| Some(acc && (e?)))
+            .unwrap_or(false)
     }
 }
 
@@ -286,6 +303,10 @@ mod tests {
         [("a", Type::Int), ("b", Type::Int)],
         [("a", Type::Int), ("b", Type::Int), ("c", Type::Int)],
     )]
+    #[case(None,
+        [("name", Type::String), ("attrs", Type::list(Type::Any)), ("desc", Type::String)],
+        [("attrs", Type::list(Type::String)), ("desc", Type::String)],
+    )]
     fn relations(
         #[case] expected: Option<TypeRelation>,
         #[case] lhs: impl IntoIterator<Item = (&'static str, Type)>,
@@ -302,5 +323,27 @@ mod tests {
 
         assert_eq!(lhs.compare_types(&rhs), expected);
         assert_eq!(rhs.compare_types(&lhs), expected.map(TypeRelation::reverse));
+    }
+
+    #[rstest]
+    #[case(true,
+        [("name", Type::String), ("attrs", Type::list(Type::Any)), ("desc", Type::String)],
+        [("attrs", Type::list(Type::String)), ("desc", Type::String)],
+    )]
+    fn is_assignable_to(
+        #[case] expected: bool,
+        #[case] src: impl IntoIterator<Item = (&'static str, Type)>,
+        #[case] dst: impl IntoIterator<Item = (&'static str, Type)>,
+    ) {
+        let src = src
+            .into_iter()
+            .map(|(k, ty)| (k.to_owned(), ty))
+            .collect::<CollectionColumns<Type>>();
+        let dst = dst
+            .into_iter()
+            .map(|(k, ty)| (k.to_owned(), ty))
+            .collect::<CollectionColumns<Type>>();
+
+        assert_eq!(src.is_assignable_to(&dst), expected)
     }
 }
