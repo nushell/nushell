@@ -308,24 +308,25 @@ pub struct FullCellPath {
 mod parse {
     use super::*;
     use winnow::{
-        Result, Str, combinator::*, error::{ContextError, ParserError}, prelude::*, stream::ContainsToken,
+        Result, Str,
+        combinator::*,
+        error::{ContextError, ParserError, StrContext, StrContextValue},
+        prelude::*,
+        stream::ContainsToken,
         token::*,
     };
 
     pub fn cell_path(input: &mut &str) -> Result<CellPath> {
-        preceded(
-            opt("$."),
-            repeat(0.., terminated(path_member, opt('.'))),
-        )
-        .parse_next(input)
-        .map(|members| CellPath { members })
+        preceded(opt("$."), repeat(0.., terminated(path_member, opt('.'))))
+            .parse_next(input)
+            .map(|members| CellPath { members })
     }
 
     pub fn path_member(input: &mut &str) -> Result<PathMember> {
         if input.is_empty() {
             return Err(ParserError::from_input(input));
         }
-        
+
         let member = alt((int_path_member, string_path_member)).parse_next(input)?;
 
         // ensure there's no more content after a member
@@ -336,8 +337,12 @@ mod parse {
 
     fn int_path_member(input: &mut &str) -> Result<PathMember> {
         let int = digits.parse_next(input)?;
-        let optional = opt('?').parse_next(input)?.is_some();
-        Ok(PathMember::Int { val: int, span: Span::unknown(), optional })
+        let modifier = modifier.parse_next(input)?;
+        Ok(PathMember::Int {
+            val: int,
+            span: Span::unknown(),
+            optional: modifier.optional,
+        })
     }
 
     fn digits(input: &mut &str) -> Result<usize> {
@@ -397,7 +402,103 @@ mod parse {
     }
 
     fn string_path_member(input: &mut &str) -> Result<PathMember> {
+        let string = alt((
+            single_quoted_string,
+            bare_word_string,
+            // double_quoted_string,
+            unquoted_string,
+        ))
+        .parse_next(input)?;
+
+        let modifier = modifier.parse_next(input)?;
+
+        Ok(PathMember::String {
+            val: string,
+            span: Span::unknown(),
+            optional: modifier.optional,
+            casing: match modifier.case_insensitive {
+                true => Casing::Insensitive,
+                false => Default::default(),
+            },
+        })
+    }
+
+    fn unquoted_string(input: &mut &str) -> Result<String> {
+        struct UnquotedTokens;
+
+        impl ContainsToken<char> for UnquotedTokens {
+            fn contains_token(&self, token: char) -> bool {
+                match token {
+                    // spaces and tabs
+                    ' ' | '\n' | '\t' => false,
+
+                    // syntax characters
+                    '!' | '?' | '.' => false,
+
+                    // brackets
+                    '(' | ')' => false,
+
+                    _ => true,
+                }
+            }
+        }
+
+        take_while(0.., UnquotedTokens)
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    fn single_quoted_string(input: &mut &str) -> Result<String> {
+        delimited("'", take_while(0.., |c| c != '\''), "'")
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    fn double_quoted_string(input: &mut &str) -> Result<String> {
         todo!()
+    }
+
+    fn bare_word_string(input: &mut &str) -> Result<String> {
+        delimited("`", take_while(0.., |c| c != '`'), "`")
+            .parse_next(input)
+            .map(|s| s.to_owned())
+    }
+
+    #[derive(Default)]
+    struct Modifier {
+        optional: bool,
+        case_insensitive: bool,
+    }
+
+    fn modifier(input: &mut &str) -> Result<Modifier> {
+        let mut modifier = Modifier::default();
+
+        loop {
+            let Some(next) = opt(alt(('!', '?'))).parse_next(input)? else {
+                break;
+            };
+
+            let expected = match (next, modifier.optional, modifier.case_insensitive) {
+                ('!', _, false) => {
+                    modifier.case_insensitive = true;
+                    continue;
+                }
+                ('?', false, _) => {
+                    modifier.optional = true;
+                    continue;
+                }
+                ('!', false, true) => "'?' or '.'",
+                ('!', true, true) => "'.'",
+                ('?', true, false) => "'!' or '.'",
+                ('?', true, true) => "'.'",
+                (c, _, _) => unreachable!("parser only returns with '!' or '?', got {c:?}"),
+            };
+
+            fail.context(StrContext::Expected(StrContextValue::Description(expected)))
+                .parse_next(input)?
+        }
+
+        Ok(modifier)
     }
 }
 
@@ -445,7 +546,7 @@ mod test {
 
     #[test]
     fn parse() {
-        let input = "$.2!.3";
+        let input = "$.2!.3?.abc?.'def'!";
         let cell_path = super::parse::cell_path.parse(input).unwrap();
         panic!("{cell_path:#?}");
     }
