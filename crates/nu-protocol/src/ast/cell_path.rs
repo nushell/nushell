@@ -2,10 +2,11 @@ use super::Expression;
 use crate::{Span, casing::Casing};
 use nu_utils::{escape_quote_string, needs_quoting};
 use serde::{Deserialize, Serialize};
-use std::{cmp::Ordering, fmt::Display};
+use std::{cmp::Ordering, fmt::Display, str::FromStr};
+use winnow::Parser;
 
 /// One level of access of a [`CellPath`]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub enum PathMember {
     /// Accessing a member by string (i.e. columns of a table or [`Record`](crate::Record))
     String {
@@ -173,6 +174,70 @@ impl PartialOrd for PathMember {
     }
 }
 
+impl Display for PathMember {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PathMember::Int { val, optional, .. } => {
+                let question_mark = if *optional { "?" } else { "" };
+                write!(f, "{val}{question_mark}")
+            }
+            PathMember::String {
+                val,
+                optional,
+                casing,
+                ..
+            } => {
+                let question_mark = if *optional { "?" } else { "" };
+                let exclamation_mark = if *casing == Casing::Insensitive {
+                    "!"
+                } else {
+                    ""
+                };
+                let val = if needs_quoting(val) {
+                    &escape_quote_string(val)
+                } else {
+                    val
+                };
+                write!(f, "{val}{exclamation_mark}{question_mark}")
+            }
+        }
+    }
+}
+
+// TODO: make this error better
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse path member")]
+pub struct PathMemberParseError;
+
+impl FromStr for PathMember {
+    type Err = PathMemberParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::path_member
+            .parse(s)
+            .map_err(|_| PathMemberParseError)
+    }
+}
+
+impl Serialize for PathMember {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PathMember {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
+    }
+}
+
 /// [`PathMember`] for testing purposes.
 ///
 /// This path member may be converted via [`into_path_member`](Self::into_path_member) into a
@@ -216,7 +281,7 @@ impl TestPathMember<usize> {
 /// col2
 /// 42
 /// ```
-#[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct CellPath {
     pub members: Vec<PathMember>,
 }
@@ -265,37 +330,45 @@ impl Display for CellPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "$")?;
         for member in self.members.iter() {
-            match member {
-                PathMember::Int { val, optional, .. } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    write!(f, ".{val}{question_mark}")?
-                }
-                PathMember::String {
-                    val,
-                    optional,
-                    casing,
-                    ..
-                } => {
-                    let question_mark = if *optional { "?" } else { "" };
-                    let exclamation_mark = if *casing == Casing::Insensitive {
-                        "!"
-                    } else {
-                        ""
-                    };
-                    let val = if needs_quoting(val) {
-                        &escape_quote_string(val)
-                    } else {
-                        val
-                    };
-                    write!(f, ".{val}{exclamation_mark}{question_mark}")?
-                }
-            }
+            write!(f, ".{member}")?;
         }
         // Empty cell-paths are `$.` not `$`
         if self.members.is_empty() {
             write!(f, ".")?;
         }
         Ok(())
+    }
+}
+
+// TODO: make this error better
+#[derive(Debug, thiserror::Error)]
+#[error("could not parse cell path")]
+pub struct CellPathParseError;
+
+impl FromStr for CellPath {
+    type Err = CellPathParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        parse::cell_path.parse(s).map_err(|_| CellPathParseError)
+    }
+}
+
+impl Serialize for CellPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.to_string().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for CellPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        Self::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 
@@ -525,7 +598,6 @@ mod parse {
 mod test {
     use super::*;
     use std::cmp::Ordering::Greater;
-    use winnow::prelude::*;
 
     #[test]
     fn path_member_partial_ord() {
@@ -561,12 +633,5 @@ mod test {
                 &PathMember::test_string("e".into(), true, Casing::Sensitive)
             )
         );
-    }
-
-    #[test]
-    fn parse() {
-        let input = r#"$.2!.3?.abc?.'def'!."gh\"lol""#;
-        let cell_path = super::parse::cell_path.parse(input).unwrap();
-        panic!("{cell_path:#?}");
     }
 }
