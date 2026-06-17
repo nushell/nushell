@@ -149,7 +149,7 @@ struct CachedCompletion {
     timestamp: Instant,
 }
 
-type CompletionCache = Arc<Mutex<HashMap<String, CachedCompletion>>>;
+type CompletionCache = Arc<Mutex<HashMap<(String, usize), CachedCompletion>>>;
 /// Shared slot for the background-thread signal channel receiver.
 /// Wrapped in Arc<Mutex<>> so NuCompleter stays Clone.
 type PendingRx = Arc<Mutex<Option<mpsc::Receiver<()>>>>;
@@ -810,7 +810,7 @@ struct CommandCompletionOptions {
 
 impl ReedlineCompleter for NuCompleter {
     fn complete(&mut self, line: &str, pos: usize) -> Vec<Suggestion> {
-        let key = format!("{line}|{pos}");
+        let key = (line.to_string(), pos);
 
         // Return immediately if the cache has a fresh result for this query.
         if let Some(suggestions) = get_from_cache(self, &key) {
@@ -857,7 +857,10 @@ impl ReedlineCompleter for NuCompleter {
             let _ = tx.send(());
         });
 
-        fn get_from_cache(completer: &NuCompleter, key: &str) -> Option<Vec<Suggestion>> {
+        fn get_from_cache(
+            completer: &NuCompleter,
+            key: &(String, usize),
+        ) -> Option<Vec<Suggestion>> {
             let cache = completer.cache.lock().ok()?;
             let entry = cache.get(key)?;
 
