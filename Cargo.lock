@@ -3468,6 +3468,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4472,7 +4481,7 @@ version = "0.113.2"
 dependencies = [
  "fancy-regex",
  "heck",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "mime",
  "nu-ansi-term",
  "nu-cmd-base",
@@ -4498,7 +4507,7 @@ dependencies = [
 name = "nu-cmd-lang"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "miette",
  "nu-cmd-base",
  "nu-engine",
@@ -4517,7 +4526,7 @@ dependencies = [
 name = "nu-cmd-plugin"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "nu-engine",
  "nu-path",
  "nu-plugin-engine",
@@ -4574,7 +4583,7 @@ dependencies = [
  "human-date-parser",
  "indexmap 2.14.0",
  "indicatif",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "kdl",
  "log",
  "lscolors",
@@ -4696,7 +4705,7 @@ dependencies = [
 name = "nu-experimental"
 version = "0.113.2"
 dependencies = [
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "thiserror 2.0.18",
 ]
 
@@ -4827,7 +4836,7 @@ version = "0.113.2"
 dependencies = [
  "bytesize",
  "chrono",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "log",
  "nu-engine",
  "nu-experimental",
@@ -4997,7 +5006,7 @@ name = "nu-system"
 version = "0.113.2"
 dependencies = [
  "chrono",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "libproc",
  "log",
@@ -5040,7 +5049,7 @@ dependencies = [
  "bytes",
  "derive_more 2.1.1",
  "gatekeeper",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "kitest",
  "lexopt",
  "linkme",
