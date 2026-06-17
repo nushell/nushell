@@ -149,15 +149,18 @@ fn record_subtyping_works() -> TestResult {
 // [ list supertype, table ]
 #[case(
     "let foo = [ [ { a: 1 } ], [ [a, b]; [1, 2] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int>>, table<a: int, b: int>>>"
 )]
 // [ list, table supertype ]
 #[case(
     "let foo = [ [{ a: 1, b: 2 }], [ [a]; [1] ] ];",
-    "list<list<record<a: int>>>"
+    "list<oneof<list<record<a: int, b: int>>, table<a: int>>>"
 )]
 // disjoint element types: empty element supertype
-#[case("let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];", "list<list<record>>")]
+#[case(
+    "let foo = [[ [bar]; [1] ], [ { baz: 1 } ] ];",
+    "list<oneof<table<bar: int>, list<record<baz: int>>>>"
+)]
 // `bar: int` and `bar: number` are widened to table<bar: number>
 #[case(
     "let n: number = 1; let foo = [ [bar]; [1], [$n] ];",

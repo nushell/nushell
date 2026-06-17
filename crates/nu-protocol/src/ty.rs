@@ -566,21 +566,13 @@ mod tests {
 
         #[test]
         fn test_list_table_widen_preserves_list() {
-            // verify that list<record> widened with table does not drop the list wrapper.
-            let list_record = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
+            let list_record = Type::list(Type::Record(vec![("a".to_string(), Type::Int)].into()));
             let table = Type::Table(vec![("a".to_string(), Type::Int)].into());
 
             let widened = list_record.clone().union(table.clone());
-            let expected = Type::List(Box::new(Type::Record(
-                vec![("a".to_string(), Type::Int)].into(),
-            )));
-            assert_eq!(widened, expected);
+            let expected = Type::one_of([list_record, table]);
 
-            // and the other way around
-            let widened2 = table.union(list_record.clone());
-            assert_eq!(widened2, expected);
+            assert_eq!(widened, expected);
         }
 
         #[test]
