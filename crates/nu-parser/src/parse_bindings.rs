@@ -51,7 +51,12 @@ pub fn parse_let(
                         input_type.clone(),
                     );
 
-                    let output_type = rvalue_block.output_type();
+                    let output_type = match rvalue_block.pipelines.as_slice() {
+                        [pipeline] if let Some(input) = input_type.clone() => {
+                            crate::type_check::check_pipeline_type(working_set, pipeline, input).0
+                        }
+                        _ => rvalue_block.output_type(),
+                    };
 
                     let block_id = working_set.add_block(Arc::new(rvalue_block));
 
