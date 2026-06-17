@@ -368,26 +368,14 @@ impl Signature {
 
     /// Gets the input type from the signature
     ///
-    /// If the input was unspecified or the signature has several different
-    /// input types, [`Type::Any`] is returned.  Otherwise, if the signature has
-    /// one or same input types, this type is returned.
-    // XXX: remove?
+    /// - If the input was unspecified  [`Type::Any`] is returned.
+    /// - If the signature has a single input type, it is returned.
+    /// - If there are multiple input types, a [union](Type::union) of them is returned.
     pub fn get_input_type(&self) -> Type {
-        match self.input_output_types.len() {
-            0 => Type::Any,
-            1 => self.input_output_types[0].0.clone(),
-            _ => {
-                let first = &self.input_output_types[0].0;
-                if self
-                    .input_output_types
-                    .iter()
-                    .all(|(input, _)| input == first)
-                {
-                    first.clone()
-                } else {
-                    Type::Any
-                }
-            }
+        match self.input_output_types.as_slice() {
+            [] => Type::Any,
+            [(input, _output)] => input.clone(),
+            multiple => Type::one_of(multiple.iter().map(|(input, _)| input.clone())),
         }
     }
 
