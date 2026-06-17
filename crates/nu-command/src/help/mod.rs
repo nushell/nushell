@@ -6,6 +6,7 @@ mod help_externs;
 mod help_modules;
 mod help_operators;
 mod help_pipe_and_redirect;
+mod help_shortcuts;
 
 pub use help_::Help;
 pub use help_aliases::HelpAliases;
@@ -15,6 +16,7 @@ pub use help_externs::HelpExterns;
 pub use help_modules::HelpModules;
 pub use help_operators::HelpOperators;
 pub use help_pipe_and_redirect::HelpPipeAndRedirect;
+pub use help_shortcuts::HelpShortcuts;
 
 pub(crate) use help_aliases::help_aliases;
 pub(crate) use help_commands::help_commands;
