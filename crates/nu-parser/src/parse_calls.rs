@@ -900,6 +900,27 @@ pub fn parse_internal_call(
 
     let decl = working_set.get_decl(decl_id);
     let signature = working_set.get_signature(decl);
+
+    enum SpecialCmd {
+        Let,
+        Def,
+    }
+
+    impl SpecialCmd {
+        fn from_str(s: &str) -> Option<Self> {
+            Some(match s {
+                "let" => Self::Let,
+                "def" => Self::Def,
+                _ => return None,
+            })
+        }
+    }
+
+    let special_cmd = decl
+        .is_keyword()
+        .then(|| decl.name())
+        .and_then(SpecialCmd::from_str);
+
     // TODO: Throw an actual error here, instead of leaning on later type checking code
     //
     // `Type::Nothing` is added to inputs to allow uses like:
@@ -908,8 +929,14 @@ pub fn parse_internal_call(
     // Incorrect behavior this may cause will be handled by
     // `check_pipeline_type` in crates/nu-parser/src/type_check.rs
     let output = signature
-        .get_output_type(input_type.map(|ty| ty.union(Type::Nothing)))
+        .get_output_type(input_type.clone().map(|ty| ty.union(Type::Nothing)))
         .unwrap_or(Type::Error);
+
+    // This is necessary for some keywords to have proper expression types.
+    // `2 | let x | let y`
+    // - `$x` should be `int`
+    // - `$y` should also be `int`, but for that `let x` as an expression must have the type `int`
+    let mut output_override = None;
 
     let deprecation = decl.deprecation_info();
 
@@ -1223,13 +1250,37 @@ pub fn parse_internal_call(
                 ArgumentParsingLevel::FirstK { k } if k <= positional_idx => {
                     Expression::garbage(working_set, spans[spans_idx])
                 }
-                _ => parse_multispan_value(
-                    working_set,
-                    &spans[..end],
-                    &mut spans_idx,
-                    &positional.shape,
-                    None,
-                ),
+                _ => {
+                    let input_type = match special_cmd {
+                        // `let` can assigned from pipeline input, input type is necessary to infer
+                        // the variable's type correctly
+                        Some(SpecialCmd::Let)
+                            if let SyntaxShape::VarWithOptType = &positional.shape =>
+                        {
+                            output_override = input_type.clone();
+                            input_type.clone()
+                        }
+                        // in a def block, the pipeline input type should be inferred based on the
+                        // command input-output signature
+                        Some(SpecialCmd::Def) if &positional.name == "block" => {
+                            match call.arguments.last() {
+                                Some(Argument::Positional(Expression {
+                                    expr: Expr::Signature(sig),
+                                    ..
+                                })) => Some(sig.get_input_type()),
+                                _ => None,
+                            }
+                        }
+                        _ => None,
+                    };
+                    parse_multispan_value(
+                        working_set,
+                        &spans[..end],
+                        &mut spans_idx,
+                        &positional.shape,
+                        input_type,
+                    )
+                }
             };
 
             // HACK: try-catch's signature defines the catch block as a Closure, even though it's
@@ -1297,6 +1348,8 @@ pub fn parse_internal_call(
     if signature.creates_scope {
         working_set.exit_scope();
     }
+
+    let output = output_override.unwrap_or(output);
 
     ParsedInternalCall {
         call: Box::new(call),
