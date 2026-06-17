@@ -93,7 +93,7 @@ fn parse_unknown_arg(
         .map(|arg| arg.shape.clone())
         .unwrap_or(SyntaxShape::Any);
 
-    crate::parser::parse_value(working_set, span, &shape)
+    crate::parser::parse_value(working_set, span, &shape, None)
 }
 
 fn parse_external_string(working_set: &mut StateWorkingSet, span: Span) -> Expression {
@@ -326,6 +326,7 @@ fn parse_external_arg(working_set: &mut StateWorkingSet, span: Span) -> External
             working_set,
             span,
             &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+            None,
         ))
     } else {
         ExternalArgument::Regular(parse_regular_external_arg(working_set, span))
@@ -337,7 +338,7 @@ pub(crate) fn parse_regular_external_arg(
     span: Span,
 ) -> Expression {
     match working_set.get_span_contents(span) {
-        [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any),
+        [b'$', ..] => crate::parser::parse_dollar_expr(working_set, span, &SyntaxShape::Any, None),
         [b'(', ..] => crate::parser::parse_paren_expr(working_set, span, &SyntaxShape::Any),
         [b'[', ..] => crate::parser::parse_list_expression(working_set, span, &SyntaxShape::Any),
         _ => parse_external_string(working_set, span),
@@ -448,7 +449,7 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg = crate::parser::parse_value(working_set, span, arg_shape);
+                        let arg = crate::parser::parse_value(working_set, span, arg_shape, None);
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
                             long_name,
@@ -458,7 +459,7 @@ fn parse_long_flag(
                         );
                         LongFlagParseResult::FoundFlag(arg_name, Some(val_expression))
                     } else if let Some(arg) = spans.get(*spans_idx + 1) {
-                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape);
+                        let arg = crate::parser::parse_value(working_set, *arg, arg_shape, None);
 
                         *spans_idx += 1;
                         let (arg_name, val_expression) =
@@ -488,8 +489,12 @@ fn parse_long_flag(
                         let mut span = arg_span;
                         span.start += long_name_len + 3; //offset by long flag and '='
 
-                        let arg =
-                            crate::parser::parse_value(working_set, span, &SyntaxShape::Boolean);
+                        let arg = crate::parser::parse_value(
+                            working_set,
+                            span,
+                            &SyntaxShape::Boolean,
+                            None,
+                        );
 
                         let (arg_name, val_expression) = ensure_flag_arg_type(
                             working_set,
@@ -692,8 +697,8 @@ pub(crate) fn parse_oneof(
         let starting_error_count = working_set.parse_errors.len();
         *spans_idx = starting_spans_idx;
         let value = match multispan {
-            true => parse_multispan_value(working_set, spans, spans_idx, shape),
-            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape),
+            true => parse_multispan_value(working_set, spans, spans_idx, shape, None),
+            false => crate::parser::parse_value(working_set, spans[*spans_idx], shape, None),
         };
 
         let new_errors = &working_set.parse_errors[starting_error_count..];
@@ -742,13 +747,15 @@ pub fn parse_multispan_value(
     spans: &[Span],
     spans_idx: &mut usize,
     shape: &SyntaxShape,
+    input_type: Option<Type>,
 ) -> Expression {
     trace!("parse multispan value");
     match shape {
         SyntaxShape::VarWithOptType => {
             trace!("parsing: var with opt type");
 
-            crate::parser::parse_var_with_opt_type(working_set, spans, spans_idx, false).0
+            crate::parser::parse_var_with_opt_type(working_set, spans, spans_idx, false, input_type)
+                .0
         }
         SyntaxShape::RowCondition => {
             trace!("parsing: row condition");
@@ -839,7 +846,7 @@ pub fn parse_multispan_value(
             let keyword = Keyword {
                 keyword: keyword.as_slice().into(),
                 span: spans[*spans_idx - 1],
-                expr: parse_multispan_value(working_set, spans, spans_idx, arg),
+                expr: parse_multispan_value(working_set, spans, spans_idx, arg, None),
             };
 
             Expression::new(
@@ -853,7 +860,7 @@ pub fn parse_multispan_value(
             // All other cases are single-span values
             let arg_span = spans[*spans_idx];
 
-            crate::parser::parse_value(working_set, arg_span, shape)
+            crate::parser::parse_value(working_set, arg_span, shape, input_type)
         }
     }
 }
@@ -1053,7 +1060,8 @@ pub fn parse_internal_call(
 
                         if let Some(arg_shape) = flag.arg {
                             if let Some(arg) = spans.get(spans_idx + 1) {
-                                let arg = crate::parser::parse_value(working_set, *arg, &arg_shape);
+                                let arg =
+                                    crate::parser::parse_value(working_set, *arg, &arg_shape, None);
                                 let (arg_name, val_expression) = ensure_flag_arg_type(
                                     working_set,
                                     flag.long.clone(),
@@ -1160,6 +1168,7 @@ pub fn parse_internal_call(
                         working_set,
                         spread_arg_span,
                         &SyntaxShape::List(Box::new(rest_shape)),
+                        None,
                     );
 
                     call.add_spread(args);
@@ -1219,6 +1228,7 @@ pub fn parse_internal_call(
                     &spans[..end],
                     &mut spans_idx,
                     &positional.shape,
+                    None,
                 ),
             };
 
@@ -1379,11 +1389,12 @@ pub fn parse_call(
                         working_set,
                         arg_span,
                         &SyntaxShape::List(Box::new(SyntaxShape::Any)),
+                        None,
                     );
                     call.arguments.push(Argument::Spread(spread_expr));
                 } else {
                     let arg_expr =
-                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any);
+                        crate::parser::parse_value(working_set, *arg_span, &SyntaxShape::Any, None);
                     call.arguments.push(Argument::Positional(arg_expr));
                 }
             }

@@ -23,7 +23,7 @@ fn parse_redirection_target(
             file,
             append,
         } => RedirectionTarget::File {
-            expr: parse_value(working_set, *file, &SyntaxShape::Any),
+            expr: parse_value(working_set, *file, &SyntaxShape::Any, None),
             append: *append,
             span: *connector,
         },
@@ -89,21 +89,22 @@ pub fn parse_pipeline(
     pipeline: &LitePipeline,
     input_type: Option<Type>,
 ) -> Pipeline {
-    let mut input = input_type.unwrap_or(Type::Any);
-
     if pipeline.commands.len() > 1 {
+        let mut input = input_type.unwrap_or(Type::Any);
+
         // Parse a normal multi command pipeline
         let elements: Vec<_> = pipeline
             .commands
             .iter()
             .enumerate()
             .map(|(index, element)| {
+                let input_clone = input.clone();
                 let element =
                     parse_pipeline_element(working_set, element, std::mem::take(&mut input));
                 input = element.expr.ty.clone();
                 // Handle $in for pipeline elements beyond the first one
                 if index > 0 && element.has_in_variable(working_set) {
-                    wrap_element_with_collect(working_set, element)
+                    wrap_element_with_collect(working_set, element, Some(input_clone))
                 } else {
                     element
                 }
@@ -113,7 +114,7 @@ pub fn parse_pipeline(
         Pipeline { elements }
     } else {
         // If there's only one command in the pipeline, this could be a builtin command
-        parse_builtin_commands(working_set, &pipeline.commands[0])
+        parse_builtin_commands(working_set, &pipeline.commands[0], input_type)
     }
 }
 
@@ -123,6 +124,7 @@ pub fn parse_block(
     span: Span,
     scoped: bool,
     is_subexpression: bool,
+    input_type: Option<Type>,
 ) -> Block {
     let (lite_block, err) = lite_parse(tokens, working_set);
     if let Some(err) = err {
@@ -146,8 +148,10 @@ pub fn parse_block(
     let mut block = Block::new_with_capacity(lite_block.block.len());
     block.span = Some(span);
 
+    let mut first = input_type.clone();
+
     for lite_pipeline in &lite_block.block {
-        let pipeline = parse_pipeline(working_set, lite_pipeline, None);
+        let pipeline = parse_pipeline(working_set, lite_pipeline, first.take());
         block.pipelines.push(pipeline);
     }
 
@@ -168,7 +172,7 @@ pub fn parse_block(
 
         // Now wrap it in a Collect expression, and put it in the block as the only pipeline
         let subexpression = Expression::new(working_set, Expr::Subexpression(block_id), span, ty);
-        let collect = wrap_expr_with_collect(working_set, subexpression);
+        let collect = wrap_expr_with_collect(working_set, subexpression, input_type);
 
         block.pipelines.push(Pipeline {
             elements: vec![PipelineElement {

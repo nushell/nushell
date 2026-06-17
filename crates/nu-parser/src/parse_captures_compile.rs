@@ -454,7 +454,7 @@ pub(crate) fn wrap_redirection_with_collect(
 ) -> RedirectionTarget {
     match target {
         RedirectionTarget::File { expr, append, span } => RedirectionTarget::File {
-            expr: wrap_expr_with_collect(working_set, expr),
+            expr: wrap_expr_with_collect(working_set, expr, None),
             span,
             append,
         },
@@ -465,10 +465,11 @@ pub(crate) fn wrap_redirection_with_collect(
 pub(crate) fn wrap_element_with_collect(
     working_set: &mut StateWorkingSet,
     element: PipelineElement,
+    input_type: Option<Type>,
 ) -> PipelineElement {
     PipelineElement {
         pipe: element.pipe,
-        expr: wrap_expr_with_collect(working_set, element.expr),
+        expr: wrap_expr_with_collect(working_set, element.expr, input_type),
         redirection: element.redirection.map(|r| match r {
             PipelineRedirection::Single { source, target } => PipelineRedirection::Single {
                 source,
@@ -485,6 +486,7 @@ pub(crate) fn wrap_element_with_collect(
 pub(crate) fn wrap_expr_with_collect(
     working_set: &mut StateWorkingSet,
     mut expr: Expression,
+    input_type: Option<Type>,
 ) -> Expression {
     let span = expr.span;
 
@@ -493,7 +495,7 @@ pub(crate) fn wrap_expr_with_collect(
     let var_id = working_set.add_variable(
         b"$in".into(),
         Span::new(span.start, span.start),
-        Type::Any,
+        input_type.unwrap_or(Type::Any),
         false,
     );
     expr.replace_in_variable(working_set, var_id);
@@ -537,7 +539,14 @@ pub fn parse(
                 working_set.error(err)
             }
 
-            Arc::new(parse_block(working_set, &output, new_span, scoped, false))
+            Arc::new(parse_block(
+                working_set,
+                &output,
+                new_span,
+                scoped,
+                false,
+                None,
+            ))
         }
     };
 

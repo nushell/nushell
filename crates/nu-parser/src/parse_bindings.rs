@@ -17,7 +17,11 @@ use nu_protocol::{
 use std::{collections::HashMap, sync::Arc};
 
 // TODO: handle pipeline input type based inference
-pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline {
+pub fn parse_let(
+    working_set: &mut StateWorkingSet,
+    spans: &[Span],
+    input_type: Option<Type>,
+) -> Pipeline {
     trace!("parsing: let");
 
     if let Some(decl_id) = working_set.find_decl(b"let") {
@@ -38,7 +42,14 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     }
 
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                    let rvalue_block = parse_block(
+                        working_set,
+                        &tokens,
+                        rvalue_span,
+                        false,
+                        true,
+                        input_type.clone(),
+                    );
 
                     let output_type = rvalue_block.output_type();
 
@@ -52,8 +63,13 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     );
 
                     let mut idx = 0;
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    let (lvalue, explicit_type) = parse_var_with_opt_type(
+                        working_set,
+                        &spans[1..(span.0)],
+                        &mut idx,
+                        false,
+                        input_type,
+                    );
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
@@ -99,7 +115,7 @@ pub fn parse_let(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
             &spans[1..],
             decl_id,
             ArgumentParsingLevel::Full,
-            None,
+            input_type,
         );
 
         return Pipeline::from_vec(vec![Expression::new(
@@ -145,7 +161,7 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
 
                     trace!("parsing: const right-hand side subexpression");
                     let rvalue_block =
-                        parse_block(working_set, &rvalue_tokens, rvalue_span, false, true);
+                        parse_block(working_set, &rvalue_tokens, rvalue_span, false, true, None);
                     let rvalue_ty = rvalue_block.output_type();
                     let rvalue_block_id = working_set.add_block(Arc::new(rvalue_block));
                     let rvalue = Expression::new(
@@ -157,8 +173,13 @@ pub fn parse_const(working_set: &mut StateWorkingSet, spans: &[Span]) -> (Pipeli
 
                     let mut idx = 0;
 
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, false);
+                    let (lvalue, explicit_type) = parse_var_with_opt_type(
+                        working_set,
+                        &spans[1..(span.0)],
+                        &mut idx,
+                        false,
+                        None,
+                    );
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }
@@ -290,7 +311,8 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
                     }
 
                     let rvalue_span = Span::concat(&spans[(span.0 + 1)..]);
-                    let rvalue_block = parse_block(working_set, &tokens, rvalue_span, false, true);
+                    let rvalue_block =
+                        parse_block(working_set, &tokens, rvalue_span, false, true, None);
 
                     let output_type = rvalue_block.output_type();
 
@@ -305,8 +327,13 @@ pub fn parse_mut(working_set: &mut StateWorkingSet, spans: &[Span]) -> Pipeline 
 
                     let mut idx = 0;
 
-                    let (lvalue, explicit_type) =
-                        parse_var_with_opt_type(working_set, &spans[1..(span.0)], &mut idx, true);
+                    let (lvalue, explicit_type) = parse_var_with_opt_type(
+                        working_set,
+                        &spans[1..(span.0)],
+                        &mut idx,
+                        true,
+                        None,
+                    );
                     if idx + 1 < span.0 - 1 {
                         working_set.error(ParseError::ExtraTokens(spans[idx + 2]));
                     }

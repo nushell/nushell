@@ -170,6 +170,7 @@ pub fn parse_var_with_opt_type(
     spans: &[Span],
     spans_idx: &mut usize,
     mutable: bool,
+    input_type: Option<Type>,
 ) -> (Expression, Option<Type>) {
     let name_span = spans[*spans_idx];
     let bytes = working_set.get_span_contents(name_span);
@@ -256,7 +257,7 @@ pub fn parse_var_with_opt_type(
         let id = working_set.add_variable(
             var_name,
             Span::concat(&spans[*spans_idx..*spans_idx + 1]),
-            Type::Any,
+            input_type.unwrap_or(Type::Any),
             mutable,
         );
 
@@ -297,7 +298,7 @@ pub fn expand_to_cell_path(
     } = expression
     {
         // Re-parse the string as if it were a cell-path
-        let new_expression = parse_full_cell_path(working_set, Some(var_id), *span);
+        let new_expression = parse_full_cell_path(working_set, Some(var_id), *span, None);
 
         *expression = new_expression;
     }
@@ -456,7 +457,7 @@ pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) ->
     // Try parsing the expression as a closure first
     {
         let err_count = working_set.parse_errors.len();
-        let expression = parse_closure_expression(working_set, &SyntaxShape::Any, span);
+        let expression = parse_closure_expression(working_set, &SyntaxShape::Any, span, None);
         if working_set.parse_errors.len() == err_count
             && let Expr::Closure(block_id) = expression.expr
         {
@@ -1071,7 +1072,7 @@ pub fn parse_signature_helper(
                                     }
                                 };
 
-                                let expression = parse_value(working_set, span, &shape);
+                                let expression = parse_value(working_set, span, &shape, None);
 
                                 //TODO check if we're replacing a custom parameter already
                                 match last {
