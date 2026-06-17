@@ -32,6 +32,7 @@ use run::{run_commands, run_file, run_repl};
 use signals::ctrlc_protection;
 use std::{
     borrow::Cow,
+    io::Write,
     path::{PathBuf, absolute},
     str::FromStr,
     sync::Arc,
@@ -71,14 +72,63 @@ fn current_dir_from_environment() -> PathBuf {
     }
 }
 
+/// Mirror of miette's private `Panic` diagnostic so we keep the
+/// `RUST_BACKTRACE=1` help text and backtrace rendering when reporting a panic.
+#[derive(Debug)]
+struct Panic(String);
+
+impl std::fmt::Display for Panic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let backtrace = std::backtrace::Backtrace::capture();
+        if backtrace.status() == std::backtrace::BacktraceStatus::Captured {
+            write!(f, "{}\n{backtrace}", self.0)
+        } else {
+            write!(f, "{}", self.0)
+        }
+    }
+}
+
+impl std::error::Error for Panic {}
+
+impl miette::Diagnostic for Panic {
+    fn help<'a>(&'a self) -> Option<Box<dyn std::fmt::Display + 'a>> {
+        Some(Box::new(
+            "set the `RUST_BACKTRACE=1` environment variable to display a backtrace.",
+        ))
+    }
+}
+
 fn main() -> Result<()> {
     let entire_start_time = nu_utils::time::Instant::now();
     let mut start_time = nu_utils::time::Instant::now();
-    miette::set_panic_hook();
-    let miette_hook = std::panic::take_hook();
-    std::panic::set_hook(Box::new(move |x| {
-        crossterm::terminal::disable_raw_mode().expect("unable to disable raw mode");
-        miette_hook(x);
+    // Replicated from `miette::set_panic_hook`, but writes via `writeln!(io::stderr(), …)`
+    // instead of `eprintln!`. `eprintln!`/`println!` panic on a broken stderr/stdout
+    // (parent terminal/pty closed), so when our parent (Codex, Ghostty, an MCP host, …)
+    // exits and closes our pipes, the original hook re-panics from inside the panic
+    // handler — and Rust escalates the double-panic to `abort()`, producing a crash
+    // report for what should be a clean shutdown.
+    std::panic::set_hook(Box::new(|info| {
+        use miette::Context;
+
+        // Best-effort terminal restore; never panic from inside the hook.
+        let _ = crossterm::terminal::disable_raw_mode();
+
+        let mut message = "Something went wrong".to_string();
+        let payload = info.payload();
+        if let Some(msg) = payload.downcast_ref::<&str>() {
+            message = (*msg).to_string();
+        } else if let Some(msg) = payload.downcast_ref::<String>() {
+            message.clone_from(msg);
+        }
+
+        let mut report: miette::Result<()> = Err(Panic(message).into());
+        if let Some(loc) = info.location() {
+            report = report
+                .with_context(|| format!("at {}:{}:{}", loc.file(), loc.line(), loc.column()));
+        }
+        if let Err(err) = report.with_context(|| "Main thread panicked.".to_string()) {
+            let _ = writeln!(std::io::stderr(), "Error: {err:?}");
+        }
     }));
 
     let engine_state = EngineState::new();

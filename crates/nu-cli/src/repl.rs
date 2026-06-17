@@ -33,7 +33,7 @@ use nu_protocol::{
 use nu_utils::time::Instant;
 use nu_utils::{
     filesystem::{PermissionResult, have_permission},
-    perf, stderr_write_all_and_flush,
+    perf, stderr_write_all_and_flush, stdout_write_all_and_flush,
 };
 #[cfg(feature = "sqlite")]
 use reedline::SqliteBackedHistory;
@@ -807,7 +807,8 @@ fn loop_iteration(ctx: LoopContext) -> (bool, Stack, Reedline) {
                 shell_integration.osc133,
             );
 
-            println!();
+            // Don't use `println!`: it panics on a broken stdout (parent terminal closed).
+            let _ = stdout_write_all_and_flush("\n");
 
             cleanup_exit((), engine_state, 0);
 
