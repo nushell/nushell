@@ -67,13 +67,10 @@ impl Command for Watch {
                     Type::Table(
                         vec![
                             ("operation".into(), Type::String),
-                            (
-                                "path".into(),
-                                Type::OneOf([Type::String, Type::Nothing].into()),
-                            ),
+                            ("path".into(), Type::one_of([Type::String, Type::Nothing])),
                             (
                                 "new_path".into(),
-                                Type::OneOf([Type::String, Type::Nothing].into()),
+                                Type::one_of([Type::String, Type::Nothing]),
                             ),
                         ]
                         .into(),

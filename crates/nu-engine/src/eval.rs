@@ -2,8 +2,8 @@
 use crate::get_full_help;
 use crate::{EvalBlockWithEarlyReturnFn, eval_ir::eval_ir_block};
 use nu_protocol::{
-    BlockId, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData, PipelineExecutionData,
-    ShellError, Signature, Span, Value, VarId,
+    BlockId, CompareTypes, Config, ENV_VARIABLE_ID, IntoPipelineData, PipelineData,
+    PipelineExecutionData, ShellError, Signature, Span, Value, VarId,
     ast::{Assignment, Block, Call, Expr, Expression, ExternalArgument, PathMember},
     debugger::{DebugContext, WithDebug, WithoutDebug},
     engine::{Closure, EngineState, EnvName, EnvVars, Stack},

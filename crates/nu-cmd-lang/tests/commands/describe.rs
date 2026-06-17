@@ -36,6 +36,6 @@ fn test_oneof_flattening_in_describe_glob_string() {
 fn test_oneof_flattening_in_describe_glob_string_reverse_order() {
     let result =
         nu!("do { let g: glob = \"*.rs\"; [ {content: \"README.rs\"} {content: $g} ] | describe }");
-    assert!(result.out.contains("table<content: oneof<string, glob>>"));
+    assert_eq!("table<content: oneof<string, glob>>", result.out);
     assert!(!result.out.contains("oneof<oneof<"));
 }

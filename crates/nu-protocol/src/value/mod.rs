@@ -21,7 +21,7 @@ pub use range::{FloatRange, IntRange, Range};
 pub use record::Record;
 
 use crate::{
-    BlockId, CollectionColumns, Config, ShellError, Signals, Span, Type,
+    BlockId, CompareTypes, Config, ShellError, Signals, Span, Type, TypeRelation,
     ast::{Bits, Boolean, CellPath, Comparison, Math, Operator, PathMember},
     did_you_mean,
     engine::{Closure, EngineState},
@@ -1046,68 +1046,6 @@ impl Value {
             Value::Binary { .. } => Type::Binary,
             Value::CellPath { .. } => Type::CellPath,
             Value::Custom { val, .. } => Type::Custom(val.type_name().into()),
-        }
-    }
-
-    /// Determine of the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
-    ///
-    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`](crate::Type::is_subtype_of).
-    ///
-    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
-    /// type comparison than if one were to collect the type into [`Type`](crate::Type) value with [`Value::get_type`].
-    ///
-    /// Empty lists are considered subtypes of all `list<T>` types.
-    ///
-    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
-    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
-    ///
-    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
-    pub fn is_subtype_of(&self, other: &Type) -> bool {
-        // records are structurally typed
-        let record_compatible = |val: &Value, other: &CollectionColumns<Type>| match val {
-            Value::Record { val, .. } => other
-                .fields
-                .iter()
-                .all(|(key, ty)| val.get(key).is_some_and(|inner| inner.is_subtype_of(ty))),
-            _ => false,
-        };
-
-        // All cases matched explicitly to ensure this does not accidentally allocate `Type` if any composite types are introduced in the future
-        match (self, other) {
-            (_, Type::Any) => true,
-            (val, Type::OneOf(types)) => types.iter().any(|t| val.is_subtype_of(t)),
-
-            // `Type` allocation for scalar types is trivial
-            (
-                Value::Bool { .. }
-                | Value::Int { .. }
-                | Value::Float { .. }
-                | Value::String { .. }
-                | Value::Glob { .. }
-                | Value::Filesize { .. }
-                | Value::Duration { .. }
-                | Value::Date { .. }
-                | Value::Range { .. }
-                | Value::Closure { .. }
-                | Value::Error { .. }
-                | Value::Binary { .. }
-                | Value::CellPath { .. }
-                | Value::Nothing { .. },
-                _,
-            ) => self.get_type().is_subtype_of(other),
-
-            // matching composite types
-            (val @ Value::Record { .. }, Type::Record(inner)) => record_compatible(val, inner),
-            (Value::List { vals, .. }, Type::List(inner)) => {
-                vals.iter().all(|val| val.is_subtype_of(inner))
-            }
-            (Value::List { vals, .. }, Type::Table(inner)) => {
-                vals.iter().all(|val| record_compatible(val, inner))
-            }
-            (Value::Custom { val, .. }, Type::Custom(inner)) => val.type_name() == **inner,
-
-            // non-matching composite types
-            (Value::Record { .. } | Value::List { .. } | Value::Custom { .. }, _) => false,
         }
     }
 
@@ -2208,6 +2146,64 @@ impl Value {
             }
             _ => (),
         }
+    }
+}
+
+impl CompareTypes<Type> for Value {
+    fn compare_types(&self, other: &Type) -> Option<TypeRelation> {
+        match other {
+            Type::Any => return Some(TypeRelation::Subtype),
+            Type::OneOf(oneof) => {
+                return oneof
+                    .iter()
+                    .any(|ty| self.is_subtype_of(ty))
+                    .then_some(TypeRelation::Subtype);
+            }
+            _ => (),
+        }
+
+        match self {
+            Value::List { vals, .. } => match other {
+                Type::List(ty) if let Type::Any = ty.as_ref() => Some(TypeRelation::Subtype),
+                Type::List(ty) => {
+                    let ty = ty.as_ref();
+                    vals.iter()
+                        .map(|val| val.compare_types(ty))
+                        .try_fold(TypeRelation::Equal, |acc, e| acc.combine(e?))
+                }
+                Type::Table(cols) => vals
+                    .iter()
+                    .map(|val| val.as_record().ok().and_then(|rec| rec.compare_types(cols)))
+                    .try_fold(TypeRelation::Equal, |acc, e| acc.combine(e?)),
+                _ => None,
+            },
+            Value::Record { val, .. } => match other {
+                Type::Record(cols) => val.compare_types(cols),
+                _ => None,
+            },
+            val => val.get_type().compare_types(other),
+        }
+    }
+
+    /// Determine if the [`Value`] is a [subtype](https://en.wikipedia.org/wiki/Subtyping) of `other`
+    ///
+    /// If you have a [`Value`], this method should always be used over chaining [`Value::get_type`] with [`Type::is_subtype_of`].
+    ///
+    /// This method is able to leverage that information encoded in a `Value` to provide more accurate
+    /// type comparison than if one were to collect the type into [`Type`] value with [`Value::get_type`].
+    ///
+    /// Empty lists are considered subtypes of all `list<T>` types.
+    ///
+    /// Lists of mixed records where some column is present in all record is a subtype of `table<column>`.
+    /// For example, `[{a: 1, b: 2}, {a: 1}]` is a subtype of `table<a: int>` (but not `table<a: int, b: int>`).
+    ///
+    /// See also: [`PipelineData::is_subtype_of`](crate::PipelineData::is_subtype_of)
+    // This is identical to this method's default implementation. Written here to attach doccomment.
+    fn is_subtype_of(&self, other: &Type) -> bool {
+        matches!(
+            self.compare_types(other),
+            Some(TypeRelation::Subtype | TypeRelation::Equal)
+        )
     }
 }
 
@@ -5430,9 +5426,7 @@ mod tests {
             assert_eq!(list_of_floats.get_type(), Type::List(Box::new(Type::Float)));
             assert_eq!(
                 list_of_ints_and_floats_and_bools.get_type(),
-                Type::List(Box::new(Type::OneOf(
-                    vec![Type::Number, Type::Bool].into_boxed_slice()
-                )))
+                Type::List(Box::new(Type::one_of([Type::Number, Type::Bool])))
             );
             assert_eq!(
                 list_of_ints_and_floats.get_type(),
@@ -5442,10 +5436,11 @@ mod tests {
     }
 
     mod is_subtype {
-        use crate::Type;
+        use crate::{CompareTypes, Type};
 
         use super::*;
 
+        #[track_caller]
         fn assert_subtype_equivalent(value: &Value, ty: &Type) {
             assert_eq!(value.is_subtype_of(ty), value.get_type().is_subtype_of(ty));
         }

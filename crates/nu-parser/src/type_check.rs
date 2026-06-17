@@ -1,5 +1,5 @@
 use nu_protocol::{
-    CollectionColumns, ParseError, Span, Type,
+    CompareTypes, ParseError, Span, Type,
     ast::{Assignment, Block, Comparison, Expr, Expression, Math, Operator, Pipeline, Range},
     combined_type_string,
     engine::StateWorkingSet,
@@ -41,69 +41,8 @@ fn type_error(
     (Type::Any, Some(err))
 }
 
-pub fn type_compatible(lhs: &Type, rhs: &Type) -> bool {
-    // Structural subtyping
-    let is_compatible = |expected: &CollectionColumns<Type>, found: &CollectionColumns<Type>| {
-        if expected.fields.is_empty() || found.fields.is_empty() {
-            // We treat an incoming empty table/record type as compatible for typechecking purposes
-            // It is the responsibility of the runtime to reject if necessary
-            true
-        } else if expected.fields.len() > found.fields.len() {
-            false
-        } else {
-            expected.fields.iter().all(|(col_x, ty_x)| {
-                if let Some((_, ty_y)) = found.fields.iter().find(|(col_y, _)| col_x == col_y) {
-                    type_compatible(ty_x, ty_y)
-                } else {
-                    false
-                }
-            })
-        }
-    };
-
-    match (lhs, rhs) {
-        (Type::List(c), Type::List(d)) => type_compatible(c, d),
-        (Type::List(c), Type::Table(table_fields)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(fields, table_fields)
-            } else {
-                false
-            }
-        }
-        (Type::Table(table_fields), Type::List(c)) => {
-            if matches!(**c, Type::Any) {
-                return true;
-            }
-
-            if let Type::Record(fields) = &**c {
-                is_compatible(table_fields, fields)
-            } else {
-                false
-            }
-        }
-        (Type::Number, Type::Int) => true,
-        (Type::Int, Type::Number) => true,
-        (Type::Number, Type::Float) => true,
-        (Type::Float, Type::Number) => true,
-        (Type::Closure, Type::Block) => true,
-        (Type::Any, _) => true,
-        (_, Type::Any) => true,
-        (Type::Record(lhs), Type::Record(rhs)) | (Type::Table(lhs), Type::Table(rhs)) => {
-            is_compatible(lhs, rhs)
-        }
-        (Type::Glob, Type::String) => true,
-        (Type::CellPath, other) => {
-            other.is_subtype_of(&Type::CellPath) || Type::CellPath.is_subtype_of(other)
-        }
-        (Type::OneOf(types), u) | (u, Type::OneOf(types)) => {
-            types.iter().any(|t| type_compatible(t, u))
-        }
-        (lhs, rhs) => lhs == rhs,
-    }
+pub fn type_compatible(dst: &Type, src: &Type) -> bool {
+    src.is_assignable_to(dst)
 }
 
 // TODO: rework type checking for Custom values
