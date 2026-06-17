@@ -287,6 +287,12 @@ pub struct CellPath {
 }
 
 impl CellPath {
+    pub fn empty() -> Self {
+        Self {
+            members: Vec::new(),
+        }
+    }
+
     pub fn make_optional(&mut self) {
         for member in &mut self.members {
             member.make_optional();

@@ -46,8 +46,6 @@ fn engine_eq_from_str(#[case] input: &str) -> Result {
 #[case(test_cell_path!("quoted member".name))]
 #[case(test_cell_path!("two words"!?.name))]
 #[case(test_cell_path!("two words".name))]
-#[case(test_cell_path!())]
-#[case(test_cell_path!())]
 #[case(test_cell_path!(0!?))]
 #[case(test_cell_path!(0!))]
 #[case(test_cell_path!(0?!))]
@@ -67,6 +65,7 @@ fn engine_eq_from_str(#[case] input: &str) -> Result {
 #[case(test_cell_path!(items.0b1010))]
 #[case(test_cell_path!(items.0o12))]
 #[case(test_cell_path!(items.1_000))]
+#[case(CellPath::empty())]
 fn roundtrip(#[case] input: CellPath) {
     let serialized = serde_json::to_string(&input).unwrap();
     let deserialized = serde_json::from_str(&serialized).unwrap();
