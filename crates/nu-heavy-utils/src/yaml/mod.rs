@@ -16,7 +16,7 @@ pub enum Spec {
     V1_2,
 }
 
-#[derive(strum::Display, strum::EnumString, Debug, )]
+#[derive(strum::Display, strum::EnumString, Debug)]
 #[strum(parse_err_ty = UnknownTagError, parse_err_fn = UnknownTagError::new)]
 enum KnownTag {
     // YAML known tags

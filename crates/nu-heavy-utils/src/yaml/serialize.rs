@@ -1,4 +1,7 @@
-use std::{cell::RefCell, fmt::Write};
+use std::{
+    cell::{Cell, RefCell},
+    fmt::Write,
+};
 
 use crate::yaml::Spec;
 use chrono::{DateTime, FixedOffset};
@@ -32,6 +35,7 @@ pub fn serialize(
     let value = YamlValue::try_from_value(value, span)?;
     let mut writer = FmtHandle::new(String::new());
     WRITER.set(Some(writer.clone()));
+    IN_MAP.set(false);
     let mut serializer = Serializer::with_options(&mut writer, &mut options);
 
     // Clear out any preambles by the serializer
@@ -48,6 +52,7 @@ pub fn serialize(
 
 thread_local! {
     static WRITER: RefCell<Option<FmtHandle<String>>> = RefCell::new(None);
+    static IN_MAP: Cell<bool> = Cell::new(false);
 }
 
 #[expect(
@@ -95,8 +100,17 @@ impl Serialize for YamlValue<'_> {
                 let writer = writer
                     .as_mut()
                     .expect("writer set before calling any serialization");
-                writer.write_char(' ').map_err(|_| todo!())?;
+
+                if IN_MAP.get() {
+                    writer.write_char(' ').map_err(|_| todo!())?;
+                }
+
                 writer.write_str(tag).map_err(|_| todo!())?;
+
+                if !IN_MAP.get() {
+                    writer.write_char(' ').map_err(|_| todo!())?;
+                }
+
                 value.serialize(serializer)
             })
         }
@@ -137,9 +151,11 @@ impl Serialize for YamlMap<'_> {
         S: serde::Serializer,
     {
         let mut map = serializer.serialize_map(self.0.len().into())?;
+        IN_MAP.set(true);
         for (key, value) in self.0.iter() {
             map.serialize_entry(key, value)?;
         }
+        IN_MAP.set(false);
         map.end()
     }
 }
