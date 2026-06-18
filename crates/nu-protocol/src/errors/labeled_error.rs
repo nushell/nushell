@@ -426,3 +426,267 @@ impl From<IoError> for LabeledError {
         Self::from_diagnostic(&err)
     }
 }
+
+/// Default number of context bytes on each side of an error span when truncating source
+/// for diagnostics.
+pub const DEFAULT_ERROR_CONTEXT: usize = 4096;
+
+/// Truncates a source string to a bounded window around an error span.
+///
+/// Takes `context` bytes on each side of the error location. Returns the
+/// truncated source and an adjusted span that is relative to the truncated window.
+/// This prevents unbounded memory usage when error diagnostics embed large source files.
+///
+/// Slicing is safe on multi-byte UTF-8: window boundaries are adjusted to char boundaries.
+///
+/// For multi-line inputs the window expands to the nearest line boundaries so that line
+/// numbers in the diagnostic output are consistent. For single-line (minified) inputs
+/// with a large requested context, the window is clamped to a smaller focused snippet
+/// since a wall of unbroken text is not helpful.
+///
+/// Use with `Span::try_from_row_column` when you only have (row, col) from the parser,
+/// or directly when you already have the byte offset from the parser.
+pub fn truncated_source_window(input: &str, byte_span: Span, context: usize) -> (String, Span) {
+    let mid = (byte_span.start + byte_span.end) / 2;
+
+    // Detect single-line (minified) input.  When the caller asks for a large context
+    // but the input has no newlines nearby, a wall of unbroken text is useless — clamp
+    // to a tight window focused on the error location.
+    const TIGHT_CONTEXT: usize = 128;
+    let is_single_line = if context > TIGHT_CONTEXT {
+        let probe_start = input.floor_char_boundary(mid.saturating_sub(TIGHT_CONTEXT));
+        let probe_end = input.ceil_char_boundary(input.len().min(mid + TIGHT_CONTEXT));
+        !input[probe_start..probe_end].contains('\n')
+    } else {
+        false
+    };
+    let effective = if is_single_line {
+        TIGHT_CONTEXT
+    } else {
+        context
+    };
+
+    let mut window_start = mid.saturating_sub(effective);
+    let mut window_end = input.len().min(mid + effective);
+
+    // Adjust to char boundaries to avoid panicking on multi-byte UTF-8
+    window_start = input.floor_char_boundary(window_start);
+    window_end = input.ceil_char_boundary(window_end);
+
+    if !is_single_line && context > TIGHT_CONTEXT {
+        // Multi-line with large context: round to nearest line boundaries for
+        // proper line-number display.  Guard against blowing up by 2x context.
+        window_start = if let Some(pos) = input[..window_start].rfind('\n') {
+            let line_start = pos + 1;
+            if window_start - line_start <= context * 2 {
+                line_start
+            } else {
+                window_start
+            }
+        } else {
+            window_start
+        };
+        window_end = if let Some(pos) = input[window_end..].find('\n') {
+            let line_end = window_end + pos + 1;
+            if line_end - window_end <= context * 2 {
+                line_end
+            } else {
+                window_end
+            }
+        } else {
+            window_end
+        };
+    }
+
+    let truncated = input[window_start..window_end].to_string();
+    let adjusted_span = Span::new(
+        byte_span.start.saturating_sub(window_start),
+        byte_span.end.saturating_sub(window_start),
+    );
+    (truncated, adjusted_span)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn truncated_source_window_middle() {
+        // 40 bytes of padding on each side, "ERROR" spanning bytes 40..45
+        // mid = (40+45)/2 = 42
+        // window_start = 42-8 = 34, window_end = min(85,42+8) = 50
+        let input = format!("{:a<40}ERROR{:b<40}", "", "");
+        assert_eq!(input.len(), 85);
+        let byte_span = Span::new(40, 45);
+        let (src, span) = truncated_source_window(&input, byte_span, 8);
+        assert!(
+            src.contains("ERROR"),
+            "truncated source should contain the error"
+        );
+        assert_eq!(span.start, 6, "40 - 34 = 6");
+        assert_eq!(span.end, 11, "45 - 34 = 11");
+    }
+
+    #[test]
+    fn truncated_source_window_near_start() {
+        // mid = (0+4)/2 = 2
+        // window_start = 2-8 = 0 (saturated), window_end = min(80, 2+8) = 10
+        let input = format!("{:x<80}", "");
+        let byte_span = Span::new(0, 4);
+        let (src, span) = truncated_source_window(&input, byte_span, 8);
+        assert_eq!(span.start, 0, "0 - 0 = 0");
+        assert_eq!(span.end, 4, "4 - 0 = 4");
+        assert_eq!(src.len(), 10, "window [0, 10) is 10 bytes");
+    }
+
+    #[test]
+    fn truncated_source_window_near_end() {
+        // mid = (76+80)/2 = 78
+        // window_start = 78-8 = 70, window_end = min(80, 78+8) = 80
+        let input = format!("{:x<80}", "");
+        let byte_span = Span::new(76, 80);
+        let (src, span) = truncated_source_window(&input, byte_span, 8);
+        assert_eq!(span.start, 6, "76 - 70 = 6");
+        assert_eq!(span.end, 10, "80 - 70 = 10");
+        assert_eq!(src.len(), 10, "window [70, 80) is 10 bytes");
+    }
+
+    #[test]
+    fn truncated_source_window_small_input() {
+        let input = "small";
+        let byte_span = Span::new(2, 4);
+        let (src, span) = truncated_source_window(input, byte_span, 100);
+        // Input is smaller than context, so window should be the entire input
+        assert_eq!(
+            src, "small",
+            "should be the full input when context > input.len()"
+        );
+        assert_eq!(span.start, 2, "adjusted span start should match original");
+        assert_eq!(span.end, 4, "adjusted span end should match original");
+    }
+
+    #[test]
+    fn truncated_source_window_span_adjustment() {
+        // Use XXXXX as the error marker to avoid typos-tool false
+        // positives on an error-word adjacent to other characters.
+        let input = "aaaaaaaaaaXXXXXbbbbbbbbbb"; // 10 a's, 5 X's, 10 b's = 25 bytes
+        // Error from byte 10 to byte 15 -> "XXXXX"
+        let byte_span = Span::new(10, 15);
+        let (src, span) = truncated_source_window(input, byte_span, 5);
+        // Window: mid=12, window_start = 12-5 = 7, window_end = 12+5 = 17
+        // src = input[7..17] = "aaaXXXXXbb" (3 a's + 5 X's + 2 b's = 10 bytes)
+        assert_eq!(src.len(), 10, "window should be 10 bytes");
+        assert!(src.starts_with("aaa"), "window should start with aaa");
+        assert!(src.ends_with("bb"), "window should end with bb");
+        assert!(
+            src.contains("XXXXX"),
+            "window should contain the error marker"
+        );
+        // Adjusted: byte_span.start - window_start = 10-7 = 3
+        assert_eq!(
+            span.start, 3,
+            "adjusted start should be original - window_start"
+        );
+        assert_eq!(
+            span.end, 8,
+            "adjusted end should be original - window_start"
+        );
+        assert_eq!(
+            &src[3..8],
+            "XXXXX",
+            "error marker should be at the right adjusted position"
+        );
+    }
+
+    #[test]
+    fn truncated_source_window_zero_width_span() {
+        let input = "abcdefghijklmnopqrstuvwxyz";
+        let byte_span = Span::new(13, 13); // middle of alphabet
+        let (src, span) = truncated_source_window(input, byte_span, 5);
+        assert_eq!(
+            span.start, span.end,
+            "zero-width span should stay zero-width"
+        );
+        assert!(src.len() <= 11, "window should be bounded");
+    }
+
+    #[test]
+    fn truncated_source_window_multibyte_utf8() {
+        // Chinese chars are 3 bytes each; slicing at arbitrary byte offsets must not panic
+        let input = "你好世界ERROR世界";
+        // "ERROR" starts at byte 12 (4 chars × 3 bytes)
+        let byte_span = Span::new(12, 17);
+        let (src, span) = truncated_source_window(input, byte_span, 3);
+        assert!(
+            src.contains("ERROR"),
+            "window must contain the error region"
+        );
+        assert_eq!(
+            &src[span.start..span.end],
+            "ERROR",
+            "adjusted span must slice correctly"
+        );
+    }
+
+    #[test]
+    fn truncated_source_window_multibyte_utf8_boundary_crossing() {
+        // Force window bounds into the middle of multi-byte chars
+        // "aaaaa" (5 bytes) + "你好世界" (12 bytes) + "ERROR" (5 bytes) + "世界你好" (12 bytes)
+        let input = "aaaaa你好世界ERROR世界你好";
+        // "ERROR" at bytes 17..22
+        let byte_span = Span::new(17, 22);
+        // context=8 should give enough room while crossing multi-byte boundaries
+        let (src, span) = truncated_source_window(input, byte_span, 8);
+        assert!(
+            src.contains("ERROR"),
+            "window must contain the error region"
+        );
+        assert_eq!(&src[span.start..span.end], "ERROR");
+    }
+
+    #[test]
+    fn truncated_source_window_single_line_minified() {
+        // Simulate a minified JSON file: one giant line, error near the end.
+        let mut input = String::new();
+        input.push_str(&"\"key\":\"value\",".repeat(500)); // 14 bytes each
+        let err_byte = input.len(); // byte right after the valid part
+        input.push_str("\"broken"); // syntax error starts here
+        let byte_span = Span::new(err_byte, err_byte + 1); // the opening quote of "broken
+        let (src, span) = truncated_source_window(&input, byte_span, DEFAULT_ERROR_CONTEXT);
+        // The window should be tight (no wall of text) for single-line input.
+        assert!(
+            src.len() < 1000,
+            "single-line window should be tight, got {} bytes",
+            src.len()
+        );
+        assert_eq!(
+            &src[span.start..span.end],
+            "\"",
+            "should point at the opening quote"
+        );
+    }
+
+    #[test]
+    fn truncated_source_window_multiline_uses_full_context() {
+        // Multi-line input should get the full context window with line boundaries.
+        let mut input = String::new();
+        for i in 0..200 {
+            use std::fmt::Write;
+            writeln!(&mut input, "line {i}").unwrap();
+        }
+        input.push_str("ERROR here\nlast line");
+        // "ERROR here" starts at some point in the file
+        let err_offset = input.find("ERROR").expect("ERROR should be in input");
+        let byte_span = Span::new(err_offset, err_offset + 5);
+        // Use a generous context to show it's not truncated to tight window
+        let (src, span) = truncated_source_window(&input, byte_span, DEFAULT_ERROR_CONTEXT);
+        // Multi-line: should contain the whole lines around the error, not tight
+        assert!(
+            src.len() > 1000,
+            "multi-line window should be large, got {} bytes",
+            src.len()
+        );
+        assert!(src.contains("ERROR"), "should contain the error region");
+        assert_eq!(&src[span.start..span.end], "ERROR");
+    }
+}
