@@ -344,6 +344,8 @@ impl CompareTypes for Type {
             (Type::OneOf(dst_tys), Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_tys),
             (Type::OneOf(dst_tys), src_ty) => src_ty.is_assignable_to(dst_tys),
             (dst_ty, Type::OneOf(src_tys)) => src_tys.is_assignable_to(dst_ty),
+            // leave it to the runtime
+            (Type::List(_) | Type::Table(_) | Type::Record(_), Type::Custom(_)) => true,
             (lhs, rhs @ Type::CellPath) => rhs.is_subtype_of(lhs),
             (lhs, rhs) => rhs.compare_types(lhs).is_some(),
         }
