@@ -363,6 +363,15 @@ impl Span {
             .reduce(Self::merge)
             .unwrap_or(Self::unknown())
     }
+
+    /// Replace a span with a new one if the previous span was either unknown or test data.
+    pub fn fallback(&mut self, span: Span) -> Span {
+        let current = *self;
+        if current == Span::unknown() || current == Span::test_data() {
+            *self = span;
+        }
+        *self
+    }
 }
 
 impl IntoValue for Span {

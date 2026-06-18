@@ -11,7 +11,8 @@ use crate::{
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
 use derive_setters::Setters;
 use nu_protocol::{
-    FromValue, Record, ShellError, Span, Spanned, Value, shell_error::generic::GenericError,
+    FromValue, Record, ShellError, Span, Spanned, Value, ast::CellPath,
+    shell_error::generic::GenericError,
 };
 use regex::Regex;
 use serde_saphyr::granit_parser::{Event, Parser, ScalarStyle, StrInput, StructureStyle, Tag};
@@ -370,7 +371,12 @@ fn parse_scalar<'i>(
             KnownTag::Date => todo!(),
             KnownTag::Range => todo!(),
             KnownTag::Closure => todo!(),
-            KnownTag::CellPath => todo!(),
+            KnownTag::CellPath => Value::cell_path(
+                CellPath::from_str(value)
+                    .map(|cp| cp.with_fallback_span(span))
+                    .map_err(|err| ShellError::Generic(todo!()))?,
+                span,
+            ),
 
             // incorrect tag
             KnownTag::Map => todo!(),

@@ -84,6 +84,15 @@ impl PathMember {
         }
     }
 
+    /// Update the span of a path member with a new span if the current span is unknown or test data.
+    pub fn fallback_span(&mut self, span: Span) -> Span {
+        let fallback = span;
+        match self {
+            PathMember::String { span, .. } => span.fallback(fallback),
+            PathMember::Int { span, .. } => span.fallback(fallback),
+        }
+    }
+
     /// Returns an estimate of the memory size used by this PathMember in bytes
     pub fn memory_size(&self) -> usize {
         match self {
@@ -332,6 +341,33 @@ impl CellPath {
     /// Returns an estimate of the memory size used by this CellPath in bytes
     pub fn memory_size(&self) -> usize {
         std::mem::size_of::<Self>() + self.members.iter().map(|m| m.memory_size()).sum::<usize>()
+    }
+
+    /// Update all path members with a new span if their current span is either unknown or test data.
+    pub fn fallback_span(&mut self, span: Span) {
+        for member in self.members.iter_mut() {
+            member.fallback_span(span);
+        }
+    }
+
+    /// Like [`fallback_span`] but allows chaining.
+    ///
+    /// This method is often used in parsing of data formats and therefore is constructed newly
+    /// where chaining is more ergonomic.
+    ///
+    /// # Example
+    /// ```
+    /// # use std::str::FromStr;
+    /// # use nu_protocol::{ast::CellPath, Span};
+    /// #
+    /// # let span = Span::test_data();
+    /// #
+    /// let cell_path = CellPath::from_str("$.abc").unwrap().with_fallback_span(span);
+    /// assert_eq!(cell_path.members[0].span(), span);
+    /// ```
+    pub fn with_fallback_span(mut self, span: Span) -> Self {
+        self.fallback_span(span);
+        self
     }
 }
 
