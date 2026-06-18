@@ -1,6 +1,34 @@
-use nu_protocol::{Span, ast::*, engine::StateWorkingSet};
+use nu_protocol::{Span, Spanned, ast::*, engine::StateWorkingSet};
 
 pub(crate) const PERCENT_FORCED_BUILTIN_PARSER_INFO: &str = "percent_forced_builtin";
+
+/// three dots b"..."
+pub(crate) const SPREAD_OPERATOR: &[u8; 3] = b"...";
+
+/// three dots "..."
+pub(crate) const SPREAD_OPERATOR_STR: &str = "...";
+
+#[inline]
+fn extract_spread_value(
+    delim: u8,
+    Spanned { item, mut span }: Spanned<&[u8]>,
+) -> Option<Spanned<&[u8]>> {
+    let item = item.strip_prefix(SPREAD_OPERATOR)?;
+    span.start += SPREAD_OPERATOR.len();
+    match item {
+        [b'$' | b'(', ..] => Some(Spanned { item, span }),
+        [head, ..] if *head == delim => Some(Spanned { item, span }),
+        _ => None,
+    }
+}
+
+pub(crate) fn extract_spread_list(spanned: Spanned<&[u8]>) -> Option<Spanned<&[u8]>> {
+    extract_spread_value(b'[', spanned)
+}
+
+pub(crate) fn extract_spread_record(spanned: Spanned<&[u8]>) -> Option<Spanned<&[u8]>> {
+    extract_spread_value(b'{', spanned)
+}
 
 pub fn garbage(working_set: &mut StateWorkingSet, span: Span) -> Expression {
     Expression::garbage(working_set, span)

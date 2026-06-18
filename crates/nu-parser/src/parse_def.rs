@@ -1,7 +1,7 @@
 use crate::{
     known_external::KnownExternal,
     lite_parser::LiteCommand,
-    parse_helpers::garbage,
+    parse_helpers::{SPREAD_OPERATOR, garbage},
     parse_pipelines::redirecting_builtin_error,
     parser::{
         ArgumentParsingLevel, CallKind, ParsedInternalCall, compile_block_with_id, parse_attribute,
@@ -23,7 +23,7 @@ use nu_protocol::{
 
 fn rest_param_is_type_annotated(signature_source: &[u8], rest_name: &str) -> bool {
     let mut needle = Vec::with_capacity(rest_name.len() + 3);
-    needle.extend_from_slice(b"...");
+    needle.extend_from_slice(SPREAD_OPERATOR);
     needle.extend_from_slice(rest_name.as_bytes());
 
     if signature_source.len() < needle.len() {
