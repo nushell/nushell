@@ -670,10 +670,8 @@ version = "1.0.0"
         );
     }
 
-    #[test]
-    fn table_column_alignment_with_indent() {
-        let engine_state = EngineState::new();
-        let val = Value::test_list(vec![
+    fn aligned_table_value() -> Value {
+        Value::test_list(vec![
             Value::test_record(record!(
                 "name" => Value::test_string("alice"),
                 "age" => Value::test_int(22),
@@ -689,7 +687,13 @@ version = "1.0.0"
                 "age" => Value::test_int(20),
                 "active" => Value::test_bool(false)
             )),
-        ]);
+        ])
+    }
+
+    #[test]
+    fn table_column_alignment_with_indent() {
+        let engine_state = EngineState::new();
+        let val = aligned_table_value();
         let result = to_nuon(
             &engine_state,
             &val,
@@ -700,6 +704,27 @@ version = "1.0.0"
             result,
             "[\n  [name,    age, active];\n  [alice,   22,  true],\n  [bob,     20,  false],\n  [charlie, 20,  false]\n]"
         );
+        // roundtrip: aligned output parses back to the same value
+        assert_eq!(val, from_nuon(&result, None).unwrap());
+    }
+
+    #[test]
+    fn table_column_alignment_with_indent_and_no_commas() {
+        let engine_state = EngineState::new();
+        let val = aligned_table_value();
+        let result = to_nuon(
+            &engine_state,
+            &val,
+            ToNuonConfig::default()
+                .style(ToStyle::Spaces(2))
+                .use_commas(false),
+        )
+        .unwrap();
+        assert_eq!(
+            result,
+            "[\n  [name    age active];\n  [alice   22  true]\n  [bob     20  false]\n  [charlie 20  false]\n]"
+        );
+        assert!(!result.contains("[nameageactive]"));
         // roundtrip: aligned output parses back to the same value
         assert_eq!(val, from_nuon(&result, None).unwrap());
     }

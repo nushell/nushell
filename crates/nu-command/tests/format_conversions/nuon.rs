@@ -78,6 +78,20 @@ fn to_nuon_table() -> Result {
 }
 
 #[test]
+fn to_nuon_table_indented_without_commas_keeps_columns_separated() -> Result {
+    let code = r#"
+        [[name, type, size, modified];
+            ["CHANGELOG.md", file, 279384b, 2026-04-07T18:46:29.753556336-07:00],
+            ["Cargo.lock", file, 82973b, 2026-06-17T17:19:53.350382583-07:00]]
+        | to nuon --indent 2 --no-commas
+    "#;
+
+    test().run(code).expect_value_eq(
+        "[\n  [name           type size    modified];\n  [\"CHANGELOG.md\" file 279384b 2026-04-07T18:46:29.753556336-07:00]\n  [\"Cargo.lock\"   file 82973b  2026-06-17T17:19:53.350382583-07:00]\n]",
+    )
+}
+
+#[test]
 fn to_nuon_table_as_list_of_records() -> Result {
     let code = "
         [[a, b]; [1, 2], [3, 4]]

@@ -338,9 +338,10 @@ fn value_to_string(
                         }
                     }
 
-                    // Per-cell trailing separator: comma (if enabled) plus padding to column
-                    // width + 2 keeps columns aligned in both `--pretty` and
-                    // `--pretty --no-commas` modes.
+                    // Per-cell trailing separator: comma (if enabled) plus enough padding to
+                    // keep the next column separated and aligned. When commas are disabled, the
+                    // padding is the only separator, so keep at least one space between cells.
+                    let cell_separator_width = if options.use_commas { 2 } else { 1 };
                     let pad_row = |items: &[String]| -> String {
                         let mut out = String::new();
                         for (i, item) in items.iter().enumerate() {
@@ -349,7 +350,7 @@ fn value_to_string(
                                     out,
                                     "{:<width$}",
                                     format!("{item}{c}"),
-                                    width = widths[i] + 2
+                                    width = widths[i] + cell_separator_width
                                 );
                             } else {
                                 out.push_str(item);
