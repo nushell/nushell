@@ -4447,7 +4447,7 @@ dependencies = [
  "reedline",
  "rstest",
  "strum",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "tempfile",
  "unicode-segmentation",
  "uuid",
@@ -4635,7 +4635,7 @@ dependencies = [
  "serde_yaml 0.9.34+deprecated",
  "sha2",
  "strum",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "tabled",
  "tempfile",
  "titlecase",
@@ -5006,7 +5006,7 @@ dependencies = [
  "ntapi",
  "nu-utils",
  "procfs",
- "sysinfo 0.38.4",
+ "sysinfo 0.39.3",
  "uucore",
  "web-time",
  "windows 0.62.2",
@@ -5444,6 +5444,17 @@ dependencies = [
  "bitflags 2.11.0",
  "objc2",
  "objc2-core-foundation",
+]
+
+[[package]]
+name = "objc2-open-directory"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb82bed227edf5201dfedf072bba4015a33d3d4a98519837295a90f0a23f676d"
+dependencies = [
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-foundation",
 ]
 
 [[package]]
@@ -8542,15 +8553,16 @@ dependencies = [
 
 [[package]]
 name = "sysinfo"
-version = "0.38.4"
+version = "0.39.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92ab6a2f8bfe508deb3c6406578252e491d299cbbf3bc0529ecc3313aee4a52f"
+checksum = "21d0d938c10fcda3e897e28aaddf4ab462375d411f4378cd63b1c945f69aba96"
 dependencies = [
  "libc",
  "memchr",
  "ntapi",
  "objc2-core-foundation",
  "objc2-io-kit",
+ "objc2-open-directory",
  "windows 0.62.2",
 ]
 
