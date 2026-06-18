@@ -1,5 +1,6 @@
 #![allow(clippy::unwrap_used)]
 
+mod cell_path;
 mod into_config;
 mod pipeline;
 mod test_config;

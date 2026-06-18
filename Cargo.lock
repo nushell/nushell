@@ -4988,6 +4988,7 @@ dependencies = [
  "web-time",
  "windows 0.62.2",
  "windows-sys 0.61.2",
+ "winnow 1.0.0",
 ]
 
 [[package]]
