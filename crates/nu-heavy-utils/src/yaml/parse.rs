@@ -9,6 +9,7 @@ use crate::{
     yaml::{KnownTag, Spec, UnknownTagError},
 };
 use base64::{Engine, engine::general_purpose::STANDARD as BASE64_STANDARD};
+use chrono::DateTime;
 use derive_setters::Setters;
 use nu_protocol::{
     FromValue, Record, ShellError, Span, Spanned, Value, ast::CellPath,
@@ -368,7 +369,10 @@ fn parse_scalar<'i>(
             KnownTag::Glob => Value::glob(value, false, span),
             KnownTag::Filesize => Value::filesize(parse_base10(ctx, value)?, span),
             KnownTag::Duration => Value::duration(parse_base10(ctx, value)?, span),
-            KnownTag::Date => todo!(),
+            KnownTag::Date => Value::date(
+                DateTime::from_str(value).map_err(|err| ShellError::Generic(todo!()))?,
+                span,
+            ),
             KnownTag::Range => todo!(),
             KnownTag::Closure => todo!(),
             KnownTag::CellPath => Value::cell_path(
