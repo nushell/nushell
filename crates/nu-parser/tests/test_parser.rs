@@ -6,7 +6,7 @@ use nu_protocol::{
 };
 use rstest::rstest;
 
-use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom};
+use mock::{Alias, AttrEcho, Const, Def, IfMocked, Let, LsCustom, LsTest, Mut, ToCustom, Where};
 
 fn test_int(
     test_tag: &str,     // name of sub-test
@@ -2968,6 +2968,48 @@ mod mock {
             panic!("Should not be called!")
         }
     }
+
+    #[derive(Clone)]
+    pub struct Where;
+
+    impl Command for Where {
+        fn name(&self) -> &str {
+            "where"
+        }
+
+        fn description(&self) -> &str {
+            "Mock `where` command."
+        }
+
+        fn signature(&self) -> nu_protocol::Signature {
+            Signature::build("where")
+                .input_output_types(vec![
+                    (
+                        Type::List(Box::new(Type::Any)),
+                        Type::List(Box::new(Type::Any)),
+                    ),
+                    (Type::table(), Type::table()),
+                    (Type::Range, Type::Any),
+                ])
+                .required(
+                    "condition",
+                    SyntaxShape::RowCondition,
+                    "Filter row condition or closure.",
+                )
+                .allow_variants_without_examples(true)
+                .category(Category::Filters)
+        }
+
+        fn run(
+            &self,
+            _engine_state: &EngineState,
+            _stack: &mut Stack,
+            _call: &Call,
+            _input: PipelineData,
+        ) -> Result<PipelineData, ShellError> {
+            todo!()
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3493,4 +3535,32 @@ fn parse_let_in_pipeline() {
         pipeline.elements[1].expr.expr,
         Expr::ExternalCall(_, _)
     ));
+}
+
+#[test]
+fn empty_closure_as_row_condition() {
+    let mut engine_state = EngineState::new();
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    working_set.add_decl(Box::new(Where));
+    let _ = engine_state.merge_delta(working_set.render());
+
+    let mut working_set = StateWorkingSet::new(&engine_state);
+
+    let block = parse(&mut working_set, None, b"[0 1 2] | where {}", true);
+
+    assert_eq!(working_set.parse_errors.as_slice(), &[]);
+    let [pipeline] = block.pipelines.as_slice() else {
+        panic!("Expected exactly one pipeline")
+    };
+    let [_, where_call] = pipeline.elements.as_slice() else {
+        panic!("Expected exactly two pipeline elements")
+    };
+    let Expr::Call(where_call) = &where_call.expr.expr else {
+        panic!("Expected a call expression")
+    };
+    let [Argument::Positional(arg)] = where_call.arguments.as_slice() else {
+        panic!("Expected exactly one positional argument and no other argument")
+    };
+    assert!(matches!(arg.expr, Expr::RowCondition(_) | Expr::Closure(_)))
 }

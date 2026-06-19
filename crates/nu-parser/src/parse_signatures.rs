@@ -1,7 +1,7 @@
 #![allow(clippy::byte_char_slices)]
 
 use crate::parse_captures_compile::compile_block;
-use crate::parse_expressions::{parse_math_expression, parse_value};
+use crate::parse_expressions::{parse_closure_expression, parse_math_expression, parse_value};
 use crate::parse_literals::parse_full_cell_path;
 use crate::{
     Token, TokenContents,
@@ -451,11 +451,28 @@ pub fn parse_full_signature(
 
 pub fn parse_row_condition(working_set: &mut StateWorkingSet, spans: &[Span]) -> Expression {
     let pos = spans.first().map(|s| s.start).unwrap_or(0);
+    let span = Span::concat(spans);
+
+    // Try parsing the expression as a closure first
+    {
+        let err_count = working_set.parse_errors.len();
+        let expression = parse_closure_expression(working_set, &SyntaxShape::Any, span);
+        if working_set.parse_errors.len() == err_count
+            && let Expr::Closure(block_id) = expression.expr
+        {
+            // Successfully parsed a closure
+            return Expression::new(working_set, Expr::RowCondition(block_id), span, Type::Bool);
+        }
+        // Couldn't parse a closure, roll back the errors and try parsing it as a row condition
+        working_set.parse_errors.truncate(err_count);
+    }
+    // The following code can still parse closures (and it did so before the preceding shortcut).
+    // It is very unlikely to happen, but should be kept in mind.
+
     // New scope in case where there's already a variable named `$it`
     working_set.enter_scope();
     let var_id = working_set.add_variable(b"$it".to_vec(), Span::new(pos, pos), Type::Any, false);
     let expression = parse_math_expression(working_set, spans, Some(var_id));
-    let span = Span::concat(spans);
 
     let block_id = match expression.expr {
         Expr::Block(block_id) => block_id,
