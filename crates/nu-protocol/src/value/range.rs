@@ -809,7 +809,12 @@ impl Iterator for Iter {
 
 mod parse {
     use super::*;
-    use winnow::{Result, ascii::*, combinator::*, prelude::*};
+    use winnow::{
+        Result,
+        ascii::*,
+        combinator::*,
+        error::{StrContext, StrContextValue},
+    };
 
     #[derive(Copy, Clone)]
     enum Number {
@@ -817,18 +822,11 @@ mod parse {
         Float(f64),
     }
 
-    impl Number {
-        fn as_float(self) -> f64 {
-            match self {
-                Number::Int(int) => int as f64,
-                Number::Float(float) => float,
-            }
-        }
-    }
-
     // only simple numbers for now
     fn number(input: &mut &str) -> Result<Number> {
-        alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
+        // TODO: float is too liberal, use more strict alternative
+        // alt((float.map(Number::Float), dec_int.map(Number::Int))).parse_next(input)
+        dec_int.map(Number::Int).parse_next(input)
     }
 
     struct Components {
@@ -896,7 +894,10 @@ mod parse {
     pub fn range(input: &mut &str) -> Result<Range> {
         let components = components.parse_next(input)?;
         if components.start.is_none() && components.end.is_none() {
-            return Err(todo!());
+            fail.context(StrContext::Expected(StrContextValue::Description(
+                "needs bound either at start or end",
+            )))
+            .parse_next(input)?;
         }
 
         let use_float = matches!(components.start, Some(Number::Float(_)))
