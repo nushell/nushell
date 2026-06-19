@@ -1198,7 +1198,7 @@ fn render_path_name(
 
     let val = if icons {
         format!(
-            "{}  {}",
+            "{} {}",
             icon_style.paint(String::from(file_icon.icon)),
             ansi_style.paint(full_path_link)
         )
